@@ -3,16 +3,14 @@ import { ChordOverlayLayer } from './ChordOverlayLayer';
 import {
   ViewerContainer,
   ScorePage,
-  ScoreBackground,
-  ScoreTitle,
-  ScoreSubtitle,
-  StaffLine,
-  StaffGroup,
+  ScoreImage,
+  OverlayLayer,
+  PlaceholderPage,
+  PlaceholderIcon,
 } from './ScoreViewer.styles';
 
 interface ScoreViewerProps {
-  songTitle: string;
-  songKey: string;
+  scoreImageUrl: string | null;
   chords: ChordOverlayType[];
   autoHighlight: boolean;
   selectedChordId: string | null;
@@ -22,8 +20,7 @@ interface ScoreViewerProps {
 }
 
 export function ScoreViewer({
-  songTitle,
-  songKey,
+  scoreImageUrl,
   chords,
   autoHighlight,
   selectedChordId,
@@ -34,20 +31,20 @@ export function ScoreViewer({
   return (
     <ViewerContainer>
       <ScorePage onClick={onBackgroundClick}>
-        <ScoreBackground>
-          <ScoreTitle>{songTitle}</ScoreTitle>
-          <ScoreSubtitle>Key: {songKey}</ScoreSubtitle>
-          <StaffGroup>
-            {/* Mock staff lines to simulate sheet music */}
-            {Array.from({ length: 8 }).map((_, i) => (
-              <StaffLine key={i} />
-            ))}
-          </StaffGroup>
-        </ScoreBackground>
+        {/* 원본 악보 이미지 */}
+        {scoreImageUrl ? (
+          <ScoreImage src={scoreImageUrl} alt="악보" draggable={false} />
+        ) : (
+          <PlaceholderPage>
+            <PlaceholderIcon>🎼</PlaceholderIcon>
+            악보 이미지를 불러오는 중...
+            <br />
+            (public/scores/ 에 이미지를 추가하세요)
+          </PlaceholderPage>
+        )}
 
-        {/* Chord overlay layer */}
-        <div
-          style={{ position: 'absolute', inset: 0 }}
+        {/* 코드 분석 오버레이 — 이미지 위에 도수/기능 표시 */}
+        <OverlayLayer
           onClick={(e) => {
             if (e.target === e.currentTarget) onBackgroundClick();
           }}
@@ -59,7 +56,7 @@ export function ScoreViewer({
             selectedGroupId={selectedGroupId}
             onChordClick={onChordClick}
           />
-        </div>
+        </OverlayLayer>
       </ScorePage>
     </ViewerContainer>
   );

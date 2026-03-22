@@ -13,47 +13,39 @@ export const ScorePage = styled.div`
   position: relative;
   width: 100%;
   max-width: 800px;
-  aspect-ratio: 0.77;
   background: ${({ theme }) => theme.colors.bgPrimary};
   border-radius: 4px;
   box-shadow: ${({ theme }) => theme.shadows.xl};
   overflow: hidden;
+  align-self: flex-start;
 `;
 
-export const ScoreBackground = styled.div`
+export const ScoreImage = styled.img`
+  display: block;
   width: 100%;
-  height: 100%;
-  background: ${({ theme }) => theme.colors.bgPrimary};
+  height: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+`;
+
+export const OverlayLayer = styled.div`
+  position: absolute;
+  inset: 0;
+`;
+
+export const PlaceholderPage = styled.div`
+  width: 100%;
+  aspect-ratio: 0.77;
   display: flex;
   flex-direction: column;
-  padding: 32px;
-`;
-
-export const ScoreTitle = styled.h2`
-  text-align: center;
-  font-size: 28px;
-  font-weight: 700;
-  color: ${({ theme }) => theme.colors.textPrimary};
-  margin-bottom: 4px;
-`;
-
-export const ScoreSubtitle = styled.p`
-  text-align: center;
-  font-size: 14px;
+  align-items: center;
+  justify-content: center;
   color: ${({ theme }) => theme.colors.textSecondary};
-  margin-bottom: 24px;
+  font-size: 14px;
+  gap: 8px;
 `;
 
-export const StaffLine = styled.div`
-  position: relative;
-  width: 100%;
-  height: 1px;
-  background: ${({ theme }) => theme.colors.border};
-  margin: 36px 0;
-`;
-
-export const StaffGroup = styled.div`
-  display: flex;
-  flex-direction: column;
-  flex: 1;
+export const PlaceholderIcon = styled.div`
+  font-size: 48px;
+  opacity: 0.3;
 `;

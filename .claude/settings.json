@@ -97,7 +97,8 @@
       "Bash(npx tsc:*)",
       "Bash(npm run:*)",
       "Bash(git checkout:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(sips -g pixelWidth -g pixelHeight \"/Users/benzity/Documents/DEV/jazzify/frontend/public/scores/autumn leaves-gm.png\")"
     ],
     "additionalDirectories": [
       "/Users/benzity/Library/LaunchAgents",

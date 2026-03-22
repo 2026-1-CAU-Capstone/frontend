@@ -1,5 +1,5 @@
 import type { ChordOverlay } from '../../data/types';
-import { HighlightBox, ChordLabel, DegreeLabel } from './ChordHighlight.styles';
+import { HighlightBox, DegreeBadge, FuncTag } from './ChordHighlight.styles';
 
 interface ChordHighlightProps {
   chord: ChordOverlay;
@@ -35,8 +35,11 @@ export function ChordHighlight({
         onClick(chord);
       }}
     >
-      <ChordLabel>{chord.symbol}</ChordLabel>
-      <DegreeLabel>{analysis.degree}</DegreeLabel>
+      {/* 도수 뱃지 — 악보 코드 위에 표시 (예: ii, V/vi, I) */}
+      <DegreeBadge $func={analysis.func}>{analysis.degree}</DegreeBadge>
+
+      {/* 기능 태그 — 영역 안 우하단 (T/SD/D) */}
+      <FuncTag $func={analysis.func}>{analysis.func}</FuncTag>
     </HighlightBox>
   );
 }

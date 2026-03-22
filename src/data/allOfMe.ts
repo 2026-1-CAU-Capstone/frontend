@@ -4,6 +4,11 @@ export const allOfMe: SongData = {
   id: 'all-of-me',
   title: 'All Of Me',
   key: 'C Major',
+  scoreImages: {
+    1: '/scores/all-of-me-p1.png',
+    // 2: '/scores/autumn-leaves-p1.png',  // 향후 추가
+    // 3: '/scores/blue-bossa-p1.png',
+  },
   toc: [
     { title: 'All Of Me', page: 1 },
     { title: 'Autumn Leaves', page: 2 },

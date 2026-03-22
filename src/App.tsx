@@ -6,7 +6,7 @@ import { RightChatPanel } from './components/layout/RightChatPanel';
 import { ScoreViewer } from './components/score/ScoreViewer';
 import { useAutoHighlight } from './hooks/useAutoHighlight';
 import { useChordSelection } from './hooks/useChordSelection';
-import { allOfMe } from './data/allOfMe';
+import { autumnLeaves } from './data/autumnLeaves';
 import type { ChordOverlay } from './data/types';
 
 const AppContainer = styled.div`
@@ -29,7 +29,7 @@ function App() {
   const { selectedChordId, selectedGroupId, selectChord, clearSelection } =
     useChordSelection();
 
-  const song = allOfMe;
+  const song = autumnLeaves;
   const totalPages = song.toc.length || 1;
 
   const handleChordClick = useCallback(
@@ -89,8 +89,7 @@ function App() {
           onPageSelect={setCurrentPage}
         />
         <ScoreViewer
-          songTitle={song.title}
-          songKey={song.key}
+          scoreImageUrl={song.scoreImages[currentPage] ?? null}
           chords={song.chords.filter((c) => c.pageNumber === currentPage)}
           autoHighlight={autoHighlight}
           selectedChordId={selectedChordId}

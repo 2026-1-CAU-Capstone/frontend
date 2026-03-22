@@ -39,6 +39,8 @@ export interface SongData {
   id: string;
   title: string;
   key: string;
+  /** 페이지별 악보 이미지 경로 (pageNumber → URL) */
+  scoreImages: Record<number, string>;
   chords: ChordOverlay[];
   toc: TocEntry[];
   groupExplanations: Record<number, string>;
