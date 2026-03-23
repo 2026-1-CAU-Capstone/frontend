@@ -1,13 +1,15 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import styled from 'styled-components';
 import { TopToolbar } from './components/layout/TopToolbar';
 import { LeftSidebar } from './components/layout/LeftSidebar';
 import { RightChatPanel } from './components/layout/RightChatPanel';
-import { ScoreViewer } from './components/score/ScoreViewer';
+import { LeadSheet } from './components/leadsheet/LeadSheet';
 import { useAutoHighlight } from './hooks/useAutoHighlight';
 import { useChordSelection } from './hooks/useChordSelection';
 import { autumnLeaves } from './data/autumnLeaves';
-import type { ChordOverlay } from './data/types';
+import { love } from './data/love';
+import { jazzSongs } from './data/jazzSongs';
+import type { LeadSheetData } from './data/leadSheetTypes';
 
 const AppContainer = styled.div`
   display: flex;
@@ -22,22 +24,49 @@ const MainArea = styled.div`
   overflow: hidden;
 `;
 
+const SongPickerBar = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 16px;
+  background: ${({ theme }) => theme.colors.bgSecondary};
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+`;
+
+const SongSelect = styled.select`
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+  padding: 3px 6px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 4px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  color: ${({ theme }) => theme.colors.textPrimary};
+  cursor: pointer;
+  max-width: 320px;
+`;
+
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const { autoHighlight, toggleAutoHighlight } = useAutoHighlight(true);
-  const { selectedChordId, selectedGroupId, selectChord, clearSelection } =
-    useChordSelection();
+  const { selectedChordId, selectedGroupId } = useChordSelection();
 
   const song = autumnLeaves;
   const totalPages = song.toc.length || 1;
 
-  const handleChordClick = useCallback(
-    (chord: ChordOverlay) => {
-      selectChord(chord);
-    },
-    [selectChord],
-  );
+  // ─── Lead-sheet song picker ────────────────────────────────────────────
+  // -1 = L.O.V.E. (built-in); 0-99 = jazzSongs index
+  const ALL_SONGS: { label: string; data: LeadSheetData }[] = [
+    { label: 'L.O.V.E. (Gabler-Kaempfert)', data: love },
+    ...jazzSongs.map(s => ({
+      label: `${s.title} — ${s.composer}`,
+      data: s,
+    })),
+  ];
+  const [songIdx, setSongIdx] = useState(0);
+  const activeSheet = ALL_SONGS[songIdx]?.data ?? love;
 
   const selectedChords = useMemo(() => {
     if (selectedGroupId != null) {
@@ -81,6 +110,20 @@ function App() {
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen((v) => !v)}
       />
+      <SongPickerBar>
+        <span>곡 선택</span>
+        <SongSelect
+          value={songIdx}
+          onChange={e => setSongIdx(Number(e.target.value))}
+        >
+          {ALL_SONGS.map((s, idx) => (
+            <option key={idx} value={idx}>{s.label}</option>
+          ))}
+        </SongSelect>
+        <span style={{ color: '#888' }}>
+          ({activeSheet.timeSignature} · {activeSheet.style})
+        </span>
+      </SongPickerBar>
       <MainArea>
         <LeftSidebar
           open={sidebarOpen}
@@ -88,15 +131,7 @@ function App() {
           activePage={currentPage}
           onPageSelect={setCurrentPage}
         />
-        <ScoreViewer
-          scoreImageUrl={song.scoreImages[currentPage] ?? null}
-          chords={song.chords.filter((c) => c.pageNumber === currentPage)}
-          autoHighlight={autoHighlight}
-          selectedChordId={selectedChordId}
-          selectedGroupId={selectedGroupId}
-          onChordClick={handleChordClick}
-          onBackgroundClick={clearSelection}
-        />
+        <LeadSheet data={activeSheet} />
         <RightChatPanel
           selectedChords={selectedChords}
           groupExplanation={groupExplanation}
