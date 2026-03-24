@@ -10,9 +10,13 @@ import type {
  *  All four bar cells always have the same padding, so chords stay perfectly
  *  column-aligned regardless of the barline type (normal / section / repeat).
  * ────────────────────────────────────────────────────────────────────────── */
-const BARLINE_PAD = 18; // px
-const BAR_H      = 94;  // px min-height per row
-const CHORD_FONT = "'Oswald', 'DM Sans', sans-serif";
+const BARLINE_PAD  = 18;  // px — left padding reserved for barline decoration
+const BAR_H        = 112; // px — min row height (taller = more breathing room)
+const BARLINE_GAP  = 13;  // px — vertical inset at top/bottom of each barline
+const ROW_GAP      = 30;  // px — space between rows
+const LABEL_OFFSET = 18;  // px — how far the section label floats above the grid
+const CHORD_FONT   = "'MuseJazz Text', 'Oswald', 'DM Sans', sans-serif";
+const LABEL_FONT   = "'DM Sans', 'Pretendard', sans-serif"; // gothic for A/B labels
 
 /* ─── page ───────────────────────────────────────────────────────────────── */
 
@@ -62,27 +66,30 @@ const MetaRow = styled.div`
 const SystemRow = styled.div`
   display: flex;
   align-items: stretch;
+  margin-bottom: ${ROW_GAP}px;
+  /* overflow visible so the section label can float above the grid */
+  position: relative;
+  overflow: visible;
 `;
 
 /* Left column: time-sig lives here (only row 1); always same width so that
    the bars grid starts at the same x-position on every row.             */
 const LeftMeta = styled.div`
-  width: 50px;
+  width: 56px;
   flex-shrink: 0;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: flex-end;
-  padding-right: 4px;
-  padding-top: 6px;
+  padding-right: 6px;
 `;
 
 const TimeSig = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  font-size: 1.55rem;
+  font-size: 2.6rem;
   font-weight: 700;
-  line-height: 1.05;
+  line-height: 1;
   font-family: ${CHORD_FONT};
 `;
 
@@ -99,17 +106,19 @@ const BarsGrid = styled.div`
 
 /* ─── section label ──────────────────────────────────────────────────────── */
 
+/* Floats above the top-left corner of the bars grid */
 const SectionLabel = styled.div`
   position: absolute;
-  top: 0;
+  top: -${LABEL_OFFSET}px;
   left: 0;
   background: #000;
   color: #fff;
-  font-family: ${CHORD_FONT};
-  font-size: 0.6rem;
-  font-weight: 700;
+  font-family: ${LABEL_FONT};
+  font-size: 0.75rem;
+  font-weight: 800;
   line-height: 1;
-  padding: 2px 4px 2px 3px;
+  padding: 3px 6px 3px 5px;
+  letter-spacing: 0.02em;
   z-index: 3;
 `;
 
@@ -121,15 +130,17 @@ const SectionLabel = styled.div`
 const BarCell = styled.div`
   position: relative;
   min-height: ${BAR_H}px;
-  padding: 10px 6px 8px ${BARLINE_PAD}px;
+  padding: 14px 6px 10px ${BARLINE_PAD}px;
 `;
 
-/* Barline decoration area — sits inside the BARLINE_PAD space on the left */
+/* Barline decoration area — sits inside the BARLINE_PAD space on the left.
+   BARLINE_GAP creates white space above and below so barlines don't touch
+   across rows — giving the classic lead-sheet "floating bar" look.       */
 const BarlineArea = styled.div`
   position: absolute;
   left: 0;
-  top: 0;
-  bottom: 0;
+  top: ${BARLINE_GAP}px;
+  bottom: ${BARLINE_GAP}px;
   width: ${BARLINE_PAD}px;
   display: flex;
   align-items: stretch;
@@ -139,8 +150,8 @@ const BarlineArea = styled.div`
 const EndBarlineArea = styled.div`
   position: absolute;
   right: 0;
-  top: 0;
-  bottom: 0;
+  top: ${BARLINE_GAP}px;
+  bottom: ${BARLINE_GAP}px;
   display: flex;
   align-items: stretch;
 `;
