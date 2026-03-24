@@ -195,10 +195,13 @@ function normalizeQuality(raw: string): string {
 
 /* ─── chord content ──────────────────────────────────────────────────────── */
 
+/* When a bar has multiple chords each chord gets an equal share of the width.
+   With count=2 each slot is exactly 50 %; count=1 takes the full width.    */
 const ChordRow = styled.div<{ count: number }>`
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(${({ count }) => count}, 1fr);
   align-items: flex-end;
-  gap: ${({ count }) => (count > 1 ? '8px' : '0')};
+  width: 100%;
 `;
 
 /* ─── chord symbol ───────────────────────────────────────────────────────── */
