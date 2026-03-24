@@ -11,10 +11,10 @@ import type {
  *  column-aligned regardless of the barline type (normal / section / repeat).
  * ────────────────────────────────────────────────────────────────────────── */
 const BARLINE_PAD  = 18;  // px — left padding reserved for barline decoration
-const BAR_H        = 112; // px — min row height (taller = more breathing room)
-const BARLINE_GAP  = 13;  // px — vertical inset at top/bottom of each barline
-const ROW_GAP      = 30;  // px — space between rows
-const LABEL_OFFSET = 18;  // px — how far the section label floats above the grid
+const BAR_H        = 78;  // px — row height (snug around chord content)
+const BARLINE_GAP  = 6;   // px — vertical inset at top/bottom of each barline
+const ROW_GAP      = 36;  // px — space between rows (extra room for bigger labels)
+const LABEL_OFFSET = 26;  // px — how far the section label floats above the grid
 const CHORD_FONT   = "'MuseJazz Text', 'Oswald', 'DM Sans', sans-serif";
 const LABEL_FONT   = "'DM Sans', 'Pretendard', sans-serif"; // gothic for A/B labels
 
@@ -27,16 +27,18 @@ const ViewerOuter = styled.div`
   display: flex;
   justify-content: center;
   padding: 24px;
+  /* container queries — child styled components use cqi units */
+  container-type: inline-size;
+  container-name: leadsheet;
 `;
 
 const Page = styled.div`
   background: #fff;
   width: 100%;
-  max-width: 800px;
   align-self: flex-start;
   box-shadow: ${({ theme }) => theme.shadows.xl};
   border-radius: 4px;
-  padding: 36px 44px 48px;
+  padding: 36px 32px 48px;
   font-family: ${CHORD_FONT};
   color: #000;
 `;
@@ -45,20 +47,20 @@ const Page = styled.div`
 
 const SheetTitle = styled.h1`
   text-align: center;
-  font-size: 1.3rem;
+  font-size: clamp(1.6rem, 4.5cqi, 3.0rem);
   font-weight: 700;
-  letter-spacing: 0.1em;
-  margin: 0 0 4px;
+  letter-spacing: 0.06em;
+  margin: 0 0 6px;
   font-family: ${CHORD_FONT};
 `;
 
 const MetaRow = styled.div`
   display: flex;
   justify-content: space-between;
-  font-size: 0.88rem;
+  font-size: clamp(1.0rem, 1.8cqi, 1.3rem);
   font-family: 'DM Sans', sans-serif;
   font-weight: 400;
-  margin-bottom: 18px;
+  margin-bottom: 28px;
 `;
 
 /* ─── system row ─────────────────────────────────────────────────────────── */
@@ -93,6 +95,13 @@ const TimeSig = styled.div`
   font-family: ${CHORD_FONT};
 `;
 
+const TimeSigDivider = styled.div`
+  width: 100%;
+  height: 2px;
+  background: #000;
+  margin: 1px 0;
+`;
+
 /* ─── bars grid ──────────────────────────────────────────────────────────── */
 
 /* 4 equal columns. Barlines are absolute overlays so they never affect
@@ -114,10 +123,10 @@ const SectionLabel = styled.div`
   background: #000;
   color: #fff;
   font-family: ${LABEL_FONT};
-  font-size: 0.75rem;
+  font-size: clamp(0.75rem, 1.8cqi, 1.1rem);
   font-weight: 800;
   line-height: 1;
-  padding: 3px 6px 3px 5px;
+  padding: 3px 7px 3px 6px;
   letter-spacing: 0.02em;
   z-index: 3;
 `;
@@ -125,12 +134,15 @@ const SectionLabel = styled.div`
 /* ─── bar cell ───────────────────────────────────────────────────────────── */
 
 /* Each bar cell has a left padding equal to BARLINE_PAD.
-   The barline decoration is absolutely positioned inside that padding area.
-   This keeps the chord content width identical for all 4 columns.       */
+   display:flex + align-items:center keeps chord content vertically centred
+   regardless of BAR_H — barlines are absolute so they always span the full
+   cell, giving a uniform line length across every bar in the row.        */
 const BarCell = styled.div`
   position: relative;
   min-height: ${BAR_H}px;
-  padding: 14px 6px 10px ${BARLINE_PAD}px;
+  display: flex;
+  align-items: center;
+  padding: 0 6px 0 ${BARLINE_PAD}px;
 `;
 
 /* Barline decoration area — sits inside the BARLINE_PAD space on the left.
@@ -204,15 +216,33 @@ function normalizeQuality(raw: string): string {
   return s;
 }
 
-/* ─── chord content ──────────────────────────────────────────────────────── */
+/* ─── bar section layout ─────────────────────────────────────────────────────
+ *  A bar is always divided into 2 equal SECTIONS (half-note units in 4/4).
+ *  Each section holds 1 or 2 chords.  When a section holds 2 chords the
+ *  chord symbols are scaled down ($compact) so they fit comfortably.
+ * ────────────────────────────────────────────────────────────────────────── */
 
-/* When a bar has multiple chords each chord gets an equal share of the width.
-   With count=2 each slot is exactly 50 %; count=1 takes the full width.    */
-const ChordRow = styled.div<{ count: number }>`
+/** Split a bar's chord array into [section1, section2]. */
+function splitSections(chords: LeadSheetChord[]): [LeadSheetChord[], LeadSheetChord[]] {
+  const n = chords.length;
+  if (n <= 1) return [chords, []];          // single chord: full-width
+  const mid = Math.floor(n / 2);            // 2→[1,1]  3→[1,2]  4→[2,2]
+  return [chords.slice(0, mid), chords.slice(mid)];
+}
+
+/* Two equal columns, one per section */
+const BarSections = styled.div`
   display: grid;
-  grid-template-columns: repeat(${({ count }) => count}, 1fr);
-  align-items: flex-end;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
   width: 100%;
+`;
+
+/* One section slot; flex so 2 chords sit side-by-side with a small gap */
+const SectionSlot = styled.div`
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
 `;
 
 /* ─── chord symbol ───────────────────────────────────────────────────────── */
@@ -223,35 +253,62 @@ const ChordWrap = styled.span`
   line-height: 1;
 `;
 
-const Root = styled.span`
-  font-size: 2.9rem;
+/* $compact = true when 2 chords share a single half-bar section.
+   All font sizes use clamp(min, X cqi, max) so they scale smoothly as the
+   lead-sheet panel is resized (cqi = 1% of the container inline size).    */
+const Root = styled.span<{ $compact?: boolean }>`
+  font-size: ${({ $compact }) =>
+    $compact
+      ? 'clamp(1.0rem, 3.7cqi, 2.2rem)'
+      : 'clamp(1.5rem, 5.8cqi, 3.5rem)'};
   font-weight: 700;
   line-height: 0.88;
   letter-spacing: -0.01em;
   font-family: ${CHORD_FONT};
 `;
 
-const Acc = styled.span`
-  font-size: 1.5rem;
+/* ── AccQualStack: stacks accidental (top) + quality (bottom) ────────────
+ * By sharing one horizontal slot the quality never drifts right when an
+ * accidental is present (e.g. C♯-7 vs C-7 stay visually aligned).       */
+const AccQualStack = styled.span`
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-self: stretch;  /* matches Root height → acc at top, quality at bottom */
+`;
+
+/* Top-slot wrapper — always rendered; holds Acc when present, empty otherwise */
+const AccTopSlot = styled.span`
+  line-height: 1;
+`;
+
+const Acc = styled.span<{ $compact?: boolean }>`
+  font-size: ${({ $compact }) =>
+    $compact
+      ? 'clamp(0.55rem, 1.9cqi, 1.1rem)'
+      : 'clamp(0.8rem,  3.0cqi, 1.8rem)'};
   font-weight: 700;
-  align-self: flex-start;
-  margin-top: 1px;
   font-family: ${CHORD_FONT};
+  line-height: 1;
 `;
 
-/* Quality wraps the chord type (△7, -7, °7 …) plus any tensions (b9 #11 …).
-   The TensionSpan inside is rendered slightly smaller so alterations read
-   clearly without competing with the base quality symbol.                   */
-const Quality = styled.span`
-  font-size: 1.2rem;
+/* Quality is intentionally larger than before — user requested bigger size */
+const Quality = styled.span<{ $compact?: boolean }>`
+  font-size: ${({ $compact }) =>
+    $compact
+      ? 'clamp(0.6rem,  1.8cqi, 1.1rem)'
+      : 'clamp(0.9rem,  2.9cqi, 1.7rem)'};
   font-weight: 600;
-  align-self: flex-end;
-  padding-bottom: 1px;
   font-family: ${CHORD_FONT};
+  line-height: 1;
+  padding-bottom: 1px;
 `;
 
-const TensionSpan = styled.span`
-  font-size: 0.82rem;
+const TensionSpan = styled.span<{ $compact?: boolean }>`
+  font-size: ${({ $compact }) =>
+    $compact
+      ? 'clamp(0.35rem, 1.2cqi, 0.7rem)'
+      : 'clamp(0.45rem, 1.6cqi, 1.0rem)'};
   font-weight: 600;
   font-family: ${CHORD_FONT};
 `;
@@ -297,7 +354,12 @@ function SimileSign() {
 
 /* ─── ChordSymbol ─────────────────────────────────────────────────────────── */
 
-function ChordSymbol({ chord }: { chord: LeadSheetChord }) {
+interface ChordSymbolProps {
+  chord: LeadSheetChord;
+  compact?: boolean;   // true when 2 chords share one half-bar section
+}
+
+function ChordSymbol({ chord, compact = false }: ChordSymbolProps) {
   if (chord.isRepeat) return <SimileSign />;
 
   const accChar =
@@ -308,15 +370,27 @@ function ChordSymbol({ chord }: { chord: LeadSheetChord }) {
     ? splitQuality(normalizeQuality(chord.quality))
     : ['', ''];
 
+  const hasQuality = !!(base || tensions);
+
   return (
     <ChordWrap>
-      <Root>{chord.root}</Root>
-      {accChar && <Acc>{accChar}</Acc>}
-      {(base || tensions) && (
-        <Quality>
-          {base}
-          {tensions && <TensionSpan>{tensions}</TensionSpan>}
-        </Quality>
+      <Root $compact={compact}>{chord.root}</Root>
+
+      {/* AccQualStack: acc (top) and quality (bottom) share one horizontal slot.
+          This prevents quality from drifting right when an accidental is present. */}
+      {(accChar || hasQuality) && (
+        <AccQualStack>
+          {/* top slot — empty span keeps space-between working when no acc */}
+          <AccTopSlot>
+            {accChar && <Acc $compact={compact}>{accChar}</Acc>}
+          </AccTopSlot>
+          {hasQuality && (
+            <Quality $compact={compact}>
+              {base}
+              {tensions && <TensionSpan $compact={compact}>{tensions}</TensionSpan>}
+            </Quality>
+          )}
+        </AccQualStack>
       )}
     </ChordWrap>
   );
@@ -397,6 +471,7 @@ function SystemRowComponent({ system, isFirst, timeSignature }: SystemRowProps) 
         {isFirst && (
           <TimeSig>
             <span>{top}</span>
+            <TimeSigDivider />
             <span>{bot}</span>
           </TimeSig>
         )}
@@ -427,12 +502,31 @@ function SystemRowComponent({ system, isFirst, timeSignature }: SystemRowProps) 
                 </EndBarlineArea>
               )}
 
-              {/* Chord content */}
-              <ChordRow count={bar.chords.length}>
-                {bar.chords.map((chord, j) => (
-                  <ChordSymbol key={j} chord={chord} />
-                ))}
-              </ChordRow>
+              {/* Chord content — always split into 2 equal sections */}
+              {(() => {
+                const [s1, s2] = splitSections(bar.chords);
+                // Single chord: render full-width (no grid split needed)
+                if (s2.length === 0) {
+                  return s1.map((chord, j) => (
+                    <ChordSymbol key={j} chord={chord} />
+                  ));
+                }
+                // 2+ chords: two equal-width sections
+                return (
+                  <BarSections>
+                    <SectionSlot>
+                      {s1.map((chord, j) => (
+                        <ChordSymbol key={j} chord={chord} compact={s1.length > 1} />
+                      ))}
+                    </SectionSlot>
+                    <SectionSlot>
+                      {s2.map((chord, j) => (
+                        <ChordSymbol key={j} chord={chord} compact={s2.length > 1} />
+                      ))}
+                    </SectionSlot>
+                  </BarSections>
+                );
+              })()}
             </BarCell>
           );
         })}

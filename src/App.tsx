@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import styled from 'styled-components';
 import { TopToolbar } from './components/layout/TopToolbar';
 import { LeftSidebar } from './components/layout/LeftSidebar';
@@ -47,6 +47,32 @@ const SongSelect = styled.select`
   max-width: 320px;
 `;
 
+/* ─── resizable right panel ─────────────────────────────────────────────── */
+
+const RightPanelWrapper = styled.div<{ $width: number }>`
+  width: ${({ $width }) => $width}px;
+  min-width: 180px;
+  flex-shrink: 0;
+  display: flex;
+`;
+
+const ResizeDivider = styled.div`
+  width: 5px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+  transition: background 0.15s;
+  &:hover, &.dragging {
+    background: ${({ theme }) => theme.colors.border};
+  }
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0 -4px; /* wider hit area */
+  }
+`;
+
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -67,6 +93,29 @@ function App() {
   ];
   const [songIdx, setSongIdx] = useState(0);
   const activeSheet = ALL_SONGS[songIdx]?.data ?? love;
+
+  // ─── right panel resize ────────────────────────────────────────────────
+  const [rightPanelWidth, setRightPanelWidth] = useState(360);
+  const dividerRef = useRef<HTMLDivElement>(null);
+
+  const onDividerMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX     = e.clientX;
+    const startWidth = rightPanelWidth;
+    dividerRef.current?.classList.add('dragging');
+
+    const onMove = (ev: MouseEvent) => {
+      const delta = startX - ev.clientX;          // drag left = wider panel
+      setRightPanelWidth(Math.max(180, Math.min(720, startWidth + delta)));
+    };
+    const onUp = () => {
+      dividerRef.current?.classList.remove('dragging');
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [rightPanelWidth]);
 
   const selectedChords = useMemo(() => {
     if (selectedGroupId != null) {
@@ -132,11 +181,14 @@ function App() {
           onPageSelect={setCurrentPage}
         />
         <LeadSheet data={activeSheet} />
-        <RightChatPanel
-          selectedChords={selectedChords}
-          groupExplanation={groupExplanation}
-          songTitle={song.title}
-        />
+        <ResizeDivider ref={dividerRef} onMouseDown={onDividerMouseDown} />
+        <RightPanelWrapper $width={rightPanelWidth}>
+          <RightChatPanel
+            selectedChords={selectedChords}
+            groupExplanation={groupExplanation}
+            songTitle={song.title}
+          />
+        </RightPanelWrapper>
       </MainArea>
     </AppContainer>
   );
