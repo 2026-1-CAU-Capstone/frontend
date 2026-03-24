@@ -5,17 +5,10 @@ import {
   ToolbarLeft,
   ToolbarCenter,
   ToolbarRight,
-  PageNav,
-  NavButton,
-  ZoomSelect,
-  ToolbarDivider,
   ToolbarButton,
 } from './TopToolbar.styles';
 
 interface TopToolbarProps {
-  currentPage: number;
-  totalPages: number;
-  onPageChange: (page: number) => void;
   autoHighlight: boolean;
   onToggleHighlight: () => void;
   sidebarOpen: boolean;
@@ -23,9 +16,6 @@ interface TopToolbarProps {
 }
 
 export function TopToolbar({
-  currentPage,
-  totalPages,
-  onPageChange,
   autoHighlight,
   onToggleHighlight,
   sidebarOpen,
@@ -38,36 +28,8 @@ export function TopToolbar({
       </ToolbarLeft>
 
       <ToolbarCenter>
-        <PageNav>
-          <NavButton
-            disabled={currentPage <= 1}
-            onClick={() => onPageChange(currentPage - 1)}
-          >
-            −
-          </NavButton>
-          <span>
-            {currentPage} / {totalPages}
-          </span>
-          <NavButton
-            disabled={currentPage >= totalPages}
-            onClick={() => onPageChange(currentPage + 1)}
-          >
-            +
-          </NavButton>
-        </PageNav>
-
-        <ZoomSelect defaultValue="auto">
-          <option value="auto">자동</option>
-          <option value="50">50%</option>
-          <option value="75">75%</option>
-          <option value="100">100%</option>
-          <option value="150">150%</option>
-        </ZoomSelect>
-
-        <ToolbarDivider />
-
         <Toggle
-          label="오토 하이라이트"
+          label="분석 보기"
           active={autoHighlight}
           onToggle={onToggleHighlight}
         />

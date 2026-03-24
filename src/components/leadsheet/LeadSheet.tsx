@@ -1,3 +1,4 @@
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 import type {
   LeadSheetData,
@@ -13,7 +14,8 @@ import type {
 const BARLINE_PAD  = 18;  // px — left padding reserved for barline decoration
 const BAR_H        = 78;  // px — row height (snug around chord content)
 const BARLINE_GAP  = 6;   // px — vertical inset at top/bottom of each barline
-const ROW_GAP      = 36;  // px — space between rows (extra room for bigger labels)
+const ROW_GAP      = 46;  // px — space between rows (extra room for bigger labels)
+const SECTION_GAP  = 20;  // px — extra space before a new section (A, B, …)
 const LABEL_OFFSET = 26;  // px — how far the section label floats above the grid
 const CHORD_FONT   = "'MuseJazz Text', 'Oswald', 'DM Sans', sans-serif";
 const LABEL_FONT   = "'DM Sans', 'Pretendard', sans-serif"; // gothic for A/B labels
@@ -33,6 +35,7 @@ const ViewerOuter = styled.div`
 `;
 
 const Page = styled.div`
+  position: relative;
   background: #fff;
   width: 100%;
   align-self: flex-start;
@@ -65,10 +68,11 @@ const MetaRow = styled.div`
 
 /* ─── system row ─────────────────────────────────────────────────────────── */
 
-const SystemRow = styled.div`
+const SystemRow = styled.div<{ $sectionStart?: boolean }>`
   display: flex;
   align-items: stretch;
   margin-bottom: ${ROW_GAP}px;
+  ${({ $sectionStart }) => $sectionStart && `margin-top: ${SECTION_GAP}px;`}
   /* overflow visible so the section label can float above the grid */
   position: relative;
   overflow: visible;
@@ -113,6 +117,16 @@ const BarsGrid = styled.div`
   position: relative; /* anchor for SectionLabel */
 `;
 
+const ArrowLayer = styled.svg`
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 2;
+`;
+
 /* ─── section label ──────────────────────────────────────────────────────── */
 
 /* Floats above the top-left corner of the bars grid */
@@ -129,6 +143,31 @@ const SectionLabel = styled.div`
   padding: 3px 7px 3px 6px;
   letter-spacing: 0.02em;
   z-index: 3;
+`;
+
+/* ─── volta ending bracket ──────────────────────────────────────────────── */
+
+const VoltaBracket = styled.div`
+  position: absolute;
+  top: -${LABEL_OFFSET}px;
+  right: 0;
+  left: 0;
+  height: ${LABEL_OFFSET - 2}px;
+  border: 1.5px solid #000;
+  border-bottom: none;
+  border-right: none;
+  pointer-events: none;
+  z-index: 3;
+`;
+
+const VoltaNumber = styled.span`
+  position: absolute;
+  top: 1px;
+  left: 6px;
+  font-family: ${LABEL_FONT};
+  font-size: clamp(0.6rem, 1.4cqi, 0.85rem);
+  font-weight: 700;
+  line-height: 1;
 `;
 
 /* ─── bar cell ───────────────────────────────────────────────────────────── */
@@ -247,10 +286,11 @@ const SectionSlot = styled.div`
 
 /* ─── chord symbol ───────────────────────────────────────────────────────── */
 
-const ChordWrap = styled.span`
+const ChordWrap = styled.span<{ $nonDiatonic?: boolean }>`
   display: inline-flex;
   align-items: flex-end;
   line-height: 1;
+  color: ${({ $nonDiatonic }) => ($nonDiatonic ? '#c62828' : '#000')};
 `;
 
 /* $compact = true when 2 chords share a single half-bar section.
@@ -313,6 +353,17 @@ const TensionSpan = styled.span<{ $compact?: boolean }>`
   font-family: ${CHORD_FONT};
 `;
 
+const SlashBass = styled.span<{ $compact?: boolean }>`
+  font-size: ${({ $compact }) =>
+    $compact
+      ? 'clamp(0.45rem, 1.4cqi, 0.85rem)'
+      : 'clamp(0.65rem, 2.0cqi, 1.15rem)'};
+  font-weight: 600;
+  font-family: ${CHORD_FONT};
+  line-height: 1;
+  padding-left: 2px;
+`;
+
 /* ─── quality string → [base, tensions] ─────────────────────────────────────
  * After normalisation, optional tension tokens (b5 #5 b9 #9 #11 b13 alt …)
  * that trail the base quality are split off for lighter rendering.          */
@@ -332,35 +383,86 @@ function splitQuality(normalized: string): [base: string, tensions: string] {
   return [normalized, ''];
 }
 
-/* ─── simile sign (one-bar repeat %) ─────────────────────────────────────── */
+/* ─── resolve repeats ────────────────────────────────────────────────────────
+ *  Replace every { isRepeat: true } with the actual previous chord.
+ *  After this pass no chord carries isRepeat — rendering and detection
+ *  can treat every slot as a real chord symbol.
+ * ────────────────────────────────────────────────────────────────────────── */
 
-function SimileSign() {
-  return (
-    <svg
-      width="40"
-      height="50"
-      viewBox="0 0 40 50"
-      style={{ display: 'block', marginTop: '4px' }}
-    >
-      <circle cx="9"  cy="12" r="5.5" fill="black" />
-      <line
-        x1="7" y1="41" x2="33" y2="9"
-        stroke="black" strokeWidth="3.5" strokeLinecap="round"
-      />
-      <circle cx="31" cy="38" r="5.5" fill="black" />
-    </svg>
-  );
+function resolveRepeats(data: LeadSheetData): LeadSheetData {
+  let prev: LeadSheetChord | null = null;
+
+  return {
+    ...data,
+    systems: data.systems.map((system) => ({
+      ...system,
+      bars: system.bars.map((bar) => ({
+        ...bar,
+        chords: bar.chords.map((chord) => {
+          if (chord.isRepeat && prev) {
+            const { isRepeat: _, id: __, ...rest } = prev;
+            return rest;
+          }
+          if (!chord.isRepeat) prev = chord;
+          return chord;
+        }),
+      })),
+    })),
+  };
 }
+
+/* ─── degree label (rule-based analysis) ─────────────────────────────────── */
+
+const FUNC_COLORS: Record<string, string> = {
+  T:  '#388E3C',  // green  — Tonic
+  SD: '#1565C0',  // blue   — Subdominant
+  D:  '#E64A19',  // orange — Dominant
+};
+
+const ChordColumn = styled.div`
+  position: relative;
+  display: inline-flex;
+  align-items: flex-end;
+`;
+
+const DegreeLabel = styled.span<{ $color: string; $compact?: boolean }>`
+  position: absolute;
+  left: -6px;
+  top: -1px;
+  transform: translateY(-100%);
+  font-size: ${({ $compact }) =>
+    $compact
+      ? 'clamp(0.5rem, 1.5cqi, 0.75rem)'
+      : 'clamp(0.65rem, 2.0cqi, 1.0rem)'};
+  font-family: 'Noto Serif', 'Georgia', 'Times New Roman', serif;
+  font-weight: 600;
+  font-style: italic;
+  color: ${({ $color }) => $color};
+  line-height: 1;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+`;
 
 /* ─── ChordSymbol ─────────────────────────────────────────────────────────── */
 
 interface ChordSymbolProps {
   chord: LeadSheetChord;
   compact?: boolean;   // true when 2 chords share one half-bar section
+  systemIndex: number;
+  chordKey: string;    // positional key for DOM registration (e.g. "2-3-0")
+  registerEl?: (id: string, el: HTMLSpanElement | null) => void;
+  showAnalysis?: boolean;
 }
 
-function ChordSymbol({ chord, compact = false }: ChordSymbolProps) {
-  if (chord.isRepeat) return <SimileSign />;
+function ChordSymbol({ chord, compact = false, systemIndex, chordKey, registerEl, showAnalysis = true }: ChordSymbolProps) {
+  const isNonDiatonic = showAnalysis && chord.isDiatonic === false;
+  const analysis = chord.analysis;
+  const primaryFunc = analysis?.functions?.[0]?.function;
+  const secDom = analysis?.secondaryDominant;
+  const degreeText = showAnalysis
+    ? (secDom?.targetDegree ? `V/${secDom.targetDegree}` : analysis?.degree)
+    : undefined;
+  const fnColor = FUNC_COLORS[primaryFunc ?? ''] ?? '#888';
 
   const accChar =
     chord.accidental === '#' ? '♯' :
@@ -373,26 +475,42 @@ function ChordSymbol({ chord, compact = false }: ChordSymbolProps) {
   const hasQuality = !!(base || tensions);
 
   return (
-    <ChordWrap>
-      <Root $compact={compact}>{chord.root}</Root>
-
-      {/* AccQualStack: acc (top) and quality (bottom) share one horizontal slot.
-          This prevents quality from drifting right when an accidental is present. */}
-      {(accChar || hasQuality) && (
-        <AccQualStack>
-          {/* top slot — empty span keeps space-between working when no acc */}
-          <AccTopSlot>
-            {accChar && <Acc $compact={compact}>{accChar}</Acc>}
-          </AccTopSlot>
-          {hasQuality && (
-            <Quality $compact={compact}>
-              {base}
-              {tensions && <TensionSpan $compact={compact}>{tensions}</TensionSpan>}
-            </Quality>
-          )}
-        </AccQualStack>
+    <ChordColumn>
+      {degreeText && (
+        <DegreeLabel $color={fnColor} $compact={compact}>{degreeText}</DegreeLabel>
       )}
-    </ChordWrap>
+      <ChordWrap
+        $nonDiatonic={isNonDiatonic}
+        data-system-index={systemIndex}
+        ref={(el) => {
+          if (registerEl) {
+            registerEl(chordKey, el);
+            if (chord.id) registerEl(chord.id, el);
+          }
+        }}
+      >
+        <Root $compact={compact}>{chord.root}</Root>
+
+        {(accChar || hasQuality) && (
+          <AccQualStack>
+            <AccTopSlot>
+              {accChar && <Acc $compact={compact}>{accChar}</Acc>}
+            </AccTopSlot>
+            {hasQuality && (
+              <Quality $compact={compact}>
+                {base}
+                {tensions && <TensionSpan $compact={compact}>{tensions}</TensionSpan>}
+              </Quality>
+            )}
+          </AccQualStack>
+        )}
+        {chord.bass && (
+          <SlashBass $compact={compact}>
+            /{chord.bass.root}{chord.bass.accidental === '#' ? '♯' : chord.bass.accidental === 'b' ? '♭' : ''}
+          </SlashBass>
+        )}
+      </ChordWrap>
+    </ChordColumn>
   );
 }
 
@@ -454,9 +572,23 @@ interface SystemRowProps {
   system: LeadSheetSystem;
   isFirst: boolean;
   timeSignature: string;
+  systemIndex: number;
+  registerChordEl: (id: string, el: HTMLSpanElement | null) => void;
+  registerSystemEl: (index: number, el: HTMLDivElement | null) => void;
+  registerGridEl: (index: number, el: HTMLDivElement | null) => void;
+  showAnalysis?: boolean;
 }
 
-function SystemRowComponent({ system, isFirst, timeSignature }: SystemRowProps) {
+function SystemRowComponent({
+  system,
+  isFirst,
+  timeSignature,
+  systemIndex,
+  registerChordEl,
+  registerSystemEl,
+  registerGridEl,
+  showAnalysis = true,
+}: SystemRowProps) {
   const [top, bot] = timeSignature.split('/');
 
   // Determine left barline style for the first bar of this row
@@ -465,7 +597,7 @@ function SystemRowComponent({ system, isFirst, timeSignature }: SystemRowProps) 
     (isFirst || system.sectionLabel) ? 'section-start' : 'normal';
 
   return (
-    <SystemRow>
+    <SystemRow ref={(el) => registerSystemEl(systemIndex, el)} $sectionStart={!isFirst && !!system.sectionLabel}>
       {/* ── left meta (time sig, first row only) ── */}
       <LeftMeta>
         {isFirst && (
@@ -478,10 +610,17 @@ function SystemRowComponent({ system, isFirst, timeSignature }: SystemRowProps) 
       </LeftMeta>
 
       {/* ── bars grid ── */}
-      <BarsGrid>
+      <BarsGrid ref={(el) => registerGridEl(systemIndex, el)}>
         {/* Section label floated over the top-left corner */}
         {system.sectionLabel && (
           <SectionLabel>{system.sectionLabel}</SectionLabel>
+        )}
+
+        {/* Volta ending bracket (1., 2., etc.) */}
+        {system.ending != null && !system.sectionLabel && (
+          <VoltaBracket>
+            <VoltaNumber>{system.ending}.</VoltaNumber>
+          </VoltaBracket>
         )}
 
         {system.bars.map((bar, i) => {
@@ -505,10 +644,11 @@ function SystemRowComponent({ system, isFirst, timeSignature }: SystemRowProps) 
               {/* Chord content — always split into 2 equal sections */}
               {(() => {
                 const [s1, s2] = splitSections(bar.chords);
+                const mid = s1.length;
                 // Single chord: render full-width (no grid split needed)
                 if (s2.length === 0) {
                   return s1.map((chord, j) => (
-                    <ChordSymbol key={j} chord={chord} />
+                    <ChordSymbol key={j} chord={chord} chordKey={`${systemIndex}-${i}-${j}`} systemIndex={systemIndex} registerEl={registerChordEl} showAnalysis={showAnalysis} />
                   ));
                 }
                 // 2+ chords: two equal-width sections
@@ -516,12 +656,12 @@ function SystemRowComponent({ system, isFirst, timeSignature }: SystemRowProps) 
                   <BarSections>
                     <SectionSlot>
                       {s1.map((chord, j) => (
-                        <ChordSymbol key={j} chord={chord} compact={s1.length > 1} />
+                        <ChordSymbol key={j} chord={chord} chordKey={`${systemIndex}-${i}-${j}`} compact={s1.length > 1} systemIndex={systemIndex} registerEl={registerChordEl} showAnalysis={showAnalysis} />
                       ))}
                     </SectionSlot>
                     <SectionSlot>
                       {s2.map((chord, j) => (
-                        <ChordSymbol key={j} chord={chord} compact={s2.length > 1} />
+                        <ChordSymbol key={j} chord={chord} chordKey={`${systemIndex}-${i}-${mid + j}`} compact={s2.length > 1} systemIndex={systemIndex} registerEl={registerChordEl} showAnalysis={showAnalysis} />
                       ))}
                     </SectionSlot>
                   </BarSections>
@@ -539,24 +679,491 @@ function SystemRowComponent({ system, isFirst, timeSignature }: SystemRowProps) 
 
 interface LeadSheetProps {
   data: LeadSheetData;
+  showAnalysis?: boolean;
 }
 
-export function LeadSheet({ data }: LeadSheetProps) {
+interface ArrowPathSegment {
+  d: string;
+  markerEnd?: boolean;
+}
+
+interface ResolvedArrow {
+  key: string;
+  segments: ArrowPathSegment[];
+}
+
+interface HighlightRect {
+  key: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface ArrowSpec {
+  key: string;
+  sourceChordId: string;
+  targetChordId: string;
+}
+
+/* ─── ii-V detection ──────────────────────────────────────────────────── */
+
+interface BracketSpec {
+  key: string;
+  chordId1: string;
+  chordId2: string;
+}
+
+interface ResolvedBracket {
+  key: string;
+  d: string;
+}
+
+const ROOT_PC: Record<string, number> = {
+  C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11,
+};
+
+function chordPitchClass(root: string, accidental?: 'b' | '#'): number {
+  const base = ROOT_PC[root] ?? 0;
+  if (accidental === '#') return (base + 1) % 12;
+  if (accidental === 'b') return (base + 11) % 12;
+  return base;
+}
+
+/** True when the normalised quality is a minor-7th type (-7, ø7). */
+function isMinor7(q: string): boolean {
+  return q.startsWith('-7') || q.startsWith('ø');
+}
+
+/** True when the normalised quality is a dominant-7th type (7, 9, 13 …). */
+function isDominant7(q: string): boolean {
+  return /^7/.test(q) || /^(9|13)/.test(q);
+}
+
+/** Detect whether chord1 → chord2 is a ii-V (minor7 → dom7, root ↑P4). */
+function isIIV(c1: LeadSheetChord, c2: LeadSheetChord): boolean {
+  if (!c1.root || !c2.root || !c1.quality || !c2.quality) return false;
+  const q1 = normalizeQuality(c1.quality);
+  const q2 = normalizeQuality(c2.quality);
+  if (!isMinor7(q1) || !isDominant7(q2)) return false;
+  const pc1 = chordPitchClass(c1.root, c1.accidental);
+  const pc2 = chordPitchClass(c2.root, c2.accidental);
+  return (pc2 - pc1 + 12) % 12 === 5; // perfect 4th up = ii → V
+}
+
+/** Auto-detect ii-V pairs within each system row (expects resolved data). */
+function detectIIVBrackets(data: LeadSheetData): BracketSpec[] {
+  const brackets: BracketSpec[] = [];
+
+  for (let si = 0; si < data.systems.length; si++) {
+    const system = data.systems[si];
+    const items: { chord: LeadSheetChord; key: string }[] = [];
+
+    for (let bi = 0; bi < system.bars.length; bi++) {
+      const bar = system.bars[bi];
+      if (bar.chords.length > 2) continue;
+      for (let ci = 0; ci < bar.chords.length; ci++) {
+        items.push({ chord: bar.chords[ci], key: `${si}-${bi}-${ci}` });
+      }
+    }
+
+    for (let i = 0; i < items.length - 1; i++) {
+      if (isIIV(items[i].chord, items[i + 1].chord)) {
+        brackets.push({
+          key: `iiv-${items[i].key}`,
+          chordId1: items[i].key,
+          chordId2: items[i + 1].key,
+        });
+      }
+    }
+  }
+
+  return brackets;
+}
+
+/** A continuous highlight span covering one ii-V-I progression. */
+interface IIVISpan {
+  chordKeys: string[];   // ordered chord keys from ii through I
+}
+
+/** Detect ii-V-I across the entire song (cross-row).
+ *  Consecutive duplicate chords are collapsed into one group so that
+ *  resolved repeats (C7 C7 C7) don't break the pattern match.
+ *  Returns spans of chord keys to highlight as continuous bands.
+ *  For the I (resolution) chord, only the FIRST occurrence is included. */
+function detectIIVI(data: LeadSheetData): IIVISpan[] {
+  const spans: IIVISpan[] = [];
+
+  // Flatten all chords with chord-level keys
+  const all: { chord: LeadSheetChord; chordKey: string }[] = [];
+  for (let si = 0; si < data.systems.length; si++) {
+    for (let bi = 0; bi < data.systems[si].bars.length; bi++) {
+      const bar = data.systems[si].bars[bi];
+      if (bar.chords.length > 2) continue;
+      for (let ci = 0; ci < bar.chords.length; ci++) {
+        all.push({ chord: bar.chords[ci], chordKey: `${si}-${bi}-${ci}` });
+      }
+    }
+  }
+
+  // Collapse consecutive identical chords into groups (ordered keys)
+  const groups: { chord: LeadSheetChord; chordKeys: string[] }[] = [];
+  for (const item of all) {
+    const prev = groups[groups.length - 1];
+    if (
+      prev &&
+      prev.chord.root === item.chord.root &&
+      prev.chord.accidental === item.chord.accidental &&
+      prev.chord.quality === item.chord.quality
+    ) {
+      prev.chordKeys.push(item.chordKey);
+    } else {
+      groups.push({ chord: item.chord, chordKeys: [item.chordKey] });
+    }
+  }
+
+  // Check consecutive groups for ii → V → I
+  for (let i = 0; i < groups.length - 2; i++) {
+    if (
+      isIIV(groups[i].chord, groups[i + 1].chord) &&
+      isDomResolution(groups[i + 1].chord, groups[i + 2].chord)
+    ) {
+      spans.push({
+        chordKeys: [
+          ...groups[i].chordKeys,       // all ii occurrences
+          ...groups[i + 1].chordKeys,   // all V occurrences
+          groups[i + 2].chordKeys[0],   // only first I
+        ],
+      });
+    }
+  }
+
+  return spans;
+}
+
+/** True when source (dominant) resolves down a P5 to target. */
+function isDomResolution(source: LeadSheetChord, target: LeadSheetChord): boolean {
+  if (!source.root || !target.root || !source.quality) return false;
+  const q = normalizeQuality(source.quality);
+  if (!isDominant7(q)) return false;
+  const srcPc = chordPitchClass(source.root, source.accidental);
+  const tgtPc = chordPitchClass(target.root, target.accidental);
+  return (srcPc - tgtPc + 12) % 12 === 7;
+}
+
+/** Auto-detect dominant resolutions V7 → I (expects resolved data). */
+function detectSecDomArrows(data: LeadSheetData): ArrowSpec[] {
+  const specs: ArrowSpec[] = [];
+
+  for (let si = 0; si < data.systems.length; si++) {
+    const system = data.systems[si];
+    const items: { chord: LeadSheetChord; key: string }[] = [];
+
+    for (let bi = 0; bi < system.bars.length; bi++) {
+      const bar = system.bars[bi];
+      if (bar.chords.length > 2) continue;
+      for (let ci = 0; ci < bar.chords.length; ci++) {
+        items.push({ chord: bar.chords[ci], key: `${si}-${bi}-${ci}` });
+      }
+    }
+
+    for (let i = 0; i < items.length - 1; i++) {
+      if (isDomResolution(items[i].chord, items[i + 1].chord)) {
+        specs.push({
+          key: `secdom-${items[i].key}`,
+          sourceChordId: items[i].key,
+          targetChordId: items[i + 1].key,
+        });
+      }
+    }
+  }
+
+  return specs;
+}
+
+export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
+  const resolvedData = useMemo(() => resolveRepeats(data), [data]);
+  const pageRef = useRef<HTMLDivElement | null>(null);
+  const systemElsRef = useRef<Record<number, HTMLDivElement | null>>({});
+  const gridElsRef = useRef<Record<number, HTMLDivElement | null>>({});
+  const chordElsRef = useRef<Record<string, HTMLSpanElement | null>>({});
+  const [arrowFrame, setArrowFrame] = useState<{ width: number; height: number }>({ width: 1, height: 1 });
+  const [arrows, setArrows] = useState<ResolvedArrow[]>([]);
+  const [brackets, setBrackets] = useState<ResolvedBracket[]>([]);
+  const [highlights, setHighlights] = useState<HighlightRect[]>([]);
+  const arrowSpecs = useMemo(() => detectSecDomArrows(resolvedData), [resolvedData]);
+  const bracketSpecs = useMemo(() => detectIIVBrackets(resolvedData), [resolvedData]);
+  const iiviSpans = useMemo(() => detectIIVI(resolvedData), [resolvedData]);
+
+  useLayoutEffect(() => {
+    const pageEl = pageRef.current;
+    if (!pageEl || (arrowSpecs.length === 0 && bracketSpecs.length === 0 && iiviSpans.length === 0)) {
+      setArrows([]);
+      setBrackets([]);
+      setHighlights([]);
+      return;
+    }
+
+    const measure = () => {
+      const freshPageEl = pageRef.current;
+      if (!freshPageEl) {
+        setArrows([]);
+        setBrackets([]);
+        setHighlights([]);
+        return;
+      }
+
+      const pageRect = freshPageEl.getBoundingClientRect();
+      const resolvedArrows: ResolvedArrow[] = [];
+
+      for (const spec of arrowSpecs) {
+        const sourceEl = chordElsRef.current[spec.sourceChordId];
+        const targetEl = chordElsRef.current[spec.targetChordId];
+        if (!sourceEl || !targetEl) continue;
+
+        const sourceSystemIndex = Number(sourceEl.dataset.systemIndex);
+        const targetSystemIndex = Number(targetEl.dataset.systemIndex);
+        const sourceSystemEl = systemElsRef.current[sourceSystemIndex];
+        const targetSystemEl = systemElsRef.current[targetSystemIndex];
+        if (!sourceSystemEl || !targetSystemEl) continue;
+
+        const sourceRect = sourceEl.getBoundingClientRect();
+        const targetRect = targetEl.getBoundingClientRect();
+        const sourceSystemRect = sourceSystemEl.getBoundingClientRect();
+        const targetSystemRect = targetSystemEl.getBoundingClientRect();
+
+        const x1 = sourceRect.left - pageRect.left + sourceRect.width * 0.52;
+        const y1 = sourceRect.top - pageRect.top - 14;
+        const x2 = targetRect.left - pageRect.left + targetRect.width * 0.38;
+        const y2 = targetRect.top - pageRect.top - 14;
+
+        if (sourceSystemIndex === targetSystemIndex) {
+          const cx = (x1 + x2) / 2;
+          const cy = Math.min(y1, y2) - 28;
+          resolvedArrows.push({
+            key: spec.key,
+            segments: [{ d: `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`, markerEnd: true }],
+          });
+          continue;
+        }
+
+        const edgeInset = 24;
+        const exitX = pageRect.width - edgeInset;
+        const entryX = edgeInset;
+        const sourceExitY = sourceSystemRect.top - pageRect.top + 10;
+        const targetEntryY = targetSystemRect.top - pageRect.top + 10;
+        const exitCx = x1 + (exitX - x1) * 0.55;
+        const entryCx = entryX + (x2 - entryX) * 0.45;
+
+        resolvedArrows.push({
+          key: spec.key,
+          segments: [
+            {
+              d: `M ${x1} ${y1} Q ${exitCx} ${Math.min(y1, sourceExitY) - 28} ${exitX} ${sourceExitY}`,
+            },
+            {
+              d: `M ${entryX} ${targetEntryY} Q ${entryCx} ${Math.min(targetEntryY, y2) - 28} ${x2} ${y2}`,
+              markerEnd: true,
+            },
+          ],
+        });
+      }
+
+      /* ── ii-V brackets ── */
+      const resolvedBrackets: ResolvedBracket[] = [];
+      const BRACKET_GAP = 4;   // px below chord bottom
+      const BRACKET_DEPTH = 10; // px height of the bracket
+
+      for (const spec of bracketSpecs) {
+        const el1 = chordElsRef.current[spec.chordId1];
+        const el2 = chordElsRef.current[spec.chordId2];
+        if (!el1 || !el2) continue;
+
+        const rect1 = el1.getBoundingClientRect();
+        const rect2 = el2.getBoundingClientRect();
+
+        const x1 = rect1.left - pageRect.left + rect1.width / 2;
+        const x2 = rect2.left - pageRect.left + rect2.width / 2;
+        const yBase = Math.max(rect1.bottom, rect2.bottom) - pageRect.top + BRACKET_GAP;
+        const yBottom = yBase + BRACKET_DEPTH;
+
+        resolvedBrackets.push({
+          key: spec.key,
+          d: `M ${x1} ${yBase} L ${x1} ${yBottom} L ${x2} ${yBottom} L ${x2} ${yBase}`,
+        });
+      }
+
+      /* ── ii-V-I highlight bands ── */
+      const resolvedHighlights: HighlightRect[] = [];
+      const HL_PAD_X = 5;
+      const HL_PAD_Y = 3;
+
+      for (let spanIdx = 0; spanIdx < iiviSpans.length; spanIdx++) {
+        const span = iiviSpans[spanIdx];
+
+        // Group chord elements by system row
+        const byRow = new Map<number, HTMLSpanElement[]>();
+        for (const ck of span.chordKeys) {
+          const el = chordElsRef.current[ck];
+          if (!el) continue;
+          const si = Number(ck.split('-')[0]);
+          if (!byRow.has(si)) byRow.set(si, []);
+          byRow.get(si)!.push(el);
+        }
+
+        const rowIndices = [...byRow.keys()].sort((a, b) => a - b);
+        const isMultiRow = rowIndices.length > 1;
+
+        for (let r = 0; r < rowIndices.length; r++) {
+          const si = rowIndices[r];
+          const els = byRow.get(si)!;
+
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          for (const el of els) {
+            const rect = el.getBoundingClientRect();
+            minX = Math.min(minX, rect.left);
+            minY = Math.min(minY, rect.top);
+            maxX = Math.max(maxX, rect.right);
+            maxY = Math.max(maxY, rect.bottom);
+          }
+
+          // Cross-row: extend to grid edges
+          if (isMultiRow) {
+            const gridEl = gridElsRef.current[si];
+            if (gridEl) {
+              const gridRect = gridEl.getBoundingClientRect();
+              if (r === 0) {
+                maxX = gridRect.right;          // first row → extend right
+              } else if (r === rowIndices.length - 1) {
+                minX = gridRect.left;           // last row → extend left
+              } else {
+                minX = gridRect.left;           // middle rows → full width
+                maxX = gridRect.right;
+              }
+            }
+          }
+
+          resolvedHighlights.push({
+            key: `hl-${spanIdx}-${si}`,
+            x: minX - pageRect.left - HL_PAD_X,
+            y: minY - pageRect.top - HL_PAD_Y,
+            width: maxX - minX + HL_PAD_X * 2,
+            height: maxY - minY + HL_PAD_Y * 2,
+          });
+        }
+      }
+
+      setArrowFrame({
+        width: pageRect.width,
+        height: pageRect.height,
+      });
+      setArrows(resolvedArrows);
+      setBrackets(resolvedBrackets);
+      setHighlights(resolvedHighlights);
+    };
+
+    measure();
+
+    const observer = new ResizeObserver(() => {
+      measure();
+    });
+
+    observer.observe(pageEl);
+    Object.values(systemElsRef.current).forEach((el) => {
+      if (el) observer.observe(el);
+    });
+
+    window.addEventListener('resize', measure);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [arrowSpecs, bracketSpecs, iiviSpans]);
+
+  const registerChordEl = (id: string, el: HTMLSpanElement | null) => {
+    chordElsRef.current[id] = el;
+  };
+
+  const registerSystemEl = (index: number, el: HTMLDivElement | null) => {
+    systemElsRef.current[index] = el;
+  };
+
+  const registerGridEl = (index: number, el: HTMLDivElement | null) => {
+    gridElsRef.current[index] = el;
+  };
+
   return (
     <ViewerOuter>
-      <Page>
-        <SheetTitle>{data.title}</SheetTitle>
+      <Page ref={pageRef}>
+        {/* ii-V-I highlight bands (behind content — rendered first so SystemRow stacks above) */}
+        {showAnalysis && highlights.map((hl) => (
+          <div
+            key={hl.key}
+            style={{
+              position: 'absolute',
+              left: hl.x,
+              top: hl.y,
+              width: hl.width,
+              height: hl.height,
+              background: 'rgba(255, 236, 179, 0.45)',
+              borderRadius: '4px',
+              pointerEvents: 'none',
+            }}
+          />
+        ))}
+
+        {showAnalysis && (
+          <ArrowLayer viewBox={`0 0 ${Math.max(arrowFrame.width, 1)} ${Math.max(arrowFrame.height, 1)}`}>
+            <defs>
+              <marker id="secdom-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                <path d="M0,0 L8,4 L0,8" fill="none" stroke="#000" strokeWidth="1.6" />
+              </marker>
+            </defs>
+            {arrows.flatMap((arrow) =>
+              arrow.segments.map((segment, index) => (
+                <path
+                  key={`${arrow.key}-${index}`}
+                  d={segment.d}
+                  fill="none"
+                  stroke="#000"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  markerEnd={segment.markerEnd ? 'url(#secdom-arrow)' : undefined}
+                />
+              )),
+            )}
+            {/* ii-V brackets */}
+            {brackets.map((bracket) => (
+              <path
+                key={bracket.key}
+                d={bracket.d}
+                fill="none"
+                stroke="#000"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            ))}
+          </ArrowLayer>
+        )}
+        <SheetTitle>{resolvedData.title}</SheetTitle>
         <MetaRow>
-          <span>({data.style})</span>
-          <span>{data.composer}</span>
+          <span>{resolvedData.style}</span>
+          <span>{resolvedData.composer}</span>
         </MetaRow>
 
-        {data.systems.map((system, i) => (
+        {resolvedData.systems.map((system, i) => (
           <SystemRowComponent
             key={i}
             system={system}
             isFirst={i === 0}
-            timeSignature={data.timeSignature}
+            systemIndex={i}
+            timeSignature={resolvedData.timeSignature}
+            registerChordEl={registerChordEl}
+            registerSystemEl={registerSystemEl}
+            registerGridEl={registerGridEl}
+            showAnalysis={showAnalysis}
           />
         ))}
       </Page>

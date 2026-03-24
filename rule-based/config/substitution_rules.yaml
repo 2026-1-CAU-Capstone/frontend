@@ -1,0 +1,37 @@
+# Substitution rules for chord analysis
+
+tritone_sub:
+  description: "bII7 replaces V7. Root is tritone (6 semitones) from original V."
+  detection:
+    interval_to_target: 1  # resolves down by semitone
+    quality: "dom7"
+  ambiguity_notes: "If bII7 appears without preceding ii, could be Phrygian chord or chromatic approach."
+
+backdoor:
+  description: "bVII7 resolves to I. iv-bVII7-I pattern."
+  detection:
+    interval_to_target: 2  # resolves down by whole step
+    quality: "dom7"
+    preceding_chord_interval: 5  # preceded by iv (5 semitones below bVII)
+  ambiguity_notes: "bVII7 could also be modal interchange from mixolydian."
+
+tonic_substitutes:
+  - {original: "I", substitute: "iii", relationship: "shares 3rd and 5th", note: "IM7 can be replaced by iiim7"}
+  - {original: "I", substitute: "vi", relationship: "relative minor", note: "IM7 can be replaced by vim7"}
+
+subdominant_substitutes:
+  - {original: "IV", substitute: "ii", relationship: "shares root and 3rd", note: "IVM7 can be replaced by iim7"}
+  - {original: "IV", substitute: "vi", relationship: "shares 3rd and 5th in some voicings", note: "IVM7 can be replaced by vim7 (ambiguous T/SD)"}
+
+dominant_substitutes:
+  - {original: "V7", substitute: "viio", relationship: "shares 3rd, 5th, 7th", note: "V7 can be replaced by viidim or viim7b5"}
+  - {original: "V7", substitute: "bII7", relationship: "tritone substitution", note: "V7 can be replaced by bII7 (tritone sub)"}
+  - {original: "V7", substitute: "iii", relationship: "mediant", note: "V can sometimes be replaced by iii in weak resolution"}
+
+chromatic_approach:
+  description: "Non-diatonic chord approaching target by half step (above or below)"
+  detection:
+    interval_to_target: 1  # one semitone
+    direction: "either"  # above or below
+  quality_match: true  # same quality as target increases confidence
+  ambiguity_notes: "Could also be tritone sub if dom7 quality"

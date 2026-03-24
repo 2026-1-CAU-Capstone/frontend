@@ -31,9 +31,9 @@ export const love: LeadSheetData = {
       sectionLabel: 'B',
       hasRepeatStart: true,
       bars: [
-        { chords: [{ root: 'F', quality: '7' }] },
+        { chords: [{ root: 'F', quality: '7', isDiatonic: false }] },
         { chords: [{ isRepeat: true }] },
-        { chords: [{ root: 'B', accidental: 'b', quality: 'Δ7' }] },
+        { chords: [{ root: 'B', accidental: 'b', quality: 'Δ7', isDiatonic: false }] },
         { chords: [{ isRepeat: true }] },
       ],
     },
@@ -41,10 +41,10 @@ export const love: LeadSheetData = {
     {
       hasRepeatEnd: true,
       bars: [
-        { chords: [{ root: 'G', quality: '7' }] },
+        { chords: [{ root: 'G', quality: '7', isDiatonic: false }] },
         { chords: [{ isRepeat: true }] },
-        { chords: [{ root: 'C', quality: '7sus' }] },
-        { chords: [{ root: 'C', quality: '7' }] },
+        { chords: [{ root: 'C', quality: '7sus', isDiatonic: false }] },
+        { chords: [{ root: 'C', quality: '7', isDiatonic: false }] },
       ],
     },
     // Row 5 — Section A (repeat), bars 1–4
@@ -73,10 +73,10 @@ export const love: LeadSheetData = {
       sectionLabel: 'C',
       hasRepeatStart: true,
       bars: [
-        { chords: [{ root: 'F', quality: '7' }] },
+        { chords: [{ root: 'F', quality: '7', isDiatonic: false }] },
         { chords: [{ isRepeat: true }] },
-        { chords: [{ root: 'B', accidental: 'b', quality: 'Δ7' }] },
-        { chords: [{ root: 'B', quality: 'o7' }] },
+        { chords: [{ root: 'B', accidental: 'b', quality: 'Δ7', isDiatonic: false }] },
+        { chords: [{ root: 'B', quality: 'o7', isDiatonic: false }] },
       ],
     },
     // Row 8 — final bars
@@ -84,9 +84,9 @@ export const love: LeadSheetData = {
       hasRepeatEnd: true,
       bars: [
         { chords: [{ root: 'F', quality: '6' }] },
-        { chords: [{ root: 'C', quality: '7' }] },
+        { chords: [{ root: 'C', quality: '7', isDiatonic: false }] },
         { chords: [{ root: 'F', quality: '6' }] },
-        { chords: [{ root: 'G', quality: '-7' }, { root: 'C', quality: '7' }] },
+        { chords: [{ root: 'G', quality: '-7' }, { root: 'C', quality: '7', isDiatonic: false }] },
       ],
     },
   ],

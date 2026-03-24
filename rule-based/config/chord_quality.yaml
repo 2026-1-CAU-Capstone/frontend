@@ -1,0 +1,151 @@
+# Chord quality mappings
+# Maps various chord symbol suffixes to normalized quality names and their chord tones (intervals from root in semitones)
+
+qualities:
+  maj7:
+    aliases: ["maj7", "M7", "ma7", "Maj7", "major7", "delta", "^7", "^"]
+    symbol_char: "triangle"  # triangle symbol
+    intervals: [0, 4, 7, 11]  # root, major 3rd, perfect 5th, major 7th
+    category: "major"
+
+  min7:
+    aliases: ["m7", "min7", "-7", "mi7", "minor7"]
+    intervals: [0, 3, 7, 10]  # root, minor 3rd, perfect 5th, minor 7th
+    category: "minor"
+
+  dom7:
+    aliases: ["7"]
+    intervals: [0, 4, 7, 10]  # root, major 3rd, perfect 5th, minor 7th
+    category: "dominant"
+
+  min7b5:
+    aliases: ["m7b5", "min7b5", "-7b5", "half-dim", "halfdim"]
+    symbol_char: "ø"
+    intervals: [0, 3, 6, 10]  # root, minor 3rd, diminished 5th, minor 7th
+    category: "half_diminished"
+
+  dim7:
+    aliases: ["dim7", "o7"]
+    symbol_char: "°7"
+    intervals: [0, 3, 6, 9]  # root, minor 3rd, diminished 5th, diminished 7th
+    category: "diminished"
+
+  dim:
+    aliases: ["dim", "o"]
+    symbol_char: "°"
+    intervals: [0, 3, 6]  # root, minor 3rd, diminished 5th (triad)
+    category: "diminished"
+
+  aug:
+    aliases: ["aug", "+", "aug7"]
+    intervals: [0, 4, 8]  # root, major 3rd, augmented 5th (triad)
+    category: "augmented"
+
+  aug7:
+    aliases: ["7#5", "+7", "7aug", "aug7"]
+    intervals: [0, 4, 8, 10]
+    category: "augmented"
+
+  augmaj7:
+    aliases: ["maj7#5", "+maj7", "augmaj7"]
+    intervals: [0, 4, 8, 11]
+    category: "augmented"
+
+  sus4:
+    aliases: ["sus4", "sus"]
+    intervals: [0, 5, 7]  # root, perfect 4th, perfect 5th
+    category: "suspended"
+
+  sus2:
+    aliases: ["sus2"]
+    intervals: [0, 2, 7]  # root, major 2nd, perfect 5th
+    category: "suspended"
+
+  dom7sus4:
+    aliases: ["7sus4", "7sus"]
+    intervals: [0, 5, 7, 10]
+    category: "suspended"
+
+  min6:
+    aliases: ["m6", "min6", "-6"]
+    intervals: [0, 3, 7, 9]  # root, minor 3rd, perfect 5th, major 6th
+    category: "minor"
+
+  maj6:
+    aliases: ["6", "maj6", "M6"]
+    intervals: [0, 4, 7, 9]  # root, major 3rd, perfect 5th, major 6th
+    category: "major"
+
+  minmaj7:
+    aliases: ["mM7", "m(maj7)", "min(maj7)", "mMaj7", "m(M7)", "-(maj7)", "minmaj7"]
+    intervals: [0, 3, 7, 11]  # root, minor 3rd, perfect 5th, major 7th
+    category: "minor"
+
+  maj:
+    aliases: ["maj", "M", "major"]
+    intervals: [0, 4, 7]  # major triad
+    category: "major"
+
+  min:
+    aliases: ["m", "min", "-", "minor"]
+    intervals: [0, 3, 7]  # minor triad
+    category: "minor"
+
+  power:
+    aliases: ["5"]
+    intervals: [0, 7]  # power chord / no 3rd
+    category: "indeterminate"
+
+# Tension intervals (added on top of base quality)
+tensions:
+  "9":   2    # major 9th = major 2nd
+  "b9":  1    # flat 9th = minor 2nd
+  "#9":  3    # sharp 9th = augmented 2nd
+  "11":  5    # perfect 11th = perfect 4th
+  "#11": 6    # sharp 11th = augmented 4th
+  "13":  9    # major 13th = major 6th
+  "b13": 8    # flat 13th = minor 6th
+  "b5":  6    # flat 5th (as tension/alteration)
+  "#5":  8    # sharp 5th
+
+# 'alt' expands to these tensions
+alt_tensions: ["b9", "#9", "#11", "b13"]
+
+# Extended chords imply these tensions (for quality resolution)
+extended_chord_map:
+  "9":   # e.g., C9 = C7 + 9
+    base: "dom7"
+    added_tensions: ["9"]
+  "maj9":
+    base: "maj7"
+    added_tensions: ["9"]
+  "m9":
+    base: "min7"
+    added_tensions: ["9"]
+  "min9":
+    base: "min7"
+    added_tensions: ["9"]
+  "11":
+    base: "dom7"
+    added_tensions: ["9", "11"]
+  "m11":
+    base: "min7"
+    added_tensions: ["9", "11"]
+  "min11":
+    base: "min7"
+    added_tensions: ["9", "11"]
+  "maj11":
+    base: "maj7"
+    added_tensions: ["9", "11"]
+  "13":
+    base: "dom7"
+    added_tensions: ["9", "11", "13"]
+  "m13":
+    base: "min7"
+    added_tensions: ["9", "11", "13"]
+  "min13":
+    base: "min7"
+    added_tensions: ["9", "11", "13"]
+  "maj13":
+    base: "maj7"
+    added_tensions: ["9", "11", "13"]

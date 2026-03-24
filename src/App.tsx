@@ -1,15 +1,16 @@
-import { useState, useMemo, useRef, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 import { TopToolbar } from './components/layout/TopToolbar';
 import { LeftSidebar } from './components/layout/LeftSidebar';
 import { RightChatPanel } from './components/layout/RightChatPanel';
 import { LeadSheet } from './components/leadsheet/LeadSheet';
 import { useAutoHighlight } from './hooks/useAutoHighlight';
-import { useChordSelection } from './hooks/useChordSelection';
-import { autumnLeaves } from './data/autumnLeaves';
-import { love } from './data/love';
-import { jazzSongs } from './data/jazzSongs';
+import { allOfMe } from './data/allOfMe';
 import type { LeadSheetData } from './data/leadSheetTypes';
+import type { TocEntry } from './data/types';
+import { getSongIndex, getSong, type SongEntry } from './lib/ireal/irealLoader';
+
+const ANALYZED_SONG_ID = '__analyzed_all-of-me__';
 
 const AppContainer = styled.div`
   display: flex;
@@ -22,6 +23,13 @@ const MainArea = styled.div`
   display: flex;
   flex: 1;
   overflow: hidden;
+`;
+
+const CenterColumn = styled.div`
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
 `;
 
 const SongPickerBar = styled.div`
@@ -44,10 +52,22 @@ const SongSelect = styled.select`
   background: ${({ theme }) => theme.colors.bgPrimary};
   color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
-  max-width: 320px;
+  max-width: 420px;
 `;
 
-/* ─── resizable right panel ─────────────────────────────────────────────── */
+const StatusText = styled.span`
+  color: ${({ theme }) => theme.colors.textSecondary};
+`;
+
+const LoadingState = styled.div`
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'DM Sans', sans-serif;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  background: ${({ theme }) => theme.colors.bgSecondary};
+`;
 
 const RightPanelWrapper = styled.div<{ $width: number }>`
   width: ${({ $width }) => $width}px;
@@ -63,49 +83,84 @@ const ResizeDivider = styled.div`
   background: transparent;
   position: relative;
   transition: background 0.15s;
+
   &:hover, &.dragging {
     background: ${({ theme }) => theme.colors.border};
   }
+
   &::after {
     content: '';
     position: absolute;
-    inset: 0 -4px; /* wider hit area */
+    inset: 0 -4px;
   }
 `;
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
   const { autoHighlight, toggleAutoHighlight } = useAutoHighlight(true);
-  const { selectedChordId, selectedGroupId } = useChordSelection();
+  const [songIndex, setSongIndex] = useState<SongEntry[]>([]);
+  const [songId, setSongId] = useState(ANALYZED_SONG_ID);
+  const [sheet, setSheet] = useState<LeadSheetData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const song = autumnLeaves;
-  const totalPages = song.toc.length || 1;
+  // Load song index on mount
+  useEffect(() => {
+    getSongIndex().then(setSongIndex).catch(() => {});
+  }, []);
 
-  // ─── Lead-sheet song picker ────────────────────────────────────────────
-  // -1 = L.O.V.E. (built-in); 0-99 = jazzSongs index
-  const ALL_SONGS: { label: string; data: LeadSheetData }[] = [
-    { label: 'L.O.V.E. (Gabler-Kaempfert)', data: love },
-    ...jazzSongs.map(s => ({
-      label: `${s.title} — ${s.composer}`,
-      data: s,
-    })),
-  ];
-  const [songIdx, setSongIdx] = useState(0);
-  const activeSheet = ALL_SONGS[songIdx]?.data ?? love;
+  // Load selected song
+  useEffect(() => {
+    if (songId === ANALYZED_SONG_ID) {
+      setSheet(allOfMe);
+      setLoading(false);
+      setError(null);
+      return;
+    }
 
-  // ─── right panel resize ────────────────────────────────────────────────
+    const idx = parseInt(songId, 10);
+    if (isNaN(idx)) return;
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    getSong(idx).then((data) => {
+      if (cancelled) return;
+      if (data) {
+        setSheet(data);
+      } else {
+        setError('Song not found.');
+        setSheet(null);
+      }
+    }).catch((err) => {
+      if (!cancelled) {
+        setError(err instanceof Error ? err.message : 'Failed to load song.');
+        setSheet(null);
+      }
+    }).finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [songId]);
+
+  const toc = useMemo<TocEntry[]>(() => {
+    if (!sheet) return [];
+    return [{ title: sheet.title, page: 1 }];
+  }, [sheet]);
+
   const [rightPanelWidth, setRightPanelWidth] = useState(360);
   const dividerRef = useRef<HTMLDivElement>(null);
 
   const onDividerMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
-    const startX     = e.clientX;
+    const startX = e.clientX;
     const startWidth = rightPanelWidth;
     dividerRef.current?.classList.add('dragging');
 
     const onMove = (ev: MouseEvent) => {
-      const delta = startX - ev.clientX;          // drag left = wider panel
+      const delta = startX - ev.clientX;
       setRightPanelWidth(Math.max(180, Math.min(720, startWidth + delta)));
     };
     const onUp = () => {
@@ -117,76 +172,57 @@ function App() {
     window.addEventListener('mouseup', onUp);
   }, [rightPanelWidth]);
 
-  const selectedChords = useMemo(() => {
-    if (selectedGroupId != null) {
-      return song.chords.filter(
-        (c) => c.analysis.group?.id === selectedGroupId,
-      );
-    }
-    if (selectedChordId != null) {
-      const found = song.chords.find((c) => c.id === selectedChordId);
-      return found ? [found] : [];
-    }
-    return [];
-  }, [selectedChordId, selectedGroupId, song.chords]);
-
-  const groupExplanation = useMemo(() => {
-    if (selectedGroupId != null) {
-      return song.groupExplanations[selectedGroupId] ?? null;
-    }
-    if (selectedChordId != null) {
-      const chord = song.chords.find((c) => c.id === selectedChordId);
-      if (chord) {
-        const { analysis } = chord;
-        let desc = `**${chord.symbol}** (${analysis.degree}) — `;
-        desc += analysis.diatonic ? '다이아토닉 코드' : '논다이아토닉 코드';
-        if (analysis.secDom) desc += ` (Secondary Dominant → ${analysis.secDom})`;
-        if (analysis.modal) desc += ` (Modal Interchange: ${analysis.modal})`;
-        return desc;
-      }
-    }
-    return null;
-  }, [selectedChordId, selectedGroupId, song.chords, song.groupExplanations]);
-
   return (
     <AppContainer>
       <TopToolbar
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={setCurrentPage}
         autoHighlight={autoHighlight}
         onToggleHighlight={toggleAutoHighlight}
         sidebarOpen={sidebarOpen}
-        onToggleSidebar={() => setSidebarOpen((v) => !v)}
+        onToggleSidebar={() => setSidebarOpen((value) => !value)}
       />
-      <SongPickerBar>
-        <span>곡 선택</span>
-        <SongSelect
-          value={songIdx}
-          onChange={e => setSongIdx(Number(e.target.value))}
-        >
-          {ALL_SONGS.map((s, idx) => (
-            <option key={idx} value={idx}>{s.label}</option>
-          ))}
-        </SongSelect>
-        <span style={{ color: '#888' }}>
-          ({activeSheet.timeSignature} · {activeSheet.style})
-        </span>
-      </SongPickerBar>
+
       <MainArea>
         <LeftSidebar
           open={sidebarOpen}
-          toc={song.toc}
-          activePage={currentPage}
-          onPageSelect={setCurrentPage}
+          toc={toc}
+          activePage={1}
+          onPageSelect={() => {}}
         />
-        <LeadSheet data={activeSheet} />
+
+        <CenterColumn>
+          <SongPickerBar>
+            <span>iRealPro {songIndex.length || '…'}</span>
+            <SongSelect value={songId} onChange={(e) => setSongId(e.target.value)}>
+              <option value={ANALYZED_SONG_ID}>★ All of Me (Analyzed)</option>
+              {songIndex.map((song) => (
+                <option key={song.index} value={String(song.index)}>
+                  {song.title} — {song.composer}
+                </option>
+              ))}
+            </SongSelect>
+            <StatusText>
+              {loading
+                ? 'Loading…'
+                : sheet
+                  ? `${sheet.key ?? '?'} · ${sheet.timeSignature}`
+                  : error ?? ''}
+            </StatusText>
+          </SongPickerBar>
+
+          {sheet && !loading ? (
+            <LeadSheet data={sheet} />
+          ) : (
+            <LoadingState>{error ?? (loading ? 'Loading chart…' : 'Loading song list…')}</LoadingState>
+          )}
+        </CenterColumn>
+
         <ResizeDivider ref={dividerRef} onMouseDown={onDividerMouseDown} />
+
         <RightPanelWrapper $width={rightPanelWidth}>
           <RightChatPanel
-            selectedChords={selectedChords}
-            groupExplanation={groupExplanation}
-            songTitle={song.title}
+            selectedChords={[]}
+            groupExplanation={null}
+            songTitle={sheet?.title ?? 'Jazzify AI'}
           />
         </RightPanelWrapper>
       </MainArea>

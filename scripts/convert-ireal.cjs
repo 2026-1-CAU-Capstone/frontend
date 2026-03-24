@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 /**
  * Fetches jazz1460.txt from the chirp demo, parses the iReal Pro URI format,
- * and writes src/data/jazzSongs.ts containing the first 100 songs as
- * LeadSheetData[].
+ * and writes public/jazz1460.json containing ALL songs as LeadSheetData[].
  *
  * iReal Pro parsing references:
  *   https://github.com/pianosnake/ireal-reader
@@ -18,7 +17,6 @@ const path  = require('path');
 const DATA_URL      = 'https://blog.karimratib.me/demos/chirp/data/jazz1460.txt';
 const MUSIC_PREFIX  = '1r34LbKcu7';
 const SONG_SEP      = '===';
-const MAX_SONGS     = 100;
 
 // ─── iReal Pro unscramble (pianosnake algorithm) ─────────────────────────────
 
@@ -45,20 +43,22 @@ function unscramble(s) {
  * Parse a decoded chart string into a flat list of bar objects.
  * Returns { bars, timeSignature }
  *
- * Each bar: { chords, section, repeatStart, repeatEnd }
+ * Each bar: { chords, section, ending, repeatStart, repeatEnd }
  */
 function parseChart(decoded) {
   const bars = [];
   let chords       = [];
   let section      = null;
+  let ending       = null;
   let repeatStart  = false;
   let pendingRepeatEnd = false;
   let timeSignature = '4/4';
 
   function commitBar() {
-    bars.push({ chords, section, repeatStart, repeatEnd: pendingRepeatEnd });
+    bars.push({ chords, section, ending, repeatStart, repeatEnd: pendingRepeatEnd });
     chords = [];
     section = null;
+    ending = null;
     repeatStart = false;
     pendingRepeatEnd = false;
   }
@@ -88,16 +88,22 @@ function parseChart(decoded) {
       i += 2; continue;
     }
 
+    // ── N1 N2 N3 = numbered endings (volta) ─────────────────────────────
+    const endM = rest.match(/^N(\d)/);
+    if (endM) {
+      ending = parseInt(endM[1], 10);
+      i += 2; continue;
+    }
+
     // ── XyQ = empty cell spacer (represents an empty measure slot) ────────
     if (rest.startsWith('XyQ')) {
-      // iReal Pro uses XyQ to represent an empty/invisible measure
       commitBar();  // commit as empty bar
       i += 3; continue;
     }
 
     // ── LZ = barline ──────────────────────────────────────────────────────
     if (rest.startsWith('LZ')) {
-      if (chords.length > 0 || section || repeatStart) commitBar();
+      if (chords.length > 0 || section || repeatStart || ending != null) commitBar();
       i += 2; continue;
     }
 
@@ -167,9 +173,6 @@ function parseChart(decoded) {
       i++; continue;
     }
 
-    // ── N1 N2 N3 = numbered endings ───────────────────────────────────────
-    if (rest.match(/^N\d/)) { i += 2; continue; }
-
     // ── navigation markers ────────────────────────────────────────────────
     if ('SQU'.includes(decoded[i])) { i++; continue; }
 
@@ -178,7 +181,7 @@ function parseChart(decoded) {
 
     // ── n = N.C. (no chord) ───────────────────────────────────────────────
     if (decoded[i] === 'n') {
-      // skip — empty chord slot
+      chords.push({ root: 'N.C.' });
       i++; continue;
     }
 
@@ -200,18 +203,21 @@ function parseChart(decoded) {
     // ── chord ─────────────────────────────────────────────────────────────
     // Pattern: [A-G][b#]?[quality]*(\/[A-G][#b]?)?
     // quality chars: + - ^ 0-9 h o b # s u a d l t
-    const chordM = rest.match(/^([A-G])(b|#)?((?:[+\-\^0-9hob#suadlt]|\(.*?\))*)(\/[A-G][#b]?)?/);
+    const chordM = rest.match(/^([A-G])(b|#)?((?:[+\-\^0-9hob#suadlt]|\(.*?\))*)(\/([A-G])([#b])?)?/);
     if (chordM) {
       const root     = chordM[1];
       const acc      = chordM[2];       // 'b', '#', or undefined
       let   quality  = (chordM[3] || '').replace(/\(.*?\)/g, '').trim();
-
-      // iReal Pro uses ^ for major; keep as-is — normalizeQuality handles ^7 → △7
-      // Remove slash bass for now (could be added later)
+      const bassRoot = chordM[5];       // slash bass root
+      const bassAcc  = chordM[6];       // slash bass accidental
 
       const chord = { root };
       if (acc) chord.accidental = acc;
       if (quality) chord.quality = quality;
+      if (bassRoot) {
+        chord.bass = { root: bassRoot };
+        if (bassAcc) chord.bass.accidental = bassAcc;
+      }
 
       chords.push(chord);
       i += chordM[0].length;
@@ -245,16 +251,17 @@ function groupSystems(bars) {
   for (let bi = 0; bi < bars.length; bi++) {
     const bar = bars[bi];
 
-    // A section marker or repeat-start on a bar that would begin mid-system
+    // A section marker, repeat-start, or ending on a bar that would begin mid-system
     // forces a system break (so labels always appear at system start).
-    if ((bar.section || bar.repeatStart) && sysBars.length > 0) {
+    if ((bar.section || bar.repeatStart || bar.ending != null) && sysBars.length > 0) {
       flush();
     }
 
     // Apply first-bar metadata to the current system
     if (sysBars.length === 0) {
-      if (bar.section)     sysMeta.sectionLabel   = bar.section;
-      if (bar.repeatStart) sysMeta.hasRepeatStart = true;
+      if (bar.section)        sysMeta.sectionLabel   = bar.section;
+      if (bar.repeatStart)    sysMeta.hasRepeatStart = true;
+      if (bar.ending != null) sysMeta.ending         = bar.ending;
     }
 
     // A repeat-end decoration goes on the LAST bar of the current system
@@ -284,9 +291,6 @@ function parseSong(raw) {
   const title    = (parts[0]  || '').trim();
   const composer = (parts[1]  || '').trim();
   const style    = (parts[3]  || 'Swing').trim();
-  // Key is the field immediately before the (empty) field before music,
-  // i.e. two positions before musicIdx (parts[musicIdx-1] is empty, key is musicIdx-2)
-  // fallback: musicIdx - 1
   const keyRaw = (parts[musicIdx - 1] || parts[musicIdx - 2] || 'C').trim();
   const key = keyRaw || 'C';
 
@@ -297,12 +301,12 @@ function parseSong(raw) {
 
   const { bars, timeSignature } = parseChart(decoded);
   const systems = groupSystems(bars.filter(b =>
-    b.chords.length > 0 || b.section || b.repeatStart
+    b.chords.length > 0 || b.section || b.repeatStart || b.ending != null
   ));
 
   if (systems.length === 0) return null;
 
-  return { title, style, composer, timeSignature, systems };
+  return { title, style, composer, timeSignature, key, systems };
 }
 
 // ─── fetch helper ─────────────────────────────────────────────────────────────
@@ -310,29 +314,15 @@ function parseSong(raw) {
 function fetchUrl(url) {
   return new Promise((resolve, reject) => {
     https.get(url, res => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        return fetchUrl(res.headers.location).then(resolve, reject);
+      }
       const chunks = [];
       res.on('data', c => chunks.push(c));
       res.on('end',  () => resolve(Buffer.concat(chunks).toString('utf8')));
       res.on('error', reject);
     }).on('error', reject);
   });
-}
-
-// ─── TypeScript serialiser ────────────────────────────────────────────────────
-
-function toTS(songs) {
-  // We emit the array as JSON (valid TS for literal objects).
-  // JSON.stringify already escapes strings correctly.
-  const json = JSON.stringify(songs, null, 2);
-  return `// AUTO-GENERATED by scripts/convert-ireal.js – do not edit by hand.
-// Source: jazz1460 playlist from https://blog.karimratib.me/demos/chirp/
-// Quality strings are left in iReal Pro notation (^7, -7, h7, o7 …);
-// LeadSheet.tsx's normalizeQuality() converts them on the fly.
-
-import type { LeadSheetData } from './leadSheetTypes';
-
-export const jazzSongs: LeadSheetData[] = ${json};
-`;
 }
 
 // ─── main ─────────────────────────────────────────────────────────────────────
@@ -346,11 +336,8 @@ async function main() {
   process.stderr.write(`Found ${songStrings.length} song entries.\n`);
 
   const songs = [];
-  let tried = 0;
 
   for (const s of songStrings) {
-    if (songs.length >= MAX_SONGS) break;
-    tried++;
     try {
       const song = parseSong(s);
       if (song) songs.push(song);
@@ -359,11 +346,12 @@ async function main() {
     }
   }
 
-  process.stderr.write(`Parsed ${songs.length} songs (tried ${tried}).\n`);
+  process.stderr.write(`Parsed ${songs.length} songs.\n`);
 
-  const outPath = path.join(__dirname, '..', 'src', 'data', 'jazzSongs.ts');
-  fs.writeFileSync(outPath, toTS(songs), 'utf8');
-  process.stderr.write(`Written to ${outPath}\n`);
+  const outPath = path.join(__dirname, '..', 'public', 'jazz1460.json');
+  fs.writeFileSync(outPath, JSON.stringify(songs), 'utf8');
+  const sizeMB = (fs.statSync(outPath).size / 1024 / 1024).toFixed(2);
+  process.stderr.write(`Written to ${outPath} (${sizeMB} MB)\n`);
 }
 
 main().catch(err => {

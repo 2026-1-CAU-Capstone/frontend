@@ -1,138 +1,59 @@
-import type { SongData } from './types';
+import type { LeadSheetData } from './leadSheetTypes';
 
-export const allOfMe: SongData = {
-  id: 'all-of-me',
-  title: 'All Of Me',
-  key: 'C Major',
-  scoreImages: {
-    1: '/scores/all-of-me-p1.png',
-    // 2: '/scores/autumn-leaves-p1.png',  // 향후 추가
-    // 3: '/scores/blue-bossa-p1.png',
-  },
-  toc: [
-    { title: 'All Of Me', page: 1 },
-    { title: 'Autumn Leaves', page: 2 },
-    { title: 'Blue Bossa', page: 3 },
-  ],
-  groupExplanations: {
-    1: 'Dm7(ii) → G7(V)의 incomplete ii-V 진행입니다. A 섹션 마지막에서 B 섹션으로 넘어가면서 I(Cmaj7)로의 해결이 지연됩니다. 앞의 D7(V/V)이 이 ii-V를 준비하는 역할을 합니다.',
-    2: 'Dm7(ii) → G7(V) → C6(I)의 완전한 ii-V-I 종지입니다. 곡의 마지막에서 tonic으로 확실하게 돌아오며, 전체 조성을 확립하는 핵심 순간입니다.',
-  },
-  chords: [
-    // A Section (bars 1-8)
-    {
-      id: '1', symbol: 'C6', bar: 1, pageNumber: 1,
-      position: { x: 0.12, y: 0.13, width: 0.18, height: 0.08 },
-      analysis: { degree: 'I', func: 'T', diatonic: true },
-    },
-    {
-      id: '2', symbol: 'E7', bar: 3, pageNumber: 1,
-      position: { x: 0.52, y: 0.13, width: 0.18, height: 0.08 },
-      analysis: { degree: 'V/vi', func: 'D', diatonic: false, secDom: 'vi' },
-    },
-    {
-      id: '3', symbol: 'A7', bar: 5, pageNumber: 1,
-      position: { x: 0.12, y: 0.24, width: 0.18, height: 0.08 },
-      analysis: { degree: 'V/ii', func: 'D', diatonic: false, secDom: 'ii' },
-    },
-    {
-      id: '4', symbol: 'Dm7', bar: 7, pageNumber: 1,
-      position: { x: 0.52, y: 0.24, width: 0.18, height: 0.08 },
-      analysis: { degree: 'ii', func: 'SD', diatonic: true },
-    },
-    {
-      id: '5', symbol: 'E7', bar: 9, pageNumber: 1,
-      position: { x: 0.12, y: 0.34, width: 0.18, height: 0.08 },
-      analysis: { degree: 'V/vi', func: 'D', diatonic: false, secDom: 'vi' },
-    },
-    {
-      id: '6', symbol: 'Am7', bar: 11, pageNumber: 1,
-      position: { x: 0.52, y: 0.34, width: 0.18, height: 0.08 },
-      analysis: { degree: 'vi', func: 'T', diatonic: true },
-    },
-    {
-      id: '7', symbol: 'D7', bar: 13, pageNumber: 1,
-      position: { x: 0.12, y: 0.44, width: 0.18, height: 0.08 },
-      analysis: { degree: 'V/V', func: 'D', diatonic: false, secDom: 'V' },
-    },
-    {
-      id: '8', symbol: 'Dm7', bar: 15, pageNumber: 1,
-      position: { x: 0.52, y: 0.44, width: 0.12, height: 0.08 },
-      analysis: { degree: 'ii', func: 'SD', diatonic: true, group: { id: 1, type: 'incomplete', role: 'ii' } },
-    },
-    {
-      id: '9', symbol: 'G7', bar: 15.5, pageNumber: 1,
-      position: { x: 0.65, y: 0.44, width: 0.12, height: 0.08 },
-      analysis: { degree: 'V', func: 'D', diatonic: true, group: { id: 1, type: 'incomplete', role: 'V' } },
-    },
-
-    // B Section (bars 17-24)
-    {
-      id: '10', symbol: 'Bb6', bar: 17, pageNumber: 1,
-      position: { x: 0.12, y: 0.55, width: 0.08, height: 0.08 },
-      analysis: { degree: 'bVII', func: 'SD', diatonic: false, modal: 'mixolydian' },
-    },
-    {
-      id: '11', symbol: 'C6', bar: 17.5, pageNumber: 1,
-      position: { x: 0.22, y: 0.55, width: 0.08, height: 0.08 },
-      analysis: { degree: 'I', func: 'T', diatonic: true },
-    },
-    {
-      id: '12', symbol: 'E7', bar: 19, pageNumber: 1,
-      position: { x: 0.52, y: 0.55, width: 0.18, height: 0.08 },
-      analysis: { degree: 'V/vi', func: 'D', diatonic: false, secDom: 'vi' },
-    },
-    {
-      id: '13', symbol: 'A7', bar: 21, pageNumber: 1,
-      position: { x: 0.12, y: 0.66, width: 0.18, height: 0.08 },
-      analysis: { degree: 'V/ii', func: 'D', diatonic: false, secDom: 'ii' },
-    },
-    {
-      id: '14', symbol: 'Dm7', bar: 23, pageNumber: 1,
-      position: { x: 0.52, y: 0.66, width: 0.18, height: 0.08 },
-      analysis: { degree: 'ii', func: 'SD', diatonic: true },
-    },
-    {
-      id: '15', symbol: 'F6', bar: 25, pageNumber: 1,
-      position: { x: 0.12, y: 0.76, width: 0.08, height: 0.08 },
-      analysis: { degree: 'IV', func: 'SD', diatonic: true },
-    },
-    {
-      id: '16', symbol: 'Fm6', bar: 25.5, pageNumber: 1,
-      position: { x: 0.22, y: 0.76, width: 0.08, height: 0.08 },
-      analysis: { degree: 'iv', func: 'SD', diatonic: false, modal: 'aeolian' },
-    },
-    {
-      id: '17', symbol: 'Cmaj7', bar: 27, pageNumber: 1,
-      position: { x: 0.42, y: 0.76, width: 0.10, height: 0.08 },
-      analysis: { degree: 'I', func: 'T', diatonic: true },
-    },
-    {
-      id: '18', symbol: 'Em7b5/Bb', bar: 27.5, pageNumber: 1,
-      position: { x: 0.54, y: 0.76, width: 0.10, height: 0.08 },
-      analysis: { degree: 'iii°/b7', func: 'D', diatonic: false },
-    },
-
-    // Final cadence
-    {
-      id: '19', symbol: 'A7', bar: 29, pageNumber: 1,
-      position: { x: 0.12, y: 0.86, width: 0.18, height: 0.08 },
-      analysis: { degree: 'V/ii', func: 'D', diatonic: false, secDom: 'ii' },
-    },
-    {
-      id: '20', symbol: 'Dm7', bar: 31, pageNumber: 1,
-      position: { x: 0.12, y: 0.94, width: 0.08, height: 0.06 },
-      analysis: { degree: 'ii', func: 'SD', diatonic: true, group: { id: 2, type: 'ii-V-I', role: 'ii' } },
-    },
-    {
-      id: '21', symbol: 'G7', bar: 31.5, pageNumber: 1,
-      position: { x: 0.22, y: 0.94, width: 0.08, height: 0.06 },
-      analysis: { degree: 'V', func: 'D', diatonic: true, group: { id: 2, type: 'ii-V-I', role: 'V' } },
-    },
-    {
-      id: '22', symbol: 'C6', bar: 32, pageNumber: 1,
-      position: { x: 0.32, y: 0.94, width: 0.08, height: 0.06 },
-      analysis: { degree: 'I', func: 'T', diatonic: true, group: { id: 2, type: 'ii-V-I', role: 'I' } },
-    },
+export const allOfMe: LeadSheetData = {
+  title: 'All of Me',
+  style: 'Medium Swing',
+  composer: 'Marks / Simons',
+  timeSignature: '4/4',
+  key: 'C',
+  systems: [
+    { sectionLabel: 'A', bars: [
+        { chords: [{ root: 'C', quality: 'Δ7', analysis: { rootPc: 0, degree: 'I', functions: [{ function: 'T', confidence: 1.0 }], modeSegment: 'ionian' } }] },
+        { chords: [{ root: 'C', quality: 'Δ7', analysis: { rootPc: 0, degree: 'I', functions: [{ function: 'T', confidence: 1.0 }], modeSegment: 'ionian' } }] },
+        { chords: [{ root: 'E', quality: '7', isDiatonic: false, analysis: { rootPc: 4, degree: 'III', functions: [{ function: 'D', confidence: 0.6 }], secondaryDominant: { targetDegree: 'vi' }, modeSegment: 'ionian', ambiguityScore: 0.31 } }] },
+        { chords: [{ root: 'E', quality: '7', isDiatonic: false, analysis: { rootPc: 4, degree: 'III', functions: [{ function: 'D', confidence: 0.9 }], secondaryDominant: { targetDegree: 'vi' }, modeSegment: 'ionian', ambiguityScore: 0.14 } }] },
+      ] },
+    { bars: [
+        { chords: [{ root: 'A', quality: '7', isDiatonic: false, analysis: { rootPc: 9, degree: 'VI', functions: [{ function: 'D', confidence: 0.6 }], secondaryDominant: { targetDegree: 'ii' }, modeSegment: 'dorian', ambiguityScore: 0.31 } }] },
+        { chords: [{ root: 'A', quality: '7', isDiatonic: false, analysis: { rootPc: 9, degree: 'VI', functions: [{ function: 'D', confidence: 0.9 }], groupMemberships: [{ groupId: 1, groupType: 'ii-V-I', role: 'V', variant: 'minor' }], secondaryDominant: { targetDegree: 'ii' }, modeSegment: 'dorian', ambiguityScore: 0.22 } }] },
+        { chords: [{ root: 'D', quality: '-7', analysis: { rootPc: 2, degree: 'ii', functions: [{ function: 'SD', confidence: 1.0 }], groupMemberships: [{ groupId: 1, groupType: 'ii-V-I', role: 'I', variant: 'minor' }], modeSegment: 'dorian' } }] },
+        { chords: [{ root: 'D', quality: '-7', analysis: { rootPc: 2, degree: 'ii', functions: [{ function: 'SD', confidence: 1.0 }], modeSegment: 'dorian' } }] },
+      ] },
+    { sectionLabel: "A'", bars: [
+        { chords: [{ root: 'E', quality: '7', isDiatonic: false, analysis: { rootPc: 4, degree: 'III', functions: [{ function: 'D', confidence: 0.6 }], secondaryDominant: { targetDegree: 'vi' }, modeSegment: 'dorian', ambiguityScore: 0.31 } }] },
+        { chords: [{ root: 'E', quality: '7', isDiatonic: false, analysis: { rootPc: 4, degree: 'III', functions: [{ function: 'D', confidence: 0.9 }], groupMemberships: [{ groupId: 2, groupType: 'ii-V-I', role: 'V', variant: 'minor' }], secondaryDominant: { targetDegree: 'vi' }, modeSegment: 'dorian', ambiguityScore: 0.22 } }] },
+        { chords: [{ root: 'A', quality: '-7', analysis: { rootPc: 9, degree: 'vi', functions: [{ function: 'T', confidence: 0.7 }, { function: 'SD', confidence: 0.3 }], groupMemberships: [{ groupId: 2, groupType: 'ii-V-I', role: 'I', variant: 'minor' }], modeSegment: 'aeolian', ambiguityScore: 0.117 } }] },
+        { chords: [{ root: 'A', quality: '-7', analysis: { rootPc: 9, degree: 'vi', functions: [{ function: 'T', confidence: 0.7 }, { function: 'SD', confidence: 0.3 }], groupMemberships: [{ groupId: 3, groupType: 'ii-V-I', role: 'ii', variant: 'incomplete' }], modeSegment: 'dorian', ambiguityScore: 0.117 } }] },
+      ] },
+    { bars: [
+        { chords: [{ root: 'D', quality: '7', isDiatonic: false, analysis: { rootPc: 2, degree: 'II', functions: [{ function: 'D', confidence: 0.6 }], groupMemberships: [{ groupId: 3, groupType: 'ii-V-I', role: 'V', variant: 'incomplete' }], secondaryDominant: { targetDegree: 'V' }, modeSegment: 'dorian', ambiguityScore: 0.37 } }] },
+        { chords: [{ root: 'D', quality: '7', isDiatonic: false, analysis: { rootPc: 2, degree: 'II', functions: [{ function: 'D', confidence: 0.6 }], secondaryDominant: { targetDegree: 'V' }, modeSegment: 'dorian', ambiguityScore: 0.31 } }] },
+        { chords: [{ root: 'D', quality: '-7', analysis: { rootPc: 2, degree: 'ii', functions: [{ function: 'SD', confidence: 1.0 }], groupMemberships: [{ groupId: 4, groupType: 'ii-V-I', role: 'ii', variant: 'standard' }], modeSegment: 'ionian' } }] },
+        { chords: [{ root: 'G', quality: '7', analysis: { rootPc: 7, degree: 'V', functions: [{ function: 'D', confidence: 1.0 }], groupMemberships: [{ groupId: 4, groupType: 'ii-V-I', role: 'V', variant: 'standard' }], modeSegment: 'ionian' } }] },
+      ] },
+    { sectionLabel: 'A', bars: [
+        { chords: [{ root: 'C', quality: 'Δ7', analysis: { rootPc: 0, degree: 'I', functions: [{ function: 'T', confidence: 1.0 }], groupMemberships: [{ groupId: 4, groupType: 'ii-V-I', role: 'I', variant: 'standard' }], modeSegment: 'ionian' } }] },
+        { chords: [{ root: 'C', quality: 'Δ7', analysis: { rootPc: 0, degree: 'I', functions: [{ function: 'T', confidence: 1.0 }], modeSegment: 'ionian' } }] },
+        { chords: [{ root: 'E', quality: '7', isDiatonic: false, analysis: { rootPc: 4, degree: 'III', functions: [{ function: 'D', confidence: 0.6 }], secondaryDominant: { targetDegree: 'vi' }, modeSegment: 'ionian', ambiguityScore: 0.31 } }] },
+        { chords: [{ root: 'E', quality: '7', isDiatonic: false, analysis: { rootPc: 4, degree: 'III', functions: [{ function: 'D', confidence: 0.9 }], secondaryDominant: { targetDegree: 'vi' }, modeSegment: 'ionian', ambiguityScore: 0.14 } }] },
+      ] },
+    { bars: [
+        { chords: [{ root: 'A', quality: '7', isDiatonic: false, analysis: { rootPc: 9, degree: 'VI', functions: [{ function: 'D', confidence: 0.6 }], secondaryDominant: { targetDegree: 'ii' }, modeSegment: 'dorian', ambiguityScore: 0.31 } }] },
+        { chords: [{ root: 'A', quality: '7', isDiatonic: false, analysis: { rootPc: 9, degree: 'VI', functions: [{ function: 'D', confidence: 0.9 }], groupMemberships: [{ groupId: 5, groupType: 'ii-V-I', role: 'V', variant: 'minor' }], secondaryDominant: { targetDegree: 'ii' }, modeSegment: 'dorian', ambiguityScore: 0.22 } }] },
+        { chords: [{ root: 'D', quality: '-7', analysis: { rootPc: 2, degree: 'ii', functions: [{ function: 'SD', confidence: 1.0 }], groupMemberships: [{ groupId: 5, groupType: 'ii-V-I', role: 'I', variant: 'minor' }], modeSegment: 'dorian' } }] },
+        { chords: [{ root: 'D', quality: '-7', analysis: { rootPc: 2, degree: 'ii', functions: [{ function: 'SD', confidence: 1.0 }], modeSegment: 'dorian' } }] },
+      ] },
+    { sectionLabel: 'B', bars: [
+        { chords: [{ root: 'F', quality: '6', analysis: { rootPc: 5, degree: 'IV', functions: [{ function: 'SD', confidence: 1.0 }], modeSegment: 'dorian' } }] },
+        { chords: [{ root: 'F', quality: '-6', isDiatonic: false, analysis: { rootPc: 5, degree: 'iv', modeSegment: 'ionian', ambiguityScore: 0.53 } }] },
+        { chords: [{ root: 'C', quality: 'Δ7', analysis: { rootPc: 0, degree: 'I', functions: [{ function: 'T', confidence: 1.0 }], modeSegment: 'ionian' } }] },
+        { chords: [{ root: 'A', quality: '7', isDiatonic: false, analysis: { rootPc: 9, degree: 'VI', functions: [{ function: 'D', confidence: 0.9 }], groupMemberships: [{ groupId: 6, groupType: 'ii-V-I', role: 'V', variant: 'minor' }], secondaryDominant: { targetDegree: 'ii' }, modeSegment: 'dorian', ambiguityScore: 0.22 } }] },
+      ] },
+    { bars: [
+        { chords: [{ root: 'D', quality: '-7', analysis: { rootPc: 2, degree: 'ii', functions: [{ function: 'SD', confidence: 1.0 }], groupMemberships: [{ groupId: 6, groupType: 'ii-V-I', role: 'I', variant: 'minor' }], modeSegment: 'dorian' } }] },
+        { chords: [{ root: 'G', quality: '7', analysis: { rootPc: 7, degree: 'V', functions: [{ function: 'D', confidence: 1.0 }], groupMemberships: [{ groupId: 7, groupType: 'ii-V-I', role: 'V', variant: 'standard' }], modeSegment: 'dorian' } }] },
+        { chords: [{ root: 'C', quality: '6', analysis: { rootPc: 0, degree: 'I', functions: [{ function: 'T', confidence: 1.0 }], groupMemberships: [{ groupId: 7, groupType: 'ii-V-I', role: 'I', variant: 'standard' }], modeSegment: 'ionian' } }] },
+        { chords: [{ root: 'D', quality: '-7', analysis: { rootPc: 2, degree: 'ii', functions: [{ function: 'SD', confidence: 1.0 }], groupMemberships: [{ groupId: 8, groupType: 'ii-V-I', role: 'ii', variant: 'incomplete' }], modeSegment: 'ionian' } }, { root: 'G', quality: '7', analysis: { rootPc: 7, degree: 'V', functions: [{ function: 'D', confidence: 1.0 }], groupMemberships: [{ groupId: 8, groupType: 'ii-V-I', role: 'V', variant: 'incomplete' }], modeSegment: 'ionian' } }] },
+      ] },
   ],
 };
