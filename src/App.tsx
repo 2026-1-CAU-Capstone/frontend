@@ -210,7 +210,7 @@ function App() {
           </SongPickerBar>
 
           {sheet && !loading ? (
-            <LeadSheet data={sheet} />
+            <LeadSheet data={sheet} showAnalysis={autoHighlight} />
           ) : (
             <LoadingState>{error ?? (loading ? 'Loading chart…' : 'Loading song list…')}</LoadingState>
           )}

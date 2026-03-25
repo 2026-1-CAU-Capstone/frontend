@@ -192,10 +192,13 @@ function parseChart(decoded) {
       continue;
     }
 
-    // ── W = invisible chord (repeat same as prev, skip) ───────────────────
+    // ── W = invisible chord (same as prev bar) ────────────────────────────
+    // iReal Pro omits the chord name visually, but the bar still exists.
+    // Push isRepeat so the bar is not filtered out; resolveRepeats() in
+    // LeadSheet.tsx will substitute the actual previous chord at render time.
     if (decoded[i] === 'W') {
+      chords.push({ isRepeat: true });
       i++;
-      // consume any quality chars that might follow W
       while (i < decoded.length && /[+\-\^0-9hob#suadlt]/.test(decoded[i])) i++;
       continue;
     }

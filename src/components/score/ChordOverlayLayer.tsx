@@ -56,7 +56,7 @@ export function ChordOverlayLayer({
             chord={chord}
             selected={isSelected}
             grouped={isGrouped}
-            visible={autoHighlight || isSelected}
+            visible={autoHighlight}
             onClick={onChordClick}
           />
         );
