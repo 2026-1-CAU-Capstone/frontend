@@ -1,6 +1,6 @@
 import { irealMeta } from './irealMeta';
 
-const midiModules = import.meta.glob('../../iRealPro/jazz-1460/*.mid', {
+const midiModules = import.meta.glob('../../data/iRealPro/jazz-1460/*.mid', {
   import: 'default',
   query: '?url',
 }) as Record<string, () => Promise<string>>;
