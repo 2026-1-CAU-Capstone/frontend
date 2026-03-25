@@ -59,6 +59,68 @@ const StatusText = styled.span`
   color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
+const SearchWrap = styled.div`
+  position: relative;
+  margin-left: auto;
+`;
+
+const SearchInput = styled.input`
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+  padding: 3px 8px 3px 24px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 4px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  color: ${({ theme }) => theme.colors.textPrimary};
+  width: 220px;
+  outline: none;
+  &:focus { border-color: ${({ theme }) => theme.colors.textSecondary}; }
+  &::placeholder { color: ${({ theme }) => theme.colors.textSecondary}; opacity: 0.6; }
+`;
+
+const SearchIcon = styled.span`
+  position: absolute;
+  left: 7px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  pointer-events: none;
+`;
+
+const SearchResults = styled.div`
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  z-index: 200;
+`;
+
+const SearchItem = styled.button<{ $active?: boolean }>`
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  border: none;
+  background: ${({ $active, theme }) => $active ? theme.colors.bgSecondary : 'transparent'};
+  color: ${({ theme }) => theme.colors.textPrimary};
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+  cursor: pointer;
+  &:hover { background: ${({ theme }) => theme.colors.bgSecondary}; }
+`;
+
+const SearchComposer = styled.span`
+  color: ${({ theme }) => theme.colors.textSecondary};
+  margin-left: 6px;
+`;
+
 const LoadingState = styled.div`
   flex: 1;
   display: flex;
@@ -103,6 +165,9 @@ function App() {
   const [sheet, setSheet] = useState<LeadSheetData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
 
   // Load song index on mount
   useEffect(() => {
@@ -144,6 +209,26 @@ function App() {
 
     return () => { cancelled = true; };
   }, [songId]);
+
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase();
+    return songIndex
+      .filter((s) => s.title.toLowerCase().includes(q) || s.composer.toLowerCase().includes(q))
+      .slice(0, 30);
+  }, [searchQuery, songIndex]);
+
+  // Close search on outside click
+  useEffect(() => {
+    if (!searchOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [searchOpen]);
 
   const toc = useMemo<TocEntry[]>(() => {
     if (!sheet) return [];
@@ -207,6 +292,36 @@ function App() {
                   ? `${sheet.key ?? '?'} · ${sheet.timeSignature}`
                   : error ?? ''}
             </StatusText>
+            <SearchWrap ref={searchRef}>
+              <SearchIcon>🔍</SearchIcon>
+              <SearchInput
+                placeholder="곡 검색…"
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setSearchOpen(true); }}
+                onFocus={() => setSearchOpen(true)}
+              />
+              {searchOpen && searchQuery.trim() && (
+                <SearchResults>
+                  {searchResults.length === 0 ? (
+                    <SearchItem as="div">검색 결과 없음</SearchItem>
+                  ) : (
+                    searchResults.map((song) => (
+                      <SearchItem
+                        key={song.index}
+                        onClick={() => {
+                          setSongId(String(song.index));
+                          setSearchQuery('');
+                          setSearchOpen(false);
+                        }}
+                      >
+                        {song.title}
+                        <SearchComposer>— {song.composer}</SearchComposer>
+                      </SearchItem>
+                    ))
+                  )}
+                </SearchResults>
+              )}
+            </SearchWrap>
           </SongPickerBar>
 
           {sheet && !loading ? (

@@ -126,13 +126,16 @@ const Page = styled.div`
 /* ─── header ─────────────────────────────────────────────────────────────── */
 
 const SheetTitle = styled.h1`
-  flex: 1;
+  position: absolute;
+  left: 0;
+  right: 0;
   text-align: center;
   font-size: clamp(1.6rem, 4.5cqi, 3.0rem);
   font-weight: 700;
   letter-spacing: 0.06em;
   margin: 0;
   font-family: ${CHORD_FONT};
+  pointer-events: none;
 `;
 
 const MetaRow = styled.div`
@@ -145,13 +148,10 @@ const MetaRow = styled.div`
 `;
 
 const TitleRow = styled.div`
+  position: relative;
   display: flex;
   align-items: center;
   margin-bottom: 6px;
-`;
-
-const TitleSpacer = styled.div`
-  flex: 1;
 `;
 
 const KeyDropdownWrap = styled.div`
@@ -166,10 +166,10 @@ const KeyButton = styled.button`
   background: #fff;
   border: 1.5px solid #ccc;
   border-radius: 5px;
-  padding: 3px 10px;
+  padding: 5px 14px;
   cursor: pointer;
   font-family: ${CHORD_FONT};
-  font-size: clamp(0.9rem, 1.6cqi, 1.2rem);
+  font-size: clamp(1.2rem, 2.8cqi, 1.8rem);
   font-weight: 600;
   line-height: 1.3;
   color: #222;
@@ -188,11 +188,11 @@ const KeyMenu = styled.div`
   left: 0;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 2px;
+  gap: 3px;
   background: #fff;
   border: 1px solid #ddd;
-  border-radius: 6px;
-  padding: 6px;
+  border-radius: 8px;
+  padding: 8px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.15);
   z-index: 100;
 `;
@@ -202,10 +202,10 @@ const KeyOption = styled.button<{ $active?: boolean }>`
   color: ${({ $active }) => $active ? '#fff' : '#333'};
   border: none;
   border-radius: 4px;
-  padding: 5px 8px;
+  padding: 7px 12px;
   cursor: pointer;
   font-family: ${CHORD_FONT};
-  font-size: clamp(0.8rem, 1.3cqi, 1.0rem);
+  font-size: clamp(1.0rem, 1.8cqi, 1.3rem);
   font-weight: 600;
   text-align: center;
   white-space: nowrap;
@@ -1499,7 +1499,6 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
             )}
           </KeyDropdownWrap>
           <SheetTitle>{resolvedData.title}</SheetTitle>
-          <TitleSpacer />
         </TitleRow>
         <MetaRow>
           <span>{resolvedData.style}</span>
