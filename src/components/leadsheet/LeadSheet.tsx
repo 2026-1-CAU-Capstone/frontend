@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 import type {
   LeadSheetData,
@@ -19,6 +19,83 @@ const SECTION_GAP  = 20;  // px — extra space before a new section (A, B, …)
 const LABEL_OFFSET = 26;  // px — how far the section label floats above the grid
 const CHORD_FONT   = "'MuseJazz Text', 'Oswald', 'DM Sans', sans-serif";
 const LABEL_FONT   = "'DM Sans', 'Pretendard', sans-serif"; // gothic for A/B labels
+
+/* ─── transposition ──────────────────────────────────────────────────────── */
+
+const ALL_KEYS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'] as const;
+
+const NOTE_TO_PC: Record<string, number> = {
+  C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11,
+};
+
+const FLAT_KEYS = new Set(['C', 'F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb']);
+
+// pitch-class → [root, accidental]
+const PC_FLAT:  [string, 'b' | '#' | undefined][] = [
+  ['C',undefined],['D','b'],['D',undefined],['E','b'],['E',undefined],
+  ['F',undefined],['G','b'],['G',undefined],['A','b'],['A',undefined],
+  ['B','b'],['B',undefined],
+];
+const PC_SHARP: [string, 'b' | '#' | undefined][] = [
+  ['C',undefined],['C','#'],['D',undefined],['D','#'],['E',undefined],
+  ['F',undefined],['F','#'],['G',undefined],['G','#'],['A',undefined],
+  ['A','#'],['B',undefined],
+];
+
+function keyToPc(key: string): number {
+  // handle e.g. "Bb", "F#", "C"
+  const root = key[0];
+  const acc = key.length > 1 ? key[1] : '';
+  return ((NOTE_TO_PC[root] ?? 0) + (acc === '#' ? 1 : acc === 'b' ? -1 : 0) + 12) % 12;
+}
+
+function transposeChord(chord: LeadSheetChord, semitones: number, useFlats: boolean): LeadSheetChord {
+  if (!chord.root || chord.isRepeat) return chord;
+
+  const table = useFlats ? PC_FLAT : PC_SHARP;
+  const rootPc = ((NOTE_TO_PC[chord.root] ?? 0) + (chord.accidental === '#' ? 1 : chord.accidental === 'b' ? -1 : 0) + 12) % 12;
+  const newPc = (rootPc + semitones + 12) % 12;
+  const [newRoot, newAcc] = table[newPc];
+
+  const result: LeadSheetChord = { ...chord, root: newRoot, accidental: newAcc };
+
+  if (chord.bass) {
+    const bassPc = ((NOTE_TO_PC[chord.bass.root] ?? 0) + (chord.bass.accidental === '#' ? 1 : chord.bass.accidental === 'b' ? -1 : 0) + 12) % 12;
+    const newBassPc = (bassPc + semitones + 12) % 12;
+    const [bRoot, bAcc] = table[newBassPc];
+    result.bass = { root: bRoot, accidental: bAcc };
+  }
+
+  if (chord.analysis) {
+    result.analysis = {
+      ...chord.analysis,
+      rootPc: newPc,
+      bassPc: chord.analysis.bassPc != null ? (chord.analysis.bassPc + semitones + 12) % 12 : undefined,
+    };
+  }
+
+  return result;
+}
+
+function transposeData(data: LeadSheetData, targetKey: string): LeadSheetData {
+  const origPc = keyToPc(data.key ?? 'C');
+  const targetPc = keyToPc(targetKey);
+  const semitones = (targetPc - origPc + 12) % 12;
+  if (semitones === 0) return data;
+
+  const useFlats = FLAT_KEYS.has(targetKey);
+  return {
+    ...data,
+    key: targetKey,
+    systems: data.systems.map((sys) => ({
+      ...sys,
+      bars: sys.bars.map((bar) => ({
+        ...bar,
+        chords: bar.chords.map((ch) => transposeChord(ch, semitones, useFlats)),
+      })),
+    })),
+  };
+}
 
 /* ─── page ───────────────────────────────────────────────────────────────── */
 
@@ -49,11 +126,12 @@ const Page = styled.div`
 /* ─── header ─────────────────────────────────────────────────────────────── */
 
 const SheetTitle = styled.h1`
+  flex: 1;
   text-align: center;
   font-size: clamp(1.6rem, 4.5cqi, 3.0rem);
   font-weight: 700;
   letter-spacing: 0.06em;
-  margin: 0 0 6px;
+  margin: 0;
   font-family: ${CHORD_FONT};
 `;
 
@@ -64,6 +142,74 @@ const MetaRow = styled.div`
   font-family: 'DM Sans', sans-serif;
   font-weight: 400;
   margin-bottom: 28px;
+`;
+
+const TitleRow = styled.div`
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+`;
+
+const TitleSpacer = styled.div`
+  flex: 1;
+`;
+
+const KeyDropdownWrap = styled.div`
+  position: relative;
+  display: inline-block;
+`;
+
+const KeyButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #fff;
+  border: 1.5px solid #ccc;
+  border-radius: 5px;
+  padding: 3px 10px;
+  cursor: pointer;
+  font-family: ${CHORD_FONT};
+  font-size: clamp(0.9rem, 1.6cqi, 1.2rem);
+  font-weight: 600;
+  line-height: 1.3;
+  color: #222;
+  &:hover { border-color: #888; }
+
+  &::after {
+    content: '▾';
+    font-size: 0.7em;
+    color: #999;
+  }
+`;
+
+const KeyMenu = styled.div`
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  z-index: 100;
+`;
+
+const KeyOption = styled.button<{ $active?: boolean }>`
+  background: ${({ $active }) => $active ? '#333' : 'transparent'};
+  color: ${({ $active }) => $active ? '#fff' : '#333'};
+  border: none;
+  border-radius: 4px;
+  padding: 5px 8px;
+  cursor: pointer;
+  font-family: ${CHORD_FONT};
+  font-size: clamp(0.8rem, 1.3cqi, 1.0rem);
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  &:hover { background: ${({ $active }) => $active ? '#333' : '#f0f0f0'}; }
 `;
 
 /* ─── system row ─────────────────────────────────────────────────────────── */
@@ -710,6 +856,29 @@ interface HighlightRect {
   height: number;
   label: string;
   kind: 'major' | 'minor';
+  rowPosition: 'only' | 'first' | 'middle' | 'last';
+}
+
+function hlBorderRadius(pos: HighlightRect['rowPosition']): string {
+  switch (pos) {
+    case 'first':  return '4px 0 0 4px';
+    case 'last':   return '0 4px 4px 0';
+    case 'middle': return '0';
+    default:       return '4px';
+  }
+}
+
+/** Hover border: only left edge of first chord + right edge of last chord. */
+function hlHoverBorder(pos: HighlightRect['rowPosition'], hovered: boolean): React.CSSProperties {
+  if (!hovered) return {};
+  const b = '2px solid #B8860B';
+  const tb: React.CSSProperties = { borderTop: b, borderBottom: b };
+  switch (pos) {
+    case 'first':  return { ...tb, borderLeft: b };
+    case 'last':   return { ...tb, borderRight: b };
+    case 'middle': return tb;
+    default:       return { ...tb, borderLeft: b, borderRight: b }; // single-row
+  }
 }
 
 interface ArrowSpec {
@@ -974,7 +1143,33 @@ function detectSecDomArrows(data: LeadSheetData): ArrowSpec[] {
 }
 
 export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
-  const resolvedData = useMemo(() => resolveRepeats(data), [data]);
+  const originalKey = data.key ?? 'C';
+  const [selectedKey, setSelectedKey] = useState(originalKey);
+
+  // Reset key when song changes
+  useEffect(() => { setSelectedKey(originalKey); }, [originalKey]);
+
+  const [keyMenuOpen, setKeyMenuOpen] = useState(false);
+  const keyMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!keyMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (keyMenuRef.current && !keyMenuRef.current.contains(e.target as Node)) {
+        setKeyMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [keyMenuOpen]);
+
+  const transposedData = useMemo(
+    () => (selectedKey === originalKey ? data : transposeData(data, selectedKey)),
+    [data, selectedKey, originalKey],
+  );
+
+  const resolvedData = useMemo(() => resolveRepeats(transposedData), [transposedData]);
   const pageRef = useRef<HTMLDivElement | null>(null);
   const systemElsRef = useRef<Record<number, HTMLDivElement | null>>({});
   const gridElsRef = useRef<Record<number, HTMLDivElement | null>>({});
@@ -1171,6 +1366,12 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
             hlRight = gridRect.right;
           }
 
+          const rowPosition: HighlightRect['rowPosition'] =
+            rowIndices.length === 1 ? 'only'
+            : r === 0 ? 'first'
+            : r === rowIndices.length - 1 ? 'last'
+            : 'middle';
+
           resolvedHighlights.push({
             key: `hl-${spanIdx}-${si}`,
             spanKey: `span-${spanIdx}`,
@@ -1180,6 +1381,7 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
             height: maxY - minY + HL_PAD_Y * 2,
             label: span.label,
             kind: span.kind,
+            rowPosition,
           });
         }
       }
@@ -1270,14 +1472,35 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
               left: hl.x, top: hl.y,
               width: hl.width, height: hl.height,
               background: 'rgba(255, 236, 179, 0.45)',
-              borderRadius: '4px',
+              borderRadius: hlBorderRadius(hl.rowPosition),
               pointerEvents: 'none',
               zIndex: 0,
             }}
           />
         ))}
 
-        <SheetTitle>{resolvedData.title}</SheetTitle>
+        <TitleRow>
+          <KeyDropdownWrap ref={keyMenuRef}>
+            <KeyButton onClick={() => setKeyMenuOpen((v) => !v)}>
+              {selectedKey}
+            </KeyButton>
+            {keyMenuOpen && (
+              <KeyMenu>
+                {ALL_KEYS.map((k) => (
+                  <KeyOption
+                    key={k}
+                    $active={k === selectedKey}
+                    onClick={() => { setSelectedKey(k); setKeyMenuOpen(false); }}
+                  >
+                    {k}
+                  </KeyOption>
+                ))}
+              </KeyMenu>
+            )}
+          </KeyDropdownWrap>
+          <SheetTitle>{resolvedData.title}</SheetTitle>
+          <TitleSpacer />
+        </TitleRow>
         <MetaRow>
           <span>{resolvedData.style}</span>
           <span>{resolvedData.composer}</span>
@@ -1320,9 +1543,10 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
                 position: 'absolute',
                 left: hl.x, top: hl.y,
                 width: hl.width, height: hl.height,
+                boxSizing: 'border-box',
                 background: 'transparent',
-                borderRadius: '4px',
-                outline: isHovered ? '2px solid #B8860B' : 'none',
+                borderRadius: hlBorderRadius(hl.rowPosition),
+                ...hlHoverBorder(hl.rowPosition, isHovered),
                 cursor: 'pointer',
                 zIndex: 3,
               }}
