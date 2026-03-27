@@ -1,0 +1,175 @@
+{
+  "title": "Basin Street Blues",
+  "composer": "Williams",
+  "performer": "Louis Armstrong",
+  "key": "Bb-maj",
+  "timeSignature": "4/4",
+  "tempo": 107,
+  "style": "TRADITIONAL",
+  "rhythmfeel": "TWOBEAT",
+  "instrument": "tp",
+  "form": "A12",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 11,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 18,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 31,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 41,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 48,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 52,
+      "beat": 1.0,
+      "symbol": "Bbo"
+    },
+    {
+      "measure": 59,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 67,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 71,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 80,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 89,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 112,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 118,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 123,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 124,
+      "beat": 1.0,
+      "symbol": "Bbo"
+    },
+    {
+      "measure": 125,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 128,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 131,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 135,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 144,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 158,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 165,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 172,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 176,
+      "beat": 1.0,
+      "symbol": "Bbo"
+    },
+    {
+      "measure": 179,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 185,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 187,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 192,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 198,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 210,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 212,
+      "beat": 1.0,
+      "symbol": "F7"
+    }
+  ]
+}

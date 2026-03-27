@@ -1,0 +1,155 @@
+{
+  "title": "Pop Tune #1",
+  "composer": "Chris Potter",
+  "performer": "Chris Potter",
+  "key": "G-min",
+  "timeSignature": "4/4",
+  "tempo": 109,
+  "style": "FUSION",
+  "rhythmfeel": "FUNK",
+  "instrument": "ts",
+  "form": "open",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 789,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 803,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 817,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 836,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 860,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 890,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 907,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 957,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 986,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 1017,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 1039,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 1062,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 1081,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 1103,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 1130,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 1151,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 1181,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 1214,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 1241,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 1269,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 1281,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 1292,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 1305,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 1315,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 1324,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 1334,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 1344,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    }
+  ]
+}

@@ -1,0 +1,140 @@
+{
+  "title": "You Stepped Out of a Dream",
+  "composer": "Kahn/Brown",
+  "performer": "Don Ellis",
+  "key": "D-maj",
+  "timeSignature": "4/4",
+  "tempo": 169,
+  "style": "POSTBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "tp",
+  "form": "A16B16",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Dj7"
+    },
+    {
+      "measure": 7,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 10,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 19,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 33,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 39,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 44,
+      "beat": 1.0,
+      "symbol": "Gj7"
+    },
+    {
+      "measure": 55,
+      "beat": 1.0,
+      "symbol": "B-7"
+    },
+    {
+      "measure": 58,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 62,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 65,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 67,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 69,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 71,
+      "beat": 1.0,
+      "symbol": "Dj7"
+    },
+    {
+      "measure": 75,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 83,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 95,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 99,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 104,
+      "beat": 1.0,
+      "symbol": "Em7b5"
+    },
+    {
+      "measure": 107,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 110,
+      "beat": 1.0,
+      "symbol": "F#-7"
+    },
+    {
+      "measure": 111,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 113,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 115,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 118,
+      "beat": 1.0,
+      "symbol": "Dj7"
+    }
+  ]
+}

@@ -1,0 +1,275 @@
+{
+  "title": "Blues for Bela",
+  "composer": "Bob Berg",
+  "performer": "Bob Berg",
+  "key": "C-min",
+  "timeSignature": "4/4",
+  "tempo": 249,
+  "style": "POSTBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "ts",
+  "form": "A12",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 2,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 8,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 15,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 20,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 28,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 37,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 44,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 63,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 71,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 87,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 102,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 107,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 116,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 125,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 143,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 148,
+      "beat": 1.0,
+      "symbol": "F-"
+    },
+    {
+      "measure": 156,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 165,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 181,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 185,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 187,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 195,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 196,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 215,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 224,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 234,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 250,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 257,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 262,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 290,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 304,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 310,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 315,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 323,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 343,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 349,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 355,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 362,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 369,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 378,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 406,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 424,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 436,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 445,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 451,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 456,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 483,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 488,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 505,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 513,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 527,
+      "beat": 1.0,
+      "symbol": "G7"
+    }
+  ]
+}

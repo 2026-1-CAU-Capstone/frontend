@@ -1,0 +1,195 @@
+{
+  "title": "Bessie's Blues",
+  "composer": "John Coltrane",
+  "performer": "John Coltrane",
+  "key": "Eb-maj",
+  "timeSignature": "4/4",
+  "tempo": 184,
+  "style": "POSTBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "ts",
+  "form": "A12",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 9,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 15,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 30,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 43,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 60,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 67,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 72,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 83,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 90,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 102,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 119,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 124,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 132,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 138,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 155,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 163,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 171,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 182,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 192,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 201,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 207,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 222,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 225,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 237,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 246,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 259,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 267,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 273,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 288,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 296,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 307,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 317,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 326,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 336,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 343,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    }
+  ]
+}

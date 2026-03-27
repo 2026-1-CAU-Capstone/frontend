@@ -1,0 +1,305 @@
+{
+  "title": "Blues on Sunday",
+  "composer": "Joshua Redman",
+  "performer": "Joshua Redman",
+  "key": "Eb-maj",
+  "timeSignature": "4/4",
+  "tempo": 133,
+  "style": "POSTBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "ts",
+  "form": "A12",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 21,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 29,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 43,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 55,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 62,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 66,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 75,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 82,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 86,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 94,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 100,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 105,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 122,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 138,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 151,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 163,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 175,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 182,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 189,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 196,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 199,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 205,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 216,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 232,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 237,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 253,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 269,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 285,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 312,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 318,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 338,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 358,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 374,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 393,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 408,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 424,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 437,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 439,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 444,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 448,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 457,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 467,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 473,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 485,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 492,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 503,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 514,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 522,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 530,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 537,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 567,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 578,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 587,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 590,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 598,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 607,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 612,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    }
+  ]
+}

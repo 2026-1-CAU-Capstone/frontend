@@ -1,0 +1,800 @@
+{
+  "title": "I've Got You Under My Skin",
+  "composer": "Cole Porter",
+  "performer": "David Liebman",
+  "key": "Eb-maj",
+  "timeSignature": "4/4",
+  "tempo": 256,
+  "style": "POSTBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "ss",
+  "form": "A16B16C8D16",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 11,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 13,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 19,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 27,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 35,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 40,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 49,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 58,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 61,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 67,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 76,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 84,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 88,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 95,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 99,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 108,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 112,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 114,
+      "beat": 1.0,
+      "symbol": "Fm7b5"
+    },
+    {
+      "measure": 116,
+      "beat": 1.0,
+      "symbol": "Bb79b"
+    },
+    {
+      "measure": 121,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 131,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 135,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 151,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 160,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 167,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 178,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 182,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 186,
+      "beat": 1.0,
+      "symbol": "C79b"
+    },
+    {
+      "measure": 194,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 203,
+      "beat": 1.0,
+      "symbol": "Bbsus"
+    },
+    {
+      "measure": 207,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 211,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 219,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 224,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 229,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 231,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 233,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 235,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 239,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 246,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 253,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 258,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 260,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 263,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 267,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 275,
+      "beat": 1.0,
+      "symbol": "Gm7b5"
+    },
+    {
+      "measure": 279,
+      "beat": 1.0,
+      "symbol": "C79b"
+    },
+    {
+      "measure": 282,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 287,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 291,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 293,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 297,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 301,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 314,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 319,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 323,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 326,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 333,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 340,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 343,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 349,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 356,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 365,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 373,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 381,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 388,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 396,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 405,
+      "beat": 1.0,
+      "symbol": "Fm7b5"
+    },
+    {
+      "measure": 413,
+      "beat": 1.0,
+      "symbol": "Bb79b"
+    },
+    {
+      "measure": 417,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 420,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 433,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 446,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 469,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 471,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 475,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 476,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 483,
+      "beat": 1.0,
+      "symbol": "F-7/Bb"
+    },
+    {
+      "measure": 487,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 492,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 500,
+      "beat": 1.0,
+      "symbol": "C79b"
+    },
+    {
+      "measure": 507,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 513,
+      "beat": 1.0,
+      "symbol": "F-7/Bb"
+    },
+    {
+      "measure": 514,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 518,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 526,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 532,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 534,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 537,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 542,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 546,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 551,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 558,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 559,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 563,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 567,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 570,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 577,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 582,
+      "beat": 1.0,
+      "symbol": "Gm7b5"
+    },
+    {
+      "measure": 586,
+      "beat": 1.0,
+      "symbol": "C79b"
+    },
+    {
+      "measure": 589,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 600,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 611,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 614,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 622,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 630,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 637,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 642,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 646,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 651,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 653,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 655,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 661,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 667,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 669,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 678,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 688,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 699,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 707,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 713,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 717,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 725,
+      "beat": 1.0,
+      "symbol": "Fm7b5"
+    },
+    {
+      "measure": 733,
+      "beat": 1.0,
+      "symbol": "Bb79b"
+    },
+    {
+      "measure": 739,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 754,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 758,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 763,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 764,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 769,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 773,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 777,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 783,
+      "beat": 1.0,
+      "symbol": "F-7/Bb"
+    },
+    {
+      "measure": 786,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 788,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 792,
+      "beat": 1.0,
+      "symbol": "C79b"
+    },
+    {
+      "measure": 797,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 805,
+      "beat": 1.0,
+      "symbol": "F-7/Bb"
+    },
+    {
+      "measure": 808,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 809,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 812,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 817,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 819,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 820,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 823,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 827,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 843,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 850,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 858,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 862,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 866,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 873,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 882,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 891,
+      "beat": 1.0,
+      "symbol": "Gm7b5"
+    },
+    {
+      "measure": 895,
+      "beat": 1.0,
+      "symbol": "C79b"
+    },
+    {
+      "measure": 899,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 907,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    }
+  ]
+}

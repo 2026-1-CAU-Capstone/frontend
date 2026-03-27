@@ -1,0 +1,190 @@
+{
+  "title": "Softly as in a Morning Sunrise",
+  "composer": "S. Romberg/O. Hammerstein",
+  "performer": "David Liebman",
+  "key": "C-min",
+  "timeSignature": "4/4",
+  "tempo": 261,
+  "style": "POSTBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "ss",
+  "form": "A8A8B8A8",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 66,
+      "beat": 1.0,
+      "symbol": "C79#"
+    },
+    {
+      "measure": 70,
+      "beat": 1.0,
+      "symbol": "Ab7alt"
+    },
+    {
+      "measure": 82,
+      "beat": 1.0,
+      "symbol": "G7alt"
+    },
+    {
+      "measure": 98,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 184,
+      "beat": 1.0,
+      "symbol": "Eb79#"
+    },
+    {
+      "measure": 185,
+      "beat": 1.0,
+      "symbol": "C79#"
+    },
+    {
+      "measure": 200,
+      "beat": 1.0,
+      "symbol": "Ab7alt"
+    },
+    {
+      "measure": 217,
+      "beat": 1.0,
+      "symbol": "G7alt"
+    },
+    {
+      "measure": 231,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 377,
+      "beat": 1.0,
+      "symbol": "Eb79#"
+    },
+    {
+      "measure": 381,
+      "beat": 1.0,
+      "symbol": "C79#"
+    },
+    {
+      "measure": 388,
+      "beat": 1.0,
+      "symbol": "Ab7alt"
+    },
+    {
+      "measure": 400,
+      "beat": 1.0,
+      "symbol": "G7alt"
+    },
+    {
+      "measure": 407,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 512,
+      "beat": 1.0,
+      "symbol": "Eb79#"
+    },
+    {
+      "measure": 524,
+      "beat": 1.0,
+      "symbol": "C79#"
+    },
+    {
+      "measure": 533,
+      "beat": 1.0,
+      "symbol": "Ab7alt"
+    },
+    {
+      "measure": 559,
+      "beat": 1.0,
+      "symbol": "G7alt"
+    },
+    {
+      "measure": 582,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 719,
+      "beat": 1.0,
+      "symbol": "Eb79#"
+    },
+    {
+      "measure": 725,
+      "beat": 1.0,
+      "symbol": "C79#"
+    },
+    {
+      "measure": 730,
+      "beat": 1.0,
+      "symbol": "Ab7alt"
+    },
+    {
+      "measure": 735,
+      "beat": 1.0,
+      "symbol": "G7alt"
+    },
+    {
+      "measure": 745,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 872,
+      "beat": 1.0,
+      "symbol": "Eb79#"
+    },
+    {
+      "measure": 886,
+      "beat": 1.0,
+      "symbol": "C79#"
+    },
+    {
+      "measure": 901,
+      "beat": 1.0,
+      "symbol": "Ab7alt"
+    },
+    {
+      "measure": 917,
+      "beat": 1.0,
+      "symbol": "G7alt"
+    },
+    {
+      "measure": 925,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 1021,
+      "beat": 1.0,
+      "symbol": "Eb79#"
+    },
+    {
+      "measure": 1029,
+      "beat": 1.0,
+      "symbol": "C79#"
+    },
+    {
+      "measure": 1037,
+      "beat": 1.0,
+      "symbol": "Ab7alt"
+    },
+    {
+      "measure": 1045,
+      "beat": 1.0,
+      "symbol": "G7alt"
+    },
+    {
+      "measure": 1054,
+      "beat": 1.0,
+      "symbol": "C-"
+    }
+  ]
+}

@@ -1,0 +1,190 @@
+{
+  "title": "Gingerbread Boy",
+  "composer": "Jimmy Heath",
+  "performer": "Herbie Hancock",
+  "key": "C",
+  "timeSignature": "4/4",
+  "tempo": 286,
+  "style": "POSTBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "p",
+  "form": "A16",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 7,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 15,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 33,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 61,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 68,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 84,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 133,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 155,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 170,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 179,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 222,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 245,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 252,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 265,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 314,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 328,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 334,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 341,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 393,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 411,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 420,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 429,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 478,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 495,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 506,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 512,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 563,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 577,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 584,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 590,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 635,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 654,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 667,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 681,
+      "beat": 1.0,
+      "symbol": "F7"
+    }
+  ]
+}

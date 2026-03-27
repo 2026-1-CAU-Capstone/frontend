@@ -1,0 +1,125 @@
+{
+  "title": "Runnin' Wild",
+  "composer": "Grey/Wood/Gibs",
+  "performer": "Benny Goodman",
+  "key": "Bb-maj",
+  "timeSignature": "4/4",
+  "tempo": 285,
+  "style": "SWING",
+  "rhythmfeel": "SWING",
+  "instrument": "cl",
+  "form": "A8A8B8B8",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 3,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 16,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 18,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 36,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 50,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 57,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 59,
+      "beat": 1.0,
+      "symbol": "G-"
+    },
+    {
+      "measure": 60,
+      "beat": 1.0,
+      "symbol": "Bb-6"
+    },
+    {
+      "measure": 65,
+      "beat": 1.0,
+      "symbol": "F"
+    },
+    {
+      "measure": 71,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 75,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 87,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 101,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 117,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 125,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 129,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 130,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 133,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 136,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 144,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 154,
+      "beat": 1.0,
+      "symbol": "Bb"
+    }
+  ]
+}

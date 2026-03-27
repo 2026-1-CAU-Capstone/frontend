@@ -1,0 +1,255 @@
+{
+  "title": "Steeplechase",
+  "composer": "Parker",
+  "performer": "Charlie Parker",
+  "key": "Bb-maj",
+  "timeSignature": "4/4",
+  "tempo": 175,
+  "style": "BEBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "as",
+  "form": "A8A8B8A8",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 5,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 10,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 14,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 18,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 21,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 26,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 33,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 37,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 43,
+      "beat": 1.0,
+      "symbol": "Eb6"
+    },
+    {
+      "measure": 48,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 54,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 57,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 64,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 67,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 69,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 72,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 76,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 82,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 85,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 86,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 92,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 96,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 100,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 105,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 109,
+      "beat": 1.0,
+      "symbol": "Eb6"
+    },
+    {
+      "measure": 110,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 113,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 116,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 117,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 130,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 140,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 161,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 179,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 181,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 183,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 186,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 187,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 193,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 194,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 198,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 202,
+      "beat": 1.0,
+      "symbol": "Eb6"
+    },
+    {
+      "measure": 205,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 206,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 212,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 217,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 220,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 222,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    }
+  ]
+}

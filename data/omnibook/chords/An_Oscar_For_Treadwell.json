@@ -1,0 +1,734 @@
+{
+  "title": "An Oscar For Treadwell",
+  "composer": "Charlie Parker",
+  "key": "C",
+  "timeSignature": "4/4",
+  "tempo": 230,
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 1,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 2,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 3,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 3,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 4,
+      "beat": 1.0,
+      "symbol": "Em"
+    },
+    {
+      "measure": 4,
+      "beat": 3.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 5,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 5,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 6,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 7,
+      "beat": 1.0,
+      "symbol": "Fmaj7"
+    },
+    {
+      "measure": 7,
+      "beat": 3.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 8,
+      "beat": 1.0,
+      "symbol": "Em"
+    },
+    {
+      "measure": 8,
+      "beat": 3.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 9,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 9,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 10,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 11,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 11,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 12,
+      "beat": 1.0,
+      "symbol": "Em"
+    },
+    {
+      "measure": 12,
+      "beat": 3.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 13,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 13,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 14,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 15,
+      "beat": 1.0,
+      "symbol": "Fmaj7"
+    },
+    {
+      "measure": 15,
+      "beat": 3.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 16,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 17,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 18,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 19,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 20,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 21,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 22,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 23,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 24,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 25,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 26,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 27,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 27,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 28,
+      "beat": 1.0,
+      "symbol": "Em"
+    },
+    {
+      "measure": 28,
+      "beat": 3.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 29,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 29,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 30,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 31,
+      "beat": 1.0,
+      "symbol": "Fmaj7"
+    },
+    {
+      "measure": 31,
+      "beat": 3.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 32,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 32,
+      "beat": 3.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 33,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 33,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 34,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 35,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 35,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 36,
+      "beat": 1.0,
+      "symbol": "Em"
+    },
+    {
+      "measure": 36,
+      "beat": 3.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 37,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 37,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 38,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 39,
+      "beat": 1.0,
+      "symbol": "Fmaj7"
+    },
+    {
+      "measure": 39,
+      "beat": 3.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 40,
+      "beat": 1.0,
+      "symbol": "Em"
+    },
+    {
+      "measure": 40,
+      "beat": 3.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 41,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 41,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 42,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 43,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 43,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 44,
+      "beat": 1.0,
+      "symbol": "Em"
+    },
+    {
+      "measure": 44,
+      "beat": 3.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 45,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 45,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 46,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 47,
+      "beat": 1.0,
+      "symbol": "Fmaj7"
+    },
+    {
+      "measure": 47,
+      "beat": 3.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 48,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 49,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 50,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 51,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 52,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 53,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 54,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 55,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 56,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 57,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 58,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 59,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 59,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 60,
+      "beat": 1.0,
+      "symbol": "Em"
+    },
+    {
+      "measure": 60,
+      "beat": 3.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 61,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 61,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 62,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 63,
+      "beat": 1.0,
+      "symbol": "Fmaj7"
+    },
+    {
+      "measure": 63,
+      "beat": 3.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 64,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 65,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 65,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 66,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 67,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 67,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 68,
+      "beat": 1.0,
+      "symbol": "Em"
+    },
+    {
+      "measure": 68,
+      "beat": 3.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 69,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 69,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 70,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 71,
+      "beat": 1.0,
+      "symbol": "Fmaj7"
+    },
+    {
+      "measure": 71,
+      "beat": 3.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 72,
+      "beat": 1.0,
+      "symbol": "Em"
+    },
+    {
+      "measure": 72,
+      "beat": 3.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 73,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 73,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 74,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 75,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 75,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 76,
+      "beat": 1.0,
+      "symbol": "Em"
+    },
+    {
+      "measure": 76,
+      "beat": 3.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 77,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 77,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 78,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 79,
+      "beat": 1.0,
+      "symbol": "Fmaj7"
+    },
+    {
+      "measure": 79,
+      "beat": 3.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 80,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 81,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 82,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 83,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 84,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 85,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 86,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 87,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 88,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 89,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 90,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 91,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 91,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 92,
+      "beat": 1.0,
+      "symbol": "Em"
+    },
+    {
+      "measure": 92,
+      "beat": 3.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 93,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 93,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 94,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 95,
+      "beat": 1.0,
+      "symbol": "Fmaj7"
+    },
+    {
+      "measure": 95,
+      "beat": 3.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 96,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 97,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 97,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 98,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    }
+  ]
+}

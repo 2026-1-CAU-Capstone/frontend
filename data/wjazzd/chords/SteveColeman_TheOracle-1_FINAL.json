@@ -1,0 +1,20 @@
+{
+  "title": "The Oracle",
+  "composer": "Dave Holland",
+  "performer": "Steve Coleman",
+  "key": "Bb-min",
+  "timeSignature": "3/4",
+  "tempo": 98,
+  "style": "POSTBOP",
+  "rhythmfeel": "LATIN",
+  "instrument": "as",
+  "form": "open",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Bb-"
+    }
+  ]
+}

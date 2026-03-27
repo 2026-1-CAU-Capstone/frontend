@@ -1,0 +1,185 @@
+{
+  "title": "Work Song",
+  "composer": "Nat Adderley",
+  "performer": "Cannonball Adderley",
+  "key": "F-min",
+  "timeSignature": "4/4",
+  "tempo": 156,
+  "style": "HARDBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "as",
+  "form": "A16",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 2,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 22,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 33,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 52,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 61,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 69,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 72,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 75,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 118,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 125,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 130,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 143,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 154,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 164,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 168,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 172,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 225,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 232,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 238,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 265,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 266,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 273,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 282,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 287,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 294,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 323,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 327,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 330,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 354,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 364,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 371,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 375,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 379,
+      "beat": 1.0,
+      "symbol": "F-7"
+    }
+  ]
+}

@@ -1,0 +1,295 @@
+{
+  "title": "Speak No Evil",
+  "composer": "Wayne Shorter",
+  "performer": "Freddie Hubbard",
+  "key": "C-min",
+  "timeSignature": "4/4",
+  "tempo": 143,
+  "style": "POSTBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "tp",
+  "form": "A14A14B8A14",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 7,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 11,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 17,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 20,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 27,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 32,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 35,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 45,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 49,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 52,
+      "beat": 1.0,
+      "symbol": "D-7911"
+    },
+    {
+      "measure": 54,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 57,
+      "beat": 1.0,
+      "symbol": "A7alt"
+    },
+    {
+      "measure": 58,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 66,
+      "beat": 1.0,
+      "symbol": "A7alt"
+    },
+    {
+      "measure": 70,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 71,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 74,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 77,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 82,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 88,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 94,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 97,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 107,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 111,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 117,
+      "beat": 1.0,
+      "symbol": "E-7911"
+    },
+    {
+      "measure": 122,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 124,
+      "beat": 1.0,
+      "symbol": "D-7911"
+    },
+    {
+      "measure": 126,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 132,
+      "beat": 1.0,
+      "symbol": "A7alt"
+    },
+    {
+      "measure": 134,
+      "beat": 1.0,
+      "symbol": "A7alt"
+    },
+    {
+      "measure": 140,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 146,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 154,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 161,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 168,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 176,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 178,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 180,
+      "beat": 1.0,
+      "symbol": "Ebj79#11#"
+    },
+    {
+      "measure": 185,
+      "beat": 1.0,
+      "symbol": "Dbj7911#"
+    },
+    {
+      "measure": 187,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 192,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 193,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 199,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 206,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 215,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 223,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 228,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 229,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 232,
+      "beat": 1.0,
+      "symbol": "E-7911"
+    },
+    {
+      "measure": 234,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 237,
+      "beat": 1.0,
+      "symbol": "D-7911"
+    },
+    {
+      "measure": 240,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 242,
+      "beat": 1.0,
+      "symbol": "A7alt"
+    },
+    {
+      "measure": 245,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 250,
+      "beat": 1.0,
+      "symbol": "A7alt"
+    }
+  ]
+}

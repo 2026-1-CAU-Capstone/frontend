@@ -1,0 +1,80 @@
+{
+  "title": "Avalon",
+  "composer": "Jolson/Rose",
+  "performer": "Lionel Hampton",
+  "key": "Eb-maj",
+  "timeSignature": "4/4",
+  "tempo": 241,
+  "style": "SWING",
+  "rhythmfeel": "SWING",
+  "instrument": "vib",
+  "form": "A8A8B8A8",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 28,
+      "beat": 1.0,
+      "symbol": "Eb6"
+    },
+    {
+      "measure": 45,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 68,
+      "beat": 1.0,
+      "symbol": "Eb6"
+    },
+    {
+      "measure": 82,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 95,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 104,
+      "beat": 1.0,
+      "symbol": "Ab-7"
+    },
+    {
+      "measure": 108,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 113,
+      "beat": 1.0,
+      "symbol": "Eb6"
+    },
+    {
+      "measure": 123,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 131,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 137,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 143,
+      "beat": 1.0,
+      "symbol": "Eb6"
+    }
+  ]
+}

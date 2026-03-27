@@ -1,0 +1,345 @@
+{
+  "title": "Perdido",
+  "composer": "Tizol",
+  "performer": "Rex Stewart",
+  "key": "Bb-maj",
+  "timeSignature": "4/4",
+  "tempo": 178,
+  "style": "SWING",
+  "rhythmfeel": "SWING",
+  "instrument": "cor",
+  "form": "A8A8B8A8",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 4,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 7,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 8,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 11,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 17,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 20,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 22,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 25,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 27,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 33,
+      "beat": 1.0,
+      "symbol": "Bo"
+    },
+    {
+      "measure": 34,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 38,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 42,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 55,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 57,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 59,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 63,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 67,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 75,
+      "beat": 1.0,
+      "symbol": "G79"
+    },
+    {
+      "measure": 79,
+      "beat": 1.0,
+      "symbol": "G+7"
+    },
+    {
+      "measure": 85,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 98,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 111,
+      "beat": 1.0,
+      "symbol": "F+7"
+    },
+    {
+      "measure": 114,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 121,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 126,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 131,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 134,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 148,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 151,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 153,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 156,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 157,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 161,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 164,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 174,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 177,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 178,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 180,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 184,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 187,
+      "beat": 1.0,
+      "symbol": "Bo"
+    },
+    {
+      "measure": 191,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 195,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 197,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 199,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 202,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 209,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 211,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 213,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 214,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 222,
+      "beat": 1.0,
+      "symbol": "G79"
+    },
+    {
+      "measure": 226,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 235,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 239,
+      "beat": 1.0,
+      "symbol": "F+7"
+    },
+    {
+      "measure": 247,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 248,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 250,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 254,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 256,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 260,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 262,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 264,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 267,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 270,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 277,
+      "beat": 1.0,
+      "symbol": "C-7"
+    }
+  ]
+}

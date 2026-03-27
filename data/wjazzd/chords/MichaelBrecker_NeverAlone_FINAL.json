@@ -1,0 +1,200 @@
+{
+  "title": "Never Alone",
+  "composer": "Michael Brecker",
+  "performer": "Michael Brecker",
+  "key": "Ab",
+  "timeSignature": "4/4",
+  "tempo": 49,
+  "style": "POSTBOP",
+  "rhythmfeel": "BALLAD",
+  "instrument": "ts",
+  "form": "A20B25",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Ab"
+    },
+    {
+      "measure": 11,
+      "beat": 1.0,
+      "symbol": "Bb/Ab"
+    },
+    {
+      "measure": 18,
+      "beat": 1.0,
+      "symbol": "C/Ab"
+    },
+    {
+      "measure": 23,
+      "beat": 1.0,
+      "symbol": "Gb/Bb"
+    },
+    {
+      "measure": 25,
+      "beat": 1.0,
+      "symbol": "Eb/G"
+    },
+    {
+      "measure": 31,
+      "beat": 1.0,
+      "symbol": "C/Ab"
+    },
+    {
+      "measure": 43,
+      "beat": 1.0,
+      "symbol": "F-/Ab"
+    },
+    {
+      "measure": 47,
+      "beat": 1.0,
+      "symbol": "Absus"
+    },
+    {
+      "measure": 53,
+      "beat": 1.0,
+      "symbol": "Aj7911#/Ab"
+    },
+    {
+      "measure": 57,
+      "beat": 1.0,
+      "symbol": "Ab79b13"
+    },
+    {
+      "measure": 66,
+      "beat": 1.0,
+      "symbol": "Db-69/Ab"
+    },
+    {
+      "measure": 69,
+      "beat": 1.0,
+      "symbol": "Db-69/Db"
+    },
+    {
+      "measure": 72,
+      "beat": 1.0,
+      "symbol": "Gbsus7913"
+    },
+    {
+      "measure": 78,
+      "beat": 1.0,
+      "symbol": "Eb-7911"
+    },
+    {
+      "measure": 80,
+      "beat": 1.0,
+      "symbol": "E-7911"
+    },
+    {
+      "measure": 83,
+      "beat": 1.0,
+      "symbol": "Dbsus7913"
+    },
+    {
+      "measure": 90,
+      "beat": 1.0,
+      "symbol": "G79#13"
+    },
+    {
+      "measure": 94,
+      "beat": 1.0,
+      "symbol": "C-7911"
+    },
+    {
+      "measure": 99,
+      "beat": 1.0,
+      "symbol": "G7913"
+    },
+    {
+      "measure": 112,
+      "beat": 1.0,
+      "symbol": "C-7911"
+    },
+    {
+      "measure": 118,
+      "beat": 1.0,
+      "symbol": "G7913"
+    },
+    {
+      "measure": 134,
+      "beat": 1.0,
+      "symbol": "Eb-j7"
+    },
+    {
+      "measure": 143,
+      "beat": 1.0,
+      "symbol": "Bb79#"
+    },
+    {
+      "measure": 161,
+      "beat": 1.0,
+      "symbol": "Eb-j7"
+    },
+    {
+      "measure": 172,
+      "beat": 1.0,
+      "symbol": "D+79#"
+    },
+    {
+      "measure": 195,
+      "beat": 1.0,
+      "symbol": "G-7911"
+    },
+    {
+      "measure": 202,
+      "beat": 1.0,
+      "symbol": "D+79#"
+    },
+    {
+      "measure": 215,
+      "beat": 1.0,
+      "symbol": "G-7911"
+    },
+    {
+      "measure": 227,
+      "beat": 1.0,
+      "symbol": "G+79#"
+    },
+    {
+      "measure": 239,
+      "beat": 1.0,
+      "symbol": "C-7911"
+    },
+    {
+      "measure": 242,
+      "beat": 1.0,
+      "symbol": "G7913"
+    },
+    {
+      "measure": 250,
+      "beat": 1.0,
+      "symbol": "C-7911"
+    },
+    {
+      "measure": 256,
+      "beat": 1.0,
+      "symbol": "G7913"
+    },
+    {
+      "measure": 267,
+      "beat": 1.0,
+      "symbol": "Eb-j7"
+    },
+    {
+      "measure": 278,
+      "beat": 1.0,
+      "symbol": "Bb79#"
+    },
+    {
+      "measure": 307,
+      "beat": 1.0,
+      "symbol": "Eb-j7"
+    },
+    {
+      "measure": 317,
+      "beat": 1.0,
+      "symbol": "D+79#"
+    }
+  ]
+}

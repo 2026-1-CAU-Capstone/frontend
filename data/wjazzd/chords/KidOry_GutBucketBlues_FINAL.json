@@ -1,0 +1,60 @@
+{
+  "title": "Gut Bucket Blues",
+  "composer": "Louis Armstrong",
+  "performer": "Kid Ory",
+  "key": "C-maj",
+  "timeSignature": "4/4",
+  "tempo": 150,
+  "style": "TRADITIONAL",
+  "rhythmfeel": "TWOBEAT",
+  "instrument": "tb",
+  "form": "A12",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 2,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 6,
+      "beat": 1.0,
+      "symbol": "F"
+    },
+    {
+      "measure": 13,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 18,
+      "beat": 1.0,
+      "symbol": "F"
+    },
+    {
+      "measure": 29,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 33,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 38,
+      "beat": 1.0,
+      "symbol": "F"
+    },
+    {
+      "measure": 43,
+      "beat": 1.0,
+      "symbol": "C"
+    }
+  ]
+}

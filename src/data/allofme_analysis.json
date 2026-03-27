@@ -1,0 +1,1964 @@
+{
+  "song": {
+    "title": "All of Me",
+    "key": "C",
+    "time_signature": "4/4"
+  },
+  "chords": [
+    {
+      "bar": 1,
+      "beat": 1.0,
+      "symbol": "Cmaj7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 0,
+        "root_name": "C",
+        "quality": "maj7",
+        "normalized_quality": "maj7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "I",
+        "is_diatonic": true,
+        "functions": [
+          {
+            "function": "T",
+            "confidence": 1.0
+          }
+        ],
+        "secondary_dominant": null,
+        "group_memberships": [],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": {
+          "pedal_note": 0,
+          "pedal_note_name": "C",
+          "pedal_type": "tonic",
+          "is_over_pedal": true,
+          "pedal_start_bar": 1,
+          "pedal_end_bar": 2
+        },
+        "modal_interchange": null,
+        "mode_segment": "ionian",
+        "tonicization": null,
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.0
+      }
+    },
+    {
+      "bar": 2,
+      "beat": 1.0,
+      "symbol": "Cmaj7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 0,
+        "root_name": "C",
+        "quality": "maj7",
+        "normalized_quality": "maj7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "I",
+        "is_diatonic": true,
+        "functions": [
+          {
+            "function": "T",
+            "confidence": 1.0
+          }
+        ],
+        "secondary_dominant": null,
+        "group_memberships": [],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": {
+          "pedal_note": 0,
+          "pedal_note_name": "C",
+          "pedal_type": "tonic",
+          "is_over_pedal": true,
+          "pedal_start_bar": 1,
+          "pedal_end_bar": 2
+        },
+        "modal_interchange": null,
+        "mode_segment": "ionian",
+        "tonicization": null,
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.0
+      }
+    },
+    {
+      "bar": 3,
+      "beat": 1.0,
+      "symbol": "E7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 4,
+        "root_name": "E",
+        "quality": "dom7",
+        "normalized_quality": "dom7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "III",
+        "is_diatonic": false,
+        "functions": [
+          {
+            "function": "D",
+            "confidence": 0.6,
+            "note": "Secondary dominant V/vi (unresolved)"
+          }
+        ],
+        "secondary_dominant": {
+          "type": "V/vi",
+          "target_degree": "vi",
+          "target_chord": "A",
+          "resolved": false,
+          "origin_position": {
+            "bar": 3,
+            "beat": 1.0
+          }
+        },
+        "group_memberships": [],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": {
+          "dominant_chord": "E7",
+          "expected_resolution": "Amaj7",
+          "actual_resolution": "E7",
+          "actual_degree": "(E)",
+          "common_pattern": false
+        },
+        "pedal_info": {
+          "pedal_note": 4,
+          "pedal_note_name": "E",
+          "pedal_type": "on E",
+          "is_over_pedal": true,
+          "pedal_start_bar": 3,
+          "pedal_end_bar": 4
+        },
+        "modal_interchange": null,
+        "mode_segment": "ionian",
+        "tonicization": null,
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.31
+      }
+    },
+    {
+      "bar": 4,
+      "beat": 1.0,
+      "symbol": "E7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 4,
+        "root_name": "E",
+        "quality": "dom7",
+        "normalized_quality": "dom7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "III",
+        "is_diatonic": false,
+        "functions": [
+          {
+            "function": "D",
+            "confidence": 0.9,
+            "note": "Secondary dominant V/vi (resolved)"
+          }
+        ],
+        "secondary_dominant": {
+          "type": "V/vi",
+          "target_degree": "vi",
+          "target_chord": "A7",
+          "resolved": true,
+          "origin_position": {
+            "bar": 4,
+            "beat": 1.0
+          }
+        },
+        "group_memberships": [],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": {
+          "pedal_note": 4,
+          "pedal_note_name": "E",
+          "pedal_type": "on E",
+          "is_over_pedal": true,
+          "pedal_start_bar": 3,
+          "pedal_end_bar": 4
+        },
+        "modal_interchange": null,
+        "mode_segment": "ionian",
+        "tonicization": null,
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.14
+      }
+    },
+    {
+      "bar": 5,
+      "beat": 1.0,
+      "symbol": "A7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 9,
+        "root_name": "A",
+        "quality": "dom7",
+        "normalized_quality": "dom7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "VI",
+        "is_diatonic": false,
+        "functions": [
+          {
+            "function": "D",
+            "confidence": 0.6,
+            "note": "Secondary dominant V/ii (unresolved)"
+          }
+        ],
+        "secondary_dominant": {
+          "type": "V/ii",
+          "target_degree": "ii",
+          "target_chord": "D",
+          "resolved": false,
+          "origin_position": {
+            "bar": 5,
+            "beat": 1.0
+          }
+        },
+        "group_memberships": [],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": {
+          "dominant_chord": "A7",
+          "expected_resolution": "Dmaj7",
+          "actual_resolution": "A7",
+          "actual_degree": "(A)",
+          "common_pattern": false
+        },
+        "pedal_info": {
+          "pedal_note": 9,
+          "pedal_note_name": "A",
+          "pedal_type": "on A",
+          "is_over_pedal": true,
+          "pedal_start_bar": 5,
+          "pedal_end_bar": 6
+        },
+        "modal_interchange": null,
+        "mode_segment": "dorian",
+        "tonicization": null,
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.31
+      }
+    },
+    {
+      "bar": 6,
+      "beat": 1.0,
+      "symbol": "A7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 9,
+        "root_name": "A",
+        "quality": "dom7",
+        "normalized_quality": "dom7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "VI",
+        "is_diatonic": false,
+        "functions": [
+          {
+            "function": "D",
+            "confidence": 0.9,
+            "note": "Secondary dominant V/ii (resolved)"
+          }
+        ],
+        "secondary_dominant": {
+          "type": "V/ii",
+          "target_degree": "ii",
+          "target_chord": "Dm7",
+          "resolved": true,
+          "origin_position": {
+            "bar": 6,
+            "beat": 1.0
+          }
+        },
+        "group_memberships": [
+          {
+            "group_id": 1,
+            "group_type": "ii-V-I",
+            "role": "V",
+            "variant": "minor"
+          }
+        ],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": {
+          "pedal_note": 9,
+          "pedal_note_name": "A",
+          "pedal_type": "on A",
+          "is_over_pedal": true,
+          "pedal_start_bar": 5,
+          "pedal_end_bar": 6
+        },
+        "modal_interchange": null,
+        "mode_segment": "dorian",
+        "tonicization": {
+          "type": "tonicization",
+          "temporary_key": "D",
+          "start_bar": 6,
+          "end_bar": 29,
+          "evidence": [
+            "ii-V-I(minor) to D at bars 6-7",
+            "ii-V-I(minor) to D at bars 22-23",
+            "ii-V-I(minor) to D at bars 28-29"
+          ],
+          "confidence": 0.8
+        },
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.22
+      }
+    },
+    {
+      "bar": 7,
+      "beat": 1.0,
+      "symbol": "Dm7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 2,
+        "root_name": "D",
+        "quality": "min7",
+        "normalized_quality": "min7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "ii",
+        "is_diatonic": true,
+        "functions": [
+          {
+            "function": "SD",
+            "confidence": 1.0
+          }
+        ],
+        "secondary_dominant": null,
+        "group_memberships": [
+          {
+            "group_id": 1,
+            "group_type": "ii-V-I",
+            "role": "I",
+            "variant": "minor"
+          }
+        ],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": {
+          "pedal_note": 2,
+          "pedal_note_name": "D",
+          "pedal_type": "on D",
+          "is_over_pedal": true,
+          "pedal_start_bar": 7,
+          "pedal_end_bar": 8
+        },
+        "modal_interchange": null,
+        "mode_segment": "dorian",
+        "tonicization": {
+          "type": "tonicization",
+          "temporary_key": "D",
+          "start_bar": 6,
+          "end_bar": 29,
+          "evidence": [
+            "ii-V-I(minor) to D at bars 6-7",
+            "ii-V-I(minor) to D at bars 22-23",
+            "ii-V-I(minor) to D at bars 28-29"
+          ],
+          "confidence": 0.8
+        },
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.0
+      }
+    },
+    {
+      "bar": 8,
+      "beat": 1.0,
+      "symbol": "Dm7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 2,
+        "root_name": "D",
+        "quality": "min7",
+        "normalized_quality": "min7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "ii",
+        "is_diatonic": true,
+        "functions": [
+          {
+            "function": "SD",
+            "confidence": 1.0
+          }
+        ],
+        "secondary_dominant": null,
+        "group_memberships": [],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": {
+          "pedal_note": 2,
+          "pedal_note_name": "D",
+          "pedal_type": "on D",
+          "is_over_pedal": true,
+          "pedal_start_bar": 7,
+          "pedal_end_bar": 8
+        },
+        "modal_interchange": null,
+        "mode_segment": "dorian",
+        "tonicization": null,
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.0
+      }
+    },
+    {
+      "bar": 9,
+      "beat": 1.0,
+      "symbol": "E7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 4,
+        "root_name": "E",
+        "quality": "dom7",
+        "normalized_quality": "dom7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "III",
+        "is_diatonic": false,
+        "functions": [
+          {
+            "function": "D",
+            "confidence": 0.6,
+            "note": "Secondary dominant V/vi (unresolved)"
+          }
+        ],
+        "secondary_dominant": {
+          "type": "V/vi",
+          "target_degree": "vi",
+          "target_chord": "A",
+          "resolved": false,
+          "origin_position": {
+            "bar": 9,
+            "beat": 1.0
+          }
+        },
+        "group_memberships": [],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": {
+          "dominant_chord": "E7",
+          "expected_resolution": "Amaj7",
+          "actual_resolution": "E7",
+          "actual_degree": "(E)",
+          "common_pattern": false
+        },
+        "pedal_info": {
+          "pedal_note": 4,
+          "pedal_note_name": "E",
+          "pedal_type": "on E",
+          "is_over_pedal": true,
+          "pedal_start_bar": 9,
+          "pedal_end_bar": 10
+        },
+        "modal_interchange": null,
+        "mode_segment": "dorian",
+        "tonicization": null,
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.31
+      }
+    },
+    {
+      "bar": 10,
+      "beat": 1.0,
+      "symbol": "E7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 4,
+        "root_name": "E",
+        "quality": "dom7",
+        "normalized_quality": "dom7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "III",
+        "is_diatonic": false,
+        "functions": [
+          {
+            "function": "D",
+            "confidence": 0.9,
+            "note": "Secondary dominant V/vi (resolved)"
+          }
+        ],
+        "secondary_dominant": {
+          "type": "V/vi",
+          "target_degree": "vi",
+          "target_chord": "Am7",
+          "resolved": true,
+          "origin_position": {
+            "bar": 10,
+            "beat": 1.0
+          }
+        },
+        "group_memberships": [
+          {
+            "group_id": 2,
+            "group_type": "ii-V-I",
+            "role": "V",
+            "variant": "minor"
+          }
+        ],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": {
+          "pedal_note": 4,
+          "pedal_note_name": "E",
+          "pedal_type": "on E",
+          "is_over_pedal": true,
+          "pedal_start_bar": 9,
+          "pedal_end_bar": 10
+        },
+        "modal_interchange": null,
+        "mode_segment": "dorian",
+        "tonicization": {
+          "type": "tonicization",
+          "temporary_key": "A",
+          "start_bar": 10,
+          "end_bar": 11,
+          "evidence": [
+            "ii-V-I(minor) to A at bars 10-11"
+          ],
+          "confidence": 0.65
+        },
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.22
+      }
+    },
+    {
+      "bar": 11,
+      "beat": 1.0,
+      "symbol": "Am7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 9,
+        "root_name": "A",
+        "quality": "min7",
+        "normalized_quality": "min7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "vi",
+        "is_diatonic": true,
+        "functions": [
+          {
+            "function": "T",
+            "confidence": 0.7,
+            "note": "Tonic substitute (relative minor)"
+          },
+          {
+            "function": "SD",
+            "confidence": 0.3,
+            "note": "Subdominant function in some progressions"
+          }
+        ],
+        "secondary_dominant": null,
+        "group_memberships": [
+          {
+            "group_id": 2,
+            "group_type": "ii-V-I",
+            "role": "I",
+            "variant": "minor"
+          }
+        ],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": {
+          "pedal_note": 9,
+          "pedal_note_name": "A",
+          "pedal_type": "on A",
+          "is_over_pedal": true,
+          "pedal_start_bar": 11,
+          "pedal_end_bar": 12
+        },
+        "modal_interchange": null,
+        "mode_segment": "aeolian",
+        "tonicization": {
+          "type": "tonicization",
+          "temporary_key": "A",
+          "start_bar": 10,
+          "end_bar": 11,
+          "evidence": [
+            "ii-V-I(minor) to A at bars 10-11"
+          ],
+          "confidence": 0.65
+        },
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.117
+      }
+    },
+    {
+      "bar": 12,
+      "beat": 1.0,
+      "symbol": "Am7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 9,
+        "root_name": "A",
+        "quality": "min7",
+        "normalized_quality": "min7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "vi",
+        "is_diatonic": true,
+        "functions": [
+          {
+            "function": "T",
+            "confidence": 0.7,
+            "note": "Tonic substitute (relative minor)"
+          },
+          {
+            "function": "SD",
+            "confidence": 0.3,
+            "note": "Subdominant function in some progressions"
+          }
+        ],
+        "secondary_dominant": null,
+        "group_memberships": [
+          {
+            "group_id": 3,
+            "group_type": "ii-V-I",
+            "role": "ii",
+            "variant": "incomplete"
+          }
+        ],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": {
+          "pedal_note": 9,
+          "pedal_note_name": "A",
+          "pedal_type": "on A",
+          "is_over_pedal": true,
+          "pedal_start_bar": 11,
+          "pedal_end_bar": 12
+        },
+        "modal_interchange": null,
+        "mode_segment": "dorian",
+        "tonicization": {
+          "type": "tonicization",
+          "temporary_key": "G",
+          "start_bar": 12,
+          "end_bar": 13,
+          "evidence": [
+            "ii-V-I(incomplete) to G at bars 12-13"
+          ],
+          "confidence": 0.65
+        },
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.117
+      }
+    },
+    {
+      "bar": 13,
+      "beat": 1.0,
+      "symbol": "D7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 2,
+        "root_name": "D",
+        "quality": "dom7",
+        "normalized_quality": "dom7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "II",
+        "is_diatonic": false,
+        "functions": [
+          {
+            "function": "D",
+            "confidence": 0.6,
+            "note": "Secondary dominant V/V (unresolved)"
+          }
+        ],
+        "secondary_dominant": {
+          "type": "V/V",
+          "target_degree": "V",
+          "target_chord": "G",
+          "resolved": false,
+          "origin_position": {
+            "bar": 13,
+            "beat": 1.0
+          }
+        },
+        "group_memberships": [
+          {
+            "group_id": 3,
+            "group_type": "ii-V-I",
+            "role": "V",
+            "variant": "incomplete"
+          }
+        ],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": {
+          "dominant_chord": "D7",
+          "expected_resolution": "Gmaj7",
+          "actual_resolution": "D7",
+          "actual_degree": "(D)",
+          "common_pattern": false
+        },
+        "pedal_info": {
+          "pedal_note": 2,
+          "pedal_note_name": "D",
+          "pedal_type": "on D",
+          "is_over_pedal": true,
+          "pedal_start_bar": 13,
+          "pedal_end_bar": 15
+        },
+        "modal_interchange": null,
+        "mode_segment": "dorian",
+        "tonicization": {
+          "type": "tonicization",
+          "temporary_key": "G",
+          "start_bar": 12,
+          "end_bar": 13,
+          "evidence": [
+            "ii-V-I(incomplete) to G at bars 12-13"
+          ],
+          "confidence": 0.65
+        },
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.37
+      }
+    },
+    {
+      "bar": 14,
+      "beat": 1.0,
+      "symbol": "D7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 2,
+        "root_name": "D",
+        "quality": "dom7",
+        "normalized_quality": "dom7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "II",
+        "is_diatonic": false,
+        "functions": [
+          {
+            "function": "D",
+            "confidence": 0.6,
+            "note": "Secondary dominant V/V (unresolved)"
+          }
+        ],
+        "secondary_dominant": {
+          "type": "V/V",
+          "target_degree": "V",
+          "target_chord": "G",
+          "resolved": false,
+          "origin_position": {
+            "bar": 14,
+            "beat": 1.0
+          }
+        },
+        "group_memberships": [],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": {
+          "dominant_chord": "D7",
+          "expected_resolution": "Gmaj7",
+          "actual_resolution": "Dm7",
+          "actual_degree": "(D)",
+          "common_pattern": false
+        },
+        "pedal_info": {
+          "pedal_note": 2,
+          "pedal_note_name": "D",
+          "pedal_type": "on D",
+          "is_over_pedal": true,
+          "pedal_start_bar": 13,
+          "pedal_end_bar": 15
+        },
+        "modal_interchange": null,
+        "mode_segment": "dorian",
+        "tonicization": null,
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.31
+      }
+    },
+    {
+      "bar": 15,
+      "beat": 1.0,
+      "symbol": "Dm7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 2,
+        "root_name": "D",
+        "quality": "min7",
+        "normalized_quality": "min7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "ii",
+        "is_diatonic": true,
+        "functions": [
+          {
+            "function": "SD",
+            "confidence": 1.0
+          }
+        ],
+        "secondary_dominant": null,
+        "group_memberships": [
+          {
+            "group_id": 4,
+            "group_type": "ii-V-I",
+            "role": "ii",
+            "variant": "standard"
+          }
+        ],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": {
+          "pedal_note": 2,
+          "pedal_note_name": "D",
+          "pedal_type": "on D",
+          "is_over_pedal": true,
+          "pedal_start_bar": 13,
+          "pedal_end_bar": 15
+        },
+        "modal_interchange": null,
+        "mode_segment": "ionian",
+        "tonicization": null,
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.0
+      }
+    },
+    {
+      "bar": 16,
+      "beat": 1.0,
+      "symbol": "G7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 7,
+        "root_name": "G",
+        "quality": "dom7",
+        "normalized_quality": "dom7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "V",
+        "is_diatonic": true,
+        "functions": [
+          {
+            "function": "D",
+            "confidence": 1.0
+          }
+        ],
+        "secondary_dominant": null,
+        "group_memberships": [
+          {
+            "group_id": 4,
+            "group_type": "ii-V-I",
+            "role": "V",
+            "variant": "standard"
+          }
+        ],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": null,
+        "modal_interchange": null,
+        "mode_segment": "ionian",
+        "tonicization": null,
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.0
+      }
+    },
+    {
+      "bar": 17,
+      "beat": 1.0,
+      "symbol": "Cmaj7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 0,
+        "root_name": "C",
+        "quality": "maj7",
+        "normalized_quality": "maj7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "I",
+        "is_diatonic": true,
+        "functions": [
+          {
+            "function": "T",
+            "confidence": 1.0
+          }
+        ],
+        "secondary_dominant": null,
+        "group_memberships": [
+          {
+            "group_id": 4,
+            "group_type": "ii-V-I",
+            "role": "I",
+            "variant": "standard"
+          }
+        ],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": {
+          "pedal_note": 0,
+          "pedal_note_name": "C",
+          "pedal_type": "tonic",
+          "is_over_pedal": true,
+          "pedal_start_bar": 17,
+          "pedal_end_bar": 18
+        },
+        "modal_interchange": null,
+        "mode_segment": "ionian",
+        "tonicization": null,
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.0
+      }
+    },
+    {
+      "bar": 18,
+      "beat": 1.0,
+      "symbol": "Cmaj7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 0,
+        "root_name": "C",
+        "quality": "maj7",
+        "normalized_quality": "maj7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "I",
+        "is_diatonic": true,
+        "functions": [
+          {
+            "function": "T",
+            "confidence": 1.0
+          }
+        ],
+        "secondary_dominant": null,
+        "group_memberships": [],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": {
+          "pedal_note": 0,
+          "pedal_note_name": "C",
+          "pedal_type": "tonic",
+          "is_over_pedal": true,
+          "pedal_start_bar": 17,
+          "pedal_end_bar": 18
+        },
+        "modal_interchange": null,
+        "mode_segment": "ionian",
+        "tonicization": null,
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.0
+      }
+    },
+    {
+      "bar": 19,
+      "beat": 1.0,
+      "symbol": "E7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 4,
+        "root_name": "E",
+        "quality": "dom7",
+        "normalized_quality": "dom7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "III",
+        "is_diatonic": false,
+        "functions": [
+          {
+            "function": "D",
+            "confidence": 0.6,
+            "note": "Secondary dominant V/vi (unresolved)"
+          }
+        ],
+        "secondary_dominant": {
+          "type": "V/vi",
+          "target_degree": "vi",
+          "target_chord": "A",
+          "resolved": false,
+          "origin_position": {
+            "bar": 19,
+            "beat": 1.0
+          }
+        },
+        "group_memberships": [],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": {
+          "dominant_chord": "E7",
+          "expected_resolution": "Amaj7",
+          "actual_resolution": "E7",
+          "actual_degree": "(E)",
+          "common_pattern": false
+        },
+        "pedal_info": {
+          "pedal_note": 4,
+          "pedal_note_name": "E",
+          "pedal_type": "on E",
+          "is_over_pedal": true,
+          "pedal_start_bar": 19,
+          "pedal_end_bar": 20
+        },
+        "modal_interchange": null,
+        "mode_segment": "ionian",
+        "tonicization": null,
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.31
+      }
+    },
+    {
+      "bar": 20,
+      "beat": 1.0,
+      "symbol": "E7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 4,
+        "root_name": "E",
+        "quality": "dom7",
+        "normalized_quality": "dom7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "III",
+        "is_diatonic": false,
+        "functions": [
+          {
+            "function": "D",
+            "confidence": 0.9,
+            "note": "Secondary dominant V/vi (resolved)"
+          }
+        ],
+        "secondary_dominant": {
+          "type": "V/vi",
+          "target_degree": "vi",
+          "target_chord": "A7",
+          "resolved": true,
+          "origin_position": {
+            "bar": 20,
+            "beat": 1.0
+          }
+        },
+        "group_memberships": [],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": {
+          "pedal_note": 4,
+          "pedal_note_name": "E",
+          "pedal_type": "on E",
+          "is_over_pedal": true,
+          "pedal_start_bar": 19,
+          "pedal_end_bar": 20
+        },
+        "modal_interchange": null,
+        "mode_segment": "ionian",
+        "tonicization": null,
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.14
+      }
+    },
+    {
+      "bar": 21,
+      "beat": 1.0,
+      "symbol": "A7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 9,
+        "root_name": "A",
+        "quality": "dom7",
+        "normalized_quality": "dom7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "VI",
+        "is_diatonic": false,
+        "functions": [
+          {
+            "function": "D",
+            "confidence": 0.6,
+            "note": "Secondary dominant V/ii (unresolved)"
+          }
+        ],
+        "secondary_dominant": {
+          "type": "V/ii",
+          "target_degree": "ii",
+          "target_chord": "D",
+          "resolved": false,
+          "origin_position": {
+            "bar": 21,
+            "beat": 1.0
+          }
+        },
+        "group_memberships": [],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": {
+          "dominant_chord": "A7",
+          "expected_resolution": "Dmaj7",
+          "actual_resolution": "A7",
+          "actual_degree": "(A)",
+          "common_pattern": false
+        },
+        "pedal_info": {
+          "pedal_note": 9,
+          "pedal_note_name": "A",
+          "pedal_type": "on A",
+          "is_over_pedal": true,
+          "pedal_start_bar": 21,
+          "pedal_end_bar": 22
+        },
+        "modal_interchange": null,
+        "mode_segment": "dorian",
+        "tonicization": null,
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.31
+      }
+    },
+    {
+      "bar": 22,
+      "beat": 1.0,
+      "symbol": "A7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 9,
+        "root_name": "A",
+        "quality": "dom7",
+        "normalized_quality": "dom7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "VI",
+        "is_diatonic": false,
+        "functions": [
+          {
+            "function": "D",
+            "confidence": 0.9,
+            "note": "Secondary dominant V/ii (resolved)"
+          }
+        ],
+        "secondary_dominant": {
+          "type": "V/ii",
+          "target_degree": "ii",
+          "target_chord": "Dm7",
+          "resolved": true,
+          "origin_position": {
+            "bar": 22,
+            "beat": 1.0
+          }
+        },
+        "group_memberships": [
+          {
+            "group_id": 5,
+            "group_type": "ii-V-I",
+            "role": "V",
+            "variant": "minor"
+          }
+        ],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": {
+          "pedal_note": 9,
+          "pedal_note_name": "A",
+          "pedal_type": "on A",
+          "is_over_pedal": true,
+          "pedal_start_bar": 21,
+          "pedal_end_bar": 22
+        },
+        "modal_interchange": null,
+        "mode_segment": "dorian",
+        "tonicization": {
+          "type": "tonicization",
+          "temporary_key": "D",
+          "start_bar": 6,
+          "end_bar": 29,
+          "evidence": [
+            "ii-V-I(minor) to D at bars 6-7",
+            "ii-V-I(minor) to D at bars 22-23",
+            "ii-V-I(minor) to D at bars 28-29"
+          ],
+          "confidence": 0.8
+        },
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.22
+      }
+    },
+    {
+      "bar": 23,
+      "beat": 1.0,
+      "symbol": "Dm7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 2,
+        "root_name": "D",
+        "quality": "min7",
+        "normalized_quality": "min7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "ii",
+        "is_diatonic": true,
+        "functions": [
+          {
+            "function": "SD",
+            "confidence": 1.0
+          }
+        ],
+        "secondary_dominant": null,
+        "group_memberships": [
+          {
+            "group_id": 5,
+            "group_type": "ii-V-I",
+            "role": "I",
+            "variant": "minor"
+          }
+        ],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": {
+          "pedal_note": 2,
+          "pedal_note_name": "D",
+          "pedal_type": "on D",
+          "is_over_pedal": true,
+          "pedal_start_bar": 23,
+          "pedal_end_bar": 24
+        },
+        "modal_interchange": null,
+        "mode_segment": "dorian",
+        "tonicization": {
+          "type": "tonicization",
+          "temporary_key": "D",
+          "start_bar": 6,
+          "end_bar": 29,
+          "evidence": [
+            "ii-V-I(minor) to D at bars 6-7",
+            "ii-V-I(minor) to D at bars 22-23",
+            "ii-V-I(minor) to D at bars 28-29"
+          ],
+          "confidence": 0.8
+        },
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.0
+      }
+    },
+    {
+      "bar": 24,
+      "beat": 1.0,
+      "symbol": "Dm7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 2,
+        "root_name": "D",
+        "quality": "min7",
+        "normalized_quality": "min7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "ii",
+        "is_diatonic": true,
+        "functions": [
+          {
+            "function": "SD",
+            "confidence": 1.0
+          }
+        ],
+        "secondary_dominant": null,
+        "group_memberships": [],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": {
+          "pedal_note": 2,
+          "pedal_note_name": "D",
+          "pedal_type": "on D",
+          "is_over_pedal": true,
+          "pedal_start_bar": 23,
+          "pedal_end_bar": 24
+        },
+        "modal_interchange": null,
+        "mode_segment": "dorian",
+        "tonicization": null,
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.0
+      }
+    },
+    {
+      "bar": 25,
+      "beat": 1.0,
+      "symbol": "F6",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 5,
+        "root_name": "F",
+        "quality": "maj6",
+        "normalized_quality": "maj6",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "IV",
+        "is_diatonic": true,
+        "functions": [
+          {
+            "function": "SD",
+            "confidence": 1.0
+          }
+        ],
+        "secondary_dominant": null,
+        "group_memberships": [],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": {
+          "pedal_note": 5,
+          "pedal_note_name": "F",
+          "pedal_type": "subdominant",
+          "is_over_pedal": true,
+          "pedal_start_bar": 25,
+          "pedal_end_bar": 26
+        },
+        "modal_interchange": null,
+        "mode_segment": "dorian",
+        "tonicization": null,
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.0
+      }
+    },
+    {
+      "bar": 26,
+      "beat": 1.0,
+      "symbol": "Fm6",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 5,
+        "root_name": "F",
+        "quality": "min6",
+        "normalized_quality": "min6",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "iv",
+        "is_diatonic": false,
+        "functions": [],
+        "secondary_dominant": null,
+        "group_memberships": [],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": {
+          "pedal_note": 5,
+          "pedal_note_name": "F",
+          "pedal_type": "subdominant",
+          "is_over_pedal": true,
+          "pedal_start_bar": 25,
+          "pedal_end_bar": 26
+        },
+        "modal_interchange": null,
+        "mode_segment": "ionian",
+        "tonicization": null,
+        "ambiguity_flags": [
+          {
+            "aspect": "function",
+            "interpretations": [
+              "unknown - awaiting contextual analysis"
+            ],
+            "context_needed": true
+          }
+        ],
+        "ambiguity_score": 0.53
+      }
+    },
+    {
+      "bar": 27,
+      "beat": 1.0,
+      "symbol": "Cmaj7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 0,
+        "root_name": "C",
+        "quality": "maj7",
+        "normalized_quality": "maj7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "I",
+        "is_diatonic": true,
+        "functions": [
+          {
+            "function": "T",
+            "confidence": 1.0
+          }
+        ],
+        "secondary_dominant": null,
+        "group_memberships": [],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": null,
+        "modal_interchange": null,
+        "mode_segment": "ionian",
+        "tonicization": null,
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.0
+      }
+    },
+    {
+      "bar": 28,
+      "beat": 1.0,
+      "symbol": "A7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 9,
+        "root_name": "A",
+        "quality": "dom7",
+        "normalized_quality": "dom7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "VI",
+        "is_diatonic": false,
+        "functions": [
+          {
+            "function": "D",
+            "confidence": 0.9,
+            "note": "Secondary dominant V/ii (resolved)"
+          }
+        ],
+        "secondary_dominant": {
+          "type": "V/ii",
+          "target_degree": "ii",
+          "target_chord": "Dm7",
+          "resolved": true,
+          "origin_position": {
+            "bar": 28,
+            "beat": 1.0
+          }
+        },
+        "group_memberships": [
+          {
+            "group_id": 6,
+            "group_type": "ii-V-I",
+            "role": "V",
+            "variant": "minor"
+          }
+        ],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": null,
+        "modal_interchange": null,
+        "mode_segment": "dorian",
+        "tonicization": {
+          "type": "tonicization",
+          "temporary_key": "D",
+          "start_bar": 6,
+          "end_bar": 29,
+          "evidence": [
+            "ii-V-I(minor) to D at bars 6-7",
+            "ii-V-I(minor) to D at bars 22-23",
+            "ii-V-I(minor) to D at bars 28-29"
+          ],
+          "confidence": 0.8
+        },
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.22
+      }
+    },
+    {
+      "bar": 29,
+      "beat": 1.0,
+      "symbol": "Dm7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 2,
+        "root_name": "D",
+        "quality": "min7",
+        "normalized_quality": "min7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "ii",
+        "is_diatonic": true,
+        "functions": [
+          {
+            "function": "SD",
+            "confidence": 1.0
+          }
+        ],
+        "secondary_dominant": null,
+        "group_memberships": [
+          {
+            "group_id": 6,
+            "group_type": "ii-V-I",
+            "role": "I",
+            "variant": "minor"
+          }
+        ],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": null,
+        "modal_interchange": null,
+        "mode_segment": "dorian",
+        "tonicization": {
+          "type": "tonicization",
+          "temporary_key": "D",
+          "start_bar": 6,
+          "end_bar": 29,
+          "evidence": [
+            "ii-V-I(minor) to D at bars 6-7",
+            "ii-V-I(minor) to D at bars 22-23",
+            "ii-V-I(minor) to D at bars 28-29"
+          ],
+          "confidence": 0.8
+        },
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.0
+      }
+    },
+    {
+      "bar": 30,
+      "beat": 1.0,
+      "symbol": "G7",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 7,
+        "root_name": "G",
+        "quality": "dom7",
+        "normalized_quality": "dom7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "V",
+        "is_diatonic": true,
+        "functions": [
+          {
+            "function": "D",
+            "confidence": 1.0
+          }
+        ],
+        "secondary_dominant": null,
+        "group_memberships": [
+          {
+            "group_id": 7,
+            "group_type": "ii-V-I",
+            "role": "V",
+            "variant": "standard"
+          }
+        ],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": null,
+        "modal_interchange": null,
+        "mode_segment": "dorian",
+        "tonicization": null,
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.0
+      }
+    },
+    {
+      "bar": 31,
+      "beat": 1.0,
+      "symbol": "C6",
+      "duration_beats": 4.0,
+      "analysis": {
+        "root": 0,
+        "root_name": "C",
+        "quality": "maj6",
+        "normalized_quality": "maj6",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "I",
+        "is_diatonic": true,
+        "functions": [
+          {
+            "function": "T",
+            "confidence": 1.0
+          }
+        ],
+        "secondary_dominant": null,
+        "group_memberships": [
+          {
+            "group_id": 7,
+            "group_type": "ii-V-I",
+            "role": "I",
+            "variant": "standard"
+          }
+        ],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": null,
+        "modal_interchange": null,
+        "mode_segment": "ionian",
+        "tonicization": null,
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.0
+      }
+    },
+    {
+      "bar": 32,
+      "beat": 1.0,
+      "symbol": "Dm7",
+      "duration_beats": 2.0,
+      "analysis": {
+        "root": 2,
+        "root_name": "D",
+        "quality": "min7",
+        "normalized_quality": "min7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "ii",
+        "is_diatonic": true,
+        "functions": [
+          {
+            "function": "SD",
+            "confidence": 1.0
+          }
+        ],
+        "secondary_dominant": null,
+        "group_memberships": [
+          {
+            "group_id": 8,
+            "group_type": "ii-V-I",
+            "role": "ii",
+            "variant": "incomplete"
+          }
+        ],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": null,
+        "modal_interchange": null,
+        "mode_segment": "ionian",
+        "tonicization": null,
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.0
+      }
+    },
+    {
+      "bar": 32,
+      "beat": 3.0,
+      "symbol": "G7",
+      "duration_beats": 2.0,
+      "analysis": {
+        "root": 7,
+        "root_name": "G",
+        "quality": "dom7",
+        "normalized_quality": "dom7",
+        "tensions": [],
+        "bass": null,
+        "bass_name": null,
+        "degree": "V",
+        "is_diatonic": true,
+        "functions": [
+          {
+            "function": "D",
+            "confidence": 1.0
+          }
+        ],
+        "secondary_dominant": null,
+        "group_memberships": [
+          {
+            "group_id": 8,
+            "group_type": "ii-V-I",
+            "role": "V",
+            "variant": "incomplete"
+          }
+        ],
+        "diminished_function": null,
+        "chromatic_approach": null,
+        "deceptive_resolution": null,
+        "pedal_info": null,
+        "modal_interchange": null,
+        "mode_segment": "ionian",
+        "tonicization": null,
+        "ambiguity_flags": [],
+        "ambiguity_score": 0.0
+      }
+    }
+  ],
+  "groups": [
+    {
+      "group_id": 1,
+      "group_type": "ii-V-I",
+      "variant": "minor",
+      "target_key": "D",
+      "is_diatonic_target": true,
+      "members": [
+        {
+          "bar": 6,
+          "beat": 1.0,
+          "symbol": "A7",
+          "role": "V",
+          "is_diatonic": false
+        },
+        {
+          "bar": 7,
+          "beat": 1.0,
+          "symbol": "Dm7",
+          "role": "I",
+          "is_diatonic": true
+        }
+      ],
+      "notes": "Diatonic ii-V-I in D"
+    },
+    {
+      "group_id": 2,
+      "group_type": "ii-V-I",
+      "variant": "minor",
+      "target_key": "A",
+      "is_diatonic_target": true,
+      "members": [
+        {
+          "bar": 10,
+          "beat": 1.0,
+          "symbol": "E7",
+          "role": "V",
+          "is_diatonic": false
+        },
+        {
+          "bar": 11,
+          "beat": 1.0,
+          "symbol": "Am7",
+          "role": "I",
+          "is_diatonic": true
+        }
+      ],
+      "notes": "Diatonic ii-V-I in A"
+    },
+    {
+      "group_id": 3,
+      "group_type": "ii-V-I",
+      "variant": "incomplete",
+      "target_key": "G",
+      "is_diatonic_target": true,
+      "members": [
+        {
+          "bar": 12,
+          "beat": 1.0,
+          "symbol": "Am7",
+          "role": "ii",
+          "is_diatonic": true
+        },
+        {
+          "bar": 13,
+          "beat": 1.0,
+          "symbol": "D7",
+          "role": "V",
+          "is_diatonic": false
+        }
+      ],
+      "notes": "Diatonic ii-V-I in G"
+    },
+    {
+      "group_id": 4,
+      "group_type": "ii-V-I",
+      "variant": "standard",
+      "target_key": "C",
+      "is_diatonic_target": true,
+      "members": [
+        {
+          "bar": 15,
+          "beat": 1.0,
+          "symbol": "Dm7",
+          "role": "ii",
+          "is_diatonic": true
+        },
+        {
+          "bar": 16,
+          "beat": 1.0,
+          "symbol": "G7",
+          "role": "V",
+          "is_diatonic": true
+        },
+        {
+          "bar": 17,
+          "beat": 1.0,
+          "symbol": "Cmaj7",
+          "role": "I",
+          "is_diatonic": true
+        }
+      ],
+      "notes": "Diatonic ii-V-I in C"
+    },
+    {
+      "group_id": 5,
+      "group_type": "ii-V-I",
+      "variant": "minor",
+      "target_key": "D",
+      "is_diatonic_target": true,
+      "members": [
+        {
+          "bar": 22,
+          "beat": 1.0,
+          "symbol": "A7",
+          "role": "V",
+          "is_diatonic": false
+        },
+        {
+          "bar": 23,
+          "beat": 1.0,
+          "symbol": "Dm7",
+          "role": "I",
+          "is_diatonic": true
+        }
+      ],
+      "notes": "Diatonic ii-V-I in D"
+    },
+    {
+      "group_id": 6,
+      "group_type": "ii-V-I",
+      "variant": "minor",
+      "target_key": "D",
+      "is_diatonic_target": true,
+      "members": [
+        {
+          "bar": 28,
+          "beat": 1.0,
+          "symbol": "A7",
+          "role": "V",
+          "is_diatonic": false
+        },
+        {
+          "bar": 29,
+          "beat": 1.0,
+          "symbol": "Dm7",
+          "role": "I",
+          "is_diatonic": true
+        }
+      ],
+      "notes": "Diatonic ii-V-I in D"
+    },
+    {
+      "group_id": 7,
+      "group_type": "ii-V-I",
+      "variant": "standard",
+      "target_key": "C",
+      "is_diatonic_target": true,
+      "members": [
+        {
+          "bar": 29,
+          "beat": 1.0,
+          "symbol": "Dm7",
+          "role": "ii",
+          "is_diatonic": true
+        },
+        {
+          "bar": 30,
+          "beat": 1.0,
+          "symbol": "G7",
+          "role": "V",
+          "is_diatonic": true
+        },
+        {
+          "bar": 31,
+          "beat": 1.0,
+          "symbol": "C6",
+          "role": "I",
+          "is_diatonic": true
+        }
+      ],
+      "notes": "Diatonic ii-V-I in C"
+    },
+    {
+      "group_id": 8,
+      "group_type": "ii-V-I",
+      "variant": "incomplete",
+      "target_key": "C",
+      "is_diatonic_target": true,
+      "members": [
+        {
+          "bar": 32,
+          "beat": 1.0,
+          "symbol": "Dm7",
+          "role": "ii",
+          "is_diatonic": true
+        },
+        {
+          "bar": 32,
+          "beat": 3.0,
+          "symbol": "G7",
+          "role": "V",
+          "is_diatonic": true
+        }
+      ],
+      "notes": "Diatonic ii-V-I in C"
+    }
+  ],
+  "sections": [
+    {
+      "start_bar": 1,
+      "end_bar": 32,
+      "key": "C",
+      "mode": "dorian",
+      "type": "original_key",
+      "tonicizations": [
+        "A",
+        "D",
+        "G"
+      ]
+    }
+  ],
+  "ambiguity_stats": {
+    "total_chords": 33,
+    "high_confidence_count": 17,
+    "high_confidence_pct": 51.5,
+    "ambiguous_count": 8,
+    "ambiguous_pct": 24.2,
+    "mean_score": 0.126,
+    "max_score": 0.53
+  },
+  "engine_version": "0.1.0",
+  "coverage": [
+    "diatonic_classification",
+    "scale_degree_calculation",
+    "T_SD_D_function_labeling",
+    "chord_normalization",
+    "ii-V-I_detection",
+    "tritone_substitution_detection",
+    "secondary_dominant_detection",
+    "diminished_chord_classification",
+    "chromatic_approach_detection",
+    "deceptive_resolution_detection",
+    "pedal_point_detection",
+    "modal_interchange_detection",
+    "mode_segment_detection",
+    "tonicization_modulation_detection",
+    "section_boundary_detection",
+    "ambiguity_scoring"
+  ]
+}

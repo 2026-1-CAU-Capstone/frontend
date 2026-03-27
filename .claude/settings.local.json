@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.irealpro.com)",
+      "WebFetch(domain:forums.irealpro.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:loophole-letters.vercel.app)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:blog.karimratib.me)",
+      "WebFetch(domain:api.github.com)"
+    ]
+  }
+}

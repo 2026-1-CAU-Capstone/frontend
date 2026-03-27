@@ -1,0 +1,185 @@
+{
+  "title": "Adam's Apple",
+  "composer": "Wayne Shorter",
+  "performer": "Wayne Shorter",
+  "key": "Ab-mix",
+  "timeSignature": "4/4",
+  "tempo": 174,
+  "style": "POSTBOP",
+  "rhythmfeel": "LATIN",
+  "instrument": "ts",
+  "form": "A16B8",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 47,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 70,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 85,
+      "beat": 1.0,
+      "symbol": "Ab-7"
+    },
+    {
+      "measure": 87,
+      "beat": 1.0,
+      "symbol": "Db7913"
+    },
+    {
+      "measure": 93,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 101,
+      "beat": 1.0,
+      "symbol": "Ab-"
+    },
+    {
+      "measure": 111,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 144,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 169,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 172,
+      "beat": 1.0,
+      "symbol": "Ab-7"
+    },
+    {
+      "measure": 178,
+      "beat": 1.0,
+      "symbol": "Db7913"
+    },
+    {
+      "measure": 184,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 187,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 193,
+      "beat": 1.0,
+      "symbol": "Ab-"
+    },
+    {
+      "measure": 194,
+      "beat": 1.0,
+      "symbol": "Bb-7/Eb"
+    },
+    {
+      "measure": 195,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 217,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 225,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 234,
+      "beat": 1.0,
+      "symbol": "Ab-7"
+    },
+    {
+      "measure": 242,
+      "beat": 1.0,
+      "symbol": "Db7913"
+    },
+    {
+      "measure": 248,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 253,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 258,
+      "beat": 1.0,
+      "symbol": "Ab-"
+    },
+    {
+      "measure": 266,
+      "beat": 1.0,
+      "symbol": "Bb-7/Eb"
+    },
+    {
+      "measure": 267,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 294,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 311,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 332,
+      "beat": 1.0,
+      "symbol": "Ab-7"
+    },
+    {
+      "measure": 334,
+      "beat": 1.0,
+      "symbol": "Db7913"
+    },
+    {
+      "measure": 340,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 341,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 346,
+      "beat": 1.0,
+      "symbol": "Ab-"
+    },
+    {
+      "measure": 349,
+      "beat": 1.0,
+      "symbol": "Bb-7/Eb"
+    }
+  ]
+}

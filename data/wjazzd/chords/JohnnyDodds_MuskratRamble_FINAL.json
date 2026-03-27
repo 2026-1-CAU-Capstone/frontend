@@ -1,0 +1,80 @@
+{
+  "title": "Muskrat Ramble",
+  "composer": "Edward Ory",
+  "performer": "Johnny Dodds",
+  "key": "Ab-maj",
+  "timeSignature": "4/4",
+  "tempo": 185,
+  "style": "TRADITIONAL",
+  "rhythmfeel": "TWOBEAT",
+  "instrument": "cl",
+  "form": "A16",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 7,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 14,
+      "beat": 1.0,
+      "symbol": "Ab"
+    },
+    {
+      "measure": 20,
+      "beat": 1.0,
+      "symbol": "Abo"
+    },
+    {
+      "measure": 22,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 32,
+      "beat": 1.0,
+      "symbol": "Ab"
+    },
+    {
+      "measure": 49,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 55,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 63,
+      "beat": 1.0,
+      "symbol": "Ab"
+    },
+    {
+      "measure": 73,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 80,
+      "beat": 1.0,
+      "symbol": "Bb-"
+    },
+    {
+      "measure": 86,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 90,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    }
+  ]
+}

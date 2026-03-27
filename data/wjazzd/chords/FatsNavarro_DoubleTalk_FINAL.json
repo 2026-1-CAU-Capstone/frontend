@@ -1,0 +1,560 @@
+{
+  "title": "Double Talk",
+  "composer": "McGhee, Navaro",
+  "performer": "Fats Navarro",
+  "key": "F-maj",
+  "timeSignature": "4/4",
+  "tempo": 226,
+  "style": "BEBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "tp",
+  "form": "A8A8B8A8",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 18,
+      "beat": 1.0,
+      "symbol": "F"
+    },
+    {
+      "measure": 32,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 37,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 44,
+      "beat": 1.0,
+      "symbol": "C7913"
+    },
+    {
+      "measure": 52,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 55,
+      "beat": 1.0,
+      "symbol": "Abo"
+    },
+    {
+      "measure": 60,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 64,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 67,
+      "beat": 1.0,
+      "symbol": "F"
+    },
+    {
+      "measure": 79,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 86,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 92,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 101,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 105,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 109,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 112,
+      "beat": 1.0,
+      "symbol": "Ab7/D"
+    },
+    {
+      "measure": 117,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 124,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 130,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 139,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 142,
+      "beat": 1.0,
+      "symbol": "B7913"
+    },
+    {
+      "measure": 143,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 147,
+      "beat": 1.0,
+      "symbol": "Bb79#13"
+    },
+    {
+      "measure": 150,
+      "beat": 1.0,
+      "symbol": "Ab79#"
+    },
+    {
+      "measure": 152,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 159,
+      "beat": 1.0,
+      "symbol": "C7alt"
+    },
+    {
+      "measure": 167,
+      "beat": 1.0,
+      "symbol": "F"
+    },
+    {
+      "measure": 183,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 186,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 193,
+      "beat": 1.0,
+      "symbol": "C7913"
+    },
+    {
+      "measure": 200,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 203,
+      "beat": 1.0,
+      "symbol": "Abo"
+    },
+    {
+      "measure": 206,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 211,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 213,
+      "beat": 1.0,
+      "symbol": "F"
+    },
+    {
+      "measure": 229,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 238,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 243,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 247,
+      "beat": 1.0,
+      "symbol": "C7913"
+    },
+    {
+      "measure": 256,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 262,
+      "beat": 1.0,
+      "symbol": "Abo"
+    },
+    {
+      "measure": 266,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 271,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 276,
+      "beat": 1.0,
+      "symbol": "F"
+    },
+    {
+      "measure": 291,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 301,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 308,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 316,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 323,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 326,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 331,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 335,
+      "beat": 1.0,
+      "symbol": "Ab7/D"
+    },
+    {
+      "measure": 337,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 348,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 356,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 364,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 369,
+      "beat": 1.0,
+      "symbol": "Bb79#"
+    },
+    {
+      "measure": 375,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 381,
+      "beat": 1.0,
+      "symbol": "Ab79#"
+    },
+    {
+      "measure": 383,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 388,
+      "beat": 1.0,
+      "symbol": "C7alt"
+    },
+    {
+      "measure": 398,
+      "beat": 1.0,
+      "symbol": "F"
+    },
+    {
+      "measure": 406,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 412,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 413,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 421,
+      "beat": 1.0,
+      "symbol": "C7913"
+    },
+    {
+      "measure": 430,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 434,
+      "beat": 1.0,
+      "symbol": "Abo"
+    },
+    {
+      "measure": 439,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 442,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 446,
+      "beat": 1.0,
+      "symbol": "F"
+    },
+    {
+      "measure": 454,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 457,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 461,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 465,
+      "beat": 1.0,
+      "symbol": "C7913"
+    },
+    {
+      "measure": 474,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 480,
+      "beat": 1.0,
+      "symbol": "Abo"
+    },
+    {
+      "measure": 484,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 488,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 494,
+      "beat": 1.0,
+      "symbol": "F"
+    },
+    {
+      "measure": 510,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 520,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 529,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 533,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 537,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 542,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 546,
+      "beat": 1.0,
+      "symbol": "Ab7/D"
+    },
+    {
+      "measure": 550,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 558,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 567,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 574,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 575,
+      "beat": 1.0,
+      "symbol": "B7913"
+    },
+    {
+      "measure": 578,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 582,
+      "beat": 1.0,
+      "symbol": "Bb79#"
+    },
+    {
+      "measure": 586,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 587,
+      "beat": 1.0,
+      "symbol": "Ab79#"
+    },
+    {
+      "measure": 592,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 594,
+      "beat": 1.0,
+      "symbol": "C7alt"
+    },
+    {
+      "measure": 602,
+      "beat": 1.0,
+      "symbol": "F"
+    },
+    {
+      "measure": 613,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 626,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 633,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 640,
+      "beat": 1.0,
+      "symbol": "C7913"
+    },
+    {
+      "measure": 646,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 652,
+      "beat": 1.0,
+      "symbol": "Abo"
+    },
+    {
+      "measure": 655,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 658,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 660,
+      "beat": 1.0,
+      "symbol": "F"
+    }
+  ]
+}

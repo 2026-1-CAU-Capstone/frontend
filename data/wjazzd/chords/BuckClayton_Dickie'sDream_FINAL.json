@@ -1,0 +1,255 @@
+{
+  "title": "Dickie's Dream",
+  "composer": "Basie-Young",
+  "performer": "Buck Clayton",
+  "key": "C-min",
+  "timeSignature": "4/4",
+  "tempo": 231,
+  "style": "SWING",
+  "rhythmfeel": "SWING",
+  "instrument": "tp",
+  "form": "A8A8B8A8",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 3,
+      "beat": 1.0,
+      "symbol": "C-/Bb"
+    },
+    {
+      "measure": 6,
+      "beat": 1.0,
+      "symbol": "Ab"
+    },
+    {
+      "measure": 7,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 10,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 12,
+      "beat": 1.0,
+      "symbol": "C-/Bb"
+    },
+    {
+      "measure": 14,
+      "beat": 1.0,
+      "symbol": "Ab"
+    },
+    {
+      "measure": 18,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 21,
+      "beat": 1.0,
+      "symbol": "C-/Bb"
+    },
+    {
+      "measure": 22,
+      "beat": 1.0,
+      "symbol": "Ab"
+    },
+    {
+      "measure": 25,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 28,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 30,
+      "beat": 1.0,
+      "symbol": "C-/Bb"
+    },
+    {
+      "measure": 33,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 37,
+      "beat": 1.0,
+      "symbol": "C-/Bb"
+    },
+    {
+      "measure": 39,
+      "beat": 1.0,
+      "symbol": "Ab"
+    },
+    {
+      "measure": 42,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 45,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 48,
+      "beat": 1.0,
+      "symbol": "C-/Bb"
+    },
+    {
+      "measure": 50,
+      "beat": 1.0,
+      "symbol": "Ab"
+    },
+    {
+      "measure": 53,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 56,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 58,
+      "beat": 1.0,
+      "symbol": "C-/Bb"
+    },
+    {
+      "measure": 61,
+      "beat": 1.0,
+      "symbol": "Ab"
+    },
+    {
+      "measure": 63,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 67,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 70,
+      "beat": 1.0,
+      "symbol": "C-/Bb"
+    },
+    {
+      "measure": 73,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 81,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 95,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 101,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 106,
+      "beat": 1.0,
+      "symbol": "D-"
+    },
+    {
+      "measure": 109,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 110,
+      "beat": 1.0,
+      "symbol": "C-/Bb"
+    },
+    {
+      "measure": 114,
+      "beat": 1.0,
+      "symbol": "Ab"
+    },
+    {
+      "measure": 118,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 124,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 127,
+      "beat": 1.0,
+      "symbol": "C-/Bb"
+    },
+    {
+      "measure": 133,
+      "beat": 1.0,
+      "symbol": "Ab"
+    },
+    {
+      "measure": 139,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 142,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 145,
+      "beat": 1.0,
+      "symbol": "C-/Bb"
+    },
+    {
+      "measure": 147,
+      "beat": 1.0,
+      "symbol": "Ab"
+    },
+    {
+      "measure": 149,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 152,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 155,
+      "beat": 1.0,
+      "symbol": "C-/Bb"
+    },
+    {
+      "measure": 157,
+      "beat": 1.0,
+      "symbol": "Ab"
+    },
+    {
+      "measure": 160,
+      "beat": 1.0,
+      "symbol": "G7"
+    }
+  ]
+}

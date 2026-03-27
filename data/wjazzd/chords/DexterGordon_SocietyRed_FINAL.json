@@ -1,0 +1,440 @@
+{
+  "title": "Society Red",
+  "composer": "Dexter Gordon",
+  "performer": "Dexter Gordon",
+  "key": "Bb-maj",
+  "timeSignature": "4/4",
+  "tempo": 114,
+  "style": "HARDBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "ts",
+  "form": "A12",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 3,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 9,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 11,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 20,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 35,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 61,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 78,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 101,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 127,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 137,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 147,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 163,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 177,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 210,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 218,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 230,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 245,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 251,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 256,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 258,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 266,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 277,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 282,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 294,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 305,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 311,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 324,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 336,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 348,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 370,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 376,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 387,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 398,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 405,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 418,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 429,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 445,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 485,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 498,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 526,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 555,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 567,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 578,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 592,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 606,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 632,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 649,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 663,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 683,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 687,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 699,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 714,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 716,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 720,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 726,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 738,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 745,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 758,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 788,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 802,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 804,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 818,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 827,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 834,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 845,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 855,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 867,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 895,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 916,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 921,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 932,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 942,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 948,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 950,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 954,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 956,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 962,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 993,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 997,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 1004,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 1013,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 1021,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 1029,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 1037,
+      "beat": 1.0,
+      "symbol": "F7"
+    }
+  ]
+}

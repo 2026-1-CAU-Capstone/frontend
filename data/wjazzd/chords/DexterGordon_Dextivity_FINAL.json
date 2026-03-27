@@ -1,0 +1,280 @@
+{
+  "title": "Dextivity",
+  "composer": "Dexter Gordon",
+  "performer": "Dexter Gordon",
+  "key": "C-maj",
+  "timeSignature": "4/4",
+  "tempo": 93,
+  "style": "BEBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "ts",
+  "form": "A8A8B8A8",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "C6"
+    },
+    {
+      "measure": 14,
+      "beat": 1.0,
+      "symbol": "D7911#"
+    },
+    {
+      "measure": 24,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 31,
+      "beat": 1.0,
+      "symbol": "G79b"
+    },
+    {
+      "measure": 37,
+      "beat": 1.0,
+      "symbol": "C6"
+    },
+    {
+      "measure": 40,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 44,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 48,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 51,
+      "beat": 1.0,
+      "symbol": "C6"
+    },
+    {
+      "measure": 61,
+      "beat": 1.0,
+      "symbol": "D7911#"
+    },
+    {
+      "measure": 75,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 82,
+      "beat": 1.0,
+      "symbol": "G79b"
+    },
+    {
+      "measure": 86,
+      "beat": 1.0,
+      "symbol": "C6"
+    },
+    {
+      "measure": 102,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 110,
+      "beat": 1.0,
+      "symbol": "C79b"
+    },
+    {
+      "measure": 117,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 120,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 128,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 133,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 139,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 145,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 150,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 155,
+      "beat": 1.0,
+      "symbol": "C6"
+    },
+    {
+      "measure": 162,
+      "beat": 1.0,
+      "symbol": "D7911#"
+    },
+    {
+      "measure": 165,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 172,
+      "beat": 1.0,
+      "symbol": "G79b"
+    },
+    {
+      "measure": 175,
+      "beat": 1.0,
+      "symbol": "C6"
+    },
+    {
+      "measure": 190,
+      "beat": 1.0,
+      "symbol": "D7911#"
+    },
+    {
+      "measure": 202,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 214,
+      "beat": 1.0,
+      "symbol": "G79b"
+    },
+    {
+      "measure": 220,
+      "beat": 1.0,
+      "symbol": "C6"
+    },
+    {
+      "measure": 224,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 228,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 232,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 235,
+      "beat": 1.0,
+      "symbol": "C6"
+    },
+    {
+      "measure": 241,
+      "beat": 1.0,
+      "symbol": "D7911#"
+    },
+    {
+      "measure": 249,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 257,
+      "beat": 1.0,
+      "symbol": "G79b"
+    },
+    {
+      "measure": 265,
+      "beat": 1.0,
+      "symbol": "C6"
+    },
+    {
+      "measure": 270,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 274,
+      "beat": 1.0,
+      "symbol": "C79b"
+    },
+    {
+      "measure": 279,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 283,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 285,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 289,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 297,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 305,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 306,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 310,
+      "beat": 1.0,
+      "symbol": "C6"
+    },
+    {
+      "measure": 323,
+      "beat": 1.0,
+      "symbol": "D7911#"
+    },
+    {
+      "measure": 331,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 336,
+      "beat": 1.0,
+      "symbol": "G79b"
+    },
+    {
+      "measure": 342,
+      "beat": 1.0,
+      "symbol": "C6"
+    }
+  ]
+}

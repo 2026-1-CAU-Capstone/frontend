@@ -1,0 +1,360 @@
+{
+  "title": "Cabin Fever",
+  "composer": "Michael Brecker",
+  "performer": "Pat Metheny",
+  "key": "Bb-maj",
+  "timeSignature": "4/4",
+  "tempo": 308,
+  "style": "POSTBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "g",
+  "form": "A12",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 5,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 9,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 13,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 17,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 24,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 31,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 45,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 55,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 58,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 65,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 68,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 72,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 89,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 92,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 97,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 102,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 106,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 113,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 120,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 123,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 130,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 137,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 143,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 148,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 158,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 168,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 172,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 175,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 176,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 184,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 188,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 189,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 196,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 202,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 215,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 228,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 233,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 237,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 241,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 249,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 256,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 263,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 273,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 281,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 289,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 293,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 298,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 305,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 311,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 314,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 321,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 330,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 345,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 358,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 365,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 372,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 381,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 387,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 394,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 395,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 400,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 403,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 413,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 424,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 429,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 434,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 437,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 444,
+      "beat": 1.0,
+      "symbol": "F7"
+    }
+  ]
+}

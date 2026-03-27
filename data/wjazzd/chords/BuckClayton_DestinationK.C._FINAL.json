@@ -1,0 +1,200 @@
+{
+  "title": "Destination K.C.",
+  "composer": "Clayton",
+  "performer": "Buck Clayton",
+  "key": "C-maj",
+  "timeSignature": "4/4",
+  "tempo": 248,
+  "style": "SWING",
+  "rhythmfeel": "SWING",
+  "instrument": "tp",
+  "form": "A8A8B8A8",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 3,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 10,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 16,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 31,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 37,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 47,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 52,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 67,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 72,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 74,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 83,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 92,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 99,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 105,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 108,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 109,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 118,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 139,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 143,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 149,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 151,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 163,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 167,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 180,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 188,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 207,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 212,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 214,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 223,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 233,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 238,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 243,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 246,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 252,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 256,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 267,
+      "beat": 1.0,
+      "symbol": "G7"
+    }
+  ]
+}

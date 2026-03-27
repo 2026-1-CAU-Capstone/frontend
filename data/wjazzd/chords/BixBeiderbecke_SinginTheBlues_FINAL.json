@@ -1,0 +1,205 @@
+{
+  "title": "Singin the Blues",
+  "composer": "Robinson/Conrad",
+  "performer": "Bix Beiderbecke",
+  "key": "Eb-maj",
+  "timeSignature": "4/4",
+  "tempo": 134,
+  "style": "TRADITIONAL",
+  "rhythmfeel": "TWOBEAT",
+  "instrument": "cor",
+  "form": "A8A8B8",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 3,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 13,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 14,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 22,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 23,
+      "beat": 1.0,
+      "symbol": "Ebo"
+    },
+    {
+      "measure": 26,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 36,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 43,
+      "beat": 1.0,
+      "symbol": "Ebo"
+    },
+    {
+      "measure": 44,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 46,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 47,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 49,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 50,
+      "beat": 1.0,
+      "symbol": "Fo"
+    },
+    {
+      "measure": 51,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 62,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 63,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 64,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 67,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 80,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 90,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 92,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 99,
+      "beat": 1.0,
+      "symbol": "Fo"
+    },
+    {
+      "measure": 101,
+      "beat": 1.0,
+      "symbol": "Ebo"
+    },
+    {
+      "measure": 104,
+      "beat": 1.0,
+      "symbol": "Eo"
+    },
+    {
+      "measure": 112,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 114,
+      "beat": 1.0,
+      "symbol": "F-"
+    },
+    {
+      "measure": 120,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 122,
+      "beat": 1.0,
+      "symbol": "F-"
+    },
+    {
+      "measure": 123,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 126,
+      "beat": 1.0,
+      "symbol": "F-"
+    },
+    {
+      "measure": 127,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 129,
+      "beat": 1.0,
+      "symbol": "Ebo"
+    },
+    {
+      "measure": 137,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 145,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 150,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 158,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 160,
+      "beat": 1.0,
+      "symbol": "Eb"
+    }
+  ]
+}

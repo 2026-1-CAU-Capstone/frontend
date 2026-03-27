@@ -1,0 +1,385 @@
+{
+  "title": "Walkin'",
+  "composer": "Miles Davis/Richard Carpenter",
+  "performer": "Miles Davis",
+  "key": "F-maj",
+  "timeSignature": "4/4",
+  "tempo": 128,
+  "style": "HARDBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "tp",
+  "form": "A12",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 7,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 9,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 13,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 17,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 28,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 35,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 38,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 42,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 51,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 58,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 65,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 69,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 77,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 85,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 90,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 94,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 100,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 106,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 109,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 119,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 131,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 147,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 151,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 161,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 165,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 171,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 183,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 193,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 200,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 204,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 210,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 224,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 231,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 241,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 245,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 253,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 268,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 284,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 289,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 291,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 294,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 296,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 298,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 312,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 317,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 319,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 323,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 327,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 331,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 338,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 342,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 345,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 347,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 350,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 357,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 365,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 367,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 369,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 381,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 393,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 401,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 402,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 405,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 410,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 414,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 424,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 434,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 439,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 441,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 444,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 452,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 454,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 456,
+      "beat": 1.0,
+      "symbol": "C7"
+    }
+  ]
+}

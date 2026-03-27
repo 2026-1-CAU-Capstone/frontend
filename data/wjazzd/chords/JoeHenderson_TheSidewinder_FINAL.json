@@ -1,0 +1,80 @@
+{
+  "title": "The Sidewinder",
+  "composer": "Lee Morgan",
+  "performer": "Joe Henderson",
+  "key": "Eb-maj",
+  "timeSignature": "4/4",
+  "tempo": 154,
+  "style": "POSTBOP",
+  "rhythmfeel": "LATIN",
+  "instrument": "ts",
+  "form": "A24",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 28,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 52,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 79,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 107,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 222,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 240,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 259,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 288,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 430,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 443,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 480,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 513,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    }
+  ]
+}

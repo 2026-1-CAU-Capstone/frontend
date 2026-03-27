@@ -1,0 +1,355 @@
+{
+  "title": "Stompin' at the Savoy",
+  "composer": "Goodman, Webb, Samson",
+  "performer": "Coleman Hawkins",
+  "key": "Db-maj",
+  "timeSignature": "4/4",
+  "tempo": 250,
+  "style": "SWING",
+  "rhythmfeel": "SWING",
+  "instrument": "ts",
+  "form": "A16B8A8",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 12,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 16,
+      "beat": 1.0,
+      "symbol": "C79"
+    },
+    {
+      "measure": 23,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 28,
+      "beat": 1.0,
+      "symbol": "G#o"
+    },
+    {
+      "measure": 31,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 41,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 42,
+      "beat": 1.0,
+      "symbol": "A-"
+    },
+    {
+      "measure": 45,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 49,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 53,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 55,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 56,
+      "beat": 1.0,
+      "symbol": "C79"
+    },
+    {
+      "measure": 62,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 68,
+      "beat": 1.0,
+      "symbol": "G#o"
+    },
+    {
+      "measure": 71,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 82,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 95,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 100,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 106,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 109,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 117,
+      "beat": 1.0,
+      "symbol": "E-"
+    },
+    {
+      "measure": 124,
+      "beat": 1.0,
+      "symbol": "A79"
+    },
+    {
+      "measure": 126,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 129,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 137,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 138,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 141,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 143,
+      "beat": 1.0,
+      "symbol": "C79"
+    },
+    {
+      "measure": 150,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 160,
+      "beat": 1.0,
+      "symbol": "G#o"
+    },
+    {
+      "measure": 163,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 172,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 175,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 177,
+      "beat": 1.0,
+      "symbol": "D"
+    },
+    {
+      "measure": 178,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 181,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 185,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 186,
+      "beat": 1.0,
+      "symbol": "C79"
+    },
+    {
+      "measure": 194,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 202,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 213,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 217,
+      "beat": 1.0,
+      "symbol": "A-"
+    },
+    {
+      "measure": 220,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 224,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 225,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 227,
+      "beat": 1.0,
+      "symbol": "C79"
+    },
+    {
+      "measure": 231,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 240,
+      "beat": 1.0,
+      "symbol": "G#o"
+    },
+    {
+      "measure": 244,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 250,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 261,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 270,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 273,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 274,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 285,
+      "beat": 1.0,
+      "symbol": "A79"
+    },
+    {
+      "measure": 293,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 297,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 308,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 311,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 313,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 315,
+      "beat": 1.0,
+      "symbol": "C79"
+    },
+    {
+      "measure": 323,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 328,
+      "beat": 1.0,
+      "symbol": "G#o"
+    },
+    {
+      "measure": 330,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 339,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 341,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 342,
+      "beat": 1.0,
+      "symbol": "D"
+    }
+  ]
+}

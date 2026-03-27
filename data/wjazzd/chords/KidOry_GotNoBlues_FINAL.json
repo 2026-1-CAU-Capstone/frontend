@@ -1,0 +1,140 @@
+{
+  "title": "Got No Blues",
+  "composer": "Lillian Hardin",
+  "performer": "Kid Ory",
+  "key": "F-maj",
+  "timeSignature": "4/4",
+  "tempo": 145,
+  "style": "TRADITIONAL",
+  "rhythmfeel": "TWOBEAT",
+  "instrument": "tb",
+  "form": "A8B8",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 4,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 7,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 10,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 14,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 16,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 18,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 21,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 24,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 28,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 31,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 32,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 38,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 40,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 43,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 46,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 50,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 52,
+      "beat": 1.0,
+      "symbol": "B-"
+    },
+    {
+      "measure": 53,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 56,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 59,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 61,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 64,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 68,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 69,
+      "beat": 1.0,
+      "symbol": "Eb"
+    }
+  ]
+}

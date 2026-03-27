@@ -1,0 +1,25 @@
+{
+  "title": "Nature Boy",
+  "composer": "Eden Abhez",
+  "performer": "John Coltrane",
+  "key": "E-min",
+  "timeSignature": "4/4",
+  "tempo": 186,
+  "style": "POSTBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "ts",
+  "form": "open",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 6,
+      "beat": 1.0,
+      "symbol": "E-7"
+    }
+  ]
+}

@@ -1,0 +1,160 @@
+{
+  "title": "Out of Nowhere",
+  "composer": "Heyman, Green",
+  "performer": "Don Ellis",
+  "key": "G-maj",
+  "timeSignature": "4/4",
+  "tempo": 152,
+  "style": "POSTBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "tp",
+  "form": "A16B16",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 24,
+      "beat": 1.0,
+      "symbol": "Gj7"
+    },
+    {
+      "measure": 34,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 39,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 43,
+      "beat": 1.0,
+      "symbol": "Gj7"
+    },
+    {
+      "measure": 57,
+      "beat": 1.0,
+      "symbol": "B-7"
+    },
+    {
+      "measure": 61,
+      "beat": 1.0,
+      "symbol": "E79b"
+    },
+    {
+      "measure": 68,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 73,
+      "beat": 1.0,
+      "symbol": "E79b"
+    },
+    {
+      "measure": 79,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 98,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 109,
+      "beat": 1.0,
+      "symbol": "Dsus7"
+    },
+    {
+      "measure": 118,
+      "beat": 1.0,
+      "symbol": "D79b"
+    },
+    {
+      "measure": 125,
+      "beat": 1.0,
+      "symbol": "Gj7"
+    },
+    {
+      "measure": 138,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 146,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 156,
+      "beat": 1.0,
+      "symbol": "Gj7"
+    },
+    {
+      "measure": 165,
+      "beat": 1.0,
+      "symbol": "B-7"
+    },
+    {
+      "measure": 170,
+      "beat": 1.0,
+      "symbol": "E79b"
+    },
+    {
+      "measure": 179,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 188,
+      "beat": 1.0,
+      "symbol": "E79b"
+    },
+    {
+      "measure": 192,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 201,
+      "beat": 1.0,
+      "symbol": "C-6"
+    },
+    {
+      "measure": 205,
+      "beat": 1.0,
+      "symbol": "B-7"
+    },
+    {
+      "measure": 207,
+      "beat": 1.0,
+      "symbol": "Bbo"
+    },
+    {
+      "measure": 210,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 212,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 215,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 228,
+      "beat": 1.0,
+      "symbol": "Gj7"
+    }
+  ]
+}

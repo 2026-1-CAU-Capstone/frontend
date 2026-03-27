@@ -1,0 +1,430 @@
+{
+  "title": "You and the Night and the Music",
+  "composer": "Bob Berg",
+  "performer": "Bob Berg",
+  "key": "G-min",
+  "timeSignature": "4/4",
+  "tempo": 167,
+  "style": "POSTBOP",
+  "rhythmfeel": "LATIN",
+  "instrument": "ts",
+  "form": "A8A8B8C12",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 31,
+      "beat": 1.0,
+      "symbol": "C-69"
+    },
+    {
+      "measure": 34,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 37,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 40,
+      "beat": 1.0,
+      "symbol": "Gm7b5"
+    },
+    {
+      "measure": 43,
+      "beat": 1.0,
+      "symbol": "C79b"
+    },
+    {
+      "measure": 46,
+      "beat": 1.0,
+      "symbol": "F-6"
+    },
+    {
+      "measure": 51,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 59,
+      "beat": 1.0,
+      "symbol": "G79b"
+    },
+    {
+      "measure": 75,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 91,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 99,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 107,
+      "beat": 1.0,
+      "symbol": "C-69"
+    },
+    {
+      "measure": 110,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 118,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 127,
+      "beat": 1.0,
+      "symbol": "Gm7b5"
+    },
+    {
+      "measure": 134,
+      "beat": 1.0,
+      "symbol": "C79b"
+    },
+    {
+      "measure": 139,
+      "beat": 1.0,
+      "symbol": "F-6"
+    },
+    {
+      "measure": 151,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 162,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 177,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 193,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 201,
+      "beat": 1.0,
+      "symbol": "D79b"
+    },
+    {
+      "measure": 203,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 222,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 238,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 246,
+      "beat": 1.0,
+      "symbol": "D79b"
+    },
+    {
+      "measure": 252,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 254,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 257,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 260,
+      "beat": 1.0,
+      "symbol": "C-69"
+    },
+    {
+      "measure": 271,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 278,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 283,
+      "beat": 1.0,
+      "symbol": "Gm7b5"
+    },
+    {
+      "measure": 289,
+      "beat": 1.0,
+      "symbol": "C79b"
+    },
+    {
+      "measure": 296,
+      "beat": 1.0,
+      "symbol": "F-6"
+    },
+    {
+      "measure": 311,
+      "beat": 1.0,
+      "symbol": "G79b"
+    },
+    {
+      "measure": 318,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 328,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 335,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 343,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 351,
+      "beat": 1.0,
+      "symbol": "C-69"
+    },
+    {
+      "measure": 373,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 374,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 378,
+      "beat": 1.0,
+      "symbol": "Gm7b5"
+    },
+    {
+      "measure": 380,
+      "beat": 1.0,
+      "symbol": "C79b"
+    },
+    {
+      "measure": 383,
+      "beat": 1.0,
+      "symbol": "F-6"
+    },
+    {
+      "measure": 394,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 411,
+      "beat": 1.0,
+      "symbol": "G79b"
+    },
+    {
+      "measure": 428,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 433,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 440,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 445,
+      "beat": 1.0,
+      "symbol": "C-69"
+    },
+    {
+      "measure": 456,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 464,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 468,
+      "beat": 1.0,
+      "symbol": "Gm7b5"
+    },
+    {
+      "measure": 471,
+      "beat": 1.0,
+      "symbol": "C79b"
+    },
+    {
+      "measure": 478,
+      "beat": 1.0,
+      "symbol": "F-6"
+    },
+    {
+      "measure": 494,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 510,
+      "beat": 1.0,
+      "symbol": "G79b"
+    },
+    {
+      "measure": 518,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 533,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 534,
+      "beat": 1.0,
+      "symbol": "D79b"
+    },
+    {
+      "measure": 536,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 555,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 559,
+      "beat": 1.0,
+      "symbol": "D79b"
+    },
+    {
+      "measure": 564,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 570,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 578,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 585,
+      "beat": 1.0,
+      "symbol": "Db7911#"
+    },
+    {
+      "measure": 592,
+      "beat": 1.0,
+      "symbol": "C-69"
+    },
+    {
+      "measure": 598,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 601,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 605,
+      "beat": 1.0,
+      "symbol": "Gm7b5"
+    },
+    {
+      "measure": 614,
+      "beat": 1.0,
+      "symbol": "C79b"
+    },
+    {
+      "measure": 616,
+      "beat": 1.0,
+      "symbol": "F-6"
+    },
+    {
+      "measure": 622,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 628,
+      "beat": 1.0,
+      "symbol": "G79b"
+    },
+    {
+      "measure": 632,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 635,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 639,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 640,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 643,
+      "beat": 1.0,
+      "symbol": "C-69"
+    }
+  ]
+}

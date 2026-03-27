@@ -1,0 +1,145 @@
+{
+  "title": "I Fall in Love Too Easily",
+  "composer": "Cahn/Styne",
+  "performer": "Chet Baker",
+  "key": "Eb-maj",
+  "timeSignature": "4/4",
+  "tempo": 65,
+  "style": "COOL",
+  "rhythmfeel": "SWING",
+  "instrument": "tp",
+  "form": "A8B8",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 4,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 8,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 10,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 13,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 17,
+      "beat": 1.0,
+      "symbol": "G79b"
+    },
+    {
+      "measure": 19,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 22,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 29,
+      "beat": 1.0,
+      "symbol": "G79b"
+    },
+    {
+      "measure": 32,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 48,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 53,
+      "beat": 1.0,
+      "symbol": "Ab7911#"
+    },
+    {
+      "measure": 57,
+      "beat": 1.0,
+      "symbol": "Gj7"
+    },
+    {
+      "measure": 62,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 64,
+      "beat": 1.0,
+      "symbol": "D79#"
+    },
+    {
+      "measure": 67,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 80,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 85,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 87,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 90,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 95,
+      "beat": 1.0,
+      "symbol": "Bb79"
+    },
+    {
+      "measure": 100,
+      "beat": 1.0,
+      "symbol": "Db7911#"
+    },
+    {
+      "measure": 106,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 114,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 118,
+      "beat": 1.0,
+      "symbol": "Bb7913"
+    },
+    {
+      "measure": 124,
+      "beat": 1.0,
+      "symbol": "Eb6"
+    }
+  ]
+}

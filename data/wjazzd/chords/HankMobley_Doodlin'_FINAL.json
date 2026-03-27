@@ -1,0 +1,180 @@
+{
+  "title": "Doodlin'",
+  "composer": "H.Silver",
+  "performer": "Hank Mobley",
+  "key": "Db-maj",
+  "timeSignature": "4/4",
+  "tempo": 121,
+  "style": "HARDBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "ts",
+  "form": "A12",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 4,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 14,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 19,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 29,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 49,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 59,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 67,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 75,
+      "beat": 1.0,
+      "symbol": "Ab79"
+    },
+    {
+      "measure": 84,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 95,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 108,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 112,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 116,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 128,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 137,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 146,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 152,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 155,
+      "beat": 1.0,
+      "symbol": "Eb79"
+    },
+    {
+      "measure": 162,
+      "beat": 1.0,
+      "symbol": "Ab79"
+    },
+    {
+      "measure": 167,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 170,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 180,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 194,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 217,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 228,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 239,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 245,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 250,
+      "beat": 1.0,
+      "symbol": "Eb79"
+    },
+    {
+      "measure": 254,
+      "beat": 1.0,
+      "symbol": "Ab79"
+    },
+    {
+      "measure": 260,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 273,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 283,
+      "beat": 1.0,
+      "symbol": "Db7"
+    }
+  ]
+}

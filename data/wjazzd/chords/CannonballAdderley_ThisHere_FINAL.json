@@ -1,0 +1,270 @@
+{
+  "title": "This Here",
+  "composer": "Bobby Timmons",
+  "performer": "Cannonball Adderley",
+  "key": "F-maj",
+  "timeSignature": "3/4",
+  "tempo": 175,
+  "style": "HARDBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "as",
+  "form": "A16B12C10",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 25,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 33,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 49,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 59,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 73,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 82,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 95,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 106,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 117,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 123,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 128,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 193,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 209,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 234,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 246,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 261,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 267,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 272,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 289,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 293,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 297,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 351,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 371,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 396,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 420,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 438,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 456,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 476,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 484,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 493,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 540,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 560,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 579,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 591,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 603,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 616,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 629,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 641,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 649,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 655,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 693,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 718,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 737,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 752,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 765,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 779,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 792,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 800,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 806,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 812,
+      "beat": 1.0,
+      "symbol": "F7"
+    }
+  ]
+}

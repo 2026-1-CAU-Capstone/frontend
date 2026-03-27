@@ -1,0 +1,320 @@
+{
+  "title": "Tautology",
+  "composer": "Lee Konitz",
+  "performer": "Lee Konitz",
+  "key": "F-maj",
+  "timeSignature": "4/4",
+  "tempo": 266,
+  "style": "COOL",
+  "rhythmfeel": "SWING",
+  "instrument": "as",
+  "form": "A8B8C8A8",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 11,
+      "beat": 1.0,
+      "symbol": "F"
+    },
+    {
+      "measure": 19,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 27,
+      "beat": 1.0,
+      "symbol": "A-"
+    },
+    {
+      "measure": 28,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 32,
+      "beat": 1.0,
+      "symbol": "G-"
+    },
+    {
+      "measure": 33,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 40,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 52,
+      "beat": 1.0,
+      "symbol": "Cj7911#"
+    },
+    {
+      "measure": 56,
+      "beat": 1.0,
+      "symbol": "Gbj7911#"
+    },
+    {
+      "measure": 57,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 60,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 67,
+      "beat": 1.0,
+      "symbol": "G-"
+    },
+    {
+      "measure": 68,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 74,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 87,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 91,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 99,
+      "beat": 1.0,
+      "symbol": "Bbo"
+    },
+    {
+      "measure": 102,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 106,
+      "beat": 1.0,
+      "symbol": "Ab"
+    },
+    {
+      "measure": 114,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 122,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 130,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 132,
+      "beat": 1.0,
+      "symbol": "F"
+    },
+    {
+      "measure": 137,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 144,
+      "beat": 1.0,
+      "symbol": "A-"
+    },
+    {
+      "measure": 147,
+      "beat": 1.0,
+      "symbol": "G-"
+    },
+    {
+      "measure": 151,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 154,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 168,
+      "beat": 1.0,
+      "symbol": "F"
+    },
+    {
+      "measure": 175,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 176,
+      "beat": 1.0,
+      "symbol": "A-"
+    },
+    {
+      "measure": 178,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 186,
+      "beat": 1.0,
+      "symbol": "G-"
+    },
+    {
+      "measure": 193,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 200,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 206,
+      "beat": 1.0,
+      "symbol": "Cj7911#"
+    },
+    {
+      "measure": 209,
+      "beat": 1.0,
+      "symbol": "Bb7911#"
+    },
+    {
+      "measure": 212,
+      "beat": 1.0,
+      "symbol": "Ab7911#"
+    },
+    {
+      "measure": 216,
+      "beat": 1.0,
+      "symbol": "Gbj7911#"
+    },
+    {
+      "measure": 220,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 223,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 226,
+      "beat": 1.0,
+      "symbol": "G-"
+    },
+    {
+      "measure": 230,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 235,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 250,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 259,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 263,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 267,
+      "beat": 1.0,
+      "symbol": "Ab"
+    },
+    {
+      "measure": 274,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 282,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 289,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 297,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 306,
+      "beat": 1.0,
+      "symbol": "F"
+    },
+    {
+      "measure": 307,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 312,
+      "beat": 1.0,
+      "symbol": "A-"
+    },
+    {
+      "measure": 319,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 328,
+      "beat": 1.0,
+      "symbol": "G-"
+    },
+    {
+      "measure": 329,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 336,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 350,
+      "beat": 1.0,
+      "symbol": "F"
+    }
+  ]
+}

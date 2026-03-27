@@ -1,0 +1,260 @@
+{
+  "title": "Playin' in the Yard",
+  "composer": "",
+  "performer": "Sonny Rollins",
+  "key": "G-maj",
+  "timeSignature": "4/4",
+  "tempo": 155,
+  "style": "FUSION",
+  "rhythmfeel": "FUNK",
+  "instrument": "ts",
+  "form": "A16",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 6,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 11,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 18,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 23,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 29,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 36,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 39,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 44,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 48,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 53,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 59,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 63,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 71,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 77,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 83,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 87,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 90,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 96,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 102,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 106,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 111,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 117,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 122,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 130,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 134,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 141,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 143,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 150,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 154,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 160,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 169,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 172,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 178,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 184,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 189,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 194,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 200,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 206,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 211,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 218,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 220,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 224,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 229,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 233,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 241,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 249,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 255,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 263,
+      "beat": 1.0,
+      "symbol": "C7"
+    }
+  ]
+}

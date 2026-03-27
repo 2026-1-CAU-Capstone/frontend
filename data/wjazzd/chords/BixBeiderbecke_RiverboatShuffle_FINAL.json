@@ -1,0 +1,140 @@
+{
+  "title": "Riverboat Shuffle",
+  "composer": "Voynow/Carmichael/Mills/Parish",
+  "performer": "Bix Beiderbecke",
+  "key": "Ab-maj",
+  "timeSignature": "4/4",
+  "tempo": 211,
+  "style": "TRADITIONAL",
+  "rhythmfeel": "TWOBEAT",
+  "instrument": "cor",
+  "form": "A16B16",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 10,
+      "beat": 1.0,
+      "symbol": "Ab"
+    },
+    {
+      "measure": 19,
+      "beat": 1.0,
+      "symbol": "Ao"
+    },
+    {
+      "measure": 22,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 30,
+      "beat": 1.0,
+      "symbol": "Ab"
+    },
+    {
+      "measure": 42,
+      "beat": 1.0,
+      "symbol": "Ao"
+    },
+    {
+      "measure": 43,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 50,
+      "beat": 1.0,
+      "symbol": "Ab"
+    },
+    {
+      "measure": 52,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 58,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 62,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 65,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 67,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 68,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 79,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 85,
+      "beat": 1.0,
+      "symbol": "Ab"
+    },
+    {
+      "measure": 95,
+      "beat": 1.0,
+      "symbol": "Ao"
+    },
+    {
+      "measure": 96,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 107,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 117,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 127,
+      "beat": 1.0,
+      "symbol": "Db-"
+    },
+    {
+      "measure": 139,
+      "beat": 1.0,
+      "symbol": "Ab"
+    },
+    {
+      "measure": 142,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 148,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 155,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    }
+  ]
+}

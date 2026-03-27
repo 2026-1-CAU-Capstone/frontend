@@ -1,0 +1,265 @@
+{
+  "title": "Blue Train",
+  "composer": "John Coltrane",
+  "performer": "Lee Morgan",
+  "key": "Eb-maj",
+  "timeSignature": "4/4",
+  "tempo": 134,
+  "style": "HARDBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "tp",
+  "form": "A12",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 2,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 15,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 21,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 37,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 44,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 49,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 58,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 72,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 79,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 84,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 86,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 94,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 101,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 112,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 122,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 132,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 145,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 153,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 157,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 175,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 194,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 227,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 248,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 266,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 282,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 297,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 314,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 335,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 346,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 357,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 367,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 397,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 426,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 437,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 453,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 467,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 485,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 498,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 513,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 519,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 525,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 546,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 564,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 567,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 576,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 586,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 594,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 602,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 614,
+      "beat": 1.0,
+      "symbol": "A6"
+    }
+  ]
+}

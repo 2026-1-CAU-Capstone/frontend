@@ -1,0 +1,245 @@
+{
+  "title": "Pass It On",
+  "composer": "Dave Holland",
+  "performer": "Von Freeman",
+  "key": "C-min",
+  "timeSignature": "4/4",
+  "tempo": 106,
+  "style": "FUSION",
+  "rhythmfeel": "FUNK",
+  "instrument": "ts",
+  "form": "A4A4B4A8",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 4,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 7,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 13,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 18,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 26,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 37,
+      "beat": 1.0,
+      "symbol": "F-"
+    },
+    {
+      "measure": 49,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 58,
+      "beat": 1.0,
+      "symbol": "F-"
+    },
+    {
+      "measure": 72,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 81,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 89,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 93,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 100,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 107,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 113,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 127,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 134,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 146,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 153,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 163,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 176,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 188,
+      "beat": 1.0,
+      "symbol": "F-"
+    },
+    {
+      "measure": 202,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 211,
+      "beat": 1.0,
+      "symbol": "F-"
+    },
+    {
+      "measure": 223,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 238,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 243,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 251,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 256,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 261,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 270,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 278,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 288,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 298,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 314,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 335,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 354,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 372,
+      "beat": 1.0,
+      "symbol": "F-"
+    },
+    {
+      "measure": 379,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 387,
+      "beat": 1.0,
+      "symbol": "F-"
+    },
+    {
+      "measure": 415,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 431,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 442,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 448,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 455,
+      "beat": 1.0,
+      "symbol": "Eb"
+    }
+  ]
+}

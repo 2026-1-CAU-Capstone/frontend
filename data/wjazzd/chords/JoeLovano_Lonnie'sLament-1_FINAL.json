@@ -1,0 +1,25 @@
+{
+  "title": "Lonnie's Lament",
+  "composer": "John Coltrane",
+  "performer": "Joe Lovano",
+  "key": "C-min",
+  "timeSignature": "4/4",
+  "tempo": 201,
+  "style": "POSTBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "ts",
+  "form": "A8B8",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 22,
+      "beat": 1.0,
+      "symbol": "C-7"
+    }
+  ]
+}

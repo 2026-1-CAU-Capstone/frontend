@@ -1,0 +1,340 @@
+{
+  "title": "Lady Bird",
+  "composer": "T.Dameron",
+  "performer": "Kenny Dorham",
+  "key": "C-maj",
+  "timeSignature": "4/4",
+  "tempo": 212,
+  "style": "HARDBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "tp",
+  "form": "A16",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 3,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 15,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 23,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 30,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 40,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 49,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 58,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 70,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 79,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 86,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 93,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 101,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 102,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 112,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 118,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 128,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 138,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 149,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 161,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 176,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 184,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 192,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 201,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 206,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 209,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 214,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 217,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 220,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 237,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 239,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 241,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 256,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 264,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 269,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 285,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 292,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 297,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 304,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 311,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 313,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 315,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 327,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 332,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 343,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 345,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 350,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 365,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 371,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 380,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 387,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 396,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 398,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 411,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 416,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 424,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 432,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 448,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 455,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 463,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 469,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 476,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 478,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 480,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 482,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    }
+  ]
+}

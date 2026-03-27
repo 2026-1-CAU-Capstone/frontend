@@ -1,0 +1,410 @@
+{
+  "title": "Yesterdays",
+  "composer": "Kern, Harbach",
+  "performer": "J.J. Johnson",
+  "key": "D-min",
+  "timeSignature": "4/4",
+  "tempo": 125,
+  "style": "BEBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "tb",
+  "form": "A16A16",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 26,
+      "beat": 1.0,
+      "symbol": "D-"
+    },
+    {
+      "measure": 32,
+      "beat": 1.0,
+      "symbol": "Em7b5"
+    },
+    {
+      "measure": 38,
+      "beat": 1.0,
+      "symbol": "A79b"
+    },
+    {
+      "measure": 44,
+      "beat": 1.0,
+      "symbol": "D-"
+    },
+    {
+      "measure": 50,
+      "beat": 1.0,
+      "symbol": "Em7b5"
+    },
+    {
+      "measure": 52,
+      "beat": 1.0,
+      "symbol": "A79b"
+    },
+    {
+      "measure": 53,
+      "beat": 1.0,
+      "symbol": "D-"
+    },
+    {
+      "measure": 59,
+      "beat": 1.0,
+      "symbol": "D-/C#"
+    },
+    {
+      "measure": 67,
+      "beat": 1.0,
+      "symbol": "D-/C"
+    },
+    {
+      "measure": 83,
+      "beat": 1.0,
+      "symbol": "Bm7b5"
+    },
+    {
+      "measure": 95,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 102,
+      "beat": 1.0,
+      "symbol": "A+7"
+    },
+    {
+      "measure": 114,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 124,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 134,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 138,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 145,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 151,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 156,
+      "beat": 1.0,
+      "symbol": "Em7b5"
+    },
+    {
+      "measure": 157,
+      "beat": 1.0,
+      "symbol": "A79b"
+    },
+    {
+      "measure": 159,
+      "beat": 1.0,
+      "symbol": "D-"
+    },
+    {
+      "measure": 169,
+      "beat": 1.0,
+      "symbol": "Em7b5"
+    },
+    {
+      "measure": 175,
+      "beat": 1.0,
+      "symbol": "A79b"
+    },
+    {
+      "measure": 181,
+      "beat": 1.0,
+      "symbol": "D-"
+    },
+    {
+      "measure": 185,
+      "beat": 1.0,
+      "symbol": "Em7b5"
+    },
+    {
+      "measure": 193,
+      "beat": 1.0,
+      "symbol": "A79b"
+    },
+    {
+      "measure": 197,
+      "beat": 1.0,
+      "symbol": "D-"
+    },
+    {
+      "measure": 200,
+      "beat": 1.0,
+      "symbol": "D-/C#"
+    },
+    {
+      "measure": 208,
+      "beat": 1.0,
+      "symbol": "D-/C"
+    },
+    {
+      "measure": 222,
+      "beat": 1.0,
+      "symbol": "Bm7b5"
+    },
+    {
+      "measure": 228,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 230,
+      "beat": 1.0,
+      "symbol": "A+7"
+    },
+    {
+      "measure": 237,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 245,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 253,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 260,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 264,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 268,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 275,
+      "beat": 1.0,
+      "symbol": "Em7b5"
+    },
+    {
+      "measure": 280,
+      "beat": 1.0,
+      "symbol": "A79b"
+    },
+    {
+      "measure": 288,
+      "beat": 1.0,
+      "symbol": "D-"
+    },
+    {
+      "measure": 298,
+      "beat": 1.0,
+      "symbol": "Em7b5"
+    },
+    {
+      "measure": 304,
+      "beat": 1.0,
+      "symbol": "A79b"
+    },
+    {
+      "measure": 308,
+      "beat": 1.0,
+      "symbol": "D-"
+    },
+    {
+      "measure": 316,
+      "beat": 1.0,
+      "symbol": "Em7b5"
+    },
+    {
+      "measure": 321,
+      "beat": 1.0,
+      "symbol": "A79b"
+    },
+    {
+      "measure": 327,
+      "beat": 1.0,
+      "symbol": "D-"
+    },
+    {
+      "measure": 330,
+      "beat": 1.0,
+      "symbol": "D-/C#"
+    },
+    {
+      "measure": 334,
+      "beat": 1.0,
+      "symbol": "D-/C"
+    },
+    {
+      "measure": 345,
+      "beat": 1.0,
+      "symbol": "Bm7b5"
+    },
+    {
+      "measure": 352,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 362,
+      "beat": 1.0,
+      "symbol": "A+7"
+    },
+    {
+      "measure": 367,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 374,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 379,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 387,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 392,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 394,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 396,
+      "beat": 1.0,
+      "symbol": "Em7b5"
+    },
+    {
+      "measure": 412,
+      "beat": 1.0,
+      "symbol": "A79b"
+    },
+    {
+      "measure": 424,
+      "beat": 1.0,
+      "symbol": "D-"
+    },
+    {
+      "measure": 429,
+      "beat": 1.0,
+      "symbol": "Em7b5"
+    },
+    {
+      "measure": 433,
+      "beat": 1.0,
+      "symbol": "A79b"
+    },
+    {
+      "measure": 437,
+      "beat": 1.0,
+      "symbol": "D-"
+    },
+    {
+      "measure": 442,
+      "beat": 1.0,
+      "symbol": "Em7b5"
+    },
+    {
+      "measure": 444,
+      "beat": 1.0,
+      "symbol": "A79b"
+    },
+    {
+      "measure": 447,
+      "beat": 1.0,
+      "symbol": "D-"
+    },
+    {
+      "measure": 450,
+      "beat": 1.0,
+      "symbol": "D-/C#"
+    },
+    {
+      "measure": 452,
+      "beat": 1.0,
+      "symbol": "D-/C"
+    },
+    {
+      "measure": 457,
+      "beat": 1.0,
+      "symbol": "Bm7b5"
+    },
+    {
+      "measure": 460,
+      "beat": 1.0,
+      "symbol": "A+7"
+    },
+    {
+      "measure": 464,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 469,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 471,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 473,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 474,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 480,
+      "beat": 1.0,
+      "symbol": "Em7b5"
+    },
+    {
+      "measure": 484,
+      "beat": 1.0,
+      "symbol": "A79b"
+    }
+  ]
+}

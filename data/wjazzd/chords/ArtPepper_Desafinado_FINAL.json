@@ -1,0 +1,290 @@
+{
+  "title": "Desafinado",
+  "composer": "Antonio Carlos Jobim",
+  "performer": "Art Pepper",
+  "key": "F-maj",
+  "timeSignature": "4/4",
+  "tempo": 140,
+  "style": "COOL",
+  "rhythmfeel": "LATIN",
+  "instrument": "as",
+  "form": "A1612B8C8",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "C7alt"
+    },
+    {
+      "measure": 12,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 27,
+      "beat": 1.0,
+      "symbol": "G7alt"
+    },
+    {
+      "measure": 36,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 41,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 50,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 52,
+      "beat": 1.0,
+      "symbol": "D79b"
+    },
+    {
+      "measure": 63,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 66,
+      "beat": 1.0,
+      "symbol": "A79b"
+    },
+    {
+      "measure": 72,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 80,
+      "beat": 1.0,
+      "symbol": "D79b"
+    },
+    {
+      "measure": 83,
+      "beat": 1.0,
+      "symbol": "G79b"
+    },
+    {
+      "measure": 98,
+      "beat": 1.0,
+      "symbol": "Gbj7"
+    },
+    {
+      "measure": 104,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 114,
+      "beat": 1.0,
+      "symbol": "G7alt"
+    },
+    {
+      "measure": 131,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 134,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 142,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 147,
+      "beat": 1.0,
+      "symbol": "D79b"
+    },
+    {
+      "measure": 157,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 163,
+      "beat": 1.0,
+      "symbol": "Bb-"
+    },
+    {
+      "measure": 166,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 171,
+      "beat": 1.0,
+      "symbol": "E79#"
+    },
+    {
+      "measure": 173,
+      "beat": 1.0,
+      "symbol": "Aj7"
+    },
+    {
+      "measure": 176,
+      "beat": 1.0,
+      "symbol": "Bbo7"
+    },
+    {
+      "measure": 179,
+      "beat": 1.0,
+      "symbol": "B-7"
+    },
+    {
+      "measure": 184,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 189,
+      "beat": 1.0,
+      "symbol": "Aj7"
+    },
+    {
+      "measure": 193,
+      "beat": 1.0,
+      "symbol": "F#-7"
+    },
+    {
+      "measure": 198,
+      "beat": 1.0,
+      "symbol": "B-7"
+    },
+    {
+      "measure": 200,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 206,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 212,
+      "beat": 1.0,
+      "symbol": "C#o7"
+    },
+    {
+      "measure": 220,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 228,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 238,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 248,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 258,
+      "beat": 1.0,
+      "symbol": "C7alt"
+    },
+    {
+      "measure": 270,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 279,
+      "beat": 1.0,
+      "symbol": "G7alt"
+    },
+    {
+      "measure": 284,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 288,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 291,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 293,
+      "beat": 1.0,
+      "symbol": "D79b"
+    },
+    {
+      "measure": 303,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 307,
+      "beat": 1.0,
+      "symbol": "A79b"
+    },
+    {
+      "measure": 312,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 315,
+      "beat": 1.0,
+      "symbol": "D79b"
+    },
+    {
+      "measure": 320,
+      "beat": 1.0,
+      "symbol": "G79b"
+    },
+    {
+      "measure": 332,
+      "beat": 1.0,
+      "symbol": "Gbj7"
+    },
+    {
+      "measure": 344,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 352,
+      "beat": 1.0,
+      "symbol": "Bb-"
+    },
+    {
+      "measure": 361,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 368,
+      "beat": 1.0,
+      "symbol": "Bm7b5"
+    },
+    {
+      "measure": 370,
+      "beat": 1.0,
+      "symbol": "E79#"
+    }
+  ]
+}

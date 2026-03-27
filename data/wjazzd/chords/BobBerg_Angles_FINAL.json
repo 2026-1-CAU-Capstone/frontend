@@ -1,0 +1,195 @@
+{
+  "title": "Angles",
+  "composer": "Bob Berg",
+  "performer": "Bob Berg",
+  "key": "Ab-maj",
+  "timeSignature": "4/4",
+  "tempo": 270,
+  "style": "POSTBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "ts",
+  "form": "A16A16B16",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 12,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 22,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 45,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 64,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 87,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 108,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 133,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 159,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 182,
+      "beat": 1.0,
+      "symbol": "Db7911#"
+    },
+    {
+      "measure": 202,
+      "beat": 1.0,
+      "symbol": "G79#"
+    },
+    {
+      "measure": 222,
+      "beat": 1.0,
+      "symbol": "D7alt"
+    },
+    {
+      "measure": 246,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 270,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 299,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 321,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 346,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 356,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 378,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 402,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 421,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 441,
+      "beat": 1.0,
+      "symbol": "Db7911#"
+    },
+    {
+      "measure": 461,
+      "beat": 1.0,
+      "symbol": "G79#"
+    },
+    {
+      "measure": 489,
+      "beat": 1.0,
+      "symbol": "D7alt"
+    },
+    {
+      "measure": 513,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 551,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 590,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 627,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 655,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 677,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 699,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 720,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 744,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 750,
+      "beat": 1.0,
+      "symbol": "Db7911#"
+    },
+    {
+      "measure": 761,
+      "beat": 1.0,
+      "symbol": "G79#"
+    },
+    {
+      "measure": 787,
+      "beat": 1.0,
+      "symbol": "D7alt"
+    }
+  ]
+}

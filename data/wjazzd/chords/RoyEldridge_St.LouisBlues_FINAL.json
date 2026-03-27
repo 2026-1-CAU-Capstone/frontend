@@ -1,0 +1,215 @@
+{
+  "title": "St. Louis Blues",
+  "composer": "W.C. Handy",
+  "performer": "Roy Eldridge",
+  "key": "G-maj",
+  "timeSignature": "4/4",
+  "tempo": 361,
+  "style": "SWING",
+  "rhythmfeel": "SWING",
+  "instrument": "tp",
+  "form": "A12A12B8A12",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 3,
+      "beat": 1.0,
+      "symbol": "G-"
+    },
+    {
+      "measure": 11,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 28,
+      "beat": 1.0,
+      "symbol": "G-"
+    },
+    {
+      "measure": 31,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 34,
+      "beat": 1.0,
+      "symbol": "G-"
+    },
+    {
+      "measure": 49,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 81,
+      "beat": 1.0,
+      "symbol": "G-"
+    },
+    {
+      "measure": 82,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 83,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 88,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 97,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 101,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 106,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 108,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 113,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 121,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 125,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 129,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 130,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 135,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 158,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 166,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 179,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 183,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 199,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 201,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 205,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 210,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 214,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 217,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 224,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 227,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 233,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 235,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 251,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 259,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 262,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 267,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 274,
+      "beat": 1.0,
+      "symbol": "G7"
+    }
+  ]
+}

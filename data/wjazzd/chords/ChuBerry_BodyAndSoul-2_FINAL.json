@@ -1,0 +1,160 @@
+{
+  "title": "Body and Soul",
+  "composer": "Heyman, Sour, Eyton, Green",
+  "performer": "Chu Berry",
+  "key": "C-maj",
+  "timeSignature": "4/4",
+  "tempo": 92,
+  "style": "SWING",
+  "rhythmfeel": "SWING",
+  "instrument": "ts",
+  "form": "A8A8B8A8",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Dj7"
+    },
+    {
+      "measure": 5,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 7,
+      "beat": 1.0,
+      "symbol": "D/F#"
+    },
+    {
+      "measure": 10,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 13,
+      "beat": 1.0,
+      "symbol": "F#-7"
+    },
+    {
+      "measure": 14,
+      "beat": 1.0,
+      "symbol": "B-7"
+    },
+    {
+      "measure": 17,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 19,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 21,
+      "beat": 1.0,
+      "symbol": "Dj7"
+    },
+    {
+      "measure": 30,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 42,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 50,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 56,
+      "beat": 1.0,
+      "symbol": "Eb-"
+    },
+    {
+      "measure": 63,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 66,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 71,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 73,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 75,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 76,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 82,
+      "beat": 1.0,
+      "symbol": "Bb79b"
+    },
+    {
+      "measure": 88,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 93,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 97,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 100,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 106,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 110,
+      "beat": 1.0,
+      "symbol": "Em7b5"
+    },
+    {
+      "measure": 113,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 119,
+      "beat": 1.0,
+      "symbol": "Ab"
+    },
+    {
+      "measure": 122,
+      "beat": 1.0,
+      "symbol": "F7"
+    }
+  ]
+}

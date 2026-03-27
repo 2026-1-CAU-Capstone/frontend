@@ -1,0 +1,335 @@
+{
+  "title": "Don't Blame Me",
+  "composer": "Fields/McHugh",
+  "performer": "Charlie Parker",
+  "key": "C-maj",
+  "timeSignature": "4/4",
+  "tempo": 64,
+  "style": "BEBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "as",
+  "form": "A8A8B8A8",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 5,
+      "beat": 1.0,
+      "symbol": "C6"
+    },
+    {
+      "measure": 11,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 14,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 15,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 16,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 19,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 27,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 42,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 51,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 53,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 61,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 68,
+      "beat": 1.0,
+      "symbol": "Em7b5"
+    },
+    {
+      "measure": 73,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 89,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 97,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 107,
+      "beat": 1.0,
+      "symbol": "C6"
+    },
+    {
+      "measure": 111,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 116,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 123,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 131,
+      "beat": 1.0,
+      "symbol": "C6"
+    },
+    {
+      "measure": 146,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 147,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 154,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 160,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 163,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 171,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 174,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 181,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 186,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 191,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 204,
+      "beat": 1.0,
+      "symbol": "Em7b5"
+    },
+    {
+      "measure": 210,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 223,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 229,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 241,
+      "beat": 1.0,
+      "symbol": "C6"
+    },
+    {
+      "measure": 253,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 259,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 262,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 267,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 286,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 314,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 358,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 363,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 373,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 393,
+      "beat": 1.0,
+      "symbol": "C6"
+    },
+    {
+      "measure": 398,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 401,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 403,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 414,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 425,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 431,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 438,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 448,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 455,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 468,
+      "beat": 1.0,
+      "symbol": "Em7b5"
+    },
+    {
+      "measure": 474,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 486,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 491,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 499,
+      "beat": 1.0,
+      "symbol": "C6"
+    },
+    {
+      "measure": 503,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 507,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 510,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 516,
+      "beat": 1.0,
+      "symbol": "C6"
+    }
+  ]
+}

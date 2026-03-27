@@ -1,0 +1,125 @@
+{
+  "title": "Blue Seven",
+  "composer": "Sonny Rollins",
+  "performer": "Sonny Rollins",
+  "key": "Bb-maj",
+  "timeSignature": "4/4",
+  "tempo": 133,
+  "style": "HARDBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "ts",
+  "form": "A12",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 5,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 14,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 27,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 48,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 55,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 57,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 61,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 73,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 86,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 96,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 101,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 107,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 124,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 137,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 141,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 144,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 152,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 164,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 170,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 174,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 178,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    }
+  ]
+}

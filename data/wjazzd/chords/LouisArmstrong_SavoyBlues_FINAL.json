@@ -1,0 +1,140 @@
+{
+  "title": "Savoy Blues",
+  "composer": "Edward Ory",
+  "performer": "Louis Armstrong",
+  "key": "G-maj",
+  "timeSignature": "4/4",
+  "tempo": 129,
+  "style": "TRADITIONAL",
+  "rhythmfeel": "TWOBEAT",
+  "instrument": "cor",
+  "form": "A12",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 3,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 7,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 10,
+      "beat": 1.0,
+      "symbol": "C#o"
+    },
+    {
+      "measure": 14,
+      "beat": 1.0,
+      "symbol": "G/D"
+    },
+    {
+      "measure": 20,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 23,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 40,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 51,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 64,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 69,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 73,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 74,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 76,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 86,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 91,
+      "beat": 1.0,
+      "symbol": "C#o"
+    },
+    {
+      "measure": 95,
+      "beat": 1.0,
+      "symbol": "G/D"
+    },
+    {
+      "measure": 99,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 101,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 119,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 133,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 148,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 153,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 157,
+      "beat": 1.0,
+      "symbol": "G"
+    },
+    {
+      "measure": 159,
+      "beat": 1.0,
+      "symbol": "D7"
+    }
+  ]
+}

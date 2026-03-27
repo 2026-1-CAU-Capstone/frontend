@@ -1,0 +1,200 @@
+{
+  "title": "All the Things You Are",
+  "composer": "J. Kern, O. Hammerstein",
+  "performer": "Milt Jackson",
+  "key": "Ab-maj",
+  "timeSignature": "4/4",
+  "tempo": 167,
+  "style": "COOL",
+  "rhythmfeel": "SWING",
+  "instrument": "vib",
+  "form": "A8B8C8D12",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 2,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 27,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 34,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 41,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 48,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 57,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 65,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 81,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 89,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 96,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 102,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 110,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 120,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 124,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 128,
+      "beat": 1.0,
+      "symbol": "Gj7"
+    },
+    {
+      "measure": 135,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 142,
+      "beat": 1.0,
+      "symbol": "D79#"
+    },
+    {
+      "measure": 151,
+      "beat": 1.0,
+      "symbol": "Gj7"
+    },
+    {
+      "measure": 167,
+      "beat": 1.0,
+      "symbol": "F#-7"
+    },
+    {
+      "measure": 171,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 179,
+      "beat": 1.0,
+      "symbol": "Ej7"
+    },
+    {
+      "measure": 182,
+      "beat": 1.0,
+      "symbol": "C+7"
+    },
+    {
+      "measure": 188,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 194,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 201,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 207,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 217,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 224,
+      "beat": 1.0,
+      "symbol": "Db-7"
+    },
+    {
+      "measure": 233,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 242,
+      "beat": 1.0,
+      "symbol": "Bo"
+    },
+    {
+      "measure": 251,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 256,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 262,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 268,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 272,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 277,
+      "beat": 1.0,
+      "symbol": "F-7"
+    }
+  ]
+}

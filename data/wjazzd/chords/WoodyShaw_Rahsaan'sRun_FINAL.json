@@ -1,0 +1,170 @@
+{
+  "title": "Rahsaan's Run",
+  "composer": "Woody Shaw",
+  "performer": "Woody Shaw",
+  "key": "G-min",
+  "timeSignature": "4/4",
+  "tempo": 298,
+  "style": "POSTBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "tp",
+  "form": "A24",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "G-7911"
+    },
+    {
+      "measure": 12,
+      "beat": 1.0,
+      "symbol": "C-7911"
+    },
+    {
+      "measure": 16,
+      "beat": 1.0,
+      "symbol": "G-7911"
+    },
+    {
+      "measure": 27,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 34,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 41,
+      "beat": 1.0,
+      "symbol": "G-7911"
+    },
+    {
+      "measure": 64,
+      "beat": 1.0,
+      "symbol": "C-7911"
+    },
+    {
+      "measure": 75,
+      "beat": 1.0,
+      "symbol": "G-7911"
+    },
+    {
+      "measure": 80,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 83,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 89,
+      "beat": 1.0,
+      "symbol": "G-7911"
+    },
+    {
+      "measure": 118,
+      "beat": 1.0,
+      "symbol": "C-7911"
+    },
+    {
+      "measure": 134,
+      "beat": 1.0,
+      "symbol": "G-7911"
+    },
+    {
+      "measure": 148,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 152,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 160,
+      "beat": 1.0,
+      "symbol": "G-7911"
+    },
+    {
+      "measure": 176,
+      "beat": 1.0,
+      "symbol": "C-7911"
+    },
+    {
+      "measure": 192,
+      "beat": 1.0,
+      "symbol": "G-7911"
+    },
+    {
+      "measure": 199,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 203,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 205,
+      "beat": 1.0,
+      "symbol": "G-7911"
+    },
+    {
+      "measure": 232,
+      "beat": 1.0,
+      "symbol": "C-7911"
+    },
+    {
+      "measure": 247,
+      "beat": 1.0,
+      "symbol": "G-7911"
+    },
+    {
+      "measure": 252,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 261,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 269,
+      "beat": 1.0,
+      "symbol": "G-7911"
+    },
+    {
+      "measure": 305,
+      "beat": 1.0,
+      "symbol": "C-7911"
+    },
+    {
+      "measure": 322,
+      "beat": 1.0,
+      "symbol": "G-7911"
+    },
+    {
+      "measure": 333,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 336,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 339,
+      "beat": 1.0,
+      "symbol": "G-7911"
+    }
+  ]
+}

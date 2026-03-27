@@ -1,0 +1,150 @@
+{
+  "title": "Infant Eyes",
+  "composer": "Shorter",
+  "performer": "Wayne Shorter",
+  "key": "Eb-chrom",
+  "timeSignature": "4/4",
+  "tempo": 51,
+  "style": "POSTBOP",
+  "rhythmfeel": "BALLAD",
+  "instrument": "ts",
+  "form": "A9B9A9",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 10,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 17,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 19,
+      "beat": 1.0,
+      "symbol": "A79b13"
+    },
+    {
+      "measure": 28,
+      "beat": 1.0,
+      "symbol": "Gbj7"
+    },
+    {
+      "measure": 29,
+      "beat": 1.0,
+      "symbol": "Fsus79"
+    },
+    {
+      "measure": 36,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 45,
+      "beat": 1.0,
+      "symbol": "Bbsus79"
+    },
+    {
+      "measure": 50,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 59,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 62,
+      "beat": 1.0,
+      "symbol": "Ej7/D#"
+    },
+    {
+      "measure": 64,
+      "beat": 1.0,
+      "symbol": "Ebj7911#"
+    },
+    {
+      "measure": 68,
+      "beat": 1.0,
+      "symbol": "Ej7911#"
+    },
+    {
+      "measure": 70,
+      "beat": 1.0,
+      "symbol": "Bj7"
+    },
+    {
+      "measure": 80,
+      "beat": 1.0,
+      "symbol": "Bbsus79"
+    },
+    {
+      "measure": 88,
+      "beat": 1.0,
+      "symbol": "Ab-7"
+    },
+    {
+      "measure": 95,
+      "beat": 1.0,
+      "symbol": "Ebsus79"
+    },
+    {
+      "measure": 100,
+      "beat": 1.0,
+      "symbol": "D+79#"
+    },
+    {
+      "measure": 104,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 107,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 109,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 117,
+      "beat": 1.0,
+      "symbol": "A79b13"
+    },
+    {
+      "measure": 120,
+      "beat": 1.0,
+      "symbol": "Gbj7"
+    },
+    {
+      "measure": 129,
+      "beat": 1.0,
+      "symbol": "Fsus79"
+    },
+    {
+      "measure": 136,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 147,
+      "beat": 1.0,
+      "symbol": "Bbsus79"
+    },
+    {
+      "measure": 157,
+      "beat": 1.0,
+      "symbol": "G-7"
+    }
+  ]
+}

@@ -1,0 +1,1225 @@
+{
+  "title": "Item 1, D.I.T.",
+  "composer": "Steve Swallow",
+  "performer": "Chris Potter",
+  "key": "C-maj",
+  "timeSignature": "4/4",
+  "tempo": 301,
+  "style": "POSTBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "ts",
+  "form": "A16",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 4,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 15,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 17,
+      "beat": 1.0,
+      "symbol": "Do"
+    },
+    {
+      "measure": 19,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 26,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 30,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 34,
+      "beat": 1.0,
+      "symbol": "A"
+    },
+    {
+      "measure": 38,
+      "beat": 1.0,
+      "symbol": "Bbo"
+    },
+    {
+      "measure": 42,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 50,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 58,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 63,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 70,
+      "beat": 1.0,
+      "symbol": "Gb"
+    },
+    {
+      "measure": 74,
+      "beat": 1.0,
+      "symbol": "Go"
+    },
+    {
+      "measure": 78,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 91,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 95,
+      "beat": 1.0,
+      "symbol": "Do"
+    },
+    {
+      "measure": 99,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 115,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 121,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 126,
+      "beat": 1.0,
+      "symbol": "A"
+    },
+    {
+      "measure": 130,
+      "beat": 1.0,
+      "symbol": "Bbo"
+    },
+    {
+      "measure": 132,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 136,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 144,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 153,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 162,
+      "beat": 1.0,
+      "symbol": "Gb"
+    },
+    {
+      "measure": 164,
+      "beat": 1.0,
+      "symbol": "Go"
+    },
+    {
+      "measure": 165,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 186,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 189,
+      "beat": 1.0,
+      "symbol": "Do"
+    },
+    {
+      "measure": 190,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 206,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 209,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 217,
+      "beat": 1.0,
+      "symbol": "A"
+    },
+    {
+      "measure": 218,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 219,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 226,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 234,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 241,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 251,
+      "beat": 1.0,
+      "symbol": "Gb"
+    },
+    {
+      "measure": 255,
+      "beat": 1.0,
+      "symbol": "Go"
+    },
+    {
+      "measure": 257,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 277,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 281,
+      "beat": 1.0,
+      "symbol": "Do"
+    },
+    {
+      "measure": 285,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 293,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 294,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 299,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 304,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 311,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 320,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 327,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 336,
+      "beat": 1.0,
+      "symbol": "Gb"
+    },
+    {
+      "measure": 339,
+      "beat": 1.0,
+      "symbol": "Go"
+    },
+    {
+      "measure": 340,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 360,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 364,
+      "beat": 1.0,
+      "symbol": "Do"
+    },
+    {
+      "measure": 368,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 390,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 394,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 396,
+      "beat": 1.0,
+      "symbol": "A"
+    },
+    {
+      "measure": 401,
+      "beat": 1.0,
+      "symbol": "Bbo"
+    },
+    {
+      "measure": 402,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 407,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 415,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 421,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 426,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 449,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 454,
+      "beat": 1.0,
+      "symbol": "Do"
+    },
+    {
+      "measure": 456,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 476,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 485,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 495,
+      "beat": 1.0,
+      "symbol": "A"
+    },
+    {
+      "measure": 502,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 508,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 512,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 517,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 522,
+      "beat": 1.0,
+      "symbol": "Gb"
+    },
+    {
+      "measure": 524,
+      "beat": 1.0,
+      "symbol": "Go"
+    },
+    {
+      "measure": 525,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 539,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 544,
+      "beat": 1.0,
+      "symbol": "Do"
+    },
+    {
+      "measure": 548,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 566,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 574,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 582,
+      "beat": 1.0,
+      "symbol": "A"
+    },
+    {
+      "measure": 587,
+      "beat": 1.0,
+      "symbol": "Bbo"
+    },
+    {
+      "measure": 590,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 598,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 603,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 609,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 616,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 624,
+      "beat": 1.0,
+      "symbol": "Gb"
+    },
+    {
+      "measure": 628,
+      "beat": 1.0,
+      "symbol": "Go"
+    },
+    {
+      "measure": 632,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 652,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 655,
+      "beat": 1.0,
+      "symbol": "Do"
+    },
+    {
+      "measure": 657,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 668,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 676,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 683,
+      "beat": 1.0,
+      "symbol": "A"
+    },
+    {
+      "measure": 687,
+      "beat": 1.0,
+      "symbol": "Bbo"
+    },
+    {
+      "measure": 690,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 699,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 708,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 712,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 716,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 718,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 719,
+      "beat": 1.0,
+      "symbol": "Go"
+    },
+    {
+      "measure": 721,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 728,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 730,
+      "beat": 1.0,
+      "symbol": "Do"
+    },
+    {
+      "measure": 733,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 745,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 752,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 758,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 767,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 774,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 779,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 784,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 788,
+      "beat": 1.0,
+      "symbol": "Gb"
+    },
+    {
+      "measure": 791,
+      "beat": 1.0,
+      "symbol": "Go"
+    },
+    {
+      "measure": 796,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 819,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 823,
+      "beat": 1.0,
+      "symbol": "Do"
+    },
+    {
+      "measure": 828,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 852,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 857,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 868,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 871,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 874,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 875,
+      "beat": 1.0,
+      "symbol": "Gb"
+    },
+    {
+      "measure": 879,
+      "beat": 1.0,
+      "symbol": "Go"
+    },
+    {
+      "measure": 881,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 893,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 898,
+      "beat": 1.0,
+      "symbol": "Do"
+    },
+    {
+      "measure": 902,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 928,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 935,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 946,
+      "beat": 1.0,
+      "symbol": "A"
+    },
+    {
+      "measure": 951,
+      "beat": 1.0,
+      "symbol": "Bbo"
+    },
+    {
+      "measure": 955,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 963,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 972,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 977,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 983,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 988,
+      "beat": 1.0,
+      "symbol": "Gb"
+    },
+    {
+      "measure": 990,
+      "beat": 1.0,
+      "symbol": "Go"
+    },
+    {
+      "measure": 992,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 1008,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 1011,
+      "beat": 1.0,
+      "symbol": "Do"
+    },
+    {
+      "measure": 1015,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 1033,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 1038,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 1046,
+      "beat": 1.0,
+      "symbol": "A"
+    },
+    {
+      "measure": 1049,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 1058,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 1066,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 1068,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 1076,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 1084,
+      "beat": 1.0,
+      "symbol": "Gb"
+    },
+    {
+      "measure": 1089,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 1112,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 1116,
+      "beat": 1.0,
+      "symbol": "Do"
+    },
+    {
+      "measure": 1121,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 1145,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 1146,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 1150,
+      "beat": 1.0,
+      "symbol": "A"
+    },
+    {
+      "measure": 1154,
+      "beat": 1.0,
+      "symbol": "Bbo"
+    },
+    {
+      "measure": 1159,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 1168,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 1179,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 1186,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 1194,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 1203,
+      "beat": 1.0,
+      "symbol": "Gb"
+    },
+    {
+      "measure": 1205,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 1230,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 1235,
+      "beat": 1.0,
+      "symbol": "Do"
+    },
+    {
+      "measure": 1239,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 1262,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 1267,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 1271,
+      "beat": 1.0,
+      "symbol": "A"
+    },
+    {
+      "measure": 1276,
+      "beat": 1.0,
+      "symbol": "Bbo"
+    },
+    {
+      "measure": 1280,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 1288,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 1296,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 1304,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 1310,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 1314,
+      "beat": 1.0,
+      "symbol": "Gb"
+    },
+    {
+      "measure": 1318,
+      "beat": 1.0,
+      "symbol": "Go"
+    },
+    {
+      "measure": 1322,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 1345,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 1349,
+      "beat": 1.0,
+      "symbol": "Do"
+    },
+    {
+      "measure": 1352,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 1369,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 1378,
+      "beat": 1.0,
+      "symbol": "A"
+    },
+    {
+      "measure": 1383,
+      "beat": 1.0,
+      "symbol": "Bbo"
+    },
+    {
+      "measure": 1388,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 1400,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 1411,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 1414,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 1415,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 1418,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 1428,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 1430,
+      "beat": 1.0,
+      "symbol": "Do"
+    },
+    {
+      "measure": 1433,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 1446,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 1450,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 1453,
+      "beat": 1.0,
+      "symbol": "A"
+    },
+    {
+      "measure": 1457,
+      "beat": 1.0,
+      "symbol": "Bbo"
+    },
+    {
+      "measure": 1459,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 1465,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 1473,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 1477,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 1479,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 1481,
+      "beat": 1.0,
+      "symbol": "Go"
+    },
+    {
+      "measure": 1483,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 1492,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 1494,
+      "beat": 1.0,
+      "symbol": "Do"
+    },
+    {
+      "measure": 1497,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 1510,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 1514,
+      "beat": 1.0,
+      "symbol": "A"
+    },
+    {
+      "measure": 1518,
+      "beat": 1.0,
+      "symbol": "Bbo"
+    },
+    {
+      "measure": 1522,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 1530,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 1537,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 1542,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 1545,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 1553,
+      "beat": 1.0,
+      "symbol": "Gb"
+    },
+    {
+      "measure": 1556,
+      "beat": 1.0,
+      "symbol": "Go"
+    },
+    {
+      "measure": 1560,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 1580,
+      "beat": 1.0,
+      "symbol": "Db"
+    },
+    {
+      "measure": 1584,
+      "beat": 1.0,
+      "symbol": "Do"
+    },
+    {
+      "measure": 1587,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 1597,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 1602,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 1608,
+      "beat": 1.0,
+      "symbol": "A"
+    },
+    {
+      "measure": 1612,
+      "beat": 1.0,
+      "symbol": "Bbo"
+    },
+    {
+      "measure": 1616,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 1625,
+      "beat": 1.0,
+      "symbol": "G7"
+    }
+  ]
+}

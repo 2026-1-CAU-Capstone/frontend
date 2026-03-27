@@ -1,0 +1,280 @@
+{
+  "title": "Dahomey Dance",
+  "composer": "John Coltrane",
+  "performer": "Eric Dolphy",
+  "key": "G-maj",
+  "timeSignature": "4/4",
+  "tempo": 129,
+  "style": "POSTBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "as",
+  "form": "A12",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 15,
+      "beat": 1.0,
+      "symbol": "G7913"
+    },
+    {
+      "measure": 20,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 25,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 27,
+      "beat": 1.0,
+      "symbol": "G7913"
+    },
+    {
+      "measure": 30,
+      "beat": 1.0,
+      "symbol": "Dsus7"
+    },
+    {
+      "measure": 44,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 60,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 78,
+      "beat": 1.0,
+      "symbol": "G7913"
+    },
+    {
+      "measure": 84,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 94,
+      "beat": 1.0,
+      "symbol": "G7913"
+    },
+    {
+      "measure": 97,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 113,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 131,
+      "beat": 1.0,
+      "symbol": "Dsus7"
+    },
+    {
+      "measure": 145,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 164,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 174,
+      "beat": 1.0,
+      "symbol": "G7913"
+    },
+    {
+      "measure": 179,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 201,
+      "beat": 1.0,
+      "symbol": "G7913"
+    },
+    {
+      "measure": 204,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 222,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 235,
+      "beat": 1.0,
+      "symbol": "G7913"
+    },
+    {
+      "measure": 245,
+      "beat": 1.0,
+      "symbol": "Dsus7"
+    },
+    {
+      "measure": 255,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 262,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 268,
+      "beat": 1.0,
+      "symbol": "G7913"
+    },
+    {
+      "measure": 271,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 294,
+      "beat": 1.0,
+      "symbol": "G7913"
+    },
+    {
+      "measure": 299,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 321,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 322,
+      "beat": 1.0,
+      "symbol": "G7913"
+    },
+    {
+      "measure": 324,
+      "beat": 1.0,
+      "symbol": "Dsus7"
+    },
+    {
+      "measure": 329,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 332,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 340,
+      "beat": 1.0,
+      "symbol": "G7913"
+    },
+    {
+      "measure": 358,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 399,
+      "beat": 1.0,
+      "symbol": "G7913"
+    },
+    {
+      "measure": 413,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 423,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 429,
+      "beat": 1.0,
+      "symbol": "G7913"
+    },
+    {
+      "measure": 434,
+      "beat": 1.0,
+      "symbol": "Dsus7"
+    },
+    {
+      "measure": 437,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 451,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 457,
+      "beat": 1.0,
+      "symbol": "G7913"
+    },
+    {
+      "measure": 458,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 480,
+      "beat": 1.0,
+      "symbol": "G7913"
+    },
+    {
+      "measure": 492,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 512,
+      "beat": 1.0,
+      "symbol": "G7913"
+    },
+    {
+      "measure": 522,
+      "beat": 1.0,
+      "symbol": "Dsus7"
+    },
+    {
+      "measure": 525,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 526,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 538,
+      "beat": 1.0,
+      "symbol": "G7913"
+    },
+    {
+      "measure": 552,
+      "beat": 1.0,
+      "symbol": "G7"
+    }
+  ]
+}
