@@ -10,10 +10,9 @@ import {
   Accidental,
   Dot,
   Annotation,
-  Barline,
   BarlineType,
 } from 'vexflow';
-import type { NoteSheetData, MeasureInfo } from '../../data/sampleMelody';
+import type { MeasureInfo } from '../../data/sampleMelody';
 import type { LickEntry } from '../../data/lickData';
 import { NotePlayer } from '../../lib/note/notePlayer';
 

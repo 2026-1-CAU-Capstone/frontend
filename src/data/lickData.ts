@@ -74,8 +74,6 @@ const FLAT_TABLE: { letter: string; acc?: '#' | 'b' }[] = [
   { letter: 'b', acc: 'b' }, { letter: 'b' },
 ];
 
-const FLAT_KEYS = new Set(['F','Bb','Eb','Ab','Db','Gb','Cb','Dm','Gm','Cm','Fm','Bbm','Ebm','Abm']);
-
 function midiToVex(midi: number, useFlats: boolean): { key: string; acc?: '#' | 'b' } {
   const pc = midi % 12;
   const oct = Math.floor(midi / 12) - 1;
@@ -151,19 +149,6 @@ function quantise(beats: number): { vf: string; dot: boolean; beats: number } {
     if (dd < diff) { diff = dd; best = d; }
   }
   return best;
-}
-
-function fillRests(beats: number): NoteInfo[] {
-  if (beats < 0.12) return [];
-  const rests: NoteInfo[] = [];
-  let rem = beats;
-  for (const d of DUR_GRID) {
-    while (rem >= d.beats - 0.01) {
-      rests.push({ keys: ['b/4'], duration: d.vf + 'r', dotted: d.dot || undefined });
-      rem -= d.beats;
-    }
-  }
-  return rests;
 }
 
 /* ─── Convert raw lick → NoteSheetData ────────────────────────────── */
