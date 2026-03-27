@@ -1,0 +1,235 @@
+{
+  "title": "Eighty-One",
+  "composer": "Carter/Davis",
+  "performer": "Miles Davis",
+  "key": "F-maj",
+  "timeSignature": "4/4",
+  "tempo": 138,
+  "style": "POSTBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "tp",
+  "form": "A12",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 5,
+      "beat": 1.0,
+      "symbol": "Fsus7"
+    },
+    {
+      "measure": 6,
+      "beat": 1.0,
+      "symbol": "Bbsus7"
+    },
+    {
+      "measure": 12,
+      "beat": 1.0,
+      "symbol": "Fsus7"
+    },
+    {
+      "measure": 18,
+      "beat": 1.0,
+      "symbol": "Bbsus7"
+    },
+    {
+      "measure": 29,
+      "beat": 1.0,
+      "symbol": "Fsus7"
+    },
+    {
+      "measure": 37,
+      "beat": 1.0,
+      "symbol": "Csus7"
+    },
+    {
+      "measure": 43,
+      "beat": 1.0,
+      "symbol": "Bbsus7"
+    },
+    {
+      "measure": 48,
+      "beat": 1.0,
+      "symbol": "Fsus7"
+    },
+    {
+      "measure": 58,
+      "beat": 1.0,
+      "symbol": "Bbsus7"
+    },
+    {
+      "measure": 66,
+      "beat": 1.0,
+      "symbol": "Fsus7"
+    },
+    {
+      "measure": 75,
+      "beat": 1.0,
+      "symbol": "Bbsus7"
+    },
+    {
+      "measure": 81,
+      "beat": 1.0,
+      "symbol": "Fsus7"
+    },
+    {
+      "measure": 90,
+      "beat": 1.0,
+      "symbol": "Csus7"
+    },
+    {
+      "measure": 97,
+      "beat": 1.0,
+      "symbol": "Bbsus7"
+    },
+    {
+      "measure": 106,
+      "beat": 1.0,
+      "symbol": "Fsus7"
+    },
+    {
+      "measure": 123,
+      "beat": 1.0,
+      "symbol": "Bbsus7"
+    },
+    {
+      "measure": 129,
+      "beat": 1.0,
+      "symbol": "Fsus7"
+    },
+    {
+      "measure": 136,
+      "beat": 1.0,
+      "symbol": "Bbsus7"
+    },
+    {
+      "measure": 145,
+      "beat": 1.0,
+      "symbol": "Fsus7"
+    },
+    {
+      "measure": 154,
+      "beat": 1.0,
+      "symbol": "Csus7"
+    },
+    {
+      "measure": 163,
+      "beat": 1.0,
+      "symbol": "Bbsus7"
+    },
+    {
+      "measure": 166,
+      "beat": 1.0,
+      "symbol": "Fsus7"
+    },
+    {
+      "measure": 175,
+      "beat": 1.0,
+      "symbol": "Bbsus7"
+    },
+    {
+      "measure": 181,
+      "beat": 1.0,
+      "symbol": "Fsus7"
+    },
+    {
+      "measure": 186,
+      "beat": 1.0,
+      "symbol": "Bbsus7"
+    },
+    {
+      "measure": 208,
+      "beat": 1.0,
+      "symbol": "Fsus7"
+    },
+    {
+      "measure": 223,
+      "beat": 1.0,
+      "symbol": "Csus7"
+    },
+    {
+      "measure": 230,
+      "beat": 1.0,
+      "symbol": "Bbsus7"
+    },
+    {
+      "measure": 241,
+      "beat": 1.0,
+      "symbol": "Fsus7"
+    },
+    {
+      "measure": 247,
+      "beat": 1.0,
+      "symbol": "Bbsus7"
+    },
+    {
+      "measure": 253,
+      "beat": 1.0,
+      "symbol": "Fsus7"
+    },
+    {
+      "measure": 264,
+      "beat": 1.0,
+      "symbol": "Bbsus7"
+    },
+    {
+      "measure": 275,
+      "beat": 1.0,
+      "symbol": "Fsus7"
+    },
+    {
+      "measure": 283,
+      "beat": 1.0,
+      "symbol": "Csus7"
+    },
+    {
+      "measure": 290,
+      "beat": 1.0,
+      "symbol": "Bbsus7"
+    },
+    {
+      "measure": 297,
+      "beat": 1.0,
+      "symbol": "Fsus7"
+    },
+    {
+      "measure": 307,
+      "beat": 1.0,
+      "symbol": "Bbsus7"
+    },
+    {
+      "measure": 312,
+      "beat": 1.0,
+      "symbol": "Fsus7"
+    },
+    {
+      "measure": 322,
+      "beat": 1.0,
+      "symbol": "Bbsus7"
+    },
+    {
+      "measure": 332,
+      "beat": 1.0,
+      "symbol": "Fsus7"
+    },
+    {
+      "measure": 347,
+      "beat": 1.0,
+      "symbol": "Csus7"
+    },
+    {
+      "measure": 358,
+      "beat": 1.0,
+      "symbol": "Bbsus7"
+    },
+    {
+      "measure": 366,
+      "beat": 1.0,
+      "symbol": "Fsus7"
+    }
+  ]
+}

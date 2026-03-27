@@ -1,0 +1,110 @@
+{
+  "title": "Body and Soul",
+  "composer": "Heyman, Sour, Eyton, Green",
+  "performer": "David Murray",
+  "key": "Db-maj",
+  "timeSignature": "4/4",
+  "tempo": 65,
+  "style": "POSTBOP",
+  "rhythmfeel": "BALLAD",
+  "instrument": "ts",
+  "form": "A8A8B8A8",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Dj7"
+    },
+    {
+      "measure": 9,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 18,
+      "beat": 1.0,
+      "symbol": "D/F#"
+    },
+    {
+      "measure": 30,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 34,
+      "beat": 1.0,
+      "symbol": "F#-7"
+    },
+    {
+      "measure": 41,
+      "beat": 1.0,
+      "symbol": "B-7"
+    },
+    {
+      "measure": 48,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 51,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 57,
+      "beat": 1.0,
+      "symbol": "Dj7"
+    },
+    {
+      "measure": 77,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 87,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 90,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 98,
+      "beat": 1.0,
+      "symbol": "Ebo"
+    },
+    {
+      "measure": 103,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 111,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 120,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 123,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 129,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 142,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    }
+  ]
+}

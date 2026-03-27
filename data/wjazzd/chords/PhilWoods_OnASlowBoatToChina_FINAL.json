@@ -1,0 +1,830 @@
+{
+  "title": "On a Slow Boat to China",
+  "composer": "Frank Loesser",
+  "performer": "Phil Woods",
+  "key": "Bb-maj",
+  "timeSignature": "4/4",
+  "tempo": 243,
+  "style": "BEBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "as",
+  "form": "A16B16",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 3,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 26,
+      "beat": 1.0,
+      "symbol": "Bo7"
+    },
+    {
+      "measure": 30,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 31,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 38,
+      "beat": 1.0,
+      "symbol": "Dbo7"
+    },
+    {
+      "measure": 45,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 53,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 55,
+      "beat": 1.0,
+      "symbol": "D79b"
+    },
+    {
+      "measure": 59,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 66,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 70,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 74,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 82,
+      "beat": 1.0,
+      "symbol": "Em7b5"
+    },
+    {
+      "measure": 84,
+      "beat": 1.0,
+      "symbol": "A79b"
+    },
+    {
+      "measure": 88,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 90,
+      "beat": 1.0,
+      "symbol": "Ab7911"
+    },
+    {
+      "measure": 93,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 100,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 116,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 124,
+      "beat": 1.0,
+      "symbol": "F79"
+    },
+    {
+      "measure": 132,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 141,
+      "beat": 1.0,
+      "symbol": "Bo7"
+    },
+    {
+      "measure": 145,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 149,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 152,
+      "beat": 1.0,
+      "symbol": "Dbo7"
+    },
+    {
+      "measure": 155,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 159,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 162,
+      "beat": 1.0,
+      "symbol": "D79b"
+    },
+    {
+      "measure": 164,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 169,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 171,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 172,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 180,
+      "beat": 1.0,
+      "symbol": "Ab7911#"
+    },
+    {
+      "measure": 188,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 195,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 198,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 202,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 210,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 217,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 223,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 225,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 226,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 233,
+      "beat": 1.0,
+      "symbol": "Bo7"
+    },
+    {
+      "measure": 237,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 241,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 244,
+      "beat": 1.0,
+      "symbol": "Dbo7"
+    },
+    {
+      "measure": 250,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 256,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 260,
+      "beat": 1.0,
+      "symbol": "D79b"
+    },
+    {
+      "measure": 263,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 268,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 272,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 275,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 283,
+      "beat": 1.0,
+      "symbol": "Em7b5"
+    },
+    {
+      "measure": 286,
+      "beat": 1.0,
+      "symbol": "A79b"
+    },
+    {
+      "measure": 290,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 293,
+      "beat": 1.0,
+      "symbol": "Ab7911#"
+    },
+    {
+      "measure": 297,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 305,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 316,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 323,
+      "beat": 1.0,
+      "symbol": "F79"
+    },
+    {
+      "measure": 330,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 336,
+      "beat": 1.0,
+      "symbol": "Bo7"
+    },
+    {
+      "measure": 338,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 342,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 346,
+      "beat": 1.0,
+      "symbol": "Dbo7"
+    },
+    {
+      "measure": 353,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 361,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 365,
+      "beat": 1.0,
+      "symbol": "D79b"
+    },
+    {
+      "measure": 369,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 379,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 385,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 388,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 395,
+      "beat": 1.0,
+      "symbol": "Ab7911#"
+    },
+    {
+      "measure": 402,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 409,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 412,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 413,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 418,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 422,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 426,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 429,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 437,
+      "beat": 1.0,
+      "symbol": "Bo7"
+    },
+    {
+      "measure": 441,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 444,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 452,
+      "beat": 1.0,
+      "symbol": "Dbo7"
+    },
+    {
+      "measure": 459,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 467,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 470,
+      "beat": 1.0,
+      "symbol": "D79b"
+    },
+    {
+      "measure": 474,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 480,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 484,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 485,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 490,
+      "beat": 1.0,
+      "symbol": "Em7b5"
+    },
+    {
+      "measure": 492,
+      "beat": 1.0,
+      "symbol": "A79b"
+    },
+    {
+      "measure": 494,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 498,
+      "beat": 1.0,
+      "symbol": "Ab7911#"
+    },
+    {
+      "measure": 502,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 508,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 520,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 527,
+      "beat": 1.0,
+      "symbol": "F79"
+    },
+    {
+      "measure": 531,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 537,
+      "beat": 1.0,
+      "symbol": "Bo7"
+    },
+    {
+      "measure": 540,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 543,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 550,
+      "beat": 1.0,
+      "symbol": "Dbm7b5"
+    },
+    {
+      "measure": 555,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 562,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 566,
+      "beat": 1.0,
+      "symbol": "D79b"
+    },
+    {
+      "measure": 570,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 574,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 577,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 585,
+      "beat": 1.0,
+      "symbol": "Ab7911#"
+    },
+    {
+      "measure": 592,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 597,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 602,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 605,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 608,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 616,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 624,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 628,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 632,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 636,
+      "beat": 1.0,
+      "symbol": "Bo7"
+    },
+    {
+      "measure": 642,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 645,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 649,
+      "beat": 1.0,
+      "symbol": "Dbo7"
+    },
+    {
+      "measure": 660,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 666,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 669,
+      "beat": 1.0,
+      "symbol": "D79b"
+    },
+    {
+      "measure": 674,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 679,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 681,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 684,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 690,
+      "beat": 1.0,
+      "symbol": "Em7b5"
+    },
+    {
+      "measure": 692,
+      "beat": 1.0,
+      "symbol": "A79b"
+    },
+    {
+      "measure": 695,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 698,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 702,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 717,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 725,
+      "beat": 1.0,
+      "symbol": "F79"
+    },
+    {
+      "measure": 733,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 741,
+      "beat": 1.0,
+      "symbol": "Bo7"
+    },
+    {
+      "measure": 745,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 748,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 753,
+      "beat": 1.0,
+      "symbol": "Dbo7"
+    },
+    {
+      "measure": 763,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 767,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 770,
+      "beat": 1.0,
+      "symbol": "D79b"
+    },
+    {
+      "measure": 774,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 782,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 786,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 790,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 797,
+      "beat": 1.0,
+      "symbol": "Ab7911#"
+    },
+    {
+      "measure": 806,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 815,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 818,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 822,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 827,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 834,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 840,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 843,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 846,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    }
+  ]
+}

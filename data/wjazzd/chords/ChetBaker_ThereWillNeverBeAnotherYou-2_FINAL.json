@@ -1,0 +1,100 @@
+{
+  "title": "There Will Never Be Another You",
+  "composer": "Gordon/Warren",
+  "performer": "Chet Baker",
+  "key": "F-maj",
+  "timeSignature": "4/4",
+  "tempo": 170,
+  "style": "COOL",
+  "rhythmfeel": "SWING",
+  "instrument": "tp",
+  "form": "A16B16",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 3,
+      "beat": 1.0,
+      "symbol": "Em7b5"
+    },
+    {
+      "measure": 9,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 24,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 29,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 31,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 39,
+      "beat": 1.0,
+      "symbol": "Eb7911#"
+    },
+    {
+      "measure": 43,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 50,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 56,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 68,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 74,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 75,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 88,
+      "beat": 1.0,
+      "symbol": "Em7b5"
+    },
+    {
+      "measure": 95,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 103,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 118,
+      "beat": 1.0,
+      "symbol": "C-7"
+    }
+  ]
+}

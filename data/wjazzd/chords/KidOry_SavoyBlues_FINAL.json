@@ -1,0 +1,50 @@
+{
+  "title": "Savoy Blues",
+  "composer": "Edward Ory",
+  "performer": "Kid Ory",
+  "key": "G-maj",
+  "timeSignature": "4/4",
+  "tempo": 130,
+  "style": "TRADITIONAL",
+  "rhythmfeel": "TWOBEAT",
+  "instrument": "tb",
+  "form": "A12",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 5,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 10,
+      "beat": 1.0,
+      "symbol": "G7/D"
+    },
+    {
+      "measure": 21,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 36,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 46,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 58,
+      "beat": 1.0,
+      "symbol": "G7"
+    }
+  ]
+}

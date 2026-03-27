@@ -1,0 +1,85 @@
+{
+  "title": "You'd Be So Nice to Come Home to",
+  "composer": "Cole Porter",
+  "performer": "Pepper Adams",
+  "key": "C-maj",
+  "timeSignature": "4/4",
+  "tempo": 89,
+  "style": "HARDBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "bs",
+  "form": "A16B16",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "A-6"
+    },
+    {
+      "measure": 9,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 19,
+      "beat": 1.0,
+      "symbol": "A-6"
+    },
+    {
+      "measure": 33,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 38,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 48,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 70,
+      "beat": 1.0,
+      "symbol": "D#o"
+    },
+    {
+      "measure": 79,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 90,
+      "beat": 1.0,
+      "symbol": "G#o"
+    },
+    {
+      "measure": 95,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 98,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 109,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 118,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 140,
+      "beat": 1.0,
+      "symbol": "A-6"
+    }
+  ]
+}

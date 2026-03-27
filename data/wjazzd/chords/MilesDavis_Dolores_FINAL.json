@@ -1,0 +1,535 @@
+{
+  "title": "Dolores",
+  "composer": "Shorter",
+  "performer": "Miles Davis",
+  "key": "C",
+  "timeSignature": "4/4",
+  "tempo": 275,
+  "style": "POSTBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "tp",
+  "form": "A8B6A8",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 2,
+      "beat": 1.0,
+      "symbol": "D-"
+    },
+    {
+      "measure": 7,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 8,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 15,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 19,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 23,
+      "beat": 1.0,
+      "symbol": "F-7911"
+    },
+    {
+      "measure": 31,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 34,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 38,
+      "beat": 1.0,
+      "symbol": "Dbsus7"
+    },
+    {
+      "measure": 50,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 56,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 57,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 63,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 72,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 79,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 86,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 91,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 93,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 99,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 104,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 108,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 116,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 120,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 125,
+      "beat": 1.0,
+      "symbol": "Dbsus7"
+    },
+    {
+      "measure": 140,
+      "beat": 1.0,
+      "symbol": "D-"
+    },
+    {
+      "measure": 146,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 148,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 149,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 150,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 151,
+      "beat": 1.0,
+      "symbol": "F-7911"
+    },
+    {
+      "measure": 153,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 155,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 156,
+      "beat": 1.0,
+      "symbol": "Dbsus7"
+    },
+    {
+      "measure": 164,
+      "beat": 1.0,
+      "symbol": "G-79"
+    },
+    {
+      "measure": 171,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 180,
+      "beat": 1.0,
+      "symbol": "G-79"
+    },
+    {
+      "measure": 185,
+      "beat": 1.0,
+      "symbol": "F-79"
+    },
+    {
+      "measure": 190,
+      "beat": 1.0,
+      "symbol": "E-79"
+    },
+    {
+      "measure": 193,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 199,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 203,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 206,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 209,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 212,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 216,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 220,
+      "beat": 1.0,
+      "symbol": "F-7911"
+    },
+    {
+      "measure": 228,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 232,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 236,
+      "beat": 1.0,
+      "symbol": "Dbsus7"
+    },
+    {
+      "measure": 243,
+      "beat": 1.0,
+      "symbol": "D-"
+    },
+    {
+      "measure": 249,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 253,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 257,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 265,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 268,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 272,
+      "beat": 1.0,
+      "symbol": "F-7911"
+    },
+    {
+      "measure": 273,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 274,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 275,
+      "beat": 1.0,
+      "symbol": "Dbsus7"
+    },
+    {
+      "measure": 279,
+      "beat": 1.0,
+      "symbol": "G-79"
+    },
+    {
+      "measure": 281,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 286,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 294,
+      "beat": 1.0,
+      "symbol": "F-79"
+    },
+    {
+      "measure": 298,
+      "beat": 1.0,
+      "symbol": "E-79"
+    },
+    {
+      "measure": 305,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 309,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 310,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 312,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 315,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 320,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 324,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 327,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 330,
+      "beat": 1.0,
+      "symbol": "Dbsus7"
+    },
+    {
+      "measure": 346,
+      "beat": 1.0,
+      "symbol": "D-"
+    },
+    {
+      "measure": 352,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 355,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 358,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 365,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 367,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 368,
+      "beat": 1.0,
+      "symbol": "Dbsus7"
+    },
+    {
+      "measure": 371,
+      "beat": 1.0,
+      "symbol": "G-79"
+    },
+    {
+      "measure": 373,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 376,
+      "beat": 1.0,
+      "symbol": "G-79"
+    },
+    {
+      "measure": 379,
+      "beat": 1.0,
+      "symbol": "F-79"
+    },
+    {
+      "measure": 383,
+      "beat": 1.0,
+      "symbol": "E-79"
+    },
+    {
+      "measure": 391,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 399,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 402,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 406,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 408,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 413,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 417,
+      "beat": 1.0,
+      "symbol": "F-7911"
+    },
+    {
+      "measure": 423,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 424,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 426,
+      "beat": 1.0,
+      "symbol": "Dbsus7"
+    },
+    {
+      "measure": 430,
+      "beat": 1.0,
+      "symbol": "D-"
+    },
+    {
+      "measure": 437,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 439,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 443,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 452,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 456,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 458,
+      "beat": 1.0,
+      "symbol": "F-7911"
+    },
+    {
+      "measure": 464,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    }
+  ]
+}

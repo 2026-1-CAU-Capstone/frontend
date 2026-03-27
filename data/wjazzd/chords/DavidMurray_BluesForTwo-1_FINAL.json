@@ -1,0 +1,380 @@
+{
+  "title": "Blues for Two",
+  "composer": "G. Arvanitas",
+  "performer": "David Murray",
+  "key": "Bb-maj",
+  "timeSignature": "4/4",
+  "tempo": 60,
+  "style": "POSTBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "ts",
+  "form": "A12",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 10,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 22,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 33,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 63,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 77,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 98,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 102,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 122,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 124,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 148,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 178,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 186,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 189,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 198,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 211,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 212,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 235,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 249,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 294,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 330,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 349,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 356,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 372,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 392,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 409,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 435,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 462,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 466,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 485,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 530,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 560,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 584,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 598,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 605,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 620,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 641,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 662,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 677,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 688,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 703,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 718,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 796,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 827,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 836,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 845,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 868,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 899,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 901,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 904,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 908,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 911,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 921,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 933,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 975,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 993,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 1012,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 1022,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 1032,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 1049,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 1065,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 1089,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 1126,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 1140,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 1154,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 1188,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 1201,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 1233,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 1245,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 1255,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 1278,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 1291,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 1298,
+      "beat": 1.0,
+      "symbol": "F7"
+    }
+  ]
+}

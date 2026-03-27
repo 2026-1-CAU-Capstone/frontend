@@ -1,0 +1,200 @@
+{
+  "title": "Don't Get Around Much Anymore",
+  "composer": "Ellington/Russel",
+  "performer": "Milt Jackson",
+  "key": "C-maj",
+  "timeSignature": "4/4",
+  "tempo": 183,
+  "style": "BEBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "vib",
+  "form": "A8A8B8A8",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 2,
+      "beat": 1.0,
+      "symbol": "D#o"
+    },
+    {
+      "measure": 4,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 13,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 31,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 37,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 47,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 54,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 62,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 65,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 67,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 75,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 93,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 101,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 110,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 115,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 123,
+      "beat": 1.0,
+      "symbol": "F"
+    },
+    {
+      "measure": 126,
+      "beat": 1.0,
+      "symbol": "F-"
+    },
+    {
+      "measure": 133,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 138,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 142,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 150,
+      "beat": 1.0,
+      "symbol": "F6"
+    },
+    {
+      "measure": 160,
+      "beat": 1.0,
+      "symbol": "F#m7b5"
+    },
+    {
+      "measure": 164,
+      "beat": 1.0,
+      "symbol": "B79b"
+    },
+    {
+      "measure": 168,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 171,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 175,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 183,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 185,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 188,
+      "beat": 1.0,
+      "symbol": "D#o"
+    },
+    {
+      "measure": 190,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 199,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 212,
+      "beat": 1.0,
+      "symbol": "D-"
+    },
+    {
+      "measure": 221,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 229,
+      "beat": 1.0,
+      "symbol": "C"
+    },
+    {
+      "measure": 240,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 244,
+      "beat": 1.0,
+      "symbol": "NC"
+    }
+  ]
+}

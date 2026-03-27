@@ -1,0 +1,150 @@
+{
+  "title": "Dancing in the Dark",
+  "composer": "Dietz/Schwartz",
+  "performer": "Zoot Sims",
+  "key": "Ab-maj",
+  "timeSignature": "4/4",
+  "tempo": 125,
+  "style": "COOL",
+  "rhythmfeel": "SWING",
+  "instrument": "ts",
+  "form": "A16B16",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 5,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 10,
+      "beat": 1.0,
+      "symbol": "Abo7"
+    },
+    {
+      "measure": 16,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 20,
+      "beat": 1.0,
+      "symbol": "Bbm7b5"
+    },
+    {
+      "measure": 25,
+      "beat": 1.0,
+      "symbol": "Eb79b"
+    },
+    {
+      "measure": 31,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 35,
+      "beat": 1.0,
+      "symbol": "Ab-7"
+    },
+    {
+      "measure": 37,
+      "beat": 1.0,
+      "symbol": "C7alt"
+    },
+    {
+      "measure": 40,
+      "beat": 1.0,
+      "symbol": "F79b"
+    },
+    {
+      "measure": 42,
+      "beat": 1.0,
+      "symbol": "Bbm7b5"
+    },
+    {
+      "measure": 53,
+      "beat": 1.0,
+      "symbol": "Eb79b"
+    },
+    {
+      "measure": 58,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 64,
+      "beat": 1.0,
+      "symbol": "Abo7"
+    },
+    {
+      "measure": 69,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 73,
+      "beat": 1.0,
+      "symbol": "Bbm7b5"
+    },
+    {
+      "measure": 78,
+      "beat": 1.0,
+      "symbol": "Eb79b"
+    },
+    {
+      "measure": 81,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 86,
+      "beat": 1.0,
+      "symbol": "Ab-7"
+    },
+    {
+      "measure": 88,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 90,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 94,
+      "beat": 1.0,
+      "symbol": "Ab6"
+    },
+    {
+      "measure": 98,
+      "beat": 1.0,
+      "symbol": "Bbm7b5"
+    },
+    {
+      "measure": 99,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 103,
+      "beat": 1.0,
+      "symbol": "Ab6"
+    },
+    {
+      "measure": 105,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 108,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    }
+  ]
+}

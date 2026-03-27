@@ -1,0 +1,479 @@
+{
+  "title": "Yardbird Suite",
+  "composer": "Charlie Parker",
+  "key": "C",
+  "timeSignature": "4/4",
+  "tempo": 224,
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 2,
+      "beat": 1.0,
+      "symbol": "Fm"
+    },
+    {
+      "measure": 2,
+      "beat": 3.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 3,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 3,
+      "beat": 3.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 4,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 5,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 6,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 7,
+      "beat": 1.0,
+      "symbol": "Em"
+    },
+    {
+      "measure": 7,
+      "beat": 3.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 8,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 8,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 9,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 10,
+      "beat": 1.0,
+      "symbol": "Fm"
+    },
+    {
+      "measure": 10,
+      "beat": 3.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 11,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 11,
+      "beat": 3.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 12,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 13,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 14,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 15,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 16,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 16,
+      "beat": 3.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 17,
+      "beat": 1.0,
+      "symbol": "Em"
+    },
+    {
+      "measure": 18,
+      "beat": 1.0,
+      "symbol": "F#-7b5"
+    },
+    {
+      "measure": 18,
+      "beat": 3.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 19,
+      "beat": 1.0,
+      "symbol": "Em"
+    },
+    {
+      "measure": 20,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 21,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 22,
+      "beat": 1.0,
+      "symbol": "E-7b5"
+    },
+    {
+      "measure": 22,
+      "beat": 3.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 23,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 24,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 24,
+      "beat": 3.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 25,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 26,
+      "beat": 1.0,
+      "symbol": "Fm"
+    },
+    {
+      "measure": 26,
+      "beat": 3.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 27,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 27,
+      "beat": 3.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 28,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 29,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 30,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 31,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 32,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 32,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 33,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 34,
+      "beat": 1.0,
+      "symbol": "Fm"
+    },
+    {
+      "measure": 34,
+      "beat": 3.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 35,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 35,
+      "beat": 3.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 36,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 37,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 38,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 38,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 39,
+      "beat": 1.0,
+      "symbol": "Em"
+    },
+    {
+      "measure": 39,
+      "beat": 3.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 40,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 40,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 41,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 42,
+      "beat": 1.0,
+      "symbol": "Fm"
+    },
+    {
+      "measure": 42,
+      "beat": 3.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 43,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 43,
+      "beat": 3.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 44,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 45,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 46,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 46,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 47,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 48,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 48,
+      "beat": 3.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 49,
+      "beat": 1.0,
+      "symbol": "Em"
+    },
+    {
+      "measure": 50,
+      "beat": 1.0,
+      "symbol": "F#-7b5"
+    },
+    {
+      "measure": 50,
+      "beat": 3.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 51,
+      "beat": 1.0,
+      "symbol": "Em"
+    },
+    {
+      "measure": 52,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 53,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 54,
+      "beat": 1.0,
+      "symbol": "E-7b5"
+    },
+    {
+      "measure": 54,
+      "beat": 3.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 55,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 56,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 56,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 57,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 58,
+      "beat": 1.0,
+      "symbol": "Fm"
+    },
+    {
+      "measure": 58,
+      "beat": 3.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 59,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 59,
+      "beat": 3.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 60,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 61,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 62,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 62,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 63,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    },
+    {
+      "measure": 64,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 64,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 65,
+      "beat": 1.0,
+      "symbol": "Cmaj7"
+    }
+  ]
+}

@@ -1,0 +1,125 @@
+{
+  "title": "Processional",
+  "composer": "Dave Holland",
+  "performer": "Steve Coleman",
+  "key": "F-min",
+  "timeSignature": "5/4",
+  "tempo": 104,
+  "style": "POSTBOP",
+  "rhythmfeel": "LATIN",
+  "instrument": "as",
+  "form": "A12",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "F-"
+    },
+    {
+      "measure": 21,
+      "beat": 1.0,
+      "symbol": "Db7911#"
+    },
+    {
+      "measure": 45,
+      "beat": 1.0,
+      "symbol": "F-"
+    },
+    {
+      "measure": 69,
+      "beat": 1.0,
+      "symbol": "Gb7911#"
+    },
+    {
+      "measure": 79,
+      "beat": 1.0,
+      "symbol": "E7911#"
+    },
+    {
+      "measure": 95,
+      "beat": 1.0,
+      "symbol": "D7911#"
+    },
+    {
+      "measure": 112,
+      "beat": 1.0,
+      "symbol": "C7alt"
+    },
+    {
+      "measure": 123,
+      "beat": 1.0,
+      "symbol": "F-"
+    },
+    {
+      "measure": 156,
+      "beat": 1.0,
+      "symbol": "Db7911#"
+    },
+    {
+      "measure": 200,
+      "beat": 1.0,
+      "symbol": "F-"
+    },
+    {
+      "measure": 234,
+      "beat": 1.0,
+      "symbol": "Gb7911#"
+    },
+    {
+      "measure": 237,
+      "beat": 1.0,
+      "symbol": "E7911#"
+    },
+    {
+      "measure": 254,
+      "beat": 1.0,
+      "symbol": "D7911#"
+    },
+    {
+      "measure": 272,
+      "beat": 1.0,
+      "symbol": "C7alt"
+    },
+    {
+      "measure": 290,
+      "beat": 1.0,
+      "symbol": "F-"
+    },
+    {
+      "measure": 349,
+      "beat": 1.0,
+      "symbol": "Db7911#"
+    },
+    {
+      "measure": 379,
+      "beat": 1.0,
+      "symbol": "F-"
+    },
+    {
+      "measure": 400,
+      "beat": 1.0,
+      "symbol": "Gb7911#"
+    },
+    {
+      "measure": 413,
+      "beat": 1.0,
+      "symbol": "E7911#"
+    },
+    {
+      "measure": 431,
+      "beat": 1.0,
+      "symbol": "D7911#"
+    },
+    {
+      "measure": 446,
+      "beat": 1.0,
+      "symbol": "C7alt"
+    },
+    {
+      "measure": 464,
+      "beat": 1.0,
+      "symbol": "F-"
+    }
+  ]
+}

@@ -1,0 +1,364 @@
+{
+  "title": "Si Si",
+  "composer": "Charlie Parker",
+  "key": "C",
+  "timeSignature": "4/4",
+  "tempo": 188,
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Fmaj7"
+    },
+    {
+      "measure": 2,
+      "beat": 1.0,
+      "symbol": "E-7b5"
+    },
+    {
+      "measure": 2,
+      "beat": 3.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 3,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 3,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 4,
+      "beat": 1.0,
+      "symbol": "Cm"
+    },
+    {
+      "measure": 4,
+      "beat": 3.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 5,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 6,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 7,
+      "beat": 1.0,
+      "symbol": "Fmaj7"
+    },
+    {
+      "measure": 8,
+      "beat": 1.0,
+      "symbol": "Am"
+    },
+    {
+      "measure": 8,
+      "beat": 3.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 9,
+      "beat": 1.0,
+      "symbol": "Gm"
+    },
+    {
+      "measure": 10,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 11,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 12,
+      "beat": 1.0,
+      "symbol": "Gm"
+    },
+    {
+      "measure": 12,
+      "beat": 3.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 13,
+      "beat": 1.0,
+      "symbol": "Fmaj7"
+    },
+    {
+      "measure": 14,
+      "beat": 1.0,
+      "symbol": "E-7b5"
+    },
+    {
+      "measure": 14,
+      "beat": 3.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 15,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 15,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 16,
+      "beat": 1.0,
+      "symbol": "Cm"
+    },
+    {
+      "measure": 16,
+      "beat": 3.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 17,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 18,
+      "beat": 1.0,
+      "symbol": "Bbm"
+    },
+    {
+      "measure": 18,
+      "beat": 3.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 19,
+      "beat": 1.0,
+      "symbol": "Fmaj7"
+    },
+    {
+      "measure": 20,
+      "beat": 1.0,
+      "symbol": "Am"
+    },
+    {
+      "measure": 20,
+      "beat": 3.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 21,
+      "beat": 1.0,
+      "symbol": "Gm"
+    },
+    {
+      "measure": 22,
+      "beat": 1.0,
+      "symbol": "Gm"
+    },
+    {
+      "measure": 22,
+      "beat": 3.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 23,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 24,
+      "beat": 1.0,
+      "symbol": "Gm"
+    },
+    {
+      "measure": 24,
+      "beat": 3.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 25,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 26,
+      "beat": 1.0,
+      "symbol": "Gm"
+    },
+    {
+      "measure": 26,
+      "beat": 3.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 27,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 28,
+      "beat": 1.0,
+      "symbol": "Cm"
+    },
+    {
+      "measure": 28,
+      "beat": 3.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 29,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 30,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 31,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 32,
+      "beat": 1.0,
+      "symbol": "Am"
+    },
+    {
+      "measure": 32,
+      "beat": 3.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 33,
+      "beat": 1.0,
+      "symbol": "Gm"
+    },
+    {
+      "measure": 34,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 35,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 36,
+      "beat": 1.0,
+      "symbol": "Gm"
+    },
+    {
+      "measure": 36,
+      "beat": 3.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 37,
+      "beat": 1.0,
+      "symbol": "Fmaj7"
+    },
+    {
+      "measure": 38,
+      "beat": 1.0,
+      "symbol": "E-7b5"
+    },
+    {
+      "measure": 38,
+      "beat": 3.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 39,
+      "beat": 1.0,
+      "symbol": "Dm"
+    },
+    {
+      "measure": 39,
+      "beat": 3.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 40,
+      "beat": 1.0,
+      "symbol": "Cm"
+    },
+    {
+      "measure": 40,
+      "beat": 3.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 41,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 42,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 43,
+      "beat": 1.0,
+      "symbol": "Fmaj7"
+    },
+    {
+      "measure": 44,
+      "beat": 1.0,
+      "symbol": "Am"
+    },
+    {
+      "measure": 44,
+      "beat": 3.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 45,
+      "beat": 1.0,
+      "symbol": "Gm"
+    },
+    {
+      "measure": 46,
+      "beat": 1.0,
+      "symbol": "Gm"
+    },
+    {
+      "measure": 46,
+      "beat": 3.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 47,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 48,
+      "beat": 1.0,
+      "symbol": "Gm"
+    },
+    {
+      "measure": 48,
+      "beat": 3.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 49,
+      "beat": 1.0,
+      "symbol": "F7"
+    }
+  ]
+}

@@ -1,0 +1,380 @@
+{
+  "title": "Home Fries",
+  "composer": "Joshua Redman",
+  "performer": "Joshua Redman",
+  "key": "Eb-maj",
+  "timeSignature": "4/4",
+  "tempo": 181,
+  "style": "POSTBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "ts",
+  "form": "A16",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 31,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 34,
+      "beat": 1.0,
+      "symbol": "Gb7911#"
+    },
+    {
+      "measure": 38,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 46,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 55,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 60,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 63,
+      "beat": 1.0,
+      "symbol": "Ao"
+    },
+    {
+      "measure": 66,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 69,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 73,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 77,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 81,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 115,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 116,
+      "beat": 1.0,
+      "symbol": "Gb7911#"
+    },
+    {
+      "measure": 121,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 123,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 126,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 133,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 136,
+      "beat": 1.0,
+      "symbol": "Ao"
+    },
+    {
+      "measure": 142,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 143,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 147,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 150,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 153,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 193,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 201,
+      "beat": 1.0,
+      "symbol": "Gb7911#"
+    },
+    {
+      "measure": 207,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 213,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 215,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 223,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 226,
+      "beat": 1.0,
+      "symbol": "Ao"
+    },
+    {
+      "measure": 230,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 233,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 237,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 242,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 247,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 286,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 291,
+      "beat": 1.0,
+      "symbol": "Gb7911#"
+    },
+    {
+      "measure": 305,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 318,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 332,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 347,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 351,
+      "beat": 1.0,
+      "symbol": "Ao"
+    },
+    {
+      "measure": 353,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 356,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 360,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 364,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 367,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 398,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 402,
+      "beat": 1.0,
+      "symbol": "Gb7911#"
+    },
+    {
+      "measure": 409,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 417,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 421,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 437,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 441,
+      "beat": 1.0,
+      "symbol": "Ao"
+    },
+    {
+      "measure": 446,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 450,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 454,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 458,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 463,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 500,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 501,
+      "beat": 1.0,
+      "symbol": "Gb7911#"
+    },
+    {
+      "measure": 509,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 517,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 525,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 538,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 544,
+      "beat": 1.0,
+      "symbol": "Ao"
+    },
+    {
+      "measure": 548,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 550,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 557,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 563,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 569,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    }
+  ]
+}

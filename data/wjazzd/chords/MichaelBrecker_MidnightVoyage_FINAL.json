@@ -1,0 +1,505 @@
+{
+  "title": "Midnight Voyage",
+  "composer": "Joey Calderazzo",
+  "performer": "Michael Brecker",
+  "key": "C-min",
+  "timeSignature": "4/4",
+  "tempo": 126,
+  "style": "POSTBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "ts",
+  "form": "A8A8B16A8",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 6,
+      "beat": 1.0,
+      "symbol": "C-6"
+    },
+    {
+      "measure": 11,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 16,
+      "beat": 1.0,
+      "symbol": "C-6"
+    },
+    {
+      "measure": 21,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 23,
+      "beat": 1.0,
+      "symbol": "Absus7"
+    },
+    {
+      "measure": 27,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 33,
+      "beat": 1.0,
+      "symbol": "G79#"
+    },
+    {
+      "measure": 40,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 49,
+      "beat": 1.0,
+      "symbol": "G79#"
+    },
+    {
+      "measure": 53,
+      "beat": 1.0,
+      "symbol": "C-6"
+    },
+    {
+      "measure": 59,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 64,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 67,
+      "beat": 1.0,
+      "symbol": "C-6"
+    },
+    {
+      "measure": 73,
+      "beat": 1.0,
+      "symbol": "Asus7"
+    },
+    {
+      "measure": 77,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 83,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 87,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 91,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 99,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 104,
+      "beat": 1.0,
+      "symbol": "C79#"
+    },
+    {
+      "measure": 108,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 111,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 115,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 120,
+      "beat": 1.0,
+      "symbol": "A79#"
+    },
+    {
+      "measure": 123,
+      "beat": 1.0,
+      "symbol": "Absus7"
+    },
+    {
+      "measure": 128,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 131,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 139,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 144,
+      "beat": 1.0,
+      "symbol": "C79#"
+    },
+    {
+      "measure": 159,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 168,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 181,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 190,
+      "beat": 1.0,
+      "symbol": "A79#"
+    },
+    {
+      "measure": 201,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 205,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 208,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 218,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 223,
+      "beat": 1.0,
+      "symbol": "G79#"
+    },
+    {
+      "measure": 232,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 236,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 240,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 244,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 251,
+      "beat": 1.0,
+      "symbol": "Asus7"
+    },
+    {
+      "measure": 259,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 267,
+      "beat": 1.0,
+      "symbol": "Absus7"
+    },
+    {
+      "measure": 276,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 284,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 292,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 297,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 300,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 303,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 305,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 308,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 317,
+      "beat": 1.0,
+      "symbol": "Asus7"
+    },
+    {
+      "measure": 321,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 324,
+      "beat": 1.0,
+      "symbol": "Absus7"
+    },
+    {
+      "measure": 328,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 330,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 338,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 345,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 349,
+      "beat": 1.0,
+      "symbol": "Asus7"
+    },
+    {
+      "measure": 355,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 357,
+      "beat": 1.0,
+      "symbol": "Absus7"
+    },
+    {
+      "measure": 359,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 368,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 377,
+      "beat": 1.0,
+      "symbol": "C79#"
+    },
+    {
+      "measure": 391,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 407,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 423,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 426,
+      "beat": 1.0,
+      "symbol": "A79#"
+    },
+    {
+      "measure": 430,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 432,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 434,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 438,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 447,
+      "beat": 1.0,
+      "symbol": "C79#"
+    },
+    {
+      "measure": 456,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 463,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 467,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 472,
+      "beat": 1.0,
+      "symbol": "A79#"
+    },
+    {
+      "measure": 475,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 480,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 487,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 493,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 501,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 508,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 514,
+      "beat": 1.0,
+      "symbol": "Dm7b5"
+    },
+    {
+      "measure": 517,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 520,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 525,
+      "beat": 1.0,
+      "symbol": "Asus7"
+    },
+    {
+      "measure": 531,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 543,
+      "beat": 1.0,
+      "symbol": "Absus7"
+    },
+    {
+      "measure": 556,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 560,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 566,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 572,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 580,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 589,
+      "beat": 1.0,
+      "symbol": "NC"
+    }
+  ]
+}

@@ -1,0 +1,355 @@
+{
+  "title": "Brother Hubbard",
+  "composer": "Kenny Garett",
+  "performer": "Kenny Garrett",
+  "key": "D-min",
+  "timeSignature": "4/4",
+  "tempo": 143,
+  "style": "FUSION",
+  "rhythmfeel": "FUNK",
+  "instrument": "as",
+  "form": "A8A8B9",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 3,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 6,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 12,
+      "beat": 1.0,
+      "symbol": "D-7911"
+    },
+    {
+      "measure": 24,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 32,
+      "beat": 1.0,
+      "symbol": "D-7911"
+    },
+    {
+      "measure": 38,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 47,
+      "beat": 1.0,
+      "symbol": "D-7911"
+    },
+    {
+      "measure": 52,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 60,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 64,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 70,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 76,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 79,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 81,
+      "beat": 1.0,
+      "symbol": "D-7911"
+    },
+    {
+      "measure": 87,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 94,
+      "beat": 1.0,
+      "symbol": "D-7911"
+    },
+    {
+      "measure": 101,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 110,
+      "beat": 1.0,
+      "symbol": "D-7911"
+    },
+    {
+      "measure": 120,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 128,
+      "beat": 1.0,
+      "symbol": "D-7911"
+    },
+    {
+      "measure": 139,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 147,
+      "beat": 1.0,
+      "symbol": "D-7911"
+    },
+    {
+      "measure": 154,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 163,
+      "beat": 1.0,
+      "symbol": "D-7911"
+    },
+    {
+      "measure": 170,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 176,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 185,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 190,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 193,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 198,
+      "beat": 1.0,
+      "symbol": "D-7911"
+    },
+    {
+      "measure": 206,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 215,
+      "beat": 1.0,
+      "symbol": "D-7911"
+    },
+    {
+      "measure": 217,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 228,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 235,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 247,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 252,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 256,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 265,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 270,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 274,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 282,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 292,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 295,
+      "beat": 1.0,
+      "symbol": "Bbj7"
+    },
+    {
+      "measure": 308,
+      "beat": 1.0,
+      "symbol": "A7911#"
+    },
+    {
+      "measure": 313,
+      "beat": 1.0,
+      "symbol": "D-7911"
+    },
+    {
+      "measure": 322,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 330,
+      "beat": 1.0,
+      "symbol": "D-7911"
+    },
+    {
+      "measure": 340,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 350,
+      "beat": 1.0,
+      "symbol": "D-7911"
+    },
+    {
+      "measure": 358,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 364,
+      "beat": 1.0,
+      "symbol": "D-7911"
+    },
+    {
+      "measure": 373,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 379,
+      "beat": 1.0,
+      "symbol": "D-7911"
+    },
+    {
+      "measure": 387,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 395,
+      "beat": 1.0,
+      "symbol": "D-7911"
+    },
+    {
+      "measure": 400,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 408,
+      "beat": 1.0,
+      "symbol": "D-7911"
+    },
+    {
+      "measure": 416,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 422,
+      "beat": 1.0,
+      "symbol": "D-7911"
+    },
+    {
+      "measure": 426,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 433,
+      "beat": 1.0,
+      "symbol": "D-7911"
+    },
+    {
+      "measure": 438,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 442,
+      "beat": 1.0,
+      "symbol": "D-7911"
+    },
+    {
+      "measure": 446,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 448,
+      "beat": 1.0,
+      "symbol": "D-7911"
+    },
+    {
+      "measure": 451,
+      "beat": 1.0,
+      "symbol": "G-7"
+    }
+  ]
+}

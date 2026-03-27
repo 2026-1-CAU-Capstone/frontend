@@ -78,6 +78,12 @@ export default function HomePage() {
           <CardTitle>Note Analysis</CardTitle>
           <CardDesc>Melody, voicing, rhythm</CardDesc>
         </Card>
+
+        <Card onClick={() => navigate('/licks')}>
+          <CardIcon>&#127927;</CardIcon>
+          <CardTitle>Lick Database</CardTitle>
+          <CardDesc>8,000+ jazz licks from WJD</CardDesc>
+        </Card>
       </CardRow>
     </Container>
   );

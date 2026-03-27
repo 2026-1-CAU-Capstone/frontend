@@ -1,0 +1,395 @@
+{
+  "title": "Bitches Brew",
+  "composer": "Miles Davis",
+  "performer": "Miles Davis",
+  "key": "C-chrom",
+  "timeSignature": "4/4",
+  "tempo": 98,
+  "style": "FUSION",
+  "rhythmfeel": "FUNK",
+  "instrument": "tp",
+  "form": "open",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 3,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 5,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 7,
+      "beat": 1.0,
+      "symbol": "Bbsus"
+    },
+    {
+      "measure": 8,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 9,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 11,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 15,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 18,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 20,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 23,
+      "beat": 1.0,
+      "symbol": "Bbsus"
+    },
+    {
+      "measure": 26,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 27,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 35,
+      "beat": 1.0,
+      "symbol": "Bbsus"
+    },
+    {
+      "measure": 42,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 47,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 51,
+      "beat": 1.0,
+      "symbol": "Bbsus"
+    },
+    {
+      "measure": 55,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 62,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 64,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 65,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 68,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 69,
+      "beat": 1.0,
+      "symbol": "Bbsus"
+    },
+    {
+      "measure": 72,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 77,
+      "beat": 1.0,
+      "symbol": "Bbsus"
+    },
+    {
+      "measure": 85,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 92,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 93,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 94,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 96,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 100,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 103,
+      "beat": 1.0,
+      "symbol": "Bbsus"
+    },
+    {
+      "measure": 106,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 109,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 110,
+      "beat": 1.0,
+      "symbol": "Bbsus"
+    },
+    {
+      "measure": 114,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 121,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 126,
+      "beat": 1.0,
+      "symbol": "Bbsus"
+    },
+    {
+      "measure": 129,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 131,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 132,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 133,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 136,
+      "beat": 1.0,
+      "symbol": "Bbsus"
+    },
+    {
+      "measure": 144,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 146,
+      "beat": 1.0,
+      "symbol": "Bbsus"
+    },
+    {
+      "measure": 147,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 154,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 159,
+      "beat": 1.0,
+      "symbol": "Bbsus"
+    },
+    {
+      "measure": 160,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 162,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 166,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 167,
+      "beat": 1.0,
+      "symbol": "Bbsus"
+    },
+    {
+      "measure": 170,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 172,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 173,
+      "beat": 1.0,
+      "symbol": "Bbsus"
+    },
+    {
+      "measure": 176,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 182,
+      "beat": 1.0,
+      "symbol": "Bbsus"
+    },
+    {
+      "measure": 189,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 193,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 198,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 201,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 203,
+      "beat": 1.0,
+      "symbol": "Bbsus"
+    },
+    {
+      "measure": 205,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 208,
+      "beat": 1.0,
+      "symbol": "Bbsus"
+    },
+    {
+      "measure": 211,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 214,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 217,
+      "beat": 1.0,
+      "symbol": "Bbsus"
+    },
+    {
+      "measure": 221,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 226,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 235,
+      "beat": 1.0,
+      "symbol": "Bbsus"
+    },
+    {
+      "measure": 245,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 248,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 249,
+      "beat": 1.0,
+      "symbol": "Bbsus"
+    },
+    {
+      "measure": 254,
+      "beat": 1.0,
+      "symbol": "Csus"
+    },
+    {
+      "measure": 255,
+      "beat": 1.0,
+      "symbol": "Bsus"
+    },
+    {
+      "measure": 259,
+      "beat": 1.0,
+      "symbol": "Bbsus"
+    }
+  ]
+}

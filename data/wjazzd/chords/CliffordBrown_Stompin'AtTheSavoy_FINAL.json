@@ -1,0 +1,380 @@
+{
+  "title": "Stompin' at the Savoy",
+  "composer": "Goodman, Webb, Samson",
+  "performer": "Clifford Brown",
+  "key": "Db-maj",
+  "timeSignature": "4/4",
+  "tempo": 164,
+  "style": "HARDBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "tp",
+  "form": "A16B8A8",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 4,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 6,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 14,
+      "beat": 1.0,
+      "symbol": "Do"
+    },
+    {
+      "measure": 17,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 27,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 35,
+      "beat": 1.0,
+      "symbol": "Db6"
+    },
+    {
+      "measure": 39,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 43,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 47,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 50,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 54,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 60,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 65,
+      "beat": 1.0,
+      "symbol": "Do"
+    },
+    {
+      "measure": 71,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 79,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 87,
+      "beat": 1.0,
+      "symbol": "Db6"
+    },
+    {
+      "measure": 91,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 92,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 95,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 97,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 105,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 108,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 112,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 120,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 124,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 128,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 138,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 147,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 157,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 160,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 161,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 164,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 169,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 173,
+      "beat": 1.0,
+      "symbol": "Db6"
+    },
+    {
+      "measure": 176,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 183,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 187,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 199,
+      "beat": 1.0,
+      "symbol": "Do"
+    },
+    {
+      "measure": 203,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 212,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 224,
+      "beat": 1.0,
+      "symbol": "Db6"
+    },
+    {
+      "measure": 230,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 235,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 240,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 247,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 259,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 262,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 272,
+      "beat": 1.0,
+      "symbol": "Do"
+    },
+    {
+      "measure": 278,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 288,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 296,
+      "beat": 1.0,
+      "symbol": "Db6"
+    },
+    {
+      "measure": 304,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 312,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 316,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 319,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 327,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 332,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 334,
+      "beat": 1.0,
+      "symbol": "B7"
+    },
+    {
+      "measure": 341,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 346,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 352,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 358,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 366,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 374,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 381,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 385,
+      "beat": 1.0,
+      "symbol": "Dbj7"
+    },
+    {
+      "measure": 388,
+      "beat": 1.0,
+      "symbol": "Do"
+    },
+    {
+      "measure": 389,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 393,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 399,
+      "beat": 1.0,
+      "symbol": "Db6"
+    },
+    {
+      "measure": 405,
+      "beat": 1.0,
+      "symbol": "Eb-7"
+    },
+    {
+      "measure": 408,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    }
+  ]
+}

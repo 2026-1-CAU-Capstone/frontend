@@ -1,0 +1,220 @@
+{
+  "title": "Baby Won't You Please Come Home",
+  "composer": "Warfield, Wiliams",
+  "performer": "Henry Allen",
+  "key": "Bb-maj",
+  "timeSignature": "4/4",
+  "tempo": 212,
+  "style": "TRADITIONAL",
+  "rhythmfeel": "TWOBEAT",
+  "instrument": "tp",
+  "form": "A8B8",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 4,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 7,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 9,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 13,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 23,
+      "beat": 1.0,
+      "symbol": "F#o"
+    },
+    {
+      "measure": 27,
+      "beat": 1.0,
+      "symbol": "G-"
+    },
+    {
+      "measure": 33,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 37,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 42,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 45,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 50,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 53,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 55,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 61,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 62,
+      "beat": 1.0,
+      "symbol": "Eo"
+    },
+    {
+      "measure": 64,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 69,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 71,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 77,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 88,
+      "beat": 1.0,
+      "symbol": "F#o"
+    },
+    {
+      "measure": 93,
+      "beat": 1.0,
+      "symbol": "G-"
+    },
+    {
+      "measure": 98,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 103,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 104,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 108,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 111,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 116,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 117,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 120,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 123,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 124,
+      "beat": 1.0,
+      "symbol": "Eo"
+    },
+    {
+      "measure": 127,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 129,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 133,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 137,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 141,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 143,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 145,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 149,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 151,
+      "beat": 1.0,
+      "symbol": "Bb"
+    }
+  ]
+}

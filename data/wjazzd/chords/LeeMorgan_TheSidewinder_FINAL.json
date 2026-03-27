@@ -1,0 +1,85 @@
+{
+  "title": "The Sidewinder",
+  "composer": "Lee Morgan",
+  "performer": "Lee Morgan",
+  "key": "Eb-maj",
+  "timeSignature": "4/4",
+  "tempo": 156,
+  "style": "HARDBOP",
+  "rhythmfeel": "LATIN",
+  "instrument": "tp",
+  "form": "A24",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 6,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 48,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 73,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 103,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 122,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 173,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 207,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 229,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 259,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 301,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 329,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 348,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 371,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    }
+  ]
+}

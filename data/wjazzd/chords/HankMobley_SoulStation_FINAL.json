@@ -1,0 +1,320 @@
+{
+  "title": "Soul Station",
+  "composer": "Hank Mobley",
+  "performer": "Hank Mobley",
+  "key": "Eb-maj",
+  "timeSignature": "4/4",
+  "tempo": 102,
+  "style": "HARDBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "ts",
+  "form": "A8",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 41,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 50,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 69,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 80,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 87,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 91,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 101,
+      "beat": 1.0,
+      "symbol": "Ao"
+    },
+    {
+      "measure": 107,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 109,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 117,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 121,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 128,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 172,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 185,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 207,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 215,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 222,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 229,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 238,
+      "beat": 1.0,
+      "symbol": "Ao"
+    },
+    {
+      "measure": 250,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 252,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 256,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 261,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 267,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 299,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 309,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 324,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 334,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 341,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 348,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 358,
+      "beat": 1.0,
+      "symbol": "Ao"
+    },
+    {
+      "measure": 368,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 377,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 385,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 389,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 394,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 446,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 461,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 478,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 490,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 494,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 501,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 513,
+      "beat": 1.0,
+      "symbol": "Ao"
+    },
+    {
+      "measure": 523,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 527,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 535,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 543,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 550,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 585,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 603,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 631,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 637,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 642,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 648,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 659,
+      "beat": 1.0,
+      "symbol": "Ao"
+    },
+    {
+      "measure": 669,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 672,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 681,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 684,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 688,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    }
+  ]
+}

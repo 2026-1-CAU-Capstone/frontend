@@ -17,6 +17,7 @@ export interface NoteSheetData {
   composer: string;
   key: string;
   timeSignature: string;
+  tempo?: number;
   measures: MeasureInfo[];
 }
 

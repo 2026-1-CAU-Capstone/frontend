@@ -1,0 +1,150 @@
+{
+  "title": "The Oracle",
+  "composer": "Dave Holland",
+  "performer": "Steve Coleman",
+  "key": "Bb-min",
+  "timeSignature": "3/4",
+  "tempo": 104,
+  "style": "POSTBOP",
+  "rhythmfeel": "LATIN",
+  "instrument": "as",
+  "form": "open",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Bb-"
+    },
+    {
+      "measure": 286,
+      "beat": 1.0,
+      "symbol": "Eb-"
+    },
+    {
+      "measure": 294,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 300,
+      "beat": 1.0,
+      "symbol": "Bj7911#"
+    },
+    {
+      "measure": 308,
+      "beat": 1.0,
+      "symbol": "Bb-"
+    },
+    {
+      "measure": 313,
+      "beat": 1.0,
+      "symbol": "Eb-"
+    },
+    {
+      "measure": 321,
+      "beat": 1.0,
+      "symbol": "Bj7911#"
+    },
+    {
+      "measure": 330,
+      "beat": 1.0,
+      "symbol": "Eb-"
+    },
+    {
+      "measure": 337,
+      "beat": 1.0,
+      "symbol": "Bj7911#"
+    },
+    {
+      "measure": 347,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 356,
+      "beat": 1.0,
+      "symbol": "F#j7"
+    },
+    {
+      "measure": 365,
+      "beat": 1.0,
+      "symbol": "Bj7"
+    },
+    {
+      "measure": 377,
+      "beat": 1.0,
+      "symbol": "Bbj7911#"
+    },
+    {
+      "measure": 379,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 601,
+      "beat": 1.0,
+      "symbol": "Eb-"
+    },
+    {
+      "measure": 609,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 616,
+      "beat": 1.0,
+      "symbol": "Bj7911#"
+    },
+    {
+      "measure": 625,
+      "beat": 1.0,
+      "symbol": "Bb-"
+    },
+    {
+      "measure": 637,
+      "beat": 1.0,
+      "symbol": "Eb-"
+    },
+    {
+      "measure": 639,
+      "beat": 1.0,
+      "symbol": "Bj7911#"
+    },
+    {
+      "measure": 644,
+      "beat": 1.0,
+      "symbol": "Eb-"
+    },
+    {
+      "measure": 652,
+      "beat": 1.0,
+      "symbol": "Bj7911#"
+    },
+    {
+      "measure": 660,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 672,
+      "beat": 1.0,
+      "symbol": "F#j7"
+    },
+    {
+      "measure": 678,
+      "beat": 1.0,
+      "symbol": "Bj7911#"
+    },
+    {
+      "measure": 688,
+      "beat": 1.0,
+      "symbol": "Bbj7911#"
+    },
+    {
+      "measure": 694,
+      "beat": 1.0,
+      "symbol": "Bb-"
+    }
+  ]
+}

@@ -39,6 +39,20 @@ export async function loadXmlMelody(
   const timeSig  = `${beats}/${beatType}`;
   const key = KEY_NAMES[fifths + 7] ?? 'C';
 
+  // Build set of note letters altered by key signature (to avoid redundant accidentals)
+  const FLAT_LETTERS  = ['b', 'e', 'a', 'd', 'g', 'c', 'f'];
+  const SHARP_LETTERS = ['f', 'c', 'g', 'd', 'a', 'e', 'b'];
+  const keySigLetters = new Set<string>();
+  if (fifths < 0) {
+    for (let i = 0; i < Math.min(-fifths, 7); i++) keySigLetters.add(FLAT_LETTERS[i]);
+  } else {
+    for (let i = 0; i < Math.min(fifths, 7); i++) keySigLetters.add(SHARP_LETTERS[i]);
+  }
+
+  // Tempo from <sound tempo="..."/>
+  const soundEl = doc.querySelector('sound[tempo]');
+  const tempo = soundEl ? Math.round(parseFloat(soundEl.getAttribute('tempo')!)) : undefined;
+
   /* ── parse measures ──────────────────────────────────────────────── */
   const measures: MeasureInfo[] = [];
 
@@ -57,8 +71,24 @@ export async function loadXmlMelody(
     }
 
     for (const nEl of mEl.querySelectorAll('note')) {
-      // skip chord tones (simultaneous notes) — keep first only
+      // ── Skip chord tones (simultaneous notes) — keep top note only
       if (nEl.querySelector('chord')) continue;
+
+      // ── Filter to voice 1 (avoid multi-voice overlap)
+      const voiceText = text(nEl, 'voice');
+      if (voiceText && voiceText !== '1') continue;
+
+      // ── Skip tie continuations (tie type="stop" without type="start")
+      const tieEls = nEl.querySelectorAll('tie');
+      let tieStart = false;
+      let tieStop = false;
+      for (const t of tieEls) {
+        const tt = t.getAttribute('type');
+        if (tt === 'start') tieStart = true;
+        if (tt === 'stop')  tieStop = true;
+      }
+      // Pure continuation — skip (the original note covers it)
+      if (tieStop && !tieStart) continue;
 
       const isRest = !!nEl.querySelector('rest');
       const typeStr = text(nEl, 'type') ?? 'quarter';
@@ -82,25 +112,110 @@ export async function loadXmlMelody(
         dotted: isDotted || undefined,
       };
 
-      // accidental
+      // accidental — skip if already covered by key signature
+      const isInKeySig = keySigLetters.has(step);
       const accText = text(nEl, 'accidental');
       if (accText && ACC_MAP[accText]) {
-        ni.accidentals = { 0: ACC_MAP[accText] };
+        const acc = ACC_MAP[accText];
+        // natural on a key-sig note IS meaningful (cancels the key sig)
+        if (acc === 'n' && isInKeySig) {
+          ni.accidentals = { 0: 'n' };
+        } else if (!isInKeySig) {
+          ni.accidentals = { 0: acc };
+        }
       } else {
         const alter = parseInt(text(pitchEl, 'alter') ?? '0', 10);
-        if (alter === 1)  ni.accidentals = { 0: '#' };
-        if (alter === -1) ni.accidentals = { 0: 'b' };
+        if (alter === 1 && !isInKeySig)  ni.accidentals = { 0: '#' };
+        if (alter === -1 && !isInKeySig) ni.accidentals = { 0: 'b' };
+        // natural cancellation on key-sig note
+        if (alter === 0 && isInKeySig) ni.accidentals = { 0: 'n' };
+      }
+
+      // If this note starts a tie, extend its duration by summing tied notes
+      if (tieStart) {
+        const extDur = collectTiedDuration(nEl);
+        if (extDur) {
+          ni.duration = extDur.vf;
+          ni.dotted = extDur.dot || undefined;
+        }
       }
 
       notes.push(ni);
     }
 
-    if (notes.length > 0) {
-      measures.push({ notes, chord });
+    // Include measures even if empty (whole rest)
+    if (notes.length === 0) {
+      notes.push({ keys: ['b/4'], duration: 'wr' });
     }
+    measures.push({ notes, chord });
   }
 
-  return { title, composer, key, timeSignature: timeSig, measures };
+  return { title, composer, key, timeSignature: timeSig, tempo, measures };
+}
+
+/* ─── Tie duration merging ──────────────────────────────────────────── */
+
+const DUR_DIVS: Record<string, number> = {
+  whole: 4, half: 2, quarter: 1, eighth: 0.5, '16th': 0.25, '32nd': 0.125,
+};
+
+const BEAT_TO_VF: { beats: number; vf: string; dot: boolean }[] = [
+  { beats: 4.0,  vf: 'w',  dot: false },
+  { beats: 3.0,  vf: 'h',  dot: true  },
+  { beats: 2.0,  vf: 'h',  dot: false },
+  { beats: 1.5,  vf: 'q',  dot: true  },
+  { beats: 1.0,  vf: 'q',  dot: false },
+  { beats: 0.75, vf: '8',  dot: true  },
+  { beats: 0.5,  vf: '8',  dot: false },
+  { beats: 0.25, vf: '16', dot: false },
+];
+
+/** Walk forward through tied notes and sum their durations. */
+function collectTiedDuration(startNote: Element): { vf: string; dot: boolean } | null {
+  let totalBeats = noteDurBeats(startNote);
+  let current: Element | null = startNote;
+
+  while (current) {
+    // Check if this note has tie type="start"
+    const ties = current.querySelectorAll('tie');
+    let hasStart = false;
+    for (const t of ties) {
+      if (t.getAttribute('type') === 'start') hasStart = true;
+    }
+    if (!hasStart) break;
+
+    // Find next <note> sibling (skip non-note elements)
+    let next: Element | null = current.nextElementSibling;
+    while (next && next.tagName !== 'note') next = next.nextElementSibling;
+    if (!next) break;
+
+    // Verify it has tie type="stop"
+    const nextTies = next.querySelectorAll('tie');
+    let hasStop = false;
+    for (const t of nextTies) {
+      if (t.getAttribute('type') === 'stop') hasStop = true;
+    }
+    if (!hasStop) break;
+
+    totalBeats += noteDurBeats(next);
+    current = next;
+  }
+
+  // Quantise total to nearest standard duration
+  let best = BEAT_TO_VF[BEAT_TO_VF.length - 1];
+  let diff = Infinity;
+  for (const d of BEAT_TO_VF) {
+    const dd = Math.abs(d.beats - totalBeats);
+    if (dd < diff) { diff = dd; best = d; }
+  }
+  return best;
+}
+
+function noteDurBeats(el: Element): number {
+  const typeStr = el.querySelector('type')?.textContent ?? 'quarter';
+  let b = DUR_DIVS[typeStr] ?? 1;
+  if (el.querySelector('dot')) b *= 1.5;
+  return b;
 }
 
 /* ─── MusicXML chord kind → symbol ───────────────────────────────────── */

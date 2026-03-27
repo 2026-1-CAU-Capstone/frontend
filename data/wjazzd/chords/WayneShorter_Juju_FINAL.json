@@ -1,0 +1,330 @@
+{
+  "title": "Juju",
+  "composer": "Wayne Shorter",
+  "performer": "Wayne Shorter",
+  "key": "B-chrom",
+  "timeSignature": "3/4",
+  "tempo": 178,
+  "style": "POSTBOP",
+  "rhythmfeel": "LATIN",
+  "instrument": "ts",
+  "form": "A24",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Bb+7"
+    },
+    {
+      "measure": 16,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 20,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 28,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 32,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 40,
+      "beat": 1.0,
+      "symbol": "B-7"
+    },
+    {
+      "measure": 48,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 60,
+      "beat": 1.0,
+      "symbol": "B-7"
+    },
+    {
+      "measure": 73,
+      "beat": 1.0,
+      "symbol": "B+7"
+    },
+    {
+      "measure": 125,
+      "beat": 1.0,
+      "symbol": "Bb+7"
+    },
+    {
+      "measure": 138,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 143,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 144,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 147,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 159,
+      "beat": 1.0,
+      "symbol": "B-7"
+    },
+    {
+      "measure": 171,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 180,
+      "beat": 1.0,
+      "symbol": "B-7"
+    },
+    {
+      "measure": 186,
+      "beat": 1.0,
+      "symbol": "B+7"
+    },
+    {
+      "measure": 214,
+      "beat": 1.0,
+      "symbol": "Bb+7"
+    },
+    {
+      "measure": 218,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 223,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 230,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 236,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 242,
+      "beat": 1.0,
+      "symbol": "B-7"
+    },
+    {
+      "measure": 248,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 253,
+      "beat": 1.0,
+      "symbol": "B-7"
+    },
+    {
+      "measure": 278,
+      "beat": 1.0,
+      "symbol": "B+7"
+    },
+    {
+      "measure": 371,
+      "beat": 1.0,
+      "symbol": "Bb+7"
+    },
+    {
+      "measure": 374,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 379,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 387,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 397,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 402,
+      "beat": 1.0,
+      "symbol": "B-7"
+    },
+    {
+      "measure": 410,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 418,
+      "beat": 1.0,
+      "symbol": "B-7"
+    },
+    {
+      "measure": 428,
+      "beat": 1.0,
+      "symbol": "B+7"
+    },
+    {
+      "measure": 501,
+      "beat": 1.0,
+      "symbol": "Bb+7"
+    },
+    {
+      "measure": 523,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 528,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 529,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 536,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 542,
+      "beat": 1.0,
+      "symbol": "B-7"
+    },
+    {
+      "measure": 549,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 555,
+      "beat": 1.0,
+      "symbol": "B-7"
+    },
+    {
+      "measure": 559,
+      "beat": 1.0,
+      "symbol": "B+7"
+    },
+    {
+      "measure": 603,
+      "beat": 1.0,
+      "symbol": "Bb+7"
+    },
+    {
+      "measure": 607,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 610,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 614,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 619,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 626,
+      "beat": 1.0,
+      "symbol": "B-7"
+    },
+    {
+      "measure": 632,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 636,
+      "beat": 1.0,
+      "symbol": "B-7"
+    },
+    {
+      "measure": 641,
+      "beat": 1.0,
+      "symbol": "B+7"
+    },
+    {
+      "measure": 678,
+      "beat": 1.0,
+      "symbol": "Bb+7"
+    },
+    {
+      "measure": 680,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 685,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 696,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 702,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 710,
+      "beat": 1.0,
+      "symbol": "B-7"
+    },
+    {
+      "measure": 716,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 723,
+      "beat": 1.0,
+      "symbol": "B-7"
+    },
+    {
+      "measure": 730,
+      "beat": 1.0,
+      "symbol": "B+7"
+    }
+  ]
+}

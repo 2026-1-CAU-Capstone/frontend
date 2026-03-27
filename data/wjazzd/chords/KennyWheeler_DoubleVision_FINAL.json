@@ -1,0 +1,265 @@
+{
+  "title": "Double Vision",
+  "composer": "Dave Holland",
+  "performer": "Kenny Wheeler",
+  "key": "D#-maj",
+  "timeSignature": "4/4",
+  "tempo": 155,
+  "style": "POSTBOP",
+  "rhythmfeel": "LATIN/FUNK",
+  "instrument": "tp",
+  "form": "open",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 4,
+      "beat": 1.0,
+      "symbol": "D#7"
+    },
+    {
+      "measure": 7,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 13,
+      "beat": 1.0,
+      "symbol": "D#7"
+    },
+    {
+      "measure": 25,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 29,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 41,
+      "beat": 1.0,
+      "symbol": "D#7"
+    },
+    {
+      "measure": 50,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 52,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 56,
+      "beat": 1.0,
+      "symbol": "D#7"
+    },
+    {
+      "measure": 60,
+      "beat": 1.0,
+      "symbol": "D#7"
+    },
+    {
+      "measure": 67,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 79,
+      "beat": 1.0,
+      "symbol": "D#7"
+    },
+    {
+      "measure": 87,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 92,
+      "beat": 1.0,
+      "symbol": "D#7"
+    },
+    {
+      "measure": 99,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 105,
+      "beat": 1.0,
+      "symbol": "D#7"
+    },
+    {
+      "measure": 108,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 114,
+      "beat": 1.0,
+      "symbol": "D#7"
+    },
+    {
+      "measure": 118,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 123,
+      "beat": 1.0,
+      "symbol": "D#7"
+    },
+    {
+      "measure": 135,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 140,
+      "beat": 1.0,
+      "symbol": "D#7"
+    },
+    {
+      "measure": 145,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 147,
+      "beat": 1.0,
+      "symbol": "D#7"
+    },
+    {
+      "measure": 152,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 153,
+      "beat": 1.0,
+      "symbol": "D#7"
+    },
+    {
+      "measure": 164,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 173,
+      "beat": 1.0,
+      "symbol": "D#7"
+    },
+    {
+      "measure": 186,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 198,
+      "beat": 1.0,
+      "symbol": "D#7"
+    },
+    {
+      "measure": 209,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 213,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 214,
+      "beat": 1.0,
+      "symbol": "D#7"
+    },
+    {
+      "measure": 219,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 226,
+      "beat": 1.0,
+      "symbol": "D#7"
+    },
+    {
+      "measure": 230,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 231,
+      "beat": 1.0,
+      "symbol": "D#7"
+    },
+    {
+      "measure": 238,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 246,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 247,
+      "beat": 1.0,
+      "symbol": "D#7"
+    },
+    {
+      "measure": 258,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 262,
+      "beat": 1.0,
+      "symbol": "D#7"
+    },
+    {
+      "measure": 268,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 277,
+      "beat": 1.0,
+      "symbol": "D#7"
+    },
+    {
+      "measure": 290,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 300,
+      "beat": 1.0,
+      "symbol": "D#7"
+    },
+    {
+      "measure": 312,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 315,
+      "beat": 1.0,
+      "symbol": "D#7"
+    },
+    {
+      "measure": 316,
+      "beat": 1.0,
+      "symbol": "E7"
+    }
+  ]
+}

@@ -1,0 +1,145 @@
+{
+  "title": "Sandu",
+  "composer": "Clifford Brown",
+  "performer": "Clifford Brown",
+  "key": "Eb-maj",
+  "timeSignature": "4/4",
+  "tempo": 140,
+  "style": "HARDBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "tp",
+  "form": "A12",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 23,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 27,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 34,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 39,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 60,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 75,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 80,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 87,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 97,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 105,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 111,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 114,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 119,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 123,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 131,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 146,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 154,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 162,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 165,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 170,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 177,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 185,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 192,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 195,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 199,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    }
+  ]
+}

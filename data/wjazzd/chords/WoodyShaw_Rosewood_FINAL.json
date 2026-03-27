@@ -1,0 +1,470 @@
+{
+  "title": "Rosewood",
+  "composer": "Woody Shaw",
+  "performer": "Woody Shaw",
+  "key": "C",
+  "timeSignature": "4/4",
+  "tempo": 172,
+  "style": "POSTBOP",
+  "rhythmfeel": "LATIN/FUNK",
+  "instrument": "tp",
+  "form": "A16B20A16B16",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "G-79"
+    },
+    {
+      "measure": 3,
+      "beat": 1.0,
+      "symbol": "F-79"
+    },
+    {
+      "measure": 6,
+      "beat": 1.0,
+      "symbol": "G-79"
+    },
+    {
+      "measure": 9,
+      "beat": 1.0,
+      "symbol": "F-79"
+    },
+    {
+      "measure": 11,
+      "beat": 1.0,
+      "symbol": "C-79"
+    },
+    {
+      "measure": 13,
+      "beat": 1.0,
+      "symbol": "Bb-79"
+    },
+    {
+      "measure": 17,
+      "beat": 1.0,
+      "symbol": "Gb79"
+    },
+    {
+      "measure": 23,
+      "beat": 1.0,
+      "symbol": "G-79"
+    },
+    {
+      "measure": 25,
+      "beat": 1.0,
+      "symbol": "F-79"
+    },
+    {
+      "measure": 27,
+      "beat": 1.0,
+      "symbol": "G-79"
+    },
+    {
+      "measure": 28,
+      "beat": 1.0,
+      "symbol": "F-79"
+    },
+    {
+      "measure": 30,
+      "beat": 1.0,
+      "symbol": "C-79"
+    },
+    {
+      "measure": 35,
+      "beat": 1.0,
+      "symbol": "Bb-79"
+    },
+    {
+      "measure": 39,
+      "beat": 1.0,
+      "symbol": "Gbj79"
+    },
+    {
+      "measure": 49,
+      "beat": 1.0,
+      "symbol": "Abj79"
+    },
+    {
+      "measure": 54,
+      "beat": 1.0,
+      "symbol": "Ab-79"
+    },
+    {
+      "measure": 59,
+      "beat": 1.0,
+      "symbol": "Db79"
+    },
+    {
+      "measure": 63,
+      "beat": 1.0,
+      "symbol": "G7911#"
+    },
+    {
+      "measure": 67,
+      "beat": 1.0,
+      "symbol": "Gbj79"
+    },
+    {
+      "measure": 72,
+      "beat": 1.0,
+      "symbol": "B79"
+    },
+    {
+      "measure": 76,
+      "beat": 1.0,
+      "symbol": "Esus79"
+    },
+    {
+      "measure": 80,
+      "beat": 1.0,
+      "symbol": "C-79"
+    },
+    {
+      "measure": 83,
+      "beat": 1.0,
+      "symbol": "Bb-79"
+    },
+    {
+      "measure": 85,
+      "beat": 1.0,
+      "symbol": "C-79"
+    },
+    {
+      "measure": 88,
+      "beat": 1.0,
+      "symbol": "Bb-79"
+    },
+    {
+      "measure": 94,
+      "beat": 1.0,
+      "symbol": "Gbj79"
+    },
+    {
+      "measure": 102,
+      "beat": 1.0,
+      "symbol": "Ej7"
+    },
+    {
+      "measure": 109,
+      "beat": 1.0,
+      "symbol": "Dj7911#"
+    },
+    {
+      "measure": 118,
+      "beat": 1.0,
+      "symbol": "C-79"
+    },
+    {
+      "measure": 127,
+      "beat": 1.0,
+      "symbol": "Bb-79"
+    },
+    {
+      "measure": 128,
+      "beat": 1.0,
+      "symbol": "C-79"
+    },
+    {
+      "measure": 131,
+      "beat": 1.0,
+      "symbol": "Bb-79"
+    },
+    {
+      "measure": 138,
+      "beat": 1.0,
+      "symbol": "Gbj7"
+    },
+    {
+      "measure": 146,
+      "beat": 1.0,
+      "symbol": "Ej7"
+    },
+    {
+      "measure": 150,
+      "beat": 1.0,
+      "symbol": "Dj7911#"
+    },
+    {
+      "measure": 152,
+      "beat": 1.0,
+      "symbol": "Bsus7"
+    },
+    {
+      "measure": 153,
+      "beat": 1.0,
+      "symbol": "Asus7"
+    },
+    {
+      "measure": 156,
+      "beat": 1.0,
+      "symbol": "Bsus7"
+    },
+    {
+      "measure": 160,
+      "beat": 1.0,
+      "symbol": "Asus7"
+    },
+    {
+      "measure": 162,
+      "beat": 1.0,
+      "symbol": "Gsus7"
+    },
+    {
+      "measure": 163,
+      "beat": 1.0,
+      "symbol": "Fsus7"
+    },
+    {
+      "measure": 164,
+      "beat": 1.0,
+      "symbol": "Gsus7"
+    },
+    {
+      "measure": 174,
+      "beat": 1.0,
+      "symbol": "Fsus7"
+    },
+    {
+      "measure": 184,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 202,
+      "beat": 1.0,
+      "symbol": "A-7911"
+    },
+    {
+      "measure": 211,
+      "beat": 1.0,
+      "symbol": "A6"
+    },
+    {
+      "measure": 226,
+      "beat": 1.0,
+      "symbol": "Bb79"
+    },
+    {
+      "measure": 236,
+      "beat": 1.0,
+      "symbol": "Bb6"
+    },
+    {
+      "measure": 240,
+      "beat": 1.0,
+      "symbol": "Gsus7"
+    },
+    {
+      "measure": 244,
+      "beat": 1.0,
+      "symbol": "Absus7"
+    },
+    {
+      "measure": 252,
+      "beat": 1.0,
+      "symbol": "G-79"
+    },
+    {
+      "measure": 260,
+      "beat": 1.0,
+      "symbol": "F-79"
+    },
+    {
+      "measure": 269,
+      "beat": 1.0,
+      "symbol": "G-79"
+    },
+    {
+      "measure": 278,
+      "beat": 1.0,
+      "symbol": "F-79"
+    },
+    {
+      "measure": 286,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 287,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 293,
+      "beat": 1.0,
+      "symbol": "Gbj79"
+    },
+    {
+      "measure": 310,
+      "beat": 1.0,
+      "symbol": "F-79"
+    },
+    {
+      "measure": 311,
+      "beat": 1.0,
+      "symbol": "G-79"
+    },
+    {
+      "measure": 313,
+      "beat": 1.0,
+      "symbol": "F-79"
+    },
+    {
+      "measure": 316,
+      "beat": 1.0,
+      "symbol": "C-79"
+    },
+    {
+      "measure": 320,
+      "beat": 1.0,
+      "symbol": "Bb-79"
+    },
+    {
+      "measure": 323,
+      "beat": 1.0,
+      "symbol": "Gbj79"
+    },
+    {
+      "measure": 330,
+      "beat": 1.0,
+      "symbol": "Abj79"
+    },
+    {
+      "measure": 333,
+      "beat": 1.0,
+      "symbol": "Ab-79"
+    },
+    {
+      "measure": 334,
+      "beat": 1.0,
+      "symbol": "Db79"
+    },
+    {
+      "measure": 339,
+      "beat": 1.0,
+      "symbol": "G7911#"
+    },
+    {
+      "measure": 341,
+      "beat": 1.0,
+      "symbol": "Gbj79"
+    },
+    {
+      "measure": 346,
+      "beat": 1.0,
+      "symbol": "B79"
+    },
+    {
+      "measure": 354,
+      "beat": 1.0,
+      "symbol": "E79"
+    },
+    {
+      "measure": 369,
+      "beat": 1.0,
+      "symbol": "C-79"
+    },
+    {
+      "measure": 378,
+      "beat": 1.0,
+      "symbol": "Bb-79"
+    },
+    {
+      "measure": 381,
+      "beat": 1.0,
+      "symbol": "Bb79"
+    },
+    {
+      "measure": 382,
+      "beat": 1.0,
+      "symbol": "Gbj7"
+    },
+    {
+      "measure": 386,
+      "beat": 1.0,
+      "symbol": "Ej7"
+    },
+    {
+      "measure": 390,
+      "beat": 1.0,
+      "symbol": "Dj7911#"
+    },
+    {
+      "measure": 394,
+      "beat": 1.0,
+      "symbol": "C-79"
+    },
+    {
+      "measure": 396,
+      "beat": 1.0,
+      "symbol": "Bb-79"
+    },
+    {
+      "measure": 397,
+      "beat": 1.0,
+      "symbol": "C-79"
+    },
+    {
+      "measure": 401,
+      "beat": 1.0,
+      "symbol": "Bb-79"
+    },
+    {
+      "measure": 404,
+      "beat": 1.0,
+      "symbol": "Gbj7"
+    },
+    {
+      "measure": 405,
+      "beat": 1.0,
+      "symbol": "Ej7911#"
+    },
+    {
+      "measure": 411,
+      "beat": 1.0,
+      "symbol": "Absus7"
+    },
+    {
+      "measure": 422,
+      "beat": 1.0,
+      "symbol": "Csus7"
+    },
+    {
+      "measure": 426,
+      "beat": 1.0,
+      "symbol": "Absus7"
+    },
+    {
+      "measure": 429,
+      "beat": 1.0,
+      "symbol": "Csus7"
+    },
+    {
+      "measure": 434,
+      "beat": 1.0,
+      "symbol": "Absus7"
+    },
+    {
+      "measure": 439,
+      "beat": 1.0,
+      "symbol": "Csus7"
+    },
+    {
+      "measure": 444,
+      "beat": 1.0,
+      "symbol": "Absus7"
+    },
+    {
+      "measure": 456,
+      "beat": 1.0,
+      "symbol": "Csus7"
+    },
+    {
+      "measure": 464,
+      "beat": 1.0,
+      "symbol": "Absus7"
+    }
+  ]
+}

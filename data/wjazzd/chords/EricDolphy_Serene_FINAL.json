@@ -1,0 +1,225 @@
+{
+  "title": "Serene",
+  "composer": "Eric Dolphy",
+  "performer": "Eric Dolphy",
+  "key": "Eb-maj",
+  "timeSignature": "4/4",
+  "tempo": 75,
+  "style": "POSTBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "bcl",
+  "form": "A12",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 2,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 8,
+      "beat": 1.0,
+      "symbol": "Ab7911#"
+    },
+    {
+      "measure": 16,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 33,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 56,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 63,
+      "beat": 1.0,
+      "symbol": "D7alt"
+    },
+    {
+      "measure": 83,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 103,
+      "beat": 1.0,
+      "symbol": "Db-7"
+    },
+    {
+      "measure": 111,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 126,
+      "beat": 1.0,
+      "symbol": "Fm7b5"
+    },
+    {
+      "measure": 149,
+      "beat": 1.0,
+      "symbol": "Bb7alt"
+    },
+    {
+      "measure": 159,
+      "beat": 1.0,
+      "symbol": "B-7"
+    },
+    {
+      "measure": 166,
+      "beat": 1.0,
+      "symbol": "Ab7911#"
+    },
+    {
+      "measure": 180,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 187,
+      "beat": 1.0,
+      "symbol": "Ab7911#"
+    },
+    {
+      "measure": 188,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 207,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 240,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 250,
+      "beat": 1.0,
+      "symbol": "D7alt"
+    },
+    {
+      "measure": 274,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 301,
+      "beat": 1.0,
+      "symbol": "Db-7"
+    },
+    {
+      "measure": 318,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 320,
+      "beat": 1.0,
+      "symbol": "Fm7b5"
+    },
+    {
+      "measure": 344,
+      "beat": 1.0,
+      "symbol": "Bb7alt"
+    },
+    {
+      "measure": 359,
+      "beat": 1.0,
+      "symbol": "B-7"
+    },
+    {
+      "measure": 366,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 375,
+      "beat": 1.0,
+      "symbol": "Ab7911#"
+    },
+    {
+      "measure": 415,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 433,
+      "beat": 1.0,
+      "symbol": "Ab7911#"
+    },
+    {
+      "measure": 446,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 451,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 463,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 476,
+      "beat": 1.0,
+      "symbol": "D7alt"
+    },
+    {
+      "measure": 489,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 522,
+      "beat": 1.0,
+      "symbol": "Db-7"
+    },
+    {
+      "measure": 530,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 547,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 554,
+      "beat": 1.0,
+      "symbol": "Bb7alt"
+    },
+    {
+      "measure": 571,
+      "beat": 1.0,
+      "symbol": "B-7"
+    },
+    {
+      "measure": 578,
+      "beat": 1.0,
+      "symbol": "E7"
+    },
+    {
+      "measure": 587,
+      "beat": 1.0,
+      "symbol": "Ab7911#"
+    }
+  ]
+}

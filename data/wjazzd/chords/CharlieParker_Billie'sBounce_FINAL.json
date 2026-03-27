@@ -1,0 +1,200 @@
+{
+  "title": "Billie's Bounce",
+  "composer": "Charlie Parker",
+  "performer": "Charlie Parker",
+  "key": "F-maj",
+  "timeSignature": "4/4",
+  "tempo": 158,
+  "style": "BEBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "as",
+  "form": "A12",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 2,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 8,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 15,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 22,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 40,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 47,
+      "beat": 1.0,
+      "symbol": "G-"
+    },
+    {
+      "measure": 55,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 63,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 68,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 76,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 83,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 95,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 106,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 113,
+      "beat": 1.0,
+      "symbol": "G-"
+    },
+    {
+      "measure": 124,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 143,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 146,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 148,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 149,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 153,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 182,
+      "beat": 1.0,
+      "symbol": "C-"
+    },
+    {
+      "measure": 186,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 194,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 200,
+      "beat": 1.0,
+      "symbol": "A-"
+    },
+    {
+      "measure": 206,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 210,
+      "beat": 1.0,
+      "symbol": "G-"
+    },
+    {
+      "measure": 214,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 226,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 231,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 249,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 260,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 266,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 274,
+      "beat": 1.0,
+      "symbol": "G-"
+    },
+    {
+      "measure": 284,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 289,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 297,
+      "beat": 1.0,
+      "symbol": "C7"
+    }
+  ]
+}

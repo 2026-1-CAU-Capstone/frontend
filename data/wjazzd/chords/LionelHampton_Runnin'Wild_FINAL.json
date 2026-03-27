@@ -1,0 +1,130 @@
+{
+  "title": "Runnin' Wild",
+  "composer": "Grey/Wood/Gibs",
+  "performer": "Lionel Hampton",
+  "key": "Bb-maj",
+  "timeSignature": "4/4",
+  "tempo": 281,
+  "style": "SWING",
+  "rhythmfeel": "SWING",
+  "instrument": "vib",
+  "form": "A8A8B8B8",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 2,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 19,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 33,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 44,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 55,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 59,
+      "beat": 1.0,
+      "symbol": "C-6"
+    },
+    {
+      "measure": 63,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 66,
+      "beat": 1.0,
+      "symbol": "G-"
+    },
+    {
+      "measure": 74,
+      "beat": 1.0,
+      "symbol": "Bb-6"
+    },
+    {
+      "measure": 75,
+      "beat": 1.0,
+      "symbol": "F"
+    },
+    {
+      "measure": 81,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 85,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 99,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 105,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 115,
+      "beat": 1.0,
+      "symbol": "Eb"
+    },
+    {
+      "measure": 126,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 133,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 134,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 137,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 139,
+      "beat": 1.0,
+      "symbol": "Bb"
+    },
+    {
+      "measure": 153,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 163,
+      "beat": 1.0,
+      "symbol": "Bb"
+    }
+  ]
+}

@@ -1,0 +1,590 @@
+{
+  "title": "Central Park West",
+  "composer": "John Coltrane",
+  "performer": "Joe Lovano",
+  "key": "B-maj",
+  "timeSignature": "4/4",
+  "tempo": 63,
+  "style": "POSTBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "ts",
+  "form": "A12B10",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "C#-7"
+    },
+    {
+      "measure": 2,
+      "beat": 1.0,
+      "symbol": "F#7"
+    },
+    {
+      "measure": 7,
+      "beat": 1.0,
+      "symbol": "Bj7"
+    },
+    {
+      "measure": 16,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 19,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 24,
+      "beat": 1.0,
+      "symbol": "Dj7"
+    },
+    {
+      "measure": 28,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 30,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 35,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 37,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 41,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 51,
+      "beat": 1.0,
+      "symbol": "C#-7"
+    },
+    {
+      "measure": 57,
+      "beat": 1.0,
+      "symbol": "F#7"
+    },
+    {
+      "measure": 61,
+      "beat": 1.0,
+      "symbol": "Bj7"
+    },
+    {
+      "measure": 69,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 71,
+      "beat": 1.0,
+      "symbol": "Dj7"
+    },
+    {
+      "measure": 86,
+      "beat": 1.0,
+      "symbol": "C#-7"
+    },
+    {
+      "measure": 89,
+      "beat": 1.0,
+      "symbol": "F#7"
+    },
+    {
+      "measure": 92,
+      "beat": 1.0,
+      "symbol": "Bj7"
+    },
+    {
+      "measure": 100,
+      "beat": 1.0,
+      "symbol": "C#-7"
+    },
+    {
+      "measure": 104,
+      "beat": 1.0,
+      "symbol": "F#7"
+    },
+    {
+      "measure": 112,
+      "beat": 1.0,
+      "symbol": "Bj7"
+    },
+    {
+      "measure": 124,
+      "beat": 1.0,
+      "symbol": "C#-7"
+    },
+    {
+      "measure": 130,
+      "beat": 1.0,
+      "symbol": "F#7"
+    },
+    {
+      "measure": 139,
+      "beat": 1.0,
+      "symbol": "Bj7"
+    },
+    {
+      "measure": 147,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 150,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 158,
+      "beat": 1.0,
+      "symbol": "Dj7"
+    },
+    {
+      "measure": 171,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 179,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 184,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 195,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 198,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 209,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 221,
+      "beat": 1.0,
+      "symbol": "C#-7"
+    },
+    {
+      "measure": 224,
+      "beat": 1.0,
+      "symbol": "F#7"
+    },
+    {
+      "measure": 228,
+      "beat": 1.0,
+      "symbol": "Bj7"
+    },
+    {
+      "measure": 235,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 238,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 245,
+      "beat": 1.0,
+      "symbol": "Dj7"
+    },
+    {
+      "measure": 255,
+      "beat": 1.0,
+      "symbol": "C#-7"
+    },
+    {
+      "measure": 256,
+      "beat": 1.0,
+      "symbol": "F#7"
+    },
+    {
+      "measure": 260,
+      "beat": 1.0,
+      "symbol": "Bj7"
+    },
+    {
+      "measure": 272,
+      "beat": 1.0,
+      "symbol": "C#-7"
+    },
+    {
+      "measure": 282,
+      "beat": 1.0,
+      "symbol": "F#7"
+    },
+    {
+      "measure": 288,
+      "beat": 1.0,
+      "symbol": "Bj7"
+    },
+    {
+      "measure": 296,
+      "beat": 1.0,
+      "symbol": "C#-7"
+    },
+    {
+      "measure": 308,
+      "beat": 1.0,
+      "symbol": "F#7"
+    },
+    {
+      "measure": 322,
+      "beat": 1.0,
+      "symbol": "Bj7"
+    },
+    {
+      "measure": 330,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 333,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 343,
+      "beat": 1.0,
+      "symbol": "Dj7"
+    },
+    {
+      "measure": 355,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 360,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 366,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 373,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 375,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 379,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 384,
+      "beat": 1.0,
+      "symbol": "C#-7"
+    },
+    {
+      "measure": 390,
+      "beat": 1.0,
+      "symbol": "F#7"
+    },
+    {
+      "measure": 397,
+      "beat": 1.0,
+      "symbol": "Bj7"
+    },
+    {
+      "measure": 405,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 409,
+      "beat": 1.0,
+      "symbol": "Dj7"
+    },
+    {
+      "measure": 423,
+      "beat": 1.0,
+      "symbol": "C#-7"
+    },
+    {
+      "measure": 429,
+      "beat": 1.0,
+      "symbol": "F#7"
+    },
+    {
+      "measure": 434,
+      "beat": 1.0,
+      "symbol": "Bj7"
+    },
+    {
+      "measure": 450,
+      "beat": 1.0,
+      "symbol": "C#-7"
+    },
+    {
+      "measure": 456,
+      "beat": 1.0,
+      "symbol": "F#7"
+    },
+    {
+      "measure": 461,
+      "beat": 1.0,
+      "symbol": "Bj7"
+    },
+    {
+      "measure": 467,
+      "beat": 1.0,
+      "symbol": "C#-7"
+    },
+    {
+      "measure": 475,
+      "beat": 1.0,
+      "symbol": "F#7"
+    },
+    {
+      "measure": 484,
+      "beat": 1.0,
+      "symbol": "Bj7"
+    },
+    {
+      "measure": 490,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 494,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 502,
+      "beat": 1.0,
+      "symbol": "Dj7"
+    },
+    {
+      "measure": 513,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 520,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 525,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 534,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 545,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 549,
+      "beat": 1.0,
+      "symbol": "Fj7"
+    },
+    {
+      "measure": 565,
+      "beat": 1.0,
+      "symbol": "C#-7"
+    },
+    {
+      "measure": 573,
+      "beat": 1.0,
+      "symbol": "F#7"
+    },
+    {
+      "measure": 580,
+      "beat": 1.0,
+      "symbol": "Bj7"
+    },
+    {
+      "measure": 585,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 587,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 590,
+      "beat": 1.0,
+      "symbol": "Dj7"
+    },
+    {
+      "measure": 592,
+      "beat": 1.0,
+      "symbol": "C#-7"
+    },
+    {
+      "measure": 596,
+      "beat": 1.0,
+      "symbol": "F#7"
+    },
+    {
+      "measure": 599,
+      "beat": 1.0,
+      "symbol": "Bj7"
+    },
+    {
+      "measure": 611,
+      "beat": 1.0,
+      "symbol": "C#-7"
+    },
+    {
+      "measure": 614,
+      "beat": 1.0,
+      "symbol": "F#7"
+    },
+    {
+      "measure": 617,
+      "beat": 1.0,
+      "symbol": "Bj7"
+    },
+    {
+      "measure": 627,
+      "beat": 1.0,
+      "symbol": "C#-7"
+    },
+    {
+      "measure": 631,
+      "beat": 1.0,
+      "symbol": "F#7"
+    },
+    {
+      "measure": 636,
+      "beat": 1.0,
+      "symbol": "Bj7"
+    },
+    {
+      "measure": 639,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 645,
+      "beat": 1.0,
+      "symbol": "A7"
+    },
+    {
+      "measure": 651,
+      "beat": 1.0,
+      "symbol": "Dj7"
+    },
+    {
+      "measure": 655,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 657,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 659,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 661,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 662,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 665,
+      "beat": 1.0,
+      "symbol": "C#-7"
+    },
+    {
+      "measure": 666,
+      "beat": 1.0,
+      "symbol": "F#7"
+    },
+    {
+      "measure": 668,
+      "beat": 1.0,
+      "symbol": "C#-7"
+    },
+    {
+      "measure": 670,
+      "beat": 1.0,
+      "symbol": "F#7"
+    },
+    {
+      "measure": 673,
+      "beat": 1.0,
+      "symbol": "Bj7"
+    },
+    {
+      "measure": 675,
+      "beat": 1.0,
+      "symbol": "C#-7"
+    },
+    {
+      "measure": 678,
+      "beat": 1.0,
+      "symbol": "F#7"
+    },
+    {
+      "measure": 683,
+      "beat": 1.0,
+      "symbol": "Bj7"
+    },
+    {
+      "measure": 688,
+      "beat": 1.0,
+      "symbol": "C#-7"
+    },
+    {
+      "measure": 689,
+      "beat": 1.0,
+      "symbol": "F#7"
+    },
+    {
+      "measure": 691,
+      "beat": 1.0,
+      "symbol": "Bj7"
+    }
+  ]
+}

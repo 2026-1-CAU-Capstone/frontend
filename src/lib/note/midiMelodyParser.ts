@@ -127,6 +127,23 @@ function midiToVex(midi: number, preferSharps: boolean): { key: string; accident
   return { key: `${t.letter}/${octave}`, accidental: t.acc };
 }
 
+/**
+ * Build a set of pitch-classes that are already altered by the key signature.
+ * e.g. key sig -2 (Bb major) → flats on B and E → pc set {10, 3}
+ */
+function keySignatureAccidentals(sf: number): Set<number> {
+  const FLAT_ORDER  = [11, 4, 9, 2, 7, 0, 5];
+  const SHARP_ORDER = [5, 0, 7, 2, 9, 4, 11];
+
+  const s = new Set<number>();
+  if (sf < 0) {
+    for (let i = 0; i < Math.min(-sf, 7); i++) s.add(FLAT_ORDER[i]);
+  } else {
+    for (let i = 0; i < Math.min(sf, 7); i++) s.add(SHARP_ORDER[i]);
+  }
+  return s;
+}
+
 /* ─── Duration quantisation ──────────────────────────────────────────── */
 
 const DUR_GRID = [
@@ -137,6 +154,7 @@ const DUR_GRID = [
   { beats: 1.0,  vf: 'q',  dot: false },
   { beats: 0.75, vf: '8',  dot: true  },
   { beats: 0.5,  vf: '8',  dot: false },
+  { beats: 0.375, vf: '16', dot: true },
   { beats: 0.25, vf: '16', dot: false },
 ];
 
@@ -152,6 +170,7 @@ function quantise(beats: number): { vf: string; dot: boolean; beats: number } {
 
 /** Break a duration (in beats) into standard rest values */
 function fillRests(beats: number): NoteInfo[] {
+  if (beats < 0.12) return [];
   const rests: NoteInfo[] = [];
   let rem = beats;
   for (const d of DUR_GRID) {
@@ -168,19 +187,27 @@ function fillRests(beats: number): NoteInfo[] {
 const MAJ_KEYS = ['Cb','Gb','Db','Ab','Eb','Bb','F','C','G','D','A','E','B','F#','C#'];
 const MIN_KEYS = ['Abm','Ebm','Bbm','Fm','Cm','Gm','Dm','Am','Em','Bm','F#m','C#m','G#m','D#m','A#m'];
 
-function parseKey(track: MidiEvent[]): { key: string; preferSharps: boolean } {
+function parseKey(track: MidiEvent[]): { key: string; preferSharps: boolean; sf: number } {
   const ev = track.find(e => e.type === 'meta' && e.metaType === 0x59) as Extract<MidiEvent,{type:'meta'}> | undefined;
-  if (!ev || ev.data.length < 2) return { key: 'C', preferSharps: true };
+  if (!ev || ev.data.length < 2) return { key: 'C', preferSharps: true, sf: 0 };
   const sf = (ev.data[0] << 24) >> 24;
   const mi = ev.data[1];
   const key = (mi === 1 ? MIN_KEYS : MAJ_KEYS)[sf + 7] ?? 'C';
-  return { key, preferSharps: sf >= 0 };
+  return { key, preferSharps: sf >= 0, sf };
 }
 
 function parseTimeSig(track: MidiEvent[]): string {
   const ev = track.find(e => e.type === 'meta' && e.metaType === 0x58) as Extract<MidiEvent,{type:'meta'}> | undefined;
   if (!ev || ev.data.length < 2) return '4/4';
   return `${ev.data[0]}/${2 ** ev.data[1]}`;
+}
+
+/** Extract tempo from MIDI meta event 0x51 (Set Tempo). Returns BPM or undefined. */
+function parseTempo(track: MidiEvent[]): number | undefined {
+  const ev = track.find(e => e.type === 'meta' && e.metaType === 0x51) as Extract<MidiEvent,{type:'meta'}> | undefined;
+  if (!ev || ev.data.length < 3) return undefined;
+  const uspb = (ev.data[0] << 16) | (ev.data[1] << 8) | ev.data[2];
+  return Math.round(60_000_000 / uspb);
 }
 
 /* ─── Note event extraction ──────────────────────────────────────────── */
@@ -202,6 +229,22 @@ function extractNotes(track: MidiEvent[]): NoteEv[] {
     }
   }
   return notes.sort((a, b) => a.start - b.start || a.midi - b.midi);
+}
+
+/** Group notes that start at the same tick into chord groups. */
+function groupChords(notes: NoteEv[]): NoteEv[][] {
+  const groups: NoteEv[][] = [];
+  let i = 0;
+  while (i < notes.length) {
+    const group = [notes[i]];
+    while (i + 1 < notes.length && Math.abs(notes[i + 1].start - notes[i].start) < 5) {
+      i++;
+      group.push(notes[i]);
+    }
+    groups.push(group);
+    i++;
+  }
+  return groups;
 }
 
 function melodyTrack(midi: ParsedMidi): MidiEvent[] {
@@ -228,15 +271,20 @@ export async function loadMidiMelody(
   // Metadata may live in track 0 or the melody track
   const meta = midi.tracks[0] ?? [];
   const melody = melodyTrack(midi);
-  const { key, preferSharps } = parseKey(meta.length ? meta : melody);
+  const { key, preferSharps, sf } = parseKey(meta.length ? meta : melody);
+  const keySigPcs = keySignatureAccidentals(sf);
   const timeSig = parseTimeSig(meta.length ? meta : melody);
+  const tempo = parseTempo(meta.length ? meta : melody);
 
   const [numBeats] = timeSig.split('/').map(Number);
   const tpb = midi.division;                      // ticks per beat
   const tpm = tpb * numBeats;                     // ticks per measure
 
   const noteEvents = extractNotes(melody);
-  if (!noteEvents.length) return { title, composer, key, timeSignature: timeSig, measures: [] };
+  if (!noteEvents.length) return { title, composer, key, timeSignature: timeSig, tempo, measures: [] };
+
+  // Group simultaneous notes into chords
+  const chordGroups = groupChords(noteEvents);
 
   const lastTick = Math.max(...noteEvents.map(n => n.end));
   const totalMeasures = Math.max(1, Math.ceil(lastTick / tpm));
@@ -247,30 +295,46 @@ export async function loadMidiMelody(
     const mStart = m * tpm;
     const mEnd = mStart + tpm;
 
-    const mNotes = noteEvents.filter(n => n.start >= mStart && n.start < mEnd);
+    // Collect chord groups that start within this measure
+    const mGroups = chordGroups.filter(g => g[0].start >= mStart && g[0].start < mEnd);
     const notes: NoteInfo[] = [];
-    let cur = mStart;
+    let cur = mStart; // track position in ticks (use actual ticks to avoid drift)
 
-    for (const ne of mNotes) {
-      // rest before this note
-      if (ne.start > cur + tpb * 0.05) {
-        const gapBeats = (ne.start - cur) / tpb;
+    for (const group of mGroups) {
+      const onset = group[0].start;
+
+      // Rest before this chord group
+      if (onset > cur + tpb * 0.05) {
+        const gapBeats = (onset - cur) / tpb;
         notes.push(...fillRests(gapBeats));
       }
 
-      // the note itself
-      const rawBeats = Math.min(ne.end - ne.start, mEnd - ne.start) / tpb;
+      // Duration: use shortest note in the group, clamped to barline
+      const minEnd = Math.min(...group.map(n => n.end));
+      const rawBeats = Math.min(minEnd - onset, mEnd - onset) / tpb;
       const q = quantise(rawBeats);
-      const { key: vk, accidental } = midiToVex(ne.midi, preferSharps);
 
-      const ni: NoteInfo = { keys: [vk], duration: q.vf, dotted: q.dot || undefined };
-      if (accidental) ni.accidentals = { 0: accidental };
+      // Build chord (multiple keys if simultaneous)
+      const keys: string[] = [];
+      const accidentals: Record<number, '#' | 'b'> = {};
+
+      for (let gi = 0; gi < group.length; gi++) {
+        const { key: vk, accidental } = midiToVex(group[gi].midi, preferSharps);
+        keys.push(vk);
+        if (accidental && !keySigPcs.has(group[gi].midi % 12)) {
+          accidentals[gi] = accidental;
+        }
+      }
+
+      const ni: NoteInfo = { keys, duration: q.vf, dotted: q.dot || undefined };
+      if (Object.keys(accidentals).length > 0) ni.accidentals = accidentals;
       notes.push(ni);
 
-      cur = ne.start + q.beats * tpb;
+      // Advance cursor using actual onset + quantised duration (stay in tick space)
+      cur = onset + q.beats * tpb;
     }
 
-    // trailing rest
+    // Trailing rest
     if (cur < mEnd - tpb * 0.05) {
       notes.push(...fillRests((mEnd - cur) / tpb));
     }
@@ -282,5 +346,5 @@ export async function loadMidiMelody(
     measures.push({ notes });
   }
 
-  return { title, composer, key, timeSignature: timeSig, measures };
+  return { title, composer, key, timeSignature: timeSig, tempo, measures };
 }

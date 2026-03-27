@@ -1,0 +1,245 @@
+{
+  "title": "Tiny's Blues",
+  "composer": "Kahn/Cohn",
+  "performer": "Kai Winding",
+  "key": "F-maj",
+  "timeSignature": "4/4",
+  "tempo": 222,
+  "style": "BEBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "tb",
+  "form": "A12",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 14,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 23,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 28,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 32,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 37,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 42,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 43,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 46,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 53,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 56,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 67,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 72,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 73,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 78,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 79,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 81,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 83,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 86,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 96,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 99,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 100,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 102,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 106,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 110,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 112,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 113,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 116,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 118,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 128,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 136,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 141,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 146,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 153,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 158,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 159,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 164,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 169,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 177,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 182,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 185,
+      "beat": 1.0,
+      "symbol": "D7"
+    },
+    {
+      "measure": 191,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 196,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 198,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 204,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 208,
+      "beat": 1.0,
+      "symbol": "F7"
+    }
+  ]
+}

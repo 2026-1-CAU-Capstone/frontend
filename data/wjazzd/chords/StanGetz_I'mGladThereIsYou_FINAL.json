@@ -1,0 +1,140 @@
+{
+  "title": "I'm Glad There Is You",
+  "composer": "Paul Madeira, Jimmy Dorsey",
+  "performer": "Stan Getz",
+  "key": "C#-maj",
+  "timeSignature": "4/4",
+  "tempo": 67,
+  "style": "COOL",
+  "rhythmfeel": "SWING",
+  "instrument": "ts",
+  "form": "A8A8",
+  "genre": "GREAT AMERICAN SONGBOOK",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "C#j7"
+    },
+    {
+      "measure": 4,
+      "beat": 1.0,
+      "symbol": "A#-7"
+    },
+    {
+      "measure": 11,
+      "beat": 1.0,
+      "symbol": "D#-7"
+    },
+    {
+      "measure": 20,
+      "beat": 1.0,
+      "symbol": "G#7"
+    },
+    {
+      "measure": 28,
+      "beat": 1.0,
+      "symbol": "C#j7"
+    },
+    {
+      "measure": 49,
+      "beat": 1.0,
+      "symbol": "C#-7"
+    },
+    {
+      "measure": 55,
+      "beat": 1.0,
+      "symbol": "F#7913"
+    },
+    {
+      "measure": 63,
+      "beat": 1.0,
+      "symbol": "D#-7"
+    },
+    {
+      "measure": 72,
+      "beat": 1.0,
+      "symbol": "G#7"
+    },
+    {
+      "measure": 86,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 95,
+      "beat": 1.0,
+      "symbol": "E7913"
+    },
+    {
+      "measure": 98,
+      "beat": 1.0,
+      "symbol": "Aj7"
+    },
+    {
+      "measure": 106,
+      "beat": 1.0,
+      "symbol": "D79"
+    },
+    {
+      "measure": 109,
+      "beat": 1.0,
+      "symbol": "C#j7"
+    },
+    {
+      "measure": 118,
+      "beat": 1.0,
+      "symbol": "D#-7"
+    },
+    {
+      "measure": 121,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 127,
+      "beat": 1.0,
+      "symbol": "Eo7"
+    },
+    {
+      "measure": 131,
+      "beat": 1.0,
+      "symbol": "D#-7"
+    },
+    {
+      "measure": 137,
+      "beat": 1.0,
+      "symbol": "G#79"
+    },
+    {
+      "measure": 147,
+      "beat": 1.0,
+      "symbol": "C#j7"
+    },
+    {
+      "measure": 151,
+      "beat": 1.0,
+      "symbol": "B79"
+    },
+    {
+      "measure": 155,
+      "beat": 1.0,
+      "symbol": "A#79b"
+    },
+    {
+      "measure": 162,
+      "beat": 1.0,
+      "symbol": "D#7913"
+    },
+    {
+      "measure": 178,
+      "beat": 1.0,
+      "symbol": "G#79"
+    },
+    {
+      "measure": 185,
+      "beat": 1.0,
+      "symbol": "C#sus79"
+    }
+  ]
+}

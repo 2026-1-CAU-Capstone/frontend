@@ -1,0 +1,265 @@
+{
+  "title": "Teapot",
+  "composer": "J.J. Johnson",
+  "performer": "J.J. Johnson",
+  "key": "F-maj",
+  "timeSignature": "4/4",
+  "tempo": 315,
+  "style": "BEBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "tb",
+  "form": "A8B8",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 2,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 4,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 9,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 21,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 28,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 33,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 37,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 44,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 47,
+      "beat": 1.0,
+      "symbol": "Ab6"
+    },
+    {
+      "measure": 57,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 58,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 60,
+      "beat": 1.0,
+      "symbol": "Ab6"
+    },
+    {
+      "measure": 62,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 67,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 73,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 83,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 86,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 91,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 98,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 109,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 112,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 118,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 121,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 125,
+      "beat": 1.0,
+      "symbol": "Ab6"
+    },
+    {
+      "measure": 126,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 127,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 131,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 139,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 148,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 172,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 173,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 174,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 180,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 187,
+      "beat": 1.0,
+      "symbol": "Ab6"
+    },
+    {
+      "measure": 199,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 200,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 201,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 202,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 204,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 211,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 215,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 219,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 226,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 232,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 239,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 245,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 247,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 249,
+      "beat": 1.0,
+      "symbol": "Ab6"
+    },
+    {
+      "measure": 251,
+      "beat": 1.0,
+      "symbol": "C7"
+    }
+  ]
+}

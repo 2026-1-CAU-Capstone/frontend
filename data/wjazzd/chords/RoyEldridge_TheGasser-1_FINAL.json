@@ -1,0 +1,255 @@
+{
+  "title": "The Gasser",
+  "composer": "Eldridge",
+  "performer": "Roy Eldridge",
+  "key": "Ab-maj",
+  "timeSignature": "4/4",
+  "tempo": 231,
+  "style": "SWING",
+  "rhythmfeel": "SWING",
+  "instrument": "tp",
+  "form": "A8B8",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 25,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 48,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 75,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 98,
+      "beat": 1.0,
+      "symbol": "Ab6"
+    },
+    {
+      "measure": 106,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 110,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 113,
+      "beat": 1.0,
+      "symbol": "Ab6"
+    },
+    {
+      "measure": 123,
+      "beat": 1.0,
+      "symbol": "Gm7b5"
+    },
+    {
+      "measure": 126,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 128,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 151,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 187,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 196,
+      "beat": 1.0,
+      "symbol": "Gm7b5"
+    },
+    {
+      "measure": 201,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 208,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 217,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 223,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 229,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 231,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 235,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 238,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 242,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 246,
+      "beat": 1.0,
+      "symbol": "Ab6"
+    },
+    {
+      "measure": 251,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 267,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 290,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 307,
+      "beat": 1.0,
+      "symbol": "Ab6"
+    },
+    {
+      "measure": 309,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 311,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 316,
+      "beat": 1.0,
+      "symbol": "Ab6"
+    },
+    {
+      "measure": 324,
+      "beat": 1.0,
+      "symbol": "Gm7b5"
+    },
+    {
+      "measure": 328,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 330,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 346,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 368,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 374,
+      "beat": 1.0,
+      "symbol": "Gm7b5"
+    },
+    {
+      "measure": 379,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 383,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 390,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 395,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 397,
+      "beat": 1.0,
+      "symbol": "Ab6"
+    },
+    {
+      "measure": 400,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 405,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 406,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 410,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 415,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 416,
+      "beat": 1.0,
+      "symbol": "Ab6"
+    }
+  ]
+}

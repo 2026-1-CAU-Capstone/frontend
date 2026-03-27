@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import styled from 'styled-components';
 import {
   Renderer,
@@ -14,23 +14,37 @@ import {
   BarlineType,
 } from 'vexflow';
 import type { NoteSheetData, MeasureInfo } from '../../data/sampleMelody';
+import { NotePlayer } from '../../lib/note/notePlayer';
 
 /* ─── constants ─────────────────────────────────────────────────────────── */
 
-const LINE_HEIGHT = 150;
-const MARGIN = { top: 10, left: 10, right: 10, bottom: 40 };
+const LINE_HEIGHT = 170;
+const MARGIN = { top: 40, left: 10, right: 10, bottom: 40 };
 const CHORD_FONT = "'MuseJazz Text', 'DM Sans', sans-serif";
-const MAX_PER_LINE = 6;
-const DECOR_FIRST = 80;   // clef + key + time
-const DECOR_OTHER = 40;   // clef only
 
-/* minimum px a measure needs based on its note content */
+function formatChord(raw: string): string {
+  return raw
+    .replace(/j7/g, '\u25B37')
+    .replace(/(?<=[A-G])b(?=[^a-z]|$)/g, '\u266D')
+    .replace(/(\d)b/g, '$1\u266D')
+    .replace(/b(\d)/g, '\u266D$1')
+    .replace(/(\d)#/g, '$1\u266F')
+    .replace(/#(\d)/g, '\u266F$1')
+    .replace(/-/g, 'm')
+    .replace(/o7/g, '\u00B07')
+    .replace(/o(?!\d)/g, '\u00B0');
+}
+const MAX_PER_LINE = 6;
+const DECOR_FIRST = 80;
+const DECOR_OTHER = 40;
+const HL_COLOR = 'rgba(212, 168, 67, 0.15)';
+
 const PX_PER_DUR: Record<string, number> = {
   w: 50, h: 35, q: 28, '8': 22, '16': 18, '32': 14,
 };
 
 function measureMinWidth(measure: MeasureInfo): number {
-  let w = 18; // barline + inner padding
+  let w = 18;
   for (const n of measure.notes) {
     const base = n.duration.replace(/[dr]/g, '');
     w += PX_PER_DUR[base] ?? 24;
@@ -40,7 +54,6 @@ function measureMinWidth(measure: MeasureInfo): number {
   return Math.max(w, 55);
 }
 
-/** Pack measures into lines so each line fits within availW */
 function packLines(measures: MeasureInfo[], availW: number): number[][] {
   const lines: number[][] = [];
   let line: number[] = [];
@@ -91,7 +104,51 @@ const Composer = styled.p`
   font-family: 'DM Sans', sans-serif;
   font-size: 0.95rem;
   color: #666;
-  margin: 0 0 8px;
+  margin: 0 0 0;
+`;
+
+/* ── transport bar ──────────────────────────────────────────────────────── */
+
+const Transport = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+`;
+
+const TBtn = styled.button<{ $active?: boolean }>`
+  font-size: 1.1rem;
+  line-height: 1;
+  background: ${({ $active }) => ($active ? '#f0e8d0' : '#fafafa')};
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 5px 12px;
+  cursor: pointer;
+  color: #333;
+  transition: background 0.12s;
+  &:hover { background: #f0f0f0; }
+`;
+
+const TempoWrap = styled.label`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+  color: #888;
+  margin-left: 6px;
+`;
+
+const TempoInput = styled.input`
+  width: 52px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+  padding: 3px 6px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  text-align: center;
+  outline: none;
+  &:focus { border-color: #aaa; }
 `;
 
 const SvgContainer = styled.div`
@@ -103,7 +160,6 @@ const SvgContainer = styled.div`
 
 function buildDuration(dur: string, dotted?: boolean): string {
   if (!dotted) return dur;
-  // 'q' → 'qd', 'qr' → 'qdr'
   if (dur.endsWith('r')) return dur.slice(0, -1) + 'd' + 'r';
   return dur + 'd';
 }
@@ -144,19 +200,97 @@ export function NoteSheet({ data }: NoteSheetProps) {
   const svgRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(900);
 
-  // Track container width
+  /* ── player state ────────────────────────────────────────────────── */
+  const playerRef = useRef<NotePlayer | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [tempo, setTempo] = useState(data.tempo ?? 120);
+  const [activeMeasure, setActiveMeasure] = useState(-1);
+  const measureRectsRef = useRef<{ x: number; y: number; w: number }[]>([]);
+
+  // init / cleanup player
+  useEffect(() => {
+    const p = new NotePlayer();
+    p.onMeasure = (idx) => setActiveMeasure(idx);
+    p.onDone = () => { setPlaying(false); setActiveMeasure(-1); };
+    playerRef.current = p;
+    return () => p.dispose();
+  }, []);
+
+  // stop on song change & sync tempo
+  useEffect(() => {
+    playerRef.current?.stop();
+    setPlaying(false);
+    setActiveMeasure(-1);
+    setTempo(data.tempo ?? 120);
+  }, [data]);
+
+  const togglePlay = useCallback(async () => {
+    const p = playerRef.current;
+    if (!p) return;
+    if (p.playing) {
+      p.pause();
+      setPlaying(false);
+    } else {
+      setPlaying(true);
+      await p.play(data, tempo);
+    }
+  }, [data, tempo]);
+
+  const handleStop = useCallback(() => {
+    playerRef.current?.stop();
+    setPlaying(false);
+    setActiveMeasure(-1);
+  }, []);
+
+  /* ── measure highlight (SVG manipulation) ────────────────────────── */
+  useEffect(() => {
+    const svg = svgRef.current?.querySelector('svg');
+    if (!svg) return;
+
+    svg.querySelector('.m-hl')?.remove();
+
+    const r = measureRectsRef.current[activeMeasure];
+    if (activeMeasure < 0 || !r) return;
+
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('class', 'm-hl');
+    rect.setAttribute('x', String(r.x));
+    rect.setAttribute('y', String(r.y + 10));
+    rect.setAttribute('width', String(r.w));
+    rect.setAttribute('height', String(LINE_HEIGHT - 20));
+    rect.setAttribute('fill', HL_COLOR);
+    rect.setAttribute('rx', '4');
+    svg.insertBefore(rect, svg.firstChild);
+  }, [activeMeasure]);
+
+  /* ── auto-scroll to active measure ────────────────────────────────── */
+  useEffect(() => {
+    if (activeMeasure < 0) return;
+    const r = measureRectsRef.current[activeMeasure];
+    const wrap = wrapRef.current;
+    if (!r || !wrap) return;
+
+    const headerH = 120; // approx header + transport height
+    const targetY = r.y + headerH;
+    const viewH = wrap.clientHeight;
+    if (targetY < wrap.scrollTop + 40 || targetY + LINE_HEIGHT > wrap.scrollTop + viewH - 40) {
+      wrap.scrollTo({ top: Math.max(0, targetY - viewH / 3), behavior: 'smooth' });
+    }
+  }, [activeMeasure]);
+
+  /* ── track container width ────────────────────────────────────────── */
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
     const ro = new ResizeObserver((entries) => {
       const w = entries[0]?.contentRect.width;
-      if (w && w > 100) setWidth(w - 40);   // subtract horizontal padding
+      if (w && w > 100) setWidth(w - 40);
     });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
-  // Render notation
+  /* ── render notation ──────────────────────────────────────────────── */
   useEffect(() => {
     const el = svgRef.current;
     if (!el || !data.measures.length) return;
@@ -173,16 +307,22 @@ export function NoteSheet({ data }: NoteSheetProps) {
 
     const [numBeats, beatValue] = data.timeSignature.split('/').map(Number);
 
+    // reset measure rects
+    const rects: { x: number; y: number; w: number }[] = [];
+
     for (let li = 0; li < numLines; li++) {
       const indices = lines[li];
       const isFirstLine = li === 0;
+      const isLastLine = li === numLines - 1;
       const y = MARGIN.top + li * LINE_HEIGHT;
       const decorW = isFirstLine ? DECOR_FIRST : DECOR_OTHER;
       const availForBars = totalW - decorW;
 
-      // Proportional widths based on note density
       const weights = indices.map((i) => measureMinWidth(data.measures[i]));
       const totalWeight = weights.reduce((s, w) => s + w, 0);
+
+      // Last line: don't stretch — use natural widths (with slight padding)
+      const stretchLastLine = !isLastLine || indices.length >= MAX_PER_LINE;
 
       let x = MARGIN.left;
 
@@ -190,8 +330,13 @@ export function NoteSheet({ data }: NoteSheetProps) {
         const m = indices[j];
         const firstInLine = j === 0;
         const isLastBar = m === data.measures.length - 1;
-        const barW = (weights[j] / totalWeight) * availForBars;
+        const barW = stretchLastLine
+          ? (weights[j] / totalWeight) * availForBars
+          : weights[j] * 1.3;
         const w = firstInLine ? barW + decorW : barW;
+
+        // track rect for highlighting
+        rects[m] = { x, y, w };
 
         // ── Stave ──
         const stave = new Stave(x, y, w);
@@ -209,23 +354,19 @@ export function NoteSheet({ data }: NoteSheetProps) {
         const measure = data.measures[m];
         const vfNotes = buildVfNotes(measure);
 
-        // Chord symbol annotation on first note
         if (measure.chord && vfNotes.length > 0) {
-          const ann = new Annotation(measure.chord);
+          const ann = new Annotation(formatChord(measure.chord));
           ann.setFont(CHORD_FONT, 13, 'bold');
           ann.setVerticalJustification(Annotation.VerticalJustify.TOP);
           vfNotes[0].addModifier(ann);
         }
 
-        // Auto-beam eighths and shorter
         const beams = Beam.generateBeams(vfNotes);
 
-        // Voice
         const voice = new Voice({ numBeats, beatValue });
         voice.setStrict(false);
         voice.addTickables(vfNotes);
 
-        // Format & draw
         new Formatter().joinVoices([voice]).formatToStave([voice], stave);
         voice.draw(ctx, stave);
         beams.forEach((b) => b.setContext(ctx).draw());
@@ -233,7 +374,11 @@ export function NoteSheet({ data }: NoteSheetProps) {
         x += w;
       }
     }
+
+    measureRectsRef.current = rects;
   }, [data, width]);
+
+  /* ─── render ──────────────────────────────────────────────────────── */
 
   return (
     <Wrapper ref={wrapRef}>
@@ -241,6 +386,24 @@ export function NoteSheet({ data }: NoteSheetProps) {
         <Title>{data.title}</Title>
         <Composer>{data.composer}</Composer>
       </Header>
+
+      <Transport>
+        <TBtn $active={playing} onClick={togglePlay}>
+          {playing ? '\u23F8' : '\u25B6'}
+        </TBtn>
+        <TBtn onClick={handleStop}>{'\u23F9'}</TBtn>
+        <TempoWrap>
+          BPM
+          <TempoInput
+            type="number"
+            value={tempo}
+            min={40}
+            max={300}
+            onChange={(e) => setTempo(Math.max(40, Math.min(300, Number(e.target.value) || 120)))}
+          />
+        </TempoWrap>
+      </Transport>
+
       <SvgContainer ref={svgRef} />
     </Wrapper>
   );

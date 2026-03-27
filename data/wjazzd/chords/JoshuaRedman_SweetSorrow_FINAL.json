@@ -1,0 +1,190 @@
+{
+  "title": "Sweet Sorrow",
+  "composer": "Redman",
+  "performer": "Joshua Redman",
+  "key": "G-min",
+  "timeSignature": "6/8",
+  "tempo": 53,
+  "style": "POSTBOP",
+  "rhythmfeel": "BALLAD",
+  "instrument": "ts",
+  "form": "A8A8B8B8",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 7,
+      "beat": 1.0,
+      "symbol": "G-j7"
+    },
+    {
+      "measure": 63,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 67,
+      "beat": 1.0,
+      "symbol": "Ab-6/Eb"
+    },
+    {
+      "measure": 68,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 73,
+      "beat": 1.0,
+      "symbol": "Ab-6/Eb"
+    },
+    {
+      "measure": 81,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 85,
+      "beat": 1.0,
+      "symbol": "Ab-6/Eb"
+    },
+    {
+      "measure": 92,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 99,
+      "beat": 1.0,
+      "symbol": "Ab-6/Eb"
+    },
+    {
+      "measure": 102,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 111,
+      "beat": 1.0,
+      "symbol": "Ab-6/Eb"
+    },
+    {
+      "measure": 127,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 137,
+      "beat": 1.0,
+      "symbol": "Ab-6/Eb"
+    },
+    {
+      "measure": 151,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 157,
+      "beat": 1.0,
+      "symbol": "Ab-6/Eb"
+    },
+    {
+      "measure": 159,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 173,
+      "beat": 1.0,
+      "symbol": "Ab-6/Eb"
+    },
+    {
+      "measure": 191,
+      "beat": 1.0,
+      "symbol": "G-j7"
+    },
+    {
+      "measure": 322,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 330,
+      "beat": 1.0,
+      "symbol": "Ab-6/Eb"
+    },
+    {
+      "measure": 335,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 343,
+      "beat": 1.0,
+      "symbol": "Ab-6/Eb"
+    },
+    {
+      "measure": 354,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 369,
+      "beat": 1.0,
+      "symbol": "Ab-6/Eb"
+    },
+    {
+      "measure": 374,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 383,
+      "beat": 1.0,
+      "symbol": "Ab-6/Eb"
+    },
+    {
+      "measure": 390,
+      "beat": 1.0,
+      "symbol": "Db7911#"
+    },
+    {
+      "measure": 399,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 405,
+      "beat": 1.0,
+      "symbol": "B+7"
+    },
+    {
+      "measure": 417,
+      "beat": 1.0,
+      "symbol": "Eb/Bb"
+    },
+    {
+      "measure": 427,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 434,
+      "beat": 1.0,
+      "symbol": "D79#"
+    },
+    {
+      "measure": 442,
+      "beat": 1.0,
+      "symbol": "G-j7"
+    },
+    {
+      "measure": 501,
+      "beat": 1.0,
+      "symbol": "NC"
+    }
+  ]
+}

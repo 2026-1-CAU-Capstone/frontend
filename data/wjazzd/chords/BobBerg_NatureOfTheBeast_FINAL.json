@@ -1,0 +1,25 @@
+{
+  "title": "Nature of the Beast",
+  "composer": "Bob Berg",
+  "performer": "Bob Berg",
+  "key": "C-min",
+  "timeSignature": "4/4",
+  "tempo": 132,
+  "style": "POSTBOP",
+  "rhythmfeel": "LATIN",
+  "instrument": "ts",
+  "form": "A8A8A8A10B8",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 78,
+      "beat": 1.0,
+      "symbol": "Fsus"
+    }
+  ]
+}

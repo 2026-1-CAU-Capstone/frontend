@@ -1,0 +1,25 @@
+{
+  "title": "Pendulum",
+  "composer": "Richard Beirach",
+  "performer": "David Liebman",
+  "key": "F#-chrom",
+  "timeSignature": "4/4",
+  "tempo": 259,
+  "style": "POSTBOP",
+  "rhythmfeel": "FUNK/SWING",
+  "instrument": "ss",
+  "form": "open",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 11,
+      "beat": 1.0,
+      "symbol": "F#-"
+    }
+  ]
+}

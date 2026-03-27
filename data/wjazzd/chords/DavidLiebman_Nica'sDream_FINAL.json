@@ -1,0 +1,265 @@
+{
+  "title": "Nica's Dream",
+  "composer": "Horace Silver",
+  "performer": "David Liebman",
+  "key": "Eb-maj",
+  "timeSignature": "4/4",
+  "tempo": 151,
+  "style": "POSTBOP",
+  "rhythmfeel": "LATIN",
+  "instrument": "ss",
+  "form": "A16A16B16A16",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 2,
+      "beat": 1.0,
+      "symbol": "Fm7b5"
+    },
+    {
+      "measure": 6,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 9,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 27,
+      "beat": 1.0,
+      "symbol": "Fm7b5"
+    },
+    {
+      "measure": 35,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 50,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 80,
+      "beat": 1.0,
+      "symbol": "Ab-7"
+    },
+    {
+      "measure": 86,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 97,
+      "beat": 1.0,
+      "symbol": "Gbo7"
+    },
+    {
+      "measure": 108,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 122,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 138,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 139,
+      "beat": 1.0,
+      "symbol": "Fm7b5"
+    },
+    {
+      "measure": 155,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 170,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 203,
+      "beat": 1.0,
+      "symbol": "Fm7b5"
+    },
+    {
+      "measure": 213,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 219,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 235,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 245,
+      "beat": 1.0,
+      "symbol": "Ab-7"
+    },
+    {
+      "measure": 258,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 269,
+      "beat": 1.0,
+      "symbol": "Gbo7"
+    },
+    {
+      "measure": 276,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 301,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 320,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 321,
+      "beat": 1.0,
+      "symbol": "Gbj7"
+    },
+    {
+      "measure": 327,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 350,
+      "beat": 1.0,
+      "symbol": "Gbj7"
+    },
+    {
+      "measure": 371,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 408,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 415,
+      "beat": 1.0,
+      "symbol": "Ab-7"
+    },
+    {
+      "measure": 421,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 431,
+      "beat": 1.0,
+      "symbol": "Gbo7"
+    },
+    {
+      "measure": 447,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 470,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 483,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 493,
+      "beat": 1.0,
+      "symbol": "Fm7b5"
+    },
+    {
+      "measure": 504,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 521,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 553,
+      "beat": 1.0,
+      "symbol": "Fm7b5"
+    },
+    {
+      "measure": 569,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 582,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    },
+    {
+      "measure": 615,
+      "beat": 1.0,
+      "symbol": "Am7b5"
+    },
+    {
+      "measure": 623,
+      "beat": 1.0,
+      "symbol": "Ab-7"
+    },
+    {
+      "measure": 627,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 632,
+      "beat": 1.0,
+      "symbol": "Gbo7"
+    },
+    {
+      "measure": 638,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 641,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 644,
+      "beat": 1.0,
+      "symbol": "Ebj7"
+    }
+  ]
+}

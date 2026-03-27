@@ -1,0 +1,315 @@
+{
+  "title": "Bossa Antigua",
+  "composer": "Paul Desmond",
+  "performer": "Paul Desmond",
+  "key": "Ab-maj",
+  "timeSignature": "4/4",
+  "tempo": 192,
+  "style": "COOL",
+  "rhythmfeel": "LATIN",
+  "instrument": "as",
+  "form": "A8B8C8A8",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 3,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 9,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 12,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 16,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 19,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 26,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 28,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 35,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 38,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 45,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 47,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 53,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 54,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 61,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 65,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 68,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 72,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 77,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 82,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 83,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 90,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 95,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 98,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 99,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 104,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 110,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 116,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 119,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 120,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 126,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 130,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 131,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 140,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 144,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 149,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 153,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 158,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 165,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 172,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 179,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 186,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 193,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 195,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 200,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 204,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 207,
+      "beat": 1.0,
+      "symbol": "Cj7"
+    },
+    {
+      "measure": 208,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 212,
+      "beat": 1.0,
+      "symbol": "D-7"
+    },
+    {
+      "measure": 214,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 219,
+      "beat": 1.0,
+      "symbol": "E-7"
+    },
+    {
+      "measure": 223,
+      "beat": 1.0,
+      "symbol": "A-7"
+    },
+    {
+      "measure": 229,
+      "beat": 1.0,
+      "symbol": "G7"
+    },
+    {
+      "measure": 232,
+      "beat": 1.0,
+      "symbol": "C-7"
+    },
+    {
+      "measure": 233,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 236,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    },
+    {
+      "measure": 239,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 243,
+      "beat": 1.0,
+      "symbol": "Abj7"
+    },
+    {
+      "measure": 247,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 253,
+      "beat": 1.0,
+      "symbol": "Bb-7"
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "title": "Blues in Be-Bop",
+  "composer": "McKinley/Dorham",
+  "performer": "Kenny Dorham",
+  "key": "Eb-maj",
+  "timeSignature": "4/4",
+  "tempo": 187,
+  "style": "BEBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "tp",
+  "form": "A12",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 37,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 42,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 60,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 66,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 73,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 113,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 131,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 138,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 142,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 151,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    }
+  ]
+}

@@ -1,0 +1,345 @@
+{
+  "title": "Blue Train",
+  "composer": "John Coltrane",
+  "performer": "John Coltrane",
+  "key": "Eb-maj",
+  "timeSignature": "4/4",
+  "tempo": 141,
+  "style": "HARDBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "ts",
+  "form": "A12",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 8,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 9,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 15,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 20,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 37,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 47,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 50,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 55,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 66,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 99,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 111,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 139,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 148,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 158,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 172,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 180,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 196,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 217,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 222,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 237,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 254,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 259,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 271,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 282,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 294,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 329,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 335,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 363,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 389,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 404,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 422,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 433,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 450,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 479,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 491,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 512,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 528,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 544,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 555,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 569,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 579,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 615,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 624,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 651,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 673,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 684,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 697,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 713,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 729,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 763,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 773,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 797,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 817,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 832,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 843,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 853,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 862,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 882,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 887,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 904,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 922,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 934,
+      "beat": 1.0,
+      "symbol": "F#7"
+    },
+    {
+      "measure": 945,
+      "beat": 1.0,
+      "symbol": "F-7"
+    },
+    {
+      "measure": 955,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 969,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    }
+  ]
+}

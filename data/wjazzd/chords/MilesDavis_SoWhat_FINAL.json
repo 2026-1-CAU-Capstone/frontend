@@ -1,0 +1,40 @@
+{
+  "title": "So What",
+  "composer": "Davis/Evans",
+  "performer": "Miles Davis",
+  "key": "D-maj",
+  "timeSignature": "4/4",
+  "tempo": 138,
+  "style": "POSTBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "tp",
+  "form": "A8A8B8A8",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "D-"
+    },
+    {
+      "measure": 58,
+      "beat": 1.0,
+      "symbol": "Eb-"
+    },
+    {
+      "measure": 97,
+      "beat": 1.0,
+      "symbol": "D-"
+    },
+    {
+      "measure": 167,
+      "beat": 1.0,
+      "symbol": "Eb-"
+    },
+    {
+      "measure": 194,
+      "beat": 1.0,
+      "symbol": "D-"
+    }
+  ]
+}

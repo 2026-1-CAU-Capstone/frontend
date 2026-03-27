@@ -1,0 +1,115 @@
+{
+  "title": "Bag's Groove",
+  "composer": "Milt Jackson",
+  "performer": "Milt Jackson",
+  "key": "F-maj",
+  "timeSignature": "4/4",
+  "tempo": 175,
+  "style": "BEBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "vib",
+  "form": "A12",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "NC"
+    },
+    {
+      "measure": 8,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 13,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 23,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 37,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 55,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 71,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 79,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 89,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 93,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 101,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 109,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 118,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 137,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 156,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 170,
+      "beat": 1.0,
+      "symbol": "G-7"
+    },
+    {
+      "measure": 178,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 185,
+      "beat": 1.0,
+      "symbol": "F7"
+    },
+    {
+      "measure": 190,
+      "beat": 1.0,
+      "symbol": "C7"
+    },
+    {
+      "measure": 198,
+      "beat": 1.0,
+      "symbol": "F7"
+    }
+  ]
+}

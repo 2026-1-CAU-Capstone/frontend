@@ -1,0 +1,110 @@
+{
+  "title": "The Skunk",
+  "composer": "Dameron",
+  "performer": "Fats Navarro",
+  "key": "Db-maj",
+  "timeSignature": "4/4",
+  "tempo": 164,
+  "style": "BEBOP",
+  "rhythmfeel": "SWING",
+  "instrument": "tp",
+  "form": "A12",
+  "genre": "ORIGINAL",
+  "chords": [
+    {
+      "measure": 1,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 7,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 12,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 27,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 43,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 47,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 55,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 70,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 78,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 86,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 91,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 96,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 100,
+      "beat": 1.0,
+      "symbol": "Gb7"
+    },
+    {
+      "measure": 118,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 126,
+      "beat": 1.0,
+      "symbol": "Bb7"
+    },
+    {
+      "measure": 133,
+      "beat": 1.0,
+      "symbol": "Eb7"
+    },
+    {
+      "measure": 143,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    },
+    {
+      "measure": 153,
+      "beat": 1.0,
+      "symbol": "Db7"
+    },
+    {
+      "measure": 157,
+      "beat": 1.0,
+      "symbol": "Ab7"
+    }
+  ]
+}
