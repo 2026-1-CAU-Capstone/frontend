@@ -8,7 +8,7 @@ import { useAutoHighlight } from '../hooks/useAutoHighlight';
 import { sampleMelody } from '../data/sampleMelody';
 import type { NoteSheetData } from '../data/sampleMelody';
 import type { TocEntry } from '../data/types';
-import { noteSongs, type NoteSongEntry } from '../data/noteSongs';
+import { noteSongs } from '../data/noteSongs';
 import { loadMidiMelody } from '../lib/note/midiMelodyParser';
 import { loadXmlMelody } from '../lib/note/xmlMelodyParser';
 

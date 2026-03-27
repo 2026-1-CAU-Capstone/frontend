@@ -1026,8 +1026,8 @@ function detectIIVI(data: LeadSheetData): IIVISpan[] {
     const iQ  = normalizeQuality(groups[i + 2].chord.quality ?? '');
     if (!isDominant7(vQ)) continue;
 
-    const pc1 = groups[i].chord.root ? chordPitchClass(groups[i].chord.root, groups[i].chord.accidental) : -1;
-    const pc2 = groups[i + 1].chord.root ? chordPitchClass(groups[i + 1].chord.root, groups[i + 1].chord.accidental) : -1;
+    const pc1 = groups[i].chord.root ? chordPitchClass(groups[i].chord.root!, groups[i].chord.accidental) : -1;
+    const pc2 = groups[i + 1].chord.root ? chordPitchClass(groups[i + 1].chord.root!, groups[i + 1].chord.accidental) : -1;
     if ((pc2 - pc1 + 12) % 12 !== 5) continue; // must be ii→V root motion
 
     let kind: 'major' | 'minor' | null = null;

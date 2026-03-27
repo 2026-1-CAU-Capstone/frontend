@@ -207,7 +207,7 @@ interface PianoKeyboardProps {
 
 export function PianoKeyboard({ onNotePress }: PianoKeyboardProps) {
   const [pressedMidi, setPressedMidi] = useState<number | null>(null);
-  const pressTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const pressTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const handlePress = useCallback(
     (note: PianoNote) => {
