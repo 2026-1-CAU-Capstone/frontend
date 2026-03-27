@@ -213,11 +213,18 @@ export function LickCard({ lick, width, visible }: LickCardProps) {
     const nMeasures = data.measures.length;
     const [numBeats, beatValue] = data.timeSignature.split('/').map(Number);
 
-    // Single line: each bar gets a minimum width, expand to fill container
-    const MIN_BAR_W = 160;
+    // Width per measure proportional to note count
+    const PX_PER_NOTE = 40;
+    const BAR_PAD = 30;
+    const weights = data.measures.map((m) => BAR_PAD + m.notes.length * PX_PER_NOTE);
+    const totalWeight = weights.reduce((s, w) => s + w, 0);
     const containerW = width - MARGIN.left - MARGIN.right;
-    const barW = Math.max(MIN_BAR_W, (containerW - DECOR_FIRST) / nMeasures);
-    const svgW = MARGIN.left + DECOR_FIRST + barW * nMeasures + MARGIN.right;
+    const needsScroll = totalWeight + DECOR_FIRST > containerW;
+    const availW = needsScroll ? totalWeight : containerW - DECOR_FIRST;
+    const scale = availW / totalWeight;
+    const barWidths = weights.map((w) => w * scale);
+
+    const svgW = MARGIN.left + DECOR_FIRST + availW + MARGIN.right;
     const totalH = MARGIN.top + LINE_HEIGHT + MARGIN.bottom;
 
     const renderer = new Renderer(el, Renderer.Backends.SVG);
@@ -229,7 +236,7 @@ export function LickCard({ lick, width, visible }: LickCardProps) {
     for (let m = 0; m < nMeasures; m++) {
       const isFirst = m === 0;
       const isLast = m === nMeasures - 1;
-      const w = isFirst ? barW + DECOR_FIRST : barW;
+      const w = isFirst ? barWidths[m] + DECOR_FIRST : barWidths[m];
 
       const stave = new Stave(x, MARGIN.top, w);
       if (isFirst) {

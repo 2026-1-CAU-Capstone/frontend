@@ -261,7 +261,7 @@ function durationClass(dur: string, dotted?: boolean): number {
 
 /* ─── melody similarity ──────────────────────────────────────────────── */
 
-const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const NOTE_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
 function midiToName(midi: number) {
   return NOTE_NAMES[midi % 12] + (Math.floor(midi / 12) - 1);
 }

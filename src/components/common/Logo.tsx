@@ -1,9 +1,11 @@
+import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 
 const LogoWrapper = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
+  cursor: pointer;
 `;
 
 const LogoIcon = styled.div`
@@ -27,8 +29,9 @@ const LogoText = styled.span`
 `;
 
 export function Logo() {
+  const navigate = useNavigate();
   return (
-    <LogoWrapper>
+    <LogoWrapper onClick={() => navigate('/')}>
       <LogoIcon>J</LogoIcon>
       <LogoText>Jazzify</LogoText>
     </LogoWrapper>

@@ -13,21 +13,21 @@ import {
 
 /* ─── midi → vexflow ─────────────────────────────────────────────────── */
 
-const LETTER = ['c', 'c', 'd', 'd', 'e', 'f', 'f', 'g', 'g', 'a', 'a', 'b'];
-const HAS_SHARP = [false, true, false, true, false, false, true, false, true, false, true, false];
+const LETTER  = ['c', 'd', 'd', 'e', 'e', 'f', 'g', 'g', 'a', 'a', 'b', 'b'];
+const HAS_FLAT = [false, true, false, true, false, false, true, false, true, false, true, false];
 
-function midiToVex(midi: number): { key: string; acc?: '#' } {
+function midiToVex(midi: number): { key: string; acc?: 'b' } {
   const pc = midi % 12;
   const oct = Math.floor(midi / 12) - 1;
-  return { key: `${LETTER[pc]}/${oct}`, acc: HAS_SHARP[pc] ? '#' : undefined };
+  return { key: `${LETTER[pc]}/${oct}`, acc: HAS_FLAT[pc] ? 'b' : undefined };
 }
 
 /* ─── styled ─────────────────────────────────────────────────────────── */
 
 const Wrap = styled.div`
-  min-height: 140px;
   overflow-x: auto;
-  padding-bottom: 10px;
+  padding-bottom: 40px;
+  margin-bottom: 16px;
 `;
 
 /* ─── component ──────────────────────────────────────────────────────── */
@@ -47,8 +47,8 @@ export function MelodyPreview({ midis, width }: Props) {
     if (midis.length === 0) return;
 
     // group into 4/4 measures (all quarter notes)
-    const measures: { key: string; acc?: '#' }[][] = [];
-    let cur: { key: string; acc?: '#' }[] = [];
+    const measures: { key: string; acc?: 'b' }[][] = [];
+    let cur: { key: string; acc?: 'b' }[] = [];
     for (const m of midis) {
       cur.push(midiToVex(m));
       if (cur.length === 4) {
@@ -58,34 +58,30 @@ export function MelodyPreview({ midis, width }: Props) {
     }
     if (cur.length > 0) measures.push(cur);
 
+    // Width proportional to note count, capped to container
     const CLEF_W = 50;
-    const minBarW = 120;
-    const maxBarsPerLine = Math.max(1, Math.floor((width - CLEF_W) / minBarW));
-    const barsPerLine = Math.min(maxBarsPerLine, measures.length);
-    const barW = barsPerLine > 0 ? (width - CLEF_W) / barsPerLine : minBarW;
+    const PX_PER_NOTE = 50;
+    const BAR_PAD = 20;
+    const barsW = measures.reduce((s, m) => s + BAR_PAD + m.length * PX_PER_NOTE, 0);
+    const svgW = Math.min(width, CLEF_W + barsW);
 
-    const lineCount = Math.ceil(measures.length / barsPerLine);
-    const lineH = 140;
-    const totalH = lineCount * lineH + 20;
+    const STAVE_Y = 20;
+    const totalH = 160;
 
     const renderer = new Renderer(el, Renderer.Backends.SVG);
-    renderer.resize(width, totalH);
+    renderer.resize(svgW, totalH);
     const ctx = renderer.getContext();
 
+    let x = 0;
+
     for (let mi = 0; mi < measures.length; mi++) {
-      const lineIdx = Math.floor(mi / barsPerLine);
-      const posInLine = mi % barsPerLine;
-      const isFirstInLine = posInLine === 0;
+      const isFirst = mi === 0;
       const isLast = mi === measures.length - 1;
+      const noteW = BAR_PAD + measures[mi].length * PX_PER_NOTE;
+      const w = isFirst ? noteW + CLEF_W : noteW;
 
-      const w = isFirstInLine ? barW + CLEF_W : barW;
-      const x = isFirstInLine
-        ? 0
-        : CLEF_W + posInLine * barW;
-      const y = lineIdx * lineH;
-
-      const stave = new Stave(x, y, w);
-      if (isFirstInLine) stave.addClef('treble');
+      const stave = new Stave(x, STAVE_Y, w);
+      if (isFirst) stave.addClef('treble');
       if (isLast) stave.setEndBarType(BarlineType.END);
       stave.setContext(ctx).draw();
 
@@ -102,6 +98,8 @@ export function MelodyPreview({ midis, width }: Props) {
       new Formatter().joinVoices([voice]).formatToStave([voice], stave);
       voice.draw(ctx, stave);
       beams.forEach((b) => b.setContext(ctx).draw());
+
+      x += w;
     }
   }, [midis, width]);
 

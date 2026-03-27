@@ -84,9 +84,14 @@ function midiToVex(midi: number, useFlats: boolean): { key: string; acc?: '#' | 
 }
 
 /* Key signature accidentals (same as midiMelodyParser) */
+/**
+ * Returns the set of pitch-classes (0–11) that are altered by the key signature.
+ * For flats: Bb=10, Eb=3, Ab=8, Db=1, Gb=6, Cb=11, Fb=4
+ * For sharps: F#=6, C#=1, G#=8, D#=3, A#=10, E#=5, B#=0
+ */
 function keySigPitchClasses(keyStr: string): Set<number> {
-  const FLAT_ORDER  = [11, 4, 9, 2, 7, 0, 5];
-  const SHARP_ORDER = [5, 0, 7, 2, 9, 4, 11];
+  const FLAT_ORDER  = [10, 3, 8, 1, 6, 11, 4]; // Bb Eb Ab Db Gb Cb Fb
+  const SHARP_ORDER = [6, 1, 8, 3, 10, 5, 0];  // F# C# G# D# A# E# B#
   const sf = keySigFromName(keyStr);
   const s = new Set<number>();
   if (sf < 0) {
@@ -99,12 +104,21 @@ function keySigPitchClasses(keyStr: string): Set<number> {
 
 function keySigFromName(keyStr: string): number {
   // wjazzd key format: "Bb-maj", "F-min", "C-maj", etc.
-  const root = keyStr.split('-')[0];
-  const sigMap: Record<string, number> = {
+  const parts = keyStr.split('-');
+  const root = parts[0];
+  const mode = parts[1] || 'maj';
+
+  const majorSigMap: Record<string, number> = {
     'Cb': -7, 'Gb': -6, 'Db': -5, 'Ab': -4, 'Eb': -3, 'Bb': -2, 'F': -1,
     'C': 0, 'G': 1, 'D': 2, 'A': 3, 'E': 4, 'B': 5, 'F#': 6, 'C#': 7,
   };
-  return sigMap[root] ?? 0;
+  // minor key uses same sig as its relative major (minor root + 3 semitones)
+  const minorSigMap: Record<string, number> = {
+    'Ab': -7, 'Eb': -6, 'Bb': -5, 'F': -4, 'C': -3, 'G': -2, 'D': -1,
+    'A': 0, 'E': 1, 'B': 2, 'F#': 3, 'C#': 4, 'G#': 5, 'D#': 6, 'A#': 7,
+  };
+  if (mode === 'min' || mode === 'minor') return minorSigMap[root] ?? 0;
+  return majorSigMap[root] ?? 0;
 }
 
 function normalizeKey(keyStr: string): string {
@@ -156,7 +170,7 @@ function fillRests(beats: number): NoteInfo[] {
 
 function lickToSheet(lick: RawLick): NoteSheetData {
   const nKey = normalizeKey(lick.key);
-  const useFlats = FLAT_KEYS.has(nKey) || lick.key.includes('b');
+  const useFlats = true; // always use flats for lick display
   const keySigPcs = keySigPitchClasses(lick.key);
 
   // Group events by bar

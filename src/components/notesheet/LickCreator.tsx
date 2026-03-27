@@ -9,6 +9,7 @@ import {
   Beam,
   Accidental,
   Dot,
+  Fraction,
   BarlineType,
 } from 'vexflow';
 import type { NoteSheetData, NoteInfo, MeasureInfo } from '../../data/sampleMelody';
@@ -91,7 +92,21 @@ function notesToMeasures(notes: NoteInfo[]): MeasureInfo[] {
 /* ─── analysis helpers ────────────────────────────────────────────────── */
 
 const SEMI_MAP: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
-const PC_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const PC_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+
+/** Convert a sharp PianoNote to its enharmonic flat equivalent.
+ *  Key = the letter of the sharp note (e.g. 'c' for C#→Db) */
+const SHARP_TO_FLAT: Record<string, string> = {
+  c: 'd', d: 'e', f: 'g', g: 'a', a: 'b',
+};
+
+function toFlat(pn: PianoNote): { vexKey: string; acc?: 'b' } {
+  if (!pn.acc) return { vexKey: pn.vexKey };
+  const [letter, oct] = pn.vexKey.split('/');
+  const flatLetter = SHARP_TO_FLAT[letter];
+  if (!flatLetter) return { vexKey: pn.vexKey };
+  return { vexKey: `${flatLetter}/${oct}`, acc: 'b' };
+}
 
 function vexToMidi(key: string, acc?: '#' | 'b' | 'n'): number {
   const [n, o] = key.split('/');
@@ -256,7 +271,9 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number)
         return note;
       });
 
-      const beams = Beam.generateBeams(vfNotes);
+      const beams = Beam.generateBeams(vfNotes, {
+        groups: [new Fraction(4, 8)],
+      });
       const voice = new Voice({ numBeats: 4, beatValue: 4 });
       voice.setStrict(false);
       voice.addTickables(vfNotes);
@@ -442,12 +459,13 @@ export function LickCreator({ width, onSave, onCancel }: LickCreatorProps) {
   /* ── add note from piano ─────────────────────────────────────────── */
   const handleNotePress = useCallback(
     (pn: PianoNote) => {
+      const flat = toFlat(pn);
       const ni: NoteInfo = {
-        keys: [pn.vexKey],
+        keys: [flat.vexKey],
         duration,
         dotted: dotted || undefined,
       };
-      if (pn.acc) ni.accidentals = { 0: pn.acc };
+      if (flat.acc) ni.accidentals = { 0: flat.acc };
       setNotes((prev) => [...prev, ni]);
     },
     [duration, dotted],
