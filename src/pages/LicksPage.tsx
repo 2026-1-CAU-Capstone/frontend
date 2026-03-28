@@ -370,8 +370,9 @@ export default function LicksPage() {
   useEffect(() => {
     loadLicks()
       .then((licks) => {
-        const userLicks = loadUserLicks();
+        return loadUserLicks().then((userLicks) => {
         setAllLicks([...userLicks, ...licks]);
+        });
         setLoadingLicks(false);
       })
       .catch((err) => { console.error('Failed to load licks:', err); setLoadingLicks(false); });

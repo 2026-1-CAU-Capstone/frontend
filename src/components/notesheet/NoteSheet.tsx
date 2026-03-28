@@ -9,7 +9,6 @@ import {
   Beam,
   Accidental,
   Dot,
-  Annotation,
   BarlineType,
 } from 'vexflow';
 import type { NoteSheetData, MeasureInfo } from '../../data/sampleMelody';
@@ -29,9 +28,55 @@ function formatChord(raw: string): string {
     .replace(/b(\d)/g, '\u266D$1')
     .replace(/(\d)#/g, '$1\u266F')
     .replace(/#(\d)/g, '\u266F$1')
-    .replace(/-/g, 'm')
+    .replace(/-7b5/g, '\u00F87')
+    .replace(/h7/g, '\u00F87')
+    .replace(/h(?!\d)/g, '\u00F8')
     .replace(/o7/g, '\u00B07')
     .replace(/o(?!\d)/g, '\u00B0');
+}
+
+function splitChordParts(formatted: string): { base: string; ext: string; tension: string } {
+  const m = formatted.match(/^(\D*?)(\d+)(.*)$/);
+  if (!m) return { base: formatted, ext: '', tension: '' };
+  return { base: m[1], ext: m[2], tension: m[3] || '' };
+}
+
+function appendChordSVG(
+  svgEl: SVGElement, x: number, y: number,
+  chord: string, font: string, size: number,
+) {
+  const { base, ext, tension } = splitChordParts(formatChord(chord));
+  const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  txt.setAttribute('x', String(x));
+  txt.setAttribute('y', String(y));
+  txt.setAttribute('font-family', font);
+  txt.setAttribute('font-weight', '300');
+  txt.setAttribute('fill', '#000');
+
+  const baseSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+  baseSpan.setAttribute('font-size', String(size));
+  baseSpan.textContent = base;
+  txt.appendChild(baseSpan);
+
+  if (ext) {
+    const extSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+    extSpan.setAttribute('font-size', String(Math.round(size * 0.85)));
+    extSpan.setAttribute('dx', base.endsWith('\u25B3') ? '-1' : '1');
+    extSpan.setAttribute('dy', String(-size * 0.18));
+    extSpan.textContent = ext;
+    txt.appendChild(extSpan);
+
+    if (tension) {
+      const tensionSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+      tensionSpan.setAttribute('font-size', String(Math.round(size * 0.6)));
+      tensionSpan.setAttribute('dx', '0');
+      tensionSpan.setAttribute('dy', String(-size * 0.22));
+      tensionSpan.textContent = tension;
+      txt.appendChild(tensionSpan);
+    }
+  }
+
+  svgEl.appendChild(txt);
 }
 const MAX_PER_LINE = 6;
 const DECOR_FIRST = 80;
@@ -353,11 +398,13 @@ export function NoteSheet({ data }: NoteSheetProps) {
         const measure = data.measures[m];
         const vfNotes = buildVfNotes(measure);
 
-        if (measure.chord && vfNotes.length > 0) {
-          const ann = new Annotation(formatChord(measure.chord));
-          ann.setFont(CHORD_FONT, 13, 'bold');
-          ann.setVerticalJustification(Annotation.VerticalJustify.TOP);
-          vfNotes[0].addModifier(ann);
+        if (measure.chord) {
+          const chordX = firstInLine ? x + decorW + 4 : x + 4;
+          const chordY = y + 12;
+          const svgEl = el.querySelector('svg');
+          if (svgEl) {
+            appendChordSVG(svgEl, chordX, chordY, measure.chord, CHORD_FONT, 20);
+          }
         }
 
         const beams = Beam.generateBeams(vfNotes);

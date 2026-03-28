@@ -12,10 +12,10 @@ export interface PianoNote {
 
 /* ─── constants ──────────────────────────────────────────────────────── */
 
-const WHITE_W = 38;
-const WHITE_H = 150;
-const BLACK_W = 24;
-const BLACK_H = 95;
+const WHITE_W = 52;
+const WHITE_H = 210;
+const BLACK_W = 33;
+const BLACK_H = 130;
 
 const SEMI: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
 const WHITE_NAMES = ['c', 'd', 'e', 'f', 'g', 'a', 'b'];
@@ -30,8 +30,8 @@ interface KeyDef {
 function buildKeys(): KeyDef[] {
   const keys: KeyDef[] = [];
   let wi = 0;
-  // Full octaves 3, 4, 5
-  for (let oct = 3; oct <= 5; oct++) {
+  // Full octaves 3, 4, 5, 6
+  for (let oct = 3; oct <= 6; oct++) {
     for (const name of WHITE_NAMES) {
       const midi = (oct + 1) * 12 + SEMI[name];
       keys.push({ note: { vexKey: `${name}/${oct}`, midi }, isBlack: false, x: wi * WHITE_W });
@@ -45,8 +45,8 @@ function buildKeys(): KeyDef[] {
       wi++;
     }
   }
-  // Add C6
-  keys.push({ note: { vexKey: 'c/6', midi: 84 }, isBlack: false, x: wi * WHITE_W });
+  // Add C7
+  keys.push({ note: { vexKey: 'c/7', midi: 96 }, isBlack: false, x: wi * WHITE_W });
   return keys;
 }
 
@@ -115,7 +115,7 @@ function ensurePiano(): Promise<Soundfont.Player> {
   return _loading.then(() => _pianoInst!);
 }
 
-async function playMidi(midi: number) {
+export async function playMidi(midi: number) {
   const piano = await ensurePiano();
   piano.play(String(midi), 0, { duration: 0.5, gain: 2 });
 }
@@ -148,7 +148,7 @@ const WhiteKeyEl = styled.div<{ $x: number; $pressed: boolean }>`
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
-  padding-bottom: 6px;
+  padding-bottom: 8px;
 
   &:hover {
     background: #f5f0e0;
@@ -165,14 +165,14 @@ const BlackKeyEl = styled.div<{ $x: number; $pressed: boolean }>`
   width: ${BLACK_W}px;
   height: ${BLACK_H}px;
   background: ${({ $pressed }) => ($pressed ? '#555' : '#333')};
-  border-radius: 0 0 3px 3px;
+  border-radius: 0 0 4px 4px;
   cursor: pointer;
   z-index: 2;
   transition: background 0.06s;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding-bottom: 4px;
+  padding-bottom: 6px;
 
   &:hover {
     background: #444;
@@ -184,7 +184,7 @@ const BlackKeyEl = styled.div<{ $x: number; $pressed: boolean }>`
 
 const ShortcutLabel = styled.span<{ $black?: boolean }>`
   font-family: 'DM Sans', sans-serif;
-  font-size: 0.55rem;
+  font-size: 0.7rem;
   color: ${({ $black }) => ($black ? '#999' : '#bbb')};
   pointer-events: none;
   line-height: 1;
@@ -192,7 +192,7 @@ const ShortcutLabel = styled.span<{ $black?: boolean }>`
 
 const NoteLabel = styled.span`
   font-family: 'DM Sans', sans-serif;
-  font-size: 0.58rem;
+  font-size: 0.72rem;
   color: #aaa;
   pointer-events: none;
   line-height: 1;
@@ -203,37 +203,25 @@ const NoteLabel = styled.span`
 
 interface PianoKeyboardProps {
   onNotePress: (note: PianoNote) => void;
+  mute?: boolean;
 }
 
-export function PianoKeyboard({ onNotePress }: PianoKeyboardProps) {
+export function PianoKeyboard({ onNotePress, mute }: PianoKeyboardProps) {
   const [pressedMidi, setPressedMidi] = useState<number | null>(null);
   const pressTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const handlePress = useCallback(
     (note: PianoNote) => {
       onNotePress(note);
-      playMidi(note.midi);
+      if (!mute) playMidi(note.midi);
       setPressedMidi(note.midi);
       clearTimeout(pressTimerRef.current);
       pressTimerRef.current = setTimeout(() => setPressedMidi(null), 150);
     },
-    [onNotePress],
+    [onNotePress, mute],
   );
 
-  // keyboard handler
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (e.repeat) return;
-      const note = KEY_MAP[e.key];
-      if (note) {
-        e.preventDefault();
-        handlePress(note);
-      }
-    };
-    window.addEventListener('keydown', down);
-    return () => window.removeEventListener('keydown', down);
-  }, [handlePress]);
+  // keyboard input disabled — use on-screen piano only
 
   const whites = ALL_KEYS.filter((k) => !k.isBlack);
   const blacks = ALL_KEYS.filter((k) => k.isBlack);

@@ -359,6 +359,15 @@ const SaveBtn = styled(ActionBtn)`
   }
 `;
 
+const CopyBtn = styled(ActionBtn)<{ $copied?: boolean }>`
+  background: ${({ $copied }) => ($copied ? '#2a6e3f' : '#3070a0')};
+  color: #fff;
+  border-color: ${({ $copied }) => ($copied ? '#2a6e3f' : '#3070a0')};
+  &:hover {
+    background: ${({ $copied }) => ($copied ? '#2a6e3f' : '#265d88')};
+  }
+`;
+
 const Spacer = styled.div`
   flex: 1;
 `;
@@ -533,6 +542,38 @@ export function LickCreator({ width, onSave, onCancel }: LickCreatorProps) {
     onSave(sheetData);
   }, [measures, sheetData, onSave]);
 
+  /* ── copy JSON (pitch/duration/bar) ──────────────────────────────── */
+  const [copied, setCopied] = useState(false);
+  const handleCopyJson = useCallback(() => {
+    if (notes.length === 0) return;
+    const DUR_LABEL: Record<string, string> = {
+      w: 'whole', h: 'half', q: 'quarter', '8': '8th', '16': '16th',
+    };
+    const jsonNotes = measures.flatMap((m, mi) =>
+      m.notes.map((n) => {
+        const isRest = n.duration.endsWith('r');
+        const baseDur = n.duration.replace(/r$/, '');
+        const durStr = (n.dotted ? 'dotted-' : '') + (DUR_LABEL[baseDur] ?? baseDur);
+        if (isRest) return { pitch: null, duration: durStr, bar: mi + 1 };
+        const acc = n.accidentals ? (n.accidentals[0] as '#' | 'b' | 'n' | undefined) : undefined;
+        return { pitch: vexToMidi(n.keys[0], acc), duration: durStr, bar: mi + 1 };
+      }),
+    );
+    const obj = {
+      id: `custom-${Date.now()}`,
+      performer: '',
+      title: '',
+      key: '',
+      style: '',
+      tempo: null,
+      tags: [],
+      notes: jsonNotes,
+    };
+    navigator.clipboard.writeText(JSON.stringify(obj, null, 2));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }, [notes, measures]);
+
   /* ── render VexFlow ────────────────────────────────────────────────── */
   useEffect(() => {
     const el = svgRef.current;
@@ -585,6 +626,9 @@ export function LickCreator({ width, onSave, onCancel }: LickCreatorProps) {
         <Sep />
 
         <ActionBtn onClick={handlePlay}>{playing ? '\u23F9' : '\u25B6'} Play</ActionBtn>
+        <CopyBtn $copied={copied} onClick={handleCopyJson} disabled={notes.length === 0}>
+          {copied ? '\u2713 Copied!' : '\u{1F4CB} Copy JSON'}
+        </CopyBtn>
         <SaveBtn onClick={handleSave}>Save Lick</SaveBtn>
         <ActionBtn onClick={onCancel}>Cancel</ActionBtn>
       </TopBar>

@@ -5,6 +5,8 @@ export interface NoteInfo {
   duration: string;                             // 'w','h','q','8','16' or 'wr','hr','qr','8r'
   dotted?: boolean;
   accidentals?: Record<number, '#' | 'b' | 'n'>;
+  tie?: boolean;                                // tie to the NEXT note of same pitch
+  tuplet?: number;                              // e.g. 3 = triplet (3 notes in time of 2)
 }
 
 export interface MeasureInfo {

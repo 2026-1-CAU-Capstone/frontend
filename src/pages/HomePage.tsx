@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 
 const Container = styled.div`
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -9,6 +10,26 @@ const Container = styled.div`
   height: 100vh;
   background: ${({ theme }) => theme.colors.bgPrimary};
   font-family: 'DM Sans', sans-serif;
+`;
+
+const ToolBtn = styled.button`
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.78rem;
+  padding: 6px 14px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 8px;
+  background: ${({ theme }) => theme.colors.bgSecondary};
+  color: ${({ theme }) => theme.colors.textSecondary};
+  cursor: pointer;
+  opacity: 0.7;
+  transition: all 0.15s;
+  &:hover {
+    opacity: 1;
+    border-color: ${({ theme }) => theme.colors.goldDark};
+  }
 `;
 
 const LogoImg = styled.img`
@@ -64,6 +85,7 @@ export default function HomePage() {
 
   return (
     <Container>
+      <ToolBtn onClick={() => navigate('/lick-input')}>Lick JSON Tool</ToolBtn>
       <LogoImg src="/JAZZIFY.jpg" alt="Jazzify" />
 
       <CardRow>

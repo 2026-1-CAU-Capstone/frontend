@@ -9,22 +9,27 @@ import {
   Beam,
   Accidental,
   Dot,
-  Annotation,
   BarlineType,
+  StaveTie,
+  Tuplet,
 } from 'vexflow';
-import type { MeasureInfo } from '../../data/sampleMelody';
+import type { NoteInfo, MeasureInfo } from '../../data/sampleMelody';
 import type { LickEntry } from '../../data/lickData';
 import { NotePlayer } from '../../lib/note/notePlayer';
 
 /* ─── layout constants ──────────────────────────────────────────────── */
 
-const LINE_HEIGHT = 160;
-const MARGIN = { top: 40, left: 10, right: 10, bottom: 10 };
+const LINE_HEIGHT = 140;
+const MARGIN = { top: 20, left: 10, right: 10, bottom: 10 };
 const CHORD_FONT = "'MuseJazz Text', 'DM Sans', sans-serif";
+const MAX_PER_LINE = 6;
+const DECOR_OTHER = 35;
+const PX_PER_DUR: Record<string, number> = { w: 50, h: 35, q: 28, '8': 22, '16': 18 };
+const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25 };
 
 /**
  * Replace text chord tokens with proper music symbols.
- * Data format: j7=maj7, Ab=A♭, -=minor, o=dim, +=aug, b5=♭5, 9#=♯9
+ * - = minor (kept as-is), j7 = △7, o = °, h = ø (half-dim)
  */
 function formatChord(raw: string): string {
   return raw
@@ -34,11 +39,116 @@ function formatChord(raw: string): string {
     .replace(/b(\d)/g, '\u266D$1')                 // b5, b9, b13 → ♭5, ♭9, ♭13
     .replace(/(\d)#/g, '$1\u266F')                 // 9# → 9♯
     .replace(/#(\d)/g, '\u266F$1')                 // #9 → ♯9
-    .replace(/-/g, 'm')                            // - → m (minor)
+    .replace(/-7b5/g, '\u00F87')                   // -7b5 → ø7 (half-dim)
+    .replace(/h7/g, '\u00F87')                     // h7 → ø7
+    .replace(/h(?!\d)/g, '\u00F8')                 // h → ø
     .replace(/o7/g, '\u00B07')                     // o7 → °7
     .replace(/o(?!\d)/g, '\u00B0');                // o → °
 }
-const DECOR_FIRST = 80;
+
+/** Normalize lick key to VexFlow key signature format. */
+function toVexKey(key: string): string {
+  const parts = key.split('-');
+  const root = parts[0] || 'C';
+  const mode = parts[1] || '';
+  if (mode === 'min' || mode === 'minor') return root + 'm';
+  return root;
+}
+
+/** Split formatted chord into base, extension number, and tensions. */
+function splitChordParts(formatted: string): { base: string; ext: string; tension: string } {
+  const m = formatted.match(/^(\D*?)(\d+)(.*)$/);
+  if (!m) return { base: formatted, ext: '', tension: '' };
+  return { base: m[1], ext: m[2], tension: m[3] || '' };
+}
+
+/** Append chord text to SVG with superscript extension + smaller tension above. */
+function appendChordSVG(
+  svgEl: SVGElement, x: number, y: number,
+  chord: string, font: string, size: number,
+) {
+  const { base, ext, tension } = splitChordParts(formatChord(chord));
+  const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  txt.setAttribute('x', String(x));
+  txt.setAttribute('y', String(y));
+  txt.setAttribute('font-family', font);
+  txt.setAttribute('fill', '#333');
+  txt.setAttribute('stroke', '#333');
+  txt.setAttribute('stroke-width', '0.3');
+
+  const baseSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+  baseSpan.setAttribute('font-size', String(size));
+  baseSpan.textContent = base;
+  txt.appendChild(baseSpan);
+
+  if (ext) {
+    const extSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+    extSpan.setAttribute('font-size', String(Math.round(size * 0.85)));
+    extSpan.setAttribute('dx', base.endsWith('\u25B3') ? '-1' : '1');
+    extSpan.setAttribute('dy', String(-size * 0.18));
+    extSpan.textContent = ext;
+    txt.appendChild(extSpan);
+
+    if (tension) {
+      // Split tension into accidental symbols (♭♯) and digits
+      const accMatch = tension.match(/^([\u266D\u266F]*)(.*)/);
+      const tensionAcc = accMatch?.[1] || '';
+      const tensionNum = accMatch?.[2] || '';
+
+      if (tensionNum) {
+        const numSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+        numSpan.setAttribute('font-size', String(Math.round(size * 0.6)));
+        numSpan.setAttribute('dx', '4.5');
+        numSpan.setAttribute('dy', String(-size * 0.15));
+        numSpan.textContent = tensionNum;
+        txt.appendChild(numSpan);
+      }
+      if (tensionAcc) {
+        const accSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+        accSpan.setAttribute('font-size', String(Math.round(size * 0.55)));
+        accSpan.setAttribute('dx', tensionNum ? '-' + String(Math.round(size * 0.38)) : '2');
+        accSpan.setAttribute('dy', String(size * 0.1));
+        accSpan.textContent = tensionAcc;
+        txt.appendChild(accSpan);
+      }
+    }
+  }
+
+  svgEl.appendChild(txt);
+}
+const DECOR_FIRST = 70;
+
+function measureMinWidth(m: MeasureInfo): number {
+  let w = 18;
+  for (const n of m.notes) {
+    const base = n.duration.replace(/[dr]/g, '');
+    w += PX_PER_DUR[base] ?? 24;
+    if (n.accidentals) w += Object.keys(n.accidentals).length * 10;
+    if (n.dotted) w += 5;
+  }
+  return Math.max(w, 55);
+}
+
+function packLines(measures: MeasureInfo[], availW: number): number[][] {
+  const lines: number[][] = [];
+  let line: number[] = [];
+  let usedW = 0;
+  for (let i = 0; i < measures.length; i++) {
+    const mw = measureMinWidth(measures[i]);
+    const decor = line.length === 0 ? (lines.length === 0 ? DECOR_FIRST : DECOR_OTHER) : 0;
+    if (line.length > 0 && (usedW + mw > availW || line.length >= MAX_PER_LINE)) {
+      lines.push(line);
+      line = [i];
+      usedW = (lines.length === 0 ? DECOR_FIRST : DECOR_OTHER) + mw;
+    } else {
+      if (line.length === 0) usedW = decor;
+      line.push(i);
+      usedW += mw;
+    }
+  }
+  if (line.length > 0) lines.push(line);
+  return lines;
+}
 
 /* ─── styled ────────────────────────────────────────────────────────── */
 
@@ -84,13 +194,13 @@ const TagRow = styled.div`
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
-  margin-bottom: 24px;
+  margin-bottom: 4px;
 `;
 
 const Badge = styled.span<{ $color?: string }>`
   font-family: 'DM Sans', sans-serif;
-  font-size: 0.7rem;
-  padding: 1px 6px;
+  font-size: 0.82rem;
+  padding: 2px 8px;
   border-radius: 3px;
   background: ${({ $color }) => $color ?? '#f0ebe0'};
   color: #555;
@@ -98,7 +208,7 @@ const Badge = styled.span<{ $color?: string }>`
 
 const ChordBadge = styled(Badge)`
   font-family: 'DM Sans', sans-serif;
-  font-size: 0.78rem;
+  font-size: 0.88rem;
   background: #efe8d4;
   color: #8B6914;
 `;
@@ -138,7 +248,68 @@ function buildDuration(dur: string, dotted?: boolean): string {
   return dur + 'd';
 }
 
-function buildVfNotes(measure: MeasureInfo): StaveNote[] {
+function buildManualBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
+  const beams: Beam[] = [];
+  let beamGroup: StaveNote[] = [];
+  let groupBeats = 0;
+  let inTuplet = false;
+  let postTupletMerged = false;
+
+  for (let i = 0; i < vfNotes.length; i++) {
+    const vn = vfNotes[i];
+    const isTuplet = !!notes[i]?.tuplet;
+    const dur = vn.getDuration();
+    const isBeamable = dur === '8' || dur === '16' || dur === '8d' || dur === '16d';
+    const isRest = vn.isRest();
+    const noteDots = vn.getModifiersByType('Dot')?.length ?? 0;
+    let noteBeats = DUR_BEATS[dur.replace('d', '')] ?? 1;
+    if (noteDots > 0 || dur.endsWith('d')) noteBeats *= 1.5;
+
+    if (postTupletMerged && beamGroup.length > 0) {
+      if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
+      beamGroup = [];
+      groupBeats = 0;
+      postTupletMerged = false;
+    }
+
+    // Break beam group at tuplet boundary — allow one merge after 16th triplet
+    if (isTuplet !== inTuplet && beamGroup.length > 0) {
+      const prevIs16Triplet = inTuplet && beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
+      if (prevIs16Triplet && isBeamable && !isRest && !isTuplet) {
+        postTupletMerged = true;
+      } else {
+        if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
+        beamGroup = [];
+        if (!isTuplet) groupBeats = 0;
+      }
+    }
+    inTuplet = isTuplet;
+
+    if (isBeamable && !isRest) {
+      if (!isTuplet && !postTupletMerged) {
+        const newGroupBeats = groupBeats + noteBeats;
+        const has16 = dur === '16' || dur === '16d' || beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
+        const boundary = has16 ? 1 : 2;
+        if (groupBeats > 0 && Math.floor((groupBeats - 0.001) / boundary) !== Math.floor((newGroupBeats - 0.001) / boundary) && beamGroup.length > 0) {
+          if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
+          beamGroup = [];
+        }
+      }
+      beamGroup.push(vn);
+    } else {
+      if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
+      beamGroup = [];
+      postTupletMerged = false;
+    }
+    if (!isTuplet) groupBeats += noteBeats;
+  }
+  if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
+  return beams;
+}
+
+function buildVfNotes(measure: MeasureInfo, initialAcc?: Map<string, 'b' | '#' | 'n'>): StaveNote[] {
+  const activeAcc = initialAcc ? new Map(initialAcc) : new Map<string, 'b' | '#' | 'n'>();
+
   return measure.notes.map((n) => {
     const isRest = n.duration.endsWith('r');
     const dur = buildDuration(n.duration, n.dotted);
@@ -148,11 +319,25 @@ function buildVfNotes(measure: MeasureInfo): StaveNote[] {
       autoStem: true,
     });
     if (n.dotted) Dot.buildAndAttach([note]);
-    if (!isRest && n.accidentals) {
-      for (const [idx, type] of Object.entries(n.accidentals)) {
-        note.addModifier(new Accidental(type), Number(idx));
+
+    if (!isRest) {
+      const noteId = n.keys[0];
+      const realAcc = n.accidentals?.[0] as 'b' | '#' | undefined;
+      const current = activeAcc.get(noteId);
+
+      if (realAcc) {
+        if (current !== realAcc) {
+          note.addModifier(new Accidental(realAcc), 0);
+        }
+        activeAcc.set(noteId, realAcc);
+      } else {
+        if (current && current !== 'n') {
+          note.addModifier(new Accidental('n'), 0);
+          activeAcc.set(noteId, 'n');
+        }
       }
     }
+
     return note;
   });
 }
@@ -163,9 +348,13 @@ interface LickCardProps {
   lick: LickEntry;
   width: number;
   visible: boolean;
+  compact?: boolean;
+  displayId?: number;
+  onDelete?: () => void;
+  onClick?: () => void;
 }
 
-export function LickCard({ lick, width, visible }: LickCardProps) {
+export function LickCard({ lick, width, visible, compact, displayId, onDelete, onClick }: LickCardProps) {
   const svgRef = useRef<HTMLDivElement>(null);
   const renderedRef = useRef(false);
 
@@ -185,7 +374,9 @@ export function LickCard({ lick, width, visible }: LickCardProps) {
       setPlaying(false);
     } else {
       setPlaying(true);
-      await p.play(lick.sheetData, lick.tempo ?? 120);
+      const has16ths = lick.sheetData.measures.some((m) => m.notes.some((n) => n.duration === '16' || n.duration === '16r'));
+      const defaultBpm = has16ths ? 120 : 200;
+      await p.play(lick.sheetData, lick.tempo ?? defaultBpm);
     }
   }, [lick]);
 
@@ -199,7 +390,7 @@ export function LickCard({ lick, width, visible }: LickCardProps) {
     renderedRef.current = false;
   }, [lick.id]);
 
-  /* render notation when visible */
+  /* render notation — auto-scale then multi-line if needed */
   useEffect(() => {
     const el = svgRef.current;
     if (!el || !visible || renderedRef.current) return;
@@ -211,88 +402,189 @@ export function LickCard({ lick, width, visible }: LickCardProps) {
     const data = lick.sheetData;
     const nMeasures = data.measures.length;
     const [numBeats, beatValue] = data.timeSignature.split('/').map(Number);
+    const measWidths = data.measures.map((m) => measureMinWidth(m) * 1.4);
+    const decorW = DECOR_FIRST;
+    const naturalW = MARGIN.left + decorW + measWidths.reduce((s, w) => s + w, 0) + MARGIN.right;
 
-    // Width per measure proportional to note count
-    const PX_PER_NOTE = 40;
-    const BAR_PAD = 30;
-    const weights = data.measures.map((m) => BAR_PAD + m.notes.length * PX_PER_NOTE);
-    const totalWeight = weights.reduce((s, w) => s + w, 0);
-    const containerW = width - MARGIN.left - MARGIN.right;
-    const needsScroll = totalWeight + DECOR_FIRST > containerW;
-    const availW = needsScroll ? totalWeight : containerW - DECOR_FIRST;
-    const scale = availW / totalWeight;
-    const barWidths = weights.map((w) => w * scale);
+    // Determine scale: shrink to fit single line (min 0.65), else multi-line
+    const MIN_SCALE = 0.65;
+    const cardInner = width;
+    let scale = 1;
+    let multiLine = false;
 
-    const svgW = MARGIN.left + DECOR_FIRST + availW + MARGIN.right;
-    const totalH = MARGIN.top + LINE_HEIGHT + MARGIN.bottom;
+    if (naturalW > cardInner) {
+      scale = cardInner / naturalW;
+      if (scale < MIN_SCALE) {
+        scale = 1;
+        multiLine = true;
+      }
+    }
+
+    // Build line layout
+    let lines: number[][];
+    if (multiLine) {
+      const availW = cardInner - MARGIN.left - MARGIN.right;
+      lines = packLines(data.measures, availW);
+    } else {
+      lines = [Array.from({ length: nMeasures }, (_, i) => i)];
+    }
+
+    const nLines = lines.length;
+    const svgW = multiLine ? cardInner : Math.max(naturalW, cardInner);
+    const totalH = MARGIN.top + nLines * LINE_HEIGHT + MARGIN.bottom;
 
     const renderer = new Renderer(el, Renderer.Backends.SVG);
     renderer.resize(svgW, totalH);
     const ctx = renderer.getContext();
 
-    let x = MARGIN.left;
+    // Apply scale via SVG transform
+    const svgEl = el.querySelector('svg');
+    if (svgEl && scale < 1) {
+      svgEl.style.transformOrigin = 'top left';
+      svgEl.style.transform = `scale(${scale})`;
+      el.style.height = `${totalH * scale}px`;
+    }
 
-    for (let m = 0; m < nMeasures; m++) {
-      const isFirst = m === 0;
-      const isLast = m === nMeasures - 1;
-      const w = isFirst ? barWidths[m] + DECOR_FIRST : barWidths[m];
+    const allVfNotes: StaveNote[] = [];
+    let tieCarryAcc: Map<string, 'b' | '#' | 'n'> | undefined;
 
-      const stave = new Stave(x, MARGIN.top, w);
-      if (isFirst) {
-        stave.addClef('treble');
-        if (data.key && data.key !== 'C') stave.addKeySignature(data.key);
-        stave.addTimeSignature(data.timeSignature);
+    for (let li = 0; li < nLines; li++) {
+      const indices = lines[li];
+      const y = MARGIN.top + li * LINE_HEIGHT;
+      let x = MARGIN.left;
+
+      // For multi-line: stretch bars to fill width
+      const lineDecorW = indices[0] === 0 ? DECOR_FIRST : DECOR_OTHER;
+      const lineWeights = indices.map((i) => measWidths[i]);
+      const lineTotalWeight = lineWeights.reduce((s, w) => s + w, 0);
+      const lineAvail = (multiLine ? cardInner : svgW) - MARGIN.left - MARGIN.right - lineDecorW;
+      const isLastLine = li === nLines - 1;
+      const stretch = multiLine && (!isLastLine || indices.length >= MAX_PER_LINE);
+
+      for (let j = 0; j < indices.length; j++) {
+        const m = indices[j];
+        const firstInLine = j === 0;
+        const isLast = m === nMeasures - 1;
+        const barW = stretch ? (lineWeights[j] / lineTotalWeight) * lineAvail : measWidths[m];
+        const w = firstInLine ? barW + lineDecorW : barW;
+
+        const stave = new Stave(x, y, w);
+        if (firstInLine) {
+          stave.addClef('treble');
+          const vexKey = toVexKey(lick.key);
+          if (vexKey && vexKey !== 'C') stave.addKeySignature(vexKey);
+          if (m === 0) stave.addTimeSignature(data.timeSignature);
+        }
+        if (isLast) stave.setEndBarType(BarlineType.END);
+        stave.setContext(ctx).draw();
+
+        const measure = data.measures[m];
+        const vfNotes = buildVfNotes(measure, tieCarryAcc);
+
+        tieCarryAcc = undefined;
+        const lastNote = measure.notes[measure.notes.length - 1];
+        if (lastNote?.tie && !lastNote.duration.endsWith('r')) {
+          const acc = lastNote.accidentals?.[0] as 'b' | '#' | undefined;
+          if (acc) {
+            tieCarryAcc = new Map([[lastNote.keys[0], acc]]);
+          }
+        }
+
+        if (measure.chord) {
+          const chordX = firstInLine ? x + lineDecorW + 4 : x + 4;
+          const chordY = y + 12;
+          const svg = el.querySelector('svg');
+          if (svg) {
+            appendChordSVG(svg, chordX, chordY, measure.chord, CHORD_FONT, 20);
+          }
+        }
+
+        const beams = buildManualBeams(vfNotes, measure.notes);
+        const voice = new Voice({ numBeats, beatValue });
+        voice.setStrict(false);
+        voice.addTickables(vfNotes);
+
+        new Formatter().joinVoices([voice]).formatToStave([voice], stave);
+        voice.draw(ctx, stave);
+        beams.forEach((b) => b.setContext(ctx).draw());
+
+        // Render tuplet brackets
+        {
+          let ti = 0;
+          while (ti < measure.notes.length) {
+            if (measure.notes[ti].tuplet === 3) {
+              const group: StaveNote[] = [];
+              while (ti < measure.notes.length && measure.notes[ti].tuplet === 3) {
+                group.push(vfNotes[ti]);
+                ti++;
+              }
+              if (group.length >= 2) {
+                const stemDown = group[0].getStemDirection() === -1;
+                const tuplet = new Tuplet(group, { numNotes: group.length, notesOccupied: 2 });
+                if (stemDown) tuplet.setTupletLocation(-1);
+                tuplet.setContext(ctx).draw();
+              }
+            } else {
+              ti++;
+            }
+          }
+        }
+
+        allVfNotes.push(...vfNotes);
+        x += w;
       }
-      if (isLast) stave.setEndBarType(BarlineType.END);
-      stave.setContext(ctx).draw();
+    }
 
-      const measure = data.measures[m];
-      const vfNotes = buildVfNotes(measure);
-
-      if (measure.chord && vfNotes.length > 0) {
-        const ann = new Annotation(formatChord(measure.chord));
-        ann.setFont(CHORD_FONT, 16, 'bold');
-        ann.setVerticalJustification(Annotation.VerticalJustify.TOP);
-        vfNotes[0].addModifier(ann);
+    // Draw ties
+    let flatIdx = 0;
+    for (const measure of data.measures) {
+      for (let ni = 0; ni < measure.notes.length; ni++) {
+        if (measure.notes[ni].tie && allVfNotes[flatIdx + 1]) {
+          new StaveTie({ firstNote: allVfNotes[flatIdx], lastNote: allVfNotes[flatIdx + 1], firstIndices: [0], lastIndices: [0] })
+            .setContext(ctx).draw();
+        }
+        flatIdx++;
       }
-
-      const beams = Beam.generateBeams(vfNotes);
-      const voice = new Voice({ numBeats, beatValue });
-      voice.setStrict(false);
-      voice.addTickables(vfNotes);
-
-      new Formatter().joinVoices([voice]).formatToStave([voice], stave);
-      voice.draw(ctx, stave);
-      beams.forEach((b) => b.setContext(ctx).draw());
-
-      x += w;
     }
   }, [visible, width, lick]);
 
   const keyNorm = lick.key.split('-')[0] || '?';
 
   return (
-    <Card>
+    <Card style={onClick ? { cursor: 'pointer' } : undefined} onClick={onClick}>
       <MetaRow>
-        <LickId>#{lick.id}</LickId>
+        <LickId>#{displayId ?? lick.id}</LickId>
         <Performer>{lick.performer}</Performer>
         <Title>{lick.title}</Title>
-        <PlayBtn $active={playing} onClick={togglePlay}>
-          {playing ? '\u23F9' : '\u25B6'}
+        <PlayBtn $active={playing} onClick={(e) => { e.stopPropagation(); togglePlay(); }} style={{ color: '#2a6e3f', borderColor: '#2a6e3f' }}>
+          {playing ? '\u23F9 Stop' : '\u25B6 Play'}
         </PlayBtn>
+        {onDelete && (
+          <PlayBtn onClick={(e) => { e.stopPropagation(); onDelete(); }} style={{ color: '#c62828', borderColor: '#e57373' }}>
+            Delete
+          </PlayBtn>
+        )}
       </MetaRow>
-      <TagRow>
-        <Badge>{keyNorm}</Badge>
-        <Badge $color="#e8eef5">{lick.style}</Badge>
-        <Badge $color="#eee">{lick.instrument}</Badge>
-        {lick.tempo && <Badge $color="#f5f0e0">{lick.tempo} bpm</Badge>}
-        <Badge $color="#f0eee8">{lick.rhythmfeel}</Badge>
-        <Badge $color="#ede8f0">{lick.tag}</Badge>
-        <Badge $color="#e8f0e8">{lick.nEvents} notes</Badge>
-        {lick.chords.map((c, i) => (
-          <ChordBadge key={i}>{formatChord(c)}</ChordBadge>
-        ))}
-      </TagRow>
+      {!compact && (
+        <TagRow>
+          <Badge>{keyNorm}</Badge>
+          <Badge $color="#e8eef5">{lick.style}</Badge>
+          <Badge $color="#eee">{lick.instrument}</Badge>
+          {lick.tempo && <Badge $color="#f5f0e0">{lick.tempo} bpm</Badge>}
+          <Badge $color="#f0eee8">{lick.rhythmfeel}</Badge>
+          <Badge $color="#ede8f0">{lick.tag}</Badge>
+          <Badge $color="#e8f0e8">{lick.nEvents} notes</Badge>
+          {lick.chords.map((c, i) => (
+            <ChordBadge key={i}>{formatChord(c)}</ChordBadge>
+          ))}
+        </TagRow>
+      )}
+      {compact && (
+        <TagRow>
+          <Badge>{keyNorm}</Badge>
+          <Badge $color="#eee">{lick.instrument}</Badge>
+        </TagRow>
+      )}
       {visible ? (
         <SvgWrap ref={svgRef} />
       ) : (

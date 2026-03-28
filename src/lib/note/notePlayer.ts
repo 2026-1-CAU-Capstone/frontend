@@ -207,77 +207,85 @@ export class NotePlayer {
 
   private build(data: NoteSheetData, tempo: number) {
     const bs = 60 / tempo; // seconds per beat
+    const [tsNum] = (data.timeSignature || '4/4').split('/').map(Number);
+    const measSec = tsNum * bs; // fixed measure duration (e.g. 4 beats)
     this.sched = [];
-    let t = 0;
 
+    // Flatten all notes with measure index and timing info
+    interface FlatNote { mi: number; note: typeof data.measures[0]['notes'][0]; beats: number }
+    const flat: FlatNote[] = [];
     for (let mi = 0; mi < data.measures.length; mi++) {
-      const measure = data.measures[mi];
-
-      // ── Melody (saxophone) ──
-      let mt = t; // melody time cursor
-      for (const n of measure.notes) {
+      for (const n of data.measures[mi].notes) {
         const base = n.duration.replace(/[dr]/g, '');
         let beats = DUR_BEATS[base] ?? 1;
         if (n.dotted) beats *= 1.5;
-        const dur = beats * bs;
-        const isRest = n.duration.endsWith('r');
+        if (n.tuplet === 3) beats *= 2 / 3;
+        flat.push({ mi, note: n, beats });
+      }
+    }
 
-        if (!isRest) {
-          for (let ki = 0; ki < n.keys.length; ki++) {
-            const acc = n.accidentals?.[ki];
-            const midi = vexToMidi(n.keys[ki], acc);
-            this.sched.push({
-              time: mt,
-              dur: Math.max(dur * 0.85, 0.04),
-              midi,
-              measure: mi,
-              track: 'melody',
-            });
-          }
+    // Schedule melody, merging tied notes
+    let fi = 0;
+    let mt = 0; // global melody time cursor
+    let currentMi = 0;
+    while (fi < flat.length) {
+      const f = flat[fi];
+      // Advance measure time cursor when measure changes
+      // Use Math.max to preserve time consumed by cross-bar ties
+      if (f.mi !== currentMi) {
+        mt = Math.max(mt, f.mi * measSec);
+        currentMi = f.mi;
+      }
+
+      const isRest = f.note.duration.endsWith('r');
+      let totalBeats = f.beats;
+
+      // If this note has a tie, merge duration with following tied notes
+      if (!isRest && f.note.tie) {
+        let look = fi + 1;
+        while (look < flat.length) {
+          totalBeats += flat[look].beats;
+          // Stop merging after a note that doesn't have tie
+          if (!flat[look].note.tie) { look++; break; }
+          look++;
+        }
+        // Schedule the merged note
+        const dur = totalBeats * bs;
+        for (let ki = 0; ki < f.note.keys.length; ki++) {
+          const acc = f.note.accidentals?.[ki];
+          const midi = vexToMidi(f.note.keys[ki], acc);
+          this.sched.push({ time: mt, dur: Math.max(dur * 0.85, 0.04), midi, measure: f.mi, track: 'melody' });
         }
         mt += dur;
+        fi = look;
+        continue;
       }
-      const measureDur = mt - t;
 
-      // ── Comping (piano) — only when chord is present ──
+      const dur = totalBeats * bs;
+      if (!isRest) {
+        for (let ki = 0; ki < f.note.keys.length; ki++) {
+          const acc = f.note.accidentals?.[ki];
+          const midi = vexToMidi(f.note.keys[ki], acc);
+          this.sched.push({ time: mt, dur: Math.max(dur * 0.85, 0.04), midi, measure: f.mi, track: 'melody' });
+        }
+      }
+      mt += dur;
+      fi++;
+    }
+
+    // Schedule comping (piano) — beat 1 only
+    for (let mi = 0; mi < data.measures.length; mi++) {
+      const measure = data.measures[mi];
       if (measure.chord) {
         const midiNotes = chordToMidi(measure.chord);
         if (midiNotes.length > 0) {
-          // Freddie Green style: hit on beats 2 and 4 (swing feel)
-          const beatsInMeasure = measureDur / bs;
-          if (beatsInMeasure >= 4) {
-            // 4/4: hits on beat 2 and 4
-            for (const beat of [1, 3]) { // 0-indexed: beat 2 = index 1, beat 4 = index 3
-              const compTime = t + beat * bs;
-              const compDur = bs * 0.4; // short stab
-              for (const midi of midiNotes) {
-                this.sched.push({
-                  time: compTime,
-                  dur: compDur,
-                  midi,
-                  measure: mi,
-                  track: 'comp',
-                });
-              }
-            }
-          } else if (beatsInMeasure >= 2) {
-            // 3/4 or 2/4: hit on beat 2
-            const compTime = t + 1 * bs;
-            const compDur = bs * 0.4;
-            for (const midi of midiNotes) {
-              this.sched.push({
-                time: compTime,
-                dur: compDur,
-                midi,
-                measure: mi,
-                track: 'comp',
-              });
-            }
+          const measStart = mi * measSec;
+          const compDur = bs * 0.6;
+          for (const midi of midiNotes) {
+            this.sched.push({ time: measStart, dur: compDur, midi, measure: mi, track: 'comp' });
           }
         }
       }
-
-      t = mt;
     }
 
     // Sort by time for the scheduling loop

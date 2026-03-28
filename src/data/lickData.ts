@@ -38,6 +38,7 @@ export interface LickEntry {
   id: number;
   performer: string;
   title: string;
+  album?: string;
   instrument: string;
   style: string;
   tempo: number | null;
@@ -246,11 +247,80 @@ export async function loadLicks(): Promise<LickEntry[]> {
   return cachedLicks;
 }
 
-/* ─── User-created lick persistence (localStorage) ───────────────── */
+/* ─── Feature computation for custom licks ───────────────────────── */
+
+const SEMI_MAP: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
+const DUR_BEATS_MAP: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25 };
+
+function noteToMidi(key: string, acc?: '#' | 'b' | 'n'): number {
+  const [n, o] = key.split('/');
+  let s = SEMI_MAP[n] ?? 0;
+  if (acc === '#') s += 1;
+  if (acc === 'b') s -= 1;
+  return (parseInt(o) + 1) * 12 + s;
+}
+
+function toFuzzy(iv: number): number {
+  const abs = Math.abs(iv);
+  const sign = iv > 0 ? 1 : iv < 0 ? -1 : 0;
+  if (abs === 0) return 0;
+  if (abs <= 2) return sign;
+  if (abs <= 4) return 2 * sign;
+  if (abs <= 7) return 3 * sign;
+  return 4 * sign;
+}
+
+function durClass(dur: string, dotted?: boolean): number {
+  const base = dur.replace(/r$/, '');
+  let beats = DUR_BEATS_MAP[base] ?? 1;
+  if (dotted) beats *= 1.5;
+  if (beats >= 2) return 2;
+  if (beats >= 1) return 1;
+  if (beats >= 0.5) return 0;
+  if (beats >= 0.25) return -1;
+  return -2;
+}
+
+export function computeLickFeatures(measures: MeasureInfo[]): {
+  intervals: number[]; parsons: number[]; fuzzyIntervals: number[]; durationClasses: number[];
+} {
+  const pitches: number[] = [];
+  const durations: { dur: string; dotted?: boolean }[] = [];
+  for (const m of measures) {
+    for (const n of m.notes) {
+      if (n.duration.endsWith('r')) continue;
+      const acc = n.accidentals?.[0] as '#' | 'b' | 'n' | undefined;
+      pitches.push(noteToMidi(n.keys[0], acc === 'n' ? undefined : acc));
+      durations.push({ dur: n.duration, dotted: n.dotted });
+    }
+  }
+  const intervals: number[] = [];
+  for (let i = 1; i < pitches.length; i++) intervals.push(pitches[i] - pitches[i - 1]);
+  const parsons = intervals.map((iv) => (iv > 0 ? 1 : iv < 0 ? -1 : 0));
+  const fuzzyIntervals = intervals.map(toFuzzy);
+  const durationClasses = durations.map((d) => durClass(d.dur, d.dotted));
+  return { intervals, parsons, fuzzyIntervals, durationClasses };
+}
+
+/* ─── User-created lick persistence (localStorage + seed file) ──── */
 
 const STORAGE_KEY = 'jazzify_user_licks';
 
-export function loadUserLicks(): LickEntry[] {
+let seedLicks: LickEntry[] | null = null;
+
+async function loadSeedLicks(): Promise<LickEntry[]> {
+  if (seedLicks) return seedLicks;
+  try {
+    const res = await fetch('/data/licks/user_licks.json');
+    seedLicks = await res.json();
+    return seedLicks!;
+  } catch {
+    seedLicks = [];
+    return [];
+  }
+}
+
+function loadLocalLicks(): LickEntry[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
@@ -260,13 +330,24 @@ export function loadUserLicks(): LickEntry[] {
   }
 }
 
+export async function loadUserLicks(): Promise<LickEntry[]> {
+  const [seed, local] = await Promise.all([loadSeedLicks(), Promise.resolve(loadLocalLicks())]);
+  const localIds = new Set(local.map((l) => l.id));
+  const merged = [...local, ...seed.filter((s) => !localIds.has(s.id))];
+  return merged;
+}
+
+export function loadUserLicksSync(): LickEntry[] {
+  return loadLocalLicks();
+}
+
 export function saveUserLick(lick: LickEntry): void {
-  const existing = loadUserLicks();
+  const existing = loadLocalLicks();
   existing.unshift(lick);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
 }
 
 export function deleteUserLick(id: number): void {
-  const existing = loadUserLicks().filter((l) => l.id !== id);
+  const existing = loadLocalLicks().filter((l) => l.id !== id);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
 }
