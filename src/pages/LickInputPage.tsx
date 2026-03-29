@@ -72,6 +72,22 @@ function ensureSax(): Promise<Soundfont.Player> {
 
 ensureSax().catch(() => {});
 
+/* ─── key signature accidentals ────────────────────────────────────────── */
+
+const KEY_SIG_FLATS = ['b', 'e', 'a', 'd', 'g', 'c', 'f'];
+const KEY_SIG_SHARPS = ['f', 'c', 'g', 'd', 'a', 'e', 'b'];
+const FLAT_KEYS: Record<string, number> = { F: 1, Bb: 2, Eb: 3, Ab: 4, Db: 5, Gb: 6, Cb: 7, Dm: 1, Gm: 2, Cm: 3, Fm: 4, Bbm: 5, Ebm: 6, Abm: 7 };
+const SHARP_KEYS: Record<string, number> = { G: 1, D: 2, A: 3, E: 4, B: 5, 'F#': 6, 'C#': 7, Em: 1, Bm: 2, 'F#m': 3, 'C#m': 4, 'G#m': 5, 'D#m': 6, 'A#m': 7 };
+
+function keySigAccidentals(vexKey: string): Map<string, 'b' | '#'> {
+  const map = new Map<string, 'b' | '#'>();
+  const nFlats = FLAT_KEYS[vexKey];
+  if (nFlats) { for (let i = 0; i < nFlats; i++) map.set(KEY_SIG_FLATS[i], 'b'); }
+  const nSharps = SHARP_KEYS[vexKey];
+  if (nSharps) { for (let i = 0; i < nSharps; i++) map.set(KEY_SIG_SHARPS[i], '#'); }
+  return map;
+}
+
 /* ─── VexFlow rendering ────────────────────────────────────────────────── */
 
 const SHEET_SCALE = 1.35;
@@ -81,6 +97,8 @@ const MAX_PER_LINE = 4;
 const DECOR_FIRST = 70;
 const DECOR_OTHER = 35;
 const PX_PER_DUR: Record<string, number> = { w: 55, h: 40, q: 32, '8': 26, '16': 22 };
+
+interface NotePos { mi: number; ni: number; x: number; y: number; w: number; h: number; }
 
 function measureMinWidth(m: MeasureInfo): number {
   let w = 24;
@@ -121,8 +139,67 @@ function buildDuration(dur: string, dotted?: boolean): string {
 }
 
 
-function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number, currentIdx: number, positions: MeasurePos[], sheetKey?: string) {
+/** Draw a wavy glissando line between two StaveNotes */
+function drawGlissLine(svgEl: SVGElement, fromNote: StaveNote, toNote: StaveNote) {
+  const fromYs = fromNote.getYs();
+  const toYs = toNote.getYs();
+  if (!fromYs.length || !toYs.length) return;
+
+  const x1 = fromNote.getNoteHeadEndX() + 3;
+  const y1 = fromYs[0];
+  const x2 = toNote.getNoteHeadBeginX() - 3;
+  const y2 = toYs[0];
+
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist < 4) return;
+
+  // Perpendicular unit vector for wave amplitude
+  const px = -dy / dist;
+  const py = dx / dist;
+
+  const waves = Math.max(3, Math.round(dist / 5));
+  const amp = 3.5;
+  let d = `M ${x1} ${y1}`;
+  for (let i = 1; i <= waves; i++) {
+    const t = i / waves;
+    const mt = t - 0.5 / waves;
+    const sign = i % 2 === 1 ? -1 : 1;
+    const mx = x1 + dx * mt + px * amp * sign;
+    const my = y1 + dy * mt + py * amp * sign;
+    const ex = x1 + dx * t;
+    const ey = y1 + dy * t;
+    d += ` Q ${mx} ${my} ${ex} ${ey}`;
+  }
+
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', d);
+  path.setAttribute('stroke', '#333');
+  path.setAttribute('stroke-width', '3');
+  path.setAttribute('fill', 'none');
+  svgEl.appendChild(path);
+
+  // "gliss." label rotated to match the line angle
+  const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+  const midX = (x1 + x2) / 2;
+  const midY = (y1 + y2) / 2;
+  const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  txt.setAttribute('x', String(midX));
+  txt.setAttribute('y', String(midY - 8));
+  txt.setAttribute('text-anchor', 'middle');
+  txt.setAttribute('font-family', "'Times New Roman', 'Georgia', serif");
+  txt.setAttribute('font-size', '9');
+  txt.setAttribute('font-style', 'italic');
+  txt.setAttribute('fill', '#333');
+  txt.setAttribute('transform', `rotate(${angle}, ${midX}, ${midY - 8})`);
+  txt.textContent = 'gliss.';
+  svgEl.appendChild(txt);
+}
+
+function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number, currentIdx: number, positions: MeasurePos[], sheetKey?: string, notePositions?: NotePos[], selectedNote?: { mi: number; ni: number } | null) {
   positions.length = 0;
+  if (notePositions) notePositions.length = 0;
   el.innerHTML = '';
   if (measures.length === 0) return;
   const innerW = width / SHEET_SCALE;
@@ -142,6 +219,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
   }
   const allVfNotes: { mi: number; ni: number; vfNote: StaveNote }[] = [];
   let tieCarryAcc: Map<string, 'b' | '#' | 'n'> | undefined;
+  const keySigAcc = keySigAccidentals(sheetKey || 'C');
 
   for (let li = 0; li < lines.length; li++) {
     const indices = lines[li];
@@ -209,23 +287,22 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
 
         if (!isRest) {
           const noteId = n.keys[0];
+          const letter = noteId.split('/')[0];
           const realAcc = n.accidentals?.[0] as 'b' | '#' | undefined;
-          const current = activeAcc.get(noteId);
+          const current = activeAcc.get(letter);
+          const keySigForLetter = keySigAcc.get(letter);
 
           if (realAcc) {
-            // Note has accidental (flat/sharp from piano black key)
             if (current !== realAcc) {
               note.addModifier(new Accidental(realAcc), 0);
             }
-            activeAcc.set(noteId, realAcc);
+            activeAcc.set(letter, realAcc);
           } else {
-            // Natural note (piano white key)
-            if (current && current !== 'n') {
-              // Accidental was active → show natural sign to cancel
+            const effective = current ?? keySigForLetter;
+            if (effective && effective !== 'n') {
               note.addModifier(new Accidental('n'), 0);
-              activeAcc.set(noteId, 'n');
+              activeAcc.set(letter, 'n');
             }
-            // else: natural already active or nothing → no sign needed
           }
         }
 
@@ -237,7 +314,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       if (lastNote?.tie && !lastNote.duration.endsWith('r')) {
         const acc = lastNote.accidentals?.[0] as 'b' | '#' | undefined;
         if (acc) {
-          tieCarryAcc = new Map([[lastNote.keys[0], acc]]);
+          tieCarryAcc = new Map([[lastNote.keys[0].split('/')[0], acc]]);
         }
       }
 
@@ -295,33 +372,41 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
             if (groupBeats > 0 && Math.floor((groupBeats - 0.001) / boundary) !== Math.floor((newGroupBeats - 0.001) / boundary) && beamGroup.length > 0) {
               if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
               beamGroup = [];
+              groupBeats = 0;
             }
           }
           beamGroup.push(vn);
+          if (!isTuplet) groupBeats += noteBeats;
+          // Force beam break after this note if beamBreak is set
+          if (measure.notes[ni].beamBreak) {
+            if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
+            beamGroup = [];
+            groupBeats = 0;
+            postTupletMerged = false;
+          }
         } else {
           if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
           beamGroup = [];
+          groupBeats = 0;
           postTupletMerged = false;
         }
-        if (!isTuplet) groupBeats += noteBeats;
       }
       if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
 
       voice.draw(ctx, stave);
       beams.forEach((bm) => bm.setContext(ctx).draw());
 
-      // Render tuplet brackets
+      // Render tuplet brackets (groups of 3)
       {
         let ti = 0;
         while (ti < measure.notes.length) {
           if (measure.notes[ti].tuplet === 3) {
             const group: StaveNote[] = [];
-            while (ti < measure.notes.length && measure.notes[ti].tuplet === 3) {
+            while (ti < measure.notes.length && measure.notes[ti].tuplet === 3 && group.length < 3) {
               group.push(vfNotes[ti]);
               ti++;
             }
             if (group.length >= 2) {
-              // Check stem direction: if stems down, place bracket below
               const stemDown = group[0].getStemDirection() === -1;
               const tuplet = new Tuplet(group, { numNotes: group.length, notesOccupied: 2 });
               if (stemDown) tuplet.setTupletLocation(-1);
@@ -356,6 +441,72 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         }
       }
       flatIdx++;
+    }
+  }
+
+  // Draw glissando lines
+  if (svgEl) {
+    flatIdx = 0;
+    for (let mi = 0; mi < measures.length; mi++) {
+      const measure = measures[mi];
+      for (let ni = 0; ni < measure.notes.length; ni++) {
+        if (measure.notes[ni].gliss) {
+          const from = allVfNotes[flatIdx];
+          const to = allVfNotes[flatIdx + 1];
+          if (from && to) {
+            drawGlissLine(svgEl, from.vfNote, to.vfNote);
+          }
+        }
+        flatIdx++;
+      }
+    }
+  }
+
+  // Collect note bounding boxes for click detection & highlight selected note
+  if (svgEl) {
+    for (const entry of allVfNotes) {
+      const bb = entry.vfNote.getBoundingBox();
+      if (bb && notePositions) {
+        notePositions.push({ mi: entry.mi, ni: entry.ni, x: bb.getX(), y: bb.getY(), w: bb.getW(), h: bb.getH() });
+      }
+      // Highlight selected note red (notehead only — stem coloring via CSS class)
+      if (selectedNote && entry.mi === selectedNote.mi && entry.ni === selectedNote.ni) {
+        const RED = '#d32f2f';
+        const noteSvg = entry.vfNote.getSVGElement();
+        if (noteSvg) {
+          // Color notehead group and all its children
+          noteSvg.querySelectorAll('*').forEach((c) => {
+            const s = (c as SVGElement).style;
+            s.fill = RED; s.stroke = RED;
+          });
+          (noteSvg as SVGElement).style.fill = RED;
+          (noteSvg as SVGElement).style.stroke = RED;
+        }
+        // Color stem: VexFlow Stem has its own SVG element
+        try {
+          const stemEl = (entry.vfNote as any).stem?.elem;
+          if (stemEl) {
+            (stemEl as SVGElement).style.fill = RED;
+            (stemEl as SVGElement).style.stroke = RED;
+            stemEl.querySelectorAll('*').forEach((c: Element) => {
+              (c as SVGElement).style.fill = RED;
+              (c as SVGElement).style.stroke = RED;
+            });
+          }
+        } catch { /* no stem (whole note) */ }
+        // Color flag
+        try {
+          const flagEl = (entry.vfNote as any).flag?.elem;
+          if (flagEl) {
+            (flagEl as SVGElement).style.fill = RED;
+            (flagEl as SVGElement).style.stroke = RED;
+            flagEl.querySelectorAll('*').forEach((c: Element) => {
+              (c as SVGElement).style.fill = RED;
+              (c as SVGElement).style.stroke = RED;
+            });
+          }
+        } catch { /* no flag */ }
+      }
     }
   }
 }
@@ -697,20 +848,28 @@ const ChordExt = styled.span`
   top: -4px;
 `;
 
+const ChordHalfDim = styled.span`
+  font-size: 1.3rem;
+  font-weight: 400;
+  display: inline-block;
+  transform: scaleX(1.3);
+  margin: 0 2px;
+`;
+
 const ChordTensionNum = styled.span`
   font-size: 0.75rem;
   font-weight: 400;
   position: relative;
   top: -7px;
-  margin-left: 3px;
+  margin-left: 0px;
 `;
 
 const ChordTensionAcc = styled.span`
-  font-size: 0.65rem;
+  font-size: 0.85rem;
   font-weight: 400;
   position: relative;
   top: -4px;
-  margin-left: -1px;
+  margin-left: 2px;
 `;
 
 const ChordCellInput = styled.input`
@@ -740,10 +899,13 @@ function normalizeChord(raw: string): string {
   // diminished
   q = q.replace(/^dim7$/i, '°7');
   q = q.replace(/^dim$/i, '°');
+  // minor-major (must be before major and minor): -M7, mM7, minmaj7, -maj7
+  q = q.replace(/^(?:-|m|min)(?:M|maj)(\d.*)$/i, '-△$1');
   // major
   q = q.replace(/^maj(\d.*)$/i, '△$1');
   q = q.replace(/^maj$/i, '△');
   q = q.replace(/^M(\d.*)$/, '△$1');
+  q = q.replace(/^M$/, '△');
   // minor (m, min → -)
   q = q.replace(/^min(\d.*)$/i, '-$1');
   q = q.replace(/^min$/i, '-');
@@ -756,27 +918,48 @@ function normalizeChord(raw: string): string {
   return root + q;
 }
 
-function splitChord(chord: string): { base: string; ext: string; tensionAcc: string; tensionNum: string } {
-  const m = chord.match(/^(\D*?)(\d+)(.*)$/);
-  if (!m) return { base: chord, ext: '', tensionAcc: '', tensionNum: '' };
-  const tension = m[3] || '';
-  const ta = tension.match(/^([\u266D\u266F♭♯#b]*)(.*)/);
-  return { base: m[1], ext: m[2], tensionAcc: ta?.[1] || '', tensionNum: ta?.[2] || '' };
+function splitChord(chord: string): { base: string; ext: string; tensions: { acc: string; num: string }[] } {
+  // Split into base (non-digit prefix) and the rest starting from first digit
+  const m = chord.match(/^(\D*?)(\d.*)$/);
+  if (!m) return { base: chord, ext: '', tensions: [] };
+  // ext is the first number (e.g. "7" from "7♭9♯11")
+  const rest = m[2];
+  const extMatch = rest.match(/^(\d+)/);
+  const ext = extMatch ? extMatch[1] : '';
+  let remaining = rest.slice(ext.length);
+  // Parse tensions: each is optional accidental + number (e.g. ♭9, ♯11, 13)
+  const tensions: { acc: string; num: string }[] = [];
+  while (remaining.length > 0) {
+    const t = remaining.match(/^([♭♯\u266D\u266F#b]*)(\d+)/);
+    if (!t) break;
+    tensions.push({ acc: t[1], num: t[2] });
+    remaining = remaining.slice(t[0].length);
+  }
+  // If there's leftover (e.g. trailing "b" without number), append to last tension or ignore
+  return { base: m[1], ext, tensions };
 }
 
 function formatChordDisplay(raw: string): string {
-  return raw
-    .replace(/j7/g, '\u25B37')
-    .replace(/(?<=[A-G])b(?=[^a-z]|$)/g, '\u266D')
-    .replace(/(\d)b/g, '$1\u266D')
-    .replace(/b(\d)/g, '\u266D$1')
-    .replace(/(\d)#/g, '$1\u266F')
-    .replace(/#(\d)/g, '\u266F$1')
-    .replace(/-7b5/g, '\u00F87')
-    .replace(/h7/g, '\u00F87')
-    .replace(/h(?!\d)/g, '\u00F8')
-    .replace(/o7/g, '\u00B07')
-    .replace(/o(?!\d)/g, '\u00B0');
+  const m = raw.match(/^([A-G])([b#]?)(.*)/);
+  if (!m) return raw;
+
+  const root = m[1];
+  const acc = m[2] === 'b' ? '\u266D' : m[2] === '#' ? '\u266F' : '';
+  let q = m[3];
+
+  q = q.replace(/^(-7b5|-7\(b5\)|m7b5)/,  '\u00F87');
+  q = q.replace(/^j7/,                     '\u25B37');
+  q = q.replace(/^h7/,                     '\u00F87');
+  q = q.replace(/^h(?!\d)/,                '\u00F8');
+  q = q.replace(/^o7/,                     '\u00B07');
+  q = q.replace(/^o(?!\d)/,                '\u00B0');
+
+  q = q.replace(/(\d)b/g,  '$1\u266D');
+  q = q.replace(/b(\d)/g,  '\u266D$1');
+  q = q.replace(/(\d)#/g,  '$1\u266F');
+  q = q.replace(/#(\d)/g,  '\u266F$1');
+
+  return root + acc + q;
 }
 
 function ChordCell({ value, onChange, style }: {
@@ -787,7 +970,7 @@ function ChordCell({ value, onChange, style }: {
   const [editing, setEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const formatted = formatChordDisplay(value);
-  const { base, ext, tensionAcc, tensionNum } = splitChord(formatted);
+  const { base, ext, tensions } = splitChord(formatted);
 
   return (
     <ChordCellWrap $hasValue={!!value} style={style} onClick={() => { setEditing(true); setTimeout(() => inputRef.current?.focus(), 0); }}>
@@ -801,17 +984,76 @@ function ChordCell({ value, onChange, style }: {
         />
       ) : (
         <ChordCellDisplay>
-          {value ? <>
-            <ChordBase>{base}</ChordBase>
-            {ext && <ChordExt>{ext}</ChordExt>}
-            {tensionNum && <ChordTensionNum>{tensionNum}</ChordTensionNum>}
-            {tensionAcc && <ChordTensionAcc>{tensionAcc}</ChordTensionAcc>}
-          </> : null}
+          {value ? (() => {
+            // Separate half-dim/dim symbol from base if present
+            const dimMatch = base.match(/^(.*?)([\u00F8\u00B0])$/);
+            const baseText = dimMatch ? dimMatch[1] : base;
+            const dimSymbol = dimMatch ? dimMatch[2] : '';
+            return <>
+              <ChordBase>{baseText}</ChordBase>
+              {dimSymbol && <ChordHalfDim>{dimSymbol}</ChordHalfDim>}
+              {ext && <ChordExt>{ext}</ChordExt>}
+              {tensions.map((t, i) => (
+                <span key={i}>
+                  {t.acc && <ChordTensionAcc>{t.acc}</ChordTensionAcc>}
+                  <ChordTensionNum>{t.num}</ChordTensionNum>
+                </span>
+              ))}
+            </>;
+          })() : null}
         </ChordCellDisplay>
       )}
     </ChordCellWrap>
   );
 }
+
+const NoteEditBar = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 18px;
+  border-bottom: 2px solid #d32f2f;
+  background: #fff5f5;
+  flex-wrap: wrap;
+`;
+
+const NoteEditLabel = styled.span`
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #d32f2f;
+`;
+
+const NoteEditBtn = styled.button<{ $active?: boolean }>`
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  padding: 5px 12px;
+  border: 1px solid ${({ $active }) => ($active ? '#d32f2f' : '#ccc')};
+  border-radius: 6px;
+  background: ${({ $active }) => ($active ? '#ffcdd2' : '#fff')};
+  cursor: pointer;
+  color: ${({ $active }) => ($active ? '#d32f2f' : '#333')};
+  font-weight: ${({ $active }) => ($active ? 700 : 400)};
+  &:hover { background: #ffebee; }
+`;
+
+const NoteChordOverlayInput = styled.input`
+  position: absolute;
+  font-family: 'MuseJazz Text', 'DM Sans', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 400;
+  width: 58px;
+  height: 28px;
+  padding: 2px 5px;
+  border: none;
+  border-radius: 3px;
+  background: rgba(255, 248, 220, 0.85);
+  box-shadow: 0 0 0 1.5px rgba(184, 150, 10, 0.25);
+  color: #8B6914;
+  outline: none;
+  z-index: 10;
+  &:focus { box-shadow: 0 0 0 2px rgba(184, 150, 10, 0.45); }
+  &::placeholder { color: #c4a850; opacity: 0.6; }
+`;
 
 const EmptyHint = styled.div`
   display: flex;
@@ -855,7 +1097,7 @@ export default function LickInputPage() {
 
   const [duration, setDuration] = useState('8');
   const [dotted, setDotted] = useState(false);
-  const [accMode, setAccMode] = useState<'b' | '#'>('b');
+  const [accMode, setAccMode] = useState<'b' | '#' | 'n'>('b');
   const [tieNext, setTieNext] = useState(false);
   const [tripletMode, setTripletMode] = useState(false);
   const tripletCountRef = useRef(0);
@@ -871,6 +1113,19 @@ export default function LickInputPage() {
   const chordRef = useRef<HTMLInputElement>(null);
   const positionsRef = useRef<MeasurePos[]>([]);
   const [measurePositions, setMeasurePositions] = useState<MeasurePos[]>([]);
+  const notePositionsRef = useRef<NotePos[]>([]);
+  const [notePositions, setNotePositions] = useState<NotePos[]>([]);
+  const [selectedNote, setSelectedNote] = useState<{ mi: number; ni: number } | null>(null);
+  const [noteChordEditing, setNoteChordEditing] = useState(false);
+  const [noteChordValue, setNoteChordValue] = useState('');
+  const noteChordInputRef = useRef<HTMLInputElement>(null);
+
+  // Undo stack for note-edit operations (accidental, tie, divide, chord)
+  const editUndoStack = useRef<{ measures: MeasureInfo[]; curNotes: NoteInfo[]; curChord: string }[]>([]);
+  const pushEditUndo = useCallback(() => {
+    editUndoStack.current.push({ measures: measures.map((m) => ({ ...m, notes: m.notes.map((n) => ({ ...n })) })), curNotes: curNotes.map((n) => ({ ...n })), curChord });
+    if (editUndoStack.current.length > 50) editUndoStack.current.shift();
+  }, [measures, curNotes, curChord]);
 
   const curBeats = useMemo(() => measureBeats(curNotes), [curNotes]);
 
@@ -931,9 +1186,13 @@ export default function LickInputPage() {
 
   /* piano input — store real pitch, display logic handled in renderSheet */
   const handleNotePress = useCallback((pn: PianoNote) => {
-    const conv = convertAcc(pn, accMode);
+    const conv = convertAcc(pn, accMode === 'n' ? 'b' : accMode);
     const ni: NoteInfo = { keys: [conv.vexKey], duration, dotted: dotted || undefined };
-    if (conv.acc) ni.accidentals = { 0: conv.acc };
+    if (accMode === 'n') {
+      ni.accidentals = { 0: 'n' };
+    } else if (conv.acc) {
+      ni.accidentals = { 0: conv.acc };
+    }
     if (tripletMode) ni.tuplet = 3;
     playMidi(pn.midi);
 
@@ -992,8 +1251,15 @@ export default function LickInputPage() {
     }
   }, [duration, dotted, tripletMode, curNotes, maybeAutoClose]);
 
-  /* undo: remove last note from current measure, or pop last measure */
+  /* undo: pop edit-undo stack first, then fall back to removing last note / measure */
   const handleUndo = useCallback(() => {
+    if (editUndoStack.current.length > 0) {
+      const snap = editUndoStack.current.pop()!;
+      setMeasures(snap.measures);
+      setCurNotes(snap.curNotes);
+      setCurChord(snap.curChord);
+      return;
+    }
     if (curNotes.length > 0) {
       setCurNotes((p) => p.slice(0, -1));
     } else if (measures.length > 0) {
@@ -1018,11 +1284,11 @@ export default function LickInputPage() {
       if (e.key === 'Enter') { e.preventDefault(); closeMeasure(); }
       if (e.key === 'l' || e.key === 'L') { e.preventDefault(); setTieNext((v) => !v); }
       if (e.key === 't' || e.key === 'T') { e.preventDefault(); setTripletMode((v) => { if (!v) tripletCountRef.current = 0; return !v; }); }
-      if (e.key === '1') { e.preventDefault(); setDuration('w'); }
-      if (e.key === '2') { e.preventDefault(); setDuration('h'); }
-      if (e.key === '4') { e.preventDefault(); setDuration('q'); }
-      if (e.key === '8') { e.preventDefault(); setDuration('8'); }
-      if (e.key === '6') { e.preventDefault(); setDuration('16'); }
+      if (e.key === '1') { e.preventDefault(); setDuration('w'); setDotted(false); }
+      if (e.key === '2') { e.preventDefault(); setDuration('h'); setDotted(false); }
+      if (e.key === '4') { e.preventDefault(); setDuration('q'); setDotted(false); }
+      if (e.key === '8') { e.preventDefault(); setDuration('8'); setDotted(false); }
+      if (e.key === '6') { e.preventDefault(); setDuration('16'); setDotted(false); }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -1032,40 +1298,103 @@ export default function LickInputPage() {
   useEffect(() => {
     const el = svgRef.current;
     if (!el) return;
-    if (allMeasures.length === 0) { el.innerHTML = ''; positionsRef.current = []; setMeasurePositions([]); return; }
-    renderSheet(el, allMeasures, Math.max(sheetWidth, 300), currentIdx, positionsRef.current, lickKey || undefined);
+    if (allMeasures.length === 0) { el.innerHTML = ''; positionsRef.current = []; setMeasurePositions([]); notePositionsRef.current = []; return; }
+    renderSheet(el, allMeasures, Math.max(sheetWidth, 300), currentIdx, positionsRef.current, lickKey || undefined, notePositionsRef.current, selectedNote);
     setMeasurePositions([...positionsRef.current]);
-  }, [allMeasures, sheetWidth, currentIdx, lickKey]);
+    setNotePositions([...notePositionsRef.current]);
+  }, [allMeasures, sheetWidth, currentIdx, lickKey, selectedNote]);
+
+  // Selected note info
+  const selNoteInfo = useMemo<NoteInfo | null>(() => {
+    if (!selectedNote) return null;
+    const m = allMeasures[selectedNote.mi];
+    if (!m) return null;
+    return m.notes[selectedNote.ni] ?? null;
+  }, [selectedNote, allMeasures]);
+
+  // Deselect when measures change structurally (undo, clear, etc.)
+  useEffect(() => {
+    if (selectedNote && !allMeasures[selectedNote.mi]?.notes[selectedNote.ni]) {
+      setSelectedNote(null);
+    }
+  }, [allMeasures, selectedNote]);
+
+  /* click on SVG to select/deselect notes */
+  const handleSheetClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const el = svgRef.current;
+    if (!el) return;
+    const svgEl = el.querySelector('svg');
+    if (!svgEl) return;
+    const rect = svgEl.getBoundingClientRect();
+    // Convert click coords to unscaled SVG coords
+    const cx = (e.clientX - rect.left) / SHEET_SCALE;
+    const cy = (e.clientY - rect.top) / SHEET_SCALE;
+    // Find closest note within hit distance
+    let best: NotePos | null = null;
+    let bestDist = Infinity;
+    for (const np of notePositionsRef.current) {
+      const ncx = np.x + np.w / 2;
+      const ncy = np.y + np.h / 2;
+      const dx = cx - ncx;
+      const dy = cy - ncy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < bestDist && dist < 25) { bestDist = dist; best = np; }
+    }
+    if (best) {
+      // Toggle: if already selected, deselect
+      if (selectedNote && selectedNote.mi === best.mi && selectedNote.ni === best.ni) {
+        setSelectedNote(null);
+      } else {
+        setSelectedNote({ mi: best.mi, ni: best.ni });
+      }
+    } else {
+      setSelectedNote(null);
+    }
+  }, [selectedNote]);
+
+  /* helper: modify a specific note in measures/curNotes */
+  const updateNote = useCallback((mi: number, ni: number, updater: (n: NoteInfo) => NoteInfo) => {
+    pushEditUndo();
+    if (mi < measures.length) {
+      setMeasures((prev) => prev.map((m, i) => i === mi ? { ...m, notes: m.notes.map((n, j) => j === ni ? updater(n) : n) } : m));
+    } else {
+      // It's in curNotes
+      setCurNotes((prev) => prev.map((n, j) => j === ni ? updater(n) : n));
+    }
+  }, [measures.length, pushEditUndo]);
+
+  /* set chord on a specific note */
+  const setChordAtNote = useCallback((mi: number, ni: number, chord: string) => {
+    updateNote(mi, ni, (n) => ({ ...n, chord: chord || undefined }));
+  }, [updateNote]);
 
   /* build JSON */
   const totalNotes = measures.reduce((s, m) => s + m.notes.length, 0) + curNotes.length;
 
   const jsonOutput = useMemo(() => {
     if (allMeasures.length === 0) return '';
-    const jsonNotes = allMeasures.flatMap((m, mi) =>
-      m.notes.map((n) => {
-        const isRest = n.duration.endsWith('r');
-        const baseDur = n.duration.replace(/r$/, '');
-        const durStr = (n.dotted ? 'dotted-' : '') + (DUR_LABEL[baseDur] ?? baseDur);
-        if (isRest) return { pitch: null, duration: durStr, bar: mi + 1, ...(n.tie ? { tie: true } : {}) };
-        const acc = n.accidentals ? (n.accidentals[0] as '#' | 'b' | 'n' | undefined) : undefined;
-        return { pitch: vexToMidi(n.keys[0], acc), duration: durStr, bar: mi + 1, ...(acc === '#' ? { accDisplay: '#' } : {}), ...(n.tie ? { tie: true } : {}) };
-      }),
-    );
-    const chords = allMeasures.map((m) => m.chord ?? '');
-    return JSON.stringify({
-      id: `custom-${Date.now()}`,
-      performer,
-      title,
+    const totalN = allMeasures.reduce((s, m) => s + m.notes.filter(n => !n.duration.endsWith('r')).length, 0);
+    const entry = {
+      id: 0,
+      performer: performer || 'Unknown',
+      title: title || 'Untitled',
       album,
       instrument,
       key: lickKey,
       style: '',
-      tempo: null,
-      tags: [],
-      chords,
-      notes: jsonNotes,
-    }, null, 2);
+      tempo: null as number | null,
+      tags: [] as string[],
+      chords: allMeasures.map((m) => m.chord ?? '').filter(Boolean),
+      sheetData: {
+        timeSignature: '4/4',
+        measures: allMeasures,
+      },
+      intervals: [] as number[],
+      parsons: [] as number[],
+      fuzzyIntervals: [] as number[],
+      durationClasses: [] as number[],
+    };
+    return JSON.stringify(entry, null, 2);
   }, [allMeasures, performer, title, album, instrument, lickKey]);
 
   /* playback */
@@ -1218,7 +1547,7 @@ export default function LickInputPage() {
         <SectionLabel>Duration</SectionLabel>
         {DUR_KEYS.map((d) => (
           <DurCol key={d.value}>
-            <DurBtn $active={duration === d.value} onClick={() => setDuration(d.value)} title={d.title}>
+            <DurBtn $active={duration === d.value} onClick={() => { setDuration(d.value); setDotted(false); }} title={d.title}>
               <NoteIcon type={d.value} />
             </DurBtn>
             <RestBtn onClick={() => handleRest(d.value)} title={`${d.title} rest`}>
@@ -1229,6 +1558,7 @@ export default function LickInputPage() {
         <DurBtn $active={dotted} onClick={() => setDotted((v) => !v)} title="Dotted" style={{ fontSize: '1.6rem', fontWeight: 900 }}>.</DurBtn>
         <DurBtn $active={accMode === 'b'} onClick={() => setAccMode('b')} title="Flat mode" style={{ fontSize: '1.2rem', fontWeight: 700 }}>♭</DurBtn>
         <DurBtn $active={accMode === '#'} onClick={() => setAccMode('#')} title="Sharp mode" style={{ fontSize: '1.2rem', fontWeight: 700 }}>♯</DurBtn>
+        <DurBtn $active={accMode === 'n'} onClick={() => setAccMode((v) => v === 'n' ? 'b' : 'n')} title="Natural mode" style={{ fontSize: '1.2rem', fontWeight: 700 }}>♮</DurBtn>
 
         <Sep />
         <DurBtn $active={tieNext} onClick={() => setTieNext((v) => !v)} title="Tie to next note (L)" style={{ fontSize: '1.3rem' }}>
@@ -1317,11 +1647,163 @@ export default function LickInputPage() {
       </PianoArea>
       <KeyHint>1=whole &middot; 2=half &middot; 4=quarter &middot; 8=8th &middot; 6=16th &middot; L=tie &middot; T=triplet &middot; Enter=close measure &middot; Backspace=undo</KeyHint>
 
+      {selectedNote && selNoteInfo && (
+        <NoteEditBar>
+          <NoteEditLabel>
+            Note: {selNoteInfo.keys[0]} ({selNoteInfo.duration.replace('r', ' rest')})
+            {selNoteInfo.accidentals?.[0] === 'b' ? ' ♭' : selNoteInfo.accidentals?.[0] === '#' ? ' ♯' : selNoteInfo.accidentals?.[0] === 'n' ? ' ♮' : ''}
+          </NoteEditLabel>
+          <Sep />
+
+          {/* Accidental buttons */}
+          <NoteEditBtn
+            $active={selNoteInfo.accidentals?.[0] === 'b'}
+            onClick={() => {
+              updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                const cur = n.accidentals?.[0];
+                if (cur === 'b') {
+                  // Remove flat
+                  const { ...rest } = n;
+                  delete rest.accidentals;
+                  return rest;
+                }
+                return { ...n, accidentals: { 0: 'b' as const } };
+              });
+            }}
+          >♭</NoteEditBtn>
+          <NoteEditBtn
+            $active={selNoteInfo.accidentals?.[0] === '#'}
+            onClick={() => {
+              updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                const cur = n.accidentals?.[0];
+                if (cur === '#') {
+                  const { ...rest } = n;
+                  delete rest.accidentals;
+                  return rest;
+                }
+                return { ...n, accidentals: { 0: '#' as const } };
+              });
+            }}
+          >♯</NoteEditBtn>
+          <NoteEditBtn
+            $active={selNoteInfo.accidentals?.[0] === 'n'}
+            onClick={() => {
+              updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                const cur = n.accidentals?.[0];
+                if (cur === 'n') {
+                  const { ...rest } = n;
+                  delete rest.accidentals;
+                  return rest;
+                }
+                return { ...n, accidentals: { 0: 'n' as const } };
+              });
+            }}
+          >♮</NoteEditBtn>
+
+          <Sep />
+
+          {/* Tie button — only if next note has same pitch */}
+          {(() => {
+            if (selNoteInfo.duration.endsWith('r')) return null;
+            // Find next note
+            const flat: { mi: number; ni: number; note: NoteInfo }[] = [];
+            for (let mi = 0; mi < allMeasures.length; mi++)
+              for (let ni = 0; ni < allMeasures[mi].notes.length; ni++)
+                flat.push({ mi, ni, note: allMeasures[mi].notes[ni] });
+            const idx = flat.findIndex((f) => f.mi === selectedNote.mi && f.ni === selectedNote.ni);
+            const next = flat[idx + 1];
+            if (!next || next.note.duration.endsWith('r')) return null;
+            // Same pitch check
+            const curPitch = vexToMidi(selNoteInfo.keys[0], selNoteInfo.accidentals?.[0] as '#' | 'b' | undefined);
+            const nextPitch = vexToMidi(next.note.keys[0], next.note.accidentals?.[0] as '#' | 'b' | undefined);
+            if (curPitch !== nextPitch) return null;
+            return (
+              <NoteEditBtn
+                $active={!!selNoteInfo.tie}
+                onClick={() => {
+                  updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, tie: !n.tie || undefined }));
+                }}
+              >
+                <svg width="22" height="14" viewBox="0 0 18 14" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+                  <path d="M2 4 Q9 14 16 4" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                </svg>
+                {' '}Tie
+              </NoteEditBtn>
+            );
+          })()}
+
+          {/* Glissando button — only if not a rest and has a next note */}
+          {(() => {
+            if (selNoteInfo.duration.endsWith('r')) return null;
+            const flat: { mi: number; ni: number; note: NoteInfo }[] = [];
+            for (let mi = 0; mi < allMeasures.length; mi++)
+              for (let ni = 0; ni < allMeasures[mi].notes.length; ni++)
+                flat.push({ mi, ni, note: allMeasures[mi].notes[ni] });
+            const idx = flat.findIndex((f) => f.mi === selectedNote.mi && f.ni === selectedNote.ni);
+            const next = flat[idx + 1];
+            if (!next || next.note.duration.endsWith('r')) return null;
+            return (
+              <NoteEditBtn
+                $active={!!selNoteInfo.gliss}
+                onClick={() => {
+                  updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, gliss: !n.gliss || undefined }));
+                }}
+              >
+                <svg width="22" height="14" viewBox="0 0 22 14" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+                  <path d="M2 12 Q7 8 12 6 Q17 4 20 2" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                </svg>
+                {' '}Gliss
+              </NoteEditBtn>
+            );
+          })()}
+
+          {/* Divide (beam break) button — only for beamable notes */}
+          {(() => {
+            if (selNoteInfo.duration.endsWith('r')) return null;
+            const base = selNoteInfo.duration.replace(/r$/, '');
+            if (base !== '8' && base !== '16') return null;
+            return (
+              <NoteEditBtn
+                $active={!!selNoteInfo.beamBreak}
+                onClick={() => {
+                  updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, beamBreak: !n.beamBreak || undefined }));
+                }}
+              >
+                Divide
+              </NoteEditBtn>
+            );
+          })()}
+
+          <Sep />
+
+          {/* Chord button — opens input overlay above the note on the sheet */}
+          <NoteEditBtn
+            $active={noteChordEditing}
+            onClick={() => {
+              if (noteChordEditing) {
+                const norm = normalizeChord(noteChordValue);
+                setChordAtNote(selectedNote.mi, selectedNote.ni, norm);
+                setNoteChordEditing(false);
+              } else {
+                setNoteChordValue(selNoteInfo?.chord ?? '');
+                setNoteChordEditing(true);
+                setTimeout(() => noteChordInputRef.current?.focus(), 0);
+              }
+            }}
+          >
+            Chord{selNoteInfo?.chord ? `: ${selNoteInfo.chord}` : ''}
+          </NoteEditBtn>
+
+          <Sep />
+          <NoteEditBtn onClick={() => setSelectedNote(null)}>✕ Deselect</NoteEditBtn>
+        </NoteEditBar>
+      )}
+
       {showPreview && jsonOutput && <JsonPreview>{jsonOutput}</JsonPreview>}
 
       <SheetArea ref={sheetAreaRef}>
         {totalNotes === 0 && <EmptyHint>Type chord &rarr; play notes &rarr; Enter or | to close measure</EmptyHint>}
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative' }} onClick={handleSheetClick}>
           <div ref={svgRef} />
           {measurePositions.map((pos) => (
             <ChordCell
@@ -1331,6 +1813,55 @@ export default function LickInputPage() {
               style={{ left: pos.chordX * SHEET_SCALE, top: (pos.y - 2) * SHEET_SCALE, width: 58 * SHEET_SCALE }}
             />
           ))}
+          {/* Per-note chord labels — same style/size as measure chords */}
+          {notePositions.map((np) => {
+            const note = allMeasures[np.mi]?.notes[np.ni];
+            if (!note?.chord) return null;
+            // If this note is being chord-edited, show input instead
+            if (noteChordEditing && selectedNote && selectedNote.mi === np.mi && selectedNote.ni === np.ni) return null;
+            // Use the measure's y so chord sits at the same row as measure chords
+            const mpos = measurePositions.find((p) => p.idx === np.mi);
+            const chordY = mpos ? mpos.y : np.y - 20;
+            return (
+              <ChordCell
+                key={`nc-${np.mi}-${np.ni}`}
+                value={note.chord}
+                onChange={(v) => setChordAtNote(np.mi, np.ni, v)}
+                style={{ left: (np.x - 4) * SHEET_SCALE, top: (chordY - 2) * SHEET_SCALE, width: 58 * SHEET_SCALE }}
+              />
+            );
+          })}
+          {/* Per-note chord input overlay */}
+          {noteChordEditing && selectedNote && (() => {
+            const np = notePositions.find((p) => p.mi === selectedNote.mi && p.ni === selectedNote.ni);
+            if (!np) return null;
+            const mpos = measurePositions.find((p) => p.idx === selectedNote.mi);
+            const chordY = mpos ? mpos.y : np.y - 20;
+            return (
+              <NoteChordOverlayInput
+                ref={noteChordInputRef}
+                value={noteChordValue}
+                onChange={(e) => setNoteChordValue(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                onBlur={() => {
+                  const norm = normalizeChord(noteChordValue);
+                  setChordAtNote(selectedNote.mi, selectedNote.ni, norm);
+                  setNoteChordEditing(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === 'Escape') {
+                    e.preventDefault();
+                    const norm = normalizeChord(noteChordValue);
+                    setChordAtNote(selectedNote.mi, selectedNote.ni, norm);
+                    setNoteChordEditing(false);
+                  }
+                }}
+                placeholder="e.g. Dm7"
+                autoFocus
+                style={{ left: (np.x - 4) * SHEET_SCALE, top: (chordY - 2) * SHEET_SCALE }}
+              />
+            );
+          })()}
         </div>
       </SheetArea>
     </Page>

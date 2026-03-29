@@ -388,7 +388,7 @@ const QUALITY_PREFIXES: [RegExp, string][] = [
   // ── Minor 7 (before bare-minor check) ────────────────────────────────────
   [/^(-7(?!b5)|m7(?!b5)|min7)/,                       '-7'],
   // ── Minor (triad / with extension) ───────────────────────────────────────
-  [/^(-(?!\d)|m(?!aj|7|in)|min(?!7))/,                '-'],
+  [/^(-|m(?!aj|7|in)|min(?!7))/,                      '-'],
 ];
 
 function normalizeQuality(raw: string): string {

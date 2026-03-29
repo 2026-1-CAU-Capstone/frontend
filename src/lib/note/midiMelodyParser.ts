@@ -231,28 +231,92 @@ function extractNotes(track: MidiEvent[]): NoteEv[] {
   return notes.sort((a, b) => a.start - b.start || a.midi - b.midi);
 }
 
-/** Group notes that start at the same tick into chord groups. */
-function groupChords(notes: NoteEv[]): NoteEv[][] {
-  const groups: NoteEv[][] = [];
+/**
+ * Extract the top-voice melody from a polyphonic note stream.
+ *
+ * 1. Simultaneous notes (same onset) → keep only the highest pitch.
+ * 2. Skyline: if a note starts while a higher note is still sounding, drop it.
+ * 3. Outlier removal: notes >12 semitones below the local pitch context are
+ *    likely left-hand / comping artefacts — remove them.
+ */
+function extractMelodyLine(notes: NoteEv[]): NoteEv[] {
+  if (notes.length === 0) return [];
+
+  // Step 1 — collapse simultaneous onsets to highest pitch
+  const topped: NoteEv[] = [];
   let i = 0;
   while (i < notes.length) {
-    const group = [notes[i]];
+    let top = notes[i];
     while (i + 1 < notes.length && Math.abs(notes[i + 1].start - notes[i].start) < 5) {
       i++;
-      group.push(notes[i]);
+      if (notes[i].midi > top.midi) top = notes[i];
     }
-    groups.push(group);
+    topped.push(top);
     i++;
   }
-  return groups;
+
+  // Step 2 — skyline: drop notes that start while a higher note is still ringing
+  const skyline: NoteEv[] = [];
+  for (const n of topped) {
+    const blocked = skyline.some(s => s.end > n.start + 5 && s.midi > n.midi);
+    if (!blocked) skyline.push(n);
+  }
+
+  // Step 3 — remove pitch outliers (>octave below local window average)
+  const W = 4; // half-window size
+  const filtered: NoteEv[] = [];
+  for (let j = 0; j < skyline.length; j++) {
+    const lo = Math.max(0, j - W);
+    const hi = Math.min(skyline.length, j + W + 1);
+    let sum = 0, cnt = 0;
+    for (let k = lo; k < hi; k++) {
+      if (k === j) continue;
+      sum += skyline[k].midi; cnt++;
+    }
+    if (cnt > 0 && skyline[j].midi < sum / cnt - 14) continue; // skip outlier
+    filtered.push(skyline[j]);
+  }
+
+  return filtered;
 }
 
+/** Score a track for "melody-likeness": prefer monophonic, non-drum, reasonable range. */
 function melodyTrack(midi: ParsedMidi): MidiEvent[] {
   let best = midi.tracks[0] ?? [];
-  let max = 0;
+  let bestScore = -Infinity;
+
+  // Extract track names for filtering
+  const SKIP_NAMES = /bass|drum|cymbal|conga|kick|snare|hi[\s-]?hat|percussion|hit/i;
+
   for (const tr of midi.tracks) {
-    const c = tr.filter(e => e.type === 'noteOn').length;
-    if (c > max) { max = c; best = tr; }
+    const noteOns = tr.filter(e => e.type === 'noteOn');
+    if (noteOns.length === 0) continue;
+
+    // Skip drum channel (channel 9, 0-indexed)
+    if (noteOns.every(e => e.type === 'noteOn' && e.channel === 9)) continue;
+
+    // Skip tracks named as bass/drums (only when other tracks exist)
+    const nameMeta = tr.find(e => e.type === 'meta' && e.metaType === 0x03) as Extract<MidiEvent,{type:'meta'}> | undefined;
+    const trackName = nameMeta ? new TextDecoder().decode(nameMeta.data).trim() : '';
+    if (trackName && SKIP_NAMES.test(trackName) && midi.tracks.length > 2) continue;
+
+    // Count simultaneous notes (polyphony) — group by tick
+    const byTick = new Map<number, number>();
+    for (const e of noteOns) { byTick.set(e.tick, (byTick.get(e.tick) ?? 0) + 1); }
+    const avgPoly = [...byTick.values()].reduce((a, b) => a + b, 0) / byTick.size;
+
+    // Average pitch — melody tends to be in a mid-high range (60-84)
+    const avgPitch = noteOns.reduce((s, e) => s + (e.type === 'noteOn' ? e.note : 0), 0) / noteOns.length;
+    const pitchScore = avgPitch >= 55 && avgPitch <= 90 ? 20 : avgPitch < 50 ? -20 : 0;
+
+    // Mono tracks score high, polyphonic tracks score low
+    const monoScore = 20 / avgPoly;
+
+    // Some note count is needed but don't favor the most dense track
+    const countScore = Math.min(noteOns.length, 200) / 20;
+
+    const score = monoScore + pitchScore + countScore;
+    if (score > bestScore) { bestScore = score; best = tr; }
   }
   return best;
 }
@@ -283,10 +347,10 @@ export async function loadMidiMelody(
   const noteEvents = extractNotes(melody);
   if (!noteEvents.length) return { title, composer, key, timeSignature: timeSig, tempo, measures: [] };
 
-  // Group simultaneous notes into chords
-  const chordGroups = groupChords(noteEvents);
+  // Extract single melody line (skyline top-voice extraction)
+  const melodyNotes = extractMelodyLine(noteEvents);
 
-  const lastTick = Math.max(...noteEvents.map(n => n.end));
+  const lastTick = Math.max(...melodyNotes.map(n => n.end));
   const totalMeasures = Math.max(1, Math.ceil(lastTick / tpm));
 
   const measures: MeasureInfo[] = [];
@@ -295,38 +359,30 @@ export async function loadMidiMelody(
     const mStart = m * tpm;
     const mEnd = mStart + tpm;
 
-    // Collect chord groups that start within this measure
-    const mGroups = chordGroups.filter(g => g[0].start >= mStart && g[0].start < mEnd);
+    const mNotes = melodyNotes.filter(n => n.start >= mStart && n.start < mEnd);
     const notes: NoteInfo[] = [];
-    let cur = mStart; // track position in ticks (use actual ticks to avoid drift)
+    let cur = mStart;
 
-    for (const group of mGroups) {
-      const onset = group[0].start;
+    for (const ev of mNotes) {
+      const onset = ev.start;
 
-      // Rest before this chord group
+      // Rest before this note
       if (onset > cur + tpb * 0.05) {
         const gapBeats = (onset - cur) / tpb;
         notes.push(...fillRests(gapBeats));
       }
 
-      // Duration: use shortest note in the group, clamped to barline
-      const minEnd = Math.min(...group.map(n => n.end));
-      const rawBeats = Math.min(minEnd - onset, mEnd - onset) / tpb;
+      // Duration clamped to barline
+      const rawBeats = Math.min(ev.end - onset, mEnd - onset) / tpb;
       const q = quantise(rawBeats);
 
-      // Build chord (multiple keys if simultaneous)
-      const keys: string[] = [];
+      const { key: vk, accidental } = midiToVex(ev.midi, preferSharps);
       const accidentals: Record<number, '#' | 'b'> = {};
-
-      for (let gi = 0; gi < group.length; gi++) {
-        const { key: vk, accidental } = midiToVex(group[gi].midi, preferSharps);
-        keys.push(vk);
-        if (accidental && !keySigPcs.has(group[gi].midi % 12)) {
-          accidentals[gi] = accidental;
-        }
+      if (accidental && !keySigPcs.has(ev.midi % 12)) {
+        accidentals[0] = accidental;
       }
 
-      const ni: NoteInfo = { keys, duration: q.vf, dotted: q.dot || undefined };
+      const ni: NoteInfo = { keys: [vk], duration: q.vf, dotted: q.dot || undefined };
       if (Object.keys(accidentals).length > 0) ni.accidentals = accidentals;
       notes.push(ni);
 

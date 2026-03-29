@@ -368,13 +368,14 @@ export default function LicksPage() {
   const [loadingLicks, setLoadingLicks] = useState(true);
 
   useEffect(() => {
+    setLoadingLicks(true);
     loadLicks()
-      .then((licks) => {
-        return loadUserLicks().then((userLicks) => {
-        setAllLicks([...userLicks, ...licks]);
-        });
-        setLoadingLicks(false);
-      })
+      .then((licks) =>
+        loadUserLicks().then((userLicks) => {
+          setAllLicks([...userLicks, ...licks]);
+          setLoadingLicks(false);
+        }),
+      )
       .catch((err) => { console.error('Failed to load licks:', err); setLoadingLicks(false); });
   }, []);
 
@@ -680,7 +681,7 @@ export default function LicksPage() {
               )}
 
               {loadingLicks ? (
-                <LoadingState>Loading 8,000+ licks...</LoadingState>
+                <LoadingState>Loading 8,000+ jazz licks...</LoadingState>
               ) : filteredLicks.length === 0 ? (
                 <LoadingState>No licks match current filters</LoadingState>
               ) : (

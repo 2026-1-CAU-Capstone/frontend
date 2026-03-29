@@ -10,7 +10,7 @@ import type { NoteSheetData } from '../data/sampleMelody';
 import type { TocEntry } from '../data/types';
 import { noteSongs } from '../data/noteSongs';
 import { loadMidiMelody } from '../lib/note/midiMelodyParser';
-import { loadXmlMelody } from '../lib/note/xmlMelodyParser';
+import { loadXmlMelody, loadMxlMelody } from '../lib/note/xmlMelodyParser';
 
 const SAMPLE_ID = '__sample__';
 
@@ -207,7 +207,9 @@ export default function NotePage() {
         const data =
           song.fileType === 'midi'
             ? await loadMidiMelody(url, song.title, song.composer)
-            : await loadXmlMelody(url, song.title);
+            : song.fileType === 'mxl'
+              ? await loadMxlMelody(url, song.title)
+              : await loadXmlMelody(url, song.title);
         if (!cancelled) setSheet(data);
       } catch (err) {
         if (!cancelled) {

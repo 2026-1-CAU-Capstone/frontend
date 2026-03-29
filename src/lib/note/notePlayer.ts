@@ -5,11 +5,34 @@ import Soundfont from 'soundfont-player';
 
 const SEMI: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
 
-function vexToMidi(key: string, acc?: '#' | 'b' | 'n'): number {
+/* Key signature → which note letters are altered */
+const KEY_SIG_FLATS  = ['b', 'e', 'a', 'd', 'g', 'c', 'f'];
+const KEY_SIG_SHARPS = ['f', 'c', 'g', 'd', 'a', 'e', 'b'];
+const FLAT_KEYS: Record<string, number> = { F: 1, Bb: 2, Eb: 3, Ab: 4, Db: 5, Gb: 6, Cb: 7, Dm: 1, Gm: 2, Cm: 3, Fm: 4, Bbm: 5, Ebm: 6, Abm: 7 };
+const SHARP_KEYS: Record<string, number> = { G: 1, D: 2, A: 3, E: 4, B: 5, 'F#': 6, 'C#': 7, Em: 1, Bm: 2, 'F#m': 3, 'C#m': 4, 'G#m': 5, 'D#m': 6, 'A#m': 7 };
+
+function buildKeySigMap(key: string | undefined): Map<string, 'b' | '#'> {
+  const map = new Map<string, 'b' | '#'>();
+  if (!key) return map;
+  const nFlats = FLAT_KEYS[key];
+  if (nFlats) { for (let i = 0; i < nFlats; i++) map.set(KEY_SIG_FLATS[i], 'b'); }
+  const nSharps = SHARP_KEYS[key];
+  if (nSharps) { for (let i = 0; i < nSharps; i++) map.set(KEY_SIG_SHARPS[i], '#'); }
+  return map;
+}
+
+function vexToMidi(key: string, acc?: '#' | 'b' | 'n', keySigAcc?: Map<string, 'b' | '#'>): number {
   const [n, o] = key.split('/');
   let s = SEMI[n] ?? 0;
   if (acc === '#') s += 1;
-  if (acc === 'b') s -= 1;
+  else if (acc === 'b') s -= 1;
+  else if (acc === 'n') { /* natural — no alteration */ }
+  else if (keySigAcc) {
+    // No explicit accidental: apply key signature
+    const ksAcc = keySigAcc.get(n);
+    if (ksAcc === '#') s += 1;
+    else if (ksAcc === 'b') s -= 1;
+  }
   return (parseInt(o) + 1) * 12 + s;
 }
 
@@ -210,6 +233,7 @@ export class NotePlayer {
     const [tsNum] = (data.timeSignature || '4/4').split('/').map(Number);
     const measSec = tsNum * bs; // fixed measure duration (e.g. 4 beats)
     this.sched = [];
+    const keySig = buildKeySigMap(data.key);
 
     // Flatten all notes with measure index and timing info
     interface FlatNote { mi: number; note: typeof data.measures[0]['notes'][0]; beats: number }
@@ -253,7 +277,7 @@ export class NotePlayer {
         const dur = totalBeats * bs;
         for (let ki = 0; ki < f.note.keys.length; ki++) {
           const acc = f.note.accidentals?.[ki];
-          const midi = vexToMidi(f.note.keys[ki], acc);
+          const midi = vexToMidi(f.note.keys[ki], acc, keySig);
           this.sched.push({ time: mt, dur: Math.max(dur * 0.85, 0.04), midi, measure: f.mi, track: 'melody' });
         }
         mt += dur;
@@ -265,7 +289,7 @@ export class NotePlayer {
       if (!isRest) {
         for (let ki = 0; ki < f.note.keys.length; ki++) {
           const acc = f.note.accidentals?.[ki];
-          const midi = vexToMidi(f.note.keys[ki], acc);
+          const midi = vexToMidi(f.note.keys[ki], acc, keySig);
           this.sched.push({ time: mt, dur: Math.max(dur * 0.85, 0.04), midi, measure: f.mi, track: 'melody' });
         }
       }
@@ -273,16 +297,31 @@ export class NotePlayer {
       fi++;
     }
 
-    // Schedule comping (piano) — beat 1 only
+    // Schedule comping (piano) — beats 2 & 4 (jazz swing feel)
     for (let mi = 0; mi < data.measures.length; mi++) {
       const measure = data.measures[mi];
       if (measure.chord) {
-        const midiNotes = chordToMidi(measure.chord);
-        if (midiNotes.length > 0) {
-          const measStart = mi * measSec;
-          const compDur = bs * 0.6;
-          for (const midi of midiNotes) {
-            this.sched.push({ time: measStart, dur: compDur, midi, measure: mi, track: 'comp' });
+        const chords = measure.chord.split(/\s{2,}/);
+        const measStart = mi * measSec;
+        const compDur = bs * 0.5;
+        if (chords.length === 1) {
+          // Single chord: play on beats 2 & 4
+          const midiNotes = chordToMidi(chords[0]);
+          for (const beat of [1, 3]) {
+            const t = measStart + beat * bs;
+            for (const midi of midiNotes) {
+              this.sched.push({ time: t, dur: compDur, midi, measure: mi, track: 'comp' });
+            }
+          }
+        } else {
+          // Multi-chord: split beats evenly (e.g. 2 chords → beat 2 = chord1, beat 4 = chord2)
+          const beatsPerChord = [1, 3]; // beat 2 & 4
+          for (let ci = 0; ci < Math.min(chords.length, beatsPerChord.length); ci++) {
+            const midiNotes = chordToMidi(chords[ci]);
+            const t = measStart + beatsPerChord[ci] * bs;
+            for (const midi of midiNotes) {
+              this.sched.push({ time: t, dur: compDur, midi, measure: mi, track: 'comp' });
+            }
           }
         }
       }

@@ -6,7 +6,10 @@ export interface NoteInfo {
   dotted?: boolean;
   accidentals?: Record<number, '#' | 'b' | 'n'>;
   tie?: boolean;                                // tie to the NEXT note of same pitch
+  gliss?: boolean;                              // glissando to the NEXT note
   tuplet?: number;                              // e.g. 3 = triplet (3 notes in time of 2)
+  beamBreak?: boolean;                          // force beam break AFTER this note
+  chord?: string;                               // chord change at this note position
 }
 
 export interface MeasureInfo {

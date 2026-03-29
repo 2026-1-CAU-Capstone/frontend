@@ -192,6 +192,9 @@ const TempoInput = styled.input`
   border-radius: 4px;
   text-align: center;
   outline: none;
+  -moz-appearance: textfield;
+  &::-webkit-inner-spin-button,
+  &::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
   &:focus { border-color: #aaa; }
 `;
 
@@ -248,6 +251,7 @@ export function NoteSheet({ data }: NoteSheetProps) {
   const playerRef = useRef<NotePlayer | null>(null);
   const [playing, setPlaying] = useState(false);
   const [tempo, setTempo] = useState(data.tempo ?? 120);
+  const [tempoText, setTempoText] = useState(String(data.tempo ?? 120));
   const [activeMeasure, setActiveMeasure] = useState(-1);
   const measureRectsRef = useRef<{ x: number; y: number; w: number }[]>([]);
 
@@ -265,7 +269,9 @@ export function NoteSheet({ data }: NoteSheetProps) {
     playerRef.current?.stop();
     setPlaying(false);
     setActiveMeasure(-1);
-    setTempo(data.tempo ?? 120);
+    const t = data.tempo ?? 120;
+    setTempo(t);
+    setTempoText(String(t));
   }, [data]);
 
   const togglePlay = useCallback(async () => {
@@ -399,11 +405,20 @@ export function NoteSheet({ data }: NoteSheetProps) {
         const vfNotes = buildVfNotes(measure);
 
         if (measure.chord) {
-          const chordX = firstInLine ? x + decorW + 4 : x + 4;
+          const barContentX = firstInLine ? x + decorW + 4 : x + 4;
+          const barContentW = w - (firstInLine ? decorW : 0) - 8;
           const chordY = y + 12;
           const svgEl = el.querySelector('svg');
           if (svgEl) {
-            appendChordSVG(svgEl, chordX, chordY, measure.chord, CHORD_FONT, 20);
+            const chords = measure.chord.split(/\s{2,}/);
+            if (chords.length === 1) {
+              appendChordSVG(svgEl, barContentX, chordY, chords[0], CHORD_FONT, 20);
+            } else {
+              const sliceW = barContentW / chords.length;
+              for (let ci = 0; ci < chords.length; ci++) {
+                appendChordSVG(svgEl, barContentX + ci * sliceW, chordY, chords[ci], CHORD_FONT, 20);
+              }
+            }
           }
         }
 
@@ -441,11 +456,21 @@ export function NoteSheet({ data }: NoteSheetProps) {
         <TempoWrap>
           BPM
           <TempoInput
-            type="number"
-            value={tempo}
-            min={40}
-            max={300}
-            onChange={(e) => setTempo(Math.max(40, Math.min(300, Number(e.target.value) || 120)))}
+            type="text"
+            inputMode="numeric"
+            value={tempoText}
+            onChange={(e) => {
+              const v = e.target.value.replace(/\D/g, '');
+              setTempoText(v);
+              const n = parseInt(v, 10);
+              if (n >= 20 && n <= 400) setTempo(n);
+            }}
+            onBlur={() => {
+              const n = parseInt(tempoText, 10);
+              const clamped = Math.max(40, Math.min(300, isNaN(n) ? 120 : n));
+              setTempo(clamped);
+              setTempoText(String(clamped));
+            }}
           />
         </TempoWrap>
       </Transport>

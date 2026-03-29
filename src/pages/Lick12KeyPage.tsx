@@ -207,21 +207,43 @@ function buildManualBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
         if (groupBeats > 0 && Math.floor((groupBeats - 0.001) / boundary) !== Math.floor((newGroupBeats - 0.001) / boundary) && beamGroup.length > 0) {
           if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
           beamGroup = [];
+          groupBeats = 0;
         }
       }
       beamGroup.push(vn);
+      if (!isTuplet) groupBeats += noteBeats;
+      if (notes[i]?.beamBreak) {
+        if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
+        beamGroup = [];
+        groupBeats = 0;
+        postTupletMerged = false;
+      }
     } else {
       if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
       beamGroup = [];
+      groupBeats = 0;
       postTupletMerged = false;
     }
-    if (!isTuplet) groupBeats += noteBeats;
   }
   if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
   return beams;
 }
 
-function buildVfNotes(measure: MeasureInfo, initialAcc?: Map<string, 'b' | '#' | 'n'>): StaveNote[] {
+const KEY_SIG_FLATS = ['b', 'e', 'a', 'd', 'g', 'c', 'f'];
+const KEY_SIG_SHARPS = ['f', 'c', 'g', 'd', 'a', 'e', 'b'];
+const FLAT_KEYS: Record<string, number> = { F: 1, Bb: 2, Eb: 3, Ab: 4, Db: 5, Gb: 6, Cb: 7, Dm: 1, Gm: 2, Cm: 3, Fm: 4, Bbm: 5, Ebm: 6, Abm: 7 };
+const SHARP_KEYS: Record<string, number> = { G: 1, D: 2, A: 3, E: 4, B: 5, 'F#': 6, 'C#': 7, Em: 1, Bm: 2, 'F#m': 3, 'C#m': 4, 'G#m': 5, 'D#m': 6, 'A#m': 7 };
+
+function keySigAccidentals(vexKey: string): Map<string, 'b' | '#'> {
+  const map = new Map<string, 'b' | '#'>();
+  const nFlats = FLAT_KEYS[vexKey];
+  if (nFlats) { for (let i = 0; i < nFlats; i++) map.set(KEY_SIG_FLATS[i], 'b'); }
+  const nSharps = SHARP_KEYS[vexKey];
+  if (nSharps) { for (let i = 0; i < nSharps; i++) map.set(KEY_SIG_SHARPS[i], '#'); }
+  return map;
+}
+
+function buildVfNotes(measure: MeasureInfo, initialAcc?: Map<string, 'b' | '#' | 'n'>, keySigAcc?: Map<string, 'b' | '#'>): StaveNote[] {
   const activeAcc = initialAcc ? new Map(initialAcc) : new Map<string, 'b' | '#' | 'n'>();
   return measure.notes.map((n) => {
     const isRest = n.duration.endsWith('r');
@@ -230,15 +252,18 @@ function buildVfNotes(measure: MeasureInfo, initialAcc?: Map<string, 'b' | '#' |
     if (n.dotted) Dot.buildAndAttach([note]);
     if (!isRest) {
       const noteId = n.keys[0];
+      const letter = noteId.split('/')[0];
       const realAcc = n.accidentals?.[0] as 'b' | '#' | undefined;
-      const current = activeAcc.get(noteId);
+      const current = activeAcc.get(letter);
+      const keySigForLetter = keySigAcc?.get(letter);
       if (realAcc) {
         if (current !== realAcc) note.addModifier(new Accidental(realAcc), 0);
-        activeAcc.set(noteId, realAcc);
+        activeAcc.set(letter, realAcc);
       } else {
-        if (current && current !== 'n') {
+        const effective = current ?? keySigForLetter;
+        if (effective && effective !== 'n') {
           note.addModifier(new Accidental('n'), 0);
-          activeAcc.set(noteId, 'n');
+          activeAcc.set(letter, 'n');
         }
       }
     }
@@ -259,6 +284,61 @@ function formatChord(raw: string): string {
     .replace(/h(?!\d)/g, '\u00F8')
     .replace(/o7/g, '\u00B07')
     .replace(/o(?!\d)/g, '\u00B0');
+}
+
+function drawGlissLine(svgEl: SVGElement, fromNote: StaveNote, toNote: StaveNote) {
+  const fromYs = fromNote.getYs();
+  const toYs = toNote.getYs();
+  if (!fromYs.length || !toYs.length) return;
+
+  const x1 = fromNote.getNoteHeadEndX() + 3;
+  const y1 = fromYs[0];
+  const x2 = toNote.getNoteHeadBeginX() - 3;
+  const y2 = toYs[0];
+
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist < 4) return;
+
+  const px = -dy / dist;
+  const py = dx / dist;
+
+  const waves = Math.max(3, Math.round(dist / 5));
+  const amp = 3.5;
+  let d = `M ${x1} ${y1}`;
+  for (let i = 1; i <= waves; i++) {
+    const t = i / waves;
+    const mt = t - 0.5 / waves;
+    const sign = i % 2 === 1 ? -1 : 1;
+    const mx = x1 + dx * mt + px * amp * sign;
+    const my = y1 + dy * mt + py * amp * sign;
+    const ex = x1 + dx * t;
+    const ey = y1 + dy * t;
+    d += ` Q ${mx} ${my} ${ex} ${ey}`;
+  }
+
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', d);
+  path.setAttribute('stroke', '#333');
+  path.setAttribute('stroke-width', '3');
+  path.setAttribute('fill', 'none');
+  svgEl.appendChild(path);
+
+  const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+  const midX = (x1 + x2) / 2;
+  const midY = (y1 + y2) / 2;
+  const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  txt.setAttribute('x', String(midX));
+  txt.setAttribute('y', String(midY - 8));
+  txt.setAttribute('text-anchor', 'middle');
+  txt.setAttribute('font-family', "'Times New Roman', 'Georgia', serif");
+  txt.setAttribute('font-size', '9');
+  txt.setAttribute('font-style', 'italic');
+  txt.setAttribute('fill', '#333');
+  txt.setAttribute('transform', `rotate(${angle}, ${midX}, ${midY - 8})`);
+  txt.textContent = 'gliss.';
+  svgEl.appendChild(txt);
 }
 
 function splitChordParts(formatted: string): { base: string; ext: string; tension: string } {
@@ -342,6 +422,7 @@ function renderMeasures(el: HTMLDivElement, measures: MeasureInfo[], minWidth: n
 
   // Track accidentals carried across barlines via ties
   let tieCarryAcc: Map<string, 'b' | '#' | 'n'> | undefined;
+  const keySigAcc = keySigAccidentals(keyName || 'C');
 
   for (let m = 0; m < nMeasures; m++) {
     const firstInLine = m === 0;
@@ -359,7 +440,7 @@ function renderMeasures(el: HTMLDivElement, measures: MeasureInfo[], minWidth: n
     stave.setContext(ctx).draw();
 
     const measure = measures[m];
-    const vfNotes = buildVfNotes(measure, tieCarryAcc);
+    const vfNotes = buildVfNotes(measure, tieCarryAcc, keySigAcc);
 
     // Build carry state for next measure: if last note has tie, pass its accidental
     tieCarryAcc = undefined;
@@ -367,16 +448,25 @@ function renderMeasures(el: HTMLDivElement, measures: MeasureInfo[], minWidth: n
     if (lastNote?.tie && !lastNote.duration.endsWith('r')) {
       const acc = lastNote.accidentals?.[0] as 'b' | '#' | undefined;
       if (acc) {
-        tieCarryAcc = new Map([[lastNote.keys[0], acc]]);
+        tieCarryAcc = new Map([[lastNote.keys[0].split('/')[0], acc]]);
       }
     }
 
     if (measure.chord) {
-      const chordX = firstInLine ? x + decorW + 4 : x + 4;
+      const barContentX = firstInLine ? x + decorW + 4 : x + 4;
+      const barContentW = firstInLine ? barW : barW - 4;
       const chordY = y + 12;
       const svgEl = el.querySelector('svg');
       if (svgEl) {
-        appendChordSVG(svgEl, chordX, chordY, measure.chord, CHORD_FONT, 20);
+        const chords = measure.chord.split(/\s{2,}/);
+        if (chords.length === 1) {
+          appendChordSVG(svgEl, barContentX, chordY, chords[0], CHORD_FONT, 20);
+        } else {
+          const sliceW = barContentW / chords.length;
+          for (let ci = 0; ci < chords.length; ci++) {
+            appendChordSVG(svgEl, barContentX + ci * sliceW, chordY, chords[ci], CHORD_FONT, 20);
+          }
+        }
       }
     }
 
@@ -394,7 +484,7 @@ function renderMeasures(el: HTMLDivElement, measures: MeasureInfo[], minWidth: n
       while (ti < measure.notes.length) {
         if (measure.notes[ti].tuplet === 3) {
           const group: StaveNote[] = [];
-          while (ti < measure.notes.length && measure.notes[ti].tuplet === 3) {
+          while (ti < measure.notes.length && measure.notes[ti].tuplet === 3 && group.length < 3) {
             group.push(vfNotes[ti]);
             ti++;
           }
@@ -423,6 +513,20 @@ function renderMeasures(el: HTMLDivElement, measures: MeasureInfo[], minWidth: n
           .setContext(ctx).draw();
       }
       flatIdx++;
+    }
+  }
+
+  // Draw glissando lines
+  const svg = el.querySelector('svg');
+  if (svg) {
+    flatIdx = 0;
+    for (const measure of measures) {
+      for (let ni = 0; ni < measure.notes.length; ni++) {
+        if (measure.notes[ni].gliss && allVfNotes[flatIdx + 1]) {
+          drawGlissLine(svg as SVGElement, allVfNotes[flatIdx], allVfNotes[flatIdx + 1]);
+        }
+        flatIdx++;
+      }
     }
   }
 }

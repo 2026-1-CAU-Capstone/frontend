@@ -1,3 +1,4 @@
+import { unzipSync } from 'fflate';
 import type { NoteSheetData, NoteInfo, MeasureInfo } from '../../data/sampleMelody';
 
 /* ─── MusicXML → NoteSheetData parser ────────────────────────────────── */
@@ -18,13 +19,7 @@ function text(el: Element | null | undefined, sel: string): string | null {
   return el?.querySelector(sel)?.textContent ?? null;
 }
 
-export async function loadXmlMelody(
-  url: string,
-  fallbackTitle: string,
-): Promise<NoteSheetData> {
-  const res = await fetch(url);
-  const xml = await res.text();
-  const doc = new DOMParser().parseFromString(xml, 'application/xml');
+function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
 
   /* ── metadata ────────────────────────────────────────────────────── */
   const title  = text(doc.documentElement, 'work-title')
@@ -233,4 +228,38 @@ function kindToSymbol(kind: string): string {
     'dominant-ninth': '9', 'minor-ninth': '-9',
   };
   return MAP[kind] ?? kind;
+}
+
+/* ─── Public loaders ─────────────────────────────────────────────────── */
+
+export async function loadXmlMelody(
+  url: string,
+  fallbackTitle: string,
+): Promise<NoteSheetData> {
+  const res = await fetch(url);
+  const xml = await res.text();
+  const doc = new DOMParser().parseFromString(xml, 'application/xml');
+  return parseXmlDoc(doc, fallbackTitle);
+}
+
+export async function loadMxlMelody(
+  url: string,
+  fallbackTitle: string,
+): Promise<NoteSheetData> {
+  const res = await fetch(url);
+  const buf = new Uint8Array(await res.arrayBuffer());
+  const files = unzipSync(buf);
+
+  // Find the MusicXML file inside the ZIP (skip META-INF, container.xml, etc.)
+  let xmlText: string | null = null;
+  for (const [name, data] of Object.entries(files)) {
+    if (name.endsWith('.xml') && !name.startsWith('META-INF') && name !== 'container.xml') {
+      xmlText = new TextDecoder().decode(data);
+      break;
+    }
+  }
+  if (!xmlText) throw new Error('No MusicXML found in MXL archive');
+
+  const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+  return parseXmlDoc(doc, fallbackTitle);
 }

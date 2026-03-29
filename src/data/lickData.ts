@@ -206,7 +206,7 @@ function lickToSheet(lick: RawLick): NoteSheetData {
     title: `${lick.performer} — ${lick.title}`,
     composer: lick.performer,
     key: nKey,
-    timeSignature: '4/4',
+    timeSignature: lick.signature || '4/4',
     tempo: lick.tempo ?? undefined,
     measures,
   };
@@ -223,7 +223,7 @@ export async function loadLicks(): Promise<LickEntry[]> {
   const raw: RawLick[] = await res.json();
 
   cachedLicks = raw
-    .filter((l) => l.n_events >= 8)  // skip short fragments — real licks are 8+ notes
+    .filter((l) => l.n_events >= 8)
     .map((l) => ({
       id: l.id,
       performer: l.performer,
@@ -309,7 +309,6 @@ const STORAGE_KEY = 'jazzify_user_licks';
 let seedLicks: LickEntry[] | null = null;
 
 async function loadSeedLicks(): Promise<LickEntry[]> {
-  if (seedLicks) return seedLicks;
   try {
     const res = await fetch('/data/licks/user_licks.json');
     seedLicks = await res.json();
@@ -332,8 +331,8 @@ function loadLocalLicks(): LickEntry[] {
 
 export async function loadUserLicks(): Promise<LickEntry[]> {
   const [seed, local] = await Promise.all([loadSeedLicks(), Promise.resolve(loadLocalLicks())]);
-  const localIds = new Set(local.map((l) => l.id));
-  const merged = [...local, ...seed.filter((s) => !localIds.has(s.id))];
+  const seedIds = new Set(seed.map((l) => l.id));
+  const merged = [...seed, ...local.filter((l) => !seedIds.has(l.id))];
   return merged;
 }
 
