@@ -1,12 +1,45 @@
 import styled from 'styled-components';
 
+export const InputWrapper = styled.div`
+  border-top: 1px solid ${({ theme }) => theme.colors.border};
+  background: ${({ theme }) => theme.colors.bgPrimary};
+`;
+
+export const ChipsRow = styled.div`
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px 0;
+  flex-wrap: wrap;
+`;
+
+export const Chip = styled.button`
+  padding: 4px 10px;
+  border-radius: 14px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  background: ${({ theme }) => theme.colors.bgSecondary};
+  color: #000;
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: 11.5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+
+  &:hover:not(:disabled) {
+    background: ${({ theme }) => theme.colors.border};
+    border-color: ${({ theme }) => theme.colors.textSecondary};
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+`;
+
 export const InputContainer = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px;
-  border-top: 1px solid ${({ theme }) => theme.colors.border};
-  background: ${({ theme }) => theme.colors.bgPrimary};
+  padding: 8px 12px 12px;
 `;
 
 export const Input = styled.input`

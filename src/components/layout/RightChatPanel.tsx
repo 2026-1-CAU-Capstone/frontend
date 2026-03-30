@@ -3,7 +3,7 @@ import type { ChatMessage as ChatMessageType, ChordOverlay } from '../../data/ty
 import { ChatMessage } from '../chat/ChatMessage';
 import { ChatInput } from '../chat/ChatInput';
 import { AnalysisCard } from '../chat/AnalysisCard';
-import { sendChatMessage } from '../../api/chat';
+import { streamGeminiMessage, type GeminiMessage, type AnalysisCategory } from '../../api/gemini';
 import {
   PanelContainer,
   PanelHeader,
@@ -16,42 +16,65 @@ interface RightChatPanelProps {
   selectedChords: ChordOverlay[];
   groupExplanation: string | null;
   songTitle: string;
+  chordContext?: string;
 }
 
 export function RightChatPanel({
   selectedChords,
   groupExplanation,
   songTitle,
+  chordContext,
 }: RightChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const historyRef = useRef<GeminiMessage[]>([]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSend = useCallback(async (text: string) => {
+  const handleSend = useCallback(async (text: string, category?: AnalysisCategory) => {
     const userMsg: ChatMessageType = {
       id: `user-${Date.now()}`,
       role: 'user',
       content: text,
       timestamp: Date.now(),
     };
-    setMessages((prev) => [...prev, userMsg]);
-    setLoading(true);
-
-    const reply = await sendChatMessage(text);
-
+    const aiMsgId = `ai-${Date.now()}`;
     const aiMsg: ChatMessageType = {
-      id: `ai-${Date.now()}`,
+      id: aiMsgId,
       role: 'assistant',
-      content: reply,
+      content: '',
       timestamp: Date.now(),
     };
-    setMessages((prev) => [...prev, aiMsg]);
+    setMessages((prev) => [...prev, userMsg, aiMsg]);
+    setLoading(true);
+
+    const finalText = await streamGeminiMessage(
+      text,
+      historyRef.current,
+      chordContext,
+      (accumulated) => {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === aiMsgId ? { ...m, content: accumulated } : m)),
+        );
+      },
+      category,
+    );
+
+    // Update history for multi-turn conversation
+    historyRef.current.push(
+      { role: 'user', parts: [{ text }] },
+      { role: 'model', parts: [{ text: finalText }] },
+    );
+
+    // Ensure final state is set
+    setMessages((prev) =>
+      prev.map((m) => (m.id === aiMsgId ? { ...m, content: finalText } : m)),
+    );
     setLoading(false);
-  }, []);
+  }, [chordContext]);
 
   const hasSelection = selectedChords.length > 0;
 
@@ -78,6 +101,11 @@ export function RightChatPanel({
         {messages.map((msg) => (
           <ChatMessage key={msg.id} message={msg} />
         ))}
+        {loading && (
+          <div style={{ padding: '8px 16px', color: '#999', fontSize: '0.82rem' }}>
+            Gemini thinking...
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </MessagesArea>
 

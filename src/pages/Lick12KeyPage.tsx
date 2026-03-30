@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import styled from 'styled-components';
 import {
-  Renderer, Stave, StaveNote, Voice, Formatter, Beam, Accidental, Dot, BarlineType, StaveTie, Tuplet,
+  Renderer, Stave, StaveNote, Voice, Formatter, Beam, Accidental, Dot, BarlineType, VoltaType, StaveTie, Tuplet, Repetition,
 } from 'vexflow';
 import Soundfont from 'soundfont-player';
 import type { NoteInfo, MeasureInfo } from '../data/sampleMelody';
@@ -419,6 +419,7 @@ function renderMeasures(el: HTMLDivElement, measures: MeasureInfo[], minWidth: n
 
   const y = MARGIN.top;
   let x = MARGIN.left;
+  const stavePositions: { x: number; y: number; w: number }[] = [];
 
   // Track accidentals carried across barlines via ties
   let tieCarryAcc: Map<string, 'b' | '#' | 'n'> | undefined;
@@ -436,8 +437,28 @@ function renderMeasures(el: HTMLDivElement, measures: MeasureInfo[], minWidth: n
       if (keyName && keyName !== 'C') stave.addKeySignature(keyName);
       stave.addTimeSignature('4/4');
     }
-    if (isLast) stave.setEndBarType(BarlineType.END);
+    if (measures[m]?.repeatStart) stave.setBegBarType(BarlineType.REPEAT_BEGIN);
+    if (measures[m]?.repeatEnd) stave.setEndBarType(BarlineType.REPEAT_END);
+    else if (isLast) stave.setEndBarType(BarlineType.END);
+    if (measures[m]?.volta) {
+      const v = measures[m].volta!;
+      const prevV = m > 0 ? measures[m - 1]?.volta : undefined;
+      const nextV = m < measures.length - 1 ? measures[m + 1]?.volta : undefined;
+      const isS = prevV !== v;
+      stave.setVoltaType(isS ? VoltaType.BEGIN : VoltaType.MID, `${v}.`, 30);
+    }
+    if (measures[m]?.navigation) {
+      const navMap: Record<string, number[]> = {
+        segno: [Repetition.type.SEGNO_LEFT], coda: [Repetition.type.CODA_LEFT],
+        fine: [Repetition.type.FINE], toCoda: [Repetition.type.TO_CODA],
+        dc: [Repetition.type.DC], dcAlCoda: [Repetition.type.DC_AL_CODA], dcAlFine: [Repetition.type.DC_AL_FINE],
+        ds: [Repetition.type.DS], dsAlCoda: [Repetition.type.DS_AL_CODA], dsAlFine: [Repetition.type.DS_AL_FINE],
+      };
+      const rts = navMap[measures[m].navigation!];
+      if (rts) for (const rt of rts) stave.setRepetitionType(rt);
+    }
     stave.setContext(ctx).draw();
+    stavePositions[m] = { x, y, w };
 
     const measure = measures[m];
     const vfNotes = buildVfNotes(measure, tieCarryAcc, keySigAcc);
@@ -526,6 +547,42 @@ function renderMeasures(el: HTMLDivElement, measures: MeasureInfo[], minWidth: n
           drawGlissLine(svg as SVGElement, allVfNotes[flatIdx], allVfNotes[flatIdx + 1]);
         }
         flatIdx++;
+      }
+    }
+  }
+
+  // Draw intro brackets — small arcs inside bracketed measures
+  const svgEl = el.querySelector('svg');
+  if (svgEl) {
+    const drawArc = (cx: number, top: number, bot: number, openSide: boolean) => {
+      const h = bot - top;
+      const bulge = Math.min(h * 0.18, 6);
+      const d = openSide
+        ? `M ${cx} ${top} Q ${cx - bulge} ${(top + bot) / 2} ${cx} ${bot}`
+        : `M ${cx} ${top} Q ${cx + bulge} ${(top + bot) / 2} ${cx} ${bot}`;
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', d);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', '#444');
+      path.setAttribute('stroke-width', '1.8');
+      svgEl!.appendChild(path);
+    };
+    let bi = 0;
+    while (bi < measures.length) {
+      if (measures[bi].bracket) {
+        const groupStart = bi;
+        while (bi < measures.length && measures[bi].bracket) bi++;
+        const groupEnd = bi - 1;
+        const pStart = stavePositions[groupStart];
+        const pEnd = stavePositions[groupEnd];
+        if (pStart && pEnd) {
+          const top = pStart.y + 28;
+          const bot = pStart.y + LINE_HEIGHT - 60;
+          drawArc(pStart.x + 2, top, bot, true);
+          drawArc(pEnd.x + pEnd.w * 0.55, top, bot, false);
+        }
+      } else {
+        bi++;
       }
     }
   }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import styled from 'styled-components';
 import { TopToolbar } from '../components/layout/TopToolbar';
 import { LeftSidebar } from '../components/layout/LeftSidebar';
@@ -9,6 +10,9 @@ import { allOfMe } from '../data/allOfMe';
 import type { LeadSheetData } from '../data/leadSheetTypes';
 import type { TocEntry } from '../data/types';
 import { getSongIndex, getSong, type SongEntry } from '../lib/ireal/irealLoader';
+import { buildChordContext } from '../api/chordContext';
+import analysisJson from '../data/allofme_analysis.json';
+import { buildRawAnalysisContext } from '../api/chordContext';
 
 const ANALYZED_SONG_ID = '__analyzed_all-of-me__';
 
@@ -158,10 +162,20 @@ const ResizeDivider = styled.div`
 `;
 
 export default function ChordPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { autoHighlight, toggleAutoHighlight } = useAutoHighlight(true);
   const [songIndex, setSongIndex] = useState<SongEntry[]>([]);
-  const [songId, setSongId] = useState(ANALYZED_SONG_ID);
+  const [songId, setSongIdRaw] = useState(() => searchParams.get('song') ?? ANALYZED_SONG_ID);
+
+  const setSongId = useCallback((id: string) => {
+    setSongIdRaw(id);
+    if (id === ANALYZED_SONG_ID) {
+      setSearchParams({}, { replace: true });
+    } else {
+      setSearchParams({ song: id }, { replace: true });
+    }
+  }, [setSearchParams]);
   const [sheet, setSheet] = useState<LeadSheetData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -234,6 +248,15 @@ export default function ChordPage() {
     if (!sheet) return [];
     return [{ title: sheet.title, page: 1 }];
   }, [sheet]);
+
+  // Build chord context for AI: use raw analysis JSON for analyzed song, LeadSheet data for others
+  const chordContext = useMemo(() => {
+    if (songId === ANALYZED_SONG_ID) {
+      return buildRawAnalysisContext(analysisJson as any);
+    }
+    if (sheet) return buildChordContext(sheet);
+    return undefined;
+  }, [songId, sheet]);
 
   const [rightPanelWidth, setRightPanelWidth] = useState(360);
   const dividerRef = useRef<HTMLDivElement>(null);
@@ -338,6 +361,7 @@ export default function ChordPage() {
             selectedChords={[]}
             groupExplanation={null}
             songTitle={sheet?.title ?? 'Jazzify AI'}
+            chordContext={chordContext}
           />
         </RightPanelWrapper>
       </MainArea>

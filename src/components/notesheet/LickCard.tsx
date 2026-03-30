@@ -10,8 +10,10 @@ import {
   Accidental,
   Dot,
   BarlineType,
+  VoltaType,
   StaveTie,
   Tuplet,
+  Repetition,
 } from 'vexflow';
 import type { NoteInfo, MeasureInfo } from '../../data/sampleMelody';
 import type { LickEntry } from '../../data/lickData';
@@ -432,7 +434,8 @@ function buildVfNotes(measure: MeasureInfo, initialAcc?: Map<string, 'b' | '#' |
       const keySigForLetter = keySigAcc?.get(letter);
 
       if (realAcc) {
-        if (current !== realAcc) {
+        const effective = current ?? keySigForLetter;
+        if (effective !== realAcc) {
           note.addModifier(new Accidental(realAcc), 0);
         }
         activeAcc.set(letter, realAcc);
@@ -559,6 +562,7 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
     const allVfNotes: StaveNote[] = [];
     let tieCarryAcc: Map<string, 'b' | '#' | 'n'> | undefined;
 
+    const stavePositions: { x: number; y: number; w: number }[] = [];
     for (let li = 0; li < nLines; li++) {
       const indices = lines[li];
       const y = MARGIN.top + li * LINE_HEIGHT;
@@ -585,10 +589,30 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
           if (vexKey && vexKey !== 'C') stave.addKeySignature(vexKey);
           if (m === 0) stave.addTimeSignature(data.timeSignature);
         }
-        if (isLast) stave.setEndBarType(BarlineType.END);
-        stave.setContext(ctx).draw();
-
         const measure = data.measures[m];
+        if (measure.repeatStart) stave.setBegBarType(BarlineType.REPEAT_BEGIN);
+        if (measure.repeatEnd) stave.setEndBarType(BarlineType.REPEAT_END);
+        else if (isLast) stave.setEndBarType(BarlineType.END);
+        if (measure.volta) {
+          const v = measure.volta;
+          const prevV = m > 0 ? data.measures[m - 1]?.volta : undefined;
+          const nextV = m < data.measures.length - 1 ? data.measures[m + 1]?.volta : undefined;
+          const isS = prevV !== v;
+          stave.setVoltaType(isS ? VoltaType.BEGIN : VoltaType.MID, `${v}.`, 30);
+        }
+        if (measure.navigation) {
+          const navMap: Record<string, number[]> = {
+            segno: [Repetition.type.SEGNO_LEFT], coda: [Repetition.type.CODA_LEFT],
+            fine: [Repetition.type.FINE], toCoda: [Repetition.type.TO_CODA],
+            dc: [Repetition.type.DC], dcAlCoda: [Repetition.type.DC_AL_CODA], dcAlFine: [Repetition.type.DC_AL_FINE],
+            ds: [Repetition.type.DS], dsAlCoda: [Repetition.type.DS_AL_CODA], dsAlFine: [Repetition.type.DS_AL_FINE],
+          };
+          const rts = navMap[measure.navigation];
+          if (rts) for (const rt of rts) stave.setRepetitionType(rt);
+        }
+        stave.setContext(ctx).draw();
+        const decorW = firstInLine ? lineDecorW : 0;
+        stavePositions[m] = { x: x + decorW + 4, y, w: barW - 4 };
         const vfNotes = buildVfNotes(measure, tieCarryAcc, keySigAcc);
 
         tieCarryAcc = undefined;
@@ -654,13 +678,29 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
       }
     }
 
-    // Draw ties
+    // Build measure→line lookup
+    const measureLine = new Map<number, number>();
+    for (let li = 0; li < nLines; li++) {
+      for (const idx of lines[li]) measureLine.set(idx, li);
+    }
+
+    // Build flat note→measure index mapping
+    const noteMi: number[] = [];
+    for (let mi = 0; mi < data.measures.length; mi++) {
+      for (let ni = 0; ni < data.measures[mi].notes.length; ni++) noteMi.push(mi);
+    }
+
+    // Draw ties (skip cross-line ties)
     let flatIdx = 0;
     for (const measure of data.measures) {
       for (let ni = 0; ni < measure.notes.length; ni++) {
         if (measure.notes[ni].tie && allVfNotes[flatIdx + 1]) {
-          new StaveTie({ firstNote: allVfNotes[flatIdx], lastNote: allVfNotes[flatIdx + 1], firstIndices: [0], lastIndices: [0] })
-            .setContext(ctx).draw();
+          const fromLine = measureLine.get(noteMi[flatIdx]);
+          const toLine = measureLine.get(noteMi[flatIdx + 1]);
+          if (fromLine === toLine) {
+            new StaveTie({ firstNote: allVfNotes[flatIdx], lastNote: allVfNotes[flatIdx + 1], firstIndices: [0], lastIndices: [0] })
+              .setContext(ctx).draw();
+          }
         }
         flatIdx++;
       }
@@ -676,6 +716,38 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
             drawGlissLine(svg as SVGElement, allVfNotes[flatIdx], allVfNotes[flatIdx + 1]);
           }
           flatIdx++;
+        }
+      }
+      // Draw intro brackets — small arcs inside bracketed measures
+      const drawArc = (cx: number, top: number, bot: number, openSide: boolean) => {
+        const h = bot - top;
+        const bulge = Math.min(h * 0.18, 6);
+        const d = openSide
+          ? `M ${cx} ${top} Q ${cx - bulge} ${(top + bot) / 2} ${cx} ${bot}`
+          : `M ${cx} ${top} Q ${cx + bulge} ${(top + bot) / 2} ${cx} ${bot}`;
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', d);
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', '#444');
+        path.setAttribute('stroke-width', '1.8');
+        svg.appendChild(path);
+      };
+      let bi = 0;
+      while (bi < data.measures.length) {
+        if (data.measures[bi].bracket) {
+          const groupStart = bi;
+          while (bi < data.measures.length && data.measures[bi].bracket) bi++;
+          const groupEnd = bi - 1;
+          const pStart = stavePositions[groupStart];
+          const pEnd = stavePositions[groupEnd];
+          if (pStart && pEnd) {
+            const top = pStart.y + 28;
+            const bot = pStart.y + LINE_HEIGHT - 50;
+            drawArc(pStart.x + 2, top, bot, true);
+            drawArc(pEnd.x + pEnd.w * 0.55, top, bot, false);
+          }
+        } else {
+          bi++;
         }
       }
     }

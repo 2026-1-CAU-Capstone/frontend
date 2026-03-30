@@ -1,0 +1,479 @@
+{
+  "title": "Autumn Leaves",
+  "composer": "Joseph Kosma",
+  "key": "G",
+  "timeSignature": "4/4",
+  "tempo": 200,
+  "measures": [
+    {
+      "notes": [
+        {
+          "keys": ["e/4"],
+          "duration": "q"
+        },
+        {
+          "keys": ["f/4"],
+          "duration": "q",
+          "accidentals": { "0": "#" }
+        },
+        {
+          "keys": ["g/4"],
+          "duration": "q"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": ["c/5"],
+          "duration": "w",
+          "tie": true
+        }
+      ],
+      "chord": "A-7",
+      "repeatStart": true
+    },
+    {
+      "notes": [
+        {
+          "keys": ["c/5"],
+          "duration": "q"
+        },
+        {
+          "keys": ["d/4"],
+          "duration": "q"
+        },
+        {
+          "keys": ["e/4"],
+          "duration": "q"
+        },
+        {
+          "keys": ["f/4"],
+          "duration": "q",
+          "accidentals": { "0": "#" }
+        }
+      ],
+      "chord": "D7"
+    },
+    {
+      "notes": [
+        {
+          "keys": ["b/4"],
+          "duration": "h"
+        },
+        {
+          "keys": ["b/4"],
+          "duration": "h",
+          "tie": true
+        }
+      ],
+      "chord": "G△7"
+    },
+    {
+      "notes": [
+        {
+          "keys": ["b/4"],
+          "duration": "q"
+        },
+        {
+          "keys": ["c/4"],
+          "duration": "q"
+        },
+        {
+          "keys": ["d/4"],
+          "duration": "q"
+        },
+        {
+          "keys": ["e/4"],
+          "duration": "q"
+        }
+      ],
+      "chord": "C△7"
+    },
+    {
+      "notes": [
+        {
+          "keys": ["a/4"],
+          "duration": "w",
+          "tie": true
+        }
+      ],
+      "chord": "F#ø7"
+    },
+    {
+      "notes": [
+        {
+          "keys": ["a/4"],
+          "duration": "q"
+        },
+        {
+          "keys": ["b/3"],
+          "duration": "q"
+        },
+        {
+          "keys": ["c/4"],
+          "duration": "q",
+          "accidentals": { "0": "#" }
+        },
+        {
+          "keys": ["d/4"],
+          "duration": "q",
+          "accidentals": { "0": "#" }
+        }
+      ],
+      "chord": "B7",
+      "volta": 1
+    },
+    {
+      "notes": [
+        {
+          "keys": ["g/4"],
+          "duration": "w"
+        }
+      ],
+      "chord": "E-6"
+    },
+    {
+      "notes": [
+        {
+          "keys": ["b/4"],
+          "duration": "qr"
+        },
+        {
+          "keys": ["e/4"],
+          "duration": "q"
+        },
+        {
+          "keys": ["f/4"],
+          "duration": "q",
+          "accidentals": { "0": "#" }
+        },
+        {
+          "keys": ["g/4"],
+          "duration": "q"
+        }
+      ],
+      "chord": "E-6",
+      "repeatEnd": true
+    },
+    {
+      "notes": [
+        {
+          "keys": ["a/4"],
+          "duration": "q"
+        },
+        {
+          "keys": ["f/4"],
+          "duration": "q",
+          "accidentals": { "0": "#" }
+        },
+        {
+          "keys": ["a/4"],
+          "duration": "q"
+        },
+        {
+          "keys": ["g/4"],
+          "duration": "q"
+        }
+      ],
+      "chord": "B7",
+      "volta": 2
+    },
+    {
+      "notes": [
+        {
+          "keys": ["e/4"],
+          "duration": "w",
+          "tie": true
+        }
+      ],
+      "chord": "E-6"
+    },
+    {
+      "notes": [
+        {
+          "keys": ["e/4"],
+          "duration": "q"
+        },
+        {
+          "keys": ["b/4"],
+          "duration": "qr"
+        },
+        {
+          "keys": ["d/4"],
+          "duration": "q",
+          "accidentals": { "0": "#" }
+        },
+        {
+          "keys": ["e/4"],
+          "duration": "q"
+        }
+      ],
+      "chord": "E-6"
+    },
+    {
+      "notes": [
+        {
+          "keys": ["f/4"],
+          "duration": "q",
+          "accidentals": { "0": "#" }
+        },
+        {
+          "keys": ["b/3"],
+          "duration": "q"
+        },
+        {
+          "keys": ["f/4"],
+          "duration": "h",
+          "accidentals": { "0": "#" },
+          "tie": true
+        }
+      ],
+      "chord": "F#ø7"
+    },
+    {
+      "notes": [
+        {
+          "keys": ["f/4"],
+          "duration": "q",
+          "accidentals": { "0": "#" }
+        },
+        {
+          "keys": ["f/4"],
+          "duration": "q",
+          "accidentals": { "0": "#" }
+        },
+        {
+          "keys": ["e/4"],
+          "duration": "q"
+        },
+        {
+          "keys": ["f/4"],
+          "duration": "q",
+          "accidentals": { "0": "#" }
+        }
+      ],
+      "chord": "B7b9"
+    },
+    {
+      "notes": [
+        {
+          "keys": ["g/4"],
+          "duration": "w",
+          "tie": true
+        }
+      ],
+      "chord": "E-6"
+    },
+    {
+      "notes": [
+        {
+          "keys": ["g/4"],
+          "duration": "q"
+        },
+        {
+          "keys": ["g/4"],
+          "duration": "q"
+        },
+        {
+          "keys": ["f/4"],
+          "duration": "q",
+          "accidentals": { "0": "#" }
+        },
+        {
+          "keys": ["g/4"],
+          "duration": "q"
+        }
+      ],
+      "chord": "E-6"
+    },
+    {
+      "notes": [
+        {
+          "keys": ["a/4"],
+          "duration": "w",
+          "tie": true
+        }
+      ],
+      "chord": "A-7"
+    },
+    {
+      "notes": [
+        {
+          "keys": ["a/4"],
+          "duration": "q"
+        },
+        {
+          "keys": ["d/4"],
+          "duration": "q"
+        },
+        {
+          "keys": ["d/5"],
+          "duration": "q"
+        },
+        {
+          "keys": ["c/5"],
+          "duration": "q"
+        }
+      ],
+      "chord": "D7"
+    },
+    {
+      "notes": [
+        {
+          "keys": ["b/4"],
+          "duration": "w",
+          "tie": true
+        }
+      ],
+      "chord": "G△7"
+    },
+    {
+      "notes": [
+        {
+          "keys": ["b/4"],
+          "duration": "q"
+        },
+        {
+          "keys": ["b/4"],
+          "duration": "qr"
+        },
+        {
+          "keys": ["a/4"],
+          "duration": "q",
+          "accidentals": { "0": "#" }
+        },
+        {
+          "keys": ["b/4"],
+          "duration": "q"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": ["c/5"],
+          "duration": "q"
+        },
+        {
+          "keys": ["c/5"],
+          "duration": "q"
+        },
+        {
+          "keys": ["a/4"],
+          "duration": "q"
+        },
+        {
+          "keys": ["a/4"],
+          "duration": "q"
+        }
+      ],
+      "chord": "F#ø7"
+    },
+    {
+      "notes": [
+        {
+          "keys": ["f/4"],
+          "duration": "h",
+          "dotted": true,
+          "accidentals": { "0": "#" }
+        },
+        {
+          "keys": ["c/5"],
+          "duration": "q"
+        }
+      ],
+      "chord": "B7b9"
+    },
+    {
+      "notes": [
+        {
+          "keys": ["b/4"],
+          "duration": "h"
+        },
+        {
+          "keys": ["b/4"],
+          "duration": "h",
+          "tie": true
+        }
+      ],
+      "chord": "E-7  A7"
+    },
+    {
+      "notes": [
+        {
+          "keys": ["b/4"],
+          "duration": "h"
+        },
+        {
+          "keys": ["e/4"],
+          "duration": "h"
+        }
+      ],
+      "chord": "D-7  G7"
+    },
+    {
+      "notes": [
+        {
+          "keys": ["a/4"],
+          "duration": "h",
+          "dotted": true
+        },
+        {
+          "keys": ["g/4"],
+          "duration": "q"
+        }
+      ],
+      "chord": "F#ø7"
+    },
+    {
+      "notes": [
+        {
+          "keys": ["f/4"],
+          "duration": "h",
+          "accidentals": { "0": "#" }
+        },
+        {
+          "keys": ["g/4"],
+          "duration": "q"
+        },
+        {
+          "keys": ["b/3"],
+          "duration": "q"
+        }
+      ],
+      "chord": "B7b9"
+    },
+    {
+      "notes": [
+        {
+          "keys": ["e/4"],
+          "duration": "w"
+        }
+      ],
+      "chord": "E-6"
+    },
+    {
+      "notes": [
+        {
+          "keys": ["b/4"],
+          "duration": "qr"
+        },
+        {
+          "keys": ["e/4"],
+          "duration": "q"
+        },
+        {
+          "keys": ["f/4"],
+          "duration": "q",
+          "accidentals": { "0": "#" }
+        },
+        {
+          "keys": ["g/4"],
+          "duration": "q"
+        }
+      ],
+      "chord": "E-6"
+    }
+  ]
+}

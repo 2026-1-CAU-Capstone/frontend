@@ -12,9 +12,19 @@ export interface NoteInfo {
   chord?: string;                               // chord change at this note position
 }
 
+export type NavigationMarker =
+  | 'segno' | 'coda' | 'fine' | 'toCoda'
+  | 'dc' | 'dcAlCoda' | 'dcAlFine'
+  | 'ds' | 'dsAlCoda' | 'dsAlFine';
+
 export interface MeasureInfo {
   notes: NoteInfo[];
   chord?: string;
+  repeatStart?: boolean;   // 𝄆 repeat begin barline
+  repeatEnd?: boolean;     // 𝄇 repeat end barline
+  volta?: 1 | 2;           // volta bracket (1st / 2nd ending)
+  navigation?: NavigationMarker;  // D.C., D.S., Coda, Fine, etc.
+  bracket?: boolean;              // intro bracket — skipped on loop, jumps to first chord measure
 }
 
 export interface NoteSheetData {

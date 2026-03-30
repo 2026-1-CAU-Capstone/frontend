@@ -5,8 +5,7 @@ import {
   Renderer, Stave, StaveNote, Voice, Formatter, Beam, Accidental, Dot, Fraction, BarlineType, StaveTie, Tuplet, VoltaType, Repetition,
 } from 'vexflow';
 import { PianoKeyboard, playMidi, type PianoNote } from '../components/notesheet/PianoKeyboard';
-import type { NoteInfo, MeasureInfo } from '../data/sampleMelody';
-import { saveUserLick, computeLickFeatures, type LickEntry } from '../data/lickData';
+import type { NoteInfo, MeasureInfo, NavigationMarker } from '../data/sampleMelody';
 
 /* ─── helpers ──────────────────────────────────────────────────────────── */
 
@@ -28,10 +27,8 @@ function vexToMidi(key: string, acc?: '#' | 'b' | 'n'): number {
 function convertAcc(pn: PianoNote, mode: 'b' | '#'): { vexKey: string; acc?: 'b' | '#' } {
   if (!pn.acc) return { vexKey: pn.vexKey };
   if (mode === '#') {
-    // Keep as sharp (piano gives c#/4 style)
     return { vexKey: pn.vexKey, acc: '#' };
   }
-  // Flat mode: c#/4 → db/4
   const [letter, oct] = pn.vexKey.split('/');
   const flatLetter = SHARP_TO_FLAT[letter];
   if (!flatLetter) return { vexKey: pn.vexKey };
@@ -72,6 +69,71 @@ function ensureSax(): Promise<Soundfont.Player> {
 
 ensureSax().catch(() => {});
 
+/* ─── piano comping ──────────────────────────────────────────────────── */
+
+let _pianoCtx: AudioContext | null = null;
+let _pianoInst: Soundfont.Player | null = null;
+let _pianoLoading: Promise<void> | null = null;
+
+function ensurePiano(): Promise<Soundfont.Player> {
+  if (_pianoInst) return Promise.resolve(_pianoInst);
+  if (!_pianoCtx) _pianoCtx = new AudioContext();
+  if (_pianoCtx.state === 'suspended') _pianoCtx.resume();
+  if (!_pianoLoading) {
+    _pianoLoading = Soundfont.instrument(
+      _pianoCtx,
+      'acoustic_grand_piano' as Soundfont.InstrumentName,
+      { gain: 1.8 },
+    ).then((inst) => { _pianoInst = inst; });
+  }
+  return _pianoLoading.then(() => _pianoInst!);
+}
+
+ensurePiano().catch(() => {});
+
+/** Parse a chord symbol like "CΔ7", "Dm7", "G7b9" → array of MIDI notes (3-4 note voicing around C3-C4) */
+function chordToMidi(chord: string): number[] {
+  if (!chord) return [];
+  // Root note
+  const rootMatch = chord.match(/^([A-Ga-g])([#b♯♭]?)/);
+  if (!rootMatch) return [];
+  const rootLetter = rootMatch[1].toLowerCase();
+  const rootAcc = rootMatch[2];
+  let root = SEMI_MAP[rootLetter] ?? 0;
+  if (rootAcc === '#' || rootAcc === '♯') root += 1;
+  if (rootAcc === 'b' || rootAcc === '♭') root -= 1;
+  const rest = chord.slice(rootMatch[0].length);
+
+  // Determine chord quality → intervals from root
+  let intervals: number[];
+  if (/^[mM\-](?!aj)/i.test(rest) && !/^min.*maj/i.test(rest)) {
+    // minor
+    if (/7/.test(rest)) intervals = [0, 3, 7, 10]; // m7
+    else intervals = [0, 3, 7];
+  } else if (/dim|[oø°]/.test(rest)) {
+    if (/ø|half/i.test(rest) || /7/.test(rest)) intervals = [0, 3, 6, 10]; // half-dim
+    else intervals = [0, 3, 6]; // dim
+  } else if (/aug|\+/.test(rest)) {
+    if (/7/.test(rest)) intervals = [0, 4, 8, 10];
+    else intervals = [0, 4, 8];
+  } else if (/[Δ△]|[Mm]aj7/i.test(rest)) {
+    intervals = [0, 4, 7, 11]; // maj7
+  } else if (/7/.test(rest)) {
+    intervals = [0, 4, 7, 10]; // dom7
+  } else if (/sus4/.test(rest)) {
+    intervals = [0, 5, 7];
+  } else if (/sus2/.test(rest)) {
+    intervals = [0, 2, 7];
+  } else {
+    intervals = [0, 4, 7]; // major triad
+  }
+
+  // Voice around C3 (MIDI 48) - rootless voicing style
+  const base = 48 + root; // C3 range
+  return intervals.map((iv) => base + iv);
+}
+
+
 /* ─── key signature accidentals ────────────────────────────────────────── */
 
 const KEY_SIG_FLATS = ['b', 'e', 'a', 'd', 'g', 'c', 'f'];
@@ -88,27 +150,44 @@ function keySigAccidentals(vexKey: string): Map<string, 'b' | '#'> {
   return map;
 }
 
+/* ─── navigation marker → VexFlow Repetition type ─────────────────────── */
+
+const NAV_REPETITION: Record<NavigationMarker, number[]> = {
+  segno:     [Repetition.type.SEGNO_LEFT],
+  coda:      [Repetition.type.CODA_LEFT],
+  fine:      [Repetition.type.FINE],
+  toCoda:    [Repetition.type.TO_CODA],
+  dc:        [Repetition.type.DC],
+  dcAlCoda:  [Repetition.type.DC_AL_CODA],
+  dcAlFine:  [Repetition.type.DC_AL_FINE],
+  ds:        [Repetition.type.DS],
+  dsAlCoda:  [Repetition.type.DS_AL_CODA],
+  dsAlFine:  [Repetition.type.DS_AL_FINE],
+};
+
 /* ─── VexFlow rendering ────────────────────────────────────────────────── */
 
 const SHEET_SCALE = 1.35;
 const LINE_HEIGHT = 170;
-const MARGIN = { top: 6, left: 10, right: 10, bottom: 10 };
-const MAX_PER_LINE = 4;
+const MARGIN = { top: 30, left: 10, right: 10, bottom: 10 };
+const MAX_PER_LINE = 8;
 const DECOR_FIRST = 70;
 const DECOR_OTHER = 35;
-const PX_PER_DUR: Record<string, number> = { w: 55, h: 40, q: 32, '8': 26, '16': 22 };
+const PX_PER_DUR: Record<string, number> = { w: 34, h: 27, q: 22, '8': 18, '16': 15 };
+const FIXED_BAR_W = 175;
 
+interface MeasurePos { idx: number; x: number; y: number; w: number; chordX: number; }
 interface NotePos { mi: number; ni: number; x: number; y: number; w: number; h: number; }
 
 function measureMinWidth(m: MeasureInfo): number {
-  let w = 24;
+  let w = 18;
   for (const n of m.notes) {
     const base = n.duration.replace(/[dr]/g, '');
     w += PX_PER_DUR[base] ?? 28;
     if (n.accidentals) w += Object.keys(n.accidentals).length * 10;
     if (n.dotted) w += 6;
   }
-  return Math.max(w, 70);
+  return Math.max(w, 50);
 }
 
 function packLines(measures: MeasureInfo[], availW: number): number[][] {
@@ -116,7 +195,7 @@ function packLines(measures: MeasureInfo[], availW: number): number[][] {
   let line: number[] = [];
   let usedW = 0;
   for (let i = 0; i < measures.length; i++) {
-    const mw = measureMinWidth(measures[i]);
+    const mw = FIXED_BAR_W;
     const decor = line.length === 0 ? (lines.length === 0 ? DECOR_FIRST : DECOR_OTHER) : 0;
     if (line.length > 0 && (usedW + mw > availW || line.length >= MAX_PER_LINE)) {
       lines.push(line);
@@ -138,7 +217,6 @@ function buildDuration(dur: string, dotted?: boolean): string {
   return dur + 'd';
 }
 
-
 /** Draw a wavy glissando line between two StaveNotes */
 function drawGlissLine(svgEl: SVGElement, fromNote: StaveNote, toNote: StaveNote) {
   const fromYs = fromNote.getYs();
@@ -155,7 +233,6 @@ function drawGlissLine(svgEl: SVGElement, fromNote: StaveNote, toNote: StaveNote
   const dist = Math.sqrt(dx * dx + dy * dy);
   if (dist < 4) return;
 
-  // Perpendicular unit vector for wave amplitude
   const px = -dy / dist;
   const py = dx / dist;
 
@@ -180,7 +257,6 @@ function drawGlissLine(svgEl: SVGElement, fromNote: StaveNote, toNote: StaveNote
   path.setAttribute('fill', 'none');
   svgEl.appendChild(path);
 
-  // "gliss." label rotated to match the line angle
   const angle = Math.atan2(dy, dx) * (180 / Math.PI);
   const midX = (x1 + x2) / 2;
   const midY = (y1 + y2) / 2;
@@ -197,9 +273,10 @@ function drawGlissLine(svgEl: SVGElement, fromNote: StaveNote, toNote: StaveNote
   svgEl.appendChild(txt);
 }
 
-function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number, currentIdx: number, positions: MeasurePos[], sheetKey?: string, notePositions?: NotePos[], selectedNote?: { mi: number; ni: number } | null) {
+function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number, currentIdx: number, positions: MeasurePos[], sheetKey?: string, notePositions?: NotePos[], selectedNote?: { mi: number; ni: number } | null, noteElMap?: Map<string, SVGElement>) {
   positions.length = 0;
   if (notePositions) notePositions.length = 0;
+  if (noteElMap) noteElMap.clear();
   el.innerHTML = '';
   if (measures.length === 0) return;
   const innerW = width / SHEET_SCALE;
@@ -210,7 +287,6 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
   renderer.resize(innerW, totalH);
   const ctx = renderer.getContext();
 
-  // Uniform scale: scale SVG and set container height
   const svgEl = el.querySelector('svg');
   if (svgEl) {
     svgEl.style.transformOrigin = 'top left';
@@ -228,16 +304,15 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
     const y = MARGIN.top + li * LINE_HEIGHT;
     const decorW = isFirstLine ? DECOR_FIRST : DECOR_OTHER;
     const availForBars = totalW - decorW;
-    const weights = indices.map((i) => measureMinWidth(measures[i]));
-    const totalWeight = weights.reduce((s, w) => s + w, 0);
-    const stretch = !isLastLine || indices.length >= MAX_PER_LINE;
+    const barW = (isLastLine && indices.length < MAX_PER_LINE)
+      ? FIXED_BAR_W
+      : availForBars / indices.length;
 
     let x = MARGIN.left;
     for (let j = 0; j < indices.length; j++) {
       const m = indices[j];
       const firstInLine = j === 0;
       const isLast = m === measures.length - 1 && m !== currentIdx;
-      const barW = stretch ? (weights[j] / totalWeight) * availForBars : weights[j] * 1.3;
       const w = firstInLine ? barW + decorW : barW;
 
       const stave = new Stave(x, y, w);
@@ -246,34 +321,58 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         if (sheetKey && sheetKey !== 'C') stave.addKeySignature(sheetKey);
         if (isFirstLine) stave.addTimeSignature('4/4');
       }
-      const measure = measures[m];
-      if (measure.repeatStart) stave.setBegBarType(BarlineType.REPEAT_BEGIN);
-      if (measure.repeatEnd) stave.setEndBarType(BarlineType.REPEAT_END);
+      // Repeat / end barlines
+      const mData = measures[m];
+      if (mData.repeatStart) stave.setBegBarType(BarlineType.REPEAT_BEGIN);
+      if (mData.repeatEnd) stave.setEndBarType(BarlineType.REPEAT_END);
       else if (isLast) stave.setEndBarType(BarlineType.END);
-      if (measure.volta) {
-        const v = measure.volta;
-        const prevV = m > 0 ? measures[m - 1]?.volta : undefined;
-        const nextV = m < measures.length - 1 ? measures[m + 1]?.volta : undefined;
-        const isS = prevV !== v;
-        stave.setVoltaType(isS ? VoltaType.BEGIN : VoltaType.MID, `${v}.`, 30);
-      }
-      if (measure.navigation) {
-        const navMap: Record<string, number[]> = {
-          segno: [Repetition.type.SEGNO_LEFT], coda: [Repetition.type.CODA_LEFT],
-          fine: [Repetition.type.FINE], toCoda: [Repetition.type.TO_CODA],
-          dc: [Repetition.type.DC], dcAlCoda: [Repetition.type.DC_AL_CODA], dcAlFine: [Repetition.type.DC_AL_FINE],
-          ds: [Repetition.type.DS], dsAlCoda: [Repetition.type.DS_AL_CODA], dsAlFine: [Repetition.type.DS_AL_FINE],
-        };
-        const rts = navMap[measure.navigation];
-        if (rts) for (const rt of rts) stave.setRepetitionType(rt);
+      // Navigation markers (D.C., Coda, Segno, Fine, etc.)
+      if (mData.navigation) {
+        const repTypes = NAV_REPETITION[mData.navigation];
+        if (repTypes) {
+          for (const rt of repTypes) stave.setRepetitionType(rt);
+        }
       }
       stave.setContext(ctx).draw();
 
-      // Record position for HTML chord overlay
+      // Draw volta brackets manually so vertical lines reach the stave
+      if (mData.volta && svgEl) {
+        const v = mData.volta;
+        const prevVolta = m > 0 ? measures[m - 1]?.volta : undefined;
+        const isStart = prevVolta !== v;
+        const voltaTop = y - 16;
+        const staveY = y + 40;
+        const lx = x + 1;
+        const rx = x + w - 1;
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        // Horizontal line
+        const hLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        hLine.setAttribute('x1', String(lx)); hLine.setAttribute('y1', String(voltaTop));
+        hLine.setAttribute('x2', String(rx)); hLine.setAttribute('y2', String(voltaTop));
+        hLine.setAttribute('stroke', '#333'); hLine.setAttribute('stroke-width', '1.5');
+        g.appendChild(hLine);
+        if (isStart) {
+          // Left vertical line from top to stave
+          const vLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          vLine.setAttribute('x1', String(lx)); vLine.setAttribute('y1', String(voltaTop));
+          vLine.setAttribute('x2', String(lx)); vLine.setAttribute('y2', String(staveY));
+          vLine.setAttribute('stroke', '#333'); vLine.setAttribute('stroke-width', '1.5');
+          g.appendChild(vLine);
+          // Label
+          const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          txt.setAttribute('x', String(lx + 6)); txt.setAttribute('y', String(voltaTop + 22));
+          txt.setAttribute('font-size', '17'); txt.setAttribute('font-weight', '700');
+          txt.setAttribute('font-family', '"Times New Roman", "Noto Serif KR", serif');
+          txt.setAttribute('fill', '#333');
+          txt.textContent = `${v}.`;
+          g.appendChild(txt);
+        }
+        svgEl.appendChild(g);
+      }
+
       const chordX = firstInLine ? x + decorW + 4 : x + 4;
       positions.push({ idx: m, x: chordX, y, w: w - (firstInLine ? decorW : 0) - 4, chordX });
 
-      // Highlight current measure
       if (m === currentIdx) {
         const svgEl = el.querySelector('svg');
         if (svgEl) {
@@ -288,13 +387,12 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         }
       }
 
+      const measure = measures[m];
       if (measure.notes.length === 0) {
         x += w;
         continue;
       }
 
-      // Per-measure accidental tracking for smart display
-      // If previous measure ended with a tie, carry its accidental state
       const activeAcc = tieCarryAcc ? new Map(tieCarryAcc) : new Map<string, 'b' | '#' | 'n'>();
       tieCarryAcc = undefined;
 
@@ -329,7 +427,6 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         return note;
       });
 
-      // Carry accidental across barline if last note has a tie
       const lastNote = measure.notes[measure.notes.length - 1];
       if (lastNote?.tie && !lastNote.duration.endsWith('r')) {
         const acc = lastNote.accidentals?.[0] as 'b' | '#' | undefined;
@@ -341,15 +438,14 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       const voice = new Voice({ numBeats: 4, beatValue: 4 });
       voice.setStrict(false);
       voice.addTickables(vfNotes);
-      new Formatter().joinVoices([voice]).formatToStave([voice], stave);
+      const noteAreaW = w - (firstInLine ? decorW : 0) - 30;
+      new Formatter().joinVoices([voice]).format([voice], Math.max(noteAreaW, 40));
 
-      // Manual beaming: group consecutive beamable notes (8th, 16th)
-      // 16th triplet + one following note beam together, then break
       const beams: Beam[] = [];
       let beamGroup: StaveNote[] = [];
       let groupBeats = 0;
       let inTuplet = false;
-      let postTupletMerged = false; // true after merging one note post-16th-triplet
+      let postTupletMerged = false;
 
       for (let ni = 0; ni < vfNotes.length; ni++) {
         const vn = vfNotes[ni];
@@ -361,7 +457,6 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         let noteBeats = DUR_BEATS[dur.replace('d', '')] ?? 1;
         if (noteDots > 0 || dur.endsWith('d')) noteBeats *= 1.5;
 
-        // After merging one post-tuplet note, force break before next note
         if (postTupletMerged && beamGroup.length > 0) {
           if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
           beamGroup = [];
@@ -369,11 +464,9 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
           postTupletMerged = false;
         }
 
-        // Break beam group at tuplet boundary — allow one merge after 16th triplet
         if (isTuplet !== inTuplet && beamGroup.length > 0) {
           const prevIs16Triplet = inTuplet && beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
           if (prevIs16Triplet && isBeamable && !isRest && !isTuplet) {
-            // Allow this one note to merge, then mark for break
             postTupletMerged = true;
           } else {
             if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
@@ -386,7 +479,6 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         if (isBeamable && !isRest) {
           if (!isTuplet && !postTupletMerged) {
             const newGroupBeats = groupBeats + noteBeats;
-            // Break at 1-beat boundary for 16th notes, 2-beat boundary for 8th notes
             const has16 = dur === '16' || dur === '16d' || beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
             const boundary = has16 ? 1 : 2;
             if (groupBeats > 0 && Math.floor((groupBeats - 0.001) / boundary) !== Math.floor((newGroupBeats - 0.001) / boundary) && beamGroup.length > 0) {
@@ -397,7 +489,6 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
           }
           beamGroup.push(vn);
           if (!isTuplet) groupBeats += noteBeats;
-          // Force beam break after this note if beamBreak is set
           if (measure.notes[ni].beamBreak) {
             if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
             beamGroup = [];
@@ -438,7 +529,6 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         }
       }
 
-      // Collect rendered notes for tie drawing
       for (let ni = 0; ni < vfNotes.length; ni++) {
         allVfNotes.push({ mi: m, ni, vfNote: vfNotes[ni] });
       }
@@ -453,7 +543,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
     for (const idx of lines[li]) measureLine.set(idx, li);
   }
 
-  // Draw ties (skip if notes are on different lines to avoid cross-line arcs)
+  // Draw ties (skip if notes are on different lines)
   let flatIdx = 0;
   for (let mi = 0; mi < measures.length; mi++) {
     const measure = measures[mi];
@@ -488,6 +578,50 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
     }
   }
 
+  // Draw intro brackets — small parentheses inside bracketed measures
+  if (svgEl) {
+    const drawBracketArc = (cx: number, top: number, bot: number, openSide: boolean) => {
+      const h = bot - top;
+      const bulge = Math.min(h * 0.18, 6);
+      const d = openSide
+        ? `M ${cx} ${top} Q ${cx - bulge} ${(top + bot) / 2} ${cx} ${bot}`
+        : `M ${cx} ${top} Q ${cx + bulge} ${(top + bot) / 2} ${cx} ${bot}`;
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', d);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', '#444');
+      path.setAttribute('stroke-width', '1.8');
+      svgEl!.appendChild(path);
+    };
+    let bi = 0;
+    while (bi < measures.length) {
+      if (measures[bi].bracket) {
+        const groupStart = bi;
+        while (bi < measures.length && measures[bi].bracket) bi++;
+        const groupEnd = bi - 1;
+        const pStart = positions.find((p) => p.idx === groupStart);
+        if (pStart) {
+          const top = pStart.y + 28;
+          const bot = pStart.y + LINE_HEIGHT - 60;
+          drawBracketArc(pStart.x + 2, top, bot, true);
+          // Find last note's right edge in the bracket group
+          const lastNoteInGroup = [...allVfNotes].reverse().find((e) => e.mi === groupEnd);
+          let closeX: number;
+          if (lastNoteInGroup) {
+            const bb = lastNoteInGroup.vfNote.getBoundingBox();
+            closeX = bb ? bb.getX() + bb.getW() + 4 : (positions.find((p) => p.idx === groupEnd)?.x ?? 0) + (positions.find((p) => p.idx === groupEnd)?.w ?? 0) - 2;
+          } else {
+            const pEnd = positions.find((p) => p.idx === groupEnd);
+            closeX = pEnd ? pEnd.x + pEnd.w - 2 : 0;
+          }
+          drawBracketArc(closeX, top, bot, false);
+        }
+      } else {
+        bi++;
+      }
+    }
+  }
+
   // Collect note bounding boxes for click detection & highlight selected note
   if (svgEl) {
     for (const entry of allVfNotes) {
@@ -495,43 +629,38 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       if (bb && notePositions) {
         notePositions.push({ mi: entry.mi, ni: entry.ni, x: bb.getX(), y: bb.getY(), w: bb.getW(), h: bb.getH() });
       }
-      // Highlight selected note red (notehead only — stem coloring via CSS class)
+      if (noteElMap) {
+        const svgNode = entry.vfNote.getSVGElement();
+        if (svgNode) noteElMap.set(`${entry.mi}-${entry.ni}`, svgNode as SVGElement);
+      }
       if (selectedNote && entry.mi === selectedNote.mi && entry.ni === selectedNote.ni) {
         const RED = '#d32f2f';
-        const noteSvg = entry.vfNote.getSVGElement();
-        if (noteSvg) {
-          // Color notehead group and all its children
-          noteSvg.querySelectorAll('*').forEach((c) => {
-            const s = (c as SVGElement).style;
-            s.fill = RED; s.stroke = RED;
+        const applyRed = (el: Element) => {
+          const s = (el as SVGElement).style;
+          s.fill = RED; s.stroke = RED;
+          el.querySelectorAll('*').forEach((c) => {
+            const cs = (c as SVGElement).style;
+            cs.fill = RED; cs.stroke = RED;
           });
-          (noteSvg as SVGElement).style.fill = RED;
-          (noteSvg as SVGElement).style.stroke = RED;
+        };
+        // Note head group
+        const noteSvg = entry.vfNote.getSVGElement();
+        if (noteSvg) applyRed(noteSvg);
+        // Walk up to find the parent vf-stavenote group which contains stem + flag
+        if (noteSvg) {
+          let parent = noteSvg.parentElement;
+          while (parent && parent !== svgEl) {
+            const cls = parent.getAttribute('class') || '';
+            if (cls.includes('vf-stavenote') || cls.includes('vf-stemmablenote')) {
+              applyRed(parent);
+              break;
+            }
+            parent = parent.parentElement;
+          }
         }
-        // Color stem: VexFlow Stem has its own SVG element
-        try {
-          const stemEl = (entry.vfNote as any).stem?.elem;
-          if (stemEl) {
-            (stemEl as SVGElement).style.fill = RED;
-            (stemEl as SVGElement).style.stroke = RED;
-            stemEl.querySelectorAll('*').forEach((c: Element) => {
-              (c as SVGElement).style.fill = RED;
-              (c as SVGElement).style.stroke = RED;
-            });
-          }
-        } catch { /* no stem (whole note) */ }
-        // Color flag
-        try {
-          const flagEl = (entry.vfNote as any).flag?.elem;
-          if (flagEl) {
-            (flagEl as SVGElement).style.fill = RED;
-            (flagEl as SVGElement).style.stroke = RED;
-            flagEl.querySelectorAll('*').forEach((c: Element) => {
-              (c as SVGElement).style.fill = RED;
-              (c as SVGElement).style.stroke = RED;
-            });
-          }
-        } catch { /* no flag */ }
+        // Also try internal VexFlow refs as fallback
+        try { const stemEl = (entry.vfNote as any).stem?.elem; if (stemEl) applyRed(stemEl); } catch {}
+        try { const flagEl = (entry.vfNote as any).flag?.elem; if (flagEl) applyRed(flagEl); } catch {}
       }
     }
   }
@@ -559,11 +688,11 @@ function NoteIcon({ type }: { type: string }) {
 }
 
 const REST_GLYPHS: Record<string, string> = {
-  w:  '\uE4E3',  // SMuFL whole rest
-  h:  '\uE4E4',  // SMuFL half rest
-  q:  '\uE4E5',  // SMuFL quarter rest
-  '8':  '\uE4E6',  // SMuFL 8th rest
-  '16': '\uE4E7',  // SMuFL 16th rest
+  w:  '\uE4E3',
+  h:  '\uE4E4',
+  q:  '\uE4E5',
+  '8':  '\uE4E6',
+  '16': '\uE4E7',
 };
 
 function RestIcon({ type }: { type: string }) {
@@ -629,6 +758,20 @@ const MetaInput = styled.input`
   outline: none;
   &:focus { border-color: ${({ theme }) => theme.colors.textSecondary}; }
   &::placeholder { color: ${({ theme }) => theme.colors.textSecondary}; opacity: 0.5; }
+`;
+
+const KeySelect = styled.select`
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 3px 6px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 5px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  color: ${({ theme }) => theme.colors.textPrimary};
+  cursor: pointer;
+  outline: none;
+  &:focus { border-color: ${({ theme }) => theme.colors.textSecondary}; }
 `;
 
 const MetaLabel = styled.span`
@@ -707,6 +850,19 @@ const Sep = styled.div`
   margin: 0 5px;
 `;
 
+const NavSelect = styled.select`
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 4px;
+  border-radius: 6px;
+  border: 1.5px solid ${({ theme }) => theme.colors.border};
+  background: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.text};
+  cursor: pointer;
+  &:focus { outline: none; border-color: ${({ theme }) => theme.colors.primary}; }
+`;
+
 const Btn = styled.button`
   font-family: 'DM Sans', sans-serif;
   font-size: 0.9rem;
@@ -720,14 +876,6 @@ const Btn = styled.button`
   &:disabled { opacity: 0.35; cursor: default; }
 `;
 
-const CopyBtn = styled(Btn)<{ $copied?: boolean }>`
-  background: ${({ $copied }) => ($copied ? '#2a6e3f' : '#3070a0')};
-  color: #fff;
-  border-color: ${({ $copied }) => ($copied ? '#2a6e3f' : '#3070a0')};
-  font-weight: 600;
-  &:hover { background: ${({ $copied }) => ($copied ? '#2a6e3f' : '#265d88')}; }
-`;
-
 const SaveBtn = styled(Btn)<{ $saved?: boolean }>`
   background: ${({ $saved }) => ($saved ? '#2a6e3f' : '#8B6914')};
   color: #fff;
@@ -736,17 +884,47 @@ const SaveBtn = styled(Btn)<{ $saved?: boolean }>`
   &:hover { background: ${({ $saved }) => ($saved ? '#2a6e3f' : '#6d5310')}; }
 `;
 
+const JsonBtn = styled.button<{ $bg: string; $hover: string }>`
+  padding: 5px 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  color: #fff;
+  background: ${({ $bg }) => $bg};
+  transition: background 0.12s;
+  &:hover { background: ${({ $hover }) => $hover}; }
+  &:disabled { opacity: 0.4; cursor: default; }
+`;
+
 const Spacer = styled.div` flex: 1; `;
 
-const PlayBtn = styled.button<{ $playing?: boolean }>`
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.9rem;
-  padding: 7px 14px;
-  border: 1px solid ${({ $playing }) => ($playing ? '#c0392b' : '#2a6e3f')};
-  border-radius: 6px;
-  background: ${({ $playing }) => ($playing ? '#c0392b' : '#2a6e3f')};
+const PlayerBar = styled.div`
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #1e1e1e;
+  padding: 14px 22px;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  z-index: 1000;
+`;
+
+const PlayerIconBtn = styled.button`
+  font-size: 1.3rem;
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: #2a6e3f;
   color: #fff;
-  font-weight: 600;
   cursor: pointer;
   &:hover { opacity: 0.85; }
   &:disabled { opacity: 0.35; cursor: default; }
@@ -763,7 +941,6 @@ const BpmInput = styled.input`
   color: ${({ theme }) => theme.colors.textPrimary};
   text-align: center;
   outline: none;
-  /* Hide number spinner arrows */
   -moz-appearance: textfield;
   &::-webkit-outer-spin-button,
   &::-webkit-inner-spin-button {
@@ -778,6 +955,13 @@ const InfoText = styled.span`
   color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
+const UndoClearRow = styled.div`
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 4px 0;
+`;
+
 const SectionLabel = styled.span`
   font-size: 0.82rem;
   color: ${({ theme }) => theme.colors.textSecondary};
@@ -786,10 +970,10 @@ const SectionLabel = styled.span`
 
 const ChordInput = styled.input`
   font-family: 'MuseJazz Text', 'DM Sans', sans-serif;
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   font-weight: 400;
-  width: 100px;
-  padding: 5px 10px;
+  width: 52px;
+  padding: 4px 5px;
   border: 1px solid #b8960a;
   border-radius: 6px;
   background: #fffbe6;
@@ -845,10 +1029,10 @@ const ChordCellWrap = styled.div<{ $hasValue?: boolean }>`
   position: absolute;
   height: 28px;
   border-radius: 3px;
-  background: ${({ $hasValue }) => ($hasValue ? 'rgba(255, 248, 220, 0.7)' : 'rgba(0,0,0,0.03)')};
+  background: ${({ $hasValue }) => ($hasValue ? 'transparent' : 'rgba(0,0,0,0.04)')};
   cursor: text;
   transition: background 0.12s;
-  &:hover { background: rgba(255, 248, 220, 0.5); }
+  &:hover { background: rgba(0,0,0,0.07); }
 `;
 
 const ChordCellDisplay = styled.span`
@@ -857,25 +1041,25 @@ const ChordCellDisplay = styled.span`
   padding: 0 5px;
   height: 28px;
   font-family: 'MuseJazz Text', 'DM Sans', sans-serif;
-  color: #8B6914;
+  color: #222;
   white-space: nowrap;
   line-height: 28px;
 `;
 
 const ChordBase = styled.span`
-  font-size: 1.3rem;
+  font-size: 1.85rem;
   font-weight: 400;
 `;
 
 const ChordExt = styled.span`
-  font-size: 0.95rem;
+  font-size: 1.3rem;
   font-weight: 400;
   position: relative;
-  top: -4px;
+  top: -6px;
 `;
 
 const ChordHalfDim = styled.span`
-  font-size: 1.3rem;
+  font-size: 1.85rem;
   font-weight: 400;
   display: inline-block;
   transform: scaleX(1.3);
@@ -883,33 +1067,33 @@ const ChordHalfDim = styled.span`
 `;
 
 const ChordTensionNum = styled.span`
-  font-size: 0.75rem;
+  font-size: 1.05rem;
   font-weight: 400;
   position: relative;
-  top: -7px;
+  top: -9px;
   margin-left: 0px;
 `;
 
 const ChordTensionAcc = styled.span`
-  font-size: 0.85rem;
+  font-size: 1.15rem;
   font-weight: 400;
   position: relative;
-  top: -4px;
+  top: -6px;
   margin-left: 2px;
 `;
 
 const ChordCellInput = styled.input`
-  width: 100%;
+  width: 52px;
   height: 100%;
   font-family: 'MuseJazz Text', 'DM Sans', sans-serif;
   font-size: 1.2rem;
   font-weight: 400;
-  padding: 2px 5px;
+  padding: 2px 4px;
   border: none;
   border-radius: 3px;
-  background: rgba(255, 248, 220, 0.85);
-  box-shadow: 0 0 0 1.5px rgba(184, 150, 10, 0.25);
-  color: #8B6914;
+  background: #fff;
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.15);
+  color: #222;
   outline: none;
 `;
 
@@ -920,24 +1104,18 @@ function normalizeChord(raw: string): string {
   const root = m[1].charAt(0).toUpperCase() + m[1].slice(1);
   let q = m[2];
 
-  // half-diminished (must be before minor)
   q = q.replace(/^(?:m7b5|min7b5|-7b5)$/i, 'ø7');
-  // diminished
   q = q.replace(/^dim7$/i, '°7');
   q = q.replace(/^dim$/i, '°');
-  // minor-major (must be before major and minor): -M7, mM7, minmaj7, -maj7
   q = q.replace(/^(?:-|m|min)(?:M|maj)(\d.*)$/i, '-△$1');
-  // major
   q = q.replace(/^maj(\d.*)$/i, '△$1');
   q = q.replace(/^maj$/i, '△');
   q = q.replace(/^M(\d.*)$/, '△$1');
   q = q.replace(/^M$/, '△');
-  // minor (m, min → -)
   q = q.replace(/^min(\d.*)$/i, '-$1');
   q = q.replace(/^min$/i, '-');
   q = q.replace(/^m(\d.*)$/, '-$1');
   q = q.replace(/^m$/, '-');
-  // augmented
   q = q.replace(/^aug(\d.*)$/i, '+$1');
   q = q.replace(/^aug$/i, '+');
 
@@ -945,15 +1123,12 @@ function normalizeChord(raw: string): string {
 }
 
 function splitChord(chord: string): { base: string; ext: string; tensions: { acc: string; num: string }[] } {
-  // Split into base (non-digit prefix) and the rest starting from first digit
   const m = chord.match(/^(\D*?)(\d.*)$/);
   if (!m) return { base: chord, ext: '', tensions: [] };
-  // ext is the first number (e.g. "7" from "7♭9♯11")
   const rest = m[2];
   const extMatch = rest.match(/^(\d+)/);
   const ext = extMatch ? extMatch[1] : '';
   let remaining = rest.slice(ext.length);
-  // Parse tensions: each is optional accidental + number (e.g. ♭9, ♯11, 13)
   const tensions: { acc: string; num: string }[] = [];
   while (remaining.length > 0) {
     const t = remaining.match(/^([♭♯\u266D\u266F#b]*)(\d+)/);
@@ -961,7 +1136,6 @@ function splitChord(chord: string): { base: string; ext: string; tensions: { acc
     tensions.push({ acc: t[1], num: t[2] });
     remaining = remaining.slice(t[0].length);
   }
-  // If there's leftover (e.g. trailing "b" without number), append to last tension or ignore
   return { base: m[1], ext, tensions };
 }
 
@@ -1011,7 +1185,6 @@ function ChordCell({ value, onChange, style }: {
       ) : (
         <ChordCellDisplay>
           {value ? (() => {
-            // Separate half-dim/dim symbol from base if present
             const dimMatch = base.match(/^(.*?)([\u00F8\u00B0])$/);
             const baseText = dimMatch ? dimMatch[1] : base;
             const dimSymbol = dimMatch ? dimMatch[2] : '';
@@ -1081,6 +1254,60 @@ const NoteChordOverlayInput = styled.input`
   &::placeholder { color: #c4a850; opacity: 0.6; }
 `;
 
+const ModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+`;
+
+const ModalBox = styled.div`
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  width: 560px;
+  max-width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+`;
+
+const ModalTitle = styled.h3`
+  margin: 0;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 1.1rem;
+  color: #333;
+`;
+
+const ModalTextarea = styled.textarea`
+  font-family: 'JetBrains Mono', 'Menlo', monospace;
+  font-size: 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 12px;
+  min-height: 260px;
+  resize: vertical;
+  outline: none;
+  &:focus { border-color: #b8960a; }
+`;
+
+const ModalBtnRow = styled.div`
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+`;
+
+const ModalError = styled.div`
+  color: #d32f2f;
+  font-size: 0.8rem;
+  font-family: 'DM Sans', sans-serif;
+`;
+
 const EmptyHint = styled.div`
   display: flex;
   align-items: center;
@@ -1091,35 +1318,35 @@ const EmptyHint = styled.div`
   opacity: 0.5;
 `;
 
-const JsonPreview = styled.pre`
-  margin: 0 16px 16px;
-  padding: 12px 16px;
-  background: #1e1e1e;
-  color: #d4d4d4;
-  border-radius: 8px;
-  font-family: 'JetBrains Mono', 'Menlo', monospace;
-  font-size: 0.72rem;
-  overflow-x: auto;
-  max-height: 240px;
-  overflow-y: auto;
-`;
-
 /* ─── component ────────────────────────────────────────────────────────── */
 
-export default function LickInputPage() {
+export default function LeadSheetGeneratorPage() {
   const navigate = useNavigate();
 
-  // Completed measures
   const [measures, setMeasures] = useState<MeasureInfo[]>([]);
-  // Current (open) measure
   const [curNotes, setCurNotes] = useState<NoteInfo[]>([]);
-  const [curChord, setCurChord] = useState('');
+  const [curChord1, setCurChord1] = useState('');
+  const [curChord2, setCurChord2] = useState('');
 
-  const [performer, setPerformer] = useState('');
-  const [title, setTitle] = useState('');
-  const [album, setAlbum] = useState('');
-  const [instrument, setInstrument] = useState('');
-  const [lickKey, setLickKey] = useState('');
+  // Join two chord slots into double-space format for storage
+  const joinChords = (c1: string, c2: string) => {
+    if (c1 && c2) return `${c1}  ${c2}`;
+    if (c1) return c1;
+    if (c2) return `  ${c2}`;
+    return '';
+  };
+  // Split double-space chord into two slots
+  const splitChords = (chord: string): [string, string] => {
+    if (!chord) return ['', ''];
+    const parts = chord.split(/\s{2,}/);
+    return [parts[0] ?? '', parts[1] ?? ''];
+  };
+  const curChord = joinChords(curChord1, curChord2);
+
+  const [composer, setComposer] = useState('');
+  const [genre, setGenre] = useState('');
+  const [sheetTitle, setSheetTitle] = useState('');
+  const [sheetKey, setSheetKey] = useState('C');
 
   const [duration, setDuration] = useState('8');
   const [dotted, setDotted] = useState(false);
@@ -1127,47 +1354,63 @@ export default function LickInputPage() {
   const [tieNext, setTieNext] = useState(false);
   const [tripletMode, setTripletMode] = useState(false);
   const tripletCountRef = useRef(0);
+  const [repeatStart, setRepeatStart] = useState(false);
+  const [repeatEnd, setRepeatEnd] = useState(false);
+  const [volta, setVolta] = useState<0 | 1 | 2>(0); // 0=none, 1=1st ending, 2=2nd ending
+  const [navigation, setNavigation] = useState<NavigationMarker | ''>('');
+  const [bracket, setBracket] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
+  const [showLoadModal, setShowLoadModal] = useState(false);
+  const [loadJsonText, setLoadJsonText] = useState('');
+  const [loadJsonError, setLoadJsonError] = useState('');
   const [bpm, setBpm] = useState(200);
   const [bpmText, setBpmText] = useState('200');
   const bpmManualRef = useRef(false);
   const [saved, setSaved] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [paused, setPaused] = useState(false);
   const playAbortRef = useRef<AbortController | null>(null);
+  const pauseResolveRef = useRef<(() => void) | null>(null);
+  const pausedRef = useRef(false);
   const svgRef = useRef<HTMLDivElement>(null);
-  const chordRef = useRef<HTMLInputElement>(null);
+  const chord1Ref = useRef<HTMLInputElement>(null);
+  const chord2Ref = useRef<HTMLInputElement>(null);
   const positionsRef = useRef<MeasurePos[]>([]);
   const [measurePositions, setMeasurePositions] = useState<MeasurePos[]>([]);
   const notePositionsRef = useRef<NotePos[]>([]);
+  const noteElMapRef = useRef<Map<string, SVGElement>>(new Map());
   const [notePositions, setNotePositions] = useState<NotePos[]>([]);
   const [selectedNote, setSelectedNote] = useState<{ mi: number; ni: number } | null>(null);
   const [noteChordEditing, setNoteChordEditing] = useState(false);
   const [noteChordValue, setNoteChordValue] = useState('');
   const noteChordInputRef = useRef<HTMLInputElement>(null);
 
-  // Undo stack for note-edit operations (accidental, tie, divide, chord)
-  const editUndoStack = useRef<{ measures: MeasureInfo[]; curNotes: NoteInfo[]; curChord: string }[]>([]);
+  const editUndoStack = useRef<{ measures: MeasureInfo[]; curNotes: NoteInfo[]; curChord1: string; curChord2: string; repeatStart: boolean; repeatEnd: boolean; volta: 0 | 1 | 2; navigation: NavigationMarker | ''; bracket: boolean }[]>([]);
   const pushEditUndo = useCallback(() => {
-    editUndoStack.current.push({ measures: measures.map((m) => ({ ...m, notes: m.notes.map((n) => ({ ...n })) })), curNotes: curNotes.map((n) => ({ ...n })), curChord });
+    editUndoStack.current.push({ measures: measures.map((m) => ({ ...m, notes: m.notes.map((n) => ({ ...n })) })), curNotes: curNotes.map((n) => ({ ...n })), curChord1, curChord2, repeatStart, repeatEnd, volta, navigation, bracket });
     if (editUndoStack.current.length > 50) editUndoStack.current.shift();
-  }, [measures, curNotes, curChord]);
+  }, [measures, curNotes, curChord1, curChord2, repeatStart, repeatEnd, volta, navigation, bracket]);
 
   const curBeats = useMemo(() => measureBeats(curNotes), [curNotes]);
 
-  // Ref for curChord so auto-close effect reads the latest value
-  const curChordRef = useRef(curChord);
-  curChordRef.current = curChord;
+  const curChord1Ref = useRef(curChord1);
+  curChord1Ref.current = curChord1;
+  const curChord2Ref = useRef(curChord2);
+  curChord2Ref.current = curChord2;
 
-  // All measures for rendering (completed + current if has notes)
   const allMeasures = useMemo<MeasureInfo[]>(() => {
     if (curNotes.length === 0 && !curChord) return measures;
-    return [...measures, { notes: curNotes, chord: curChord || undefined }];
-  }, [measures, curNotes, curChord]);
+    const cur: MeasureInfo = { notes: curNotes, chord: curChord || undefined };
+    if (repeatStart) cur.repeatStart = true;
+    if (repeatEnd) cur.repeatEnd = true;
+    if (volta) cur.volta = volta;
+    if (navigation) cur.navigation = navigation;
+    if (bracket) cur.bracket = true;
+    return [...measures, cur];
+  }, [measures, curNotes, curChord, repeatStart, repeatEnd, volta, navigation, bracket]);
 
   const currentIdx = curNotes.length > 0 || curChord ? measures.length : -1;
 
-  // Auto-adjust BPM based on 16th note presence
   useEffect(() => {
     if (bpmManualRef.current) return;
     const has16ths = allMeasures.some((m) => m.notes.some((n) => n.duration === '16' || n.duration === '16r'));
@@ -1176,28 +1419,39 @@ export default function LickInputPage() {
     setBpmText(String(newBpm));
   }, [allMeasures]);
 
-  // Auto-close helper: called after adding a note to check if measure is full
   const maybeAutoClose = useCallback((notes: NoteInfo[]) => {
     const beats = notes.reduce((s, n) => s + getBeats(n.duration, n.dotted, n.tuplet), 0);
     if (notes.length > 0 && beats >= 4 - 0.001) {
-      setMeasures((prev) => [...prev, { notes, chord: curChordRef.current || undefined }]);
+      const chord = joinChords(curChord1Ref.current, curChord2Ref.current);
+      setMeasures((prev) => [...prev, { notes, chord: chord || undefined }]);
       setCurNotes([]);
-      setCurChord('');
-      setTimeout(() => chordRef.current?.focus(), 50);
+      setCurChord1('');
+      setCurChord2('');
+      setTimeout(() => chord1Ref.current?.focus(), 50);
     }
   }, []);
 
-  // Close the current measure manually
   const closeMeasure = useCallback(() => {
     if (curNotes.length === 0) return;
     pushEditUndo();
-    setMeasures((prev) => [...prev, { notes: curNotes, chord: curChord || undefined }]);
+    const chord = joinChords(curChord1, curChord2);
+    const m: MeasureInfo = { notes: curNotes, chord: chord || undefined };
+    if (repeatStart) m.repeatStart = true;
+    if (repeatEnd) m.repeatEnd = true;
+    if (volta) m.volta = volta;
+    if (navigation) m.navigation = navigation;
+    if (bracket) m.bracket = true;
+    setMeasures((prev) => [...prev, m]);
     setCurNotes([]);
-    setCurChord('');
-    setTimeout(() => chordRef.current?.focus(), 50);
-  }, [curNotes, curChord, pushEditUndo]);
+    setCurChord1('');
+    setCurChord2('');
+    setRepeatStart(false);
+    setRepeatEnd(false);
+    setNavigation('');
+    setBracket(false);
+    setTimeout(() => chord1Ref.current?.focus(), 50);
+  }, [curNotes, curChord1, curChord2, pushEditUndo, repeatStart, repeatEnd, navigation, bracket]);
 
-  /* width tracking */
   const [sheetWidth, setSheetWidth] = useState(800);
   const sheetAreaRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -1220,7 +1474,17 @@ export default function LickInputPage() {
     }
   }, [measures.length, pushEditUndo]);
 
-  /* piano input — store real pitch, display logic handled in renderSheet */
+  const setChordAtNote = useCallback((mi: number, ni: number, chord: string) => {
+    updateNote(mi, ni, (n) => ({ ...n, chord: chord || undefined }));
+  }, [updateNote]);
+
+  const updateMeasure = useCallback((mi: number, updater: (m: MeasureInfo) => MeasureInfo) => {
+    pushEditUndo();
+    if (mi < measures.length) {
+      setMeasures((prev) => prev.map((m, i) => i === mi ? updater(m) : m));
+    }
+  }, [measures.length, pushEditUndo]);
+
   const handleNotePress = useCallback((pn: PianoNote) => {
     const conv = convertAcc(pn, accMode === 'n' ? 'b' : accMode);
     playMidi(pn.midi);
@@ -1240,7 +1504,6 @@ export default function LickInputPage() {
       return;
     }
 
-    // Save snapshot before adding note so undo reverts one note at a time
     pushEditUndo();
     const ni: NoteInfo = { keys: [conv.vexKey], duration, dotted: dotted || undefined };
     if (accMode === 'n') {
@@ -1257,7 +1520,6 @@ export default function LickInputPage() {
         newNotes[newNotes.length - 1] = { ...newNotes[newNotes.length - 1], tie: true };
         newNotes.push(ni);
       } else {
-        // Mark last note of last completed measure as tied
         if (measures.length > 0) {
           setMeasures((prev) => {
             const updated = [...prev];
@@ -1279,7 +1541,6 @@ export default function LickInputPage() {
     setCurNotes(newNotes);
     maybeAutoClose(newNotes);
 
-    // Auto-exit triplet mode after 3 notes
     if (tripletMode) {
       tripletCountRef.current += 1;
       if (tripletCountRef.current >= 3) {
@@ -1306,13 +1567,18 @@ export default function LickInputPage() {
     }
   }, [duration, dotted, tripletMode, curNotes, maybeAutoClose, pushEditUndo]);
 
-  /* undo: pop edit-undo stack first, then fall back to removing last note / measure */
   const handleUndo = useCallback(() => {
     if (editUndoStack.current.length > 0) {
       const snap = editUndoStack.current.pop()!;
       setMeasures(snap.measures);
       setCurNotes(snap.curNotes);
-      setCurChord(snap.curChord);
+      setCurChord1(snap.curChord1);
+      setCurChord2(snap.curChord2);
+      setRepeatStart(snap.repeatStart);
+      setRepeatEnd(snap.repeatEnd);
+      setVolta(snap.volta);
+      setNavigation(snap.navigation);
+      setBracket(snap.bracket);
       return;
     }
     if (curNotes.length > 0) {
@@ -1321,17 +1587,49 @@ export default function LickInputPage() {
       const last = measures[measures.length - 1];
       setMeasures((p) => p.slice(0, -1));
       setCurNotes(last.notes);
-      setCurChord(last.chord ?? '');
+      const [c1, c2] = splitChords(last.chord ?? '');
+      setCurChord1(c1);
+      setCurChord2(c2);
+      setRepeatStart(last.repeatStart ?? false);
+      setRepeatEnd(last.repeatEnd ?? false);
+      setVolta(last.volta ?? 0);
+      setNavigation(last.navigation ?? '');
+      setBracket(last.bracket ?? false);
     }
   }, [curNotes.length, measures]);
 
   const handleClear = useCallback(() => {
     setMeasures([]);
     setCurNotes([]);
-    setCurChord('');
+    setCurChord1('');
+    setCurChord2('');
   }, []);
 
-  /* keyboard shortcuts */
+  const handleLoadJson = useCallback(() => {
+    try {
+      const data = JSON.parse(loadJsonText);
+      if (!data.measures || !Array.isArray(data.measures)) {
+        setLoadJsonError('Invalid format: missing "measures" array');
+        return;
+      }
+      setMeasures(data.measures);
+      setCurNotes([]);
+      setCurChord1('');
+      setCurChord2('');
+      if (data.title) setSheetTitle(data.title);
+      if (data.composer) setComposer(data.composer);
+      if (data.genre) setGenre(data.genre);
+      if (data.key) setSheetKey(data.key);
+      if (data.tempo) { setBpm(data.tempo); setBpmText(String(data.tempo)); bpmManualRef.current = true; }
+      setSelectedNote(null);
+      setShowLoadModal(false);
+      setLoadJsonText('');
+      setLoadJsonError('');
+    } catch {
+      setLoadJsonError('Invalid JSON');
+    }
+  }, [loadJsonText]);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -1349,14 +1647,13 @@ export default function LickInputPage() {
     return () => window.removeEventListener('keydown', handler);
   }, [handleUndo, closeMeasure]);
 
-  /* render VexFlow */
   useEffect(() => {
     const el = svgRef.current;
     if (!el) return;
     if (allMeasures.length === 0) { el.innerHTML = ''; positionsRef.current = []; setMeasurePositions([]); notePositionsRef.current = []; return; }
-    const validKey = lickKey && (FLAT_KEYS[lickKey] != null || SHARP_KEYS[lickKey] != null || lickKey === 'C') ? lickKey : undefined;
+    const validKey = sheetKey && (FLAT_KEYS[sheetKey] != null || SHARP_KEYS[sheetKey] != null || sheetKey === 'C') ? sheetKey : undefined;
     try {
-      renderSheet(el, allMeasures, Math.max(sheetWidth, 300), currentIdx, positionsRef.current, validKey, notePositionsRef.current, selectedNote);
+      renderSheet(el, allMeasures, Math.max(sheetWidth, 300), currentIdx, positionsRef.current, validKey, notePositionsRef.current, selectedNote, noteElMapRef.current);
     } catch {
       positionsRef.current.length = 0;
       notePositionsRef.current.length = 0;
@@ -1364,9 +1661,8 @@ export default function LickInputPage() {
     }
     setMeasurePositions([...positionsRef.current]);
     setNotePositions([...notePositionsRef.current]);
-  }, [allMeasures, sheetWidth, currentIdx, lickKey, selectedNote]);
+  }, [allMeasures, sheetWidth, currentIdx, sheetKey, selectedNote]);
 
-  // Selected note info
   const selNoteInfo = useMemo<NoteInfo | null>(() => {
     if (!selectedNote) return null;
     const m = allMeasures[selectedNote.mi];
@@ -1374,24 +1670,20 @@ export default function LickInputPage() {
     return m.notes[selectedNote.ni] ?? null;
   }, [selectedNote, allMeasures]);
 
-  // Deselect when measures change structurally (undo, clear, etc.)
   useEffect(() => {
     if (selectedNote && !allMeasures[selectedNote.mi]?.notes[selectedNote.ni]) {
       setSelectedNote(null);
     }
   }, [allMeasures, selectedNote]);
 
-  /* click on SVG to select/deselect notes */
   const handleSheetClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const el = svgRef.current;
     if (!el) return;
     const svgEl = el.querySelector('svg');
     if (!svgEl) return;
     const rect = svgEl.getBoundingClientRect();
-    // Convert click coords to unscaled SVG coords
     const cx = (e.clientX - rect.left) / SHEET_SCALE;
     const cy = (e.clientY - rect.top) / SHEET_SCALE;
-    // Find closest note within hit distance
     let best: NotePos | null = null;
     let bestDist = Infinity;
     for (const np of notePositionsRef.current) {
@@ -1403,7 +1695,6 @@ export default function LickInputPage() {
       if (dist < bestDist && dist < 25) { bestDist = dist; best = np; }
     }
     if (best) {
-      // Toggle: if already selected, deselect
       if (selectedNote && selectedNote.mi === best.mi && selectedNote.ni === best.ni) {
         setSelectedNote(null);
       } else {
@@ -1414,160 +1705,366 @@ export default function LickInputPage() {
     }
   }, [selectedNote]);
 
-  /* helper: modify a specific note in measures/curNotes */
-  // (updateNote moved before handleNotePress)
+  // (moved before handleNotePress)
 
-  /* set chord on a specific note */
-  const setChordAtNote = useCallback((mi: number, ni: number, chord: string) => {
-    updateNote(mi, ni, (n) => ({ ...n, chord: chord || undefined }));
-  }, [updateNote]);
+  const selMeasure = useMemo<MeasureInfo | null>(() => {
+    if (!selectedNote) return null;
+    return allMeasures[selectedNote.mi] ?? null;
+  }, [selectedNote, allMeasures]);
 
-  /* build JSON */
   const totalNotes = measures.reduce((s, m) => s + m.notes.length, 0) + curNotes.length;
 
+  /* build JSON — lead sheet format */
   const jsonOutput = useMemo(() => {
     if (allMeasures.length === 0) return '';
-    const features = computeLickFeatures(allMeasures);
     const entry = {
-      id: 0,
-      performer: performer || 'Unknown',
-      title: title || 'Untitled',
-      album,
-      instrument,
-      key: lickKey,
-      style: '',
+      title: sheetTitle || 'Untitled',
+      composer: composer || 'Unknown',
+      ...(genre ? { genre } : {}),
+      key: sheetKey,
+      timeSignature: '4/4',
       tempo: bpm,
-      tags: [] as string[],
-      chords: allMeasures.map((m) => m.chord ?? '').filter(Boolean),
-      sheetData: {
-        timeSignature: '4/4',
-        measures: allMeasures,
-      },
-      ...features,
+      measures: allMeasures,
     };
     return JSON.stringify(entry, null, 2);
-  }, [allMeasures, performer, title, album, instrument, lickKey, bpm]);
+  }, [allMeasures, sheetTitle, composer, genre, sheetKey, bpm]);
 
   /* playback */
+  const handlePause = useCallback(() => {
+    if (!playing) return;
+    if (pausedRef.current) {
+      // Resume
+      pausedRef.current = false;
+      setPaused(false);
+      pauseResolveRef.current?.();
+      pauseResolveRef.current = null;
+    } else {
+      // Pause
+      pausedRef.current = true;
+      setPaused(true);
+    }
+  }, [playing]);
+
   const handlePlay = useCallback(async () => {
     if (playing) {
       playAbortRef.current?.abort();
+      pauseResolveRef.current?.();
+      pauseResolveRef.current = null;
+      pausedRef.current = false;
+      setPaused(false);
       setPlaying(false);
       return;
     }
     if (allMeasures.length === 0) return;
 
-    const sax = await ensureSax();
+    const [sax, piano] = await Promise.all([ensureSax(), ensurePiano()]);
     const abort = new AbortController();
     playAbortRef.current = abort;
+    pausedRef.current = false;
+    setPaused(false);
     setPlaying(true);
 
-    const beatDur = 60 / bpm; // seconds per beat
+    const beatDur = 60 / bpm;
 
-    // Flatten all notes for tie merging
-    const flat: NoteInfo[] = [];
-    for (const m of allMeasures) for (const n of m.notes) flat.push(n);
+    // Helper: expand repeat/volta/navigation for a set of measures
+    type ExpandedM = { m: MeasureInfo; origMi: number };
+    const expandMeasures = (srcMeasures: MeasureInfo[]): ExpandedM[] => {
+      const expandedMeasures: ExpandedM[] = [];
 
-    try {
-      let i = 0;
-      while (i < flat.length) {
-        if (abort.signal.aborted) throw 'stop';
-        const n = flat[i];
-        const isRest = n.duration.endsWith('r');
-        const baseDur = n.duration.replace(/r$/, '');
-        let beats = DUR_BEATS[baseDur] ?? 1;
-        if (n.dotted) beats *= 1.5;
-        if (n.tuplet === 3) beats *= 2 / 3;
+      // Phase 1: expand repeats + volta
+      const afterRepeats: ExpandedM[] = [];
+      let repeatFromIdx = 0;
+      let mi = 0;
+      while (mi < srcMeasures.length) {
+        const m = srcMeasures[mi];
+        if (m.repeatStart) repeatFromIdx = mi;
+        afterRepeats.push({ m, origMi: mi });
 
-        // Merge tied notes: accumulate duration, skip tied targets
-        if (!isRest && n.tie) {
-          let look = i + 1;
-          while (look < flat.length) {
-            const ln = flat[look];
-            const lb = ln.duration.replace(/r$/, '');
-            let lbeats = DUR_BEATS[lb] ?? 1;
-            if (ln.dotted) lbeats *= 1.5;
-            if (ln.tuplet === 3) lbeats *= 2 / 3;
-            beats += lbeats;
-            if (!ln.tie) { look++; break; }
-            look++;
+        if (m.repeatEnd) {
+          for (let ri = repeatFromIdx; ri <= mi; ri++) {
+            if (srcMeasures[ri].volta === 1) break;
+            afterRepeats.push({ m: srcMeasures[ri], origMi: ri });
           }
-          const sec = beats * beatDur;
-          const acc = n.accidentals?.[0] as '#' | 'b' | 'n' | undefined;
-          const midi = vexToMidi(n.keys[0], acc);
-          sax.play(String(midi), 0, { duration: sec * 0.9, gain: 3 });
-          await new Promise<void>((resolve, reject) => {
-            const timer = setTimeout(resolve, sec * 1000);
-            abort.signal.addEventListener('abort', () => { clearTimeout(timer); reject('stop'); }, { once: true });
-          });
-          i = look;
+          let vi = mi + 1;
+          while (vi < srcMeasures.length && srcMeasures[vi].volta === 2) {
+            afterRepeats.push({ m: srcMeasures[vi], origMi: vi });
+            vi++;
+          }
+          mi = vi;
           continue;
         }
+        mi++;
+      }
 
-        const sec = beats * beatDur;
-        if (!isRest) {
-          const acc = n.accidentals?.[0] as '#' | 'b' | 'n' | undefined;
-          const midi = vexToMidi(n.keys[0], acc);
-          sax.play(String(midi), 0, { duration: sec * 0.9, gain: 3 });
+      // Phase 2: expand D.C./D.S./Coda/Fine navigation
+      const segnoIdx = afterRepeats.findIndex((e) => e.m.navigation === 'segno');
+      const codaIdx = afterRepeats.findIndex((e) => e.m.navigation === 'coda');
+
+      let jumped = false;
+      for (let mi = 0; mi < afterRepeats.length; mi++) {
+        const entry = afterRepeats[mi];
+        expandedMeasures.push(entry);
+        const nav = entry.m.navigation;
+        if (!nav || jumped) continue;
+
+        if (nav === 'fine') break;
+        if (nav === 'toCoda' && !jumped) continue;
+        if (nav === 'dc' || nav === 'dcAlCoda' || nav === 'dcAlFine' ||
+            nav === 'ds' || nav === 'dsAlCoda' || nav === 'dsAlFine') {
+          jumped = true;
+          const jumpTo = (nav === 'ds' || nav === 'dsAlCoda' || nav === 'dsAlFine')
+            ? Math.max(0, segnoIdx) : 0;
+          const alCoda = nav === 'dcAlCoda' || nav === 'dsAlCoda';
+          const alFine = nav === 'dcAlFine' || nav === 'dsAlFine';
+
+          for (let ri = jumpTo; ri < afterRepeats.length; ri++) {
+            const re = afterRepeats[ri];
+            expandedMeasures.push(re);
+            if (alCoda && re.m.navigation === 'toCoda') {
+              if (codaIdx >= 0) {
+                for (let ci = codaIdx; ci < afterRepeats.length; ci++) {
+                  expandedMeasures.push(afterRepeats[ci]);
+                }
+              }
+              break;
+            }
+            if (alFine && re.m.navigation === 'fine') break;
+            if (!alCoda && !alFine && (nav === 'dc' || nav === 'ds') && ri === afterRepeats.length - 1) break;
+          }
+          break;
         }
+      }
+      return expandedMeasures;
+    };
+
+    // Highlight helpers — direct DOM manipulation, no React re-render
+    const elMap = noteElMapRef.current;
+    let prevKey: string | null = null;
+    const BLUE = '#1565c0';
+    const colorNote = (key: string, color: string) => {
+      const svg = elMap.get(key);
+      if (!svg) return;
+      const apply = (el: Element) => { const s = (el as SVGElement).style; s.fill = color; s.stroke = color; };
+      apply(svg);
+      svg.querySelectorAll('*').forEach(apply);
+    };
+    const highlight = (mi: number, ni: number) => {
+      if (prevKey) colorNote(prevKey, '');
+      const key = `${mi}-${ni}`;
+      colorNote(key, BLUE);
+      prevKey = key;
+    };
+    const clearHighlight = () => { if (prevKey) colorNote(prevKey, ''); prevKey = null; };
+    const checkPause = async () => {
+      if (abort.signal.aborted) throw 'stop';
+      if (pausedRef.current) {
         await new Promise<void>((resolve, reject) => {
-          const timer = setTimeout(resolve, sec * 1000);
-          abort.signal.addEventListener('abort', () => { clearTimeout(timer); reject('stop'); }, { once: true });
+          pauseResolveRef.current = resolve;
+          abort.signal.addEventListener('abort', () => { reject('stop'); }, { once: true });
         });
-        i++;
+      }
+    };
+
+    try {
+      let loopCount = 0;
+      while (!abort.signal.aborted) {
+        // On first loop: use all measures. On subsequent loops: skip bracket measures
+        // and start from the first measure with a chord.
+        let srcMeasures: MeasureInfo[];
+        if (loopCount === 0) {
+          srcMeasures = allMeasures;
+        } else {
+          // Find first measure index with a chord
+          const firstChordIdx = allMeasures.findIndex((m) => !!m.chord);
+          const startIdx = firstChordIdx >= 0 ? firstChordIdx : 0;
+          srcMeasures = allMeasures.slice(startIdx);
+        }
+
+        const expandedMeasures = expandMeasures(srcMeasures);
+        // Remap origMi: when loopCount > 0, srcMeasures is a slice, so origMi is relative.
+        // We need to offset it back to absolute index for highlight.
+        const miOffset = loopCount === 0 ? 0 : (allMeasures.findIndex((m) => !!m.chord) || 0);
+
+        // Build flat note list with beat-position tracking for inline piano comping
+        type FlatNote = { note: NoteInfo; mi: number; ni: number; emIdx: number; beatPos: number };
+        const flat: FlatNote[] = [];
+        for (let ei = 0; ei < expandedMeasures.length; ei++) {
+          const em = expandedMeasures[ei];
+          let bp = 0;
+          for (let ni = 0; ni < em.m.notes.length; ni++) {
+            flat.push({ note: em.m.notes[ni], mi: em.origMi + miOffset, ni, emIdx: ei, beatPos: bp });
+            bp += getBeats(em.m.notes[ni].duration, em.m.notes[ni].dotted, em.m.notes[ni].tuplet);
+          }
+        }
+
+        // Pre-compute piano chord voicings per expanded measure
+        const compChords: { midi1: number[]; midi2: number[] }[] = expandedMeasures.map((em) => {
+          const mChord = em.m.chord;
+          if (!mChord) return { midi1: [], midi2: [] };
+          const parts = mChord.split(/\s{2,}/);
+          const c1 = parts[0]?.trim();
+          const c2 = parts[1]?.trim() || c1;
+          return { midi1: chordToMidi(c1 || ''), midi2: chordToMidi(c2 || '') };
+        });
+        const compDur = beatDur * 0.6;
+        const compedBeats = new Set<string>();
+        const fireComp = (emIdx: number, beatStart: number, beatEnd: number) => {
+          if ((beatStart < 1 && beatEnd > 1) || beatStart === 1) {
+            const key = `${emIdx}-2`;
+            if (!compedBeats.has(key)) {
+              compedBeats.add(key);
+              const cc = compChords[emIdx];
+              if (cc.midi1.length > 0) {
+                for (const m of cc.midi1) piano.play(String(m), 0, { duration: compDur, gain: 1.2 });
+              }
+            }
+          }
+          if ((beatStart < 3 && beatEnd > 3) || beatStart === 3) {
+            const key = `${emIdx}-4`;
+            if (!compedBeats.has(key)) {
+              compedBeats.add(key);
+              const cc = compChords[emIdx];
+              if (cc.midi2.length > 0) {
+                for (const m of cc.midi2) piano.play(String(m), 0, { duration: compDur, gain: 1.2 });
+              }
+            }
+          }
+        };
+
+        // Helper: wait for a duration, fire piano comping at exact beat 2 (pos 1) and beat 4 (pos 3)
+        const waitWithComp = async (totalBeats: number, emIdx: number, startBeat: number) => {
+          const boundaries: number[] = [];
+          for (const b of [1, 3]) {
+            if (b > startBeat && b < startBeat + totalBeats) boundaries.push(b);
+          }
+          if (startBeat === 1 || startBeat === 3) {
+            fireComp(emIdx, startBeat, startBeat);
+          }
+
+          let elapsed = 0;
+          for (const b of boundaries) {
+            const waitBeats = (b - startBeat) - elapsed;
+            if (waitBeats > 0.001) {
+              const waitSec = waitBeats * beatDur;
+              await new Promise<void>((resolve, reject) => {
+                const timer = setTimeout(resolve, waitSec * 1000);
+                abort.signal.addEventListener('abort', () => { clearTimeout(timer); reject('stop'); }, { once: true });
+              });
+              elapsed += waitBeats;
+            }
+            fireComp(emIdx, b, b);
+          }
+          const leftBeats = totalBeats - elapsed;
+          if (leftBeats > 0.001) {
+            const waitSec = leftBeats * beatDur;
+            await new Promise<void>((resolve, reject) => {
+              const timer = setTimeout(resolve, waitSec * 1000);
+              abort.signal.addEventListener('abort', () => { clearTimeout(timer); reject('stop'); }, { once: true });
+            });
+          }
+        };
+
+        // Play all notes in this loop pass
+        let i = 0;
+        while (i < flat.length) {
+          await checkPause();
+          const { note: n, mi, ni, emIdx, beatPos } = flat[i];
+          const isRest = n.duration.endsWith('r');
+          const baseDur = n.duration.replace(/r$/, '');
+          let beats = DUR_BEATS[baseDur] ?? 1;
+          if (n.dotted) beats *= 1.5;
+          if (n.tuplet === 3) beats *= 2 / 3;
+
+          if (!isRest) highlight(mi, ni);
+
+          if (!isRest && n.tie) {
+            const tieSegs: { emIdx: number; beatPos: number; beats: number }[] = [
+              { emIdx, beatPos, beats },
+            ];
+            let look = i + 1;
+            while (look < flat.length) {
+              const ln = flat[look].note;
+              const lb = ln.duration.replace(/r$/, '');
+              let lbeats = DUR_BEATS[lb] ?? 1;
+              if (ln.dotted) lbeats *= 1.5;
+              if (ln.tuplet === 3) lbeats *= 2 / 3;
+              tieSegs.push({ emIdx: flat[look].emIdx, beatPos: flat[look].beatPos, beats: lbeats });
+              if (!ln.tie) { look++; break; }
+              look++;
+            }
+            const totalBeats = tieSegs.reduce((s, seg) => s + seg.beats, 0);
+            const sec = totalBeats * beatDur;
+            const acc = n.accidentals?.[0] as '#' | 'b' | 'n' | undefined;
+            const midi = vexToMidi(n.keys[0], acc);
+            sax.play(String(midi), 0, { duration: sec * 0.9, gain: 3 });
+            for (const seg of tieSegs) {
+              await waitWithComp(seg.beats, seg.emIdx, seg.beatPos);
+            }
+            i = look;
+            continue;
+          }
+
+          const sec = beats * beatDur;
+          if (!isRest) {
+            const acc = n.accidentals?.[0] as '#' | 'b' | 'n' | undefined;
+            const midi = vexToMidi(n.keys[0], acc);
+            sax.play(String(midi), 0, { duration: sec * 0.9, gain: 3 });
+          }
+          await waitWithComp(beats, emIdx, beatPos);
+          i++;
+        }
+
+        loopCount++;
       }
     } catch {
       // stopped
     }
 
+    clearHighlight();
     sax.stop();
+    piano.stop();
     setPlaying(false);
   }, [playing, allMeasures, bpm]);
 
-  /* update chord for any measure (completed or current) */
-  const updateMeasureChord = useCallback((idx: number, chord: string) => {
+  // Update a specific chord slot (0 or 1) for a given measure
+  const updateMeasureChordSlot = useCallback((idx: number, slot: 0 | 1, value: string) => {
     if (idx === measures.length) {
       // Current (open) measure
-      setCurChord(chord);
+      if (slot === 0) setCurChord1(value);
+      else setCurChord2(value);
     } else {
-      setMeasures((prev) => prev.map((m, i) => i === idx ? { ...m, chord: chord || undefined } : m));
+      setMeasures((prev) => prev.map((m, i) => {
+        if (i !== idx) return m;
+        const [c1, c2] = splitChords(m.chord ?? '');
+        const newC1 = slot === 0 ? value : c1;
+        const newC2 = slot === 1 ? value : c2;
+        const joined = joinChords(newC1, newC2);
+        return { ...m, chord: joined || undefined };
+      }));
     }
   }, [measures.length]);
 
-  /* save to localStorage */
-  const handleSave = useCallback(() => {
+  /* save as JSON file — download to user's machine */
+  const handleSaveJson = useCallback(() => {
     if (allMeasures.length === 0) return;
-    const totalN = allMeasures.reduce((s, m) => s + m.notes.filter(n => !n.duration.endsWith('r')).length, 0);
-    const entry: LickEntry = {
-      id: Date.now(),
-      performer,
-      title,
-      instrument,
-      album,
-      style: '',
-      tempo: bpm,
-      key: lickKey,
-      rhythmfeel: '',
-      tag: 'custom',
-      chords: allMeasures.map((m) => m.chord ?? ''),
-      nEvents: totalN,
-      label: `${performer || 'Unknown'} — ${title || 'Untitled'} (${allMeasures.map(m => m.chord || '').filter(Boolean).join(' → ')})`,
-      sheetData: {
-        title: `${performer || 'Unknown'} — ${title || 'Untitled'}`,
-        composer: performer,
-        key: lickKey,
-        timeSignature: '4/4',
-        tempo: bpm,
-        measures: allMeasures,
-      },
-      ...computeLickFeatures(allMeasures),
-    };
-    saveUserLick(entry);
+    const id = Date.now();
+    const safeTitle = (sheetTitle || 'Untitled').replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
+    const safeComposer = (composer || 'Unknown').replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
+    const safeKey = (sheetKey || 'C').replace(/[^a-zA-Z0-9#b]/g, '');
+    const filename = `${id}_${safeTitle}_${safeComposer}_${safeKey}.json`;
+
+    const blob = new Blob([jsonOutput], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
-  }, [allMeasures, performer, title, instrument, bpm, lickKey]);
+  }, [allMeasures, jsonOutput, sheetTitle, composer, sheetKey]);
 
-  /* copy */
   const handleCopy = useCallback(() => {
     if (!jsonOutput) return;
     navigator.clipboard.writeText(jsonOutput);
@@ -1578,20 +2075,38 @@ export default function LickInputPage() {
   return (
     <Page>
       <Header>
-        <BackBtn onClick={() => navigate('/')}>&#8592; Home</BackBtn>
-        <Title>Lick JSON Tool</Title>
-        <BackBtn onClick={() => navigate('/my-licks')}>My Licks</BackBtn>
+        <BackBtn onClick={() => navigate('/note')}>&#8592; Note</BackBtn>
+        <Title>Lead Sheet Generator</Title>
         <Sep />
-        <MetaLabel>Performer</MetaLabel>
-        <MetaInput value={performer} onChange={(e) => setPerformer(e.target.value)} placeholder="e.g. Charlie Parker" style={{ width: 140 }} />
         <MetaLabel>Title</MetaLabel>
-        <MetaInput value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Donna Lee" style={{ width: 140 }} />
-        <MetaLabel>Album</MetaLabel>
-        <MetaInput value={album} onChange={(e) => setAlbum(e.target.value)} placeholder="e.g. Now's the Time" style={{ width: 160 }} />
-        <MetaLabel>Instrument</MetaLabel>
-        <MetaInput value={instrument} onChange={(e) => setInstrument(e.target.value)} placeholder="e.g. as" style={{ width: 70 }} />
+        <MetaInput value={sheetTitle} onChange={(e) => setSheetTitle(e.target.value)} placeholder="e.g. Autumn Leaves" style={{ width: 160 }} />
+        <MetaLabel>Composer</MetaLabel>
+        <MetaInput value={composer} onChange={(e) => setComposer(e.target.value)} placeholder="e.g. Joseph Kosma" style={{ width: 160 }} />
+        <MetaLabel>Genre</MetaLabel>
+        <MetaInput value={genre} onChange={(e) => setGenre(e.target.value)} placeholder="e.g. Bossa Nova" style={{ width: 130 }} />
         <MetaLabel>Key</MetaLabel>
-        <MetaInput value={lickKey} onChange={(e) => setLickKey(e.target.value)} placeholder="e.g. Ab" style={{ width: 50 }} />
+        <KeySelect value={sheetKey} onChange={(e) => setSheetKey(e.target.value)}>
+          <optgroup label="Major">
+            {['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'].map((k) => (
+              <option key={k} value={k}>{k}</option>
+            ))}
+          </optgroup>
+          <optgroup label="Minor">
+            {['Cm', 'C#m', 'Dm', 'Ebm', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Am', 'Bbm', 'Bm'].map((k) => (
+              <option key={k} value={k}>{k}</option>
+            ))}
+          </optgroup>
+        </KeySelect>
+        <Spacer />
+        <JsonBtn $bg="#26a69a" $hover="#00897b" onClick={handleCopy} disabled={totalNotes === 0}>
+          {copied ? '\u2713 Copied!' : 'Copy JSON'}
+        </JsonBtn>
+        <JsonBtn $bg="#7b1fa2" $hover="#6a1b9a" onClick={() => { setShowLoadModal(true); setLoadJsonText(''); setLoadJsonError(''); }}>
+          Load JSON
+        </JsonBtn>
+        <JsonBtn $bg="#ef6c00" $hover="#e65100" onClick={handleSaveJson} disabled={totalNotes === 0}>
+          {saved ? '\u2713 Saved!' : 'Save JSON'}
+        </JsonBtn>
       </Header>
 
       <ToolBar>
@@ -1607,9 +2122,9 @@ export default function LickInputPage() {
           </DurCol>
         ))}
         <DurBtn $active={dotted} onClick={() => setDotted((v) => !v)} title="Dotted" style={{ fontSize: '1.6rem', fontWeight: 900 }}>.</DurBtn>
-        <DurBtn $active={accMode === 'b'} onClick={() => setAccMode('b')} title="Flat mode" style={{ fontSize: '1.2rem', fontWeight: 700 }}>♭</DurBtn>
-        <DurBtn $active={accMode === '#'} onClick={() => setAccMode('#')} title="Sharp mode" style={{ fontSize: '1.2rem', fontWeight: 700 }}>♯</DurBtn>
-        <DurBtn $active={accMode === 'n'} onClick={() => setAccMode((v) => v === 'n' ? 'b' : 'n')} title="Natural mode" style={{ fontSize: '1.2rem', fontWeight: 700 }}>♮</DurBtn>
+        <DurBtn $active={accMode === 'b'} onClick={() => setAccMode('b')} title="Flat mode" style={{ fontSize: '1.2rem', fontWeight: 700 }}>&#9837;</DurBtn>
+        <DurBtn $active={accMode === '#'} onClick={() => setAccMode('#')} title="Sharp mode" style={{ fontSize: '1.2rem', fontWeight: 700 }}>&#9839;</DurBtn>
+        <DurBtn $active={accMode === 'n'} onClick={() => setAccMode((v) => v === 'n' ? 'b' : 'n')} title="Natural mode" style={{ fontSize: '1.2rem', fontWeight: 700 }}>&#9838;</DurBtn>
 
         <Sep />
         <DurBtn $active={tieNext} onClick={() => setTieNext((v) => !v)} title="Tie to next note (L)" style={{ fontSize: '1.3rem' }}>
@@ -1620,24 +2135,112 @@ export default function LickInputPage() {
         <DurBtn
           $active={tripletMode}
           onClick={() => setTripletMode((v) => { if (!v) tripletCountRef.current = 0; return !v; })}
-          title="Triplet mode (T) — next 3 notes become triplet"
+          title="Triplet mode (T)"
           style={{ fontSize: '0.95rem', fontWeight: 700 }}
         >
           3
         </DurBtn>
         <BarlineBtn onClick={closeMeasure} disabled={curNotes.length === 0} title="Close measure (Enter)">|</BarlineBtn>
+        <DurBtn
+          $active={repeatStart}
+          onClick={() => { pushEditUndo(); setRepeatStart((v) => !v); }}
+          title="Repeat start"
+        >
+          <svg width="16" height="22" viewBox="0 0 16 22"><line x1="2" y1="1" x2="2" y2="21" stroke="currentColor" strokeWidth="2.5"/><line x1="5.5" y1="1" x2="5.5" y2="21" stroke="currentColor" strokeWidth="1"/><circle cx="10" cy="8" r="1.7" fill="currentColor"/><circle cx="10" cy="14" r="1.7" fill="currentColor"/></svg>
+        </DurBtn>
+        <DurBtn
+          $active={repeatEnd}
+          onClick={() => { pushEditUndo(); setRepeatEnd((v) => !v); }}
+          title="Repeat end"
+        >
+          <svg width="16" height="22" viewBox="0 0 16 22"><circle cx="6" cy="8" r="1.7" fill="currentColor"/><circle cx="6" cy="14" r="1.7" fill="currentColor"/><line x1="10.5" y1="1" x2="10.5" y2="21" stroke="currentColor" strokeWidth="1"/><line x1="14" y1="1" x2="14" y2="21" stroke="currentColor" strokeWidth="2.5"/></svg>
+        </DurBtn>
+        <DurBtn
+          $active={volta === 1}
+          onClick={() => { pushEditUndo(); setVolta((v) => v === 1 ? 0 : 1); }}
+          title="1st ending"
+        >
+          <svg width="22" height="18" viewBox="0 0 22 18"><path d="M1 1 L1 6 L21 6" stroke="currentColor" strokeWidth="1.5" fill="none"/><text x="4" y="16" fontSize="10" fontWeight="700" fill="currentColor" fontFamily="DM Sans, sans-serif">1.</text></svg>
+        </DurBtn>
+        <DurBtn
+          $active={volta === 2}
+          onClick={() => { pushEditUndo(); setVolta((v) => v === 2 ? 0 : 2); }}
+          title="2nd ending"
+        >
+          <svg width="22" height="18" viewBox="0 0 22 18"><path d="M1 1 L1 6 L21 6" stroke="currentColor" strokeWidth="1.5" fill="none"/><text x="4" y="16" fontSize="10" fontWeight="700" fill="currentColor" fontFamily="DM Sans, sans-serif">2.</text></svg>
+        </DurBtn>
+        <DurBtn
+          $active={navigation === 'segno'}
+          onClick={() => { pushEditUndo(); setNavigation((v) => v === 'segno' ? '' : 'segno'); }}
+          title="Segno"
+          style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.5rem', lineHeight: 1 }}
+        >
+          {'\uE047'}
+        </DurBtn>
+        <DurBtn
+          $active={navigation === 'coda'}
+          onClick={() => { pushEditUndo(); setNavigation((v) => v === 'coda' ? '' : 'coda'); }}
+          title="Coda"
+          style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.5rem', lineHeight: 1 }}
+        >
+          {'\uE048'}
+        </DurBtn>
+        <DurBtn
+          $active={navigation === 'fine'}
+          onClick={() => { pushEditUndo(); setNavigation((v) => v === 'fine' ? '' : 'fine'); }}
+          title="Fine"
+          style={{ fontSize: '0.72rem', fontWeight: 700, fontStyle: 'italic' }}
+        >
+          Fine
+        </DurBtn>
+        <DurBtn
+          $active={navigation === 'toCoda'}
+          onClick={() => { pushEditUndo(); setNavigation((v) => v === 'toCoda' ? '' : 'toCoda'); }}
+          title="To Coda"
+          style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '0.85rem', lineHeight: 1 }}
+        >
+          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.7rem', fontWeight: 700, fontStyle: 'italic', marginRight: 1 }}>To</span>{'\uE048'}
+        </DurBtn>
+        <NavSelect
+          value={navigation && ['dc', 'dcAlCoda', 'dcAlFine', 'ds', 'dsAlCoda', 'dsAlFine'].includes(navigation) ? navigation : ''}
+          onChange={(e) => { pushEditUndo(); setNavigation(e.target.value as NavigationMarker | ''); }}
+        >
+          <option value="">D.C./D.S.</option>
+          <option value="dc">D.C.</option>
+          <option value="dcAlCoda">D.C. al Coda</option>
+          <option value="dcAlFine">D.C. al Fine</option>
+          <option value="ds">D.S.</option>
+          <option value="dsAlCoda">D.S. al Coda</option>
+          <option value="dsAlFine">D.S. al Fine</option>
+        </NavSelect>
+        <DurBtn $active={bracket} title="Intro bracket"
+          onClick={() => { pushEditUndo(); setBracket((v) => !v); }}
+          style={{ fontSize: '0.85rem', fontWeight: 300, fontFamily: 'serif' }}
+        >(&thinsp;)</DurBtn>
 
         <Sep />
 
         <SectionLabel>Chord</SectionLabel>
         <ChordInput
-          ref={chordRef}
-          value={curChord}
-          onChange={(e) => setCurChord(e.target.value)}
-          onBlur={() => setCurChord(normalizeChord(curChord))}
-          placeholder="e.g. Dm7"
+          ref={chord1Ref}
+          value={curChord1}
+          onChange={(e) => setCurChord1(e.target.value)}
+          onBlur={() => setCurChord1(normalizeChord(curChord1))}
+          placeholder="1st"
+          style={{ width: 48 }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') { e.preventDefault(); setCurChord(normalizeChord(curChord)); closeMeasure(); }
+            if (e.key === 'Enter') { e.preventDefault(); setCurChord1(normalizeChord(curChord1)); chord2Ref.current?.focus(); }
+          }}
+        />
+        <ChordInput
+          ref={chord2Ref}
+          value={curChord2}
+          onChange={(e) => setCurChord2(e.target.value)}
+          onBlur={() => setCurChord2(normalizeChord(curChord2))}
+          placeholder="2nd"
+          style={{ width: 48 }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); setCurChord2(normalizeChord(curChord2)); closeMeasure(); }
           }}
         />
 
@@ -1650,48 +2253,15 @@ export default function LickInputPage() {
 
         <Spacer />
 
-        <Btn onClick={() => setShowPreview((v) => !v)} disabled={totalNotes === 0}>
-          {showPreview ? 'Hide JSON' : 'Preview JSON'}
-        </Btn>
-        <CopyBtn $copied={copied} onClick={handleCopy} disabled={totalNotes === 0}>
-          {copied ? '\u2713 Copied!' : 'Copy JSON'}
-        </CopyBtn>
-        <SaveBtn $saved={saved} onClick={handleSave} disabled={totalNotes === 0}>
-          {saved ? '\u2713 Saved!' : 'Save Lick'}
-        </SaveBtn>
-
-        <Sep />
-
-        <SectionLabel>BPM</SectionLabel>
-        <BpmInput
-          type="text"
-          inputMode="numeric"
-          value={bpmText}
-          onChange={(e) => {
-            bpmManualRef.current = true;
-            const v = e.target.value.replace(/[^0-9]/g, '');
-            setBpmText(v);
-            const n = Number(v);
-            if (n >= 20 && n <= 400) setBpm(n);
-          }}
-          onBlur={() => {
-            const n = Math.max(20, Math.min(400, Number(bpmText) || 200));
-            setBpm(n);
-            setBpmText(String(n));
-          }}
-        />
-        <PlayBtn $playing={playing} onClick={handlePlay} disabled={totalNotes === 0}>
-          {playing ? '■ Stop' : '▶ Play'}
-        </PlayBtn>
-        <Btn onClick={handleUndo} title="Undo (Backspace)">Undo</Btn>
-        <Btn onClick={handleClear}>Clear</Btn>
-
-        <Spacer />
-
         <InfoText>
           {totalNotes} notes &middot; {allMeasures.length} bars
         </InfoText>
       </ToolBar>
+
+      <UndoClearRow>
+        <Btn onClick={handleUndo} title="Undo (Backspace)">Undo</Btn>
+        <Btn onClick={handleClear}>Clear</Btn>
+      </UndoClearRow>
 
       <PianoArea>
         <PianoKeyboard onNotePress={handleNotePress} mute />
@@ -1702,18 +2272,16 @@ export default function LickInputPage() {
         <NoteEditBar>
           <NoteEditLabel>
             Note: {selNoteInfo.keys[0]} ({selNoteInfo.duration.replace('r', ' rest')})
-            {selNoteInfo.accidentals?.[0] === 'b' ? ' ♭' : selNoteInfo.accidentals?.[0] === '#' ? ' ♯' : selNoteInfo.accidentals?.[0] === 'n' ? ' ♮' : ''}
+            {selNoteInfo.accidentals?.[0] === 'b' ? ' \u266D' : selNoteInfo.accidentals?.[0] === '#' ? ' \u266F' : selNoteInfo.accidentals?.[0] === 'n' ? ' \u266E' : ''}
           </NoteEditLabel>
           <Sep />
 
-          {/* Accidental buttons */}
           <NoteEditBtn
             $active={selNoteInfo.accidentals?.[0] === 'b'}
             onClick={() => {
               updateNote(selectedNote.mi, selectedNote.ni, (n) => {
                 const cur = n.accidentals?.[0];
                 if (cur === 'b') {
-                  // Remove flat
                   const { ...rest } = n;
                   delete rest.accidentals;
                   return rest;
@@ -1753,10 +2321,8 @@ export default function LickInputPage() {
 
           <Sep />
 
-          {/* Tie button — only if next note has same pitch */}
           {(() => {
             if (selNoteInfo.duration.endsWith('r')) return null;
-            // Find next note
             const flat: { mi: number; ni: number; note: NoteInfo }[] = [];
             for (let mi = 0; mi < allMeasures.length; mi++)
               for (let ni = 0; ni < allMeasures[mi].notes.length; ni++)
@@ -1764,7 +2330,6 @@ export default function LickInputPage() {
             const idx = flat.findIndex((f) => f.mi === selectedNote.mi && f.ni === selectedNote.ni);
             const next = flat[idx + 1];
             if (!next || next.note.duration.endsWith('r')) return null;
-            // Same pitch check
             const curPitch = vexToMidi(selNoteInfo.keys[0], selNoteInfo.accidentals?.[0] as '#' | 'b' | undefined);
             const nextPitch = vexToMidi(next.note.keys[0], next.note.accidentals?.[0] as '#' | 'b' | undefined);
             if (curPitch !== nextPitch) return null;
@@ -1783,7 +2348,6 @@ export default function LickInputPage() {
             );
           })()}
 
-          {/* Glissando button — only if not a rest and has a next note */}
           {(() => {
             if (selNoteInfo.duration.endsWith('r')) return null;
             const flat: { mi: number; ni: number; note: NoteInfo }[] = [];
@@ -1808,7 +2372,6 @@ export default function LickInputPage() {
             );
           })()}
 
-          {/* Divide (beam break) button — only for beamable notes */}
           {(() => {
             if (selNoteInfo.duration.endsWith('r')) return null;
             const base = selNoteInfo.duration.replace(/r$/, '');
@@ -1827,7 +2390,6 @@ export default function LickInputPage() {
 
           <Sep />
 
-          {/* Chord button — opens input overlay above the note on the sheet */}
           <NoteEditBtn
             $active={noteChordEditing}
             onClick={() => {
@@ -1846,48 +2408,125 @@ export default function LickInputPage() {
           </NoteEditBtn>
 
           <Sep />
-          <NoteEditBtn onClick={() => setSelectedNote(null)}>✕ Deselect</NoteEditBtn>
+
+          {/* ── Measure-level: repeat / volta / navigation ── */}
+          {selMeasure && selectedNote && selectedNote.mi < measures.length && (<>
+            <NoteEditBtn
+              $active={!!selMeasure.repeatStart}
+              onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, repeatStart: !m.repeatStart || undefined }))}
+            >
+              <svg width="14" height="18" viewBox="0 0 16 22" style={{ display: 'inline-block', verticalAlign: 'middle' }}><line x1="2" y1="1" x2="2" y2="21" stroke="currentColor" strokeWidth="2.5"/><line x1="5.5" y1="1" x2="5.5" y2="21" stroke="currentColor" strokeWidth="1"/><circle cx="10" cy="8" r="1.7" fill="currentColor"/><circle cx="10" cy="14" r="1.7" fill="currentColor"/></svg>
+            </NoteEditBtn>
+            <NoteEditBtn
+              $active={!!selMeasure.repeatEnd}
+              onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, repeatEnd: !m.repeatEnd || undefined }))}
+            >
+              <svg width="14" height="18" viewBox="0 0 16 22" style={{ display: 'inline-block', verticalAlign: 'middle' }}><circle cx="6" cy="8" r="1.7" fill="currentColor"/><circle cx="6" cy="14" r="1.7" fill="currentColor"/><line x1="10.5" y1="1" x2="10.5" y2="21" stroke="currentColor" strokeWidth="1"/><line x1="14" y1="1" x2="14" y2="21" stroke="currentColor" strokeWidth="2.5"/></svg>
+            </NoteEditBtn>
+            <NoteEditBtn
+              $active={selMeasure.volta === 1}
+              onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, volta: m.volta === 1 ? undefined : 1 }))}
+            >
+              <svg width="18" height="14" viewBox="0 0 22 18" style={{ display: 'inline-block', verticalAlign: 'middle' }}><path d="M1 1 L1 6 L21 6" stroke="currentColor" strokeWidth="1.5" fill="none"/><text x="4" y="16" fontSize="10" fontWeight="700" fill="currentColor" fontFamily="DM Sans, sans-serif">1.</text></svg>
+            </NoteEditBtn>
+            <NoteEditBtn
+              $active={selMeasure.volta === 2}
+              onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, volta: m.volta === 2 ? undefined : 2 }))}
+            >
+              <svg width="18" height="14" viewBox="0 0 22 18" style={{ display: 'inline-block', verticalAlign: 'middle' }}><path d="M1 1 L1 6 L21 6" stroke="currentColor" strokeWidth="1.5" fill="none"/><text x="4" y="16" fontSize="10" fontWeight="700" fill="currentColor" fontFamily="DM Sans, sans-serif">2.</text></svg>
+            </NoteEditBtn>
+            <NoteEditBtn
+              $active={selMeasure.navigation === 'segno'}
+              onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: m.navigation === 'segno' ? undefined : 'segno' }))}
+              style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.1rem' }}
+            >{'\uE047'}</NoteEditBtn>
+            <NoteEditBtn
+              $active={selMeasure.navigation === 'coda'}
+              onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: m.navigation === 'coda' ? undefined : 'coda' }))}
+              style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.1rem' }}
+            >{'\uE048'}</NoteEditBtn>
+            <NoteEditBtn
+              $active={selMeasure.navigation === 'fine'}
+              onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: m.navigation === 'fine' ? undefined : 'fine' }))}
+              style={{ fontSize: '0.65rem', fontWeight: 700, fontStyle: 'italic' }}
+            >Fine</NoteEditBtn>
+            <NoteEditBtn
+              $active={selMeasure.navigation === 'toCoda'}
+              onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: m.navigation === 'toCoda' ? undefined : 'toCoda' }))}
+              style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '0.75rem' }}
+            ><span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.6rem', fontWeight: 700, fontStyle: 'italic', marginRight: 1 }}>To</span>{'\uE048'}</NoteEditBtn>
+            <NavSelect
+              value={selMeasure.navigation && ['dc', 'dcAlCoda', 'dcAlFine', 'ds', 'dsAlCoda', 'dsAlFine'].includes(selMeasure.navigation) ? selMeasure.navigation : ''}
+              onChange={(e) => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: (e.target.value as NavigationMarker) || undefined }))}
+              style={{ fontSize: '0.65rem' }}
+            >
+              <option value="">D.C./D.S.</option>
+              <option value="dc">D.C.</option>
+              <option value="dcAlCoda">D.C. al Coda</option>
+              <option value="dcAlFine">D.C. al Fine</option>
+              <option value="ds">D.S.</option>
+              <option value="dsAlCoda">D.S. al Coda</option>
+              <option value="dsAlFine">D.S. al Fine</option>
+            </NavSelect>
+            <NoteEditBtn
+              $active={!!selMeasure.bracket}
+              onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, bracket: !m.bracket || undefined }))}
+              style={{ fontSize: '0.85rem', fontWeight: 300, fontFamily: 'serif' }}
+            >(&thinsp;)</NoteEditBtn>
+          </>)}
+
+          <Sep />
+          <NoteEditBtn onClick={() => setSelectedNote(null)}>× Deselect</NoteEditBtn>
         </NoteEditBar>
       )}
-
-      {showPreview && jsonOutput && <JsonPreview>{jsonOutput}</JsonPreview>}
 
       <SheetArea ref={sheetAreaRef}>
         {totalNotes === 0 && <EmptyHint>Type chord &rarr; play notes &rarr; Enter or | to close measure</EmptyHint>}
         <div style={{ position: 'relative' }} onClick={handleSheetClick}>
           <div ref={svgRef} />
-          {measurePositions.map((pos) => (
-            <ChordCell
-              key={pos.idx}
-              value={allMeasures[pos.idx]?.chord ?? ''}
-              onChange={(v) => updateMeasureChord(pos.idx, v)}
-              style={{ left: pos.chordX * SHEET_SCALE, top: (pos.y - 2) * SHEET_SCALE, width: 58 * SHEET_SCALE }}
-            />
-          ))}
-          {/* Per-note chord labels — same style/size as measure chords */}
+          {measurePositions.map((pos) => {
+            const chord = allMeasures[pos.idx]?.chord ?? '';
+            const [c1, c2] = splitChords(chord);
+            const halfW = pos.w * SHEET_SCALE / 2;
+            const hasBracket = !!allMeasures[pos.idx]?.bracket;
+            const hasVolta = !!allMeasures[pos.idx]?.volta;
+            const chordLeft = hasVolta ? pos.chordX + 8 : hasBracket ? pos.chordX + 12 : pos.chordX;
+            const chordTop = hasVolta ? pos.y + 13 : hasBracket ? pos.y + 12 : pos.y + 6;
+            return (
+              <span key={pos.idx}>
+                <ChordCell
+                  value={c1}
+                  onChange={(v) => updateMeasureChordSlot(pos.idx, 0, v)}
+                  style={{ left: chordLeft * SHEET_SCALE, top: chordTop * SHEET_SCALE, ...(c1 ? {} : { width: 36 }) }}
+                />
+                <ChordCell
+                  value={c2}
+                  onChange={(v) => updateMeasureChordSlot(pos.idx, 1, v)}
+                  style={{ left: chordLeft * SHEET_SCALE + halfW, top: chordTop * SHEET_SCALE, ...(c2 ? {} : { width: 36 }) }}
+                />
+              </span>
+            );
+          })}
           {notePositions.map((np) => {
             const note = allMeasures[np.mi]?.notes[np.ni];
             if (!note?.chord) return null;
-            // If this note is being chord-edited, show input instead
             if (noteChordEditing && selectedNote && selectedNote.mi === np.mi && selectedNote.ni === np.ni) return null;
-            // Use the measure's y so chord sits at the same row as measure chords
             const mpos = measurePositions.find((p) => p.idx === np.mi);
-            const chordY = mpos ? mpos.y : np.y - 20;
+            const chordY = mpos ? mpos.y + 6 : np.y - 12;
             return (
               <ChordCell
                 key={`nc-${np.mi}-${np.ni}`}
                 value={note.chord}
                 onChange={(v) => setChordAtNote(np.mi, np.ni, v)}
-                style={{ left: (np.x - 4) * SHEET_SCALE, top: (chordY - 2) * SHEET_SCALE, width: 58 * SHEET_SCALE }}
+                style={{ left: (np.x - 4) * SHEET_SCALE, top: chordY * SHEET_SCALE }}
               />
             );
           })}
-          {/* Per-note chord input overlay */}
           {noteChordEditing && selectedNote && (() => {
             const np = notePositions.find((p) => p.mi === selectedNote.mi && p.ni === selectedNote.ni);
             if (!np) return null;
             const mpos = measurePositions.find((p) => p.idx === selectedNote.mi);
-            const chordY = mpos ? mpos.y : np.y - 20;
+            const chordY = mpos ? mpos.y + 6 : np.y - 12;
             return (
               <NoteChordOverlayInput
                 ref={noteChordInputRef}
@@ -1909,12 +2548,68 @@ export default function LickInputPage() {
                 }}
                 placeholder="e.g. Dm7"
                 autoFocus
-                style={{ left: (np.x - 4) * SHEET_SCALE, top: (chordY - 2) * SHEET_SCALE }}
+                style={{ left: (np.x - 4) * SHEET_SCALE, top: chordY * SHEET_SCALE }}
               />
             );
           })()}
         </div>
       </SheetArea>
+
+      {showLoadModal && (
+        <ModalOverlay onClick={() => setShowLoadModal(false)}>
+          <ModalBox onClick={(e) => e.stopPropagation()}>
+            <ModalTitle>Load JSON</ModalTitle>
+            <ModalTextarea
+              value={loadJsonText}
+              onChange={(e) => { setLoadJsonText(e.target.value); setLoadJsonError(''); }}
+              placeholder='Paste lead sheet JSON here...'
+              autoFocus
+            />
+            {loadJsonError && <ModalError>{loadJsonError}</ModalError>}
+            <ModalBtnRow>
+              <Btn onClick={() => setShowLoadModal(false)}>Cancel</Btn>
+              <SaveBtn $saved={false} onClick={handleLoadJson} disabled={!loadJsonText.trim()}>
+                Load
+              </SaveBtn>
+            </ModalBtnRow>
+          </ModalBox>
+        </ModalOverlay>
+      )}
+
+      {/* Floating player controls — bottom right */}
+      <PlayerBar>
+        <SectionLabel style={{ color: '#ccc', marginRight: 4 }}>BPM</SectionLabel>
+        <BpmInput
+          type="text"
+          inputMode="numeric"
+          value={bpmText}
+          onChange={(e) => {
+            bpmManualRef.current = true;
+            const v = e.target.value.replace(/[^0-9]/g, '');
+            setBpmText(v);
+            const n = Number(v);
+            if (n >= 20 && n <= 400) setBpm(n);
+          }}
+          onBlur={() => {
+            const n = Math.max(20, Math.min(400, Number(bpmText) || 200));
+            setBpm(n);
+            setBpmText(String(n));
+          }}
+          style={{ background: '#2a2a2a', color: '#fff', border: '1px solid #555' }}
+        />
+        <PlayerIconBtn onClick={handlePlay} disabled={totalNotes === 0} title={playing ? 'Stop' : 'Play'}>
+          {playing
+            ? <svg width="20" height="20" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" fill="#fff"/></svg>
+            : <svg width="20" height="20" viewBox="0 0 14 14"><polygon points="2,0 14,7 2,14" fill="#fff"/></svg>}
+        </PlayerIconBtn>
+        {playing && (
+          <PlayerIconBtn onClick={handlePause} title={paused ? 'Resume' : 'Pause'}>
+            {paused
+              ? <svg width="20" height="20" viewBox="0 0 14 14"><polygon points="2,0 14,7 2,14" fill="#fff"/></svg>
+              : <svg width="20" height="20" viewBox="0 0 14 14"><rect x="1" y="1" width="4" height="12" fill="#fff"/><rect x="9" y="1" width="4" height="12" fill="#fff"/></svg>}
+          </PlayerIconBtn>
+        )}
+      </PlayerBar>
     </Page>
   );
 }

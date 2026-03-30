@@ -10,6 +10,8 @@ import {
   Accidental,
   Dot,
   BarlineType,
+  VoltaType,
+  Repetition,
 } from 'vexflow';
 import type { NoteSheetData, MeasureInfo } from '../../data/sampleMelody';
 import { NotePlayer } from '../../lib/note/notePlayer';
@@ -359,6 +361,7 @@ export function NoteSheet({ data }: NoteSheetProps) {
 
     // reset measure rects
     const rects: { x: number; y: number; w: number }[] = [];
+    const stavePositions: { x: number; y: number; w: number }[] = [];
 
     for (let li = 0; li < numLines; li++) {
       const indices = lines[li];
@@ -385,6 +388,8 @@ export function NoteSheet({ data }: NoteSheetProps) {
           : weights[j] * 1.3;
         const w = firstInLine ? barW + decorW : barW;
 
+        const measure = data.measures[m];
+
         // track rect for highlighting
         rects[m] = { x, y, w };
 
@@ -395,13 +400,32 @@ export function NoteSheet({ data }: NoteSheetProps) {
           if (data.key && data.key !== 'C') stave.addKeySignature(data.key);
           if (isFirstLine) stave.addTimeSignature(data.timeSignature);
         }
-        if (isLastBar) {
-          stave.setEndBarType(BarlineType.END);
+        // Repeat / end barlines
+        if (measure.repeatStart) stave.setBegBarType(BarlineType.REPEAT_BEGIN);
+        if (measure.repeatEnd) stave.setEndBarType(BarlineType.REPEAT_END);
+        else if (isLastBar) stave.setEndBarType(BarlineType.END);
+        // Volta brackets
+        if (measure.volta) {
+          const v = measure.volta;
+          const prevV = m > 0 ? data.measures[m - 1]?.volta : undefined;
+          const nextV = m < data.measures.length - 1 ? data.measures[m + 1]?.volta : undefined;
+          const isS = prevV !== v;
+          stave.setVoltaType(isS ? VoltaType.BEGIN : VoltaType.MID, `${v}.`, 30);
+        }
+        if (measure.navigation) {
+          const navMap: Record<string, number[]> = {
+            segno: [Repetition.type.SEGNO_LEFT], coda: [Repetition.type.CODA_LEFT],
+            fine: [Repetition.type.FINE], toCoda: [Repetition.type.TO_CODA],
+            dc: [Repetition.type.DC], dcAlCoda: [Repetition.type.DC_AL_CODA], dcAlFine: [Repetition.type.DC_AL_FINE],
+            ds: [Repetition.type.DS], dsAlCoda: [Repetition.type.DS_AL_CODA], dsAlFine: [Repetition.type.DS_AL_FINE],
+          };
+          const rts = navMap[measure.navigation];
+          if (rts) for (const rt of rts) stave.setRepetitionType(rt);
         }
         stave.setContext(ctx).draw();
+        stavePositions[m] = { x, y, w };
 
         // ── Notes ──
-        const measure = data.measures[m];
         const vfNotes = buildVfNotes(measure);
 
         if (measure.chord) {
@@ -433,6 +457,42 @@ export function NoteSheet({ data }: NoteSheetProps) {
         beams.forEach((b) => b.setContext(ctx).draw());
 
         x += w;
+      }
+    }
+
+    // Draw intro brackets — small arcs inside bracketed measures
+    const svgEl = el.querySelector('svg');
+    if (svgEl) {
+      const drawArc = (cx: number, top: number, bot: number, openSide: boolean) => {
+        const h = bot - top;
+        const bulge = Math.min(h * 0.18, 6);
+        const d = openSide
+          ? `M ${cx} ${top} Q ${cx - bulge} ${(top + bot) / 2} ${cx} ${bot}`
+          : `M ${cx} ${top} Q ${cx + bulge} ${(top + bot) / 2} ${cx} ${bot}`;
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', d);
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', '#444');
+        path.setAttribute('stroke-width', '1.8');
+        svgEl!.appendChild(path);
+      };
+      let bi = 0;
+      while (bi < data.measures.length) {
+        if (data.measures[bi].bracket) {
+          const groupStart = bi;
+          while (bi < data.measures.length && data.measures[bi].bracket) bi++;
+          const groupEnd = bi - 1;
+          const pStart = stavePositions[groupStart];
+          const pEnd = stavePositions[groupEnd];
+          if (pStart && pEnd) {
+            const top = pStart.y + 28;
+            const bot = pStart.y + LINE_HEIGHT - 50;
+            drawArc(pStart.x + 2, top, bot, true);
+            drawArc(pEnd.x + pEnd.w * 0.55, top, bot, false);
+          }
+        } else {
+          bi++;
+        }
       }
     }
 
