@@ -33,6 +33,7 @@ export interface NoteSheetData {
   key: string;
   timeSignature: string;
   tempo?: number;
+  genre?: string;
   measures: MeasureInfo[];
 }
 

@@ -2220,32 +2220,6 @@ export default function LeadSheetGeneratorPage() {
 
         <Sep />
 
-        <SectionLabel>Chord</SectionLabel>
-        <ChordInput
-          ref={chord1Ref}
-          value={curChord1}
-          onChange={(e) => setCurChord1(e.target.value)}
-          onBlur={() => setCurChord1(normalizeChord(curChord1))}
-          placeholder="1st"
-          style={{ width: 48 }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') { e.preventDefault(); setCurChord1(normalizeChord(curChord1)); chord2Ref.current?.focus(); }
-          }}
-        />
-        <ChordInput
-          ref={chord2Ref}
-          value={curChord2}
-          onChange={(e) => setCurChord2(e.target.value)}
-          onBlur={() => setCurChord2(normalizeChord(curChord2))}
-          placeholder="2nd"
-          style={{ width: 48 }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') { e.preventDefault(); setCurChord2(normalizeChord(curChord2)); closeMeasure(); }
-          }}
-        />
-
-        <Sep />
-
         <MeasureIndicator>Bar {measures.length + 1}</MeasureIndicator>
         <BeatIndicator $full={curBeats >= 4}>
           {curBeats}/{4} beats

@@ -1,11 +1,14 @@
-/* ─── Song index for /note page (wjazzd + omnibook) ──────────────────── */
+/* ─── Song index for /note page ──────────────────────────────────────── */
+
+export type SongGroup = 'external' | 'manual';
 
 export interface NoteSongEntry {
   id: string;
   title: string;
   composer: string;
-  collection: 'wjazzd' | 'omnibook' | 'jazzstandards' | 'pdmx';
-  fileType: 'midi' | 'xml' | 'mxl';
+  collection: string;
+  group: SongGroup;
+  fileType: 'midi' | 'xml' | 'mxl' | 'json';
   loadUrl: () => Promise<string>;
 }
 
@@ -74,7 +77,7 @@ const jazzstandardSongs: NoteSongEntry[] = Object.entries(jazzstandardModules).m
   ([path, loadUrl]) => {
     const fn = path.split('/').pop() ?? '';
     const title = parseJazzStandard(decodeURIComponent(fn));
-    return { id: `jazzstandard:${fn}`, title, composer: 'Doug McKenzie', collection: 'jazzstandards' as const, fileType: 'midi' as const, loadUrl };
+    return { id: `jazzstandard:${fn}`, title, composer: 'Doug McKenzie', collection: 'jazzstandards', group: 'external' as const, fileType: 'midi' as const, loadUrl };
   },
 );
 
@@ -82,7 +85,7 @@ const wjazzdSongs: NoteSongEntry[] = Object.entries(wjazzdModules).map(
   ([path, loadUrl]) => {
     const fn = path.split('/').pop() ?? '';
     const { artist, title } = parseWjazzd(fn);
-    return { id: `wjazzd:${fn}`, title, composer: artist, collection: 'wjazzd' as const, fileType: 'midi' as const, loadUrl };
+    return { id: `wjazzd:${fn}`, title, composer: artist, collection: 'wjazzd', group: 'external' as const, fileType: 'midi' as const, loadUrl };
   },
 );
 
@@ -90,7 +93,7 @@ const omnibookSongs: NoteSongEntry[] = Object.entries(omnibookModules).map(
   ([path, loadUrl]) => {
     const fn = path.split('/').pop() ?? '';
     const title = parseOmnibook(fn);
-    return { id: `omnibook:${fn}`, title, composer: 'Charlie Parker', collection: 'omnibook' as const, fileType: 'xml' as const, loadUrl };
+    return { id: `omnibook:${fn}`, title, composer: 'Charlie Parker', collection: 'omnibook', group: 'external' as const, fileType: 'xml' as const, loadUrl };
   },
 );
 
@@ -98,13 +101,36 @@ const pdmxSongs: NoteSongEntry[] = Object.entries(pdmxModules).map(
   ([path, loadUrl]) => {
     const fn = path.split('/').pop() ?? '';
     const title = decodeURIComponent(fn).replace(/\.mxl$/i, '').replace(/\s*\(\d+\)$/, '');
-    return { id: `pdmx:${fn}`, title, composer: 'PDMX', collection: 'pdmx' as const, fileType: 'mxl' as const, loadUrl };
+    return { id: `pdmx:${fn}`, title, composer: 'PDMX', collection: 'pdmx', group: 'external' as const, fileType: 'mxl' as const, loadUrl };
   },
 );
 
-export const noteSongs: NoteSongEntry[] = [
+/* ── Manual songs (hand-crafted JSON) ─────────────────────────────────── */
+
+const manualSongs: NoteSongEntry[] = [
+  {
+    id: 'manual:Autumn_Leaves',
+    title: 'Autumn Leaves',
+    composer: 'Joseph Kosma',
+    collection: 'manual',
+    group: 'manual',
+    fileType: 'json',
+    loadUrl: async () => '/data/data-jazzstandards-main/Autumn_Leaves.json',
+  },
+];
+
+/* ── Exports ─────────────────────────────────────────────────────────── */
+
+export const externalSongs: NoteSongEntry[] = [
   ...omnibookSongs,
   ...wjazzdSongs,
   ...jazzstandardSongs,
   ...pdmxSongs,
+].sort((a, b) => a.title.localeCompare(b.title));
+
+export { manualSongs };
+
+export const noteSongs: NoteSongEntry[] = [
+  ...manualSongs,
+  ...externalSongs,
 ].sort((a, b) => a.title.localeCompare(b.title));

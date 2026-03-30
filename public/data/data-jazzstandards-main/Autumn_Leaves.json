@@ -1,7 +1,8 @@
 {
   "title": "Autumn Leaves",
   "composer": "Joseph Kosma",
-  "key": "G",
+  "genre": "Medium Swing",
+  "key": "Em",
   "timeSignature": "4/4",
   "tempo": 200,
   "measures": [

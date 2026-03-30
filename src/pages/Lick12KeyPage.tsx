@@ -26,7 +26,9 @@ const NAME_TO_SEMI: Record<string, number> = {
 };
 
 const CIRCLE_OF_5THS = ['Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E', 'B', 'Gb', 'Db', 'Ab'];
+const CIRCLE_OF_5THS_MINOR = ['Cm', 'Gm', 'Dm', 'Am', 'Em', 'Bm', 'F#m', 'C#m', 'G#m', 'Ebm', 'Bbm', 'Fm'];
 const CIRCLE_SEMITONES = CIRCLE_OF_5THS.map(k => NAME_TO_SEMI[k]);
+const CIRCLE_SEMITONES_MINOR = CIRCLE_OF_5THS_MINOR.map(k => NAME_TO_SEMI[k.replace('m', '')] ?? 0);
 
 function noteToMidi(key: string, acc?: 'b' | '#' | 'n'): number {
   const [letter, oct] = key.split('/');
@@ -96,20 +98,24 @@ function transposeMeasures(measures: MeasureInfo[], semitones: number): MeasureI
 }
 
 function getTranspositionOrder(lickKey: string): { keyName: string; semitones: number }[] {
+  const isMinor = /m$/i.test(lickKey);
   const rootMatch = lickKey?.match(/^([A-G][b#]?)/);
   if (!rootMatch) {
     // Unknown key: chromatic ascending
-    return KEY_NAMES.map((name, i) => ({ keyName: name, semitones: i }));
+    const suffix = isMinor ? 'm' : '';
+    return KEY_NAMES.map((name, i) => ({ keyName: name + suffix, semitones: i }));
   }
   const rootSemi = NAME_TO_SEMI[rootMatch[1]] ?? 0;
-  const circleIdx = CIRCLE_SEMITONES.indexOf(rootSemi);
+  const circle = isMinor ? CIRCLE_OF_5THS_MINOR : CIRCLE_OF_5THS;
+  const circleSemis = isMinor ? CIRCLE_SEMITONES_MINOR : CIRCLE_SEMITONES;
+  const circleIdx = circleSemis.indexOf(rootSemi);
   const startIdx = circleIdx >= 0 ? circleIdx : 0;
   const result: { keyName: string; semitones: number }[] = [];
   for (let i = 0; i < 12; i++) {
     const idx = (startIdx + i) % 12;
-    const targetSemi = CIRCLE_SEMITONES[idx];
+    const targetSemi = circleSemis[idx];
     const interval = ((targetSemi - rootSemi) % 12 + 12) % 12;
-    result.push({ keyName: CIRCLE_OF_5THS[idx], semitones: interval });
+    result.push({ keyName: circle[idx], semitones: interval });
   }
   return result;
 }

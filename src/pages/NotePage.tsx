@@ -9,7 +9,8 @@ import { useAutoHighlight } from '../hooks/useAutoHighlight';
 import { sampleMelody } from '../data/sampleMelody';
 import type { NoteSheetData } from '../data/sampleMelody';
 import type { TocEntry } from '../data/types';
-import { noteSongs } from '../data/noteSongs';
+import { noteSongs, externalSongs, manualSongs } from '../data/noteSongs';
+import type { SongGroup } from '../data/noteSongs';
 import { loadMidiMelody } from '../lib/note/midiMelodyParser';
 import { loadXmlMelody, loadMxlMelody } from '../lib/note/xmlMelodyParser';
 
@@ -17,7 +18,8 @@ const SAMPLE_ID = '__sample__';
 
 /* ─── transposition ──────────────────────────────────────────────────── */
 
-const ALL_KEYS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'] as const;
+const ALL_KEYS_MAJOR = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'] as const;
+const ALL_KEYS_MINOR = ['Cm', 'Dbm', 'Dm', 'Ebm', 'Em', 'Fm', 'F#m', 'Gm', 'Abm', 'Am', 'Bbm', 'Bm'] as const;
 
 const NOTE_TO_PC: Record<string, number> = {
   C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11,
@@ -37,8 +39,9 @@ const PC_SHARP: [string, 'b' | '#' | undefined][] = [
 ];
 
 function keyToPc(key: string): number {
-  const root = key[0].toUpperCase();
-  const acc = key.length > 1 ? key[1] : '';
+  const clean = key.replace(/m$/i, '');
+  const root = clean[0].toUpperCase();
+  const acc = clean.length > 1 ? clean[1] : '';
   return ((NOTE_TO_PC[root] ?? 0) + (acc === '#' ? 1 : acc === 'b' ? -1 : 0) + 12) % 12;
 }
 
@@ -84,20 +87,37 @@ const KEY_SIG_NOTES: Record<string, Set<string>> = {
   'Gb': new Set(['Bb','Eb','Ab','Db','Gb','Cb']),
 };
 
+const CHORD_KEY_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+const CHORD_NAME_TO_SEMI: Record<string, number> = {
+  'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3,
+  'E': 4, 'F': 5, 'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8,
+  'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11,
+};
+
+function transposeChord(chord: string, semitones: number): string {
+  if (!chord) return chord;
+  // Handle multi-chord (e.g. "Dm7  G7")
+  return chord.replace(/([A-G][b#]?)/g, (match) => {
+    const rootSemi = CHORD_NAME_TO_SEMI[match] ?? 0;
+    const newSemi = ((rootSemi + semitones) % 12 + 12) % 12;
+    return CHORD_KEY_NAMES[newSemi];
+  });
+}
+
 function transposeNoteData(data: NoteSheetData, targetKey: string): NoteSheetData {
   const origPc = keyToPc(data.key ?? 'C');
   const targetPc = keyToPc(targetKey);
   const semitones = (targetPc - origPc + 12) % 12;
-  if (semitones === 0) return { ...data, key: targetKey };
 
-  const useFlats = FLAT_KEYS.has(targetKey);
-  const keySigNotes = KEY_SIG_NOTES[targetKey] ?? new Set();
+  const useFlats = FLAT_KEYS.has(targetKey.replace(/m$/i, ''));
+  const keySigNotes = KEY_SIG_NOTES[targetKey.replace(/m$/i, '')] ?? new Set();
 
   return {
     ...data,
     key: targetKey,
     measures: data.measures.map((m) => ({
       ...m,
+      chord: m.chord ? transposeChord(m.chord, semitones) : m.chord,
       notes: m.notes.map((n) => {
         if (n.duration.endsWith('r')) return n; // rests don't transpose
         const origAcc = n.accidentals?.[0] as '#' | 'b' | 'n' | undefined;
@@ -359,13 +379,21 @@ export default function NotePage() {
   const { autoHighlight, toggleAutoHighlight } = useAutoHighlight(true);
 
   /* song state */
+  const [songGroup, setSongGroup] = useState<SongGroup | '__sample__'>('__sample__');
   const [songId, setSongId] = useState(SAMPLE_ID);
   const [sheet, setSheet] = useState<NoteSheetData | null>(sampleMelody);
+
+  const filteredSongs = useMemo(() => {
+    if (songGroup === '__sample__') return [];
+    return songGroup === 'manual' ? manualSongs : externalSongs;
+  }, [songGroup]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   /* key transposition */
   const originalKey = sheet?.key ?? 'C';
+  const isMinorKey = /m$/i.test(originalKey);
+  const allKeys = isMinorKey ? ALL_KEYS_MINOR : ALL_KEYS_MAJOR;
   const [selectedKey, setSelectedKey] = useState(originalKey);
   const [keyMenuOpen, setKeyMenuOpen] = useState(false);
   const keyMenuRef = useRef<HTMLDivElement>(null);
@@ -415,11 +443,13 @@ export default function NotePage() {
       try {
         const url = await song.loadUrl();
         const data =
-          song.fileType === 'midi'
-            ? await loadMidiMelody(url, song.title, song.composer)
-            : song.fileType === 'mxl'
-              ? await loadMxlMelody(url, song.title)
-              : await loadXmlMelody(url, song.title);
+          song.fileType === 'json'
+            ? await fetch(url).then((r) => r.json()) as NoteSheetData
+            : song.fileType === 'midi'
+              ? await loadMidiMelody(url, song.title, song.composer)
+              : song.fileType === 'mxl'
+                ? await loadMxlMelody(url, song.title)
+                : await loadXmlMelody(url, song.title);
         if (!cancelled) setSheet(data);
       } catch (err) {
         if (!cancelled) {
@@ -439,10 +469,11 @@ export default function NotePage() {
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return [];
     const q = searchQuery.toLowerCase();
-    return noteSongs
+    const pool = songGroup === '__sample__' ? noteSongs : filteredSongs;
+    return pool
       .filter((s) => s.title.toLowerCase().includes(q) || s.composer.toLowerCase().includes(q))
       .slice(0, 30);
-  }, [searchQuery]);
+  }, [searchQuery, songGroup, filteredSongs]);
 
   /* close search on outside click */
   useEffect(() => {
@@ -504,16 +535,33 @@ export default function NotePage() {
 
         <CenterColumn>
           <SongPickerBar>
-            <span>Note {noteSongs.length}</span>
+            <span>Note</span>
             <LeadSheetBtn onClick={() => navigate('/note/leadsheetgenerator')}>Lead Sheet Generator</LeadSheetBtn>
-            <SongSelect value={songId} onChange={(e) => setSongId(e.target.value)}>
-              <option value={SAMPLE_ID}>Blues for Alice (Sample)</option>
-              {noteSongs.map((song) => (
-                <option key={song.id} value={song.id}>
-                  {song.title} -- {song.composer} [{song.collection}]
-                </option>
-              ))}
+            <SongSelect
+              value={songGroup}
+              onChange={(e) => {
+                const g = e.target.value as SongGroup | '__sample__';
+                setSongGroup(g);
+                if (g === '__sample__') setSongId(SAMPLE_ID);
+                else {
+                  const list = g === 'manual' ? manualSongs : externalSongs;
+                  if (list.length > 0) setSongId(list[0].id);
+                }
+              }}
+            >
+              <option value="__sample__">Sample</option>
+              <option value="manual">Manual</option>
+              <option value="external">External</option>
             </SongSelect>
+            {songGroup !== '__sample__' && (
+              <SongSelect value={songId} onChange={(e) => setSongId(e.target.value)}>
+                {filteredSongs.map((song) => (
+                  <option key={song.id} value={song.id}>
+                    {song.title} — {song.composer}
+                  </option>
+                ))}
+              </SongSelect>
+            )}
             {sheet && !loading && (
               <KeyDropdownWrap ref={keyMenuRef}>
                 <KeyButton onClick={() => setKeyMenuOpen((v) => !v)}>
@@ -521,7 +569,7 @@ export default function NotePage() {
                 </KeyButton>
                 {keyMenuOpen && (
                   <KeyMenu>
-                    {ALL_KEYS.map((k) => (
+                    {allKeys.map((k) => (
                       <KeyOption
                         key={k}
                         $active={k === selectedKey}
@@ -558,6 +606,7 @@ export default function NotePage() {
                       <SearchItem
                         key={song.id}
                         onClick={() => {
+                          setSongGroup(song.group);
                           setSongId(song.id);
                           setSearchQuery('');
                           setSearchOpen(false);

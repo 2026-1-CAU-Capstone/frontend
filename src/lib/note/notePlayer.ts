@@ -138,6 +138,7 @@ interface SchedNote {
   dur: number;
   midi: number;
   measure: number;
+  noteIndex: number; // index within measure (-1 for comp)
   track: 'melody' | 'comp';
 }
 
@@ -157,6 +158,7 @@ export class NotePlayer {
   private activeNodes: { stop(): void }[] = [];
 
   onMeasure?: (idx: number) => void;
+  onNote?: (mi: number, ni: number) => void;
   onDone?: () => void;
 
   get playing() { return this._playing; }
@@ -236,15 +238,16 @@ export class NotePlayer {
     const keySig = buildKeySigMap(data.key);
 
     // Flatten all notes with measure index and timing info
-    interface FlatNote { mi: number; note: typeof data.measures[0]['notes'][0]; beats: number }
+    interface FlatNote { mi: number; ni: number; note: typeof data.measures[0]['notes'][0]; beats: number }
     const flat: FlatNote[] = [];
     for (let mi = 0; mi < data.measures.length; mi++) {
-      for (const n of data.measures[mi].notes) {
+      for (let ni = 0; ni < data.measures[mi].notes.length; ni++) {
+        const n = data.measures[mi].notes[ni];
         const base = n.duration.replace(/[dr]/g, '');
         let beats = DUR_BEATS[base] ?? 1;
         if (n.dotted) beats *= 1.5;
         if (n.tuplet === 3) beats *= 2 / 3;
-        flat.push({ mi, note: n, beats });
+        flat.push({ mi, ni, note: n, beats });
       }
     }
 
@@ -278,7 +281,7 @@ export class NotePlayer {
         for (let ki = 0; ki < f.note.keys.length; ki++) {
           const acc = f.note.accidentals?.[ki];
           const midi = vexToMidi(f.note.keys[ki], acc, keySig);
-          this.sched.push({ time: mt, dur: Math.max(dur * 0.85, 0.04), midi, measure: f.mi, track: 'melody' });
+          this.sched.push({ time: mt, dur: Math.max(dur * 0.85, 0.04), midi, measure: f.mi, noteIndex: f.ni, track: 'melody' });
         }
         mt += dur;
         fi = look;
@@ -290,7 +293,7 @@ export class NotePlayer {
         for (let ki = 0; ki < f.note.keys.length; ki++) {
           const acc = f.note.accidentals?.[ki];
           const midi = vexToMidi(f.note.keys[ki], acc, keySig);
-          this.sched.push({ time: mt, dur: Math.max(dur * 0.85, 0.04), midi, measure: f.mi, track: 'melody' });
+          this.sched.push({ time: mt, dur: Math.max(dur * 0.85, 0.04), midi, measure: f.mi, noteIndex: f.ni, track: 'melody' });
         }
       }
       mt += dur;
@@ -310,7 +313,7 @@ export class NotePlayer {
           for (const beat of [1, 3]) {
             const t = measStart + beat * bs;
             for (const midi of midiNotes) {
-              this.sched.push({ time: t, dur: compDur, midi, measure: mi, track: 'comp' });
+              this.sched.push({ time: t, dur: compDur, midi, measure: mi, noteIndex: -1, track: 'comp' });
             }
           }
         } else {
@@ -320,7 +323,7 @@ export class NotePlayer {
             const midiNotes = chordToMidi(chords[ci]);
             const t = measStart + beatsPerChord[ci] * bs;
             for (const midi of midiNotes) {
-              this.sched.push({ time: t, dur: compDur, midi, measure: mi, track: 'comp' });
+              this.sched.push({ time: t, dur: compDur, midi, measure: mi, noteIndex: -1, track: 'comp' });
             }
           }
         }
@@ -353,12 +356,20 @@ export class NotePlayer {
       this.nextIdx++;
     }
 
-    // current measure
+    // current measure & note
     let cm = -1;
+    let cni = -1;
     for (let i = this.sched.length - 1; i >= 0; i--) {
-      if (this.sched[i].time <= now + 0.05) { cm = this.sched[i].measure; break; }
+      if (this.sched[i].time <= now + 0.05) {
+        cm = this.sched[i].measure;
+        if (this.sched[i].track === 'melody' && this.sched[i].noteIndex >= 0) {
+          cni = this.sched[i].noteIndex;
+        }
+        break;
+      }
     }
     this.onMeasure?.(cm);
+    if (cm >= 0 && cni >= 0) this.onNote?.(cm, cni);
 
     // done?
     if (this.nextIdx >= this.sched.length) {
