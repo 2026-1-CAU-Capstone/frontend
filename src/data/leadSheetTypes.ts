@@ -36,6 +36,7 @@ export interface LeadSheetChord {
 
 export interface LeadSheetBar {
   measureNumber?: number;
+  ending?: number;           // volta bracket starts at this bar (1, 2, 3)
   chords: LeadSheetChord[];
 }
 
@@ -43,7 +44,6 @@ export interface LeadSheetSystem {
   sectionLabel?: string;
   hasRepeatStart?: boolean;
   hasRepeatEnd?: boolean;
-  ending?: number;           // volta: 1, 2, 3 (numbered endings)
   bars: LeadSheetBar[];
 }
 

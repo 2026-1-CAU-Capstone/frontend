@@ -1,5 +1,8 @@
+import { useRef } from 'react';
 import type { ChordOverlay as ChordOverlayType } from '../../data/types';
 import { ChordOverlayLayer } from './ChordOverlayLayer';
+import { FullscreenButton, useFullscreen } from '../common/FullscreenButton';
+import { ZoomControls, useZoom } from '../common/ZoomControls';
 import {
   ViewerContainer,
   ScorePage,
@@ -28,9 +31,15 @@ export function ScoreViewer({
   onChordClick,
   onBackgroundClick,
 }: ScoreViewerProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { isFullscreen, toggle } = useFullscreen(containerRef);
+  const { zoom, zoomIn, zoomOut, setZoomLevel } = useZoom(100);
+
   return (
-    <ViewerContainer>
-      <ScorePage onClick={onBackgroundClick}>
+    <ViewerContainer ref={containerRef}>
+      <ScorePage onClick={onBackgroundClick} style={{ width: `${zoom}%`, maxWidth: 'none' }}>
+        <FullscreenButton isFullscreen={isFullscreen} onClick={toggle} />
+        <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onSetZoom={setZoomLevel} />
         {/* 원본 악보 이미지 */}
         {scoreImageUrl ? (
           <ScoreImage src={scoreImageUrl} alt="악보" draggable={false} />

@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
+import { mq } from '../styles/theme';
+import { IconSidebar } from '../components/layout/IconSidebar';
 import { TopToolbar } from '../components/layout/TopToolbar';
 import { LeftSidebar } from '../components/layout/LeftSidebar';
 import { RightChatPanel } from '../components/layout/RightChatPanel';
 import { NoteSheet } from '../components/notesheet/NoteSheet';
+import { Toggle } from '../components/common/Toggle';
+import { ToolbarButton } from '../components/layout/TopToolbar.styles';
 import { useAutoHighlight } from '../hooks/useAutoHighlight';
 import { sampleMelody } from '../data/sampleMelody';
 import type { NoteSheetData } from '../data/sampleMelody';
@@ -157,9 +161,16 @@ function transposeNoteData(data: NoteSheetData, targetKey: string): NoteSheetDat
 
 const PageContainer = styled.div`
   display: flex;
-  flex-direction: column;
   height: 100vh;
-  width: 100vw;
+  height: 100dvh;
+  width: 100%;
+`;
+
+const RightSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
 `;
 
 const MainArea = styled.div`
@@ -184,6 +195,12 @@ const SongPickerBar = styled.div`
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   font-family: 'DM Sans', sans-serif;
   font-size: 0.82rem;
+
+  ${mq.mobile} {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 6px 10px;
+  }
 `;
 
 const SongSelect = styled.select`
@@ -219,6 +236,10 @@ const SearchInput = styled.input`
   outline: none;
   &:focus { border-color: ${({ theme }) => theme.colors.textSecondary}; }
   &::placeholder { color: ${({ theme }) => theme.colors.textSecondary}; opacity: 0.6; }
+
+  ${mq.mobile} {
+    width: 100%;
+  }
 `;
 
 const SearchIcon = styled.span`
@@ -260,8 +281,10 @@ const SearchItem = styled.button<{ $active?: boolean }>`
 `;
 
 const SearchComposer = styled.span`
+  display: block;
   color: ${({ theme }) => theme.colors.textSecondary};
-  margin-left: 6px;
+  font-size: 0.75rem;
+  margin-top: 2px;
 `;
 
 const CollectionTag = styled.span`
@@ -358,6 +381,10 @@ const RightPanelWrapper = styled.div<{ $width: number }>`
   min-width: 180px;
   flex-shrink: 0;
   display: flex;
+
+  ${mq.mobile} {
+    display: none;
+  }
 `;
 
 const ResizeDivider = styled.div`
@@ -377,13 +404,16 @@ const ResizeDivider = styled.div`
     position: absolute;
     inset: 0 -4px;
   }
+
+  ${mq.mobile} {
+    display: none;
+  }
 `;
 
 /* ─── component ──────────────────────────────────────────────────────── */
 
 export default function NotePage() {
   const navigate = useNavigate();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const { autoHighlight, toggleAutoHighlight } = useAutoHighlight(true);
 
   /* song state */
@@ -526,20 +556,19 @@ export default function NotePage() {
 
   return (
     <PageContainer>
-      <TopToolbar
-        autoHighlight={autoHighlight}
-        onToggleHighlight={toggleAutoHighlight}
-        sidebarOpen={sidebarOpen}
-        onToggleSidebar={() => setSidebarOpen((v) => !v)}
-      />
-
-      <MainArea>
-        <LeftSidebar
-          open={sidebarOpen}
-          toc={toc}
-          activePage={1}
-          onPageSelect={() => {}}
+      <IconSidebar />
+      <RightSection>
+        <TopToolbar
+          title={sheet?.title ?? 'Note'}
+          subtitle={sheet ? `${sheet.timeSignature}` : undefined}
         />
+
+        <MainArea>
+          <LeftSidebar
+            toc={toc}
+            activePage={1}
+            onPageSelect={() => {}}
+          />
 
         <CenterColumn>
           <SongPickerBar>
@@ -570,33 +599,6 @@ export default function NotePage() {
                 ))}
               </SongSelect>
             )}
-            {sheet && !loading && (
-              <KeyDropdownWrap ref={keyMenuRef}>
-                <KeyButton onClick={() => setKeyMenuOpen((v) => !v)}>
-                  {selectedKey}
-                </KeyButton>
-                {keyMenuOpen && (
-                  <KeyMenu>
-                    {allKeys.map((k) => (
-                      <KeyOption
-                        key={k}
-                        $active={k === selectedKey}
-                        onClick={() => { setSelectedKey(k); setKeyMenuOpen(false); }}
-                      >
-                        {k}
-                      </KeyOption>
-                    ))}
-                  </KeyMenu>
-                )}
-              </KeyDropdownWrap>
-            )}
-            <StatusText>
-              {loading
-                ? 'Loading...'
-                : sheet
-                  ? `${sheet.timeSignature}`
-                  : error ?? ''}
-            </StatusText>
             <SearchWrap ref={searchRef}>
               <SearchIcon>&#128269;</SearchIcon>
               <SearchInput
@@ -621,7 +623,7 @@ export default function NotePage() {
                         }}
                       >
                         {song.title}
-                        <SearchComposer>-- {song.composer}</SearchComposer>
+                        <SearchComposer>{song.composer}</SearchComposer>
                         <CollectionTag>[{song.collection}]</CollectionTag>
                       </SearchItem>
                     ))
@@ -629,10 +631,22 @@ export default function NotePage() {
                 </SearchResults>
               )}
             </SearchWrap>
+            <Toggle
+              label="분석 보기"
+              active={autoHighlight}
+              onToggle={toggleAutoHighlight}
+            />
+
+            <ToolbarButton>자동 번역</ToolbarButton>
           </SongPickerBar>
 
           {transposedSheet && !loading ? (
-            <NoteSheet data={transposedSheet} />
+            <NoteSheet
+              data={transposedSheet}
+              selectedKey={selectedKey}
+              allKeys={allKeys}
+              onKeyChange={(k) => setSelectedKey(k)}
+            />
           ) : (
             <LoadingState>
               {error ?? (loading ? 'Loading...' : 'Loading song list...')}
@@ -649,7 +663,8 @@ export default function NotePage() {
             songTitle={sheet?.title ?? 'Jazzify AI'}
           />
         </RightPanelWrapper>
-      </MainArea>
+        </MainArea>
+      </RightSection>
     </PageContainer>
   );
 }

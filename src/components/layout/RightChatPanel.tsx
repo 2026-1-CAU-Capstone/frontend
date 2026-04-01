@@ -91,7 +91,7 @@ export function RightChatPanel({
 
         {!hasSelection && messages.length === 0 && (
           <EmptyState>
-            <EmptyIcon>J</EmptyIcon>
+            <EmptyIcon src="/jazzifylogo.png" alt="Jazzify" />
             악보에서 코드를 클릭하거나,
             <br />
             아래에서 질문을 입력해보세요.

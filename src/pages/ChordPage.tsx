@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import styled from 'styled-components';
+import { mq } from '../styles/theme';
+import { IconSidebar } from '../components/layout/IconSidebar';
 import { TopToolbar } from '../components/layout/TopToolbar';
 import { LeftSidebar } from '../components/layout/LeftSidebar';
 import { RightChatPanel } from '../components/layout/RightChatPanel';
 import { LeadSheet } from '../components/leadsheet/LeadSheet';
+import { Toggle } from '../components/common/Toggle';
+import { ToolbarButton } from '../components/layout/TopToolbar.styles';
 import { useAutoHighlight } from '../hooks/useAutoHighlight';
 import { allOfMe } from '../data/allOfMe';
 import type { LeadSheetData } from '../data/leadSheetTypes';
@@ -18,9 +22,16 @@ const ANALYZED_SONG_ID = '__analyzed_all-of-me__';
 
 const PageContainer = styled.div`
   display: flex;
-  flex-direction: column;
   height: 100vh;
-  width: 100vw;
+  height: 100dvh;
+  width: 100%;
+`;
+
+const RightSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
 `;
 
 const MainArea = styled.div`
@@ -45,6 +56,12 @@ const SongPickerBar = styled.div`
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   font-family: 'DM Sans', sans-serif;
   font-size: 0.82rem;
+
+  ${mq.mobile} {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 6px 10px;
+  }
 `;
 
 const SongSelect = styled.select`
@@ -80,6 +97,10 @@ const SearchInput = styled.input`
   outline: none;
   &:focus { border-color: ${({ theme }) => theme.colors.textSecondary}; }
   &::placeholder { color: ${({ theme }) => theme.colors.textSecondary}; opacity: 0.6; }
+
+  ${mq.mobile} {
+    width: 100%;
+  }
 `;
 
 const SearchIcon = styled.span`
@@ -121,8 +142,10 @@ const SearchItem = styled.button<{ $active?: boolean }>`
 `;
 
 const SearchComposer = styled.span`
+  display: block;
   color: ${({ theme }) => theme.colors.textSecondary};
-  margin-left: 6px;
+  font-size: 0.75rem;
+  margin-top: 2px;
 `;
 
 const LoadingState = styled.div`
@@ -140,6 +163,10 @@ const RightPanelWrapper = styled.div<{ $width: number }>`
   min-width: 180px;
   flex-shrink: 0;
   display: flex;
+
+  ${mq.mobile} {
+    display: none;
+  }
 `;
 
 const ResizeDivider = styled.div`
@@ -159,11 +186,14 @@ const ResizeDivider = styled.div`
     position: absolute;
     inset: 0 -4px;
   }
+
+  ${mq.mobile} {
+    display: none;
+  }
 `;
 
 export default function ChordPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const { autoHighlight, toggleAutoHighlight } = useAutoHighlight(true);
   const [songIndex, setSongIndex] = useState<SongEntry[]>([]);
   const [songId, setSongIdRaw] = useState(() => searchParams.get('song') ?? ANALYZED_SONG_ID);
@@ -282,20 +312,19 @@ export default function ChordPage() {
 
   return (
     <PageContainer>
-      <TopToolbar
-        autoHighlight={autoHighlight}
-        onToggleHighlight={toggleAutoHighlight}
-        sidebarOpen={sidebarOpen}
-        onToggleSidebar={() => setSidebarOpen((value) => !value)}
-      />
-
-      <MainArea>
-        <LeftSidebar
-          open={sidebarOpen}
-          toc={toc}
-          activePage={1}
-          onPageSelect={() => {}}
+      <IconSidebar />
+      <RightSection>
+        <TopToolbar
+          title={sheet?.title ?? `iRealPro ${songIndex.length || '...'}`}
+          subtitle={sheet ? `${(sheet.key ?? '?').replace(/-$/, 'm')} | ${sheet.timeSignature}` : undefined}
         />
+
+        <MainArea>
+          <LeftSidebar
+            toc={toc}
+            activePage={1}
+            onPageSelect={() => {}}
+          />
 
         <CenterColumn>
           <SongPickerBar>
@@ -308,13 +337,6 @@ export default function ChordPage() {
                 </option>
               ))}
             </SongSelect>
-            <StatusText>
-              {loading
-                ? 'Loading...'
-                : sheet
-                  ? `${sheet.key ?? '?'} / ${sheet.timeSignature}`
-                  : error ?? ''}
-            </StatusText>
             <SearchWrap ref={searchRef}>
               <SearchIcon>&#128269;</SearchIcon>
               <SearchInput
@@ -338,13 +360,20 @@ export default function ChordPage() {
                         }}
                       >
                         {song.title}
-                        <SearchComposer>-- {song.composer}</SearchComposer>
+                        <SearchComposer>{song.composer}</SearchComposer>
                       </SearchItem>
                     ))
                   )}
                 </SearchResults>
               )}
             </SearchWrap>
+            <Toggle
+              label="분석 보기"
+              active={autoHighlight}
+              onToggle={toggleAutoHighlight}
+            />
+
+            <ToolbarButton>자동 번역</ToolbarButton>
           </SongPickerBar>
 
           {sheet && !loading ? (
@@ -364,7 +393,8 @@ export default function ChordPage() {
             chordContext={chordContext}
           />
         </RightPanelWrapper>
-      </MainArea>
+        </MainArea>
+      </RightSection>
     </PageContainer>
   );
 }

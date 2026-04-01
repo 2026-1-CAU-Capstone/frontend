@@ -1,3 +1,16 @@
+export const BP = {
+  mobile: 600,
+  tablet: 960,
+  desktop: 1280,
+} as const;
+
+/** Media query helpers — usage: ${mq.mobile} { ... } */
+export const mq = {
+  mobile: `@media (max-width: ${BP.mobile}px)`,
+  tablet: `@media (max-width: ${BP.tablet}px)`,
+  desktop: `@media (min-width: ${BP.desktop + 1}px)`,
+} as const;
+
 export const theme = {
   colors: {
     // 브랜드

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
+import { mq } from '../styles/theme';
 import { LickCard } from '../components/notesheet/LickCard';
 import { loadUserLicks, deleteUserLick, type LickEntry } from '../data/lickData';
 
@@ -10,6 +11,7 @@ const Page = styled.div`
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   background: ${({ theme }) => theme.colors.bgPrimary};
   font-family: 'DM Sans', sans-serif;
 `;
@@ -21,6 +23,11 @@ const Header = styled.div`
   padding: 10px 20px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ theme }) => theme.colors.bgSecondary};
+
+  ${mq.mobile} {
+    padding: 8px 12px;
+    gap: 8px;
+  }
 `;
 
 const BackBtn = styled.button`
@@ -52,6 +59,11 @@ const ListArea = styled.div`
   display: flex;
   flex-direction: column;
   gap: 12px;
+
+  ${mq.mobile} {
+    padding: 8px;
+    gap: 8px;
+  }
 `;
 
 const EmptyMsg = styled.div`

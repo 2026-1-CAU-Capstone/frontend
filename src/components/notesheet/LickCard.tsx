@@ -181,6 +181,10 @@ const Card = styled.div`
   &:hover {
     background: ${({ theme }) => theme.colors.bgSecondary};
   }
+
+  @media (max-width: 600px) {
+    padding: 10px 12px 6px;
+  }
 `;
 
 const MetaRow = styled.div`

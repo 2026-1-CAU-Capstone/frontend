@@ -42,16 +42,10 @@ export const EmptyState = styled.div`
   line-height: 1.6;
 `;
 
-export const EmptyIcon = styled.div`
+export const EmptyIcon = styled.img`
   width: 48px;
   height: 48px;
   border-radius: 12px;
-  background: linear-gradient(135deg, ${({ theme }) => theme.colors.gold}, ${({ theme }) => theme.colors.goldDark});
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 22px;
-  font-weight: 700;
+  object-fit: cover;
   margin-bottom: 12px;
 `;

@@ -5,6 +5,9 @@ import type {
   LeadSheetSystem,
   LeadSheetChord,
 } from '../../data/leadSheetTypes';
+import { FullscreenButton, useFullscreen } from '../common/FullscreenButton';
+import { ZoomControls, useZoom } from '../common/ZoomControls';
+import { analyzeIsDiatonic, formatKeyDisplay, getRelativeKey } from '../../lib/harmonyAnalyzer';
 
 /* ─── constants ──────────────────────────────────────────────────────────────
  *  BARLINE_PAD = left padding reserved inside every bar cell for the barline.
@@ -22,7 +25,8 @@ const LABEL_FONT   = "'DM Sans', 'Pretendard', sans-serif"; // gothic for A/B la
 
 /* ─── transposition ──────────────────────────────────────────────────────── */
 
-const ALL_KEYS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'] as const;
+const ALL_MAJOR_KEYS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'] as const;
+const ALL_MINOR_KEYS = ['Cm', 'C#m', 'Dm', 'Ebm', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Am', 'Bbm', 'Bm'] as const;
 
 const NOTE_TO_PC: Record<string, number> = {
   C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11,
@@ -43,10 +47,15 @@ const PC_SHARP: [string, 'b' | '#' | undefined][] = [
 ];
 
 function keyToPc(key: string): number {
-  // handle e.g. "Bb", "F#", "C"
-  const root = key[0];
-  const acc = key.length > 1 ? key[1] : '';
+  // handle e.g. "Bb", "F#", "C", "Cm", "F#m", "Bb-"
+  const cleaned = key.replace(/[-m]$/, '');
+  const root = cleaned[0];
+  const acc = cleaned.length > 1 ? cleaned[1] : '';
   return ((NOTE_TO_PC[root] ?? 0) + (acc === '#' ? 1 : acc === 'b' ? -1 : 0) + 12) % 12;
+}
+
+function isMinorKey(key: string): boolean {
+  return key.endsWith('-') || key.endsWith('m');
 }
 
 function transposeChord(chord: LeadSheetChord, semitones: number, useFlats: boolean): LeadSheetChord {
@@ -81,9 +90,12 @@ function transposeData(data: LeadSheetData, targetKey: string): LeadSheetData {
   const origPc = keyToPc(data.key ?? 'C');
   const targetPc = keyToPc(targetKey);
   const semitones = (targetPc - origPc + 12) % 12;
-  if (semitones === 0) return data;
 
-  const useFlats = FLAT_KEYS.has(targetKey);
+  // No pitch change needed — just update key label (e.g. relative key switch)
+  if (semitones === 0) return { ...data, key: targetKey };
+
+  const cleanTarget = targetKey.replace(/[-m]$/, '');
+  const useFlats = FLAT_KEYS.has(cleanTarget);
   return {
     ...data,
     key: targetKey,
@@ -100,6 +112,7 @@ function transposeData(data: LeadSheetData, targetKey: string): LeadSheetData {
 /* ─── page ───────────────────────────────────────────────────────────────── */
 
 const ViewerOuter = styled.div`
+  position: relative;
   flex: 1;
   overflow: auto;
   background: ${({ theme }) => theme.colors.bgSecondary};
@@ -109,18 +122,37 @@ const ViewerOuter = styled.div`
   /* container queries — child styled components use cqi units */
   container-type: inline-size;
   container-name: leadsheet;
+
+  &:hover .fullscreen-btn,
+  &:hover .zoom-controls {
+    opacity: 1;
+  }
+
+  &:fullscreen {
+    overflow: hidden;
+    padding: 0;
+  }
+
+  @media (max-width: 600px) {
+    padding: 8px;
+  }
 `;
 
 const Page = styled.div`
   position: relative;
   background: #fff;
   width: 100%;
-  align-self: flex-start;
   box-shadow: ${({ theme }) => theme.shadows.xl};
   border-radius: 4px;
   padding: 36px 32px 48px;
   font-family: ${CHORD_FONT};
   color: #000;
+
+  @media (max-width: 600px) {
+    padding: 20px 10px 28px;
+    border-radius: 0;
+    box-shadow: none;
+  }
 `;
 
 /* ─── header ─────────────────────────────────────────────────────────────── */
@@ -145,6 +177,11 @@ const MetaRow = styled.div`
   font-family: 'DM Sans', sans-serif;
   font-weight: 400;
   margin-bottom: 28px;
+
+  @media (max-width: 600px) {
+    margin-bottom: 16px;
+    font-size: 0.85rem;
+  }
 `;
 
 const TitleRow = styled.div`
@@ -157,6 +194,7 @@ const TitleRow = styled.div`
 const KeyDropdownWrap = styled.div`
   position: relative;
   display: inline-block;
+  margin-top: -8px;
 `;
 
 const KeyButton = styled.button`
@@ -186,15 +224,27 @@ const KeyMenu = styled.div`
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 3px;
   background: #fff;
   border: 1px solid #ddd;
   border-radius: 8px;
   padding: 8px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.15);
   z-index: 100;
+`;
+
+const KeyGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+`;
+
+const KeySectionLabel = styled.div`
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #999;
+  padding: 4px 4px 2px;
+  font-family: ${LABEL_FONT};
+  &:first-child { padding-top: 0; }
 `;
 
 const KeyOption = styled.button<{ $active?: boolean }>`
@@ -222,6 +272,10 @@ const SystemRow = styled.div<{ $sectionStart?: boolean }>`
   /* overflow visible so the section label can float above the grid */
   position: relative;
   overflow: visible;
+
+  @media (max-width: 600px) {
+    margin-bottom: 28px;
+  }
 `;
 
 /* Left column: time-sig lives here (only row 1); always same width so that
@@ -233,6 +287,11 @@ const LeftMeta = styled.div`
   align-items: center;
   justify-content: flex-end;
   padding-right: 6px;
+
+  @media (max-width: 600px) {
+    width: 34px;
+    padding-right: 2px;
+  }
 `;
 
 const TimeSig = styled.div`
@@ -243,6 +302,10 @@ const TimeSig = styled.div`
   font-weight: 700;
   line-height: 1;
   font-family: ${CHORD_FONT};
+
+  @media (max-width: 600px) {
+    font-size: 1.5rem;
+  }
 `;
 
 const TimeSigDivider = styled.div`
@@ -293,13 +356,15 @@ const SectionLabel = styled.div`
 
 /* ─── volta ending bracket ──────────────────────────────────────────────── */
 
-const VoltaBracket = styled.div`
+const VOLTA_HEIGHT = 34;
+
+const VoltaBracket = styled.div<{ $cols?: number }>`
   position: absolute;
-  top: -${LABEL_OFFSET}px;
-  right: 0;
+  top: -${VOLTA_HEIGHT}px;
   left: 0;
-  height: ${LABEL_OFFSET - 2}px;
-  border: 1.5px solid #000;
+  width: ${({ $cols }) => $cols != null ? `${($cols / 4) * 100}%` : '100%'};
+  height: ${VOLTA_HEIGHT - 2}px;
+  border: 2.5px solid #000;
   border-bottom: none;
   border-right: none;
   pointer-events: none;
@@ -308,10 +373,10 @@ const VoltaBracket = styled.div`
 
 const VoltaNumber = styled.span`
   position: absolute;
-  top: 1px;
+  top: 2px;
   left: 6px;
   font-family: ${LABEL_FONT};
-  font-size: clamp(0.6rem, 1.4cqi, 0.85rem);
+  font-size: clamp(0.7rem, 1.6cqi, 0.95rem);
   font-weight: 700;
   line-height: 1;
 `;
@@ -328,6 +393,11 @@ const BarCell = styled.div`
   display: flex;
   align-items: center;
   padding: 0 6px 0 ${BARLINE_PAD}px;
+
+  @media (max-width: 600px) {
+    min-height: 56px;
+    padding: 0 3px 0 12px;
+  }
 `;
 
 /* Barline decoration area — sits inside the BARLINE_PAD space on the left.
@@ -423,16 +493,20 @@ const BarSections = styled.div`
   width: 100%;
 `;
 
-/* One section slot; flex so 2 chords sit side-by-side with a small gap */
-const SectionSlot = styled.div`
-  display: flex;
+/* One section slot: when 2 chords share a half-bar, use grid to give
+ * each chord exactly 50 % of the slot width. */
+const SectionSlot = styled.div<{ $squeeze?: boolean }>`
+  display: ${({ $squeeze }) => $squeeze ? 'grid' : 'flex'};
+  ${({ $squeeze }) => $squeeze
+    ? 'grid-template-columns: 1fr 1fr; transform: scaleX(0.88); transform-origin: left center; & > :nth-child(2) { padding-left: 20px; }'
+    : 'gap: 3px;'}
   align-items: flex-end;
-  gap: 3px;
 `;
 
 /* ─── chord symbol ───────────────────────────────────────────────────────── */
 
 const ChordWrap = styled.span<{ $nonDiatonic?: boolean; $modal?: boolean }>`
+  position: relative;
   display: inline-flex;
   align-items: flex-end;
   line-height: 1;
@@ -505,14 +579,17 @@ const TensionSpan = styled.span<{ $size?: ChordSize }>`
 `;
 
 const SlashBass = styled.span<{ $size?: ChordSize }>`
+  position: absolute;
+  left: 8px;
+  top: 100%;
   font-size: ${({ $size }) =>
-    $size === 'compact' ? 'clamp(0.45rem, 1.4cqi, 0.85rem)' :
-    $size === 'split'   ? 'clamp(0.55rem, 1.7cqi, 1.0rem)' :
-                          'clamp(0.65rem, 2.0cqi, 1.15rem)'};
+    $size === 'compact' ? 'clamp(0.6rem, 1.8cqi, 1.05rem)' :
+    $size === 'split'   ? 'clamp(0.7rem, 2.1cqi, 1.2rem)' :
+                          'clamp(0.8rem, 2.4cqi, 1.45rem)'};
   font-weight: 600;
   font-family: ${CHORD_FONT};
   line-height: 1;
-  padding-left: 2px;
+  white-space: nowrap;
 `;
 
 /* ─── quality string → [base, tensions] ─────────────────────────────────────
@@ -541,25 +618,42 @@ function splitQuality(normalized: string): [base: string, tensions: string] {
  * ────────────────────────────────────────────────────────────────────────── */
 
 function resolveRepeats(data: LeadSheetData): LeadSheetData {
-  let prev: LeadSheetChord | null = null;
+  let prevBar: LeadSheetChord[] = [];
+  let prevChord: LeadSheetChord | null = null;
 
-  return {
+  const resolved = {
     ...data,
     systems: data.systems.map((system) => ({
       ...system,
-      bars: system.bars.map((bar) => ({
-        ...bar,
-        chords: bar.chords.map((chord) => {
-          if (chord.isRepeat && prev) {
-            const { isRepeat: _, id: __, ...rest } = prev;
+      bars: system.bars.map((bar) => {
+        // Snapshot prevBar BEFORE this bar so bar-repeat references the
+        // bar that came before this one, not one overwritten by bar 0.
+        const snapshotPrevBar = prevBar;
+
+        // Single isRepeat in a bar = bar repeat (copy entire previous bar)
+        if (bar.chords.length === 1 && bar.chords[0].isRepeat && snapshotPrevBar.length > 0) {
+          const copied = snapshotPrevBar.map(({ isRepeat: _, id: __, ...rest }) => rest);
+          // Don't update prevBar — next bar repeat should copy the same source
+          prevChord = copied[copied.length - 1] ?? null;
+          return { ...bar, chords: copied };
+        }
+        // Otherwise resolve individual repeat chords
+        const chords = bar.chords.map((chord) => {
+          if (chord.isRepeat && prevChord) {
+            const { isRepeat: _, id: __, ...rest } = prevChord;
             return rest;
           }
-          if (!chord.isRepeat) prev = chord;
+          if (!chord.isRepeat) prevChord = chord;
           return chord;
-        }),
-      })),
+        });
+        // Only update prevBar from bars with real chords (not empty bars)
+        const realChords = chords.filter((c) => !c.isRepeat && c.root);
+        if (realChords.length > 0) prevBar = chords;
+        return { ...bar, chords };
+      }),
     })),
   };
+  return resolved;
 }
 
 /* ─── degree label (rule-based analysis) ─────────────────────────────────── */
@@ -701,6 +795,23 @@ function RepeatStartBarline() {
   );
 }
 
+/* repeat-end:  ●  thin | thick */
+function RepeatEndBarline() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'stretch', height: '100%' }}>
+      <div style={{
+        display: 'flex', flexDirection: 'column',
+        justifyContent: 'center', gap: '7px', paddingRight: '3px',
+      }}>
+        <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#000' }} />
+        <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#000' }} />
+      </div>
+      <div style={{ width: '1.5px', background: '#000', marginRight: '2px' }} />
+      <div style={{ width: '4px',   background: '#000' }} />
+    </div>
+  );
+}
+
 /* double end: thin | thick */
 function DoubleEndBarline() {
   return (
@@ -769,28 +880,48 @@ function SystemRowComponent({
           <SectionLabel>{system.sectionLabel}</SectionLabel>
         )}
 
-        {/* Volta ending bracket (1., 2., etc.) */}
-        {system.ending != null && !system.sectionLabel && (
-          <VoltaBracket>
-            <VoltaNumber>{system.ending}.</VoltaNumber>
-          </VoltaBracket>
-        )}
+        {/* Volta ending brackets — rendered per-bar ending property */}
+        {system.bars.map((bar, bi) => {
+          if (bar.ending == null) return null;
+          // Count how many bars this volta spans (until end of system or next volta)
+          let span = 0;
+          for (let j = bi; j < system.bars.length; j++) {
+            if (j > bi && system.bars[j].ending != null) break;
+            span++;
+          }
+          return (
+            <VoltaBracket key={`volta-${bi}`} style={{ left: `${(bi / system.bars.length) * 100}%`, width: `${(span / system.bars.length) * 100}%` }}>
+              <VoltaNumber>{bar.ending}.</VoltaNumber>
+            </VoltaBracket>
+          );
+        })}
 
         {system.bars.map((bar, i) => {
-          const isLastBar = i === system.bars.length - 1;
+          const isEmpty = bar.chords.length === 0;
+          const lastNonEmpty = system.bars.findLastIndex((b: { chords: unknown[] }) => b.chords.length > 0);
+
+          // End barline logic
+          let endBarlineType: 'none' | 'repeat-end' | 'normal' = 'none';
+          const isLastReal = i === (lastNonEmpty >= 0 ? lastNonEmpty : system.bars.length - 1);
+          if (isLastReal) {
+            endBarlineType = system.hasRepeatEnd ? 'repeat-end' : 'normal';
+          }
+
           const kind: LeftBarlineKind = i === 0 ? firstBarlineKind : 'normal';
 
           return (
             <BarCell key={i}>
-              {/* Left barline (absolute, inside the BARLINE_PAD area) */}
-              <BarlineArea>
-                <LeftBarline kind={kind} />
-              </BarlineArea>
+              {/* Left barline — skip for empty trailing bars */}
+              {!isEmpty && (
+                <BarlineArea>
+                  <LeftBarline kind={kind} />
+                </BarlineArea>
+              )}
 
-              {/* End barline on the last bar */}
-              {isLastBar && (
+              {/* End barline */}
+              {endBarlineType !== 'none' && (
                 <EndBarlineArea>
-                  {system.hasRepeatEnd ? <DoubleEndBarline /> : <NormalLine />}
+                  {endBarlineType === 'repeat-end' ? <RepeatEndBarline /> : <NormalLine />}
                 </EndBarlineArea>
               )}
 
@@ -809,14 +940,14 @@ function SystemRowComponent({
                 // — slot has 2 chords → 'compact' (two per half)
                 return (
                   <BarSections>
-                    <SectionSlot>
+                    <SectionSlot $squeeze={s1.length > 1}>
                       {s1.map((chord, j) => (
-                        <ChordSymbol key={j} chord={chord} size={s1.length > 1 ? 'compact' : 'full'} chordKey={`${systemIndex}-${i}-${j}`} systemIndex={systemIndex} registerEl={registerChordEl} showAnalysis={showAnalysis} />
+                        <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${j}`} systemIndex={systemIndex} registerEl={registerChordEl} showAnalysis={showAnalysis} />
                       ))}
                     </SectionSlot>
-                    <SectionSlot>
+                    <SectionSlot $squeeze={s2.length > 1}>
                       {s2.map((chord, j) => (
-                        <ChordSymbol key={j} chord={chord} size={s2.length > 1 ? 'compact' : 'full'} chordKey={`${systemIndex}-${i}-${mid + j}`} systemIndex={systemIndex} registerEl={registerChordEl} showAnalysis={showAnalysis} />
+                        <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${mid + j}`} systemIndex={systemIndex} registerEl={registerChordEl} showAnalysis={showAnalysis} />
                       ))}
                     </SectionSlot>
                   </BarSections>
@@ -941,22 +1072,47 @@ function isIIV(c1: LeadSheetChord, c2: LeadSheetChord): boolean {
 }
 
 /** Auto-detect ii-V pairs within each system row (expects resolved data). */
+/**
+ * Compute the active volta number for each bar in a system.
+ * Once a bar has `ending: N`, all following bars in that system
+ * are inside volta N until a different `ending` appears.
+ * Returns an array parallel to system.bars (undefined = not inside any volta).
+ */
+function getActiveVoltas(system: LeadSheetSystem): (number | undefined)[] {
+  let active: number | undefined;
+  return system.bars.map((bar) => {
+    if (bar.ending != null) active = bar.ending;
+    return active;
+  });
+}
+
+/** True when two volta values represent a cross-volta boundary.
+ *  undefined→1 is OK (bars before volta lead into volta 1).
+ *  1→2 is a boundary (volta 1 and 2 never play consecutively). */
+function isVoltaBoundary(a?: number, b?: number): boolean {
+  if (a == null || b == null) return false; // no-volta ↔ any volta is fine
+  return a !== b;
+}
+
 function detectIIVBrackets(data: LeadSheetData): BracketSpec[] {
   const brackets: BracketSpec[] = [];
 
   for (let si = 0; si < data.systems.length; si++) {
     const system = data.systems[si];
-    const items: { chord: LeadSheetChord; key: string }[] = [];
+    const voltas = getActiveVoltas(system);
+    const items: { chord: LeadSheetChord; key: string; volta?: number }[] = [];
 
     for (let bi = 0; bi < system.bars.length; bi++) {
       const bar = system.bars[bi];
       if (bar.chords.length > 2) continue;
       for (let ci = 0; ci < bar.chords.length; ci++) {
-        items.push({ chord: bar.chords[ci], key: `${si}-${bi}-${ci}` });
+        items.push({ chord: bar.chords[ci], key: `${si}-${bi}-${ci}`, volta: voltas[bi] });
       }
     }
 
     for (let i = 0; i < items.length - 1; i++) {
+      // Don't match across different volta brackets
+      if (isVoltaBoundary(items[i].volta, items[i + 1].volta)) continue;
       if (isIIV(items[i].chord, items[i + 1].chord)) {
         brackets.push({
           key: `iiv-${items[i].key}`,
@@ -985,14 +1141,16 @@ interface IIVISpan {
 function detectIIVI(data: LeadSheetData): IIVISpan[] {
   const spans: IIVISpan[] = [];
 
-  // Flatten all chords with chord-level keys
-  const all: { chord: LeadSheetChord; chordKey: string }[] = [];
+  // Flatten all chords with chord-level keys and volta tracking.
+  // Chords in different voltas must never form a pattern together.
+  const all: { chord: LeadSheetChord; chordKey: string; volta?: number }[] = [];
   for (let si = 0; si < data.systems.length; si++) {
+    const voltas = getActiveVoltas(data.systems[si]);
     for (let bi = 0; bi < data.systems[si].bars.length; bi++) {
       const bar = data.systems[si].bars[bi];
       if (bar.chords.length > 2) continue;
       for (let ci = 0; ci < bar.chords.length; ci++) {
-        all.push({ chord: bar.chords[ci], chordKey: `${si}-${bi}-${ci}` });
+        all.push({ chord: bar.chords[ci], chordKey: `${si}-${bi}-${ci}`, volta: voltas[bi] });
       }
     }
   }
@@ -1001,24 +1159,28 @@ function detectIIVI(data: LeadSheetData): IIVISpan[] {
   const allIdxByKey = new Map<string, number>();
   all.forEach((item, idx) => allIdxByKey.set(item.chordKey, idx));
 
-  // Collapse consecutive identical chords into groups (ordered keys)
-  const groups: { chord: LeadSheetChord; chordKeys: string[] }[] = [];
+  // Collapse consecutive identical chords into groups (ordered keys).
+  // Never merge across volta boundaries.
+  const groups: { chord: LeadSheetChord; chordKeys: string[]; volta?: number }[] = [];
   for (const item of all) {
     const prev = groups[groups.length - 1];
     if (
       prev &&
+      prev.volta === item.volta &&
       prev.chord.root === item.chord.root &&
       prev.chord.accidental === item.chord.accidental &&
       prev.chord.quality === item.chord.quality
     ) {
       prev.chordKeys.push(item.chordKey);
     } else {
-      groups.push({ chord: item.chord, chordKeys: [item.chordKey] });
+      groups.push({ chord: item.chord, chordKeys: [item.chordKey], volta: item.volta });
     }
   }
 
   // Check consecutive groups for ii → V → I (strict: ii and I quality must agree)
   for (let i = 0; i < groups.length - 2; i++) {
+    // Skip if any of the three groups cross a volta boundary
+    if (isVoltaBoundary(groups[i].volta, groups[i + 1].volta) || isVoltaBoundary(groups[i + 1].volta, groups[i + 2].volta)) continue;
     if (!isDomResolution(groups[i + 1].chord, groups[i + 2].chord)) continue;
 
     const iiQ = normalizeQuality(groups[i].chord.quality ?? '');
@@ -1091,6 +1253,51 @@ function detectIIVI(data: LeadSheetData): IIVISpan[] {
     }
   }
 
+  // Volta-1 repeat: the last chords of volta 1 loop back to the repeat start.
+  // Check if they form a ii-V-I with the first chord after the repeat-start barline.
+  const repeatStartIdx = data.systems.findIndex((sys) => sys.hasRepeatStart);
+  if (repeatStartIdx >= 0 && groups.length >= 3) {
+    const repeatSys = data.systems[repeatStartIdx];
+    let repeatIKey: string | undefined;
+    findRepeatI: for (let bi = 0; bi < repeatSys.bars.length; bi++) {
+      for (let ci = 0; ci < repeatSys.bars[bi].chords.length; ci++) {
+        repeatIKey = `${repeatStartIdx}-${bi}-${ci}`;
+        break findRepeatI;
+      }
+    }
+    if (repeatIKey) {
+      const repeatIGroup = groups.find((g) => g.chordKeys.includes(repeatIKey!));
+      const v1Groups = groups.filter((g) => g.volta === 1);
+      if (v1Groups.length >= 2 && repeatIGroup && repeatIGroup.volta !== 1) {
+        const iiG = v1Groups[v1Groups.length - 2];
+        const vG = v1Groups[v1Groups.length - 1];
+        if (isDomResolution(vG.chord, repeatIGroup.chord)) {
+          const iiQ = normalizeQuality(iiG.chord.quality ?? '');
+          const vQ = normalizeQuality(vG.chord.quality ?? '');
+          const iQ = normalizeQuality(repeatIGroup.chord.quality ?? '');
+          if (isDominant7(vQ)) {
+            const pc1 = iiG.chord.root ? chordPitchClass(iiG.chord.root, iiG.chord.accidental) : -1;
+            const pc2 = vG.chord.root ? chordPitchClass(vG.chord.root, vG.chord.accidental) : -1;
+            if ((pc2 - pc1 + 12) % 12 === 5) {
+              let kind: 'major' | 'minor' | null = null;
+              if (isMajorII(iiQ) && isMajorI(iQ)) kind = 'major';
+              if (isMinorII(iiQ) && isMinorI(iQ)) kind = 'minor';
+              if (kind) {
+                const tc = repeatIGroup.chord;
+                const tcAcc = tc.accidental === '#' ? '♯' : tc.accidental === 'b' ? '♭' : '';
+                spans.push({
+                  chordKeys: [...iiG.chordKeys, ...vG.chordKeys, repeatIGroup.chordKeys[0]],
+                  label: `${tc.root ?? ''}${tcAcc} ${kind === 'major' ? 'Major' : 'Minor'} 2-5-1`,
+                  kind,
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
   return spans;
 }
 
@@ -1108,19 +1315,22 @@ function isDomResolution(source: LeadSheetChord, target: LeadSheetChord): boolea
 function detectSecDomArrows(data: LeadSheetData): ArrowSpec[] {
   const specs: ArrowSpec[] = [];
 
-  // Flatten all chords across the entire song
-  const all: { chord: LeadSheetChord; key: string }[] = [];
+  // Flatten all chords across the entire song with volta tracking
+  const all: { chord: LeadSheetChord; key: string; volta?: number }[] = [];
   for (let si = 0; si < data.systems.length; si++) {
+    const voltas = getActiveVoltas(data.systems[si]);
     for (let bi = 0; bi < data.systems[si].bars.length; bi++) {
       const bar = data.systems[si].bars[bi];
       if (bar.chords.length > 2) continue;
       for (let ci = 0; ci < bar.chords.length; ci++) {
-        all.push({ chord: bar.chords[ci], key: `${si}-${bi}-${ci}` });
+        all.push({ chord: bar.chords[ci], key: `${si}-${bi}-${ci}`, volta: voltas[bi] });
       }
     }
   }
 
   for (let i = 0; i < all.length - 1; i++) {
+    // Don't match across different volta brackets
+    if (isVoltaBoundary(all[i].volta, all[i + 1].volta)) continue;
     if (isDomResolution(all[i].chord, all[i + 1].chord)) {
       specs.push({
         key: `secdom-${all[i].key}`,
@@ -1143,7 +1353,20 @@ function detectSecDomArrows(data: LeadSheetData): ArrowSpec[] {
 }
 
 export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
-  const originalKey = data.key ?? 'C';
+  const outerRef = useRef<HTMLDivElement>(null);
+  const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(outerRef);
+  const { zoom, zoomIn, zoomOut, setZoomLevel } = useZoom(100);
+
+  // Scroll to top when zoom changes
+  useEffect(() => {
+    if (!isFullscreen) outerRef.current?.scrollTo({ top: 0 });
+  }, [zoom, isFullscreen]);
+
+  // Auto-analyze isDiatonic for all chords
+  const analyzedData = useMemo(() => analyzeIsDiatonic(data), [data]);
+
+  const originalKey = analyzedData.key ?? 'C';
+  const originalIsMinor = isMinorKey(originalKey);
   const [selectedKey, setSelectedKey] = useState(originalKey);
 
   // Reset key when song changes
@@ -1165,12 +1388,51 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
   }, [keyMenuOpen]);
 
   const transposedData = useMemo(
-    () => (selectedKey === originalKey ? data : transposeData(data, selectedKey)),
-    [data, selectedKey, originalKey],
+    () => (selectedKey === originalKey ? analyzedData : analyzeIsDiatonic(transposeData(analyzedData, selectedKey))),
+    [analyzedData, selectedKey, originalKey],
   );
 
   const resolvedData = useMemo(() => resolveRepeats(transposedData), [transposedData]);
   const pageRef = useRef<HTMLDivElement | null>(null);
+  const [pageNaturalSize, setPageNaturalSize] = useState({ w: 0, h: 0 });
+
+  // Track the Page element's natural (unscaled) size for scroll-area compensation
+  useEffect(() => {
+    const el = pageRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      // Only capture natural size when not in fullscreen (fullscreen applies its own scale)
+      if (!document.fullscreenElement) {
+        setPageNaturalSize({ w: el.offsetWidth, h: el.offsetHeight });
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [resolvedData]);
+
+  // Compute fit-to-screen scale for fullscreen
+  const FS_PAD = 32; // padding inside fullscreen viewport
+  const [viewportSize, setViewportSize] = useState({ vw: window.innerWidth, vh: window.innerHeight });
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const onResize = () => setViewportSize({ vw: window.innerWidth, vh: window.innerHeight });
+    // Capture viewport after entering fullscreen (may need a frame)
+    requestAnimationFrame(onResize);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [isFullscreen]);
+
+  const fitScale = useMemo(() => {
+    if (!isFullscreen || pageNaturalSize.w === 0 || pageNaturalSize.h === 0) return 1;
+    const availW = viewportSize.vw - FS_PAD * 2;
+    const availH = viewportSize.vh - FS_PAD * 2;
+    return Math.min(availW / pageNaturalSize.w, availH / pageNaturalSize.h) * 1.08;
+  }, [isFullscreen, pageNaturalSize, viewportSize]);
+
+  // The effective scale: in fullscreen use fitScale, otherwise use zoom
+  const effectiveScale = isFullscreen ? fitScale : zoom / 100;
+
   const systemElsRef = useRef<Record<number, HTMLDivElement | null>>({});
   const gridElsRef = useRef<Record<number, HTMLDivElement | null>>({});
   const chordElsRef = useRef<Record<string, HTMLSpanElement | null>>({});
@@ -1193,6 +1455,8 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
       return;
     }
 
+    const scale = effectiveScale;
+
     const measure = () => {
       const freshPageEl = pageRef.current;
       if (!freshPageEl) {
@@ -1203,6 +1467,13 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
       }
 
       const pageRect = freshPageEl.getBoundingClientRect();
+      // Helper: convert screen-pixel position to unscaled Page-local coordinate
+      const lx = (screenX: number) => (screenX - pageRect.left) / scale;
+      const ly = (screenY: number) => (screenY - pageRect.top) / scale;
+      const lw = (screenW: number) => screenW / scale;
+      const lh = (screenH: number) => screenH / scale;
+      const pageW = pageRect.width / scale;
+      const pageH = pageRect.height / scale;
       const resolvedArrows: ResolvedArrow[] = [];
 
       for (const spec of arrowSpecs) {
@@ -1221,10 +1492,10 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
         const sourceSystemRect = sourceSystemEl.getBoundingClientRect();
         const targetSystemRect = targetSystemEl.getBoundingClientRect();
 
-        const x1 = sourceRect.left - pageRect.left + sourceRect.width * 0.52;
-        const y1 = sourceRect.top - pageRect.top - 14;
-        const x2 = targetRect.left - pageRect.left + targetRect.width * 0.38;
-        const y2 = targetRect.top - pageRect.top - 14;
+        const x1 = lx(sourceRect.left) + lw(sourceRect.width) * 0.52;
+        const y1 = ly(sourceRect.top) - 14;
+        const x2 = lx(targetRect.left) + lw(targetRect.width) * 0.38;
+        const y2 = ly(targetRect.top) - 14;
 
         if (sourceSystemIndex === targetSystemIndex) {
           const cx = (x1 + x2) / 2;
@@ -1237,10 +1508,10 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
         }
 
         const edgeInset = 24;
-        const exitX = pageRect.width - edgeInset;
+        const exitX = pageW - edgeInset;
         const entryX = edgeInset;
-        const sourceExitY = sourceSystemRect.top - pageRect.top + 10;
-        const targetEntryY = targetSystemRect.top - pageRect.top + 10;
+        const sourceExitY = ly(sourceSystemRect.top) + 10;
+        const targetEntryY = ly(targetSystemRect.top) + 10;
         const exitCx = x1 + (exitX - x1) * 0.55;
         const entryCx = entryX + (x2 - entryX) * 0.45;
 
@@ -1271,9 +1542,9 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
         const rect1 = el1.getBoundingClientRect();
         const rect2 = el2.getBoundingClientRect();
 
-        const x1 = rect1.left - pageRect.left + rect1.width / 2;
-        const x2 = rect2.left - pageRect.left + rect2.width / 2;
-        const yBase = Math.max(rect1.bottom, rect2.bottom) - pageRect.top + BRACKET_GAP;
+        const x1 = lx(rect1.left) + lw(rect1.width) / 2;
+        const x2 = lx(rect2.left) + lw(rect2.width) / 2;
+        const yBase = Math.max(ly(rect1.bottom), ly(rect2.bottom)) + BRACKET_GAP;
         const yBottom = yBase + BRACKET_DEPTH;
 
         resolvedBrackets.push({
@@ -1311,9 +1582,14 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
 
         const rowIndices = [...byRow.keys()].sort((a, b) => a - b);
         const isMultiRow = rowIndices.length > 1;
-        // Wrap-around: rows are not consecutive (e.g. last system → first system)
-        const isWrapAround = isMultiRow &&
-          !rowIndices.every((si, r) => r === 0 || si === rowIndices[r - 1] + 1);
+        // Wrap-around: rows are not consecutive (e.g. last system → first system),
+        // or chord keys go backward (e.g. volta-1 repeat: S1 → S0).
+        const firstKeySi = Number(span.chordKeys[0].split('-')[0]);
+        const lastKeySi  = Number(span.chordKeys[span.chordKeys.length - 1].split('-')[0]);
+        const isWrapAround = isMultiRow && (
+          !rowIndices.every((si, r) => r === 0 || si === rowIndices[r - 1] + 1) ||
+          firstKeySi > lastKeySi
+        );
 
         for (let r = 0; r < rowIndices.length; r++) {
           const si = rowIndices[r];
@@ -1343,15 +1619,15 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
           if (hlRight === -Infinity) {
             hlRight = gridRect.left + (maxBi + 1) * barW;
           } else {
-            hlRight += HL_PAD_X;
+            hlRight += HL_PAD_X * scale;
           }
 
           // Fallback Y: use system element bounds if no chord element was found
           if (minY === Infinity) {
             const sysRect = systemEl?.getBoundingClientRect();
             if (!sysRect) continue;
-            minY = sysRect.top + BARLINE_GAP;
-            maxY = sysRect.top + BAR_H - BARLINE_GAP;
+            minY = sysRect.top + BARLINE_GAP * scale;
+            maxY = sysRect.top + (BAR_H - BARLINE_GAP) * scale;
           }
 
           // Cross-row (consecutive): extend to full grid width on open ends.
@@ -1375,10 +1651,10 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
           resolvedHighlights.push({
             key: `hl-${spanIdx}-${si}`,
             spanKey: `span-${spanIdx}`,
-            x: hlLeft - pageRect.left,
-            y: minY - pageRect.top - HL_PAD_Y,
-            width: hlRight - hlLeft,
-            height: maxY - minY + HL_PAD_Y * 2,
+            x: lx(hlLeft),
+            y: ly(minY) - HL_PAD_Y,
+            width: lw(hlRight - hlLeft),
+            height: lh(maxY - minY) + HL_PAD_Y * 2,
             label: span.label,
             kind: span.kind,
             rowPosition,
@@ -1387,8 +1663,8 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
       }
 
       setArrowFrame({
-        width: pageRect.width,
-        height: pageRect.height,
+        width: pageW,
+        height: pageH,
       });
       setArrows(resolvedArrows);
       setBrackets(resolvedBrackets);
@@ -1412,7 +1688,7 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
       observer.disconnect();
       window.removeEventListener('resize', measure);
     };
-  }, [arrowSpecs, bracketSpecs, iiviSpans, resolvedData]);
+  }, [arrowSpecs, bracketSpecs, iiviSpans, resolvedData, effectiveScale]);
 
   const registerChordEl = (id: string, el: HTMLSpanElement | null) => {
     chordElsRef.current[id] = el;
@@ -1426,9 +1702,43 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
     gridElsRef.current[index] = el;
   };
 
+  const wrapperStyle = useMemo<React.CSSProperties>(() => {
+    if (isFullscreen) {
+      // Fullscreen: center the scaled page in the viewport
+      const scaledW = pageNaturalSize.w * fitScale;
+      const scaledH = pageNaturalSize.h * fitScale;
+      return {
+        width: `${scaledW}px`,
+        height: `${scaledH}px`,
+        position: 'absolute',
+        top: '50%',
+        left: 'calc(50% + 24px)',
+        transform: 'translate(-50%, -50%)',
+      };
+    }
+    if (zoom === 100) return { width: '100%' };
+    return {
+      width: pageNaturalSize.w > 0 ? `${pageNaturalSize.w * (zoom / 100)}px` : '100%',
+      height: pageNaturalSize.h > 0 ? `${pageNaturalSize.h * (zoom / 100)}px` : undefined,
+      margin: '0 auto',
+    };
+  }, [isFullscreen, zoom, pageNaturalSize, fitScale]);
+
+  const pageStyle = useMemo<React.CSSProperties | undefined>(() => {
+    if (effectiveScale === 1 && !isFullscreen) return undefined;
+    return {
+      width: pageNaturalSize.w > 0 ? `${pageNaturalSize.w}px` : undefined,
+      transform: `scale(${effectiveScale})`,
+      transformOrigin: 'top left',
+    };
+  }, [effectiveScale, isFullscreen, pageNaturalSize.w]);
+
   return (
-    <ViewerOuter>
-      <Page ref={pageRef}>
+    <ViewerOuter ref={outerRef}>
+      <FullscreenButton isFullscreen={isFullscreen} onClick={toggleFullscreen} />
+      {!isFullscreen && <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onSetZoom={setZoomLevel} />}
+      <div style={wrapperStyle}>
+      <Page ref={pageRef} style={pageStyle}>
         {showAnalysis && (
           <ArrowLayer viewBox={`0 0 ${Math.max(arrowFrame.width, 1)} ${Math.max(arrowFrame.height, 1)}`}>
             <defs>
@@ -1482,19 +1792,21 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
         <TitleRow>
           <KeyDropdownWrap ref={keyMenuRef}>
             <KeyButton onClick={() => setKeyMenuOpen((v) => !v)}>
-              {selectedKey}
+              {formatKeyDisplay(selectedKey)}
             </KeyButton>
             {keyMenuOpen && (
               <KeyMenu>
-                {ALL_KEYS.map((k) => (
-                  <KeyOption
-                    key={k}
-                    $active={k === selectedKey}
-                    onClick={() => { setSelectedKey(k); setKeyMenuOpen(false); }}
-                  >
-                    {k}
-                  </KeyOption>
-                ))}
+                <KeyGrid>
+                  {(originalIsMinor ? ALL_MINOR_KEYS : ALL_MAJOR_KEYS).map((k) => (
+                    <KeyOption
+                      key={k}
+                      $active={k === selectedKey || k === selectedKey.replace('-', 'm')}
+                      onClick={() => { setSelectedKey(k); setKeyMenuOpen(false); }}
+                    >
+                      {k}
+                    </KeyOption>
+                  ))}
+                </KeyGrid>
               </KeyMenu>
             )}
           </KeyDropdownWrap>
@@ -1528,11 +1840,11 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
               onMouseEnter={(e) => {
                 setHoveredSpanKey(hl.spanKey);
                 if (!pageRef.current) return;
-                setActiveTooltip({ hl, anchorX: e.clientX - pageRef.current.getBoundingClientRect().left });
+                setActiveTooltip({ hl, anchorX: (e.clientX - pageRef.current.getBoundingClientRect().left) / effectiveScale });
               }}
               onMouseMove={(e) => {
                 if (!pageRef.current) return;
-                setActiveTooltip({ hl, anchorX: e.clientX - pageRef.current.getBoundingClientRect().left });
+                setActiveTooltip({ hl, anchorX: (e.clientX - pageRef.current.getBoundingClientRect().left) / effectiveScale });
               }}
               onMouseLeave={() => {
                 setHoveredSpanKey(null);
@@ -1576,6 +1888,7 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
           </div>
         )}
       </Page>
+      </div>
     </ViewerOuter>
   );
 }

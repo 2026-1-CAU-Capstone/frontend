@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import styled from 'styled-components';
+import { mq } from '../styles/theme';
+import { IconSidebar } from '../components/layout/IconSidebar';
 import { TopToolbar } from '../components/layout/TopToolbar';
 import { LeftSidebar } from '../components/layout/LeftSidebar';
 import { RightChatPanel } from '../components/layout/RightChatPanel';
@@ -18,9 +20,16 @@ const PAGE_SIZE = 30;
 
 const PageContainer = styled.div`
   display: flex;
-  flex-direction: column;
   height: 100vh;
-  width: 100vw;
+  height: 100dvh;
+  width: 100%;
+`;
+
+const RightSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
 `;
 
 const MainArea = styled.div`
@@ -47,6 +56,11 @@ const ToolBar = styled.div`
   font-family: 'DM Sans', sans-serif;
   font-size: 0.82rem;
   flex-wrap: wrap;
+
+  ${mq.mobile} {
+    gap: 6px;
+    padding: 6px 10px;
+  }
 `;
 
 const FilterSelect = styled.select`
@@ -176,6 +190,10 @@ const PianoRow = styled.div`
   overflow-x: auto;
   display: flex;
   justify-content: center;
+
+  ${mq.mobile} {
+    display: none;
+  }
 `;
 
 const ScoreBadge = styled.div`
@@ -213,6 +231,10 @@ const RightPanelWrapper = styled.div<{ $width: number }>`
   min-width: 180px;
   flex-shrink: 0;
   display: flex;
+
+  ${mq.mobile} {
+    display: none;
+  }
 `;
 
 const ResizeDivider = styled.div`
@@ -231,6 +253,10 @@ const ResizeDivider = styled.div`
     content: '';
     position: absolute;
     inset: 0 -4px;
+  }
+
+  ${mq.mobile} {
+    display: none;
   }
 `;
 
@@ -357,7 +383,6 @@ function VisibleLickCard({ lick, width }: { lick: LickEntry; width: number }) {
 /* ─── component ──────────────────────────────────────────────────────── */
 
 export default function LicksPage() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [creating, setCreating] = useState(false);
   const [melodySearch, setMelodySearch] = useState(false);
   const [searchMidis, setSearchMidis] = useState<number[]>([]);
@@ -553,20 +578,16 @@ export default function LicksPage() {
 
   return (
     <PageContainer>
-      <TopToolbar
-        autoHighlight={autoHighlight}
-        onToggleHighlight={toggleAutoHighlight}
-        sidebarOpen={sidebarOpen}
-        onToggleSidebar={() => setSidebarOpen((v) => !v)}
-      />
+      <IconSidebar />
+      <RightSection>
+        <TopToolbar />
 
-      <MainArea>
-        <LeftSidebar
-          open={sidebarOpen}
-          toc={toc}
-          activePage={1}
-          onPageSelect={() => {}}
-        />
+        <MainArea>
+          <LeftSidebar
+            toc={toc}
+            activePage={1}
+            onPageSelect={() => {}}
+          />
 
         <CenterColumn>
           {creating ? (
@@ -710,7 +731,8 @@ export default function LicksPage() {
             songTitle="Jazzify Licks"
           />
         </RightPanelWrapper>
-      </MainArea>
+        </MainArea>
+      </RightSection>
     </PageContainer>
   );
 }

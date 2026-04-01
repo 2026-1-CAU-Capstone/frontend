@@ -1,12 +1,19 @@
 import styled from 'styled-components';
 
 export const ViewerContainer = styled.div`
+  position: relative;
   flex: 1;
   overflow: auto;
   background: ${({ theme }) => theme.colors.bgSecondary};
   display: flex;
   justify-content: center;
   padding: 24px;
+
+
+  &:fullscreen {
+    background: ${({ theme }) => theme.colors.bgSecondary};
+    align-items: center;
+  }
 `;
 
 export const ScorePage = styled.div`

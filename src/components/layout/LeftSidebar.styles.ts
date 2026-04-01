@@ -1,14 +1,89 @@
 import styled from 'styled-components';
+import { mq } from '../../styles/theme';
 
-export const SidebarContainer = styled.aside<{ $open: boolean }>`
-  width: ${({ $open }) => ($open ? '200px' : '0px')};
-  min-width: ${({ $open }) => ($open ? '200px' : '0px')};
+export const SidebarWrapper = styled.div<{ $width: number }>`
+  position: relative;
+  width: ${({ $width }) => $width}px;
+  min-width: 0;
+  flex-shrink: 0;
+  display: flex;
+  overflow: visible;
+  border-right: ${({ $width, theme }) => ($width > 0 ? `1px solid ${theme.colors.border}` : 'none')};
+`;
+
+export const SidebarContainer = styled.aside`
+  width: 100%;
   background: ${({ theme }) => theme.colors.bgPrimary};
-  border-right: ${({ $open, theme }) => ($open ? `1px solid ${theme.colors.border}` : 'none')};
   overflow: hidden;
-  transition: width 0.2s ease, min-width 0.2s ease;
   display: flex;
   flex-direction: column;
+
+  ${mq.mobile} {
+    position: fixed;
+    top: 42px;
+    left: 0;
+    bottom: 0;
+    z-index: 100;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.12);
+  }
+`;
+
+export const SidebarOverlay = styled.div<{ $open: boolean }>`
+  display: none;
+
+  ${mq.mobile} {
+    display: ${({ $open }) => ($open ? 'block' : 'none')};
+    position: fixed;
+    inset: 0;
+    top: 42px;
+    z-index: 99;
+    background: rgba(0, 0, 0, 0.3);
+  }
+`;
+
+export const ResizeHandle = styled.div`
+  position: absolute;
+  top: 0;
+  right: -3px;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 10;
+  background: transparent;
+  transition: background 0.15s;
+
+  &:hover,
+  &.dragging {
+    background: ${({ theme }) => theme.colors.border};
+  }
+`;
+
+export const ReopenTab = styled.button`
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 56px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  color: ${({ theme }) => theme.colors.textSecondary};
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  z-index: 50;
+  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.08);
+  transition: all 0.15s;
+
+  &:hover {
+    width: 20px;
+    background: ${({ theme }) => theme.colors.bgSecondary};
+    color: ${({ theme }) => theme.colors.textPrimary};
+  }
 `;
 
 export const SidebarSection = styled.div`

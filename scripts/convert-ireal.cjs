@@ -52,6 +52,7 @@ function parseChart(decoded) {
   let ending       = null;
   let repeatStart  = false;
   let pendingRepeatEnd = false;
+  let pendingAnnotations = [];
   let timeSignature = '4/4';
 
   function commitBar() {
@@ -61,6 +62,7 @@ function parseChart(decoded) {
     ending = null;
     repeatStart = false;
     pendingRepeatEnd = false;
+    pendingAnnotations = []; // discard unconsumed annotations
   }
 
   let i = 0;
@@ -96,8 +98,20 @@ function parseChart(decoded) {
     }
 
     // ── XyQ = empty cell spacer (represents an empty measure slot) ────────
+    // When XyQ is followed by Kcl, the chord occupies 2 bars (e.g. C^7XyQKcl = 2 bars of C^7)
+    // When XyQ is followed by | or other, the chord occupies 1 bar (e.g. F^7XyQ| = 1 bar of F^7)
+    // When XyQ appears with no pending chords, it represents a genuinely empty bar (e.g. volta padding).
     if (rest.startsWith('XyQ')) {
-      commitBar();  // commit as empty bar
+      if (chords.length > 0) {
+        commitBar();
+        if (decoded.substring(i + 3, i + 6) === 'Kcl') {
+          chords.push({ isRepeat: true });
+          commitBar();
+        }
+      } else {
+        // Empty bar slot (no chords) — commit an empty bar so it takes up space
+        commitBar();
+      }
       i += 3; continue;
     }
 
@@ -128,8 +142,13 @@ function parseChart(decoded) {
 
     // ── } = repeat end barline ────────────────────────────────────────────
     if (decoded[i] === '}') {
-      pendingRepeatEnd = true;
-      if (chords.length > 0) commitBar();
+      if (chords.length > 0) {
+        pendingRepeatEnd = true;
+        commitBar();
+      } else if (bars.length > 0) {
+        // No pending chords — attach repeat-end to the last committed bar
+        bars[bars.length - 1].repeatEnd = true;
+      }
       i++; continue;
     }
 
@@ -148,20 +167,53 @@ function parseChart(decoded) {
     // ── | = regular barline ───────────────────────────────────────────────
     if (decoded[i] === '|') {
       if (chords.length > 0) commitBar();
+      else pendingAnnotations = [];
       i++; continue;
     }
 
     // ── Z = final barline ─────────────────────────────────────────────────
     if (decoded[i] === 'Z') {
       if (chords.length > 0) commitBar();
+      else pendingAnnotations = [];
       i++; continue;
     }
 
     // ── x = repeat previous bar ───────────────────────────────────────────
+    // When x is surrounded by (...) annotations like (Eh7)x(A7b9),
+    // the annotations are the actual chords for this bar — use them
+    // instead of isRepeat.
     if (decoded[i] === 'x') {
-      chords.push({ isRepeat: true });
+      // Look ahead past 'x' for more (...) annotations
+      let j = i + 1;
+      while (j < decoded.length) {
+        if (decoded[j] === ' ' || 'XyQKcl'.includes(decoded[j])) { j++; continue; }
+        if (decoded[j] === '(') {
+          const ce = decoded.indexOf(')', j);
+          if (ce !== -1) {
+            const inner = decoded.slice(j + 1, ce);
+            const cm = inner.match(/^([A-G])(b|#)?(.*)/);
+            if (cm) {
+              const c = { root: cm[1] };
+              if (cm[2]) c.accidental = cm[2];
+              if (cm[3]) c.quality = cm[3];
+              pendingAnnotations.push(c);
+            }
+            j = ce + 1;
+            continue;
+          }
+        }
+        break;
+      }
+      if (pendingAnnotations.length > 0) {
+        chords.push(...pendingAnnotations);
+        pendingAnnotations = [];
+        i = j; // skip past consumed look-ahead annotations
+      } else {
+        chords.push({ isRepeat: true });
+        i++;
+      }
       commitBar();
-      i++; continue;
+      continue;
     }
 
     // ── r = two-bar repeat (treat as two repeat bars) ─────────────────────
@@ -189,6 +241,28 @@ function parseChart(decoded) {
     if (decoded[i] === '<') {
       const end = decoded.indexOf('>', i);
       i = end !== -1 ? end + 1 : i + 1;
+      continue;
+    }
+
+    // ── small chord annotation (...) — buffer for possible use by 'x' ────
+    // In iReal Pro, (Eh7)x(A7b9) means "repeat bar, chords are Eh7 A7b9".
+    // Buffer these so the 'x' handler can use them as real chords.
+    // If no 'x' follows, they are discarded (purely visual hints).
+    if (decoded[i] === '(') {
+      const end = decoded.indexOf(')', i);
+      if (end !== -1) {
+        const inner = decoded.slice(i + 1, end);
+        const cm = inner.match(/^([A-G])(b|#)?(.*)/);
+        if (cm) {
+          const c = { root: cm[1] };
+          if (cm[2]) c.accidental = cm[2];
+          if (cm[3]) c.quality = cm[3];
+          pendingAnnotations.push(c);
+        }
+        i = end + 1;
+      } else {
+        i++;
+      }
       continue;
     }
 
@@ -245,8 +319,15 @@ function groupSystems(bars) {
   function flush() {
     if (sysBars.length === 0) return;
     // Pad to 4 bars
-    while (sysBars.length < 4) sysBars.push({ chords: [] });
-    systems.push({ ...sysMeta, bars: sysBars.map(b => ({ chords: b.chords })) });
+    while (sysBars.length < 4) sysBars.push({ chords: [], ending: null });
+    systems.push({
+      ...sysMeta,
+      bars: sysBars.map(b => {
+        const out = { chords: b.chords };
+        if (b.ending != null) out.ending = b.ending;
+        return out;
+      }),
+    });
     sysBars = [];
     sysMeta = {};
   }
@@ -254,9 +335,10 @@ function groupSystems(bars) {
   for (let bi = 0; bi < bars.length; bi++) {
     const bar = bars[bi];
 
-    // A section marker, repeat-start, or ending on a bar that would begin mid-system
+    // A section marker or repeat-start on a bar that would begin mid-system
     // forces a system break (so labels always appear at system start).
-    if ((bar.section || bar.repeatStart || bar.ending != null) && sysBars.length > 0) {
+    // Volta endings (N1/N2) do NOT force a break — they attach to the bar.
+    if ((bar.section || bar.repeatStart) && sysBars.length > 0) {
       flush();
     }
 
@@ -264,7 +346,6 @@ function groupSystems(bars) {
     if (sysBars.length === 0) {
       if (bar.section)        sysMeta.sectionLabel   = bar.section;
       if (bar.repeatStart)    sysMeta.hasRepeatStart = true;
-      if (bar.ending != null) sysMeta.ending         = bar.ending;
     }
 
     // A repeat-end decoration goes on the LAST bar of the current system
@@ -303,9 +384,7 @@ function parseSong(raw) {
   const decoded = unscramble(encoded);
 
   const { bars, timeSignature } = parseChart(decoded);
-  const systems = groupSystems(bars.filter(b =>
-    b.chords.length > 0 || b.section || b.repeatStart || b.ending != null
-  ));
+  const systems = groupSystems(bars);
 
   if (systems.length === 0) return null;
 

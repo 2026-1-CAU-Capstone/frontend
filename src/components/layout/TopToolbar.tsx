@@ -1,47 +1,59 @@
-import { Logo } from '../common/Logo';
-import { Toggle } from '../common/Toggle';
+import { useNavigate } from 'react-router-dom';
+import styled from 'styled-components';
 import {
   ToolbarContainer,
   ToolbarLeft,
   ToolbarCenter,
   ToolbarRight,
-  ToolbarButton,
+  BackButton,
+  ShareButton,
 } from './TopToolbar.styles';
 
+const TitleText = styled.span`
+  font-weight: 600;
+  font-size: 16px;
+`;
+
+const SubtitleText = styled.span`
+  font-size: 13px;
+  color: ${({ theme }) => theme.colors.textSecondary};
+`;
+
 interface TopToolbarProps {
-  autoHighlight: boolean;
-  onToggleHighlight: () => void;
-  sidebarOpen: boolean;
-  onToggleSidebar: () => void;
+  title?: string;
+  subtitle?: string;
 }
 
-export function TopToolbar({
-  autoHighlight,
-  onToggleHighlight,
-  sidebarOpen,
-  onToggleSidebar,
-}: TopToolbarProps) {
+export function TopToolbar({ title, subtitle }: TopToolbarProps) {
+  const navigate = useNavigate();
+
   return (
     <ToolbarContainer>
       <ToolbarLeft>
-        <Logo />
+        <BackButton onClick={() => navigate(-1)}>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 2L4 7l5 5" />
+          </svg>
+          돌아가기
+        </BackButton>
       </ToolbarLeft>
 
       <ToolbarCenter>
-        <Toggle
-          label="분석 보기"
-          active={autoHighlight}
-          onToggle={onToggleHighlight}
-        />
-
-        <ToolbarButton>이미지 설명</ToolbarButton>
-        <ToolbarButton>자동 번역</ToolbarButton>
+        {title && <TitleText>{title}</TitleText>}
+        {subtitle && <SubtitleText>{subtitle}</SubtitleText>}
       </ToolbarCenter>
 
       <ToolbarRight>
-        <ToolbarButton onClick={onToggleSidebar}>
-          {sidebarOpen ? '◁' : '▷'} 사이드바
-        </ToolbarButton>
+        <ShareButton>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="18" cy="5" r="3" />
+            <circle cx="6" cy="12" r="3" />
+            <circle cx="18" cy="19" r="3" />
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+          </svg>
+          공유
+        </ShareButton>
       </ToolbarRight>
     </ToolbarContainer>
   );

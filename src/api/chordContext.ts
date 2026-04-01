@@ -12,14 +12,25 @@ export function buildChordContext(data: LeadSheetData): string {
   lines.push(`Time Signature: ${data.timeSignature}`);
   lines.push('');
   lines.push('=== Chord Progression ===');
+  lines.push('(Note: Each bar below represents one chord change. In the original chart, some chords may span two bars when repeated.)');
+
+  let prevChord: typeof data.systems[0]['bars'][0]['chords'][0] | null = null;
+  let barCounter = 0;
 
   for (const system of data.systems) {
-    if (system.label) lines.push(`\n[Section: ${system.label}]`);
+    if (system.sectionLabel) lines.push(`\n[Section: ${system.sectionLabel}]`);
+    else if (system.label) lines.push(`\n[Section: ${system.label}]`);
     for (const bar of system.bars) {
-      const barNum = bar.measureNumber ?? '?';
-      for (const chord of bar.chords) {
-        if (chord.isRepeat) continue;
+      barCounter++;
+      const barNum = bar.measureNumber ?? barCounter;
+      for (let chord of bar.chords) {
+        // Resolve repeat: use previous chord's symbol/analysis
+        if (chord.isRepeat && prevChord) {
+          chord = { ...prevChord, isRepeat: undefined };
+        }
+        if (!chord.isRepeat) prevChord = chord;
         const symbol = formatChordSymbol(chord);
+        if (!symbol) continue;
         const a = chord.analysis;
         if (!a) {
           lines.push(`  Bar ${barNum}: ${symbol}`);

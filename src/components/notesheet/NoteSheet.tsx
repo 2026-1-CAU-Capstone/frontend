@@ -17,6 +17,7 @@ import {
 } from 'vexflow';
 import type { NoteSheetData, MeasureInfo } from '../../data/sampleMelody';
 import { NotePlayer } from '../../lib/note/notePlayer';
+import { FullscreenButton, useFullscreen } from '../common/FullscreenButton';
 
 /* ─── constants ─────────────────────────────────────────────────────────── */
 
@@ -211,9 +212,19 @@ function packLines(measures: MeasureInfo[], availW: number): number[][] {
 /* ─── styled ────────────────────────────────────────────────────────────── */
 
 const Wrapper = styled.div`
+  position: relative;
   flex: 1;
   overflow: auto;
   background: #fff;
+
+  &:hover .fullscreen-btn {
+    opacity: 1;
+  }
+
+  &:fullscreen {
+    display: flex;
+    flex-direction: column;
+  }
 `;
 
 const Header = styled.div`
@@ -243,6 +254,62 @@ const Composer = styled.span`
   font-family: 'DM Sans', sans-serif;
   font-size: 1.05rem;
   color: #999;
+`;
+
+/* ── key dropdown ──────────────────────────────────────────────────────── */
+
+const KeyDropdownWrap = styled.div`
+  position: relative;
+  display: inline-block;
+  margin-top: -8px;
+`;
+
+const KeyButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #fff;
+  border: 1.5px solid #ccc;
+  border-radius: 5px;
+  padding: 5px 14px;
+  cursor: pointer;
+  font-family: ${CHORD_FONT};
+  font-size: 1.4rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #222;
+  &:hover { border-color: #888; }
+  &::after { content: '▾'; font-size: 0.7em; color: #999; }
+`;
+
+const KeyMenu = styled.div`
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  z-index: 100;
+`;
+
+const KeyOption = styled.button<{ $active?: boolean }>`
+  background: ${({ $active }) => $active ? '#333' : 'transparent'};
+  color: ${({ $active }) => $active ? '#fff' : '#333'};
+  border: none;
+  border-radius: 4px;
+  padding: 7px 12px;
+  cursor: pointer;
+  font-family: ${CHORD_FONT};
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  &:hover { background: ${({ $active }) => $active ? '#333' : '#f0f0f0'}; }
 `;
 
 /* ── floating player (bottom-left) ─────────────────────────────────────── */
@@ -318,12 +385,18 @@ function buildDuration(dur: string, dotted?: boolean): string {
 
 interface NoteSheetProps {
   data: NoteSheetData;
+  selectedKey?: string;
+  allKeys?: readonly string[];
+  onKeyChange?: (key: string) => void;
 }
 
-export function NoteSheet({ data }: NoteSheetProps) {
+export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheetProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(900);
+  const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(wrapRef);
+  const [keyMenuOpen, setKeyMenuOpen] = useState(false);
+  const keyMenuRef = useRef<HTMLDivElement>(null);
 
   /* ── player state ────────────────────────────────────────────────── */
   const playerRef = useRef<NotePlayer | null>(null);
@@ -785,12 +858,48 @@ export function NoteSheet({ data }: NoteSheetProps) {
     measureRectsRef.current = rects;
   }, [data, width]);
 
+  /* ── close key menu on outside click ──────────────────────────────── */
+  useEffect(() => {
+    if (!keyMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (keyMenuRef.current && !keyMenuRef.current.contains(e.target as Node)) {
+        setKeyMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [keyMenuOpen]);
+
   /* ─── render ──────────────────────────────────────────────────────── */
 
   return (
     <Wrapper ref={wrapRef}>
+      <FullscreenButton isFullscreen={isFullscreen} onClick={toggleFullscreen} />
       <Header>
-        <HeaderLeft>{data.genre || ''}</HeaderLeft>
+        <HeaderLeft>
+          {selectedKey && allKeys && onKeyChange ? (
+            <KeyDropdownWrap ref={keyMenuRef}>
+              <KeyButton onClick={() => setKeyMenuOpen((v) => !v)}>
+                {selectedKey}
+              </KeyButton>
+              {keyMenuOpen && (
+                <KeyMenu>
+                  {allKeys.map((k) => (
+                    <KeyOption
+                      key={k}
+                      $active={k === selectedKey}
+                      onClick={() => { onKeyChange(k); setKeyMenuOpen(false); }}
+                    >
+                      {k}
+                    </KeyOption>
+                  ))}
+                </KeyMenu>
+              )}
+            </KeyDropdownWrap>
+          ) : (
+            <span>{data.genre || ''}</span>
+          )}
+        </HeaderLeft>
         <Title>{data.title}</Title>
         <Composer>{data.composer}</Composer>
       </Header>

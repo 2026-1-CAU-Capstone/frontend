@@ -1,4 +1,5 @@
 import styled from 'styled-components';
+import { mq } from '../../styles/theme';
 
 export const ToolbarContainer = styled.header`
   height: 48px;
@@ -9,24 +10,44 @@ export const ToolbarContainer = styled.header`
   background: ${({ theme }) => theme.colors.bgPrimary};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   flex-shrink: 0;
+
+  ${mq.mobile} {
+    height: 42px;
+    padding: 0 10px;
+  }
 `;
 
 export const ToolbarLeft = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
+
+  ${mq.mobile} {
+    gap: 6px;
+  }
 `;
 
 export const ToolbarCenter = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 1;
+  min-width: 0;
+  justify-content: center;
+
+  ${mq.mobile} {
+    gap: 4px;
+  }
 `;
 
 export const ToolbarRight = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
+
+  ${mq.mobile} {
+    gap: 4px;
+  }
 `;
 
 export const PageNav = styled.div`
@@ -79,6 +100,58 @@ export const ToolbarDivider = styled.div`
   margin: 0 4px;
 `;
 
+export const BackButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 8px;
+  background: ${({ theme }) => theme.colors.bgSecondary};
+  cursor: pointer;
+  font-size: 13px;
+  font-family: ${({ theme }) => theme.fonts.ui};
+  color: ${({ theme }) => theme.colors.textSecondary};
+  transition: all 0.15s ease;
+  white-space: nowrap;
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.border};
+    color: ${({ theme }) => theme.colors.textPrimary};
+  }
+
+  ${mq.mobile} {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+`;
+
+export const ShareButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border: none;
+  border-radius: 8px;
+  background: #2D6E6E;
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: ${({ theme }) => theme.fonts.ui};
+  transition: all 0.15s ease;
+  white-space: nowrap;
+
+  &:hover {
+    opacity: 0.85;
+  }
+
+  ${mq.mobile} {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+`;
+
 export const ToolbarButton = styled.button`
   display: flex;
   align-items: center;
@@ -95,5 +168,10 @@ export const ToolbarButton = styled.button`
 
   &:hover {
     background: ${({ theme }) => theme.colors.bgSecondary};
+  }
+
+  ${mq.mobile} {
+    padding: 4px 6px;
+    font-size: 11px;
   }
 `;
