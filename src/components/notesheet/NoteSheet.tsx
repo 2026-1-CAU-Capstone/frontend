@@ -169,21 +169,6 @@ function drawGlissLine(svgEl: SVGElement, fromNote: StaveNote, toNote: StaveNote
   svgEl.appendChild(txt);
 }
 
-const PX_PER_DUR: Record<string, number> = {
-  w: 50, h: 35, q: 28, '8': 22, '16': 18, '32': 14,
-};
-
-function _measureMinWidth(measure: MeasureInfo): number {
-  let w = 18;
-  for (const n of measure.notes) {
-    const base = n.duration.replace(/[dr]/g, '');
-    w += PX_PER_DUR[base] ?? 24;
-    if (n.accidentals) w += Object.keys(n.accidentals).length * 10;
-    if (n.dotted) w += 5;
-  }
-  return Math.max(w, 55);
-}
-
 function packLines(measures: MeasureInfo[], availW: number): number[][] {
   const lines: number[][] = [];
   let line: number[] = [];

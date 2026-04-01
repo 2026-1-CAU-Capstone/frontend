@@ -76,10 +76,6 @@ const SongSelect = styled.select`
   max-width: 420px;
 `;
 
-const StatusText = styled.span`
-  color: ${({ theme }) => theme.colors.textSecondary};
-`;
-
 const SearchWrap = styled.div`
   position: relative;
   margin-left: auto;

@@ -42,6 +42,7 @@ export interface LeadSheetBar {
 
 export interface LeadSheetSystem {
   sectionLabel?: string;
+  label?: string;
   hasRepeatStart?: boolean;
   hasRepeatEnd?: boolean;
   bars: LeadSheetBar[];

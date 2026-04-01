@@ -9,7 +9,6 @@ import { LickCard } from '../components/notesheet/LickCard';
 import { LickCreator } from '../components/notesheet/LickCreator';
 import { PianoKeyboard, type PianoNote } from '../components/notesheet/PianoKeyboard';
 import { MelodyPreview } from '../components/notesheet/MelodyPreview';
-import { useAutoHighlight } from '../hooks/useAutoHighlight';
 import type { TocEntry } from '../data/types';
 import { loadLicks, loadUserLicks, saveUserLick, type LickEntry } from '../data/lickData';
 import type { NoteSheetData } from '../data/sampleMelody';
@@ -386,7 +385,6 @@ export default function LicksPage() {
   const [creating, setCreating] = useState(false);
   const [melodySearch, setMelodySearch] = useState(false);
   const [searchMidis, setSearchMidis] = useState<number[]>([]);
-  const { autoHighlight, toggleAutoHighlight } = useAutoHighlight(true);
 
   /* lick data */
   const [allLicks, setAllLicks] = useState<LickEntry[]>([]);

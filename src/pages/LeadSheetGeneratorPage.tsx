@@ -172,7 +172,6 @@ const MARGIN = { top: 30, left: 10, right: 10, bottom: 10 };
 const MAX_PER_LINE = 8;
 const DECOR_FIRST = 70;
 const DECOR_OTHER = 35;
-const PX_PER_DUR: Record<string, number> = { w: 34, h: 27, q: 22, '8': 18, '16': 15 };
 const FIXED_BAR_W = 175;
 
 interface MeasurePos { idx: number; x: number; y: number; w: number; chordX: number; }

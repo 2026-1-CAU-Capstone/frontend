@@ -124,9 +124,7 @@ function getTranspositionOrder(lickKey: string): { keyName: string; semitones: n
 
 const LINE_HEIGHT = 140;
 const MARGIN = { top: 24, left: 10, right: 10, bottom: 10 };
-const MAX_PER_LINE = 6;
 const DECOR_FIRST = 70;
-const DECOR_OTHER = 35;
 const PX_PER_DUR: Record<string, number> = { w: 50, h: 35, q: 28, '8': 22, '16': 18 };
 const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25 };
 const CHORD_FONT = "'MuseJazz Text', 'DM Sans', sans-serif";
@@ -140,27 +138,6 @@ function measureMinWidth(m: MeasureInfo): number {
     if (n.dotted) w += 5;
   }
   return Math.max(w, 55);
-}
-
-function packLines(measures: MeasureInfo[], availW: number): number[][] {
-  const lines: number[][] = [];
-  let line: number[] = [];
-  let usedW = 0;
-  for (let i = 0; i < measures.length; i++) {
-    const mw = measureMinWidth(measures[i]);
-    const decor = line.length === 0 ? (lines.length === 0 ? DECOR_FIRST : DECOR_OTHER) : 0;
-    if (line.length > 0 && (usedW + mw > availW || line.length >= MAX_PER_LINE)) {
-      lines.push(line);
-      line = [i];
-      usedW = (lines.length === 0 ? DECOR_FIRST : DECOR_OTHER) + mw;
-    } else {
-      if (line.length === 0) usedW = decor;
-      line.push(i);
-      usedW += mw;
-    }
-  }
-  if (line.length > 0) lines.push(line);
-  return lines;
 }
 
 function buildDuration(dur: string, dotted?: boolean): string {
@@ -449,7 +426,6 @@ function renderMeasures(el: HTMLDivElement, measures: MeasureInfo[], minWidth: n
     if (measures[m]?.volta) {
       const v = measures[m].volta!;
       const prevV = m > 0 ? measures[m - 1]?.volta : undefined;
-      const nextV = m < measures.length - 1 ? measures[m + 1]?.volta : undefined;
       const isS = prevV !== v;
       stave.setVoltaType(isS ? VoltaType.BEGIN : VoltaType.MID, `${v}.`, 30);
     }
@@ -536,7 +512,7 @@ function renderMeasures(el: HTMLDivElement, measures: MeasureInfo[], minWidth: n
   for (const measure of measures) {
     for (let ni = 0; ni < measure.notes.length; ni++) {
       if (measure.notes[ni].tie && allVfNotes[flatIdx + 1]) {
-        new StaveTie({ firstNote: allVfNotes[flatIdx], lastNote: allVfNotes[flatIdx + 1], firstIndices: [0], lastIndices: [0] })
+        new StaveTie({ firstNote: allVfNotes[flatIdx], lastNote: allVfNotes[flatIdx + 1], firstIndexes: [0], lastIndexes: [0] })
           .setContext(ctx).draw();
       }
       flatIdx++;

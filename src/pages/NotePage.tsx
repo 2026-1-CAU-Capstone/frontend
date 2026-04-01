@@ -215,10 +215,6 @@ const SongSelect = styled.select`
   max-width: 420px;
 `;
 
-const StatusText = styled.span`
-  color: ${({ theme }) => theme.colors.textSecondary};
-`;
-
 const SearchWrap = styled.div`
   position: relative;
   margin-left: auto;
@@ -306,64 +302,6 @@ const LeadSheetBtn = styled.button`
   cursor: pointer;
   white-space: nowrap;
   &:hover { background: #f5ecd0; }
-`;
-
-const KeyDropdownWrap = styled.div`
-  position: relative;
-  display: inline-block;
-`;
-
-const KeyButton = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: #fff;
-  border: 1.5px solid #ccc;
-  border-radius: 5px;
-  padding: 5px 14px;
-  cursor: pointer;
-  font-family: 'MuseJazz Text', 'Oswald', 'DM Sans', sans-serif;
-  font-size: clamp(1.2rem, 2.8cqi, 1.8rem);
-  font-weight: 600;
-  line-height: 1.3;
-  color: #222;
-  &:hover { border-color: #888; }
-
-  &::after {
-    content: '▾';
-    font-size: 0.7em;
-    color: #999;
-  }
-`;
-
-const KeyMenu = styled.div`
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 3px;
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 8px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-  z-index: 100;
-`;
-
-const KeyOption = styled.button<{ $active?: boolean }>`
-  background: ${({ $active }) => $active ? '#333' : 'transparent'};
-  color: ${({ $active }) => $active ? '#fff' : '#333'};
-  border: none;
-  border-radius: 4px;
-  padding: 7px 12px;
-  cursor: pointer;
-  font-family: 'MuseJazz Text', 'Oswald', 'DM Sans', sans-serif;
-  font-size: clamp(1.0rem, 1.8cqi, 1.3rem);
-  font-weight: 600;
-  text-align: center;
-  white-space: nowrap;
-  &:hover { background: ${({ $active }) => $active ? '#333' : '#f0f0f0'}; }
 `;
 
 const LoadingState = styled.div`

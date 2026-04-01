@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import {
-  Renderer, Stave, StaveNote, Voice, Formatter, Beam, Accidental, Dot, Fraction, BarlineType, StaveTie, Tuplet, VoltaType, Repetition,
+  Renderer, Stave, StaveNote, Voice, Formatter, Beam, Accidental, Dot, BarlineType, StaveTie, Tuplet, VoltaType, Repetition,
 } from 'vexflow';
 import { PianoKeyboard, playMidi, type PianoNote } from '../components/notesheet/PianoKeyboard';
 import type { NoteInfo, MeasureInfo } from '../data/sampleMelody';
@@ -13,7 +13,6 @@ import { saveUserLick, computeLickFeatures, type LickEntry } from '../data/lickD
 import Soundfont from 'soundfont-player';
 
 const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25 };
-const DUR_LABEL: Record<string, string> = { w: 'whole', h: 'half', q: 'quarter', '8': '8th', '16': '16th' };
 const SEMI_MAP: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
 const SHARP_TO_FLAT: Record<string, string> = { c: 'd', d: 'e', f: 'g', g: 'a', a: 'b' };
 
@@ -99,6 +98,7 @@ const DECOR_OTHER = 35;
 const PX_PER_DUR: Record<string, number> = { w: 55, h: 40, q: 32, '8': 26, '16': 22 };
 
 interface NotePos { mi: number; ni: number; x: number; y: number; w: number; h: number; }
+interface MeasurePos { idx: number; x: number; y: number; w: number; chordX: number; }
 
 function measureMinWidth(m: MeasureInfo): number {
   let w = 24;
@@ -253,7 +253,6 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       if (measure.volta) {
         const v = measure.volta;
         const prevV = m > 0 ? measures[m - 1]?.volta : undefined;
-        const nextV = m < measures.length - 1 ? measures[m + 1]?.volta : undefined;
         const isS = prevV !== v;
         stave.setVoltaType(isS ? VoltaType.BEGIN : VoltaType.MID, `${v}.`, 30);
       }
@@ -462,7 +461,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         const from = allVfNotes[flatIdx];
         const to = allVfNotes[flatIdx + 1];
         if (from && to && measureLine.get(from.mi) === measureLine.get(to.mi)) {
-          const tie = new StaveTie({ firstNote: from.vfNote, lastNote: to.vfNote, firstIndices: [0], lastIndices: [0] });
+          const tie = new StaveTie({ firstNote: from.vfNote, lastNote: to.vfNote, firstIndexes: [0], lastIndexes: [0] });
           tie.setContext(ctx).draw();
         }
       }
@@ -1227,7 +1226,7 @@ export default function LickInputPage() {
 
     // If a note is selected, replace its pitch instead of adding a new note
     if (selectedNote) {
-      const acc: Record<number, string> | undefined = accMode === 'n' ? { 0: 'n' } : conv.acc ? { 0: conv.acc } : undefined;
+      const acc: Record<number, 'b' | '#' | 'n'> | undefined = accMode === 'n' ? { 0: 'n' } : conv.acc ? { 0: conv.acc } : undefined;
       updateNote(selectedNote.mi, selectedNote.ni, (n) => {
         const updated = { ...n, keys: [conv.vexKey] };
         if (acc) {

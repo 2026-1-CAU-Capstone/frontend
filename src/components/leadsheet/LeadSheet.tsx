@@ -638,7 +638,7 @@ function resolveRepeats(data: LeadSheetData): LeadSheetData {
           return chord;
         });
         // Only update prevBar from bars with real chords (not empty bars)
-        const realChords = chords.filter((c) => !c.isRepeat && c.root);
+        const realChords = chords.filter((c) => !!c.root);
         if (realChords.length > 0) prevBar = chords;
         return { ...bar, chords };
       }),
@@ -798,16 +798,6 @@ function RepeatEndBarline() {
         <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#000' }} />
       </div>
       <div style={{ width: '1.5px', background: '#000', marginRight: '2px' }} />
-      <div style={{ width: '4px',   background: '#000' }} />
-    </div>
-  );
-}
-
-/* double end: thin | thick */
-function DoubleEndBarline() {
-  return (
-    <div style={{ display: 'flex', alignItems: 'stretch', height: '100%', gap: '2px' }}>
-      <div style={{ width: '1.5px', background: '#000' }} />
       <div style={{ width: '4px',   background: '#000' }} />
     </div>
   );

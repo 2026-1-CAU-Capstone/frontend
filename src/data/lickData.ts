@@ -32,6 +32,7 @@ interface RawLick {
   chordal_pc: (number | null)[];
   chordal_diatonic_pc: (string | null)[];
   duration_class: number[];
+  signature?: string;
 }
 
 export interface LickEntry {
