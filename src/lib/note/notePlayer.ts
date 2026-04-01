@@ -1,4 +1,4 @@
-import type { NoteSheetData } from '../../data/sampleMelody';
+import type { NoteSheetData, MeasureInfo } from '../../data/sampleMelody';
 import Soundfont from 'soundfont-player';
 
 /* ─── pitch helpers ──────────────────────────────────────────────────── */
@@ -142,6 +142,79 @@ interface SchedNote {
   track: 'melody' | 'comp';
 }
 
+/* ─── expand measures (repeats, volta, brackets, navigation) ────────── */
+
+type ExpandedM = { m: MeasureInfo; origMi: number };
+
+function expandMeasures(srcMeasures: MeasureInfo[]): ExpandedM[] {
+  const expandedMeasures: ExpandedM[] = [];
+
+  // Phase 1: expand repeats + volta
+  const afterRepeats: ExpandedM[] = [];
+  let repeatFromIdx = 0;
+  let mi = 0;
+  while (mi < srcMeasures.length) {
+    const m = srcMeasures[mi];
+    if (m.repeatStart) repeatFromIdx = mi;
+    afterRepeats.push({ m, origMi: mi });
+
+    if (m.repeatEnd) {
+      for (let ri = repeatFromIdx; ri <= mi; ri++) {
+        if (srcMeasures[ri].volta === 1) break;
+        afterRepeats.push({ m: srcMeasures[ri], origMi: ri });
+      }
+      let vi = mi + 1;
+      while (vi < srcMeasures.length && srcMeasures[vi].volta === 2) {
+        afterRepeats.push({ m: srcMeasures[vi], origMi: vi });
+        vi++;
+      }
+      mi = vi;
+      continue;
+    }
+    mi++;
+  }
+
+  // Phase 2: expand D.C./D.S./Coda/Fine navigation
+  const segnoIdx = afterRepeats.findIndex((e) => e.m.navigation === 'segno');
+  const codaIdx = afterRepeats.findIndex((e) => e.m.navigation === 'coda');
+
+  let jumped = false;
+  for (let i = 0; i < afterRepeats.length; i++) {
+    const entry = afterRepeats[i];
+    expandedMeasures.push(entry);
+    const nav = entry.m.navigation;
+    if (!nav || jumped) continue;
+
+    if (nav === 'fine') break;
+    if (nav === 'toCoda' && !jumped) continue;
+    if (nav === 'dc' || nav === 'dcAlCoda' || nav === 'dcAlFine' ||
+        nav === 'ds' || nav === 'dsAlCoda' || nav === 'dsAlFine') {
+      jumped = true;
+      const jumpTo = (nav === 'ds' || nav === 'dsAlCoda' || nav === 'dsAlFine')
+        ? Math.max(0, segnoIdx) : 0;
+      const alCoda = nav === 'dcAlCoda' || nav === 'dsAlCoda';
+      const alFine = nav === 'dcAlFine' || nav === 'dsAlFine';
+
+      for (let ri = jumpTo; ri < afterRepeats.length; ri++) {
+        const re = afterRepeats[ri];
+        expandedMeasures.push(re);
+        if (alCoda && re.m.navigation === 'toCoda') {
+          if (codaIdx >= 0) {
+            for (let ci = codaIdx; ci < afterRepeats.length; ci++) {
+              expandedMeasures.push(afterRepeats[ci]);
+            }
+          }
+          break;
+        }
+        if (alFine && re.m.navigation === 'fine') break;
+        if (!alCoda && !alFine && (nav === 'dc' || nav === 'ds') && ri === afterRepeats.length - 1) break;
+      }
+      break;
+    }
+  }
+  return expandedMeasures;
+}
+
 /* ─── player ─────────────────────────────────────────────────────────── */
 
 export class NotePlayer {
@@ -237,31 +310,42 @@ export class NotePlayer {
     this.sched = [];
     const keySig = buildKeySigMap(data.key);
 
-    // Flatten all notes with measure index and timing info
-    interface FlatNote { mi: number; ni: number; note: typeof data.measures[0]['notes'][0]; beats: number }
+    // Skip bracket measures and expand repeats/volta/navigation
+    const firstChordIdx = data.measures.findIndex((m) => !!m.chord);
+    const srcMeasures = firstChordIdx > 0
+      ? data.measures.slice(firstChordIdx)
+      : data.measures;
+    const miOffset = firstChordIdx > 0 ? firstChordIdx : 0;
+    const expanded = expandMeasures(srcMeasures);
+
+    // Flatten all notes with expanded measure index and timing info
+    interface FlatNote { origMi: number; ni: number; note: typeof data.measures[0]['notes'][0]; beats: number; expandIdx: number }
     const flat: FlatNote[] = [];
-    for (let mi = 0; mi < data.measures.length; mi++) {
-      for (let ni = 0; ni < data.measures[mi].notes.length; ni++) {
-        const n = data.measures[mi].notes[ni];
+    for (let ei = 0; ei < expanded.length; ei++) {
+      const { m, origMi } = expanded[ei];
+      for (let ni = 0; ni < m.notes.length; ni++) {
+        const n = m.notes[ni];
         const base = n.duration.replace(/[dr]/g, '');
         let beats = DUR_BEATS[base] ?? 1;
         if (n.dotted) beats *= 1.5;
         if (n.tuplet === 3) beats *= 2 / 3;
-        flat.push({ mi, ni, note: n, beats });
+        flat.push({ origMi: origMi + miOffset, ni, note: n, beats, expandIdx: ei });
       }
     }
 
     // Schedule melody, merging tied notes
     let fi = 0;
     let mt = 0; // global melody time cursor
-    let currentMi = 0;
+    let currentEi = -1;
+    let measCount = 0;
     while (fi < flat.length) {
       const f = flat[fi];
-      // Advance measure time cursor when measure changes
-      // Use Math.max to preserve time consumed by cross-bar ties
-      if (f.mi !== currentMi) {
-        mt = Math.max(mt, f.mi * measSec);
-        currentMi = f.mi;
+      // Advance measure time cursor when expanded measure changes
+      if (f.expandIdx !== currentEi) {
+        mt = Math.max(mt, measCount * measSec);
+        if (currentEi !== -1) measCount++;
+        if (currentEi === -1) measCount = 1; // first measure
+        currentEi = f.expandIdx;
       }
 
       const isRest = f.note.duration.endsWith('r');
@@ -281,7 +365,7 @@ export class NotePlayer {
         for (let ki = 0; ki < f.note.keys.length; ki++) {
           const acc = f.note.accidentals?.[ki];
           const midi = vexToMidi(f.note.keys[ki], acc, keySig);
-          this.sched.push({ time: mt, dur: Math.max(dur * 0.85, 0.04), midi, measure: f.mi, noteIndex: f.ni, track: 'melody' });
+          this.sched.push({ time: mt, dur: Math.max(dur * 0.85, 0.04), midi, measure: f.origMi, noteIndex: f.ni, track: 'melody' });
         }
         mt += dur;
         fi = look;
@@ -293,7 +377,7 @@ export class NotePlayer {
         for (let ki = 0; ki < f.note.keys.length; ki++) {
           const acc = f.note.accidentals?.[ki];
           const midi = vexToMidi(f.note.keys[ki], acc, keySig);
-          this.sched.push({ time: mt, dur: Math.max(dur * 0.85, 0.04), midi, measure: f.mi, noteIndex: f.ni, track: 'melody' });
+          this.sched.push({ time: mt, dur: Math.max(dur * 0.85, 0.04), midi, measure: f.origMi, noteIndex: f.ni, track: 'melody' });
         }
       }
       mt += dur;
@@ -301,29 +385,27 @@ export class NotePlayer {
     }
 
     // Schedule comping (piano) — beats 2 & 4 (jazz swing feel)
-    for (let mi = 0; mi < data.measures.length; mi++) {
-      const measure = data.measures[mi];
-      if (measure.chord) {
-        const chords = measure.chord.split(/\s{2,}/);
-        const measStart = mi * measSec;
+    for (let ei = 0; ei < expanded.length; ei++) {
+      const { m, origMi } = expanded[ei];
+      if (m.chord) {
+        const chords = m.chord.split(/\s{2,}/);
+        const measStart = ei * measSec;
         const compDur = bs * 0.5;
         if (chords.length === 1) {
-          // Single chord: play on beats 2 & 4
           const midiNotes = chordToMidi(chords[0]);
           for (const beat of [1, 3]) {
             const t = measStart + beat * bs;
             for (const midi of midiNotes) {
-              this.sched.push({ time: t, dur: compDur, midi, measure: mi, noteIndex: -1, track: 'comp' });
+              this.sched.push({ time: t, dur: compDur, midi, measure: origMi + miOffset, noteIndex: -1, track: 'comp' });
             }
           }
         } else {
-          // Multi-chord: split beats evenly (e.g. 2 chords → beat 2 = chord1, beat 4 = chord2)
-          const beatsPerChord = [1, 3]; // beat 2 & 4
+          const beatsPerChord = [1, 3];
           for (let ci = 0; ci < Math.min(chords.length, beatsPerChord.length); ci++) {
             const midiNotes = chordToMidi(chords[ci]);
             const t = measStart + beatsPerChord[ci] * bs;
             for (const midi of midiNotes) {
-              this.sched.push({ time: t, dur: compDur, midi, measure: mi, noteIndex: -1, track: 'comp' });
+              this.sched.push({ time: t, dur: compDur, midi, measure: origMi + miOffset, noteIndex: -1, track: 'comp' });
             }
           }
         }

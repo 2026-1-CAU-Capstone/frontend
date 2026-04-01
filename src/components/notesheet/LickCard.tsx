@@ -188,7 +188,7 @@ const MetaRow = styled.div`
   align-items: baseline;
   gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 2px;
+  margin-bottom: 8px;
 `;
 
 const LickId = styled.span`
@@ -214,9 +214,9 @@ const Title = styled.span`
 const TagRow = styled.div`
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 4px;
+  margin-bottom: 10px;
 `;
 
 const Badge = styled.span<{ $color?: string }>`
@@ -249,6 +249,7 @@ const PlayBtn = styled.button<{ $active?: boolean }>`
 
 const SvgWrap = styled.div`
   overflow-x: auto;
+  overflow-y: hidden;
 `;
 
 const Placeholder = styled.div`
@@ -516,21 +517,46 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
     const keySigAcc = keySigAccidentals(vexKey);
     const DECOR_FIRST = decorFirstWidth(vexKey);
 
-    const measWidths = data.measures.map((m) => measureMinWidth(m) * 1.4);
-    const decorW = DECOR_FIRST;
-    const naturalW = MARGIN.left + decorW + measWidths.reduce((s, w) => s + w, 0) + MARGIN.right;
-
-    // Determine scale: shrink to fit single line (min 0.65), else multi-line
-    const MIN_SCALE = 0.65;
     const cardInner = width;
-    let scale = 1;
-    let multiLine = false;
+    const decorW = DECOR_FIRST;
+    const baseWidths = data.measures.map((m) => measureMinWidth(m));
 
-    if (naturalW > cardInner) {
-      scale = cardInner / naturalW;
-      if (scale < MIN_SCALE) {
-        scale = 1;
-        multiLine = true;
+    // 1) Natural (spacious) widths
+    const MULT_MAX = 1.4;
+    const MULT_MIN = 1.0;
+    const spaciousWidths = baseWidths.map((w) => w * MULT_MAX);
+    const spaciousW = MARGIN.left + decorW + spaciousWidths.reduce((s, w) => s + w, 0) + MARGIN.right;
+
+    let measWidths: number[];
+    let multiLine = false;
+    let scale = 1;
+
+    const MIN_SCALE = 0.45;
+
+    if (spaciousW <= cardInner) {
+      // Fits at natural size — single line, keep original spacing
+      measWidths = spaciousWidths;
+    } else {
+      // 2) Try compressing note spacing to fit single line
+      const tightW = MARGIN.left + decorW + baseWidths.reduce((s, w) => s + w * MULT_MIN, 0) + MARGIN.right;
+      if (tightW <= cardInner) {
+        // Find multiplier that fills the card exactly
+        const availForNotes = cardInner - MARGIN.left - decorW - MARGIN.right;
+        const baseTotal = baseWidths.reduce((s, w) => s + w, 0);
+        const mult = availForNotes / baseTotal;
+        measWidths = baseWidths.map((w) => w * mult);
+      } else {
+        // 3) Try CSS scale to keep single line (scale down to MIN_SCALE)
+        scale = cardInner / tightW;
+        if (scale >= MIN_SCALE) {
+          // Single line, tight spacing + CSS scale
+          measWidths = baseWidths.map((w) => w * MULT_MIN);
+        } else {
+          // 4) Too small — go multi-line
+          scale = 1;
+          multiLine = true;
+          measWidths = baseWidths.map((w) => w * MULT_MIN);
+        }
       }
     }
 
@@ -543,20 +569,37 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
       lines = [Array.from({ length: nMeasures }, (_, i) => i)];
     }
 
+    // Safety: if any multi-line row still overflows, apply CSS scale
+    if (multiLine) {
+      let maxLineW = 0;
+      for (const indices of lines) {
+        const lineDecorW = indices[0] === 0 ? DECOR_FIRST : DECOR_OTHER;
+        const lineW = MARGIN.left + lineDecorW + indices.reduce((s, i) => s + measWidths[i], 0) + MARGIN.right;
+        if (lineW > maxLineW) maxLineW = lineW;
+      }
+      if (maxLineW > cardInner) {
+        scale = cardInner / maxLineW;
+      }
+    }
+
     const nLines = lines.length;
-    const svgW = multiLine ? cardInner : Math.max(naturalW, cardInner);
+    const totalNoteW = MARGIN.left + decorW + measWidths.reduce((s, w) => s + w, 0) + MARGIN.right;
+    const svgW = multiLine
+      ? (scale < 1 ? cardInner / scale : cardInner)
+      : Math.max(totalNoteW, cardInner);
     const totalH = MARGIN.top + nLines * LINE_HEIGHT + MARGIN.bottom;
 
     const renderer = new Renderer(el, Renderer.Backends.SVG);
     renderer.resize(svgW, totalH);
     const ctx = renderer.getContext();
 
-    // Apply scale via SVG transform
+    // Apply CSS scale if needed
     const svgEl = el.querySelector('svg');
     if (svgEl && scale < 1) {
       svgEl.style.transformOrigin = 'top left';
       svgEl.style.transform = `scale(${scale})`;
       el.style.height = `${totalH * scale}px`;
+      el.style.width = `${cardInner}px`;
     }
 
     const allVfNotes: StaveNote[] = [];
@@ -572,7 +615,7 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
       const lineDecorW = indices[0] === 0 ? DECOR_FIRST : DECOR_OTHER;
       const lineWeights = indices.map((i) => measWidths[i]);
       const lineTotalWeight = lineWeights.reduce((s, w) => s + w, 0);
-      const lineAvail = (multiLine ? cardInner : svgW) - MARGIN.left - MARGIN.right - lineDecorW;
+      const lineAvail = svgW - MARGIN.left - MARGIN.right - lineDecorW;
       const isLastLine = li === nLines - 1;
       const stretch = multiLine && (!isLastLine || indices.length >= MAX_PER_LINE);
 
@@ -778,10 +821,6 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
           {lick.tempo && <Badge $color="#f5f0e0">{lick.tempo} bpm</Badge>}
           <Badge $color="#f0eee8">{lick.rhythmfeel}</Badge>
           <Badge $color="#ede8f0">{lick.tag}</Badge>
-          <Badge $color="#e8f0e8">{lick.nEvents} notes</Badge>
-          {lick.chords.map((c, i) => (
-            <ChordBadge key={i}>{formatChord(c)}</ChordBadge>
-          ))}
         </TagRow>
       )}
       {compact && (

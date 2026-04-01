@@ -104,13 +104,21 @@ function transposeChord(chord: string, semitones: number): string {
   });
 }
 
+/* Minor key → relative major for key sig lookup */
+const MINOR_TO_MAJOR: Record<string, string> = {
+  'Cm': 'Eb', 'C#m': 'E', 'Dbm': 'E', 'Dm': 'F', 'D#m': 'F#', 'Ebm': 'Gb',
+  'Em': 'G', 'Fm': 'Ab', 'F#m': 'A', 'Gm': 'Bb', 'G#m': 'B', 'Abm': 'B',
+  'Am': 'C', 'A#m': 'Db', 'Bbm': 'Db', 'Bm': 'D',
+};
+
 function transposeNoteData(data: NoteSheetData, targetKey: string): NoteSheetData {
   const origPc = keyToPc(data.key ?? 'C');
   const targetPc = keyToPc(targetKey);
   const semitones = (targetPc - origPc + 12) % 12;
 
   const useFlats = FLAT_KEYS.has(targetKey.replace(/m$/i, ''));
-  const keySigNotes = KEY_SIG_NOTES[targetKey.replace(/m$/i, '')] ?? new Set();
+  const majorKey = MINOR_TO_MAJOR[targetKey] ?? targetKey.replace(/m$/i, '');
+  const keySigNotes = KEY_SIG_NOTES[majorKey] ?? new Set();
 
   return {
     ...data,
