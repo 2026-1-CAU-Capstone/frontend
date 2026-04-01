@@ -9,6 +9,12 @@ export const SidebarWrapper = styled.div<{ $width: number }>`
   display: flex;
   overflow: visible;
   border-right: ${({ $width, theme }) => ($width > 0 ? `1px solid ${theme.colors.border}` : 'none')};
+
+  ${mq.mobile} {
+    display: none;
+    width: 0;
+    border-right: none;
+  }
 `;
 
 export const SidebarContainer = styled.aside`
@@ -32,7 +38,7 @@ export const SidebarOverlay = styled.div<{ $open: boolean }>`
   display: none;
 
   ${mq.mobile} {
-    display: ${({ $open }) => ($open ? 'block' : 'none')};
+    display: none;
     position: fixed;
     inset: 0;
     top: 42px;
