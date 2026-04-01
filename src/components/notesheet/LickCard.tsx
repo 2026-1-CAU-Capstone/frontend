@@ -161,7 +161,7 @@ function packLines(measures: MeasureInfo[], availW: number, decorFirst: number):
     if (line.length > 0 && (usedW + mw > availW || line.length >= MAX_PER_LINE)) {
       lines.push(line);
       line = [i];
-      usedW = (lines.length === 0 ? DECOR_FIRST : DECOR_OTHER) + mw;
+      usedW = (lines.length === 0 ? decorFirst : DECOR_OTHER) + mw;
     } else {
       if (line.length === 0) usedW = decor;
       line.push(i);
@@ -232,12 +232,6 @@ const Badge = styled.span<{ $color?: string }>`
   color: #555;
 `;
 
-const ChordBadge = styled(Badge)`
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.88rem;
-  background: #efe8d4;
-  color: #8B6914;
-`;
 
 const PlayBtn = styled.button<{ $active?: boolean }>`
   font-size: 0.85rem;
@@ -643,7 +637,6 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
         if (measure.volta) {
           const v = measure.volta;
           const prevV = m > 0 ? data.measures[m - 1]?.volta : undefined;
-          const nextV = m < data.measures.length - 1 ? data.measures[m + 1]?.volta : undefined;
           const isS = prevV !== v;
           stave.setVoltaType(isS ? VoltaType.BEGIN : VoltaType.MID, `${v}.`, 30);
         }
@@ -745,7 +738,7 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
           const fromLine = measureLine.get(noteMi[flatIdx]);
           const toLine = measureLine.get(noteMi[flatIdx + 1]);
           if (fromLine === toLine) {
-            new StaveTie({ firstNote: allVfNotes[flatIdx], lastNote: allVfNotes[flatIdx + 1], firstIndices: [0], lastIndices: [0] })
+            new StaveTie({ firstNote: allVfNotes[flatIdx], lastNote: allVfNotes[flatIdx + 1], firstIndexes: [0], lastIndexes: [0] })
               .setContext(ctx).draw();
           }
         }

@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import {
-  Renderer, Stave, StaveNote, Voice, Formatter, Beam, Accidental, Dot, Fraction, BarlineType, StaveTie, Tuplet, VoltaType, Repetition,
+  Renderer, Stave, StaveNote, Voice, Formatter, Beam, Accidental, Dot, BarlineType, StaveTie, Tuplet, Repetition,
 } from 'vexflow';
 import { PianoKeyboard, playMidi, type PianoNote } from '../components/notesheet/PianoKeyboard';
 import type { NoteInfo, MeasureInfo, NavigationMarker } from '../data/sampleMelody';
@@ -12,7 +12,6 @@ import type { NoteInfo, MeasureInfo, NavigationMarker } from '../data/sampleMelo
 import Soundfont from 'soundfont-player';
 
 const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25 };
-const DUR_LABEL: Record<string, string> = { w: 'whole', h: 'half', q: 'quarter', '8': '8th', '16': '16th' };
 const SEMI_MAP: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
 const SHARP_TO_FLAT: Record<string, string> = { c: 'd', d: 'e', f: 'g', g: 'a', a: 'b' };
 
@@ -178,17 +177,6 @@ const FIXED_BAR_W = 175;
 
 interface MeasurePos { idx: number; x: number; y: number; w: number; chordX: number; }
 interface NotePos { mi: number; ni: number; x: number; y: number; w: number; h: number; }
-
-function measureMinWidth(m: MeasureInfo): number {
-  let w = 18;
-  for (const n of m.notes) {
-    const base = n.duration.replace(/[dr]/g, '');
-    w += PX_PER_DUR[base] ?? 28;
-    if (n.accidentals) w += Object.keys(n.accidentals).length * 10;
-    if (n.dotted) w += 6;
-  }
-  return Math.max(w, 50);
-}
 
 function packLines(measures: MeasureInfo[], availW: number): number[][] {
   const lines: number[][] = [];
@@ -552,7 +540,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         const from = allVfNotes[flatIdx];
         const to = allVfNotes[flatIdx + 1];
         if (from && to && measureLine.get(from.mi) === measureLine.get(to.mi)) {
-          const tie = new StaveTie({ firstNote: from.vfNote, lastNote: to.vfNote, firstIndices: [0], lastIndices: [0] });
+          const tie = new StaveTie({ firstNote: from.vfNote, lastNote: to.vfNote, firstIndexes: [0], lastIndexes: [0] });
           tie.setContext(ctx).draw();
         }
       }
@@ -649,7 +637,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         // Walk up to find the parent vf-stavenote group which contains stem + flag
         if (noteSvg) {
           let parent = noteSvg.parentElement;
-          while (parent && parent !== svgEl) {
+          while (parent && parent !== (svgEl as unknown as HTMLElement)) {
             const cls = parent.getAttribute('class') || '';
             if (cls.includes('vf-stavenote') || cls.includes('vf-stemmablenote')) {
               applyRed(parent);
@@ -857,10 +845,10 @@ const NavSelect = styled.select`
   padding: 3px 4px;
   border-radius: 6px;
   border: 1.5px solid ${({ theme }) => theme.colors.border};
-  background: ${({ theme }) => theme.colors.surface};
-  color: ${({ theme }) => theme.colors.text};
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
-  &:focus { outline: none; border-color: ${({ theme }) => theme.colors.primary}; }
+  &:focus { outline: none; border-color: ${({ theme }) => theme.colors.bgPrimary}; }
 `;
 
 const Btn = styled.button`
@@ -968,20 +956,7 @@ const SectionLabel = styled.span`
   margin-right: 2px;
 `;
 
-const ChordInput = styled.input`
-  font-family: 'MuseJazz Text', 'DM Sans', sans-serif;
-  font-size: 1.05rem;
-  font-weight: 400;
-  width: 52px;
-  padding: 4px 5px;
-  border: 1px solid #b8960a;
-  border-radius: 6px;
-  background: #fffbe6;
-  color: #8B6914;
-  outline: none;
-  &:focus { border-color: #8B6914; box-shadow: 0 0 0 2px rgba(184, 150, 10, 0.15); }
-  &::placeholder { color: #c4a850; opacity: 0.6; }
-`;
+
 
 const MeasureIndicator = styled.span`
   font-size: 0.82rem;
@@ -1374,7 +1349,7 @@ export default function LeadSheetGeneratorPage() {
   const pausedRef = useRef(false);
   const svgRef = useRef<HTMLDivElement>(null);
   const chord1Ref = useRef<HTMLInputElement>(null);
-  const chord2Ref = useRef<HTMLInputElement>(null);
+
   const positionsRef = useRef<MeasurePos[]>([]);
   const [measurePositions, setMeasurePositions] = useState<MeasurePos[]>([]);
   const notePositionsRef = useRef<NotePos[]>([]);
@@ -1491,7 +1466,7 @@ export default function LeadSheetGeneratorPage() {
 
     // If a note is selected, replace its pitch instead of adding a new note
     if (selectedNote) {
-      const acc: Record<number, string> | undefined = accMode === 'n' ? { 0: 'n' } : conv.acc ? { 0: conv.acc } : undefined;
+      const acc: Record<number, 'b' | '#' | 'n'> | undefined = accMode === 'n' ? { 0: 'n' as const } : conv.acc ? { 0: conv.acc } : undefined;
       updateNote(selectedNote.mi, selectedNote.ni, (n) => {
         const updated = { ...n, keys: [conv.vexKey] };
         if (acc) {

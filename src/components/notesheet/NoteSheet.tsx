@@ -120,7 +120,7 @@ const SHARP_TO_FLAT: Record<string, { letter: string; acc: 'b' }> = {
   // e# → f (natural), b# → c (natural) — not flats
 };
 
-function enharmonicToFlat(key: string, acc: '#'): { key: string; acc: 'b' } | null {
+function enharmonicToFlat(key: string, _acc: '#'): { key: string; acc: 'b' } | null {
   const [letter, octave] = key.split('/');
   const mapped = SHARP_TO_FLAT[letter];
   if (!mapped) return null; // e# or b# — skip
@@ -173,7 +173,7 @@ const PX_PER_DUR: Record<string, number> = {
   w: 50, h: 35, q: 28, '8': 22, '16': 18, '32': 14,
 };
 
-function measureMinWidth(measure: MeasureInfo): number {
+function _measureMinWidth(measure: MeasureInfo): number {
   let w = 18;
   for (const n of measure.notes) {
     const base = n.duration.replace(/[dr]/g, '');
@@ -597,7 +597,6 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
         if (measure.volta) {
           const v = measure.volta;
           const prevV = m > 0 ? data.measures[m - 1]?.volta : undefined;
-          const nextV = m < data.measures.length - 1 ? data.measures[m + 1]?.volta : undefined;
           const isS = prevV !== v;
           stave.setVoltaType(isS ? VoltaType.BEGIN : VoltaType.MID, `${v}.`, -25);
         }
@@ -794,7 +793,7 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
           const from = allVfNotes[flatIdx];
           const to = allVfNotes[flatIdx + 1];
           if (from && to && measureLine.get(from.mi) === measureLine.get(to.mi)) {
-            const tie = new StaveTie({ firstNote: from.vfNote, lastNote: to.vfNote, firstIndices: [0], lastIndices: [0] });
+            const tie = new StaveTie({ firstNote: from.vfNote, lastNote: to.vfNote, firstIndexes: [0], lastIndexes: [0] });
             tie.setContext(ctx).draw();
           }
         }

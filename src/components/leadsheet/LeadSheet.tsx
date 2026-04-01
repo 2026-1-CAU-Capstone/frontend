@@ -7,7 +7,7 @@ import type {
 } from '../../data/leadSheetTypes';
 import { FullscreenButton, useFullscreen } from '../common/FullscreenButton';
 import { ZoomControls, useZoom } from '../common/ZoomControls';
-import { analyzeIsDiatonic, formatKeyDisplay, getRelativeKey } from '../../lib/harmonyAnalyzer';
+import { analyzeIsDiatonic, formatKeyDisplay } from '../../lib/harmonyAnalyzer';
 
 /* ─── constants ──────────────────────────────────────────────────────────────
  *  BARLINE_PAD = left padding reserved inside every bar cell for the barline.
@@ -236,15 +236,6 @@ const KeyGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 3px;
-`;
-
-const KeySectionLabel = styled.div`
-  font-size: 0.65rem;
-  font-weight: 600;
-  color: #999;
-  padding: 4px 4px 2px;
-  font-family: ${LABEL_FONT};
-  &:first-child { padding-top: 0; }
 `;
 
 const KeyOption = styled.button<{ $active?: boolean }>`
