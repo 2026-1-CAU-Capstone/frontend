@@ -420,7 +420,7 @@ export default function NotePage() {
         const url = await song.loadUrl();
         const data =
           song.fileType === 'json'
-            ? await fetch(url).then((r) => r.json()) as NoteSheetData
+            ? await fetch(url).then((r) => { if (!r.ok) throw new Error(`${r.status} ${r.statusText}`); return r.json(); }) as NoteSheetData
             : song.fileType === 'midi'
               ? await loadMidiMelody(url, song.title, song.composer)
               : song.fileType === 'mxl'

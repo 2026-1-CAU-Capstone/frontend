@@ -227,7 +227,7 @@ const HeaderLeft = styled.span`
 
 const Title = styled.h1`
   font-family: ${CHORD_FONT};
-  font-size: 2.8rem;
+  font-size: clamp(1.3rem, 4vw, 2.8rem);
   font-weight: 700;
   letter-spacing: 0.04em;
   margin: 0;
