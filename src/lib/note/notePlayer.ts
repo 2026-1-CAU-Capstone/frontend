@@ -454,7 +454,6 @@ export class NotePlayer {
       const f = flat[fi];
       // Advance measure time cursor when expanded measure changes
       if (f.expandIdx !== currentEi) {
-        mt = Math.max(mt, measCount * measSec);
         if (currentEi !== -1) measCount++;
         if (currentEi === -1) measCount = 1; // first measure
         currentEi = f.expandIdx;
@@ -626,9 +625,11 @@ export class NotePlayer {
     if (cm >= 0 && cni >= 0) this.onNote?.(cm, cni);
 
     // done?
-    if (this.nextIdx >= this.sched.length && this.nextDrumIdx >= this.drumSched.length && this.nextMetroIdx >= this.metroSched.length) {
+    const drumDone = !this.drumEnabled || this.nextDrumIdx >= this.drumSched.length;
+    const metroDone = !this.metroEnabled || this.nextMetroIdx >= this.metroSched.length;
+    if (this.nextIdx >= this.sched.length && drumDone && metroDone) {
       const last = this.sched[this.sched.length - 1];
-      if (last && now > last.time + last.dur + 0.3) {
+      if (last && now > last.time + last.dur + 0.05) {
         this.stop();
         this.onDone?.();
         return;

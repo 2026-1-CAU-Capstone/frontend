@@ -328,7 +328,8 @@ function drawGlissLine(svgEl: SVGElement, fromNote: StaveNote, toNote: StaveNote
 function buildManualBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
   const beams: Beam[] = [];
   let beamGroup: StaveNote[] = [];
-  let groupBeats = 0;
+  let beatPos = 0;          // absolute beat position within the measure
+  let groupStart = 0;       // beat position where current beam group started
   let inTuplet = false;
   let postTupletMerged = false;
 
@@ -341,15 +342,16 @@ function buildManualBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
     const noteDots = vn.getModifiersByType('Dot')?.length ?? 0;
     let noteBeats = DUR_BEATS[dur.replace('d', '')] ?? 1;
     if (noteDots > 0 || dur.endsWith('d')) noteBeats *= 1.5;
+    if (isTuplet) noteBeats *= 2 / 3;
 
     if (postTupletMerged && beamGroup.length > 0) {
       if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
       beamGroup = [];
-      groupBeats = 0;
+      groupStart = beatPos;
       postTupletMerged = false;
     }
 
-    // Break beam group at tuplet boundary — allow one merge after 16th triplet
+    // Break beam group at tuplet boundary
     if (isTuplet !== inTuplet && beamGroup.length > 0) {
       const prevIs16Triplet = inTuplet && beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
       if (prevIs16Triplet && isBeamable && !isRest && !isTuplet) {
@@ -357,36 +359,48 @@ function buildManualBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
       } else {
         if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
         beamGroup = [];
-        if (!isTuplet) groupBeats = 0;
+        groupStart = beatPos;
       }
     }
     inTuplet = isTuplet;
 
     if (isBeamable && !isRest) {
       if (!isTuplet && !postTupletMerged) {
-        const newGroupBeats = groupBeats + noteBeats;
+        const newBeatPos = beatPos + noteBeats;
         const has16 = dur === '16' || dur === '16d' || beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
         const boundary = has16 ? 1 : 2;
-        if (groupBeats > 0 && Math.floor((groupBeats - 0.001) / boundary) !== Math.floor((newGroupBeats - 0.001) / boundary) && beamGroup.length > 0) {
+        // Break if this note crosses a beat boundary
+        if (beamGroup.length > 0 && Math.floor((beatPos - 0.001) / boundary) !== Math.floor((newBeatPos - 0.001) / boundary)) {
           if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
           beamGroup = [];
-          groupBeats = 0;
+          groupStart = beatPos;
         }
       }
       beamGroup.push(vn);
-      if (!isTuplet) groupBeats += noteBeats;
+      // Split consecutive triplet groups (every 3 notes)
+      if (isTuplet && beamGroup.length === 3) {
+        beams.push(new Beam(beamGroup, true));
+        beamGroup = [];
+        beatPos += noteBeats;
+        groupStart = beatPos;
+        continue;
+      }
       if (notes[i]?.beamBreak) {
         if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
         beamGroup = [];
-        groupBeats = 0;
+        beatPos += noteBeats;
+        groupStart = beatPos;
         postTupletMerged = false;
+        continue;
       }
     } else {
+      // Rest or non-beamable: flush current beam group
       if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
       beamGroup = [];
-      groupBeats = 0;
       postTupletMerged = false;
     }
+    beatPos += noteBeats;
+    if (beamGroup.length === 0) groupStart = beatPos;
   }
   if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
   return beams;
@@ -526,6 +540,7 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
   const togglePlay = useCallback(async () => {
     if (!playerRef.current) {
       const p = new NotePlayer();
+      p.drumEnabled = false;
       p.onMeasure = (idx) => drawMeasureHL(idx);
       p.onNote = (mi, ni) => highlightNote(mi, ni);
       p.onDone = () => { setPlaying(false); };

@@ -531,6 +531,7 @@ export function LickCreator({ width, onSave, onCancel }: LickCreatorProps) {
   const handlePlay = useCallback(async () => {
     if (!playerRef.current) {
       const p = new NotePlayer();
+      p.drumEnabled = false;
       p.onMeasure = (idx) => setActiveMeasure(idx);
       p.onDone = () => { setPlaying(false); };
       playerRef.current = p;
