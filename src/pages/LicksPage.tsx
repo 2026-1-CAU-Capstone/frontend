@@ -357,7 +357,7 @@ function melodySimilarity(query: QueryFeatures, lick: LickEntry): number {
 
 /* ─── visibility wrapper ─────────────────────────────────────────────── */
 
-function VisibleLickCard({ lick, width }: { lick: LickEntry; width: number }) {
+function VisibleLickCard({ lick, width, displayId }: { lick: LickEntry; width: number; displayId: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
 
@@ -374,7 +374,7 @@ function VisibleLickCard({ lick, width }: { lick: LickEntry; width: number }) {
 
   return (
     <div ref={ref}>
-      <LickCard lick={lick} width={width} visible={visible} />
+      <LickCard lick={lick} width={width} visible={visible} compact displayId={displayId} />
     </div>
   );
 }
@@ -705,12 +705,12 @@ export default function LicksPage() {
                 <LoadingState>No licks match current filters</LoadingState>
               ) : (
                 <Feed ref={feedRef}>
-                  {visibleLicks.map(({ lick, score }) => (
+                  {visibleLicks.map(({ lick, score }, i) => (
                     <div key={lick.id}>
                       {melodySearch && queryFeatures.intervals.length > 0 && score > 0 && (
                         <ScoreBadge>{Math.round(score * 100)}% match</ScoreBadge>
                       )}
-                      <VisibleLickCard lick={lick} width={feedWidth} />
+                      <VisibleLickCard lick={lick} width={feedWidth} displayId={i + 1} />
                     </div>
                   ))}
                   {shown < rankedLicks.length && <Sentinel ref={sentinelRef} />}

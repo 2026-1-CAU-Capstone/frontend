@@ -6,7 +6,7 @@ export const BP = {
 
 /** Media query helpers — usage: ${mq.mobile} { ... } */
 export const mq = {
-  mobile: `@media (max-width: ${BP.mobile}px)`,
+  mobile: `@media (max-width: ${BP.tablet}px)`,
   tablet: `@media (max-width: ${BP.tablet}px)`,
   desktop: `@media (min-width: ${BP.desktop + 1}px)`,
 } as const;

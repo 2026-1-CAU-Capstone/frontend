@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
+import { mq } from '../../styles/theme';
 import { Logo } from '../common/Logo';
 
 const Rail = styled.nav`
@@ -12,11 +13,24 @@ const Rail = styled.nav`
   gap: 6px;
   background: ${({ theme }) => theme.colors.bgPrimary};
   border-right: 1px solid ${({ theme }) => theme.colors.border};
+
+  ${mq.mobile} {
+    width: 36px;
+    padding: 6px 0;
+    gap: 4px;
+  }
 `;
 
 const NavBtn = styled.button<{ $active?: boolean }>`
   width: 38px;
   height: 38px;
+
+  ${mq.mobile} {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    svg { width: 16px; height: 16px; }
+  }
   display: flex;
   align-items: center;
   justify-content: center;
@@ -37,6 +51,11 @@ const Divider = styled.div`
   height: 1px;
   background: ${({ theme }) => theme.colors.border};
   margin: 4px 0;
+
+  ${mq.mobile} {
+    width: 20px;
+    margin: 2px 0;
+  }
 `;
 
 /* simple inline SVG icons */

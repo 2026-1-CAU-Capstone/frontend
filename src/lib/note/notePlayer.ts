@@ -131,6 +131,97 @@ function chordToMidi(raw: string): number[] {
   return parsed.intervals.map((iv) => base + iv);
 }
 
+/* ─── synthesized drum hits (no soundfont needed) ───────────────────── */
+
+type DrumType = 'ride' | 'hihat' | 'kick';
+
+interface DrumHit {
+  time: number;
+  type: DrumType;
+}
+
+function synthDrum(ctx: AudioContext, when: number, type: DrumType, gain: number) {
+  const g = ctx.createGain();
+  g.gain.value = gain;
+  g.connect(ctx.destination);
+
+  if (type === 'ride') {
+    // Filtered noise burst — bright, metallic ping
+    const len = 0.18;
+    const buf = ctx.createBuffer(1, ctx.sampleRate * len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 8000;
+    bp.Q.value = 1.5;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.7, when);
+    env.gain.exponentialRampToValueAtTime(0.001, when + len);
+    src.connect(bp).connect(env).connect(g);
+    src.start(when);
+    src.stop(when + len);
+    return { stop() { try { src.stop(); } catch { /* */ } } };
+  }
+
+  if (type === 'hihat') {
+    // Short tight noise — closed hi-hat foot
+    const len = 0.06;
+    const buf = ctx.createBuffer(1, ctx.sampleRate * len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 9000;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.6, when);
+    env.gain.exponentialRampToValueAtTime(0.001, when + len);
+    src.connect(hp).connect(env).connect(g);
+    src.start(when);
+    src.stop(when + len);
+    return { stop() { try { src.stop(); } catch { /* */ } } };
+  }
+
+  // kick — low sine thump
+  const len = 0.15;
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(120, when);
+  osc.frequency.exponentialRampToValueAtTime(40, when + len);
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.5, when);
+  env.gain.exponentialRampToValueAtTime(0.001, when + len);
+  osc.connect(env).connect(g);
+  osc.start(when);
+  osc.stop(when + len);
+  return { stop() { try { osc.stop(); } catch { /* */ } } };
+}
+
+/* ─── metronome click (woodblock-style) ─────────────────────────────── */
+
+interface MetroHit { time: number; accent: boolean }
+
+function synthMetro(ctx: AudioContext, when: number, accent: boolean, gain: number) {
+  const freq = accent ? 1200 : 900;
+  const len = 0.03;
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.value = freq;
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(gain * (accent ? 1.0 : 0.6), when);
+  env.gain.exponentialRampToValueAtTime(0.001, when + len);
+  const g = ctx.createGain();
+  g.gain.value = 1;
+  osc.connect(env).connect(g).connect(ctx.destination);
+  osc.start(when);
+  osc.stop(when + len);
+  return { stop() { try { osc.stop(); } catch { /* */ } } };
+}
+
 /* ─── scheduled note ─────────────────────────────────────────────────── */
 
 interface SchedNote {
@@ -223,12 +314,23 @@ export class NotePlayer {
   private pianoInst: Soundfont.Player | null = null;
   private loading: Promise<void> | null = null;
   private sched: SchedNote[] = [];
+  private drumSched: DrumHit[] = [];
+  private metroSched: MetroHit[] = [];
+  private nextDrumIdx = 0;
+  private nextMetroIdx = 0;
   private origin = 0;
   private elapsed = 0;
   private nextIdx = 0;
   private raf = 0;
   private _playing = false;
   private activeNodes: { stop(): void }[] = [];
+
+  /* user-controllable mix */
+  drumEnabled = true;
+  metroEnabled = false;
+  pianoVolume = 1.0;  // 0–1
+  drumVolume = 1.0;   // 0–1
+  metroVolume = 0.6;  // 0–1
 
   onMeasure?: (idx: number) => void;
   onNote?: (mi: number, ni: number) => void;
@@ -240,7 +342,7 @@ export class NotePlayer {
 
   async play(data: NoteSheetData, tempo: number) {
     if (this._playing) return;
-    this.ensureCtx();
+    await this.ensureCtx();
     await this.ensureInstruments();
     this.build(data, tempo);
     this._playing = true;
@@ -250,6 +352,14 @@ export class NotePlayer {
     this.nextIdx = 0;
     for (let i = 0; i < this.sched.length; i++) {
       if (this.sched[i].time >= this.elapsed - 0.01) { this.nextIdx = i; break; }
+    }
+    this.nextDrumIdx = 0;
+    for (let i = 0; i < this.drumSched.length; i++) {
+      if (this.drumSched[i].time >= this.elapsed - 0.01) { this.nextDrumIdx = i; break; }
+    }
+    this.nextMetroIdx = 0;
+    for (let i = 0; i < this.metroSched.length; i++) {
+      if (this.metroSched[i].time >= this.elapsed - 0.01) { this.nextMetroIdx = i; break; }
     }
 
     this.tick();
@@ -268,7 +378,10 @@ export class NotePlayer {
     cancelAnimationFrame(this.raf);
     this.elapsed = 0;
     this.nextIdx = 0;
+    this.nextDrumIdx = 0;
+    this.nextMetroIdx = 0;
     this.killNotes();
+    this.onNote?.(-1, -1);
     this.onMeasure?.(-1);
   }
 
@@ -283,11 +396,13 @@ export class NotePlayer {
 
   /* ── internals ───────────────────────────────────────────────────── */
 
-  private ensureCtx() {
+  private async ensureCtx() {
     if (!this.ctx) {
       this.ctx = new AudioContext();
     }
-    if (this.ctx.state === 'suspended') this.ctx.resume();
+    if (this.ctx.state === 'suspended') {
+      await this.ctx.resume();
+    }
   }
 
   private ensureInstruments(): Promise<void> {
@@ -310,12 +425,9 @@ export class NotePlayer {
     this.sched = [];
     const keySig = buildKeySigMap(data.key);
 
-    // Skip bracket measures and expand repeats/volta/navigation
-    const firstChordIdx = data.measures.findIndex((m) => !!m.chord);
-    const srcMeasures = firstChordIdx > 0
-      ? data.measures.slice(firstChordIdx)
-      : data.measures;
-    const miOffset = firstChordIdx > 0 ? firstChordIdx : 0;
+    // Expand repeats/volta/navigation from the very first measure
+    const srcMeasures = data.measures;
+    const miOffset = 0;
     const expanded = expandMeasures(srcMeasures);
 
     // Flatten all notes with expanded measure index and timing info
@@ -412,6 +524,39 @@ export class NotePlayer {
       }
     }
 
+    // Schedule swing drums — ride on every beat + swing upbeat, hi-hat on 2 & 4, kick on 1 & 3
+    this.drumSched = [];
+    const swingOffset = bs * 2 / 3; // triplet-feel upbeat
+    for (let ei = 0; ei < expanded.length; ei++) {
+      const measStart = ei * measSec;
+      for (let beat = 0; beat < tsNum; beat++) {
+        const t = measStart + beat * bs;
+        // Ride: downbeat + swing upbeat (skip upbeat on beat 4 for breathing room)
+        this.drumSched.push({ time: t, type: 'ride' });
+        if (beat < tsNum - 1) {
+          this.drumSched.push({ time: t + swingOffset, type: 'ride' });
+        }
+        // Hi-hat foot: beats 2 & 4
+        if (beat === 1 || beat === 3) {
+          this.drumSched.push({ time: t, type: 'hihat' });
+        }
+        // Kick: beats 1 & 3 (gentle)
+        if (beat === 0 || beat === 2) {
+          this.drumSched.push({ time: t, type: 'kick' });
+        }
+      }
+    }
+    this.drumSched.sort((a, b) => a.time - b.time);
+
+    // Schedule metronome clicks — accent on beat 1
+    this.metroSched = [];
+    for (let ei = 0; ei < expanded.length; ei++) {
+      const measStart = ei * measSec;
+      for (let beat = 0; beat < tsNum; beat++) {
+        this.metroSched.push({ time: measStart + beat * bs, accent: beat === 0 });
+      }
+    }
+
     // Sort by time for the scheduling loop
     this.sched.sort((a, b) => a.time - b.time || a.track.localeCompare(b.track));
   }
@@ -430,12 +575,39 @@ export class NotePlayer {
         if (inst) {
           const node = inst.play(String(n.midi), this.origin + n.time, {
             duration: n.dur,
-            gain: n.track === 'comp' ? 1.5 : 2.5,
+            gain: n.track === 'comp' ? 1.5 * this.pianoVolume : 2.5,
           });
           if (node) this.activeNodes.push(node as unknown as { stop(): void });
         }
       }
       this.nextIdx++;
+    }
+
+    // schedule upcoming drum hits
+    if (this.drumEnabled) {
+      while (this.nextDrumIdx < this.drumSched.length) {
+        const d = this.drumSched[this.nextDrumIdx];
+        if (d.time > now + LA) break;
+        if (d.time >= now - 0.05) {
+          const baseGain = d.type === 'ride' ? 0.18 : d.type === 'hihat' ? 0.22 : 0.15;
+          const node = synthDrum(this.ctx!, this.origin + d.time, d.type, baseGain * this.drumVolume);
+          this.activeNodes.push(node);
+        }
+        this.nextDrumIdx++;
+      }
+    }
+
+    // schedule upcoming metronome clicks
+    if (this.metroEnabled) {
+      while (this.nextMetroIdx < this.metroSched.length) {
+        const m = this.metroSched[this.nextMetroIdx];
+        if (m.time > now + LA) break;
+        if (m.time >= now - 0.05) {
+          const node = synthMetro(this.ctx!, this.origin + m.time, m.accent, this.metroVolume);
+          this.activeNodes.push(node);
+        }
+        this.nextMetroIdx++;
+      }
     }
 
     // current measure & note
@@ -454,7 +626,7 @@ export class NotePlayer {
     if (cm >= 0 && cni >= 0) this.onNote?.(cm, cni);
 
     // done?
-    if (this.nextIdx >= this.sched.length) {
+    if (this.nextIdx >= this.sched.length && this.nextDrumIdx >= this.drumSched.length && this.nextMetroIdx >= this.metroSched.length) {
       const last = this.sched[this.sched.length - 1];
       if (last && now > last.time + last.dur + 0.3) {
         this.stop();

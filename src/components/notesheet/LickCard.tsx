@@ -25,6 +25,7 @@ const LINE_HEIGHT = 140;
 const MARGIN = { top: 20, left: 10, right: 10, bottom: 10 };
 const CHORD_FONT = "'MuseJazz Text', 'DM Sans', sans-serif";
 const MAX_PER_LINE = 6;
+const MEASURE_HL_COLOR = 'rgba(100, 181, 246, 0.13)';
 const DECOR_OTHER = 35;
 const PX_PER_DUR: Record<string, number> = { w: 50, h: 35, q: 28, '8': 22, '16': 18 };
 const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25 };
@@ -182,7 +183,7 @@ const Card = styled.div`
     background: ${({ theme }) => theme.colors.bgSecondary};
   }
 
-  @media (max-width: 600px) {
+  @media (max-width: 960px) {
     padding: 10px 12px 6px;
   }
 `;
@@ -470,24 +471,79 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
   /* player */
   const playerRef = useRef<NotePlayer | null>(null);
   const [playing, setPlaying] = useState(false);
+  const measureRectsRef = useRef<{ x: number; y: number; w: number }[]>([]);
+  const noteElMapRef = useRef<Map<string, SVGElement>>(new Map());
+  const prevNoteKeyRef = useRef<string | null>(null);
+
+  // note highlight helpers
+  const colorNote = useCallback((key: string, color: string) => {
+    const el = noteElMapRef.current.get(key);
+    if (!el) return;
+    const apply = (e: Element) => { const s = (e as SVGElement).style; s.fill = color; s.stroke = color; };
+    apply(el);
+    el.querySelectorAll('*').forEach(apply);
+    let parent = el.parentElement;
+    while (parent && parent.tagName !== 'svg') {
+      const cls = parent.getAttribute('class') || '';
+      if (cls.includes('vf-stavenote') || cls.includes('vf-stemmablenote')) { apply(parent); parent.querySelectorAll('*').forEach(apply); break; }
+      parent = parent.parentElement;
+    }
+  }, []);
+
+  const highlightNote = useCallback((mi: number, ni: number) => {
+    const prev = prevNoteKeyRef.current;
+    if (prev) colorNote(prev, '');
+    if (mi < 0) { prevNoteKeyRef.current = null; return; }
+    const key = `${mi}-${ni}`;
+    colorNote(key, '#1565c0');
+    prevNoteKeyRef.current = key;
+  }, [colorNote]);
+
+  const clearNoteHighlight = useCallback(() => {
+    const prev = prevNoteKeyRef.current;
+    if (prev) colorNote(prev, '');
+    prevNoteKeyRef.current = null;
+  }, [colorNote]);
+
+  // Direct SVG highlight — no useEffect, called synchronously from RAF
+  const drawMeasureHL = useCallback((idx: number) => {
+    const svg = svgRef.current?.querySelector('svg');
+    if (!svg) return;
+    svg.querySelector('.m-hl')?.remove();
+    const r = measureRectsRef.current[idx];
+    if (idx < 0 || !r) return;
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('class', 'm-hl');
+    rect.setAttribute('x', String(r.x));
+    rect.setAttribute('y', String(r.y + 8));
+    rect.setAttribute('width', String(r.w));
+    rect.setAttribute('height', String(LINE_HEIGHT - 16));
+    rect.setAttribute('fill', MEASURE_HL_COLOR);
+    rect.setAttribute('rx', '4');
+    svg.insertBefore(rect, svg.firstChild);
+  }, []);
 
   const togglePlay = useCallback(async () => {
     if (!playerRef.current) {
       const p = new NotePlayer();
-      p.onDone = () => setPlaying(false);
+      p.onMeasure = (idx) => drawMeasureHL(idx);
+      p.onNote = (mi, ni) => highlightNote(mi, ni);
+      p.onDone = () => { setPlaying(false); };
       playerRef.current = p;
     }
     const p = playerRef.current;
     if (p.playing) {
       p.stop();
       setPlaying(false);
+      clearNoteHighlight();
+      drawMeasureHL(-1);
     } else {
       setPlaying(true);
       const has16ths = lick.sheetData.measures.some((m) => m.notes.some((n) => n.duration === '16' || n.duration === '16r'));
       const defaultBpm = has16ths ? 120 : 200;
       await p.play(lick.sheetData, lick.tempo ?? defaultBpm);
     }
-  }, [lick]);
+  }, [lick, highlightNote, clearNoteHighlight, drawMeasureHL]);
 
   // cleanup on unmount
   useEffect(() => () => { playerRef.current?.dispose(); }, []);
@@ -496,8 +552,10 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
   useEffect(() => {
     playerRef.current?.stop();
     setPlaying(false);
+    clearNoteHighlight();
+    drawMeasureHL(-1);
     renderedRef.current = false;
-  }, [lick.id]);
+  }, [lick.id, clearNoteHighlight, drawMeasureHL]);
 
   /* render notation — auto-scale then multi-line if needed */
   useEffect(() => {
@@ -791,6 +849,24 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
         }
       }
     }
+
+    // Store measure rects for highlight
+    measureRectsRef.current = stavePositions;
+
+    // Store SVG elements for note highlighting
+    const noteMap = new Map<string, SVGElement>();
+    let fi = 0;
+    for (let mi = 0; mi < data.measures.length; mi++) {
+      for (let ni = 0; ni < data.measures[mi].notes.length; ni++) {
+        const vn = allVfNotes[fi];
+        if (vn) {
+          const noteEl = vn.getSVGElement?.() as SVGElement | undefined;
+          if (noteEl) noteMap.set(`${mi}-${ni}`, noteEl);
+        }
+        fi++;
+      }
+    }
+    noteElMapRef.current = noteMap;
   }, [visible, width, lick]);
 
   const keyNorm = lick.key.split('-')[0] || '?';

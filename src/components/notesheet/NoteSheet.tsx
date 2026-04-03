@@ -84,10 +84,21 @@ function appendChordSVG(
   svgEl.appendChild(txt);
 }
 const MAX_PER_LINE = 8;
+
+/* Responsive: on narrow screens render at desktop size then CSS-scale down.
+ * This keeps VexFlow's native proportions crisp. */
+function getBarLayout(containerW: number) {
+  // Always render with desktop-size constants
+  const barW = 175, decorFirst = 80, decorOther = 40, lineH = 170;
+  // Scale factor: shrink proportionally below 800px
+  const scale = containerW < 1000 ? Math.max(0.42, containerW / 1000) : 1;
+  return { barW, decorFirst, decorOther, lineH, scale };
+}
+
 const FIXED_BAR_W = 175;
 const DECOR_FIRST = 80;
 const DECOR_OTHER = 40;
-const HL_COLOR = 'rgba(212, 168, 67, 0.15)';
+const MEASURE_HL_COLOR = 'rgba(100, 181, 246, 0.13)';
 
 const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25, '32': 0.125 };
 
@@ -169,21 +180,21 @@ function drawGlissLine(svgEl: SVGElement, fromNote: StaveNote, toNote: StaveNote
   svgEl.appendChild(txt);
 }
 
-function packLines(measures: MeasureInfo[], availW: number): number[][] {
+function packLines(measures: MeasureInfo[], availW: number, barW = FIXED_BAR_W, dFirst = DECOR_FIRST, dOther = DECOR_OTHER): number[][] {
   const lines: number[][] = [];
   let line: number[] = [];
   let usedW = 0;
 
   for (let i = 0; i < measures.length; i++) {
-    const mw = FIXED_BAR_W;
+    const mw = barW;
     const decor = line.length === 0
-      ? (lines.length === 0 ? DECOR_FIRST : DECOR_OTHER)
+      ? (lines.length === 0 ? dFirst : dOther)
       : 0;
 
     if (line.length > 0 && (usedW + mw > availW || line.length >= MAX_PER_LINE)) {
       lines.push(line);
       line = [i];
-      usedW = (lines.length === 0 ? DECOR_FIRST : DECOR_OTHER) + mw;
+      usedW = (lines.length === 0 ? dFirst : dOther) + mw;
     } else {
       if (line.length === 0) usedW = decor;
       line.push(i);
@@ -217,12 +228,20 @@ const Header = styled.div`
   align-items: baseline;
   justify-content: space-between;
   padding: 28px 28px 0;
+
+  @media (max-width: 960px) {
+    padding: 12px 8px 0;
+  }
 `;
 
 const HeaderLeft = styled.span`
   font-family: 'DM Sans', sans-serif;
   font-size: 1.05rem;
   color: #999;
+
+  @media (max-width: 960px) {
+    font-size: 0.7rem;
+  }
 `;
 
 const Title = styled.h1`
@@ -239,6 +258,10 @@ const Composer = styled.span`
   font-family: 'DM Sans', sans-serif;
   font-size: 1.05rem;
   color: #999;
+
+  @media (max-width: 960px) {
+    font-size: 0.7rem;
+  }
 `;
 
 /* ── key dropdown ──────────────────────────────────────────────────────── */
@@ -265,6 +288,11 @@ const KeyButton = styled.button`
   color: #222;
   &:hover { border-color: #888; }
   &::after { content: '▾'; font-size: 0.7em; color: #999; }
+
+  @media (max-width: 960px) {
+    font-size: 1rem;
+    padding: 3px 10px;
+  }
 `;
 
 const KeyMenu = styled.div`
@@ -280,6 +308,12 @@ const KeyMenu = styled.div`
   padding: 8px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.15);
   z-index: 100;
+
+  @media (max-width: 960px) {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+    padding: 6px;
+  }
 `;
 
 const KeyOption = styled.button<{ $active?: boolean }>`
@@ -295,6 +329,11 @@ const KeyOption = styled.button<{ $active?: boolean }>`
   text-align: center;
   white-space: nowrap;
   &:hover { background: ${({ $active }) => $active ? '#333' : '#f0f0f0'}; }
+
+  @media (max-width: 960px) {
+    font-size: 0.9rem;
+    padding: 5px 8px;
+  }
 `;
 
 /* ── floating player (bottom-left) ─────────────────────────────────────── */
@@ -304,13 +343,19 @@ const PlayerBar = styled.div`
   bottom: 24px;
   left: 24px;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 8px;
   background: #1e1e1e;
-  padding: 10px 16px;
+  padding: 12px 16px;
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.4);
   z-index: 1000;
+`;
+
+const PlayerRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
 `;
 
 const PlayerIconBtn = styled.button`
@@ -351,9 +396,99 @@ const BpmInput = styled.input`
   &:focus { border-color: #888; }
 `;
 
+const MixSep = styled.div`
+  width: 1px;
+  height: 20px;
+  background: #444;
+`;
+
+const MixToggle = styled.button<{ $on?: boolean }>`
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.72rem;
+  padding: 4px 8px;
+  border: 1px solid ${({ $on }) => ($on ? '#6aaa7e' : '#555')};
+  border-radius: 6px;
+  background: ${({ $on }) => ($on ? '#2a6e3f' : '#2a2a2a')};
+  color: ${({ $on }) => ($on ? '#fff' : '#999')};
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+  &:hover { border-color: #888; }
+`;
+
+const MixSlider = styled.input`
+  -webkit-appearance: none;
+  width: 56px;
+  height: 4px;
+  border-radius: 2px;
+  background: #444;
+  outline: none;
+  &::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #ccc;
+    cursor: pointer;
+  }
+`;
+
+/* ─── mixer popup (slides up from PlayerBar) ──────────────────────────── */
+
+const MixerPopup = styled.div`
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  margin-bottom: 6px;
+  background: #1e1e1e;
+  border-radius: 10px;
+  padding: 10px 14px;
+  box-shadow: 0 -2px 12px rgba(0,0,0,0.3);
+  overflow: hidden;
+`;
+
+const MixerRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  &:not(:last-child) { margin-bottom: 8px; }
+`;
+
+const MixerLabel = styled.span`
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.72rem;
+  color: #aaa;
+  width: 46px;
+  flex-shrink: 0;
+  white-space: nowrap;
+`;
+
+const MixerSlider = styled.input`
+  -webkit-appearance: none;
+  flex: 1;
+  min-width: 0;
+  height: 4px;
+  border-radius: 2px;
+  background: #444;
+  outline: none;
+  &::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #ccc;
+    cursor: pointer;
+  }
+`;
+
 const SvgContainer = styled.div`
   width: 100%;
   padding: 0 20px 40px;
+
+  @media (max-width: 960px) {
+    padding: 0 4px 20px;
+  }
 `;
 
 /* ─── helpers ───────────────────────────────────────────────────────────── */
@@ -379,6 +514,8 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
   const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(900);
+  const lineHRef = useRef(LINE_HEIGHT);
+  const unscaledLineHRef = useRef(LINE_HEIGHT);
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(wrapRef);
   const [keyMenuOpen, setKeyMenuOpen] = useState(false);
   const keyMenuRef = useRef<HTMLDivElement>(null);
@@ -390,6 +527,12 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
   const [tempoText, setTempoText] = useState(String(data.tempo ?? 120));
   const [activeMeasure, setActiveMeasure] = useState(-1);
   const [paused, setPaused] = useState(false);
+  const [drumOn, setDrumOn] = useState(true);
+  const [metroOn, setMetroOn] = useState(false);
+  const [pianoVol, setPianoVol] = useState(1.0);
+  const [drumVol, setDrumVol] = useState(1.0);
+  const [metroVol, setMetroVol] = useState(0.6);
+  const [mixerOpen, setMixerOpen] = useState(false);
   const measureRectsRef = useRef<{ x: number; y: number; w: number }[]>([]);
   const noteElMapRef = useRef<Map<string, SVGElement>>(new Map());
   const prevNoteKeyRef = useRef<string | null>(null);
@@ -413,6 +556,7 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
   const highlightNote = useCallback((mi: number, ni: number) => {
     const prev = prevNoteKeyRef.current;
     if (prev) colorNote(prev, '');
+    if (mi < 0) { prevNoteKeyRef.current = null; return; }
     const key = `${mi}-${ni}`;
     colorNote(key, '#1565c0');
     prevNoteKeyRef.current = key;
@@ -429,10 +573,21 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
     const p = new NotePlayer();
     p.onMeasure = (idx) => setActiveMeasure(idx);
     p.onNote = (mi, ni) => highlightNote(mi, ni);
-    p.onDone = () => { setPlaying(false); setActiveMeasure(-1); clearNoteHighlight(); };
+    p.onDone = () => { setPlaying(false); };
     playerRef.current = p;
     return () => p.dispose();
   }, [highlightNote, clearNoteHighlight]);
+
+  // sync mix settings to player
+  useEffect(() => {
+    const p = playerRef.current;
+    if (!p) return;
+    p.drumEnabled = drumOn;
+    p.metroEnabled = metroOn;
+    p.pianoVolume = pianoVol;
+    p.drumVolume = drumVol;
+    p.metroVolume = metroVol;
+  }, [drumOn, metroOn, pianoVol, drumVol, metroVol]);
 
   // stop on song change & sync tempo
   useEffect(() => {
@@ -462,9 +617,7 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
     playerRef.current?.stop();
     setPlaying(false);
     setPaused(false);
-    setActiveMeasure(-1);
-    clearNoteHighlight();
-  }, [clearNoteHighlight]);
+  }, []);
 
   /* ── measure highlight (SVG manipulation) ────────────────────────── */
   useEffect(() => {
@@ -481,8 +634,8 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
     rect.setAttribute('x', String(r.x));
     rect.setAttribute('y', String(r.y + 10));
     rect.setAttribute('width', String(r.w));
-    rect.setAttribute('height', String(LINE_HEIGHT - 20));
-    rect.setAttribute('fill', HL_COLOR);
+    rect.setAttribute('height', String(unscaledLineHRef.current - 20));
+    rect.setAttribute('fill', MEASURE_HL_COLOR);
     rect.setAttribute('rx', '4');
     svg.insertBefore(rect, svg.firstChild);
   }, [activeMeasure]);
@@ -497,7 +650,7 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
     const headerH = 120; // approx header + transport height
     const targetY = r.y + headerH;
     const viewH = wrap.clientHeight;
-    if (targetY < wrap.scrollTop + 40 || targetY + LINE_HEIGHT > wrap.scrollTop + viewH - 40) {
+    if (targetY < wrap.scrollTop + 40 || targetY + lineHRef.current > wrap.scrollTop + viewH - 40) {
       wrap.scrollTo({ top: Math.max(0, targetY - viewH / 3), behavior: 'smooth' });
     }
   }, [activeMeasure]);
@@ -508,7 +661,10 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
     if (!el) return;
     const ro = new ResizeObserver((entries) => {
       const w = entries[0]?.contentRect.width;
-      if (w && w > 100) setWidth(w - 40);
+      if (w && w > 100) {
+        const pad = w <= 960 ? 8 : 40;
+        setWidth(w - pad);
+      }
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -520,13 +676,30 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
     if (!el || !data.measures.length) return;
     el.innerHTML = '';
 
-    const totalW = width - MARGIN.left - MARGIN.right;
-    const lines = packLines(data.measures, totalW);
+    const layout = getBarLayout(width);
+    lineHRef.current = layout.lineH * layout.scale;
+    unscaledLineHRef.current = layout.lineH;
+    // Render at virtual (unscaled) size, then CSS-scale down
+    const renderW = width / layout.scale;
+    const totalW = renderW - MARGIN.left - MARGIN.right;
+    const lines = packLines(data.measures, totalW, layout.barW, layout.decorFirst, layout.decorOther);
     const numLines = lines.length;
-    const totalH = MARGIN.top + numLines * LINE_HEIGHT + MARGIN.bottom;
+    const totalH = MARGIN.top + numLines * layout.lineH + MARGIN.bottom;
 
     const renderer = new Renderer(el, Renderer.Backends.SVG);
-    renderer.resize(width, totalH);
+    renderer.resize(renderW, totalH);
+
+    // Apply CSS scale to the SVG
+    const svgEl = el.querySelector('svg');
+    if (svgEl && layout.scale < 1) {
+      svgEl.style.transformOrigin = 'top left';
+      svgEl.style.transform = `scale(${layout.scale})`;
+      svgEl.style.width = `${renderW}px`;
+      svgEl.style.height = `${totalH}px`;
+      el.style.width = `${width}px`;
+      el.style.height = `${totalH * layout.scale}px`;
+      el.style.overflow = 'hidden';
+    }
     const ctx = renderer.getContext();
 
     const [numBeats, beatValue] = data.timeSignature.split('/').map(Number);
@@ -546,12 +719,12 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
       const indices = lines[li];
       const isFirstLine = li === 0;
       const isLastLine = li === numLines - 1;
-      const y = MARGIN.top + li * LINE_HEIGHT;
-      const decorW = isFirstLine ? DECOR_FIRST : DECOR_OTHER;
+      const y = MARGIN.top + li * layout.lineH;
+      const decorW = isFirstLine ? layout.decorFirst : layout.decorOther;
       const availForBars = totalW - decorW;
 
       const barW = (isLastLine && indices.length < MAX_PER_LINE)
-        ? FIXED_BAR_W
+        ? layout.barW
         : availForBars / indices.length;
 
       let x = MARGIN.left;
@@ -633,10 +806,15 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
               if (effective !== realAcc) note.addModifier(new Accidental(realAcc), 0);
               activeAcc.set(letter, realAcc);
             } else {
-              const effective = current ?? keySigForLetter;
-              if (effective && effective !== 'n') {
-                note.addModifier(new Accidental('n'), 0);
-                activeAcc.set(letter, 'n');
+              // No explicit accidental → note follows the key signature.
+              // Only need to restore if a previous in-measure accidental changed it.
+              if (current !== undefined && current !== keySigForLetter) {
+                if (keySigForLetter) {
+                  note.addModifier(new Accidental(keySigForLetter), 0);
+                } else {
+                  note.addModifier(new Accidental('n'), 0);
+                }
+                activeAcc.delete(letter);
               }
             }
           }
@@ -804,8 +982,8 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
     }
 
     // Draw intro brackets — small arcs inside bracketed measures
-    const svgEl = el.querySelector('svg');
-    if (svgEl) {
+    const svgElBracket = el.querySelector('svg');
+    if (svgElBracket) {
       const drawArc = (cx: number, top: number, bot: number, openSide: boolean) => {
         const h = bot - top;
         const bulge = Math.min(h * 0.18, 6);
@@ -817,7 +995,7 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
         path.setAttribute('fill', 'none');
         path.setAttribute('stroke', '#444');
         path.setAttribute('stroke-width', '1.8');
-        svgEl!.appendChild(path);
+        svgElBracket!.appendChild(path);
       };
       let bi = 0;
       while (bi < data.measures.length) {
@@ -829,7 +1007,7 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
           const pEnd = stavePositions[groupEnd];
           if (pStart && pEnd) {
             const top = pStart.y + 28;
-            const bot = pStart.y + LINE_HEIGHT - 50;
+            const bot = pStart.y + layout.lineH - 50;
             drawArc(pStart.x + 2, top, bot, true);
             drawArc(pEnd.x + pEnd.w * 0.55, top, bot, false);
           }
@@ -891,36 +1069,64 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
       <SvgContainer ref={svgRef} />
 
       <PlayerBar>
-        <BpmLabel>BPM</BpmLabel>
-        <BpmInput
-          type="text"
-          inputMode="numeric"
-          value={tempoText}
-          onChange={(e) => {
-            const v = e.target.value.replace(/\D/g, '');
-            setTempoText(v);
-            const n = parseInt(v, 10);
-            if (n >= 20 && n <= 400) setTempo(n);
-          }}
-          onBlur={() => {
-            const n = parseInt(tempoText, 10);
-            const clamped = Math.max(40, Math.min(300, isNaN(n) ? 120 : n));
-            setTempo(clamped);
-            setTempoText(String(clamped));
-          }}
-        />
-        <PlayerIconBtn onClick={playing ? handleStop : togglePlay} title={playing ? 'Stop' : 'Play'}>
-          {playing
-            ? <svg width="18" height="18" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" fill="#fff"/></svg>
-            : <svg width="18" height="18" viewBox="0 0 14 14"><polygon points="2,0 14,7 2,14" fill="#fff"/></svg>}
-        </PlayerIconBtn>
-        {(playing || paused) && (
-          <PlayerIconBtn onClick={togglePlay} title={paused ? 'Resume' : 'Pause'}>
-            {paused
-              ? <svg width="18" height="18" viewBox="0 0 14 14"><polygon points="2,0 14,7 2,14" fill="#fff"/></svg>
-              : <svg width="18" height="18" viewBox="0 0 14 14"><rect x="1" y="1" width="4" height="12" fill="#fff"/><rect x="9" y="1" width="4" height="12" fill="#fff"/></svg>}
-          </PlayerIconBtn>
+        {/* ── Mixer popup ── */}
+        {mixerOpen && (
+          <MixerPopup>
+            <MixerRow>
+              <MixerLabel>피아노</MixerLabel>
+              <MixerSlider type="range" min="0" max="100" value={Math.round(pianoVol * 100)}
+                onChange={(e) => setPianoVol(Number(e.target.value) / 100)} />
+            </MixerRow>
+            <MixerRow>
+              <MixerLabel>드럼</MixerLabel>
+              <MixerSlider type="range" min="0" max="100" value={Math.round(drumVol * 100)}
+                onChange={(e) => setDrumVol(Number(e.target.value) / 100)} />
+            </MixerRow>
+            <MixerRow>
+              <MixerLabel>메트로놈</MixerLabel>
+              <MixToggle $on={metroOn} onClick={() => setMetroOn(v => !v)}>{metroOn ? 'ON' : 'OFF'}</MixToggle>
+              {metroOn && (
+                <MixerSlider type="range" min="0" max="100" value={Math.round(metroVol * 100)}
+                  onChange={(e) => setMetroVol(Number(e.target.value) / 100)} />
+              )}
+            </MixerRow>
+          </MixerPopup>
         )}
+        {/* Transport */}
+        <PlayerRow>
+          <BpmLabel>BPM</BpmLabel>
+          <BpmInput
+            type="text"
+            inputMode="numeric"
+            value={tempoText}
+            onChange={(e) => {
+              const v = e.target.value.replace(/\D/g, '');
+              setTempoText(v);
+              const n = parseInt(v, 10);
+              if (n >= 20 && n <= 400) setTempo(n);
+            }}
+            onBlur={() => {
+              const n = parseInt(tempoText, 10);
+              const clamped = Math.max(40, Math.min(300, isNaN(n) ? 120 : n));
+              setTempo(clamped);
+              setTempoText(String(clamped));
+            }}
+          />
+          <PlayerIconBtn onClick={playing ? handleStop : togglePlay} title={playing ? 'Stop' : 'Play'}>
+            {playing
+              ? <svg width="18" height="18" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" fill="#fff"/></svg>
+              : <svg width="18" height="18" viewBox="0 0 14 14"><polygon points="2,0 14,7 2,14" fill="#fff"/></svg>}
+          </PlayerIconBtn>
+          {(playing || paused) && (
+            <PlayerIconBtn onClick={togglePlay} title={paused ? 'Resume' : 'Pause'}>
+              {paused
+                ? <svg width="18" height="18" viewBox="0 0 14 14"><polygon points="2,0 14,7 2,14" fill="#fff"/></svg>
+                : <svg width="18" height="18" viewBox="0 0 14 14"><rect x="1" y="1" width="4" height="12" fill="#fff"/><rect x="9" y="1" width="4" height="12" fill="#fff"/></svg>}
+            </PlayerIconBtn>
+          )}
+          <MixSep />
+          <MixToggle $on={mixerOpen} onClick={() => setMixerOpen(v => !v)}>믹서</MixToggle>
+        </PlayerRow>
       </PlayerBar>
     </Wrapper>
   );

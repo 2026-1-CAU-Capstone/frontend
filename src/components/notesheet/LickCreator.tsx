@@ -212,9 +212,11 @@ function buildDuration(dur: string, dotted?: boolean): string {
   return dur + 'd';
 }
 
-function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number) {
+const MEASURE_HL_COLOR = 'rgba(100, 181, 246, 0.13)';
+
+function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number): { x: number; y: number; w: number }[] {
   el.innerHTML = '';
-  if (measures.length === 0) return;
+  if (measures.length === 0) return [];
 
   const totalW = width - MARGIN.left - MARGIN.right;
   const lines = packLines(measures, totalW);
@@ -223,6 +225,8 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number)
   const renderer = new Renderer(el, Renderer.Backends.SVG);
   renderer.resize(width, totalH);
   const ctx = renderer.getContext();
+
+  const rects: { x: number; y: number; w: number }[] = [];
 
   for (let li = 0; li < lines.length; li++) {
     const indices = lines[li];
@@ -252,6 +256,9 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number)
       }
       if (isLastBar) stave.setEndBarType(BarlineType.END);
       stave.setContext(ctx).draw();
+
+      const dw = firstInLine ? decorW : 0;
+      rects[m] = { x: x + dw + 4, y, w: barW - 4 };
 
       const measure = measures[m];
       const vfNotes = measure.notes.map((n) => {
@@ -284,6 +291,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number)
       x += w;
     }
   }
+  return rects;
 }
 
 /* ─── styled ─────────────────────────────────────────────────────────── */
@@ -461,6 +469,8 @@ export function LickCreator({ width, onSave, onCancel }: LickCreatorProps) {
   const svgRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<NotePlayer | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [activeMeasure, setActiveMeasure] = useState(-1);
+  const measureRectsRef = useRef<{ x: number; y: number; w: number }[]>([]);
 
   const measures = useMemo(() => notesToMeasures(notes), [notes]);
   const analysis = useMemo(() => computeAnalysis(notes), [notes]);
@@ -521,7 +531,8 @@ export function LickCreator({ width, onSave, onCancel }: LickCreatorProps) {
   const handlePlay = useCallback(async () => {
     if (!playerRef.current) {
       const p = new NotePlayer();
-      p.onDone = () => setPlaying(false);
+      p.onMeasure = (idx) => setActiveMeasure(idx);
+      p.onDone = () => { setPlaying(false); };
       playerRef.current = p;
     }
     const p = playerRef.current;
@@ -582,8 +593,27 @@ export function LickCreator({ width, onSave, onCancel }: LickCreatorProps) {
       el.innerHTML = '';
       return;
     }
-    renderSheet(el, measures, Math.max(width - 32, 300));
+    const rects = renderSheet(el, measures, Math.max(width - 32, 300));
+    measureRectsRef.current = rects;
   }, [measures, width]);
+
+  /* ── measure highlight (SVG manipulation) ────────────────────────── */
+  useEffect(() => {
+    const svg = svgRef.current?.querySelector('svg');
+    if (!svg) return;
+    svg.querySelector('.m-hl')?.remove();
+    const r = measureRectsRef.current[activeMeasure];
+    if (activeMeasure < 0 || !r) return;
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('class', 'm-hl');
+    rect.setAttribute('x', String(r.x));
+    rect.setAttribute('y', String(r.y + 8));
+    rect.setAttribute('width', String(r.w));
+    rect.setAttribute('height', String(LINE_HEIGHT - 16));
+    rect.setAttribute('fill', MEASURE_HL_COLOR);
+    rect.setAttribute('rx', '4');
+    svg.insertBefore(rect, svg.firstChild);
+  }, [activeMeasure]);
 
   const totalBeats = notes.reduce((s, n) => s + getBeats(n.duration, n.dotted), 0);
 

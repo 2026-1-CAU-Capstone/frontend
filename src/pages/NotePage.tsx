@@ -6,6 +6,7 @@ import { IconSidebar } from '../components/layout/IconSidebar';
 import { TopToolbar } from '../components/layout/TopToolbar';
 import { LeftSidebar } from '../components/layout/LeftSidebar';
 import { RightChatPanel } from '../components/layout/RightChatPanel';
+import { MobileChatFab } from '../components/layout/MobileChatFab';
 import { NoteSheet } from '../components/notesheet/NoteSheet';
 import { Toggle } from '../components/common/Toggle';
 import { ToolbarButton } from '../components/layout/TopToolbar.styles';
@@ -603,6 +604,10 @@ export default function NotePage() {
         </RightPanelWrapper>
         </MainArea>
       </RightSection>
+
+      <MobileChatFab
+        songTitle={sheet?.title ?? 'Jazzify AI'}
+      />
     </PageContainer>
   );
 }

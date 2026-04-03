@@ -133,7 +133,7 @@ const ViewerOuter = styled.div`
     padding: 0;
   }
 
-  @media (max-width: 600px) {
+  @media (max-width: 960px) {
     padding: 8px;
   }
 `;
@@ -148,7 +148,7 @@ const Page = styled.div`
   font-family: ${CHORD_FONT};
   color: #000;
 
-  @media (max-width: 600px) {
+  @media (max-width: 960px) {
     padding: 20px 10px 28px;
     border-radius: 0;
     box-shadow: none;
@@ -178,8 +178,8 @@ const MetaRow = styled.div`
   font-weight: 400;
   margin-bottom: 28px;
 
-  @media (max-width: 600px) {
-    margin-bottom: 16px;
+  @media (max-width: 960px) {
+    margin-bottom: 36px;
     font-size: 0.85rem;
   }
 `;
@@ -264,7 +264,7 @@ const SystemRow = styled.div<{ $sectionStart?: boolean }>`
   position: relative;
   overflow: visible;
 
-  @media (max-width: 600px) {
+  @media (max-width: 960px) {
     margin-bottom: 28px;
   }
 `;
@@ -279,7 +279,7 @@ const LeftMeta = styled.div`
   justify-content: flex-end;
   padding-right: 6px;
 
-  @media (max-width: 600px) {
+  @media (max-width: 960px) {
     width: 34px;
     padding-right: 2px;
   }
@@ -294,7 +294,7 @@ const TimeSig = styled.div`
   line-height: 1;
   font-family: ${CHORD_FONT};
 
-  @media (max-width: 600px) {
+  @media (max-width: 960px) {
     font-size: 1.5rem;
   }
 `;
@@ -385,7 +385,7 @@ const BarCell = styled.div`
   align-items: center;
   padding: 0 6px 0 ${BARLINE_PAD}px;
 
-  @media (max-width: 600px) {
+  @media (max-width: 960px) {
     min-height: 56px;
     padding: 0 3px 0 12px;
   }

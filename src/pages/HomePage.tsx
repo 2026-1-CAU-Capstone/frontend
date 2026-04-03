@@ -186,6 +186,14 @@ export default function HomePage() {
             <CardDesc>8,000+ jazz licks from WJD</CardDesc>
           </CardText>
         </Card>
+
+        <Card onClick={() => navigate('/input')}>
+          <CardIcon>&#128196;</CardIcon>
+          <CardText>
+            <CardTitle>악보 인식</CardTitle>
+            <CardDesc>PDF / 이미지 → 자동 분석</CardDesc>
+          </CardText>
+        </Card>
       </CardRow>
     </Container>
   );
