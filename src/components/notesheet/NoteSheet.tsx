@@ -416,23 +416,6 @@ const MixToggle = styled.button<{ $on?: boolean }>`
   &:hover { border-color: #888; }
 `;
 
-const MixSlider = styled.input`
-  -webkit-appearance: none;
-  width: 56px;
-  height: 4px;
-  border-radius: 2px;
-  background: #444;
-  outline: none;
-  &::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: #ccc;
-    cursor: pointer;
-  }
-`;
-
 /* ─── mixer popup (slides up from PlayerBar) ──────────────────────────── */
 
 const MixerPopup = styled.div`
@@ -527,7 +510,7 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
   const [tempoText, setTempoText] = useState(String(data.tempo ?? 120));
   const [activeMeasure, setActiveMeasure] = useState(-1);
   const [paused, setPaused] = useState(false);
-  const [drumOn, setDrumOn] = useState(true);
+  const [drumOn] = useState(true);
   const [metroOn, setMetroOn] = useState(false);
   const [pianoVol, setPianoVol] = useState(1.0);
   const [drumVol, setDrumVol] = useState(1.0);

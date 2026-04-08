@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import styled from 'styled-components';
-import { mq, BP } from '../../styles/theme';
+import { mq } from '../../styles/theme';
 import { RightChatPanel } from './RightChatPanel';
 import type { ChordOverlay } from '../../data/types';
 

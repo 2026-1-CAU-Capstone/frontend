@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { KeyboardEvent } from 'react';
-import { ANALYSIS_CATEGORIES, type AnalysisCategory } from '../../api/gemini';
+import { ANALYSIS_CATEGORIES, type AnalysisCategory } from '../../api/claude';
 import {
   InputWrapper,
   ChipsRow,

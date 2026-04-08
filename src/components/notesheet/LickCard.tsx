@@ -329,7 +329,6 @@ function buildManualBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
   const beams: Beam[] = [];
   let beamGroup: StaveNote[] = [];
   let beatPos = 0;          // absolute beat position within the measure
-  let groupStart = 0;       // beat position where current beam group started
   let inTuplet = false;
   let postTupletMerged = false;
 
@@ -347,7 +346,6 @@ function buildManualBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
     if (postTupletMerged && beamGroup.length > 0) {
       if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
       beamGroup = [];
-      groupStart = beatPos;
       postTupletMerged = false;
     }
 
@@ -359,7 +357,6 @@ function buildManualBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
       } else {
         if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
         beamGroup = [];
-        groupStart = beatPos;
       }
     }
     inTuplet = isTuplet;
@@ -373,7 +370,6 @@ function buildManualBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
         if (beamGroup.length > 0 && Math.floor((beatPos - 0.001) / boundary) !== Math.floor((newBeatPos - 0.001) / boundary)) {
           if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
           beamGroup = [];
-          groupStart = beatPos;
         }
       }
       beamGroup.push(vn);
@@ -382,14 +378,12 @@ function buildManualBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
         beams.push(new Beam(beamGroup, true));
         beamGroup = [];
         beatPos += noteBeats;
-        groupStart = beatPos;
         continue;
       }
       if (notes[i]?.beamBreak) {
         if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
         beamGroup = [];
         beatPos += noteBeats;
-        groupStart = beatPos;
         postTupletMerged = false;
         continue;
       }
@@ -400,7 +394,6 @@ function buildManualBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
       postTupletMerged = false;
     }
     beatPos += noteBeats;
-    if (beamGroup.length === 0) groupStart = beatPos;
   }
   if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
   return beams;

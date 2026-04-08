@@ -3,7 +3,7 @@ import type { ChatMessage as ChatMessageType, ChordOverlay } from '../../data/ty
 import { ChatMessage } from '../chat/ChatMessage';
 import { ChatInput } from '../chat/ChatInput';
 import { AnalysisCard } from '../chat/AnalysisCard';
-import { streamGeminiMessage, type GeminiMessage, type AnalysisCategory } from '../../api/gemini';
+import { streamClaudeMessage, type ClaudeMessage, type AnalysisCategory } from '../../api/claude';
 import {
   PanelContainer,
   PanelHeader,
@@ -28,7 +28,7 @@ export function RightChatPanel({
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const historyRef = useRef<GeminiMessage[]>([]);
+  const historyRef = useRef<ClaudeMessage[]>([]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -51,7 +51,7 @@ export function RightChatPanel({
     setMessages((prev) => [...prev, userMsg, aiMsg]);
     setLoading(true);
 
-    const finalText = await streamGeminiMessage(
+    const finalText = await streamClaudeMessage(
       text,
       historyRef.current,
       chordContext,
@@ -65,8 +65,8 @@ export function RightChatPanel({
 
     // Update history for multi-turn conversation
     historyRef.current.push(
-      { role: 'user', parts: [{ text }] },
-      { role: 'model', parts: [{ text: finalText }] },
+      { role: 'user', content: text },
+      { role: 'assistant', content: finalText },
     );
 
     // Ensure final state is set
@@ -103,7 +103,7 @@ export function RightChatPanel({
         ))}
         {loading && (
           <div style={{ padding: '8px 16px', color: '#999', fontSize: '0.82rem' }}>
-            Gemini thinking...
+            Claude thinking...
           </div>
         )}
         <div ref={messagesEndRef} />
