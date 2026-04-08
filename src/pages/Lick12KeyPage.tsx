@@ -570,24 +570,24 @@ function renderMeasures(el: HTMLDivElement, measures: MeasureInfo[], minWidth: n
   }
 }
 
-/* ─── sax playback ────────────────────────────────────────────────────── */
+/* ─── piano playback ─────────────────────────────────────────────────── */
 
-let _saxCtx: AudioContext | null = null;
-let _saxInst: Soundfont.Player | null = null;
-let _saxLoading: Promise<void> | null = null;
+let _pianoCtx: AudioContext | null = null;
+let _pianoInst: Soundfont.Player | null = null;
+let _pianoLoading: Promise<void> | null = null;
 
-function ensureSax(): Promise<Soundfont.Player> {
-  if (_saxInst) return Promise.resolve(_saxInst);
-  if (!_saxCtx) _saxCtx = new AudioContext();
-  if (_saxCtx.state === 'suspended') _saxCtx.resume();
-  if (!_saxLoading) {
-    _saxLoading = Soundfont.instrument(_saxCtx, 'alto_sax' as Soundfont.InstrumentName, { gain: 3 })
-      .then((inst) => { _saxInst = inst; });
+function ensurePiano(): Promise<Soundfont.Player> {
+  if (_pianoInst) return Promise.resolve(_pianoInst);
+  if (!_pianoCtx) _pianoCtx = new AudioContext();
+  if (_pianoCtx.state === 'suspended') _pianoCtx.resume();
+  if (!_pianoLoading) {
+    _pianoLoading = Soundfont.instrument(_pianoCtx, 'acoustic_grand_piano' as Soundfont.InstrumentName, { gain: 3 })
+      .then((inst) => { _pianoInst = inst; });
   }
-  return _saxLoading.then(() => _saxInst!);
+  return _pianoLoading.then(() => _pianoInst!);
 }
 
-ensureSax().catch(() => {});
+ensurePiano().catch(() => {});
 
 /* ─── styled ──────────────────────────────────────────────────────────── */
 
@@ -744,7 +744,7 @@ function KeyRow({ keyName, measures, width, isOriginal, bpm }: {
 
   const handlePlay = useCallback(async () => {
     if (playing) { abortRef.current?.abort(); setPlaying(false); return; }
-    const sax = await ensureSax();
+    const sax = await ensurePiano();
     const abort = new AbortController();
     abortRef.current = abort;
     setPlaying(true);

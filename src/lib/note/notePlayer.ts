@@ -310,8 +310,8 @@ function expandMeasures(srcMeasures: MeasureInfo[]): ExpandedM[] {
 
 export class NotePlayer {
   private ctx: AudioContext | null = null;
-  private saxInst: Soundfont.Player | null = null;
-  private pianoInst: Soundfont.Player | null = null;
+  private melodyInst: Soundfont.Player | null = null;
+  private compInst: Soundfont.Player | null = null;
   private loading: Promise<void> | null = null;
   private sched: SchedNote[] = [];
   private drumSched: DrumHit[] = [];
@@ -389,8 +389,8 @@ export class NotePlayer {
     this.stop();
     this.ctx?.close();
     this.ctx = null;
-    this.saxInst = null;
-    this.pianoInst = null;
+    this.melodyInst = null;
+    this.compInst = null;
     this.loading = null;
   }
 
@@ -406,14 +406,14 @@ export class NotePlayer {
   }
 
   private ensureInstruments(): Promise<void> {
-    if (this.saxInst && this.pianoInst) return Promise.resolve();
+    if (this.melodyInst && this.compInst) return Promise.resolve();
     if (this.loading) return this.loading;
     this.loading = Promise.all([
-      Soundfont.instrument(this.ctx!, 'alto_sax' as Soundfont.InstrumentName, { gain: 2.5 }),
+      Soundfont.instrument(this.ctx!, 'acoustic_grand_piano' as Soundfont.InstrumentName, { gain: 2.5 }),
       Soundfont.instrument(this.ctx!, 'acoustic_grand_piano' as Soundfont.InstrumentName, { gain: 1.8 }),
-    ]).then(([sax, piano]) => {
-      this.saxInst = sax;
-      this.pianoInst = piano;
+    ]).then(([melody, comp]) => {
+      this.melodyInst = melody;
+      this.compInst = comp;
     });
     return this.loading;
   }
@@ -561,7 +561,7 @@ export class NotePlayer {
   }
 
   private tick = () => {
-    if (!this._playing || !this.ctx || !this.saxInst) return;
+    if (!this._playing || !this.ctx || !this.melodyInst) return;
     const now = this.ctx.currentTime - this.origin;
     const LA = 0.2;
 
@@ -570,7 +570,7 @@ export class NotePlayer {
       const n = this.sched[this.nextIdx];
       if (n.time > now + LA) break;
       if (n.time >= now - 0.05) {
-        const inst = n.track === 'comp' ? this.pianoInst : this.saxInst;
+        const inst = n.track === 'comp' ? this.compInst : this.melodyInst;
         if (inst) {
           const node = inst.play(String(n.midi), this.origin + n.time, {
             duration: n.dur,

@@ -7,7 +7,8 @@ import type {
 } from '../../data/leadSheetTypes';
 import { FullscreenButton, useFullscreen } from '../common/FullscreenButton';
 import { ZoomControls, useZoom } from '../common/ZoomControls';
-import { analyzeIsDiatonic, formatKeyDisplay } from '../../lib/harmonyAnalyzer';
+import { analyzeHarmony, formatKeyDisplay } from '../../lib/harmonyAnalyzer';
+import type { AnalysisFilters } from '../../hooks/useAnalysisFilters';
 
 /* ─── constants ──────────────────────────────────────────────────────────────
  *  BARLINE_PAD = left padding reserved inside every bar cell for the barline.
@@ -687,16 +688,17 @@ interface ChordSymbolProps {
   systemIndex: number;
   chordKey: string;
   registerEl?: (id: string, el: HTMLSpanElement | null) => void;
-  showAnalysis?: boolean;
+  showDegree?: boolean;
+  showColors?: boolean;
 }
 
-function ChordSymbol({ chord, size = 'full', systemIndex, chordKey, registerEl, showAnalysis = true }: ChordSymbolProps) {
-  const isNonDiatonic = showAnalysis && chord.isDiatonic === false;
-  const isModal = showAnalysis && !!chord.analysis?.modalInterchange;
+function ChordSymbol({ chord, size = 'full', systemIndex, chordKey, registerEl, showDegree = true, showColors = true }: ChordSymbolProps) {
+  const isNonDiatonic = showColors && chord.isDiatonic === false;
+  const isModal = showColors && !!chord.analysis?.modalInterchange;
   const analysis = chord.analysis;
   const primaryFunc = analysis?.functions?.[0]?.function;
   const secDom = analysis?.secondaryDominant;
-  const degreeText = showAnalysis
+  const degreeText = showDegree
     ? (secDom?.targetDegree ? `V/${secDom.targetDegree}` : analysis?.degree)
     : undefined;
   const fnColor = FUNC_COLORS[primaryFunc ?? ''] ?? '#888';
@@ -821,7 +823,8 @@ interface SystemRowProps {
   registerChordEl: (id: string, el: HTMLSpanElement | null) => void;
   registerSystemEl: (index: number, el: HTMLDivElement | null) => void;
   registerGridEl: (index: number, el: HTMLDivElement | null) => void;
-  showAnalysis?: boolean;
+  showDegree?: boolean;
+  showColors?: boolean;
 }
 
 function SystemRowComponent({
@@ -832,7 +835,8 @@ function SystemRowComponent({
   registerChordEl,
   registerSystemEl,
   registerGridEl,
-  showAnalysis = true,
+  showDegree = true,
+  showColors = true,
 }: SystemRowProps) {
   const [top, bot] = timeSignature.split('/');
 
@@ -913,7 +917,7 @@ function SystemRowComponent({
                 // 1 chord: full bar, full size
                 if (s2.length === 0) {
                   return s1.map((chord, j) => (
-                    <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${j}`} systemIndex={systemIndex} registerEl={registerChordEl} showAnalysis={showAnalysis} />
+                    <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} />
                   ));
                 }
                 // 2+ chords: two half-bar sections
@@ -923,12 +927,12 @@ function SystemRowComponent({
                   <BarSections>
                     <SectionSlot $squeeze={s1.length > 1}>
                       {s1.map((chord, j) => (
-                        <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${j}`} systemIndex={systemIndex} registerEl={registerChordEl} showAnalysis={showAnalysis} />
+                        <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} />
                       ))}
                     </SectionSlot>
                     <SectionSlot $squeeze={s2.length > 1}>
                       {s2.map((chord, j) => (
-                        <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${mid + j}`} systemIndex={systemIndex} registerEl={registerChordEl} showAnalysis={showAnalysis} />
+                        <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${mid + j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} />
                       ))}
                     </SectionSlot>
                   </BarSections>
@@ -944,8 +948,18 @@ function SystemRowComponent({
 
 /* ─── LeadSheet (public) ─────────────────────────────────────────────────── */
 
+const DEFAULT_ANALYSIS_FILTERS: AnalysisFilters = {
+  showAnalysis: true,
+  showDegree: true,
+  showIIVI: true,
+  showArrows: true,
+  showColors: true,
+};
+
 interface LeadSheetProps {
   data: LeadSheetData;
+  analysisFilters?: AnalysisFilters;
+  /** @deprecated Use analysisFilters instead */
   showAnalysis?: boolean;
 }
 
@@ -1193,8 +1207,8 @@ function detectIIVI(data: LeadSheetData): IIVISpan[] {
 
     spans.push({
       chordKeys: [
-        ...groups[i].chordKeys,
-        ...groups[i + 1].chordKeys,
+        groups[i].chordKeys[groups[i].chordKeys.length - 1],
+        groups[i + 1].chordKeys[groups[i + 1].chordKeys.length - 1],
         iActualKey,
       ],
       label,
@@ -1224,7 +1238,11 @@ function detectIIVI(data: LeadSheetData): IIVISpan[] {
             const tonicAcc = tonicChord.accidental === '#' ? '♯' : tonicChord.accidental === 'b' ? '♭' : '';
             const label = `${tonicChord.root ?? ''}${tonicAcc} ${kind === 'major' ? 'Major' : 'Minor'} 2-5-1`;
             spans.push({
-              chordKeys: [...iiGroup.chordKeys, ...vGroup.chordKeys, iGroup.chordKeys[0]],
+              chordKeys: [
+                iiGroup.chordKeys[iiGroup.chordKeys.length - 1],
+                vGroup.chordKeys[vGroup.chordKeys.length - 1],
+                iGroup.chordKeys[0],
+              ],
               label,
               kind,
             });
@@ -1267,7 +1285,11 @@ function detectIIVI(data: LeadSheetData): IIVISpan[] {
                 const tc = repeatIGroup.chord;
                 const tcAcc = tc.accidental === '#' ? '♯' : tc.accidental === 'b' ? '♭' : '';
                 spans.push({
-                  chordKeys: [...iiG.chordKeys, ...vG.chordKeys, repeatIGroup.chordKeys[0]],
+                  chordKeys: [
+                    iiG.chordKeys[iiG.chordKeys.length - 1],
+                    vG.chordKeys[vG.chordKeys.length - 1],
+                    repeatIGroup.chordKeys[0],
+                  ],
                   label: `${tc.root ?? ''}${tcAcc} ${kind === 'major' ? 'Major' : 'Minor'} 2-5-1`,
                   kind,
                 });
@@ -1333,7 +1355,12 @@ function detectSecDomArrows(data: LeadSheetData): ArrowSpec[] {
   return specs;
 }
 
-export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
+export function LeadSheet({ data, analysisFilters, showAnalysis }: LeadSheetProps) {
+  // Resolve filters: prefer analysisFilters, fall back to legacy showAnalysis prop
+  const af = analysisFilters ?? (showAnalysis === false
+    ? { showAnalysis: false, showDegree: false, showIIVI: false, showArrows: false, showColors: false }
+    : DEFAULT_ANALYSIS_FILTERS
+  );
   const outerRef = useRef<HTMLDivElement>(null);
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(outerRef);
   const { zoom, zoomIn, zoomOut, setZoomLevel } = useZoom(100);
@@ -1344,7 +1371,7 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
   }, [zoom, isFullscreen]);
 
   // Auto-analyze isDiatonic for all chords
-  const analyzedData = useMemo(() => analyzeIsDiatonic(data), [data]);
+  const analyzedData = useMemo(() => analyzeHarmony(data), [data]);
 
   const originalKey = analyzedData.key ?? 'C';
   const originalIsMinor = isMinorKey(originalKey);
@@ -1369,7 +1396,7 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
   }, [keyMenuOpen]);
 
   const transposedData = useMemo(
-    () => (selectedKey === originalKey ? analyzedData : analyzeIsDiatonic(transposeData(analyzedData, selectedKey))),
+    () => (selectedKey === originalKey ? analyzedData : analyzeHarmony(transposeData(analyzedData, selectedKey))),
     [analyzedData, selectedKey, originalKey],
   );
 
@@ -1720,14 +1747,14 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
       {!isFullscreen && <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onSetZoom={setZoomLevel} />}
       <div style={wrapperStyle}>
       <Page ref={pageRef} style={pageStyle}>
-        {showAnalysis && (
+        {(af.showArrows || af.showIIVI) && (
           <ArrowLayer viewBox={`0 0 ${Math.max(arrowFrame.width, 1)} ${Math.max(arrowFrame.height, 1)}`}>
             <defs>
               <marker id="secdom-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
                 <path d="M0,0 L8,4 L0,8" fill="none" stroke="#000" strokeWidth="1.6" />
               </marker>
             </defs>
-            {arrows.flatMap((arrow) =>
+            {af.showArrows && arrows.flatMap((arrow) =>
               arrow.segments.map((segment, index) => (
                 <path
                   key={`${arrow.key}-${index}`}
@@ -1741,7 +1768,7 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
               )),
             )}
             {/* ii-V brackets */}
-            {brackets.map((bracket) => (
+            {af.showIIVI && brackets.map((bracket) => (
               <path
                 key={bracket.key}
                 d={bracket.d}
@@ -1755,7 +1782,7 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
           </ArrowLayer>
         )}
         {/* ── Background highlight layer (behind text) ── */}
-        {showAnalysis && highlights.map((hl) => (
+        {af.showIIVI && highlights.map((hl) => (
           <div
             key={`bg-${hl.key}`}
             style={{
@@ -1808,12 +1835,12 @@ export function LeadSheet({ data, showAnalysis = true }: LeadSheetProps) {
             registerChordEl={registerChordEl}
             registerSystemEl={registerSystemEl}
             registerGridEl={registerGridEl}
-            showAnalysis={showAnalysis}
+            showDegree={af.showDegree} showColors={af.showColors}
           />
         ))}
 
         {/* ── Event capture layer (above text, transparent) ── */}
-        {showAnalysis && highlights.map((hl) => {
+        {af.showIIVI && highlights.map((hl) => {
           const isHovered = hoveredSpanKey === hl.spanKey;
           return (
             <div

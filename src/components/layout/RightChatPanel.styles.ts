@@ -3,6 +3,8 @@ import styled from 'styled-components';
 export const PanelContainer = styled.aside`
   width: 100%;
   min-width: 0;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: ${({ theme }) => theme.colors.bgPrimary};

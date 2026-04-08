@@ -9,15 +9,12 @@ import { RightChatPanel } from '../components/layout/RightChatPanel';
 import { MobileChatFab } from '../components/layout/MobileChatFab';
 import { LeadSheet } from '../components/leadsheet/LeadSheet';
 import { Toggle } from '../components/common/Toggle';
-import { ToolbarButton } from '../components/layout/TopToolbar.styles';
-import { useAutoHighlight } from '../hooks/useAutoHighlight';
+import { useAnalysisFilters } from '../hooks/useAnalysisFilters';
 import { allOfMe } from '../data/allOfMe';
 import type { LeadSheetData } from '../data/leadSheetTypes';
 import type { TocEntry } from '../data/types';
 import { getSongIndex, getSong, type SongEntry } from '../lib/ireal/irealLoader';
 import { buildChordContext } from '../api/chordContext';
-import analysisJson from '../data/allofme_analysis.json';
-import { buildRawAnalysisContext } from '../api/chordContext';
 
 const ANALYZED_SONG_ID = '__analyzed_all-of-me__';
 
@@ -160,10 +157,22 @@ const RightPanelWrapper = styled.div<{ $width: number }>`
   min-width: 180px;
   flex-shrink: 0;
   display: flex;
+  flex-direction: column;
 
   ${mq.mobile} {
     display: none;
   }
+`;
+
+const FilterBar = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  border-left: 1px solid ${({ theme }) => theme.colors.border};
 `;
 
 const ResizeDivider = styled.div`
@@ -191,7 +200,7 @@ const ResizeDivider = styled.div`
 
 export default function ChordPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { autoHighlight, toggleAutoHighlight } = useAutoHighlight(true);
+  const { filters, effective, toggleFilter } = useAnalysisFilters();
   const [songIndex, setSongIndex] = useState<SongEntry[]>([]);
   const [songId, setSongIdRaw] = useState(() => searchParams.get('song') ?? ANALYZED_SONG_ID);
 
@@ -276,14 +285,10 @@ export default function ChordPage() {
     return [{ title: sheet.title, page: 1 }];
   }, [sheet]);
 
-  // Build chord context for AI: use raw analysis JSON for analyzed song, LeadSheet data for others
   const chordContext = useMemo(() => {
-    if (songId === ANALYZED_SONG_ID) {
-      return buildRawAnalysisContext(analysisJson as any);
-    }
     if (sheet) return buildChordContext(sheet);
     return undefined;
-  }, [songId, sheet]);
+  }, [sheet]);
 
   const [rightPanelWidth, setRightPanelWidth] = useState(360);
   const dividerRef = useRef<HTMLDivElement>(null);
@@ -364,17 +369,10 @@ export default function ChordPage() {
                 </SearchResults>
               )}
             </SearchWrap>
-            <Toggle
-              label="분석 보기"
-              active={autoHighlight}
-              onToggle={toggleAutoHighlight}
-            />
-
-            <ToolbarButton>자동 번역</ToolbarButton>
           </SongPickerBar>
 
           {sheet && !loading ? (
-            <LeadSheet data={sheet} showAnalysis={autoHighlight} />
+            <LeadSheet data={sheet} analysisFilters={effective} />
           ) : (
             <LoadingState>{error ?? (loading ? 'Loading chart...' : 'Loading song list...')}</LoadingState>
           )}
@@ -383,6 +381,42 @@ export default function ChordPage() {
         <ResizeDivider ref={dividerRef} onMouseDown={onDividerMouseDown} />
 
         <RightPanelWrapper $width={rightPanelWidth}>
+          <FilterBar>
+            <Toggle
+              label="분석 보기"
+              active={filters.showAnalysis}
+              onToggle={() => toggleFilter('showAnalysis')}
+              color="#2D8F5E"
+            />
+            <Toggle
+              label="도수"
+              active={filters.showDegree}
+              onToggle={() => toggleFilter('showDegree')}
+              disabled={!filters.showAnalysis}
+              color="#1565C0"
+            />
+            <Toggle
+              label="2-5-1"
+              active={filters.showIIVI}
+              onToggle={() => toggleFilter('showIIVI')}
+              disabled={!filters.showAnalysis}
+              color="#B8860B"
+            />
+            <Toggle
+              label="화살표"
+              active={filters.showArrows}
+              onToggle={() => toggleFilter('showArrows')}
+              disabled={!filters.showAnalysis}
+              color="#C45C5C"
+            />
+            <Toggle
+              label="색상"
+              active={filters.showColors}
+              onToggle={() => toggleFilter('showColors')}
+              disabled={!filters.showAnalysis}
+              color="#7B5EA7"
+            />
+          </FilterBar>
           <RightChatPanel
             selectedChords={[]}
             groupExplanation={null}

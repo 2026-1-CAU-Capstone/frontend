@@ -5,21 +5,21 @@ export const InputWrapper = styled.div`
   background: ${({ theme }) => theme.colors.bgPrimary};
 `;
 
-export const ChipsRow = styled.div`
+export const QuickActionRow = styled.div`
   display: flex;
   gap: 6px;
   padding: 8px 12px 0;
-  flex-wrap: wrap;
 `;
 
-export const Chip = styled.button`
-  padding: 4px 10px;
-  border-radius: 14px;
+export const QuickActionButton = styled.button`
+  padding: 6px 14px;
+  border-radius: 16px;
   border: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ theme }) => theme.colors.bgSecondary};
-  color: #000;
+  color: ${({ theme }) => theme.colors.textPrimary};
   font-family: ${({ theme }) => theme.fonts.ui};
-  font-size: 11.5px;
+  font-size: 12.5px;
+  font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.15s, border-color 0.15s;

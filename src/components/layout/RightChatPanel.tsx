@@ -3,7 +3,7 @@ import type { ChatMessage as ChatMessageType, ChordOverlay } from '../../data/ty
 import { ChatMessage } from '../chat/ChatMessage';
 import { ChatInput } from '../chat/ChatInput';
 import { AnalysisCard } from '../chat/AnalysisCard';
-import { streamClaudeMessage, type ClaudeMessage, type AnalysisCategory } from '../../api/claude';
+import { streamClaudeMessage, type ClaudeMessage } from '../../api/claude';
 import {
   PanelContainer,
   PanelHeader,
@@ -34,7 +34,7 @@ export function RightChatPanel({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSend = useCallback(async (text: string, category?: AnalysisCategory) => {
+  const handleSend = useCallback(async (text: string) => {
     const userMsg: ChatMessageType = {
       id: `user-${Date.now()}`,
       role: 'user',
@@ -60,7 +60,6 @@ export function RightChatPanel({
           prev.map((m) => (m.id === aiMsgId ? { ...m, content: accumulated } : m)),
         );
       },
-      category,
     );
 
     // Update history for multi-turn conversation

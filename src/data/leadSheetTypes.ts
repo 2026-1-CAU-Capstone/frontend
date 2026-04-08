@@ -12,7 +12,7 @@ export interface LeadSheetChordAnalysis {
     label?: string;
     targetDegree?: string;
   };
-  functions?: { function: string; confidence: number }[];
+  functions?: { function: string; confidence: number; note?: string }[];
   groupMemberships?: { groupId: number; groupType: string; role: string; variant: string }[];
   modalInterchange?: { sourceMode: string; borrowedDegree: string };
   deceptiveResolution?: { expected: string; actual: string };

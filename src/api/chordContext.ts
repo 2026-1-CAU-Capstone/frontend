@@ -45,7 +45,9 @@ export function buildChordContext(data: LeadSheetData): string {
         if (a.functions?.length) {
           const fns = a.functions.map(f => {
             const label = f.function === 'T' ? 'Tonic' : f.function === 'SD' ? 'Subdominant' : f.function === 'D' ? 'Dominant' : f.function;
-            return `${label}(${Math.round(f.confidence * 100)}%)`;
+            let s = `${label}(${Math.round(f.confidence * 100)}%)`;
+            if (f.note) s += ` — ${f.note}`;
+            return s;
           }).join(', ');
           parts.push(`fn=[${fns}]`);
         }
