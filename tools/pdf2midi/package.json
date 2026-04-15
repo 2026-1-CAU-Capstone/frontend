@@ -1,0 +1,18 @@
+{
+  "name": "pdf2midi",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Local batch pipeline: vector PDF scores -> MusicXML -> MIDI via Audiveris + MuseScore CLI",
+  "scripts": {
+    "smoke": "tsx src/convert.ts",
+    "batch": "tsx src/batch.ts",
+    "retry": "tsx src/batch.ts --retry",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.0",
+    "tsx": "^4.19.2",
+    "typescript": "~5.9.3"
+  }
+}
