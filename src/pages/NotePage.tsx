@@ -335,6 +335,68 @@ const KeyOption = styled.button<{ $active?: boolean }>`
   &:hover { background: ${({ $active }) => $active ? '#333' : '#f0f0f0'}; }
 `;
 
+const ConvertBtn = styled.button`
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+  padding: 4px 12px;
+  border: 1px solid #7a8aad;
+  border-radius: 5px;
+  background: #eef1f8;
+  color: #3d4f7c;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  &:hover { background: #dde3f0; }
+`;
+
+const ConvertPopover = styled.div`
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 10px 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  z-index: 200;
+  white-space: nowrap;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+`;
+
+const ConvertSelect = styled.select`
+  font-family: 'MuseJazz Text', 'DM Sans', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border: 1.5px solid #bbb;
+  border-radius: 5px;
+  background: #fff;
+  color: #222;
+  cursor: pointer;
+`;
+
+const ConvertArrow = styled.span`
+  font-size: 1.1rem;
+  color: #666;
+`;
+
+const ConvertApply = styled.button`
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+  padding: 4px 10px;
+  border: 1px solid #4a7c3d;
+  border-radius: 5px;
+  background: #e8f5e1;
+  color: #3d6e32;
+  font-weight: 600;
+  cursor: pointer;
+  &:hover { background: #d4ebc9; }
+`;
+
 const LoadingState = styled.div`
   flex: 1;
   display: flex;
@@ -417,6 +479,42 @@ export default function NotePage() {
     if (selectedKey === sheet.key) return sheet;
     return transposeNoteData(sheet, selectedKey);
   }, [sheet, selectedKey]);
+
+  /* convert (instrument transposition) */
+  const CONVERT_KEYS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'] as const;
+  const [convertOpen, setConvertOpen] = useState(false);
+  const [convertFrom, setConvertFrom] = useState('Eb');
+  const [convertTo, setConvertTo] = useState('C');
+  const convertRef = useRef<HTMLDivElement>(null);
+
+  // Close convert popover on outside click
+  useEffect(() => {
+    if (!convertOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (convertRef.current && !convertRef.current.contains(e.target as Node)) setConvertOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [convertOpen]);
+
+  const handleConvertApply = useCallback(() => {
+    if (!sheet) return;
+    const fromPc = keyToPc(convertFrom);
+    const toPc = keyToPc(convertTo);
+    const semitones = ((toPc - fromPc) % 12 + 12) % 12;
+    if (semitones === 0) return;
+
+    // Determine new key for the sheet
+    const origPc = keyToPc(sheet.key ?? 'C');
+    const newPc = ((origPc + semitones) % 12 + 12) % 12;
+    const isMin = /m$/i.test(sheet.key ?? '');
+    const newKeyRoot = CHORD_KEY_NAMES[newPc];
+    const newKey = isMin ? `${newKeyRoot}m` : newKeyRoot;
+
+    setSheet(transposeNoteData(sheet, newKey));
+    setSelectedKey(newKey);
+    setConvertOpen(false);
+  }, [sheet, convertFrom, convertTo]);
 
   /* search state */
   const [searchQuery, setSearchQuery] = useState('');
@@ -589,6 +687,27 @@ export default function NotePage() {
                   ? `${sheet.timeSignature}`
                   : error ?? ''}
             </StatusText>
+            {sheet && !loading && (
+              <div style={{ position: 'relative', marginLeft: '4px' }} ref={convertRef}>
+                <ConvertBtn onClick={() => setConvertOpen((v) => !v)}>
+                  Convert to...
+                </ConvertBtn>
+                {convertOpen && (
+                  <ConvertPopover>
+                    <span style={{ color: '#666', fontWeight: 500 }}>From</span>
+                    <ConvertSelect value={convertFrom} onChange={(e) => setConvertFrom(e.target.value)}>
+                      {CONVERT_KEYS.map((k) => <option key={k} value={k}>{k}</option>)}
+                    </ConvertSelect>
+                    <ConvertArrow>&rarr;</ConvertArrow>
+                    <span style={{ color: '#666', fontWeight: 500 }}>To</span>
+                    <ConvertSelect value={convertTo} onChange={(e) => setConvertTo(e.target.value)}>
+                      {CONVERT_KEYS.map((k) => <option key={k} value={k}>{k}</option>)}
+                    </ConvertSelect>
+                    <ConvertApply onClick={handleConvertApply}>Apply</ConvertApply>
+                  </ConvertPopover>
+                )}
+              </div>
+            )}
             <SearchWrap ref={searchRef}>
               <SearchIcon>&#128269;</SearchIcon>
               <SearchInput
