@@ -13,6 +13,7 @@ import { getSongIndex, getSong, type SongEntry } from '../lib/ireal/irealLoader'
 import { buildChordContext } from '../api/chordContext';
 import analysisJson from '../data/allofme_analysis.json';
 import { buildRawAnalysisContext } from '../api/chordContext';
+import { createBackingPlayer, leadSheetToChart, type BackingPlayer } from '../lib/backing';
 
 const ANALYZED_SONG_ID = '__analyzed_all-of-me__';
 
@@ -61,6 +62,25 @@ const SongSelect = styled.select`
 
 const StatusText = styled.span`
   color: ${({ theme }) => theme.colors.textSecondary};
+`;
+
+const PlayButton = styled.button`
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+  padding: 3px 12px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 4px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  color: ${({ theme }) => theme.colors.textPrimary};
+  cursor: pointer;
+  min-width: 62px;
+  &:hover:not(:disabled) {
+    background: ${({ theme }) => theme.colors.bgSecondary};
+  }
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
 `;
 
 const SearchWrap = styled.div`
@@ -183,10 +203,44 @@ export default function ChordPage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
+  const playerRef = useRef<BackingPlayer | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
   // Load song index on mount
   useEffect(() => {
     getSongIndex().then(setSongIndex).catch(() => {});
   }, []);
+
+  // (Re)create backing player whenever the loaded sheet changes
+  useEffect(() => {
+    if (!sheet) return;
+    const chart = leadSheetToChart(sheet);
+    const player = createBackingPlayer(chart);
+    player.on('onDone', () => setIsPlaying(false));
+    playerRef.current = player;
+    return () => {
+      player.dispose();
+      playerRef.current = null;
+      setIsPlaying(false);
+    };
+  }, [sheet]);
+
+  const handlePlayPause = useCallback(async () => {
+    const player = playerRef.current;
+    if (!player) return;
+    if (isPlaying) {
+      player.pause();
+      setIsPlaying(false);
+      return;
+    }
+    setIsPlaying(true);
+    try {
+      await player.play();
+    } catch (err) {
+      console.error('[backing] play failed:', err);
+      setIsPlaying(false);
+    }
+  }, [isPlaying]);
 
   // Load selected song
   useEffect(() => {
@@ -315,6 +369,9 @@ export default function ChordPage() {
                   ? `${sheet.key ?? '?'} / ${sheet.timeSignature}`
                   : error ?? ''}
             </StatusText>
+            <PlayButton onClick={handlePlayPause} disabled={!sheet || loading}>
+              {isPlaying ? 'Pause' : 'Play'}
+            </PlayButton>
             <SearchWrap ref={searchRef}>
               <SearchIcon>&#128269;</SearchIcon>
               <SearchInput
