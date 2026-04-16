@@ -961,6 +961,33 @@ interface LeadSheetProps {
   analysisFilters?: AnalysisFilters;
   /** @deprecated Use analysisFilters instead */
   showAnalysis?: boolean;
+  /**
+   * Flat bar index (across all systems) of the currently playing bar.
+   * Pass -1 (or omit) to disable the playback highlight.
+   */
+  activeBar?: number;
+}
+
+interface ActiveBarRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Convert a flat bar index into (systemIndex, barInSystem). */
+function flatBarToSystemBar(
+  flat: number,
+  systems: LeadSheetData['systems'],
+): { si: number; bi: number } | null {
+  if (flat < 0) return null;
+  let cursor = 0;
+  for (let si = 0; si < systems.length; si++) {
+    const count = systems[si].bars.length;
+    if (flat < cursor + count) return { si, bi: flat - cursor };
+    cursor += count;
+  }
+  return null;
 }
 
 interface ArrowPathSegment {
@@ -1355,7 +1382,7 @@ function detectSecDomArrows(data: LeadSheetData): ArrowSpec[] {
   return specs;
 }
 
-export function LeadSheet({ data, analysisFilters, showAnalysis }: LeadSheetProps) {
+export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1 }: LeadSheetProps) {
   // Resolve filters: prefer analysisFilters, fall back to legacy showAnalysis prop
   const af = analysisFilters ?? (showAnalysis === false
     ? { showAnalysis: false, showDegree: false, showIIVI: false, showArrows: false, showColors: false }
@@ -1448,6 +1475,7 @@ export function LeadSheet({ data, analysisFilters, showAnalysis }: LeadSheetProp
   const [arrows, setArrows] = useState<ResolvedArrow[]>([]);
   const [brackets, setBrackets] = useState<ResolvedBracket[]>([]);
   const [highlights, setHighlights] = useState<HighlightRect[]>([]);
+  const [activeBarRect, setActiveBarRect] = useState<ActiveBarRect | null>(null);
   const [hoveredSpanKey, setHoveredSpanKey] = useState<string | null>(null);
   const [activeTooltip, setActiveTooltip] = useState<{ hl: HighlightRect; anchorX: number } | null>(null);
   const arrowSpecs = useMemo(() => detectSecDomArrows(resolvedData), [resolvedData]);
@@ -1698,6 +1726,51 @@ export function LeadSheet({ data, analysisFilters, showAnalysis }: LeadSheetProp
     };
   }, [arrowSpecs, bracketSpecs, iiviSpans, resolvedData, effectiveScale]);
 
+  /* ── Active-bar playback highlight ───────────────────────────────────
+   * Transparent sky-blue overlay covering the bar currently being played.
+   * Recomputes on activeBar / scale / resize / data changes. */
+  useLayoutEffect(() => {
+    const pageEl = pageRef.current;
+    if (!pageEl || activeBar < 0) {
+      setActiveBarRect(null);
+      return;
+    }
+    const scale = effectiveScale;
+
+    const measureActiveBar = () => {
+      const freshPageEl = pageRef.current;
+      if (!freshPageEl) { setActiveBarRect(null); return; }
+
+      const mapping = flatBarToSystemBar(activeBar, resolvedData.systems);
+      if (!mapping) { setActiveBarRect(null); return; }
+
+      const gridEl = gridElsRef.current[mapping.si];
+      if (!gridEl) { setActiveBarRect(null); return; }
+
+      const pageRect = freshPageEl.getBoundingClientRect();
+      const gridRect = gridEl.getBoundingClientRect();
+      const numBars = resolvedData.systems[mapping.si]?.bars.length ?? 4;
+      const barW = gridRect.width / numBars;
+
+      setActiveBarRect({
+        x: (gridRect.left + mapping.bi * barW - pageRect.left) / scale,
+        y: (gridRect.top - pageRect.top) / scale,
+        width: barW / scale,
+        height: gridRect.height / scale,
+      });
+    };
+
+    measureActiveBar();
+
+    const observer = new ResizeObserver(measureActiveBar);
+    observer.observe(pageEl);
+    window.addEventListener('resize', measureActiveBar);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', measureActiveBar);
+    };
+  }, [activeBar, resolvedData, effectiveScale]);
+
   const registerChordEl = (id: string, el: HTMLSpanElement | null) => {
     chordElsRef.current[id] = el;
   };
@@ -1796,6 +1869,22 @@ export function LeadSheet({ data, analysisFilters, showAnalysis }: LeadSheetProp
             }}
           />
         ))}
+
+        {/* ── Active-bar playback highlight (sky blue, transparent) ── */}
+        {activeBarRect && (
+          <div
+            style={{
+              position: 'absolute',
+              left: activeBarRect.x,
+              top: activeBarRect.y,
+              width: activeBarRect.width,
+              height: activeBarRect.height,
+              background: 'rgba(135, 206, 250, 0.28)',
+              pointerEvents: 'none',
+              zIndex: 1,
+            }}
+          />
+        )}
 
         <TitleRow>
           <KeyDropdownWrap ref={keyMenuRef}>

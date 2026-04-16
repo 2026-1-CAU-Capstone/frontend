@@ -16,6 +16,7 @@ import type { TocEntry } from '../data/types';
 import { getSongIndex, getSong, type SongEntry } from '../lib/ireal/irealLoader';
 import { buildChordContext } from '../api/chordContext';
 import { createBackingPlayer, leadSheetToChart, type BackingPlayer } from '../lib/backing';
+import { BackingPlayerBar, type MixChannel } from '../components/backing/BackingPlayerBar';
 
 const ANALYZED_SONG_ID = '__analyzed_all-of-me__';
 
@@ -75,24 +76,6 @@ const SongSelect = styled.select`
   max-width: 420px;
 `;
 
-const PlayButton = styled.button`
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.82rem;
-  padding: 3px 12px;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 4px;
-  background: ${({ theme }) => theme.colors.bgPrimary};
-  color: ${({ theme }) => theme.colors.textPrimary};
-  cursor: pointer;
-  min-width: 62px;
-  &:hover:not(:disabled) {
-    background: ${({ theme }) => theme.colors.bgSecondary};
-  }
-  &:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-`;
 
 const SearchWrap = styled.div`
   position: relative;
@@ -241,6 +224,17 @@ export default function ChordPage() {
 
   const playerRef = useRef<BackingPlayer | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [tempo, setTempo] = useState(140);
+  const [activeBar, setActiveBar] = useState(-1);
+  const [volumes, setVolumes] = useState<Record<MixChannel, number>>({
+    piano: 1,
+    bass: 1,
+    drums: 0.9,
+  });
+
+  const handleVolumeChange = useCallback((channel: MixChannel, volume: number) => {
+    setVolumes((prev) => ({ ...prev, [channel]: volume }));
+  }, []);
 
   // Load song index on mount
   useEffect(() => {
@@ -251,15 +245,29 @@ export default function ChordPage() {
   useEffect(() => {
     if (!sheet) return;
     const chart = leadSheetToChart(sheet);
+    setTempo(chart.bpm);
+    setActiveBar(-1);
     const player = createBackingPlayer(chart);
+    player.on('onBar', (bar) => setActiveBar(bar));
     player.on('onDone', () => setIsPlaying(false));
     playerRef.current = player;
     return () => {
       player.dispose();
       playerRef.current = null;
       setIsPlaying(false);
+      setActiveBar(-1);
     };
   }, [sheet]);
+
+  // Push tempo changes into the live player config
+  useEffect(() => {
+    playerRef.current?.setConfig({ bpm: tempo });
+  }, [tempo]);
+
+  // Push mixer volume changes into the live player config
+  useEffect(() => {
+    playerRef.current?.setConfig({ volume: volumes });
+  }, [volumes]);
 
   const handlePlayPause = useCallback(async () => {
     const player = playerRef.current;
@@ -393,9 +401,6 @@ export default function ChordPage() {
                 </option>
               ))}
             </SongSelect>
-            <PlayButton onClick={handlePlayPause} disabled={!sheet || loading}>
-              {isPlaying ? 'Pause' : 'Play'}
-            </PlayButton>
             <SearchWrap ref={searchRef}>
               <SearchIcon>&#128269;</SearchIcon>
               <SearchInput
@@ -429,7 +434,7 @@ export default function ChordPage() {
           </SongPickerBar>
 
           {sheet && !loading ? (
-            <LeadSheet data={sheet} analysisFilters={effective} />
+            <LeadSheet data={sheet} analysisFilters={effective} activeBar={activeBar} />
           ) : (
             <LoadingState>{error ?? (loading ? 'Loading chart...' : 'Loading song list...')}</LoadingState>
           )}
@@ -487,6 +492,16 @@ export default function ChordPage() {
       <MobileChatFab
         songTitle={sheet?.title ?? 'Jazzify AI'}
         chordContext={chordContext}
+      />
+
+      <BackingPlayerBar
+        playing={isPlaying}
+        tempo={tempo}
+        onTempoChange={setTempo}
+        onPlayPause={handlePlayPause}
+        volumes={volumes}
+        onVolumeChange={handleVolumeChange}
+        disabled={!sheet || loading}
       />
     </PageContainer>
   );

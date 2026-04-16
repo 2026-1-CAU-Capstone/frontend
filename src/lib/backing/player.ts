@@ -1,4 +1,3 @@
-import Soundfont from "soundfont-player";
 import type {
   Chart,
   BackingConfig,
@@ -7,8 +6,7 @@ import type {
   BackingPlayerCallbacks,
 } from "./types";
 import { renderChart } from "./engine";
-import { SimpleDrumSynth } from "./drumSynth";
-import { loadInstruments } from "./soundfont";
+import { loadInstruments, type TriggerableInstrument } from "./soundfont";
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Backing player.
@@ -31,9 +29,9 @@ export function createBackingPlayer(
   let config: BackingConfig = { ...initialConfig };
 
   let ctx: AudioContext | null = null;
-  let piano: Soundfont.Player | null = null;
-  let bass: Soundfont.Player | null = null;
-  let drums: SimpleDrumSynth | null = null;
+  let piano: TriggerableInstrument | null = null;
+  let bass: TriggerableInstrument | null = null;
+  let drums: TriggerableInstrument | null = null;
   let loading: Promise<void> | null = null;
 
   let events: BackingEvent[] = [];
@@ -43,7 +41,8 @@ export function createBackingPlayer(
   let rafHandle = 0;
   let playing = false;
   let lastBarFired = -2;
-  const activeNodes: { stop(): void }[] = [];
+  let secPerBar = 0;
+  let totalBars = 0;
 
   /* ── audio context / instruments ─────────────────────────────────── */
 
@@ -69,6 +68,9 @@ export function createBackingPlayer(
   function build() {
     const bpm = config.bpm ?? chart.bpm;
     events = renderChart(chart, { bpm });
+    const beatsPerBar = chart.timeSig[0];
+    secPerBar = beatsPerBar * (60 / bpm);
+    totalBars = chart.sections.reduce((s, sec) => s + sec.bars.length, 0);
   }
 
   /* ── scheduler loop ──────────────────────────────────────────────── */
@@ -87,14 +89,13 @@ export function createBackingPlayer(
       nextIdx++;
     }
 
-    // Find current bar for UI highlighting
-    let currentBar = -1;
-    for (let i = nextIdx - 1; i >= 0; i--) {
-      if (events[i].time <= now + TICK_TOLERANCE_SEC) {
-        currentBar = events[i].bar;
-        break;
-      }
-    }
+    // Compute current bar directly from elapsed time — this is perfectly
+    // aligned with the audio because both use the same secPerBar grid.
+    // No event-scanning needed, so humanization offsets on individual
+    // events can't cause the highlight to jump early or late.
+    const currentBar = secPerBar > 0
+      ? Math.min(Math.floor(now / secPerBar), totalBars - 1)
+      : -1;
     if (currentBar !== lastBarFired) {
       lastBarFired = currentBar;
       callbacks.onBar?.(currentBar);
@@ -118,25 +119,35 @@ export function createBackingPlayer(
     const absTime = origin + ev.time;
 
     if (ev.kind === "drum") {
-      drums?.play(ev.piece, absTime, ev.velocity);
+      const vol = config.volume?.drums ?? 1;
+      if (vol <= 0) return;
+      drums?.trigger({
+        note: ev.piece,
+        time: absTime,
+        duration: 0,
+        velocity: ev.velocity * vol,
+      });
       return;
     }
 
     const inst = ev.instrument === "piano" ? piano : ev.instrument === "bass" ? bass : null;
     if (!inst) return;
 
-    const node = inst.play(String(ev.midi), absTime, {
+    const vol = config.volume?.[ev.instrument] ?? 1;
+    if (vol <= 0) return;
+
+    inst.trigger({
+      note: ev.midi,
+      time: absTime,
       duration: ev.duration,
-      gain: ev.velocity,
+      velocity: ev.velocity * vol,
     });
-    if (node) activeNodes.push(node as unknown as { stop(): void });
   }
 
   function killActiveNodes() {
-    for (const n of activeNodes) {
-      try { n.stop(); } catch { /* already stopped */ }
-    }
-    activeNodes.length = 0;
+    piano?.stopAll();
+    bass?.stopAll();
+    drums?.stopAll();
   }
 
   /* ── public API ──────────────────────────────────────────────────── */

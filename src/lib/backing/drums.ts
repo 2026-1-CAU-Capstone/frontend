@@ -56,9 +56,44 @@ export function swingBar(opts: DrumBarOptions): DrumEvent[] {
   push(1 + SWING_OFFSET, "ride", 0.48);
   push(3 + SWING_OFFSET, "ride", 0.48);
 
-  // Hi-hat foot chick on beats 2 and 4 (backbeat)
-  push(1, "hihat-foot", 0.58);
-  push(3, "hihat-foot", 0.58);
+  // Hi-hat foot chick on beats 2 and 4 (backbeat) — pushed louder so it
+  // cuts through the ride pattern and is clearly audible
+  push(1, "hihat-foot", 0.95);
+  push(3, "hihat-foot", 0.95);
+
+  // Feathered kick drum on every beat — classic bebop "four on the floor"
+  // playing very softly so it's felt more than heard against the ride
+  push(0, "kick", 0.45);
+  push(1, "kick", 0.38);
+  push(2, "kick", 0.45);
+  push(3, "kick", 0.38);
+
+  // Snare comping — jazz drummers drop snare accents on various "and" beats
+  // to converse with the band. Velocities are pushed high so the snare
+  // cuts through ride + piano after the drums-volume scaling is applied.
+  const snarePattern = SNARE_PATTERNS[barIndex % SNARE_PATTERNS.length];
+  for (const [offset, vel] of snarePattern) {
+    push(offset, "snare", vel);
+  }
+
+  // Stronger accent at section boundaries (every 8 bars)
+  if (barIndex % 8 === 7) {
+    push(3 + SWING_OFFSET, "snare", 0.95);
+  }
 
   return events;
 }
+
+/**
+ * Rotating snare comping patterns (offset in beats → velocity).
+ * Velocities are intentionally strong (0.7-0.85) so they sit clearly in
+ * the mix after the drums volume multiplier (~0.9) is applied.
+ */
+const SNARE_PATTERNS: Array<Array<[number, number]>> = [
+  [[2.0 + SWING_OFFSET, 0.72]],                              // "and of 3"
+  [[3.0 + SWING_OFFSET, 0.78]],                              // "and of 4"
+  [[0.0 + SWING_OFFSET, 0.68], [2.0 + SWING_OFFSET, 0.75]], // "and of 1" + "and of 3"
+  [[1.0 + SWING_OFFSET, 0.74]],                              // "and of 2"
+  [[3.0, 0.72]],                                             // downbeat of 4
+  [[1.0 + SWING_OFFSET, 0.7], [3.0 + SWING_OFFSET, 0.82]],  // "and of 2" + "and of 4"
+];
