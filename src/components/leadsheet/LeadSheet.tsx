@@ -9,6 +9,8 @@ import { FullscreenButton, useFullscreen } from '../common/FullscreenButton';
 import { ZoomControls, useZoom } from '../common/ZoomControls';
 import { analyzeHarmony, formatKeyDisplay } from '../../lib/harmonyAnalyzer';
 import type { AnalysisFilters } from '../../hooks/useAnalysisFilters';
+import { getModalInterchangeTemplate } from '../../lib/modalInterchangeTemplates';
+import { ModalInterchangePopup } from './ModalInterchangePopup';
 
 /* ─── constants ──────────────────────────────────────────────────────────────
  *  BARLINE_PAD = left padding reserved inside every bar cell for the barline.
@@ -505,6 +507,39 @@ const ChordWrap = styled.span<{ $nonDiatonic?: boolean; $modal?: boolean }>`
   color: ${({ $nonDiatonic, $modal }) =>
     $modal       ? '#7B3FB0' :
     $nonDiatonic ? '#c62828' : '#000'};
+  cursor: ${({ $modal }) => ($modal ? 'pointer' : 'default')};
+  transition: opacity 0.12s;
+  ${({ $modal }) => $modal && `
+    &:hover { opacity: 0.7; }
+  `}
+`;
+
+const HoverTip = styled.span`
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #2a1a3a;
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 6px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 50;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  letter-spacing: 0.01em;
+  &::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: #2a1a3a;
+  }
 `;
 
 /* $size controls chord symbol scale:
@@ -690,9 +725,10 @@ interface ChordSymbolProps {
   registerEl?: (id: string, el: HTMLSpanElement | null) => void;
   showDegree?: boolean;
   showColors?: boolean;
+  onModalClick?: (chord: LeadSheetChord) => void;
 }
 
-function ChordSymbol({ chord, size = 'full', systemIndex, chordKey, registerEl, showDegree = true, showColors = true }: ChordSymbolProps) {
+function ChordSymbol({ chord, size = 'full', systemIndex, chordKey, registerEl, showDegree = true, showColors = true, onModalClick }: ChordSymbolProps) {
   const isNonDiatonic = showColors && chord.isDiatonic === false;
   const isModal = showColors && !!chord.analysis?.modalInterchange;
   const analysis = chord.analysis;
@@ -713,6 +749,14 @@ function ChordSymbol({ chord, size = 'full', systemIndex, chordKey, registerEl, 
 
   const hasQuality = !!(base || tensions);
 
+  const [hovered, setHovered] = useState(false);
+  const tipText = isModal && chord.analysis?.modalInterchange
+    ? getModalInterchangeTemplate(
+        chord.analysis.modalInterchange.sourceMode,
+        chord.analysis.modalInterchange.borrowedDegree,
+      ).short
+    : null;
+
   return (
     <ChordColumn>
       {degreeText && (
@@ -728,7 +772,11 @@ function ChordSymbol({ chord, size = 'full', systemIndex, chordKey, registerEl, 
             if (chord.id) registerEl(chord.id, el);
           }
         }}
+        onMouseEnter={isModal ? () => setHovered(true) : undefined}
+        onMouseLeave={isModal ? () => setHovered(false) : undefined}
+        onClick={isModal && onModalClick ? () => onModalClick(chord) : undefined}
       >
+        {hovered && tipText && <HoverTip>{tipText}</HoverTip>}
         <Root $size={size}>{chord.root}</Root>
 
         {(accChar || hasQuality) && (
@@ -825,6 +873,7 @@ interface SystemRowProps {
   registerGridEl: (index: number, el: HTMLDivElement | null) => void;
   showDegree?: boolean;
   showColors?: boolean;
+  onModalClick?: (chord: LeadSheetChord) => void;
 }
 
 function SystemRowComponent({
@@ -837,6 +886,7 @@ function SystemRowComponent({
   registerGridEl,
   showDegree = true,
   showColors = true,
+  onModalClick,
 }: SystemRowProps) {
   const [top, bot] = timeSignature.split('/');
 
@@ -917,7 +967,7 @@ function SystemRowComponent({
                 // 1 chord: full bar, full size
                 if (s2.length === 0) {
                   return s1.map((chord, j) => (
-                    <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} />
+                    <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} onModalClick={onModalClick} />
                   ));
                 }
                 // 2+ chords: two half-bar sections
@@ -927,12 +977,12 @@ function SystemRowComponent({
                   <BarSections>
                     <SectionSlot $squeeze={s1.length > 1}>
                       {s1.map((chord, j) => (
-                        <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} />
+                        <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} onModalClick={onModalClick} />
                       ))}
                     </SectionSlot>
                     <SectionSlot $squeeze={s2.length > 1}>
                       {s2.map((chord, j) => (
-                        <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${mid + j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} />
+                        <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${mid + j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} onModalClick={onModalClick} />
                       ))}
                     </SectionSlot>
                   </BarSections>
@@ -1409,6 +1459,9 @@ export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1 
 
   const [keyMenuOpen, setKeyMenuOpen] = useState(false);
   const keyMenuRef = useRef<HTMLDivElement>(null);
+
+  // Modal interchange popup
+  const [miPopupChord, setMiPopupChord] = useState<LeadSheetChord | null>(null);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -1925,6 +1978,7 @@ export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1 
             registerSystemEl={registerSystemEl}
             registerGridEl={registerGridEl}
             showDegree={af.showDegree} showColors={af.showColors}
+            onModalClick={setMiPopupChord}
           />
         ))}
 
@@ -1986,6 +2040,22 @@ export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1 
         )}
       </Page>
       </div>
+      {miPopupChord && miPopupChord.analysis?.modalInterchange && (() => {
+        const mi = miPopupChord.analysis.modalInterchange;
+        const tpl = getModalInterchangeTemplate(mi.sourceMode, mi.borrowedDegree);
+        const acc = miPopupChord.accidental === '#' ? '♯' : miPopupChord.accidental === 'b' ? '♭' : '';
+        const sym = (miPopupChord.root ?? '') + acc + (miPopupChord.quality ?? '');
+        return (
+          <ModalInterchangePopup
+            chordSymbol={sym}
+            sourceMode={mi.sourceMode}
+            borrowedDegree={mi.borrowedDegree}
+            shortText={tpl.short}
+            longText={tpl.long}
+            onClose={() => setMiPopupChord(null)}
+          />
+        );
+      })()}
     </ViewerOuter>
   );
 }

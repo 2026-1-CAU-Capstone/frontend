@@ -22,7 +22,7 @@ import { FullscreenButton, useFullscreen } from '../common/FullscreenButton';
 /* ─── constants ─────────────────────────────────────────────────────────── */
 
 const LINE_HEIGHT = 170;
-const MARGIN = { top: 40, left: 10, right: 10, bottom: 40 };
+const MARGIN = { top: 40, left: 10, right: 30, bottom: 40 };
 const CHORD_FONT = "'MuseJazz Text', 'DM Sans', sans-serif";
 
 function formatChord(raw: string): string {
@@ -645,7 +645,8 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
     const ro = new ResizeObserver((entries) => {
       const w = entries[0]?.contentRect.width;
       if (w && w > 100) {
-        const pad = w <= 960 ? 8 : 40;
+        // padding (SvgContainer 좌우) + scrollbar 여유
+        const pad = w <= 960 ? 12 : 56;
         setWidth(w - pad);
       }
     });
@@ -682,6 +683,16 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
       el.style.width = `${width}px`;
       el.style.height = `${totalH * layout.scale}px`;
       el.style.overflow = 'hidden';
+    } else {
+      // Reset inline styles when scale is 1 (avoids stuck dimensions on resize)
+      if (svgEl) {
+        svgEl.style.transform = '';
+        svgEl.style.width = '';
+        svgEl.style.height = '';
+      }
+      el.style.width = '';
+      el.style.height = '';
+      el.style.overflow = '';
     }
     const ctx = renderer.getContext();
 
