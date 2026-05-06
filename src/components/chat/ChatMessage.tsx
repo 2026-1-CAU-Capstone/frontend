@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
 import type { ChatMessage as ChatMessageType } from '../../data/types';
 import { formatChordsInText } from './chordFormat';
@@ -54,7 +55,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
     if (message.role !== 'assistant') return null;
     return (
       <MarkdownBody>
-        <ReactMarkdown components={mdComponents}>{message.content}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{message.content}</ReactMarkdown>
       </MarkdownBody>
     );
   }, [message.content, message.role]);

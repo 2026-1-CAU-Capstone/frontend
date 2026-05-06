@@ -226,7 +226,43 @@ export default function ChordPage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [tempo, setTempo] = useState(140);
   const [activeBar, setActiveBar] = useState(-1);
-  const [volumes, setVolumes] = useState<Record<MixChannel, number>>({
+  const [selectedChordIds, setSelectedChordIds] = useState<string[]>([]);
+  const [selectedChordsData, setSelectedChordsData] = useState<any[]>([]);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+
+  const handleChordClick = (chord: any, measureNumber: number) => {
+    if (!isSelectionMode) return;
+    if (!chord.id) return;
+    
+    setSelectedChordIds((prev) => {
+      if (prev.includes(chord.id!)) {
+        const nextIds = prev.filter(id => id !== chord.id);
+        setSelectedChordsData(prevData => prevData.filter(c => c.id !== chord.id));
+        return nextIds;
+      } else {
+        const nextIds = [...prev, chord.id!];
+        const overlayData = {
+          id: chord.id,
+          symbol: chord.quality ? `${chord.root}${chord.accidental === '#' ? '♯' : chord.accidental === 'b' ? '♭' : ''}${chord.quality}` : chord.root,
+          bar: measureNumber,
+          pageNumber: 1,
+          position: null as any,
+          analysis: {
+            degree: chord.analysis?.degree || '',
+            func: chord.analysis?.functions?.[0]?.function || 'T',
+            diatonic: chord.analysis?.isDiatonic ?? true,
+          }
+        };
+        setSelectedChordsData(prevData => [...prevData, overlayData]);
+        return nextIds;
+      }
+    });
+  };
+
+  useEffect(() => {
+    setSelectedChordIds([]);
+    setSelectedChordsData([]);
+  }, [sheet?.id]);  const [volumes, setVolumes] = useState<Record<MixChannel, number>>({
     piano: 1,
     bass: 1,
     drums: 0.9,
@@ -434,7 +470,13 @@ export default function ChordPage() {
           </SongPickerBar>
 
           {sheet && !loading ? (
-            <LeadSheet data={sheet} analysisFilters={effective} activeBar={activeBar} />
+            <LeadSheet 
+              data={sheet} 
+              analysisFilters={effective} 
+              activeBar={activeBar} 
+              onChordClick={handleChordClick}
+              selectedChordIds={selectedChordIds}
+            />
           ) : (
             <LoadingState>{error ?? (loading ? 'Loading chart...' : 'Loading song list...')}</LoadingState>
           )}
@@ -480,10 +522,20 @@ export default function ChordPage() {
             />
           </FilterBar>
           <RightChatPanel
-            selectedChords={[]}
-            groupExplanation={null}
+            selectedChords={selectedChordsData}
+            groupExplanation={selectedChordsData.length > 0 ? "선택된 코드 구간입니다." : null}
             songTitle={sheet?.title ?? 'Jazzify AI'}
             chordContext={chordContext}
+            isSelectionMode={isSelectionMode}
+            onToggleSelectionMode={() => {
+              const nextMode = !isSelectionMode;
+              setIsSelectionMode(nextMode);
+              if (!nextMode) {
+                // Clear selection when disabling mode
+                setSelectedChordIds([]);
+                setSelectedChordsData([]);
+              }
+            }}
           />
         </RightPanelWrapper>
         </MainArea>

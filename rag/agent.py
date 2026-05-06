@@ -171,27 +171,51 @@ def route_and_retrieve(queries: list[dict], n_per_query: int = 3) -> list[dict]:
 # 3. 메인 진입점
 # ──────────────────────────────────────────────────────────────────────────────
 
-def build_context(chord_context: dict, user_question: str, top_k: int = 5, song_title: str = "") -> str:
+def build_context(
+    chord_context: dict,
+    user_question: str,
+    top_k: int = 5,
+    song_title: str = "",
+) -> tuple[str, dict]:
     """
-    LLM에 주입할 최종 컨텍스트 문자열 생성
+    LLM에 주입할 컨텍스트 문자열 + 디버그 정보 반환
 
-    사용 예:
-      context = build_context(chord_analysis, "이 F7 어떻게 솔로해?")
-      # → Claude에게 system prompt에 추가
+    반환: (llm_context_str, debug_dict)
     """
     queries = decompose_query(chord_context, user_question, song_title)
     results = route_and_retrieve(queries, n_per_query=3)
     top_results = results[:top_k]
 
-    # 디버그 로그
-    print(f"\n[HarmoRAG] 쿼리 {len(queries)}개 → 청크 {len(results)}개 → top-{top_k} 선택")
+    debug = {
+        "queries": [
+            {"query": q["query"], "level": q.get("level"), "tag": q.get("tag")}
+            for q in queries
+        ],
+        "total_retrieved": len(results),
+        "top_k": top_k,
+        "chunks": [
+            {
+                "id":           r["id"],
+                "score":        r["score"],
+                "title":        r["title"],
+                "song":         r["song"],
+                "level":        r["level"],
+                "matched_query": r.get("matched_query", ""),
+                "response":     r["response"][:400],  # 미리보기용
+            }
+            for r in top_results
+        ],
+    }
+
+    # 터미널 로그
+    print(f"\n[HarmoRAG] 쿼리 {len(queries)}개 → 청크 {len(results)}개 → top-{top_k}")
     for q in queries:
-        print(f"  쿼리: {q['query'][:60]}... (lv={q.get('level')}, tag={q.get('tag')})")
+        print(f"  쿼리: {q['query'][:70]}... (lv={q.get('level')}, tag={q.get('tag')})")
     print()
     for r in top_results:
         print(f"  [{r['score']}] {r['id']} — {r['title']}")
 
-    return format_for_llm(top_results)
+    return format_for_llm(top_results), debug
 
 
 # ──────────────────────────────────────────────────────────────────────────────

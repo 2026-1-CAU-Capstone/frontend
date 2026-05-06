@@ -422,10 +422,10 @@ export default function LicksPage() {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter((l) =>
-        l.performer.toLowerCase().includes(q) ||
-        l.title.toLowerCase().includes(q) ||
-        l.chords.some((c) => c.toLowerCase().includes(q)) ||
-        l.tag.toLowerCase().includes(q)
+        (l.performer || '').toLowerCase().includes(q) ||
+        (l.title || '').toLowerCase().includes(q) ||
+        l.chords.some((c) => (c || '').toLowerCase().includes(q)) ||
+        (l.tag || '').toLowerCase().includes(q)
       );
     }
     return list;

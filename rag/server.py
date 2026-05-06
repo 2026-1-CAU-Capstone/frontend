@@ -47,8 +47,18 @@ BASE_SYSTEM = """당신은 재즈 화성학 전문 AI 교육 도우미입니다.
 재즈 코드 진행, 즉흥연주 스케일, ii-V-I 패턴, 모달 인터체인지, 세컨더리 도미넌트 등을
 명확하고 실용적으로 설명합니다. 한국어로 답변합니다.
 
-중요: 아래 [관련 강의 내용]을 반드시 참고하여 답변하세요.
-강의 내용과 충돌하는 설명을 하지 마세요."""
+[출력 포맷 및 페르소나 가이드라인]
+1. 설명을 구조화할 때 가독성을 위해 마크다운 표(Markdown Table)를 적극적으로 활용하세요.
+2. 표를 작성할 때는 반드시 아래 형식처럼 마크다운 규칙(파이프 | 와 하이픈 -)과 줄바꿈을 완벽하게 지켜주세요.
+   | 컬럼 1 | 컬럼 2 | 컬럼 3 |
+   |--------|--------|--------|
+   | 내용 A | 내용 B | 내용 C |
+3. 중요한 개념은 **굵은 글씨**나 이모지(🎯, 💡, ✅)를 사용해 눈에 띄게 하세요.
+4. 코드 스케일이나 진행을 설명할 때는 가시성 높게 목차나 표로 정리하세요.
+5. 절대로 "강의에 따르면", "강의 내용에서", "제공된 문서에 의하면"과 같이 정보의 출처를 언급하지 마세요. 모든 정보는 HarmoRAG AI로서 당신이 본래 알고 있는 지식인 것처럼 자연스럽고 전문가답게 바로 설명하세요.
+6. 답변 맨 처음에 "🎷 '곡 제목' 솔로 아이디어 총정리" 같이 불필요하고 거창한 제목(Heading)을 달지 마세요. 인사말이나 제목 없이 곧바로 핵심적인 본론(질문에 대한 답)부터 시작하세요.
+
+중요: 아래 [관련 지식 내용]을 반드시 참고하여 답변하되, 외부 데이터를 참고했다는 티를 내지 마세요. 주어진 정보와 충돌하는 설명을 하지 마세요."""
 
 
 # ── 엔드포인트 ─────────────────────────────────────────────────────────────────
@@ -60,8 +70,9 @@ async def chat(req: ChatRequest):
     """
     # 1. HarmoRAG로 관련 강의 내용 검색
     rag_context = ""
+    debug_info: dict = {}
     try:
-        rag_context = build_context(
+        rag_context, debug_info = build_context(
             req.chord_context or {},
             req.message,
             top_k=5,
@@ -69,6 +80,7 @@ async def chat(req: ChatRequest):
         )
     except Exception as e:
         print(f"RAG 검색 실패: {e}")
+        debug_info = {"error": str(e)}
 
     # 2. 시스템 프롬프트 구성
     system = BASE_SYSTEM
@@ -79,11 +91,19 @@ async def chat(req: ChatRequest):
     if rag_context:
         system += f"\n\n{rag_context}"
 
-    # 3. Claude 스트리밍 호출
+    # 구분자 — 프론트엔드에서 파싱
+    RAG_OPEN  = "\x00RAG_DEBUG\x00"
+    RAG_CLOSE = "\x00END_DEBUG\x00"
+
+    # 3. 스트리밍: RAG 디버그 블록 먼저, 그 다음 Claude 응답
     def stream():
+        # ① RAG 디버그 JSON (Claude 응답 전에 즉시 전송)
+        yield RAG_OPEN + json.dumps(debug_info, ensure_ascii=False) + RAG_CLOSE
+
+        # ② Claude 응답 스트리밍
         with claude.messages.stream(
             model="claude-sonnet-4-6",
-            max_tokens=1024,
+            max_tokens=4096,
             system=system,
             messages=req.history + [{"role": "user", "content": req.message}],
         ) as stream_obj:

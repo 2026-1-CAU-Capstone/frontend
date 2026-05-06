@@ -146,4 +146,27 @@ export const MarkdownBody = styled.div`
     padding: 4px 12px;
     color: #333;
   }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13px;
+  }
+
+  th, td {
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    padding: 8px;
+    text-align: left;
+  }
+
+  th {
+    background-color: rgba(0, 0, 0, 0.04);
+    font-weight: 600;
+    color: #000;
+  }
+
+  tr:nth-child(even) {
+    background-color: rgba(0, 0, 0, 0.02);
+  }
 `;

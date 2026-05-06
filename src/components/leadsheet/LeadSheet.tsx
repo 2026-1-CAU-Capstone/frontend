@@ -723,11 +723,15 @@ const FUNC_COLORS: Record<string, string> = {
   D:  '#E64A19',  // orange — Dominant
 };
 
-const ChordColumn = styled.div`
+const ChordColumn = styled.div<{ $selected?: boolean }>`
   position: relative;
   display: inline-flex;
   align-items: flex-end;
   min-width: 0;
+  
+  /* Add selection highlight UI */
+  background: ${({ $selected }) => $selected ? 'rgba(45, 143, 94, 0.15)' : 'transparent'};
+  border-radius: 4px;
 `;
 
 const DegreeLabel = styled.span<{ $color: string; $size?: ChordSize }>`
@@ -828,9 +832,11 @@ interface ChordSymbolProps {
   showColors?: boolean;
   showIIVI?: boolean;
   onModalClick?: (chord: LeadSheetChord) => void;
+  onClick?: () => void;
+  selected?: boolean;
 }
 
-function ChordSymbol({ chord, size = 'full', systemIndex, chordKey, registerEl, showDegree = true, showColors = true, showIIVI = true, onModalClick }: ChordSymbolProps) {
+function ChordSymbol({ chord, size = 'full', systemIndex, chordKey, registerEl, showDegree = true, showColors = true, showIIVI = true, onModalClick, onClick, selected }: ChordSymbolProps) {
   const isNonDiatonic = showColors && chord.isDiatonic === false;
   const isModal = showColors && !!chord.analysis?.modalInterchange;
   const analysis = chord.analysis;
@@ -861,7 +867,7 @@ function ChordSymbol({ chord, size = 'full', systemIndex, chordKey, registerEl, 
   const miDegree = isModal ? chord.analysis?.modalInterchange?.borrowedDegree : null;
 
   return (
-    <ChordColumn>
+    <ChordColumn $selected={selected} onClick={onClick}>
       {degreeText && (
         <DegreeLabel $color={fnColor} $size={size}>{degreeText}</DegreeLabel>
       )}
@@ -886,7 +892,7 @@ function ChordSymbol({ chord, size = 'full', systemIndex, chordKey, registerEl, 
             if (chord.id) registerEl(chord.id, el);
           }
         }}
-        onClick={isModal && onModalClick ? () => onModalClick(chord) : undefined}
+        onClick={isModal && onModalClick ? (e) => { e.stopPropagation(); onModalClick(chord); } : undefined}
       >
         <Root $size={size}>{chord.root}</Root>
 
@@ -986,6 +992,8 @@ interface SystemRowProps {
   showColors?: boolean;
   showIIVI?: boolean;
   onModalClick?: (chord: LeadSheetChord) => void;
+  onChordClick?: (chord: LeadSheetChord, measureNumber: number) => void;
+  selectedChordIds?: string[];
 }
 
 function SystemRowComponent({
@@ -1000,6 +1008,8 @@ function SystemRowComponent({
   showColors = true,
   showIIVI = true,
   onModalClick,
+  onChordClick,
+  selectedChordIds
 }: SystemRowProps) {
   const [top, bot] = timeSignature.split('/');
 
@@ -1080,7 +1090,7 @@ function SystemRowComponent({
                     <FourChordGrid>
                       {bar.chords.map((chord, j) => (
                         <FourChordSlot key={j}>
-                          <ChordSymbol key={j} chord={chord} size='four' chordKey={`${systemIndex}-${i}-${j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} showIIVI={showIIVI} onModalClick={onModalClick} />
+                          <ChordSymbol key={j} chord={chord} size='four' chordKey={`${systemIndex}-${i}-${j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} showIIVI={showIIVI} onModalClick={onModalClick} onClick={() => onChordClick?.(chord, bar.measureNumber ?? -1)} selected={chord.id ? selectedChordIds?.includes(chord.id) : false} />
                         </FourChordSlot>
                       ))}
                     </FourChordGrid>
@@ -1092,7 +1102,7 @@ function SystemRowComponent({
                 // 1 chord: full bar, full size
                 if (s2.length === 0) {
                   return s1.map((chord, j) => (
-                    <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} showIIVI={showIIVI} onModalClick={onModalClick} />
+                    <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} showIIVI={showIIVI} onModalClick={onModalClick} onClick={() => onChordClick?.(chord, bar.measureNumber ?? -1)} selected={chord.id ? selectedChordIds?.includes(chord.id) : false} />
                   ));
                 }
                 // 2+ chords: two half-bar sections
@@ -1102,12 +1112,12 @@ function SystemRowComponent({
                   <BarSections>
                     <SectionSlot $squeeze={s1.length > 1}>
                       {s1.map((chord, j) => (
-                        <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} showIIVI={showIIVI} onModalClick={onModalClick} />
+                        <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} showIIVI={showIIVI} onModalClick={onModalClick} onClick={() => onChordClick?.(chord, bar.measureNumber ?? -1)} selected={chord.id ? selectedChordIds?.includes(chord.id) : false} />
                       ))}
                     </SectionSlot>
                     <SectionSlot $squeeze={s2.length > 1}>
                       {s2.map((chord, j) => (
-                        <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${mid + j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} showIIVI={showIIVI} onModalClick={onModalClick} />
+                        <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${mid + j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} showIIVI={showIIVI} onModalClick={onModalClick} onClick={() => onChordClick?.(chord, bar.measureNumber ?? -1)} selected={chord.id ? selectedChordIds?.includes(chord.id) : false} />
                       ))}
                     </SectionSlot>
                   </BarSections>
@@ -1141,6 +1151,8 @@ interface LeadSheetProps {
    * Pass -1 (or omit) to disable the playback highlight.
    */
   activeBar?: number;
+  onChordClick?: (chord: LeadSheetChord, measureNumber: number) => void;
+  selectedChordIds?: string[];
 }
 
 interface ActiveBarRect {
@@ -1561,7 +1573,7 @@ function detectSecDomArrows(data: LeadSheetData): ArrowSpec[] {
   return specs;
 }
 
-export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1 }: LeadSheetProps) {
+export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1, onChordClick, selectedChordIds }: LeadSheetProps) {
   // Resolve filters: prefer analysisFilters, fall back to legacy showAnalysis prop
   const af = analysisFilters ?? (showAnalysis === false
     ? { showAnalysis: false, showDegree: false, showIIVI: false, showArrows: false, showColors: false }
@@ -2213,6 +2225,8 @@ export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1 
             showDegree={af.showDegree} showColors={af.showColors}
             showIIVI={af.showIIVI}
             onModalClick={setMiPopupChord}
+            onChordClick={onChordClick}
+            selectedChordIds={selectedChordIds}
           />
         ))}
 

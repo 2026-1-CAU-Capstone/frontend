@@ -69,7 +69,7 @@ function ensurePiano(): Promise<Soundfont.Player> {
   return _pianoLoading.then(() => _pianoInst!);
 }
 
-ensurePiano().catch(() => {});
+// ensurePiano().catch(() => {});
 
 /* ─── key signature accidentals ────────────────────────────────────────── */
 

@@ -1,15 +1,33 @@
 /**
  * HarmoRAG — FastAPI 서버를 통한 RAG 강화 Claude 호출
- * 서버: localhost:8001 (rag/server.py)
- *
  * 서버가 꺼져 있으면 자동으로 직접 Claude 호출로 폴백
  */
 
 import { streamClaudeMessage, type ClaudeMessage } from './claude';
 
-const RAG_SERVER = 'http://localhost:8001';
+const RAG_SERVER = 'http://127.0.0.1:8001';
 
-/** 서버 alive 여부 캐시 (매번 health check 안 하려고) */
+const RAG_OPEN  = '\x00RAG_DEBUG\x00';
+const RAG_CLOSE = '\x00END_DEBUG\x00';
+
+export interface RagChunk {
+  id: string;
+  score: number;
+  title: string;
+  song: string;
+  level: number;
+  matched_query: string;
+  response: string;
+}
+
+export interface RagDebugInfo {
+  queries: Array<{ query: string; level: number | null; tag: string | null }>;
+  total_retrieved: number;
+  top_k: number;
+  chunks: RagChunk[];
+  error?: string;
+}
+
 let serverAlive: boolean | null = null;
 
 async function checkServer(): Promise<boolean> {
@@ -20,27 +38,21 @@ async function checkServer(): Promise<boolean> {
   } catch {
     serverAlive = false;
   }
-  // 30초 후 재확인
   setTimeout(() => { serverAlive = null; }, 30_000);
   return serverAlive;
 }
 
-/**
- * HarmoRAG 스트리밍 호출
- * - 서버 가동 중: RAG 컨텍스트 주입 후 Claude
- * - 서버 꺼짐: 기존 직접 Claude 호출로 폴백
- */
 export async function streamWithRAG(
   message: string,
   history: ClaudeMessage[],
   chordContextText: string | undefined,
   songTitle: string,
   onChunk: (accumulated: string) => void,
+  onDebug?: (info: RagDebugInfo) => void,
 ): Promise<string> {
   const alive = await checkServer();
 
   if (!alive) {
-    // 폴백: 기존 방식 그대로
     console.info('[HarmoRAG] 서버 꺼짐 → 직접 Claude 호출');
     return streamClaudeMessage(message, history, chordContextText, onChunk);
   }
@@ -59,20 +71,50 @@ export async function streamWithRAG(
       }),
     });
 
-    if (!res.ok) {
-      throw new Error(`서버 오류 ${res.status}`);
-    }
+    if (!res.ok) throw new Error(`서버 오류 ${res.status}`);
 
     const reader = res.body?.getReader();
     if (!reader) throw new Error('스트림 없음');
 
     const decoder = new TextDecoder();
+    let buffer = '';
     let accumulated = '';
+    let debugParsed = false;
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      accumulated += decoder.decode(value, { stream: true });
+
+      buffer += decoder.decode(value, { stream: true });
+
+      // RAG 디버그 블록 파싱 (스트림 앞부분에서 한 번만)
+      if (!debugParsed) {
+        const openIdx  = buffer.indexOf(RAG_OPEN);
+        const closeIdx = buffer.indexOf(RAG_CLOSE);
+
+        if (openIdx !== -1 && closeIdx !== -1) {
+          const jsonStr = buffer.slice(openIdx + RAG_OPEN.length, closeIdx);
+          try {
+            const info = JSON.parse(jsonStr) as RagDebugInfo;
+            onDebug?.(info);
+          } catch { /* 무시 */ }
+          // 디버그 블록 제거, 나머지만 남김
+          buffer = buffer.slice(closeIdx + RAG_CLOSE.length);
+          debugParsed = true;
+        } else {
+          // 디버그 블록이 아직 덜 왔으면 기다림
+          continue;
+        }
+      }
+
+      accumulated += buffer;
+      buffer = '';
+      onChunk(accumulated);
+    }
+
+    // 버퍼에 남은 내용 처리
+    if (buffer) {
+      accumulated += buffer;
       onChunk(accumulated);
     }
 

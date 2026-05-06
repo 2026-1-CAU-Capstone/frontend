@@ -42,9 +42,12 @@ export const InputContainer = styled.div`
   padding: 8px 12px 12px;
 `;
 
-export const Input = styled.input`
+export const Input = styled.textarea`
   flex: 1;
-  padding: 10px 14px;
+  padding: 12px 14px;
+  min-height: 56px;
+  max-height: 150px;
+  resize: vertical;
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 20px;
   font-size: 14px;
@@ -53,6 +56,7 @@ export const Input = styled.input`
   background: ${({ theme }) => theme.colors.bgSecondary};
   outline: none;
   transition: border-color 0.15s;
+  box-sizing: border-box;
 
   &::placeholder {
     color: ${({ theme }) => theme.colors.textSecondary};

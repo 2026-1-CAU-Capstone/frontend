@@ -66,7 +66,7 @@ function ensurePiano(): Promise<Soundfont.Player> {
   return _pianoLoading.then(() => _pianoInst!);
 }
 
-ensurePiano().catch(() => {});
+// ensurePiano().catch(() => {});
 
 /** Parse a chord symbol like "CΔ7", "Dm7", "G7b9" → array of MIDI notes (3-4 note voicing around C3-C4) */
 function chordToMidi(chord: string): number[] {

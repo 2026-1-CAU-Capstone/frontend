@@ -11,7 +11,8 @@ import json
 import chromadb
 from sentence_transformers import SentenceTransformer
 
-DB_DIR = "db"
+import os
+DB_DIR = os.path.join(os.path.dirname(__file__), "db")
 COLLECTION_NAME = "harmorag"
 MODEL_NAME = "paraphrase-multilingual-mpnet-base-v2"
 

@@ -121,7 +121,7 @@ export async function playMidi(midi: number) {
 }
 
 // preload on import
-ensurePiano().catch(() => {});
+// ensurePiano().catch(() => {});
 
 /* ─── styled ─────────────────────────────────────────────────────────── */
 

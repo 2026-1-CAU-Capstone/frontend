@@ -15,6 +15,7 @@
     "react-dom": "^19.2.4",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.13.2",
+    "remark-gfm": "^4.0.1",
     "smplr": "^0.20.0",
     "soundfont-player": "^0.12.0",
     "styled-components": "^6.3.12",
