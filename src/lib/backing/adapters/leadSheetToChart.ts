@@ -63,7 +63,6 @@ export function leadSheetToChart(
       bars,
       repeatStart: sys.hasRepeatStart,
       repeatEnd: sys.hasRepeatEnd,
-      ending: sys.ending,
     });
   }
 

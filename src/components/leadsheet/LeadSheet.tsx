@@ -1833,7 +1833,7 @@ export function LeadSheet({
   useEffect(() => {
     if (!draggingSelection) return;
 
-    const handlePointerUp = (e: PointerEvent) => {
+    const handlePointerUp = (e: globalThis.PointerEvent) => {
       if (!draggingSelectionRef.current) return;
       draggingSelectionRef.current = false;
       const start = dragStartTargetRef.current;

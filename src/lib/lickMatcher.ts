@@ -69,7 +69,6 @@ function transposeMeasures(measures: MeasureInfo[], semitones: number, useFlats:
       if (note.duration.endsWith('r')) return note; // rest: no change
 
       const newKeys: string[] = [];
-      const newAccidentals: Record<string, 'b' | '#'> | undefined = undefined;
       const accMap: Record<string, 'b' | '#'> = {};
 
       for (let ki = 0; ki < note.keys.length; ki++) {
@@ -259,7 +258,7 @@ export function findMatchingLicks(
   // Tier 3: Any key
   for (const lick of allLicks) {
     if (results.length >= maxResults) break;
-    if (results.some((r) => {
+    if (results.some(() => {
       // compare original lick id (before transposition) — use title+chords as proxy
       const orig = allLicks.find(l => l.id === lick.id);
       return orig && results.some(res => res.lick.chords.join() === transposeLick(orig, 0).chords.join());

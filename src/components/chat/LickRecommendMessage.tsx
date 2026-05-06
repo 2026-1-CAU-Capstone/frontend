@@ -39,6 +39,9 @@ export function jsonToLickEntry(json: Record<string, unknown>): LickEntry {
     nEvents: measures.reduce((s, m) => s + (m.notes?.length ?? 0), 0),
     label: String(json.label ?? ''),
     sheetData: {
+      title: String(json.title ?? json.label ?? 'Lick'),
+      composer: String(json.composer ?? ''),
+      key: String(json.key ?? 'C'),
       timeSignature: String(json.timeSignature ?? '4/4'),
       measures,
     },
@@ -488,7 +491,7 @@ const EmptyState = styled.div`
   color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
-export function LickRecommendList({ matches, savedMatches = [], progressionLabel }: ListProps) {
+export function LickRecommendList({ matches, savedMatches = [] }: ListProps) {
   const [tab, setTab] = useState<'recommend' | 'saved'>('recommend');
   const active = tab === 'recommend' ? matches : savedMatches;
 

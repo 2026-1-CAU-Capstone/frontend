@@ -19,7 +19,7 @@ import { BackingPlayerBar, type MixChannel } from '../components/backing/Backing
 import { withLeadSheetSelectionIds } from '../lib/leadSheetSelection';
 import type { LeadSheetChordSelection } from '../components/leadsheet/LeadSheet';
 import { loadUserLicksSync } from '../data/lickData';
-import { findMatchingLicks, selectionProgressionLabel } from '../lib/lickMatcher';
+import { findMatchingLicks } from '../lib/lickMatcher';
 
 const ANALYZED_SONG_ID = '__analyzed_all-of-me__';
 

@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import type { ChatMessage as ChatMessageType, ChordOverlay } from '../../data/types';
 import { ChatMessage } from '../chat/ChatMessage';
 import { ChatInput } from '../chat/ChatInput';
-import { RagDebugPanel } from '../chat/RagDebugPanel';
 import { type ClaudeMessage } from '../../api/claude';
 import { streamWithRAG, type RagDebugInfo } from '../../api/harmorag';
 import { findMatchingLicks, selectionProgressionLabel } from '../../lib/lickMatcher';

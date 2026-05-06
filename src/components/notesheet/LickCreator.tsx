@@ -140,20 +140,6 @@ function notesToMeasures(notes: NoteInfo[]): MeasureInfo[] {
 const SEMI_MAP: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
 const PC_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
 
-/** Convert a sharp PianoNote to its enharmonic flat equivalent.
- *  Key = the letter of the sharp note (e.g. 'c' for C#→Db) */
-const SHARP_TO_FLAT: Record<string, string> = {
-  c: 'd', d: 'e', f: 'g', g: 'a', a: 'b',
-};
-
-function toFlat(pn: PianoNote): { vexKey: string; acc?: 'b' } {
-  if (!pn.acc) return { vexKey: pn.vexKey };
-  const [letter, oct] = pn.vexKey.split('/');
-  const flatLetter = SHARP_TO_FLAT[letter];
-  if (!flatLetter) return { vexKey: pn.vexKey };
-  return { vexKey: `${flatLetter}/${oct}`, acc: 'b' };
-}
-
 function vexToMidi(key: string, acc?: '#' | 'b' | 'n'): number {
   const [n, o] = key.split('/');
   let s = SEMI_MAP[n] ?? 0;

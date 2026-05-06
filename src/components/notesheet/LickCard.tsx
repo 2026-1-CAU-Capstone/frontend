@@ -832,7 +832,7 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
 
           // ── Ghost note: draw ( ) parentheses around note head ──
           if (noteInfo.ghost && vfNote && !noteInfo.duration.endsWith('r')) {
-            const noteEl = vfNote.getSVGElement?.() as SVGElement | undefined;
+            const noteEl = vfNote.getSVGElement?.() as SVGGraphicsElement | undefined;
             if (noteEl) {
               const bbox = noteEl.getBBox?.();
               if (bbox) {
@@ -862,7 +862,7 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
 
           // ── 8va bracket start ──
           if (noteInfo.ottavaStart && vfNote) {
-            const noteEl = vfNote.getSVGElement?.() as SVGElement | undefined;
+            const noteEl = vfNote.getSVGElement?.() as SVGGraphicsElement | undefined;
             if (noteEl) {
               const bbox = noteEl.getBBox?.();
               if (bbox) {
@@ -875,7 +875,7 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
 
           // ── 8va bracket end ──
           if (noteInfo.ottavaEnd && ottavaActive && vfNote) {
-            const noteEl = vfNote.getSVGElement?.() as SVGElement | undefined;
+            const noteEl = vfNote.getSVGElement?.() as SVGGraphicsElement | undefined;
             if (noteEl) {
               const bbox = noteEl.getBBox?.();
               if (bbox) {
@@ -963,7 +963,7 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
       for (let ni = 0; ni < data.measures[mi].notes.length; ni++) {
         const vn = allVfNotes[fi];
         if (vn) {
-          const noteEl = vn.getSVGElement?.() as SVGElement | undefined;
+          const noteEl = vn.getSVGElement?.() as SVGGraphicsElement | undefined;
           if (noteEl) noteMap.set(`${mi}-${ni}`, noteEl);
         }
         fi++;

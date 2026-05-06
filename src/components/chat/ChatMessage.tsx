@@ -15,7 +15,6 @@ import {
   MarkdownBody,
   AssistantHeader,
   AssistantIcon,
-  AssistantName,
   UserSelectedContext,
   UserSelectedLabel,
   UserSelectedChordRow,
@@ -213,7 +212,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
       const match = lickById.get(id);
       if (match) {
         segments.push(
-          <LickRecommendMessage key={`lick-${id}`} match={match} width={300} />
+          <LickRecommendMessage key={`lick-${id}`} match={match} />
         );
       }
       lastIdx = m.index + m[0].length;
