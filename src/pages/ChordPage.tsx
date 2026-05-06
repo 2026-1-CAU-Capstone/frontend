@@ -8,17 +8,85 @@ import { LeftSidebar } from '../components/layout/LeftSidebar';
 import { RightChatPanel } from '../components/layout/RightChatPanel';
 import { MobileChatFab } from '../components/layout/MobileChatFab';
 import { LeadSheet } from '../components/leadsheet/LeadSheet';
-import { Toggle } from '../components/common/Toggle';
 import { useAnalysisFilters } from '../hooks/useAnalysisFilters';
 import { allOfMe } from '../data/allOfMe';
 import type { LeadSheetData } from '../data/leadSheetTypes';
-import type { TocEntry } from '../data/types';
+import type { ChordOverlay, TocEntry } from '../data/types';
 import { getSongIndex, getSong, type SongEntry } from '../lib/ireal/irealLoader';
 import { buildChordContext } from '../api/chordContext';
 import { createBackingPlayer, leadSheetToChart, type BackingPlayer } from '../lib/backing';
 import { BackingPlayerBar, type MixChannel } from '../components/backing/BackingPlayerBar';
+import { withLeadSheetSelectionIds } from '../lib/leadSheetSelection';
+import type { LeadSheetChordSelection } from '../components/leadsheet/LeadSheet';
+import { loadUserLicksSync } from '../data/lickData';
+import { findMatchingLicks, selectionProgressionLabel } from '../lib/lickMatcher';
 
 const ANALYZED_SONG_ID = '__analyzed_all-of-me__';
+
+const SELECTION_QUALITY_PREFIXES: [RegExp, string][] = [
+  [/^(-7b5|-7\(b5\)|m7b5|m7♭5)/, 'ø7'],
+  [/^h(?=\d)/, 'ø'],
+  [/^h$/, 'ø'],
+  [/^(dim7|o7|°7)/, '°7'],
+  [/^(dim|o|°)(?!\d)/, '°'],
+  [/^(-[Mm]aj7|-△7|-Δ7|-\^7|m[Mm]aj7|mM7)/, '-△7'],
+  [/^(Δ7|△7|\^7|[Mm]aj7|M7)/, '△7'],
+  [/^(Δ|△|\^|[Mm]aj(?!7)|M(?=[69]|$))/, '△'],
+  [/^(-7(?!b5)|m7(?!b5)|min7)/, '-7'],
+  [/^(-9|m9|min9)/, '-9'],
+  [/^(-11|m11|min11)/, '-11'],
+  [/^(-6|m6|min6)/, '-6'],
+  [/^(-|m(?!aj|7|9|11|6|in)|min(?!7|9|11|6))/, '-'],
+];
+
+function normalizeSelectionQuality(raw: string): string {
+  const trimmed = raw.trim();
+  for (const [re, replacement] of SELECTION_QUALITY_PREFIXES) {
+    const match = trimmed.match(re);
+    if (match) {
+      return `${replacement}${trimmed.slice(match[0].length)}`.replace(/b/g, '♭').replace(/#/g, '♯');
+    }
+  }
+  return trimmed.replace(/b/g, '♭').replace(/#/g, '♯');
+}
+
+function formatChordForSelection(chord: LeadSheetChordSelection['chord']): string {
+  const accidental = chord.accidental === '#' ? '♯' : chord.accidental === 'b' ? '♭' : '';
+  const quality = chord.quality ? normalizeSelectionQuality(chord.quality) : '';
+  const bass = chord.bass
+    ? `/${chord.bass.root}${chord.bass.accidental === '#' ? '♯' : chord.bass.accidental === 'b' ? '♭' : ''}`
+    : '';
+  return `${chord.root ?? ''}${accidental}${quality}${bass}` || '(empty)';
+}
+
+function selectionToOverlay(target: LeadSheetChordSelection): ChordOverlay {
+  const fn = target.chord.analysis?.functions?.[0]?.function;
+  const safeFunc: ChordOverlay['analysis']['func'] = fn === 'SD' || fn === 'D' ? fn : 'T';
+
+  return {
+    id: target.id,
+    symbol: formatChordForSelection(target.chord),
+    bar: target.measureNumber,
+    pageNumber: 1,
+    position: { x: 0, y: 0, width: 0, height: 0 },
+    analysis: {
+      degree: target.chord.analysis?.degree || '',
+      func: safeFunc,
+      diatonic: target.chord.analysis?.isDiatonic ?? target.chord.isDiatonic ?? true,
+      secDom: target.chord.analysis?.secondaryDominant?.label,
+      modal: target.chord.analysis?.modalInterchange?.borrowedDegree,
+    },
+  };
+}
+
+function uniqueOverlays(overlays: ChordOverlay[]): ChordOverlay[] {
+  const seen = new Set<string>();
+  return overlays.filter((overlay) => {
+    if (seen.has(overlay.id)) return false;
+    seen.add(overlay.id);
+    return true;
+  });
+}
 
 const PageContainer = styled.div`
   display: flex;
@@ -169,13 +237,144 @@ const RightPanelWrapper = styled.div<{ $width: number }>`
 
 const FilterBar = styled.div`
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   padding: 8px 12px;
   background: ${({ theme }) => theme.colors.bgPrimary};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   border-left: 1px solid ${({ theme }) => theme.colors.border};
+`;
+
+const AnalysisControl = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+`;
+
+const AnalysisDropdownTrigger = styled.button<{ $open: boolean }>`
+  height: 32px;
+  min-width: 112px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 11px 0 13px;
+  border-radius: 10px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  background: ${({ $open, theme }) => ($open ? theme.colors.bgSecondary : theme.colors.bgPrimary)};
+  color: ${({ theme }) => theme.colors.textPrimary};
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: ${({ $open }) => ($open ? '0 2px 8px rgba(0, 0, 0, 0.08)' : 'none')};
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.bgSecondary};
+    border-color: ${({ theme }) => theme.colors.textSecondary};
+  }
+`;
+
+const AnalysisChevron = styled.span<{ $open: boolean }>`
+  width: 7px;
+  height: 7px;
+  border-right: 1.7px solid ${({ theme }) => theme.colors.textSecondary};
+  border-bottom: 1.7px solid ${({ theme }) => theme.colors.textSecondary};
+  transform: rotate(${({ $open }) => ($open ? '225deg' : '45deg')});
+  margin-top: ${({ $open }) => ($open ? '4px' : '-3px')};
+  transition: transform 0.15s, margin-top 0.15s;
+`;
+
+const AnalysisMasterSwitch = styled.button<{ $active: boolean }>`
+  position: relative;
+  width: 48px;
+  height: 28px;
+  border: none;
+  border-radius: 999px;
+  background: ${({ $active, theme }) => ($active ? '#2D8F5E' : theme.colors.border)};
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  transition: background 0.18s;
+  flex-shrink: 0;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: ${({ $active }) => ($active ? '23px' : '3px')};
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
+    transition: left 0.18s;
+  }
+`;
+
+const AnalysisDropdownMenu = styled.div`
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 250;
+  width: 184px;
+  padding: 6px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 12px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
+`;
+
+const AnalysisDropdownTitle = styled.div`
+  padding: 5px 8px 7px;
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: 11px;
+  font-weight: 700;
+  color: ${({ theme }) => theme.colors.textSecondary};
+`;
+
+const AnalysisOption = styled.button`
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.textPrimary};
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: 13px;
+  cursor: pointer;
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.bgSecondary};
+  }
+`;
+
+const AnalysisOptionSwitch = styled.span<{ $active: boolean; $color: string }>`
+  position: relative;
+  width: 28px;
+  height: 16px;
+  border-radius: 999px;
+  background: ${({ $active, $color, theme }) => ($active ? $color : theme.colors.border)};
+  transition: background 0.15s;
+  flex-shrink: 0;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: ${({ $active }) => ($active ? '15px' : '3px')};
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #fff;
+    transition: left 0.15s;
+  }
 `;
 
 const ResizeDivider = styled.div`
@@ -204,6 +403,10 @@ const ResizeDivider = styled.div`
 export default function ChordPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { filters, effective, toggleFilter } = useAnalysisFilters();
+  const leadSheetAnalysisFilters = useMemo(() => ({
+    ...effective,
+    showDegree: effective.showAnalysis,
+  }), [effective]);
   const [songIndex, setSongIndex] = useState<SongEntry[]>([]);
   const [songId, setSongIdRaw] = useState(() => searchParams.get('song') ?? ANALYZED_SONG_ID);
 
@@ -227,42 +430,55 @@ export default function ChordPage() {
   const [tempo, setTempo] = useState(140);
   const [activeBar, setActiveBar] = useState(-1);
   const [selectedChordIds, setSelectedChordIds] = useState<string[]>([]);
-  const [selectedChordsData, setSelectedChordsData] = useState<any[]>([]);
+  const [selectedChordsData, setSelectedChordsData] = useState<ChordOverlay[]>([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [analysisMenuOpen, setAnalysisMenuOpen] = useState(false);
+  // ★ 저장된 릭 있는 마디 번호 세트 (B안)
+  const [savedLickBarNums, setSavedLickBarNums] = useState<Set<number>>(new Set());
+  const analysisMenuRef = useRef<HTMLDivElement>(null);
 
-  const handleChordClick = (chord: any, measureNumber: number) => {
+  const handleChordClick = (_chord: any, _measureNumber: number, target?: LeadSheetChordSelection) => {
     if (!isSelectionMode) return;
-    if (!chord.id) return;
-    
-    setSelectedChordIds((prev) => {
-      if (prev.includes(chord.id!)) {
-        const nextIds = prev.filter(id => id !== chord.id);
-        setSelectedChordsData(prevData => prevData.filter(c => c.id !== chord.id));
-        return nextIds;
-      } else {
-        const nextIds = [...prev, chord.id!];
-        const overlayData = {
-          id: chord.id,
-          symbol: chord.quality ? `${chord.root}${chord.accidental === '#' ? '♯' : chord.accidental === 'b' ? '♭' : ''}${chord.quality}` : chord.root,
-          bar: measureNumber,
-          pageNumber: 1,
-          position: null as any,
-          analysis: {
-            degree: chord.analysis?.degree || '',
-            func: chord.analysis?.functions?.[0]?.function || 'T',
-            diatonic: chord.analysis?.isDiatonic ?? true,
-          }
-        };
-        setSelectedChordsData(prevData => [...prevData, overlayData]);
-        return nextIds;
-      }
-    });
+    if (!target) return;
+    const overlay = selectionToOverlay(target);
+    setSelectedChordIds([overlay.id]);
+    setSelectedChordsData([overlay]);
   };
+
+  const [selectionBubblePos, setSelectionBubblePos] = useState<{ x: number; y: number } | null>(null);
+
+  const handleChordRangeSelect = (targets: LeadSheetChordSelection[], pos?: { x: number; y: number }) => {
+    if (!isSelectionMode) return;
+    const overlays = uniqueOverlays(targets.map(selectionToOverlay));
+    setSelectedChordIds(overlays.map((chord) => chord.id));
+    setSelectedChordsData(overlays);
+    if (pos && overlays.length > 0) {
+      setSelectionBubblePos({ x: pos.x, y: pos.y });
+    } else {
+      setSelectionBubblePos(null);
+    }
+  };
+
+  const toggleSelectionMode = () => {
+    const nextMode = !isSelectionMode;
+    setIsSelectionMode(nextMode);
+    if (!nextMode) {
+      setSelectedChordIds([]);
+      setSelectedChordsData([]);
+    }
+  };
+
+  const clearSelectedChords = useCallback(() => {
+    setSelectedChordIds([]);
+    setSelectedChordsData([]);
+  }, []);
 
   useEffect(() => {
     setSelectedChordIds([]);
     setSelectedChordsData([]);
-  }, [sheet?.id]);  const [volumes, setVolumes] = useState<Record<MixChannel, number>>({
+  }, [sheet?.id]);
+
+  const [volumes, setVolumes] = useState<Record<MixChannel, number>>({
     piano: 1,
     bass: 1,
     drums: 0.9,
@@ -325,7 +541,7 @@ export default function ChordPage() {
   // Load selected song
   useEffect(() => {
     if (songId === ANALYZED_SONG_ID) {
-      setSheet(allOfMe);
+      setSheet(withLeadSheetSelectionIds(allOfMe, ANALYZED_SONG_ID));
       setLoading(false);
       setError(null);
       return;
@@ -378,6 +594,17 @@ export default function ChordPage() {
     return () => document.removeEventListener('mousedown', handler);
   }, [searchOpen]);
 
+  useEffect(() => {
+    if (!analysisMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (analysisMenuRef.current && !analysisMenuRef.current.contains(e.target as Node)) {
+        setAnalysisMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [analysisMenuOpen]);
+
   const toc = useMemo<TocEntry[]>(() => {
     if (!sheet) return [];
     return [{ title: sheet.title, page: 1 }];
@@ -388,7 +615,41 @@ export default function ChordPage() {
     return undefined;
   }, [sheet]);
 
-  const [rightPanelWidth, setRightPanelWidth] = useState(360);
+  // B안: 저장된 릭이 있는 ii-V-I 시작 마디 감지
+  // sheet가 바뀌거나 저장 릭이 바뀌면 재계산 (jazzify:lickSaved 이벤트로 갱신)
+  const refreshSavedLickBars = useCallback(() => {
+    if (!sheet) { setSavedLickBarNums(new Set()); return; }
+    const saved = loadUserLicksSync();
+    if (saved.length === 0) { setSavedLickBarNums(new Set()); return; }
+    const keyMatch = chordContext?.match(/Key:\s*([A-G][b#]?)/);
+    const songKey = keyMatch ? keyMatch[1] : 'C';
+    const barNums = new Set<number>();
+    // 각 시스템의 ii-V-I 시작 마디 탐지
+    for (const system of sheet.systems) {
+      for (const bar of system.bars) {
+        const firstChord = bar.chords[0];
+        if (!firstChord?.analysis?.groupMemberships) continue;
+        const isIIStart = firstChord.analysis.groupMemberships.some(
+          (g) => g.groupType === 'ii-V-I' && g.role === 'ii' && g.variant !== 'incomplete'
+        );
+        if (!isIIStart) continue;
+        // 이 마디부터 ii-V-I 패턴 — 저장된 릭과 매칭되는지 확인
+        const overlay = { id: String(bar.measureNumber), symbol: `${firstChord.root ?? ''}${firstChord.quality ?? ''}`, bar: bar.measureNumber ?? 0, pageNumber: 1, position: { x: 0, y: 0, width: 0, height: 0 }, analysis: { degree: '', func: 'SD' as const, diatonic: true } };
+        const matches = findMatchingLicks([overlay], sheet.title, songKey, saved, 1);
+        if (matches.length > 0) barNums.add(bar.measureNumber ?? 0);
+      }
+    }
+    setSavedLickBarNums(barNums);
+  }, [sheet, chordContext]);
+
+  useEffect(() => { refreshSavedLickBars(); }, [refreshSavedLickBars]);
+  useEffect(() => {
+    const handler = () => refreshSavedLickBars();
+    window.addEventListener('jazzify:lickSaved', handler);
+    return () => window.removeEventListener('jazzify:lickSaved', handler);
+  }, [refreshSavedLickBars]);
+
+  const [rightPanelWidth, setRightPanelWidth] = useState(480);
   const dividerRef = useRef<HTMLDivElement>(null);
 
   const onDividerMouseDown = useCallback((e: React.MouseEvent) => {
@@ -411,7 +672,7 @@ export default function ChordPage() {
   }, [rightPanelWidth]);
 
   return (
-    <PageContainer>
+    <PageContainer onClick={() => setSelectionBubblePos(null)}>
       <IconSidebar />
       <RightSection>
         <TopToolbar
@@ -470,12 +731,19 @@ export default function ChordPage() {
           </SongPickerBar>
 
           {sheet && !loading ? (
-            <LeadSheet 
-              data={sheet} 
-              analysisFilters={effective} 
-              activeBar={activeBar} 
+            <LeadSheet
+              data={sheet}
+              analysisFilters={leadSheetAnalysisFilters}
+              activeBar={activeBar}
               onChordClick={handleChordClick}
+              onChordRangeSelect={handleChordRangeSelect}
               selectedChordIds={selectedChordIds}
+              selectionMode={isSelectionMode}
+              savedLickBarNums={savedLickBarNums.size > 0 ? savedLickBarNums : undefined}
+              onSavedLickBadgeClick={(_bar, x, y) => {
+                setSelectionBubblePos({ x, y });
+                window.dispatchEvent(new CustomEvent('jazzify:requestLicks'));
+              }}
             />
           ) : (
             <LoadingState>{error ?? (loading ? 'Loading chart...' : 'Loading song list...')}</LoadingState>
@@ -486,65 +754,124 @@ export default function ChordPage() {
 
         <RightPanelWrapper $width={rightPanelWidth}>
           <FilterBar>
-            <Toggle
-              label="분석 보기"
-              active={filters.showAnalysis}
-              onToggle={() => toggleFilter('showAnalysis')}
-              color="#2D8F5E"
-            />
-            <Toggle
-              label="도수"
-              active={filters.showDegree}
-              onToggle={() => toggleFilter('showDegree')}
-              disabled={!filters.showAnalysis}
-              color="#1565C0"
-            />
-            <Toggle
-              label="2-5-1"
-              active={filters.showIIVI}
-              onToggle={() => toggleFilter('showIIVI')}
-              disabled={!filters.showAnalysis}
-              color="#B8860B"
-            />
-            <Toggle
-              label="화살표"
-              active={filters.showArrows}
-              onToggle={() => toggleFilter('showArrows')}
-              disabled={!filters.showAnalysis}
-              color="#C45C5C"
-            />
-            <Toggle
-              label="색상"
-              active={filters.showColors}
-              onToggle={() => toggleFilter('showColors')}
-              disabled={!filters.showAnalysis}
-              color="#7B5EA7"
+            <AnalysisControl ref={analysisMenuRef}>
+              <AnalysisDropdownTrigger
+                type="button"
+                $open={analysisMenuOpen}
+                aria-label="분석 세부 옵션"
+                aria-expanded={analysisMenuOpen}
+                onClick={() => setAnalysisMenuOpen((open) => !open)}
+              >
+                분석 보기
+                <AnalysisChevron $open={analysisMenuOpen} />
+              </AnalysisDropdownTrigger>
+              {analysisMenuOpen && (
+                <AnalysisDropdownMenu>
+                  <AnalysisDropdownTitle>세부 표시</AnalysisDropdownTitle>
+                  <AnalysisOption
+                    type="button"
+                    onClick={() => toggleFilter('showIIVI')}
+                  >
+                    <span>2-5-1</span>
+                    <AnalysisOptionSwitch $active={filters.showIIVI} $color="#B8860B" />
+                  </AnalysisOption>
+                  <AnalysisOption
+                    type="button"
+                    onClick={() => toggleFilter('showArrows')}
+                  >
+                    <span>화살표</span>
+                    <AnalysisOptionSwitch $active={filters.showArrows} $color="#C45C5C" />
+                  </AnalysisOption>
+                  <AnalysisOption
+                    type="button"
+                    onClick={() => toggleFilter('showColors')}
+                  >
+                    <span>색상</span>
+                    <AnalysisOptionSwitch $active={filters.showColors} $color="#7B5EA7" />
+                  </AnalysisOption>
+                </AnalysisDropdownMenu>
+              )}
+            </AnalysisControl>
+            <AnalysisMasterSwitch
+              type="button"
+              $active={filters.showAnalysis}
+              aria-label={filters.showAnalysis ? '분석 보기 끄기' : '분석 보기 켜기'}
+              onClick={() => toggleFilter('showAnalysis')}
             />
           </FilterBar>
           <RightChatPanel
             selectedChords={selectedChordsData}
-            groupExplanation={selectedChordsData.length > 0 ? "선택된 코드 구간입니다." : null}
+            groupExplanation={selectedChordsData.length > 0 ? "이 구간이 다음 질문의 분석 대상으로 포함됩니다." : null}
             songTitle={sheet?.title ?? 'Jazzify AI'}
             chordContext={chordContext}
             isSelectionMode={isSelectionMode}
-            onToggleSelectionMode={() => {
-              const nextMode = !isSelectionMode;
-              setIsSelectionMode(nextMode);
-              if (!nextMode) {
-                // Clear selection when disabling mode
-                setSelectedChordIds([]);
-                setSelectedChordsData([]);
-              }
-            }}
+            onToggleSelectionMode={toggleSelectionMode}
+            onClearSelectedChords={clearSelectedChords}
           />
         </RightPanelWrapper>
         </MainArea>
       </RightSection>
 
       <MobileChatFab
+        selectedChords={selectedChordsData}
+        groupExplanation={selectedChordsData.length > 0 ? "이 구간이 다음 질문의 분석 대상으로 포함됩니다." : null}
         songTitle={sheet?.title ?? 'Jazzify AI'}
         chordContext={chordContext}
+        isSelectionMode={isSelectionMode}
+        onToggleSelectionMode={toggleSelectionMode}
+        onClearSelectedChords={clearSelectedChords}
       />
+
+      {/* 드래그 선택 후 뜨는 플로팅 말풍선 */}
+      {selectionBubblePos && selectedChordsData.length > 0 && (
+        <div
+          style={{
+            position: 'fixed',
+            left: selectionBubblePos.x,
+            top: selectionBubblePos.y - 12,
+            transform: 'translate(-50%, -100%)',
+            zIndex: 2000,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            pointerEvents: 'auto',
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <div style={{
+            background: '#1a1a1a',
+            color: '#fff',
+            padding: '7px 14px',
+            borderRadius: '10px',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.28)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontSize: '13px',
+            fontWeight: 600,
+            fontFamily: "'DM Sans', sans-serif",
+            cursor: 'pointer',
+            userSelect: 'none',
+            whiteSpace: 'nowrap',
+          }}
+            onClick={() => {
+              setSelectionBubblePos(null);
+              // RightChatPanel의 handleRequestLicks 와 연동하기 위해
+              // 선택 상태가 이미 있으므로 커스텀 이벤트로 트리거
+              window.dispatchEvent(new CustomEvent('jazzify:requestLicks'));
+            }}
+          >
+            💡 릭 추천받기
+          </div>
+          {/* 말풍선 꼬리 */}
+          <div style={{
+            width: 0, height: 0,
+            borderLeft: '7px solid transparent',
+            borderRight: '7px solid transparent',
+            borderTop: '7px solid #1a1a1a',
+          }} />
+        </div>
+      )}
 
       <BackingPlayerBar
         playing={isPlaying}

@@ -27,12 +27,12 @@ interface LeftSidebarProps {
 
 export function LeftSidebar({ toc, activePage, onPageSelect }: LeftSidebarProps) {
   const isCompactLayout = useCompactLayout();
-  const [width, setWidth] = useState(() => (isCompactLayout ? 0 : DEFAULT_WIDTH));
+  const [width, setWidth] = useState(0);  // 기본값: 닫힌 상태
   const handleRef = useRef<HTMLDivElement>(null);
   const open = width > 0;
 
   useEffect(() => {
-    setWidth(isCompactLayout ? 0 : DEFAULT_WIDTH);
+    if (isCompactLayout) setWidth(0);
   }, [isCompactLayout]);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {

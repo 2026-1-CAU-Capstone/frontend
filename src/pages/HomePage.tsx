@@ -1,200 +1,385 @@
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { css, keyframes } from 'styled-components';
+import { streamWithRAG } from '../api/harmorag';
+import type { ClaudeMessage } from '../api/claude';
+import { ChatMessage } from '../components/chat/ChatMessage';
+import type { ChatMessage as ChatMessageType } from '../data/types';
 import { mq } from '../styles/theme';
 
-const Container = styled.div`
-  position: relative;
+/* ── Types ────────────────────────────────────────────────────── */
+
+type Phase = 'idle' | 'chatting';
+
+interface Msg extends ChatMessageType {
+  id: string;
+}
+
+/* ── Animations ───────────────────────────────────────────────── */
+
+const fadeIn = keyframes`from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); }`;
+const fadeOut = keyframes`from { opacity: 1; } to { opacity: 0; }`;
+
+/* ── Layout ───────────────────────────────────────────────────── */
+
+const Wrapper = styled.div<{ $phase: Phase }>`
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
   height: 100vh;
   height: 100dvh;
   background: ${({ theme }) => theme.colors.bgPrimary};
-  font-family: 'DM Sans', sans-serif;
-  padding: 20px;
-
-  ${mq.mobile} {
-    justify-content: flex-start;
-    padding-top: 60px;
-  }
+  font-family: ${({ theme }) => theme.fonts.ui};
+  overflow: hidden;
 `;
 
-const ToolBtn = styled.button`
-  position: absolute;
-  top: 20px;
-  right: 24px;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.78rem;
-  padding: 6px 14px;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 8px;
-  background: ${({ theme }) => theme.colors.bgSecondary};
-  color: ${({ theme }) => theme.colors.textSecondary};
-  cursor: pointer;
-  opacity: 0.7;
-  transition: all 0.15s;
-  &:hover {
-    opacity: 1;
-    border-color: ${({ theme }) => theme.colors.goldDark};
-  }
-`;
+/* ── Intro section (idle only) ────────────────────────────────── */
 
-const LogoImg = styled.img`
-  height: 420px;
-  max-width: 90%;
-  margin-bottom: 48px;
-  object-fit: contain;
-
-  ${mq.tablet} {
-    height: 280px;
-    margin-bottom: 32px;
-  }
-  ${mq.mobile} {
-    height: 180px;
-    margin-bottom: 24px;
-  }
-`;
-
-const CardRow = styled.div`
-  display: flex;
-  gap: 40px;
-
-  ${mq.tablet} {
-    gap: 20px;
-  }
-  ${mq.mobile} {
-    flex-direction: column;
-    gap: 16px;
-    width: 100%;
-  }
-`;
-
-const Card = styled.button`
+const Intro = styled.div<{ $phase: Phase }>`
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 20px;
+  transition: max-height 0.45s ease, opacity 0.3s ease, padding 0.35s ease;
+
+  ${({ $phase }) =>
+    $phase === 'idle'
+      ? css`
+          max-height: 420px;
+          opacity: 1;
+          pointer-events: auto;
+        `
+      : css`
+          max-height: 0;
+          opacity: 0;
+          pointer-events: none;
+          padding-bottom: 0;
+          overflow: hidden;
+        `}
+`;
+
+const Greeting = styled.h1`
+  font-size: 1.65rem;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.textPrimary};
+  margin: 0 0 8px;
+  text-align: center;
+  animation: ${fadeIn} 0.5s ease both;
+
+  ${mq.mobile} {
+    font-size: 1.2rem;
+  }
+`;
+
+const Subtitle = styled.p`
+  font-size: 0.9rem;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  margin: 0 0 28px;
+  text-align: center;
+  animation: ${fadeIn} 0.5s 0.1s ease both;
+
+  ${mq.mobile} {
+    font-size: 0.8rem;
+  }
+`;
+
+/* ── Messages area (chatting only) ───────────────────────────── */
+
+const MessagesArea = styled.div<{ $phase: Phase }>`
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 0 12px;
+  transition: opacity 0.3s ease;
+
+  ${({ $phase }) =>
+    $phase === 'idle'
+      ? css`opacity: 0; pointer-events: none; flex: 0;`
+      : css`opacity: 1; pointer-events: auto;`}
+
+  scroll-behavior: smooth;
+
+  /* Scrollbar */
+  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: ${({ theme }) => theme.colors.border}; border-radius: 2px; }
+`;
+
+const MessagesInner = styled.div`
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  ${mq.mobile} {
+    padding: 0 12px;
+  }
+`;
+
+/* ── Bottom input area ───────────────────────────────────────── */
+
+const Bottom = styled.div<{ $phase: Phase }>`
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: ${({ $phase }) => ($phase === 'idle' ? '0 20px 32px' : '0 20px 20px')};
+  transition: padding 0.3s ease;
+
+  ${mq.mobile} {
+    padding: ${({ $phase }) => ($phase === 'idle' ? '0 12px 24px' : '0 12px 14px')};
+  }
+`;
+
+const InputBox = styled.div`
+  width: 100%;
+  max-width: 720px;
+  border: 1.5px solid ${({ theme }) => theme.colors.border};
+  border-radius: 16px;
+  background: ${({ theme }) => theme.colors.bgSecondary};
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &:focus-within {
+    border-color: ${({ theme }) => theme.colors.gold};
+    box-shadow: 0 2px 16px rgba(212,168,67,0.15);
+  }
+`;
+
+const InputRow = styled.div`
+  display: flex;
+  align-items: flex-end;
+  padding: 12px 14px 12px 18px;
+  gap: 10px;
+`;
+
+const Textarea = styled.textarea`
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: 0.95rem;
+  color: ${({ theme }) => theme.colors.textPrimary};
+  resize: none;
+  min-height: 24px;
+  max-height: 180px;
+  line-height: 1.5;
+
+  &::placeholder {
+    color: ${({ theme }) => theme.colors.textSecondary};
+  }
+`;
+
+const SendBtn = styled.button<{ $active: boolean }>`
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: none;
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 360px;
-  height: 260px;
-  border: 2px solid ${({ theme }) => theme.colors.border};
-  border-radius: 20px;
-  background: ${({ theme }) => theme.colors.bgPrimary};
+  font-size: 1rem;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s, opacity 0.15s;
+  background: ${({ $active, theme }) => $active ? theme.colors.gold : theme.colors.border};
+  color: ${({ $active }) => $active ? '#fff' : '#aaa'};
+  opacity: ${({ $active }) => $active ? 1 : 0.6};
+`;
+
+/* ── Tool shortcuts ──────────────────────────────────────────── */
+
+const ToolRow = styled.div`
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 720px;
+  width: 100%;
+`;
+
+const ToolChip = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1.5px solid ${({ theme }) => theme.colors.border};
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: 0.82rem;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  cursor: pointer;
+  transition: all 0.14s;
 
   &:hover {
-    border-color: ${({ theme }) => theme.colors.goldDark};
-    box-shadow: ${({ theme }) => theme.shadows.md};
-    transform: translateY(-3px);
+    border-color: ${({ theme }) => theme.colors.gold};
+    color: ${({ theme }) => theme.colors.textPrimary};
+    background: ${({ theme }) => theme.colors.bgSecondary};
   }
 
-  ${mq.tablet} {
-    width: 280px;
-    height: 200px;
-  }
   ${mq.mobile} {
-    width: 100%;
-    height: auto;
-    padding: 24px 16px;
-    flex-direction: row;
-    gap: 16px;
-    border-radius: 14px;
+    font-size: 0.78rem;
+    padding: 6px 10px;
   }
 `;
 
-const CardIcon = styled.span`
-  font-size: 4rem;
-  margin-bottom: 20px;
-
-  ${mq.tablet} {
-    font-size: 3rem;
-    margin-bottom: 14px;
-  }
-  ${mq.mobile} {
-    font-size: 2.2rem;
-    margin-bottom: 0;
-  }
-`;
-
-const CardText = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-
-  ${mq.mobile} {
-    align-items: flex-start;
-  }
-`;
-
-const CardTitle = styled.span`
-  font-size: 1.6rem;
-  font-weight: 700;
-  color: ${({ theme }) => theme.colors.textPrimary};
-
-  ${mq.tablet} {
-    font-size: 1.3rem;
-  }
-  ${mq.mobile} {
-    font-size: 1.15rem;
-  }
-`;
-
-const CardDesc = styled.span`
-  font-size: 1.05rem;
+const Disclaimer = styled.p`
+  font-size: 0.72rem;
   color: ${({ theme }) => theme.colors.textSecondary};
   margin-top: 10px;
-
-  ${mq.tablet} {
-    font-size: 0.9rem;
-  }
-  ${mq.mobile} {
-    font-size: 0.85rem;
-    margin-top: 4px;
-  }
+  opacity: 0.6;
+  text-align: center;
 `;
+
+/* ── Spacer (idle only, pushes content to center) ────────────── */
+
+const Spacer = styled.div<{ $phase: Phase }>`
+  flex: ${({ $phase }) => ($phase === 'idle' ? '1' : '0')};
+  transition: flex 0.4s ease;
+  min-height: 0;
+`;
+
+/* ── Component ────────────────────────────────────────────────── */
+
+const TOOLS = [
+  { label: 'Chord Analysis', icon: '𝄢', path: '/chord' },
+  { label: 'Note Analysis', icon: '♪', path: '/note' },
+  { label: 'Lick Database', icon: '🎷', path: '/licks' },
+  { label: 'JSON Tool', icon: '{ }', path: '/lick-input' },
+  { label: 'OMR', icon: '📄', path: '/input' },
+] as const;
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const [phase, setPhase] = useState<Phase>('idle');
+  const [msgs, setMsgs] = useState<Msg[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [input, setInput] = useState('');
+  const historyRef = useRef<ClaudeMessage[]>([]);
+  const endRef = useRef<HTMLDivElement>(null);
+  const isScrolledUpRef = useRef(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const messagesAreaRef = useRef<HTMLDivElement>(null);
+
+  /* Auto-scroll */
+  useEffect(() => {
+    if (!isScrolledUpRef.current) {
+      endRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [msgs]);
+
+  /* Textarea auto-resize */
+  const handleInput = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    const el = e.target;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    const el = messagesAreaRef.current;
+    if (!el) return;
+    isScrolledUpRef.current = el.scrollHeight - el.scrollTop - el.clientHeight > 50;
+  }, []);
+
+  const handleSend = useCallback(async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || loading) return;
+
+    if (phase === 'idle') setPhase('chatting');
+
+    setInput('');
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+
+    const userMsg: Msg = { id: `u-${Date.now()}`, role: 'user', content: trimmed, timestamp: Date.now() };
+    const aiId = `a-${Date.now()}`;
+    const aiMsg: Msg = { id: aiId, role: 'assistant', content: '', timestamp: Date.now() };
+
+    setMsgs(prev => [...prev, userMsg, aiMsg]);
+    setLoading(true);
+    isScrolledUpRef.current = false;
+
+    const final = await streamWithRAG(
+      trimmed,
+      historyRef.current,
+      undefined,
+      'Jazzify',
+      (acc) => setMsgs(prev => prev.map(m => m.id === aiId ? { ...m, content: acc } : m)),
+    );
+
+    historyRef.current = [
+      ...historyRef.current,
+      { role: 'user', content: trimmed },
+      { role: 'assistant', content: final },
+    ];
+
+    setLoading(false);
+  }, [loading, phase]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend(input);
+    }
+  }, [handleSend, input]);
 
   return (
-    <Container>
-      <ToolBtn onClick={() => navigate('/lick-input')}>Lick JSON Tool</ToolBtn>
-      <LogoImg src="/JAZZIFY.jpg" alt="Jazzify" />
+    <Wrapper $phase={phase}>
+      {/* Top spacer pushes intro to vertical center in idle */}
+      <Spacer $phase={phase} />
 
-      <CardRow>
-        <Card onClick={() => navigate('/chord')}>
-          <CardIcon>&#119070;</CardIcon>
-          <CardText>
-            <CardTitle>Chord Analysis</CardTitle>
-            <CardDesc>ii-V-I, secondary dominants</CardDesc>
-          </CardText>
-        </Card>
+      {/* Intro greeting */}
+      <Intro $phase={phase}>
+        <Greeting>오늘은 무슨 이야기를 할까요?</Greeting>
+        <Subtitle>화성학, 재즈 이론, 코드 진행에 대해 물어보세요</Subtitle>
+      </Intro>
 
-        <Card onClick={() => navigate('/note')}>
-          <CardIcon>&#9835;</CardIcon>
-          <CardText>
-            <CardTitle>Note Analysis</CardTitle>
-            <CardDesc>Melody, voicing, rhythm</CardDesc>
-          </CardText>
-        </Card>
+      {/* Chat messages */}
+      <MessagesArea $phase={phase} ref={messagesAreaRef} onScroll={handleScroll}>
+        <MessagesInner>
+          {msgs.map(msg => (
+            <ChatMessage key={msg.id} message={msg} />
+          ))}
+          <div ref={endRef} />
+        </MessagesInner>
+      </MessagesArea>
 
-        <Card onClick={() => navigate('/licks')}>
-          <CardIcon>&#127927;</CardIcon>
-          <CardText>
-            <CardTitle>Lick Database</CardTitle>
-            <CardDesc>8,000+ jazz licks from WJD</CardDesc>
-          </CardText>
-        </Card>
+      {/* Bottom: input + tools */}
+      <Bottom $phase={phase}>
+        <InputBox>
+          <InputRow>
+            <Textarea
+              ref={textareaRef}
+              rows={1}
+              value={input}
+              onChange={handleInput}
+              onKeyDown={handleKeyDown}
+              placeholder="무엇이든 물어보세요"
+              disabled={loading}
+            />
+            <SendBtn $active={input.trim().length > 0 && !loading} onClick={() => handleSend(input)}>
+              ↑
+            </SendBtn>
+          </InputRow>
+        </InputBox>
 
-        <Card onClick={() => navigate('/input')}>
-          <CardIcon>&#128196;</CardIcon>
-          <CardText>
-            <CardTitle>악보 인식</CardTitle>
-            <CardDesc>PDF / 이미지 → 자동 분석</CardDesc>
-          </CardText>
-        </Card>
-      </CardRow>
-    </Container>
+        <ToolRow>
+          {TOOLS.map(t => (
+            <ToolChip key={t.path} onClick={() => navigate(t.path)}>
+              <span>{t.icon}</span>
+              {t.label}
+            </ToolChip>
+          ))}
+        </ToolRow>
+
+        <Disclaimer>Jazzify AI · 화성학 전문 어시스턴트</Disclaimer>
+      </Bottom>
+    </Wrapper>
   );
 }

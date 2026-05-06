@@ -52,4 +52,9 @@ export interface ChatMessage {
   content: string;
   timestamp: number;
   relatedChordIds?: string[];
+  selectedChords?: ChordOverlay[];
+  /** 릭 추천 메시지일 때 매칭된 릭 목록 (LickMatch[]이지만 순환 참조 방지로 any) */
+  lickMatches?: import('../lib/lickMatcher').LickMatch[];
+  savedLickMatches?: import('../lib/lickMatcher').LickMatch[];
+  lickProgressionLabel?: string;
 }

@@ -1,4 +1,5 @@
 import type { LeadSheetData } from '../../data/leadSheetTypes';
+import { withLeadSheetSelectionIds } from '../leadSheetSelection';
 
 export interface SongEntry {
   index: number;
@@ -14,7 +15,8 @@ let cachedIndex: SongEntry[] | null = null;
 async function ensureLoaded(): Promise<LeadSheetData[]> {
   if (cachedSongs) return cachedSongs;
   const response = await fetch('/jazz1460.json');
-  cachedSongs = (await response.json()) as LeadSheetData[];
+  const rawSongs = (await response.json()) as LeadSheetData[];
+  cachedSongs = rawSongs.map((song, index) => withLeadSheetSelectionIds(song, `jazz-${index}`));
   return cachedSongs;
 }
 

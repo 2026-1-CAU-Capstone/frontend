@@ -79,6 +79,9 @@ interface MobileChatFabProps {
   groupExplanation?: string | null;
   songTitle: string;
   chordContext?: string;
+  isSelectionMode?: boolean;
+  onToggleSelectionMode?: () => void;
+  onClearSelectedChords?: () => void;
 }
 
 export function MobileChatFab({
@@ -86,6 +89,9 @@ export function MobileChatFab({
   groupExplanation = null,
   songTitle,
   chordContext,
+  isSelectionMode = false,
+  onToggleSelectionMode,
+  onClearSelectedChords,
 }: MobileChatFabProps) {
   const [open, setOpen] = useState(false);
 
@@ -115,6 +121,9 @@ export function MobileChatFab({
               groupExplanation={groupExplanation}
               songTitle={songTitle}
               chordContext={chordContext}
+              isSelectionMode={isSelectionMode}
+              onToggleSelectionMode={onToggleSelectionMode}
+              onClearSelectedChords={onClearSelectedChords}
             />
           </ChatArea>
         </Overlay>

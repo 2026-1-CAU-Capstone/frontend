@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent } from 'react';
 import styled from 'styled-components';
 import type {
   LeadSheetData,
@@ -22,9 +22,9 @@ import { mq } from '../../styles/theme';
 const BARLINE_PAD  = 18;  // px — left padding reserved for barline decoration
 const BAR_H        = 78;  // px — row height (snug around chord content)
 const BARLINE_GAP  = 6;   // px — vertical inset at top/bottom of each barline
-const ROW_GAP      = 46;  // px — space between rows (extra room for bigger labels)
-const SECTION_GAP  = 20;  // px — extra space before a new section (A, B, …)
-const LABEL_OFFSET = 26;  // px — how far the section label floats above the grid
+const ROW_GAP      = 64;  // px — space between rows (extra room for bigger labels)
+const SECTION_GAP  = 36;  // px — extra space before a new section (A, B, …)
+const LABEL_OFFSET = 42;  // px — how far the section label floats above the grid
 const CHORD_FONT   = "'MuseJazz Text', 'Oswald', 'DM Sans', sans-serif";
 const LABEL_FONT   = "'DM Sans', 'Pretendard', sans-serif"; // gothic for A/B labels
 
@@ -691,7 +691,11 @@ function resolveRepeats(data: LeadSheetData): LeadSheetData {
 
         // Single isRepeat in a bar = bar repeat (copy entire previous bar)
         if (bar.chords.length === 1 && bar.chords[0].isRepeat && snapshotPrevBar.length > 0) {
-          const copied = snapshotPrevBar.map(({ isRepeat: _, id: __, ...rest }) => rest);
+          const repeatId = bar.chords[0].id;
+          const copied = snapshotPrevBar.map(({ isRepeat: _, ...rest }, index) => ({
+            ...rest,
+            id: repeatId ? `${repeatId}-r${index + 1}` : rest.id,
+          }));
           // Don't update prevBar — next bar repeat should copy the same source
           prevChord = copied[copied.length - 1] ?? null;
           return { ...bar, chords: copied };
@@ -699,8 +703,8 @@ function resolveRepeats(data: LeadSheetData): LeadSheetData {
         // Otherwise resolve individual repeat chords
         const chords = bar.chords.map((chord) => {
           if (chord.isRepeat && prevChord) {
-            const { isRepeat: _, id: __, ...rest } = prevChord;
-            return rest;
+            const { isRepeat: _, ...rest } = prevChord;
+            return { ...rest, id: chord.id ?? rest.id };
           }
           if (!chord.isRepeat) prevChord = chord;
           return chord;
@@ -723,7 +727,7 @@ const FUNC_COLORS: Record<string, string> = {
   D:  '#E64A19',  // orange — Dominant
 };
 
-const ChordColumn = styled.div<{ $selected?: boolean }>`
+const ChordColumn = styled.div<{ $selected?: boolean; $selectable?: boolean }>`
   position: relative;
   display: inline-flex;
   align-items: flex-end;
@@ -732,6 +736,9 @@ const ChordColumn = styled.div<{ $selected?: boolean }>`
   /* Add selection highlight UI */
   background: ${({ $selected }) => $selected ? 'rgba(45, 143, 94, 0.15)' : 'transparent'};
   border-radius: 4px;
+  cursor: ${({ $selectable }) => $selectable ? 'crosshair' : 'default'};
+  touch-action: ${({ $selectable }) => $selectable ? 'none' : 'auto'};
+  user-select: none;
 `;
 
 const DegreeLabel = styled.span<{ $color: string; $size?: ChordSize }>`
@@ -822,21 +829,52 @@ const MIBandText = styled.span<{ $size?: ChordSize }>`
 
 /* ─── ChordSymbol ─────────────────────────────────────────────────────────── */
 
+export interface LeadSheetChordSelection {
+  id: string;
+  chordKey: string;
+  chord: LeadSheetChord;
+  measureNumber: number;
+  systemIndex: number;
+  barIndex: number;
+  chordIndex: number;
+  order: number;
+}
+
 interface ChordSymbolProps {
   chord: LeadSheetChord;
   size?: ChordSize;
   systemIndex: number;
   chordKey: string;
+  selectionTarget?: LeadSheetChordSelection;
   registerEl?: (id: string, el: HTMLSpanElement | null) => void;
   showDegree?: boolean;
   showColors?: boolean;
   showIIVI?: boolean;
   onModalClick?: (chord: LeadSheetChord) => void;
   onClick?: () => void;
+  onSelectionPointerDown?: (target: LeadSheetChordSelection, event: PointerEvent<HTMLDivElement>) => void;
+  onSelectionPointerEnter?: (target: LeadSheetChordSelection) => void;
   selected?: boolean;
+  selectionMode?: boolean;
 }
 
-function ChordSymbol({ chord, size = 'full', systemIndex, chordKey, registerEl, showDegree = true, showColors = true, showIIVI = true, onModalClick, onClick, selected }: ChordSymbolProps) {
+function ChordSymbol({
+  chord,
+  size = 'full',
+  systemIndex,
+  chordKey,
+  selectionTarget,
+  registerEl,
+  showDegree = true,
+  showColors = true,
+  showIIVI = true,
+  onModalClick,
+  onClick,
+  onSelectionPointerDown,
+  onSelectionPointerEnter,
+  selected,
+  selectionMode = false,
+}: ChordSymbolProps) {
   const isNonDiatonic = showColors && chord.isDiatonic === false;
   const isModal = showColors && !!chord.analysis?.modalInterchange;
   const analysis = chord.analysis;
@@ -867,7 +905,13 @@ function ChordSymbol({ chord, size = 'full', systemIndex, chordKey, registerEl, 
   const miDegree = isModal ? chord.analysis?.modalInterchange?.borrowedDegree : null;
 
   return (
-    <ChordColumn $selected={selected} onClick={onClick}>
+    <ChordColumn
+      $selected={selected}
+      $selectable={selectionMode}
+      onClick={selectionMode ? undefined : onClick}
+      onPointerDown={selectionMode && selectionTarget ? (event) => onSelectionPointerDown?.(selectionTarget, event) : undefined}
+      onPointerEnter={selectionMode && selectionTarget ? () => onSelectionPointerEnter?.(selectionTarget) : undefined}
+    >
       {degreeText && (
         <DegreeLabel $color={fnColor} $size={size}>{degreeText}</DegreeLabel>
       )}
@@ -892,7 +936,7 @@ function ChordSymbol({ chord, size = 'full', systemIndex, chordKey, registerEl, 
             if (chord.id) registerEl(chord.id, el);
           }
         }}
-        onClick={isModal && onModalClick ? (e) => { e.stopPropagation(); onModalClick(chord); } : undefined}
+        onClick={!selectionMode && isModal && onModalClick ? (e) => { e.stopPropagation(); onModalClick(chord); } : undefined}
       >
         <Root $size={size}>{chord.root}</Root>
 
@@ -992,8 +1036,13 @@ interface SystemRowProps {
   showColors?: boolean;
   showIIVI?: boolean;
   onModalClick?: (chord: LeadSheetChord) => void;
-  onChordClick?: (chord: LeadSheetChord, measureNumber: number) => void;
+  onChordClick?: (chord: LeadSheetChord, measureNumber: number, target?: LeadSheetChordSelection) => void;
+  onSelectionPointerDown?: (target: LeadSheetChordSelection, event: PointerEvent<HTMLDivElement>) => void;
+  onSelectionPointerEnter?: (target: LeadSheetChordSelection) => void;
   selectedChordIds?: string[];
+  dragPreviewChordIds?: string[];
+  selectionTargetByKey?: Map<string, LeadSheetChordSelection>;
+  selectionMode?: boolean;
 }
 
 function SystemRowComponent({
@@ -1009,7 +1058,12 @@ function SystemRowComponent({
   showIIVI = true,
   onModalClick,
   onChordClick,
-  selectedChordIds
+  onSelectionPointerDown,
+  onSelectionPointerEnter,
+  selectedChordIds,
+  dragPreviewChordIds,
+  selectionTargetByKey,
+  selectionMode = false,
 }: SystemRowProps) {
   const [top, bot] = timeSignature.split('/');
 
@@ -1018,8 +1072,14 @@ function SystemRowComponent({
     system.hasRepeatStart   ? 'repeat-start'  :
     (isFirst || system.sectionLabel) ? 'section-start' : 'normal';
 
+  const isChordSelected = (target?: LeadSheetChordSelection, chord?: LeadSheetChord) => {
+    const id = target?.id ?? chord?.id;
+    if (!id) return false;
+    return !!selectedChordIds?.includes(id) || !!dragPreviewChordIds?.includes(id);
+  };
+
   return (
-    <SystemRow ref={(el) => registerSystemEl(systemIndex, el)} $sectionStart={!isFirst && !!system.sectionLabel}>
+    <SystemRow ref={(el) => registerSystemEl(systemIndex, el)} $sectionStart={!!system.sectionLabel}>
       {/* ── left meta (time sig, first row only) ── */}
       <LeftMeta>
         {isFirst && (
@@ -1066,6 +1126,30 @@ function SystemRowComponent({
           }
 
           const kind: LeftBarlineKind = i === 0 ? firstBarlineKind : 'normal';
+          const renderChordSymbol = (chord: LeadSheetChord, chordIndex: number) => {
+            const chordKey = `${systemIndex}-${i}-${chordIndex}`;
+            const target = selectionTargetByKey?.get(chordKey);
+            return (
+              <ChordSymbol
+                key={chordIndex}
+                chord={chord}
+                size={bar.chords.length === 4 ? 'four' : 'full'}
+                chordKey={chordKey}
+                selectionTarget={target}
+                systemIndex={systemIndex}
+                registerEl={registerChordEl}
+                showDegree={showDegree}
+                showColors={showColors}
+                showIIVI={showIIVI}
+                onModalClick={onModalClick}
+                onClick={() => onChordClick?.(chord, bar.measureNumber ?? -1, target)}
+                onSelectionPointerDown={onSelectionPointerDown}
+                onSelectionPointerEnter={onSelectionPointerEnter}
+                selected={isChordSelected(target, chord)}
+                selectionMode={selectionMode}
+              />
+            );
+          };
 
           return (
             <BarCell key={i}>
@@ -1090,7 +1174,7 @@ function SystemRowComponent({
                     <FourChordGrid>
                       {bar.chords.map((chord, j) => (
                         <FourChordSlot key={j}>
-                          <ChordSymbol key={j} chord={chord} size='four' chordKey={`${systemIndex}-${i}-${j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} showIIVI={showIIVI} onModalClick={onModalClick} onClick={() => onChordClick?.(chord, bar.measureNumber ?? -1)} selected={chord.id ? selectedChordIds?.includes(chord.id) : false} />
+                          {renderChordSymbol(chord, j)}
                         </FourChordSlot>
                       ))}
                     </FourChordGrid>
@@ -1102,7 +1186,7 @@ function SystemRowComponent({
                 // 1 chord: full bar, full size
                 if (s2.length === 0) {
                   return s1.map((chord, j) => (
-                    <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} showIIVI={showIIVI} onModalClick={onModalClick} onClick={() => onChordClick?.(chord, bar.measureNumber ?? -1)} selected={chord.id ? selectedChordIds?.includes(chord.id) : false} />
+                    renderChordSymbol(chord, j)
                   ));
                 }
                 // 2+ chords: two half-bar sections
@@ -1112,12 +1196,12 @@ function SystemRowComponent({
                   <BarSections>
                     <SectionSlot $squeeze={s1.length > 1}>
                       {s1.map((chord, j) => (
-                        <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} showIIVI={showIIVI} onModalClick={onModalClick} onClick={() => onChordClick?.(chord, bar.measureNumber ?? -1)} selected={chord.id ? selectedChordIds?.includes(chord.id) : false} />
+                        renderChordSymbol(chord, j)
                       ))}
                     </SectionSlot>
                     <SectionSlot $squeeze={s2.length > 1}>
                       {s2.map((chord, j) => (
-                        <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${mid + j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} showIIVI={showIIVI} onModalClick={onModalClick} onClick={() => onChordClick?.(chord, bar.measureNumber ?? -1)} selected={chord.id ? selectedChordIds?.includes(chord.id) : false} />
+                        renderChordSymbol(chord, mid + j)
                       ))}
                     </SectionSlot>
                   </BarSections>
@@ -1151,8 +1235,13 @@ interface LeadSheetProps {
    * Pass -1 (or omit) to disable the playback highlight.
    */
   activeBar?: number;
-  onChordClick?: (chord: LeadSheetChord, measureNumber: number) => void;
+  onChordClick?: (chord: LeadSheetChord, measureNumber: number, target?: LeadSheetChordSelection) => void;
+  onChordRangeSelect?: (targets: LeadSheetChordSelection[], pos?: { x: number; y: number }) => void;
   selectedChordIds?: string[];
+  selectionMode?: boolean;
+  /** 저장된 릭이 있는 ii-V-I 시작 마디 번호 세트 */
+  savedLickBarNums?: Set<number>;
+  onSavedLickBadgeClick?: (bar: number, x: number, y: number) => void;
 }
 
 interface ActiveBarRect {
@@ -1573,7 +1662,18 @@ function detectSecDomArrows(data: LeadSheetData): ArrowSpec[] {
   return specs;
 }
 
-export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1, onChordClick, selectedChordIds }: LeadSheetProps) {
+export function LeadSheet({
+  data,
+  analysisFilters,
+  showAnalysis,
+  activeBar = -1,
+  onChordClick,
+  onChordRangeSelect,
+  selectedChordIds,
+  selectionMode = false,
+  savedLickBarNums,
+  onSavedLickBadgeClick,
+}: LeadSheetProps) {
   // Resolve filters: prefer analysisFilters, fall back to legacy showAnalysis prop
   const af = analysisFilters ?? (showAnalysis === false
     ? { showAnalysis: false, showDegree: false, showIIVI: false, showArrows: false, showColors: false }
@@ -1662,6 +1762,135 @@ export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1,
 
   // The effective scale: in fullscreen use fitScale, otherwise use zoom
   const effectiveScale = isFullscreen ? fitScale : isCompactLayout ? 1 : zoom / 100;
+
+  const selectionTargets = useMemo<LeadSheetChordSelection[]>(() => {
+    const targets: LeadSheetChordSelection[] = [];
+
+    resolvedData.systems.forEach((system, systemIndex) => {
+      system.bars.forEach((bar, barIndex) => {
+        bar.chords.forEach((chord, chordIndex) => {
+          if (!chord.root) return;
+          const chordKey = `${systemIndex}-${barIndex}-${chordIndex}`;
+          targets.push({
+            id: chord.id ?? chordKey,
+            chordKey,
+            chord,
+            measureNumber: bar.measureNumber ?? targets.length + 1,
+            systemIndex,
+            barIndex,
+            chordIndex,
+            order: targets.length,
+          });
+        });
+      });
+    });
+
+    return targets;
+  }, [resolvedData]);
+
+  const selectionTargetByKey = useMemo(() => {
+    const map = new Map<string, LeadSheetChordSelection>();
+    selectionTargets.forEach((target) => {
+      map.set(target.chordKey, target);
+      map.set(target.id, target);
+    });
+    return map;
+  }, [selectionTargets]);
+
+  const dragStartTargetRef = useRef<LeadSheetChordSelection | null>(null);
+  const dragCurrentTargetRef = useRef<LeadSheetChordSelection | null>(null);
+  const clickAnchorTargetRef = useRef<LeadSheetChordSelection | null>(null);
+  const dragMovedRef = useRef(false);
+  const draggingSelectionRef = useRef(false);
+  const [draggingSelection, setDraggingSelection] = useState(false);
+  const [dragPreviewChordIds, setDragPreviewChordIds] = useState<string[]>([]);
+
+  const getSelectionRange = (start: LeadSheetChordSelection, end: LeadSheetChordSelection) => {
+    const from = Math.min(start.order, end.order);
+    const to = Math.max(start.order, end.order);
+    return selectionTargets.filter((target) => target.order >= from && target.order <= to);
+  };
+
+  const handleSelectionPointerDown = (target: LeadSheetChordSelection, event: PointerEvent<HTMLDivElement>) => {
+    if (!selectionMode) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dragStartTargetRef.current = target;
+    dragCurrentTargetRef.current = target;
+    dragMovedRef.current = false;
+    draggingSelectionRef.current = true;
+    setDraggingSelection(true);
+    setDragPreviewChordIds([target.id]);
+  };
+
+  const handleSelectionPointerEnter = (target: LeadSheetChordSelection) => {
+    if (!draggingSelectionRef.current || !dragStartTargetRef.current) return;
+    dragCurrentTargetRef.current = target;
+    if (target.id !== dragStartTargetRef.current.id) dragMovedRef.current = true;
+    setDragPreviewChordIds(getSelectionRange(dragStartTargetRef.current, target).map((item) => item.id));
+  };
+
+  useEffect(() => {
+    if (!draggingSelection) return;
+
+    const handlePointerUp = (e: PointerEvent) => {
+      if (!draggingSelectionRef.current) return;
+      draggingSelectionRef.current = false;
+      const start = dragStartTargetRef.current;
+      const end = dragCurrentTargetRef.current ?? start;
+      if (start && end) {
+        if (dragMovedRef.current) {
+          clickAnchorTargetRef.current = start;
+          onChordRangeSelect?.(getSelectionRange(start, end), { x: e.clientX, y: e.clientY });
+        } else {
+          const anchor = clickAnchorTargetRef.current;
+          const selectedIdSet = new Set(selectedChordIds ?? []);
+
+          if (selectedIdSet.has(start.id)) {
+            const remainingTargets = selectionTargets.filter((target) =>
+              selectedIdSet.has(target.id) && target.order < start.order
+            );
+            clickAnchorTargetRef.current = remainingTargets[0] ?? null;
+            onChordRangeSelect?.(remainingTargets);
+          } else if (!anchor || !selectedChordIds?.length) {
+            clickAnchorTargetRef.current = start;
+            onChordClick?.(start.chord, start.measureNumber, start);
+          } else {
+            onChordRangeSelect?.(getSelectionRange(anchor, start), { x: e.clientX, y: e.clientY });
+          }
+        }
+      }
+
+      dragStartTargetRef.current = null;
+      dragCurrentTargetRef.current = null;
+      dragMovedRef.current = false;
+      setDraggingSelection(false);
+      setDragPreviewChordIds([]);
+    };
+
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+    return () => {
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+  }, [draggingSelection, onChordClick, onChordRangeSelect, selectedChordIds, selectionTargets]);
+
+  useEffect(() => {
+    if (selectionMode) return;
+    dragStartTargetRef.current = null;
+    dragCurrentTargetRef.current = null;
+    clickAnchorTargetRef.current = null;
+    dragMovedRef.current = false;
+    draggingSelectionRef.current = false;
+    setDraggingSelection(false);
+    setDragPreviewChordIds([]);
+  }, [selectionMode]);
+
+  useEffect(() => {
+    if (selectedChordIds?.length) return;
+    clickAnchorTargetRef.current = null;
+  }, [selectedChordIds]);
 
   const systemElsRef = useRef<Record<number, HTMLDivElement | null>>({});
   const gridElsRef = useRef<Record<number, HTMLDivElement | null>>({});
@@ -2226,7 +2455,12 @@ export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1,
             showIIVI={af.showIIVI}
             onModalClick={setMiPopupChord}
             onChordClick={onChordClick}
+            onSelectionPointerDown={handleSelectionPointerDown}
+            onSelectionPointerEnter={handleSelectionPointerEnter}
             selectedChordIds={selectedChordIds}
+            dragPreviewChordIds={dragPreviewChordIds}
+            selectionTargetByKey={selectionTargetByKey}
+            selectionMode={selectionMode}
           />
         ))}
 
@@ -2258,11 +2492,53 @@ export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1,
                 borderRadius: hlBorderRadius(hl.rowPosition),
                 ...hlHoverBorder(hl.rowPosition, isHovered),
                 cursor: 'pointer',
+                pointerEvents: selectionMode ? 'none' : 'auto',
                 zIndex: 3,
               }}
             />
           );
         })}
+
+        {/* ── 저장된 릭 ★ 뱃지 — ii-V-I 하이라이트 첫 코드 위 ── */}
+        {savedLickBarNums && savedLickBarNums.size > 0 && highlights
+          .filter((hl) => hl.rowPosition === 'only' || hl.rowPosition === 'first')
+          .map((hl) => {
+            const bar = resolvedData.systems
+              .flatMap((sys) => sys.bars)
+              .find((b) => {
+                const chord = b.chords[0];
+                return chord && savedLickBarNums.has(b.measureNumber ?? -1);
+              });
+            if (!bar) return null;
+            return (
+              <div
+                key={`saved-badge-${hl.key}`}
+                onClick={(e) => onSavedLickBadgeClick?.(bar.measureNumber ?? -1, e.clientX, e.clientY)}
+                title="저장된 릭 보기"
+                style={{
+                  position: 'absolute',
+                  left: hl.x + hl.width / 2,
+                  top: hl.y - 20,
+                  transform: 'translateX(-50%)',
+                  background: '#B8860B',
+                  color: '#fff',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  padding: '1px 5px',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  zIndex: 10,
+                  pointerEvents: 'auto',
+                  userSelect: 'none',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                ★ 저장 릭
+              </div>
+            );
+          })
+          .filter(Boolean)
+        }
 
         {/* ── 2-5-1 popup ── */}
         {activeTooltip && (
