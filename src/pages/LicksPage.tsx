@@ -190,7 +190,7 @@ const PianoRow = styled.div`
   display: flex;
   justify-content: center;
 
-  ${mq.mobile} {
+  ${mq.compactLayout} {
     display: none;
   }
 `;
@@ -231,7 +231,7 @@ const RightPanelWrapper = styled.div<{ $width: number }>`
   flex-shrink: 0;
   display: flex;
 
-  ${mq.mobile} {
+  ${mq.compactLayout} {
     display: none;
   }
 `;
@@ -501,6 +501,12 @@ export default function LicksPage() {
     const fuzzyIntervals = intervals.map(toFuzzy);
     const durationClasses = pitched.map((n) => durationClass(n.duration, n.dotted));
 
+    // Convert display key ("Bb", "Gm") to LickEntry format ("Bb-maj", "G-min")
+    const rawKey = data.key ?? 'C';
+    const lickKey = rawKey.endsWith('m') && rawKey.length > 1
+      ? rawKey.slice(0, -1) + '-min'
+      : rawKey + '-maj';
+
     const newLick: LickEntry = {
       id: -(Date.now()),
       performer: 'Me',
@@ -508,12 +514,12 @@ export default function LicksPage() {
       instrument: 'piano',
       style: 'custom',
       tempo: data.tempo ?? 120,
-      key: 'C-maj',
+      key: lickKey,
       rhythmfeel: 'straight',
       tag: 'user-created',
       chords: [],
       nEvents: noteCount,
-      label: 'My Custom Lick',
+      label: `My Custom Lick (${rawKey})`,
       sheetData: data,
       intervals,
       parsons,

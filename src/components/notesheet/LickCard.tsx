@@ -812,15 +812,110 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
       }
     }
 
-    // Draw glissando lines
+    // Draw glissando lines + ghost note parentheses + 8va brackets
     const svg = el.querySelector('svg');
     if (svg) {
       flatIdx = 0;
+      let ottavaActive: '8va' | '8vb' | null = null;
+      let ottavaStartX = 0;
+      let ottavaY = 0;
+
       for (const measure of data.measures) {
         for (let ni = 0; ni < measure.notes.length; ni++) {
-          if (measure.notes[ni].gliss && allVfNotes[flatIdx + 1]) {
-            drawGlissLine(svg as SVGElement, allVfNotes[flatIdx], allVfNotes[flatIdx + 1]);
+          const noteInfo = measure.notes[ni];
+          const vfNote = allVfNotes[flatIdx];
+
+          // ── Glissando ──
+          if (noteInfo.gliss && allVfNotes[flatIdx + 1]) {
+            drawGlissLine(svg as SVGElement, vfNote, allVfNotes[flatIdx + 1]);
           }
+
+          // ── Ghost note: draw ( ) parentheses around note head ──
+          if (noteInfo.ghost && vfNote && !noteInfo.duration.endsWith('r')) {
+            const noteEl = vfNote.getSVGElement?.() as SVGElement | undefined;
+            if (noteEl) {
+              const bbox = noteEl.getBBox?.();
+              if (bbox) {
+                const PAD = 3;
+                const cx = bbox.x - PAD;
+                const cy = bbox.y + bbox.height / 2;
+                const h = bbox.height * 0.55;
+                const bulge = 5;
+                // left paren
+                const lp = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                lp.setAttribute('d', `M${cx} ${cy - h} Q${cx - bulge} ${cy} ${cx} ${cy + h}`);
+                lp.setAttribute('fill', 'none');
+                lp.setAttribute('stroke', '#555');
+                lp.setAttribute('stroke-width', '1.5');
+                svg.appendChild(lp);
+                // right paren
+                const rx2 = bbox.x + bbox.width + PAD;
+                const rp = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                rp.setAttribute('d', `M${rx2} ${cy - h} Q${rx2 + bulge} ${cy} ${rx2} ${cy + h}`);
+                rp.setAttribute('fill', 'none');
+                rp.setAttribute('stroke', '#555');
+                rp.setAttribute('stroke-width', '1.5');
+                svg.appendChild(rp);
+              }
+            }
+          }
+
+          // ── 8va bracket start ──
+          if (noteInfo.ottavaStart && vfNote) {
+            const noteEl = vfNote.getSVGElement?.() as SVGElement | undefined;
+            if (noteEl) {
+              const bbox = noteEl.getBBox?.();
+              if (bbox) {
+                ottavaActive = noteInfo.ottavaStart;
+                ottavaStartX = bbox.x;
+                ottavaY = bbox.y - 10;
+              }
+            }
+          }
+
+          // ── 8va bracket end ──
+          if (noteInfo.ottavaEnd && ottavaActive && vfNote) {
+            const noteEl = vfNote.getSVGElement?.() as SVGElement | undefined;
+            if (noteEl) {
+              const bbox = noteEl.getBBox?.();
+              if (bbox) {
+                const endX = bbox.x + bbox.width;
+                const y = ottavaY;
+                const label = ottavaActive;
+                // dashed horizontal line
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', String(ottavaStartX + 28));
+                line.setAttribute('y1', String(y));
+                line.setAttribute('x2', String(endX + 4));
+                line.setAttribute('y2', String(y));
+                line.setAttribute('stroke', '#333');
+                line.setAttribute('stroke-width', '1.2');
+                line.setAttribute('stroke-dasharray', '4,3');
+                svg.appendChild(line);
+                // label text
+                const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                txt.setAttribute('x', String(ottavaStartX));
+                txt.setAttribute('y', String(y + 3));
+                txt.setAttribute('font-family', 'Times New Roman, serif');
+                txt.setAttribute('font-style', 'italic');
+                txt.setAttribute('font-size', '11');
+                txt.setAttribute('fill', '#333');
+                txt.textContent = label;
+                svg.appendChild(txt);
+                // end tick
+                const tick = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                tick.setAttribute('x1', String(endX + 4));
+                tick.setAttribute('y1', String(y));
+                tick.setAttribute('x2', String(endX + 4));
+                tick.setAttribute('y2', String(y + 8));
+                tick.setAttribute('stroke', '#333');
+                tick.setAttribute('stroke-width', '1.2');
+                svg.appendChild(tick);
+                ottavaActive = null;
+              }
+            }
+          }
+
           flatIdx++;
         }
       }

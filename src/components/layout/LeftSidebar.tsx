@@ -1,5 +1,6 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TocEntry } from '../../data/types';
+import { useCompactLayout } from '../../hooks/useCompactLayout';
 import {
   SidebarWrapper,
   SidebarContainer,
@@ -7,7 +8,9 @@ import {
   ResizeHandle,
   ReopenTab,
   SidebarSection,
+  SidebarTitleRow,
   SidebarTitle,
+  CollapseButton,
   MenuItem,
   TocList,
   TocItem,
@@ -23,9 +26,14 @@ interface LeftSidebarProps {
 }
 
 export function LeftSidebar({ toc, activePage, onPageSelect }: LeftSidebarProps) {
-  const [width, setWidth] = useState(DEFAULT_WIDTH);
+  const isCompactLayout = useCompactLayout();
+  const [width, setWidth] = useState(() => (isCompactLayout ? 0 : DEFAULT_WIDTH));
   const handleRef = useRef<HTMLDivElement>(null);
   const open = width > 0;
+
+  useEffect(() => {
+    setWidth(isCompactLayout ? 0 : DEFAULT_WIDTH);
+  }, [isCompactLayout]);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -60,7 +68,12 @@ export function LeftSidebar({ toc, activePage, onPageSelect }: LeftSidebarProps)
           <>
             <SidebarContainer>
               <SidebarSection>
-                <SidebarTitle>메뉴</SidebarTitle>
+                <SidebarTitleRow>
+                  <SidebarTitle>메뉴</SidebarTitle>
+                  <CollapseButton onClick={() => setWidth(0)} title="사이드바 숨기기">
+                    ◂
+                  </CollapseButton>
+                </SidebarTitleRow>
                 <MenuItem>📚 라이브러리</MenuItem>
                 <MenuItem>⭐ 라이브러리에서 제거</MenuItem>
                 <MenuItem>👥 친구 추천하기</MenuItem>

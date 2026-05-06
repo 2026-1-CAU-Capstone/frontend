@@ -3,7 +3,8 @@ import type { ChatMessage as ChatMessageType, ChordOverlay } from '../../data/ty
 import { ChatMessage } from '../chat/ChatMessage';
 import { ChatInput } from '../chat/ChatInput';
 import { AnalysisCard } from '../chat/AnalysisCard';
-import { streamClaudeMessage, type ClaudeMessage } from '../../api/claude';
+import { type ClaudeMessage } from '../../api/claude';
+import { streamWithRAG } from '../../api/harmorag';
 import {
   PanelContainer,
   PanelHeader,
@@ -51,10 +52,11 @@ export function RightChatPanel({
     setMessages((prev) => [...prev, userMsg, aiMsg]);
     setLoading(true);
 
-    const finalText = await streamClaudeMessage(
+    const finalText = await streamWithRAG(
       text,
       historyRef.current,
       chordContext,
+      songTitle,
       (accumulated) => {
         setMessages((prev) =>
           prev.map((m) => (m.id === aiMsgId ? { ...m, content: accumulated } : m)),

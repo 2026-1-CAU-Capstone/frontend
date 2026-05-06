@@ -9,8 +9,10 @@ import { FullscreenButton, useFullscreen } from '../common/FullscreenButton';
 import { ZoomControls, useZoom } from '../common/ZoomControls';
 import { analyzeHarmony, formatKeyDisplay } from '../../lib/harmonyAnalyzer';
 import type { AnalysisFilters } from '../../hooks/useAnalysisFilters';
+import { useCompactLayout } from '../../hooks/useCompactLayout';
 import { getModalInterchangeTemplate } from '../../lib/modalInterchangeTemplates';
 import { ModalInterchangePopup } from './ModalInterchangePopup';
+import { mq } from '../../styles/theme';
 
 /* ─── constants ──────────────────────────────────────────────────────────────
  *  BARLINE_PAD = left padding reserved inside every bar cell for the barline.
@@ -136,8 +138,14 @@ const ViewerOuter = styled.div`
     padding: 0;
   }
 
-  @media (max-width: 960px) {
-    padding: 8px;
+  ${mq.compactLayout} {
+    justify-content: stretch;
+    padding: 0;
+    background: #fff;
+  }
+
+  ${mq.mobile} {
+    padding: 0;
   }
 `;
 
@@ -151,10 +159,24 @@ const Page = styled.div`
   font-family: ${CHORD_FONT};
   color: #000;
 
-  @media (max-width: 960px) {
-    padding: 20px 10px 28px;
-    border-radius: 0;
+  ${mq.compactLayout} {
+    min-height: 100%;
     box-shadow: none;
+    border-radius: 0;
+    padding: 24px 18px 34px;
+  }
+
+  ${mq.mobile} {
+    padding: 20px 10px 28px;
+  }
+`;
+
+const PageShell = styled.div`
+  width: 100%;
+
+  ${mq.compactLayout} {
+    min-height: 100%;
+    display: flex;
   }
 `;
 
@@ -314,9 +336,11 @@ const TimeSigDivider = styled.div`
 /* 4 equal columns. Barlines are absolute overlays so they never affect
    the column widths — this is what keeps chords vertically aligned.    */
 const BarsGrid = styled.div`
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  width: 100%;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   position: relative; /* anchor for SectionLabel */
 `;
 
@@ -383,9 +407,12 @@ const VoltaNumber = styled.span`
    cell, giving a uniform line length across every bar in the row.        */
 const BarCell = styled.div`
   position: relative;
+  min-width: 0;
   min-height: ${BAR_H}px;
   display: flex;
   align-items: center;
+  overflow: visible;
+  box-sizing: border-box;
   padding: 0 6px 0 ${BARLINE_PAD}px;
 
   @media (max-width: 960px) {
@@ -482,9 +509,31 @@ function splitSections(chords: LeadSheetChord[]): [LeadSheetChord[], LeadSheetCh
 /* Two equal columns, one per section */
 const BarSections = styled.div`
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: center;
+  min-width: 0;
   width: 100%;
+`;
+
+const FourChordGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: center;
+  min-width: 0;
+  width: 100%;
+  transform: translateX(-8px);
+`;
+
+const FourChordSlot = styled.div`
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  min-width: 0;
+  overflow: visible;
+
+  &:nth-child(n + 3) {
+    transform: translateX(10px);
+  }
 `;
 
 /* One section slot: when 2 chords share a half-bar, use grid to give
@@ -492,18 +541,23 @@ const BarSections = styled.div`
 const SectionSlot = styled.div<{ $squeeze?: boolean }>`
   display: ${({ $squeeze }) => $squeeze ? 'grid' : 'flex'};
   ${({ $squeeze }) => $squeeze
-    ? 'grid-template-columns: 1fr 1fr; transform: scaleX(0.88); transform-origin: left center; & > :nth-child(2) { padding-left: 20px; }'
+    ? 'grid-template-columns: repeat(2, minmax(0, 1fr)); transform: scaleX(0.88); transform-origin: left center; & > :nth-child(2) { padding-left: 20px; }'
     : 'gap: 3px;'}
   align-items: flex-end;
+  min-width: 0;
+  overflow: visible;
 `;
 
 /* ─── chord symbol ───────────────────────────────────────────────────────── */
 
-const ChordWrap = styled.span<{ $nonDiatonic?: boolean; $modal?: boolean }>`
+const ChordWrap = styled.span<{ $nonDiatonic?: boolean; $modal?: boolean; $size?: ChordSize }>`
   position: relative;
   display: inline-flex;
   align-items: flex-end;
   line-height: 1;
+  z-index: 2;
+  transform: ${({ $size }) => ($size === 'four' ? 'scaleX(0.78)' : 'none')};
+  transform-origin: left bottom;
   color: ${({ $nonDiatonic, $modal }) =>
     $modal       ? '#7B3FB0' :
     $nonDiatonic ? '#c62828' : '#000'};
@@ -514,43 +568,17 @@ const ChordWrap = styled.span<{ $nonDiatonic?: boolean; $modal?: boolean }>`
   `}
 `;
 
-const HoverTip = styled.span`
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: #2a1a3a;
-  color: #fff;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.78rem;
-  font-weight: 500;
-  padding: 6px 10px;
-  border-radius: 6px;
-  white-space: nowrap;
-  pointer-events: none;
-  z-index: 50;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  letter-spacing: 0.01em;
-  &::after {
-    content: '';
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    border: 5px solid transparent;
-    border-top-color: #2a1a3a;
-  }
-`;
-
 /* $size controls chord symbol scale:
  *   'full'    — 1 chord fills the whole bar
  *   'split'   — 1 chord per half-bar (2-chord bar, each gets its own half)
- *   'compact' — 2 chords share one half-bar slot (3-4 chord bars)
+ *   'compact' — 2 chords share one half-bar slot
+ *   'four'    — 4 evenly-spaced chords in one bar
  * All sizes use clamp(min, X cqi, max) relative to the leadsheet container. */
-type ChordSize = 'full' | 'split' | 'compact';
+type ChordSize = 'full' | 'split' | 'compact' | 'four';
 
 const Root = styled.span<{ $size?: ChordSize }>`
   font-size: ${({ $size }) =>
+    $size === 'four'    ? 'clamp(1.45rem, 5.15cqi, 3.1rem)' :
     $size === 'compact' ? 'clamp(1.0rem, 3.7cqi, 2.2rem)' :
     $size === 'split'   ? 'clamp(1.2rem, 4.5cqi, 2.8rem)' :
                           'clamp(1.5rem, 5.8cqi, 3.5rem)'};
@@ -577,6 +605,7 @@ const AccTopSlot = styled.span`
 
 const Acc = styled.span<{ $size?: ChordSize }>`
   font-size: ${({ $size }) =>
+    $size === 'four'    ? 'clamp(0.8rem, 2.7cqi, 1.55rem)' :
     $size === 'compact' ? 'clamp(0.55rem, 1.9cqi, 1.1rem)' :
     $size === 'split'   ? 'clamp(0.65rem, 2.3cqi, 1.4rem)' :
                           'clamp(0.8rem,  3.0cqi, 1.8rem)'};
@@ -587,6 +616,7 @@ const Acc = styled.span<{ $size?: ChordSize }>`
 
 const Quality = styled.span<{ $size?: ChordSize }>`
   font-size: ${({ $size }) =>
+    $size === 'four'    ? 'clamp(0.88rem, 2.75cqi, 1.6rem)' :
     $size === 'compact' ? 'clamp(0.6rem,  1.8cqi, 1.1rem)' :
     $size === 'split'   ? 'clamp(0.75rem, 2.2cqi, 1.4rem)' :
                           'clamp(0.9rem,  2.9cqi, 1.7rem)'};
@@ -598,6 +628,7 @@ const Quality = styled.span<{ $size?: ChordSize }>`
 
 const TensionSpan = styled.span<{ $size?: ChordSize }>`
   font-size: ${({ $size }) =>
+    $size === 'four'    ? 'clamp(0.48rem, 1.55cqi, 0.95rem)' :
     $size === 'compact' ? 'clamp(0.35rem, 1.2cqi, 0.7rem)' :
     $size === 'split'   ? 'clamp(0.38rem, 1.3cqi, 0.85rem)' :
                           'clamp(0.45rem, 1.6cqi, 1.0rem)'};
@@ -610,6 +641,7 @@ const SlashBass = styled.span<{ $size?: ChordSize }>`
   left: 8px;
   top: 100%;
   font-size: ${({ $size }) =>
+    $size === 'four'    ? 'clamp(0.84rem, 2.45cqi, 1.45rem)' :
     $size === 'compact' ? 'clamp(0.6rem, 1.8cqi, 1.05rem)' :
     $size === 'split'   ? 'clamp(0.7rem, 2.1cqi, 1.2rem)' :
                           'clamp(0.8rem, 2.4cqi, 1.45rem)'};
@@ -695,6 +727,7 @@ const ChordColumn = styled.div`
   position: relative;
   display: inline-flex;
   align-items: flex-end;
+  min-width: 0;
 `;
 
 const DegreeLabel = styled.span<{ $color: string; $size?: ChordSize }>`
@@ -715,6 +748,74 @@ const DegreeLabel = styled.span<{ $color: string; $size?: ChordSize }>`
   white-space: nowrap;
 `;
 
+const IIVILabel = styled.span<{ $size?: ChordSize }>`
+  position: absolute;
+  left: 4px;
+  top: -24px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  font-size: ${({ $size }) =>
+    $size === 'compact' ? 'clamp(0.55rem, 1.5cqi, 0.7rem)' :
+    $size === 'split'   ? 'clamp(0.6rem,  1.6cqi, 0.78rem)' :
+                          'clamp(0.65rem, 1.7cqi, 0.85rem)'};
+  font-family: 'Noto Serif', 'Georgia', 'Times New Roman', serif;
+  font-weight: 700;
+  font-style: normal;
+  color: #1a1a1a;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  z-index: 3;
+  pointer-events: none;
+`;
+
+/* ── Modal interchange decoration: purple highlight + label band ───────── */
+const MIHighlight = styled.div`
+  position: absolute;
+  left: -8px;
+  right: -8px;
+  top: -26px;
+  bottom: -4px;
+  background: rgba(220, 180, 240, 0.18);
+  border: 2px solid rgba(123, 63, 176, 0.6);
+  box-sizing: border-box;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 0;
+`;
+
+const MIBand = styled.div`
+  position: absolute;
+  left: -6px;
+  right: -6px;
+  top: -24px;
+  height: 18px;
+  background: rgba(123, 63, 176, 0.55);
+  border-radius: 2px 2px 0 0;
+  pointer-events: none;
+  z-index: 1;
+`;
+
+const MIBandText = styled.span<{ $size?: ChordSize }>`
+  position: absolute;
+  left: 0;
+  top: -22px;
+  font-size: ${({ $size }) =>
+    $size === 'compact' ? 'clamp(0.55rem, 1.5cqi, 0.7rem)' :
+    $size === 'split'   ? 'clamp(0.6rem,  1.6cqi, 0.78rem)' :
+                          'clamp(0.65rem, 1.7cqi, 0.85rem)'};
+  font-family: 'Noto Serif', 'Georgia', 'Times New Roman', serif;
+  font-weight: 700;
+  font-style: italic;
+  color: #1a1a1a;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  z-index: 3;
+  pointer-events: none;
+`;
+
 /* ─── ChordSymbol ─────────────────────────────────────────────────────────── */
 
 interface ChordSymbolProps {
@@ -725,16 +826,24 @@ interface ChordSymbolProps {
   registerEl?: (id: string, el: HTMLSpanElement | null) => void;
   showDegree?: boolean;
   showColors?: boolean;
+  showIIVI?: boolean;
   onModalClick?: (chord: LeadSheetChord) => void;
 }
 
-function ChordSymbol({ chord, size = 'full', systemIndex, chordKey, registerEl, showDegree = true, showColors = true, onModalClick }: ChordSymbolProps) {
+function ChordSymbol({ chord, size = 'full', systemIndex, chordKey, registerEl, showDegree = true, showColors = true, showIIVI = true, onModalClick }: ChordSymbolProps) {
   const isNonDiatonic = showColors && chord.isDiatonic === false;
   const isModal = showColors && !!chord.analysis?.modalInterchange;
   const analysis = chord.analysis;
   const primaryFunc = analysis?.functions?.[0]?.function;
   const secDom = analysis?.secondaryDominant;
-  const degreeText = showDegree
+  // ii-V-I membership (variant !== 'incomplete' OR include incomplete? — only complete groups)
+  const iiviMembership = analysis?.groupMemberships?.find(
+    (g) => g.groupType === 'ii-V-I' && g.variant !== 'incomplete'
+  );
+  const iiviRole = iiviMembership?.role; // 'ii' | 'V' | 'I'
+  const showIIVILabel = showIIVI && !!iiviRole;
+  const isMIWithBand = showColors && !!chord.analysis?.modalInterchange?.borrowedDegree;
+  const degreeText = showDegree && !showIIVILabel && !isMIWithBand
     ? (secDom?.targetDegree ? `V/${secDom.targetDegree}` : analysis?.degree)
     : undefined;
   const fnColor = FUNC_COLORS[primaryFunc ?? ''] ?? '#888';
@@ -749,22 +858,27 @@ function ChordSymbol({ chord, size = 'full', systemIndex, chordKey, registerEl, 
 
   const hasQuality = !!(base || tensions);
 
-  const [hovered, setHovered] = useState(false);
-  const tipText = isModal && chord.analysis?.modalInterchange
-    ? getModalInterchangeTemplate(
-        chord.analysis.modalInterchange.sourceMode,
-        chord.analysis.modalInterchange.borrowedDegree,
-      ).short
-    : null;
+  const miDegree = isModal ? chord.analysis?.modalInterchange?.borrowedDegree : null;
 
   return (
     <ChordColumn>
       {degreeText && (
         <DegreeLabel $color={fnColor} $size={size}>{degreeText}</DegreeLabel>
       )}
+      {showIIVILabel && iiviRole && (
+        <IIVILabel $size={size}>{iiviRole}</IIVILabel>
+      )}
+      {isModal && miDegree && (
+        <>
+          <MIHighlight />
+          <MIBand />
+          <MIBandText $size={size}>{miDegree}</MIBandText>
+        </>
+      )}
       <ChordWrap
         $nonDiatonic={isNonDiatonic}
         $modal={isModal}
+        $size={size}
         data-system-index={systemIndex}
         ref={(el) => {
           if (registerEl) {
@@ -772,11 +886,8 @@ function ChordSymbol({ chord, size = 'full', systemIndex, chordKey, registerEl, 
             if (chord.id) registerEl(chord.id, el);
           }
         }}
-        onMouseEnter={isModal ? () => setHovered(true) : undefined}
-        onMouseLeave={isModal ? () => setHovered(false) : undefined}
         onClick={isModal && onModalClick ? () => onModalClick(chord) : undefined}
       >
-        {hovered && tipText && <HoverTip>{tipText}</HoverTip>}
         <Root $size={size}>{chord.root}</Root>
 
         {(accChar || hasQuality) && (
@@ -873,6 +984,7 @@ interface SystemRowProps {
   registerGridEl: (index: number, el: HTMLDivElement | null) => void;
   showDegree?: boolean;
   showColors?: boolean;
+  showIIVI?: boolean;
   onModalClick?: (chord: LeadSheetChord) => void;
 }
 
@@ -886,6 +998,7 @@ function SystemRowComponent({
   registerGridEl,
   showDegree = true,
   showColors = true,
+  showIIVI = true,
   onModalClick,
 }: SystemRowProps) {
   const [top, bot] = timeSignature.split('/');
@@ -962,12 +1075,24 @@ function SystemRowComponent({
 
               {/* Chord content */}
               {(() => {
+                if (bar.chords.length === 4) {
+                  return (
+                    <FourChordGrid>
+                      {bar.chords.map((chord, j) => (
+                        <FourChordSlot key={j}>
+                          <ChordSymbol key={j} chord={chord} size='four' chordKey={`${systemIndex}-${i}-${j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} showIIVI={showIIVI} onModalClick={onModalClick} />
+                        </FourChordSlot>
+                      ))}
+                    </FourChordGrid>
+                  );
+                }
+
                 const [s1, s2] = splitSections(bar.chords);
                 const mid = s1.length;
                 // 1 chord: full bar, full size
                 if (s2.length === 0) {
                   return s1.map((chord, j) => (
-                    <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} onModalClick={onModalClick} />
+                    <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} showIIVI={showIIVI} onModalClick={onModalClick} />
                   ));
                 }
                 // 2+ chords: two half-bar sections
@@ -977,12 +1102,12 @@ function SystemRowComponent({
                   <BarSections>
                     <SectionSlot $squeeze={s1.length > 1}>
                       {s1.map((chord, j) => (
-                        <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} onModalClick={onModalClick} />
+                        <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} showIIVI={showIIVI} onModalClick={onModalClick} />
                       ))}
                     </SectionSlot>
                     <SectionSlot $squeeze={s2.length > 1}>
                       {s2.map((chord, j) => (
-                        <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${mid + j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} onModalClick={onModalClick} />
+                        <ChordSymbol key={j} chord={chord} size='full' chordKey={`${systemIndex}-${i}-${mid + j}`} systemIndex={systemIndex} registerEl={registerChordEl} showDegree={showDegree} showColors={showColors} showIIVI={showIIVI} onModalClick={onModalClick} />
                       ))}
                     </SectionSlot>
                   </BarSections>
@@ -1266,7 +1391,9 @@ function detectIIVI(data: LeadSheetData): IIVISpan[] {
 
     let kind: 'major' | 'minor' | null = null;
     if (isMajorII(iiQ) && isMajorI(iQ)) kind = 'major';
-    if (isMinorII(iiQ) && isMinorI(iQ)) kind = 'minor';
+    else if (isMinorII(iiQ) && isMinorI(iQ)) kind = 'minor';
+    // ø7 → V7 → IMaj7: ø의 ♭5는 V7 얼터드 텐션과 같으므로 메이저 2-5-1로 허용
+    else if (isMinorII(iiQ) && isMajorI(iQ)) kind = 'major';
     if (!kind) continue;
 
     const tonicChord = groups[i + 2].chord;
@@ -1309,7 +1436,8 @@ function detectIIVI(data: LeadSheetData): IIVISpan[] {
         if ((pc2 - pc1 + 12) % 12 === 5) {
           let kind: 'major' | 'minor' | null = null;
           if (isMajorII(iiQ) && isMajorI(iQ)) kind = 'major';
-          if (isMinorII(iiQ) && isMinorI(iQ)) kind = 'minor';
+          else if (isMinorII(iiQ) && isMinorI(iQ)) kind = 'minor';
+          else if (isMinorII(iiQ) && isMajorI(iQ)) kind = 'major';
           if (kind) {
             const tonicChord = iGroup.chord;
             const tonicAcc = tonicChord.accidental === '#' ? '♯' : tonicChord.accidental === 'b' ? '♭' : '';
@@ -1357,7 +1485,8 @@ function detectIIVI(data: LeadSheetData): IIVISpan[] {
             if ((pc2 - pc1 + 12) % 12 === 5) {
               let kind: 'major' | 'minor' | null = null;
               if (isMajorII(iiQ) && isMajorI(iQ)) kind = 'major';
-              if (isMinorII(iiQ) && isMinorI(iQ)) kind = 'minor';
+              else if (isMinorII(iiQ) && isMinorI(iQ)) kind = 'minor';
+              else if (isMinorII(iiQ) && isMajorI(iQ)) kind = 'major';
               if (kind) {
                 const tc = repeatIGroup.chord;
                 const tcAcc = tc.accidental === '#' ? '♯' : tc.accidental === 'b' ? '♭' : '';
@@ -1441,6 +1570,7 @@ export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1 
   const outerRef = useRef<HTMLDivElement>(null);
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(outerRef);
   const { zoom, zoomIn, zoomOut, setZoomLevel } = useZoom(100);
+  const isCompactLayout = useCompactLayout();
 
   // Scroll to top when zoom changes
   useEffect(() => {
@@ -1519,7 +1649,7 @@ export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1 
   }, [isFullscreen, pageNaturalSize, viewportSize]);
 
   // The effective scale: in fullscreen use fitScale, otherwise use zoom
-  const effectiveScale = isFullscreen ? fitScale : zoom / 100;
+  const effectiveScale = isFullscreen ? fitScale : isCompactLayout ? 1 : zoom / 100;
 
   const systemElsRef = useRef<Record<number, HTMLDivElement | null>>({});
   const gridElsRef = useRef<Record<number, HTMLDivElement | null>>({});
@@ -1529,6 +1659,7 @@ export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1 
   const [brackets, setBrackets] = useState<ResolvedBracket[]>([]);
   const [highlights, setHighlights] = useState<HighlightRect[]>([]);
   const [activeBarRect, setActiveBarRect] = useState<ActiveBarRect | null>(null);
+  const [dividers, setDividers] = useState<{ key: string; x: number; y: number; height: number; orient: 'v' | 'h' }[]>([]);
   const [hoveredSpanKey, setHoveredSpanKey] = useState<string | null>(null);
   const [activeTooltip, setActiveTooltip] = useState<{ hl: HighlightRect; anchorX: number } | null>(null);
   const arrowSpecs = useMemo(() => detectSecDomArrows(resolvedData), [resolvedData]);
@@ -1541,6 +1672,7 @@ export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1 
       setArrows([]);
       setBrackets([]);
       setHighlights([]);
+      setDividers([]);
       return;
     }
 
@@ -1552,6 +1684,7 @@ export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1 
         setArrows([]);
         setBrackets([]);
         setHighlights([]);
+        setDividers([]);
         return;
       }
 
@@ -1578,17 +1711,18 @@ export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1 
 
         const sourceRect = sourceEl.getBoundingClientRect();
         const targetRect = targetEl.getBoundingClientRect();
-        const sourceSystemRect = sourceSystemEl.getBoundingClientRect();
-        const targetSystemRect = targetSystemEl.getBoundingClientRect();
 
-        const x1 = lx(sourceRect.left) + lw(sourceRect.width) * 0.52;
-        const y1 = ly(sourceRect.top) - 14;
-        const x2 = lx(targetRect.left) + lw(targetRect.width) * 0.38;
-        const y2 = ly(targetRect.top) - 14;
+        // Side-to-side: from right edge of source chord to left edge of target chord,
+        // slightly above mid-height of the chord row, with a small gap before target.
+        const x1 = lx(sourceRect.right) + 7;
+        const y1 = ly(sourceRect.top + sourceRect.height * 0.5) - 4;
+        const x2 = lx(targetRect.left) - 7;
+        const y2 = ly(targetRect.top + targetRect.height * 0.5) - 4;
 
         if (sourceSystemIndex === targetSystemIndex) {
           const cx = (x1 + x2) / 2;
-          const cy = Math.min(y1, y2) - 28;
+          // Pronounced upward bow above the chord row
+          const cy = Math.min(y1, y2) - 38;
           resolvedArrows.push({
             key: spec.key,
             segments: [{ d: `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`, markerEnd: true }],
@@ -1599,19 +1733,27 @@ export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1 
         const edgeInset = 24;
         const exitX = pageW - edgeInset;
         const entryX = edgeInset;
-        const sourceExitY = ly(sourceSystemRect.top) + 10;
-        const targetEntryY = ly(targetSystemRect.top) + 10;
-        const exitCx = x1 + (exitX - x1) * 0.55;
-        const entryCx = entryX + (x2 - entryX) * 0.45;
+        const sourceExitY = y1;   // exit at same chord-mid height
+        const targetEntryY = y2;
+        const exitCx = (x1 + exitX) / 2;
+        const entryCx = (entryX + x2) / 2;
+        const entryCy = y2 - 38;
+
+        // Right half of the entry curve only (split quadratic Bezier at t=0.5):
+        // start at the midpoint and use (control + end)/2 as the new control.
+        const entryMidX = (entryX + 2 * entryCx + x2) / 4;
+        const entryMidY = (targetEntryY + 2 * entryCy + y2) / 4;
+        const entryHalfCx = (entryCx + x2) / 2;
+        const entryHalfCy = (entryCy + y2) / 2;
 
         resolvedArrows.push({
           key: spec.key,
           segments: [
             {
-              d: `M ${x1} ${y1} Q ${exitCx} ${Math.min(y1, sourceExitY) - 28} ${exitX} ${sourceExitY}`,
+              d: `M ${x1} ${y1} Q ${exitCx} ${y1 - 38} ${exitX} ${sourceExitY}`,
             },
             {
-              d: `M ${entryX} ${targetEntryY} Q ${entryCx} ${Math.min(targetEntryY, y2) - 28} ${x2} ${y2}`,
+              d: `M ${entryMidX} ${entryMidY} Q ${entryHalfCx} ${entryHalfCy} ${x2} ${y2}`,
               markerEnd: true,
             },
           ],
@@ -1644,7 +1786,10 @@ export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1 
 
       /* ── ii-V-I highlight bands ── */
       const resolvedHighlights: HighlightRect[] = [];
+      const resolvedDividers: { key: string; x: number; y: number; height: number; orient: 'v' | 'h' }[] = [];
       const HL_PAD_Y = 3;
+      const HL_PAD_Y_TOP = 26;  // extra room above for ii / V / I labels
+      const HL_LABEL_BAND = 18; // height of the label band (from top of highlight)
       const HL_PAD_X = 6;
 
       for (let spanIdx = 0; spanIdx < iiviSpans.length; spanIdx++) {
@@ -1719,10 +1864,12 @@ export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1 
             maxY = sysRect.top + (BAR_H - BARLINE_GAP) * scale;
           }
 
-          // Cross-row (consecutive): extend to full grid width on open ends.
+          // Cross-row (consecutive): extend to grid width on open ends.
+          // Last row (contains only I) keeps its tight left edge — start exactly
+          // at the I chord's bar so the boundary aligns with the chord.
           if (isMultiRow && !isWrapAround) {
             if (r === 0)                          hlRight = gridRect.right;
-            else if (r === rowIndices.length - 1) hlLeft  = gridRect.left;
+            else if (r === rowIndices.length - 1) { /* keep hlLeft at I chord's bar */ }
             else { hlLeft = gridRect.left; hlRight = gridRect.right; }
           }
           // Wrap-around: the departure row (largest si, contains ii–V) extends
@@ -1741,13 +1888,50 @@ export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1 
             key: `hl-${spanIdx}-${si}`,
             spanKey: `span-${spanIdx}`,
             x: lx(hlLeft),
-            y: ly(minY) - HL_PAD_Y,
+            y: ly(minY) - HL_PAD_Y_TOP,
             width: lw(hlRight - hlLeft),
-            height: lh(maxY - minY) + HL_PAD_Y * 2,
+            height: lh(maxY - minY) + HL_PAD_Y_TOP + HL_PAD_Y,
             label: span.label,
             kind: span.kind,
             rowPosition,
           });
+
+          // Horizontal divider: separates roman numeral band from chord row
+          resolvedDividers.push({
+            key: `divh-${spanIdx}-${si}`,
+            orient: 'h',
+            x: lx(hlLeft),
+            y: ly(minY) - HL_PAD_Y_TOP + HL_LABEL_BAND,
+            height: lw(hlRight - hlLeft), // reused as width for horizontal
+          });
+
+          // Vertical dividers between adjacent ii-V-I chords — aligned to bar boundaries
+          const rectsByCk = rowCks
+            .map((ck) => {
+              const el = chordElsRef.current[ck];
+              if (!el) return null;
+              const r = el.getBoundingClientRect();
+              const [, biStr, ciStr] = ck.split('-');
+              return { ck, bi: Number(biStr), ci: Number(ciStr), left: r.left, right: r.right };
+            })
+            .filter((x): x is { ck: string; bi: number; ci: number; left: number; right: number } => x !== null)
+            .sort((a, b) => a.bi - b.bi || a.ci - b.ci);
+
+          for (let p = 0; p < rectsByCk.length - 1; p++) {
+            const cur = rectsByCk[p];
+            const nxt = rectsByCk[p + 1];
+            // Boundary at bar boundary for cross-bar; mid-bar for split chords in same bar
+            const dividerX = nxt.bi === cur.bi
+              ? gridRect.left + (cur.bi + 0.5) * barW  // split-chord midpoint
+              : gridRect.left + nxt.bi * barW;          // bar boundary
+            resolvedDividers.push({
+              key: `divv-${spanIdx}-${si}-${p}`,
+              orient: 'v',
+              x: lx(dividerX),
+              y: ly(minY) - HL_PAD_Y_TOP,
+              height: HL_LABEL_BAND,
+            });
+          }
         }
       }
 
@@ -1758,6 +1942,7 @@ export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1 
       setArrows(resolvedArrows);
       setBrackets(resolvedBrackets);
       setHighlights(resolvedHighlights);
+      setDividers(resolvedDividers);
     };
 
     measure();
@@ -1850,34 +2035,41 @@ export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1 
         transform: 'translate(-50%, -50%)',
       };
     }
+    if (isCompactLayout) {
+      return {
+        width: '100%',
+        minHeight: '100%',
+        margin: 0,
+      };
+    }
     if (zoom === 100) return { width: '100%' };
     return {
       width: pageNaturalSize.w > 0 ? `${pageNaturalSize.w * (zoom / 100)}px` : '100%',
       height: pageNaturalSize.h > 0 ? `${pageNaturalSize.h * (zoom / 100)}px` : undefined,
       margin: '0 auto',
     };
-  }, [isFullscreen, zoom, pageNaturalSize, fitScale]);
+  }, [isFullscreen, isCompactLayout, zoom, pageNaturalSize, fitScale]);
 
   const pageStyle = useMemo<React.CSSProperties | undefined>(() => {
-    if (effectiveScale === 1 && !isFullscreen) return undefined;
+    if (!isFullscreen && (effectiveScale === 1 || isCompactLayout)) return undefined;
     return {
       width: pageNaturalSize.w > 0 ? `${pageNaturalSize.w}px` : undefined,
       transform: `scale(${effectiveScale})`,
       transformOrigin: 'top left',
     };
-  }, [effectiveScale, isFullscreen, pageNaturalSize.w]);
+  }, [effectiveScale, isFullscreen, isCompactLayout, pageNaturalSize.w]);
 
   return (
     <ViewerOuter ref={outerRef}>
       <FullscreenButton isFullscreen={isFullscreen} onClick={toggleFullscreen} />
-      {!isFullscreen && <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onSetZoom={setZoomLevel} />}
-      <div style={wrapperStyle}>
+      {!isFullscreen && !isCompactLayout && <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onSetZoom={setZoomLevel} />}
+      <PageShell style={wrapperStyle}>
       <Page ref={pageRef} style={pageStyle}>
         {(af.showArrows || af.showIIVI) && (
           <ArrowLayer viewBox={`0 0 ${Math.max(arrowFrame.width, 1)} ${Math.max(arrowFrame.height, 1)}`}>
             <defs>
-              <marker id="secdom-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-                <path d="M0,0 L8,4 L0,8" fill="none" stroke="#000" strokeWidth="1.6" />
+              <marker id="secdom-arrow" markerWidth="7" markerHeight="7" refX="6.5" refY="3.5" orient="auto">
+                <path d="M0,0 L7,3.5 L0,7" fill="none" stroke="#000" strokeWidth="1.3" />
               </marker>
             </defs>
             {af.showArrows && arrows.flatMap((arrow) =>
@@ -1887,7 +2079,7 @@ export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1 
                   d={segment.d}
                   fill="none"
                   stroke="#000"
-                  strokeWidth="1.8"
+                  strokeWidth="1.9"
                   strokeLinecap="round"
                   markerEnd={segment.markerEnd ? 'url(#secdom-arrow)' : undefined}
                 />
@@ -1908,17 +2100,58 @@ export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1 
           </ArrowLayer>
         )}
         {/* ── Background highlight layer (behind text) ── */}
-        {af.showIIVI && highlights.map((hl) => (
+        {af.showIIVI && highlights.map((hl) => {
+          const radius = hlBorderRadius(hl.rowPosition);
+          // Top-corner-only radius for the dark label band
+          const radiusParts = String(radius).split(' ');
+          const topRadius = radiusParts.length === 4
+            ? `${radiusParts[0]} ${radiusParts[1]} 0 0`
+            : `${radius} ${radius} 0 0`;
+          return (
+            <div key={`bg-group-${hl.key}`}>
+              <div
+                key={`bg-${hl.key}`}
+                style={{
+                  position: 'absolute',
+                  left: hl.x, top: hl.y,
+                  width: hl.width, height: hl.height,
+                  background: 'rgba(255, 236, 179, 0.45)',
+                  border: '2px solid rgba(201, 133, 30, 0.55)',
+                  boxSizing: 'border-box',
+                  borderRadius: radius,
+                  pointerEvents: 'none',
+                  zIndex: 0,
+                }}
+              />
+              <div
+                key={`band-${hl.key}`}
+                style={{
+                  position: 'absolute',
+                  left: hl.x + 2, top: hl.y + 2,
+                  width: hl.width - 4,
+                  height: 18, // HL_LABEL_BAND
+                  background: 'rgba(201, 133, 30, 0.7)',
+                  borderRadius: topRadius,
+                  pointerEvents: 'none',
+                  zIndex: 1,
+                }}
+              />
+            </div>
+          );
+        })}
+        {af.showIIVI && dividers.map((dv) => (
           <div
-            key={`bg-${hl.key}`}
+            key={dv.key}
             style={{
               position: 'absolute',
-              left: hl.x, top: hl.y,
-              width: hl.width, height: hl.height,
-              background: 'rgba(255, 236, 179, 0.45)',
-              borderRadius: hlBorderRadius(hl.rowPosition),
+              left: dv.x, top: dv.y,
+              width: dv.orient === 'v' ? 1.5 : dv.height,
+              height: dv.orient === 'v' ? dv.height : 2,
+              background: dv.orient === 'v'
+                ? 'rgba(0, 0, 0, 0.4)'
+                : 'rgba(201, 133, 30, 0.7)',
               pointerEvents: 'none',
-              zIndex: 0,
+              zIndex: 2,
             }}
           />
         ))}
@@ -1978,6 +2211,7 @@ export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1 
             registerSystemEl={registerSystemEl}
             registerGridEl={registerGridEl}
             showDegree={af.showDegree} showColors={af.showColors}
+            showIIVI={af.showIIVI}
             onModalClick={setMiPopupChord}
           />
         ))}
@@ -2039,7 +2273,7 @@ export function LeadSheet({ data, analysisFilters, showAnalysis, activeBar = -1 
           </div>
         )}
       </Page>
-      </div>
+      </PageShell>
       {miPopupChord && miPopupChord.analysis?.modalInterchange && (() => {
         const mi = miPopupChord.analysis.modalInterchange;
         const tpl = getModalInterchangeTemplate(mi.sourceMode, mi.borrowedDegree);

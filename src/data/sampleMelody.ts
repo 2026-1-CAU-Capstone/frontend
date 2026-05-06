@@ -10,6 +10,9 @@ export interface NoteInfo {
   tuplet?: number;                              // e.g. 3 = triplet (3 notes in time of 2)
   beamBreak?: boolean;                          // force beam break AFTER this note
   chord?: string;                               // chord change at this note position
+  ghost?: boolean;                              // ghost note — rendered in parentheses ()
+  ottavaStart?: '8va' | '8vb';                 // start of ottava bracket at this note
+  ottavaEnd?: boolean;                          // end of ottava bracket at this note
 }
 
 export type NavigationMarker =

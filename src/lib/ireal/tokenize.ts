@@ -8,7 +8,7 @@
 // ─── Token types ─────────────────────────────────────────────────────────────
 
 export type Token =
-  | { type: 'barline';        style: 'single' | 'double' | 'repeatStart' | 'repeatEnd' | 'final' }
+  | { type: 'barline';        style: 'single' | 'double' | 'repeatStart' | 'repeatEnd' | 'final'; raw?: string }
   | { type: 'timeSignature';  top: number; bottom: number; raw: string }
   | { type: 'section';        label: string }
   | { type: 'ending';         number: number }           // N1, N2, N3
@@ -78,14 +78,14 @@ export function tokenize(chart: string): Token[] {
 
     // ── LZ = barline ──────────────────────────────────────────────────────
     if (rest.startsWith('LZ')) {
-      tokens.push({ type: 'barline', style: 'single' });
+      tokens.push({ type: 'barline', style: 'single', raw: 'LZ' });
       i += 2;
       continue;
     }
 
     // ── Kcl = barline variant ─────────────────────────────────────────────
     if (rest.startsWith('Kcl')) {
-      tokens.push({ type: 'barline', style: 'single' });
+      tokens.push({ type: 'barline', style: 'single', raw: 'Kcl' });
       i += 3;
       continue;
     }
@@ -98,12 +98,12 @@ export function tokenize(chart: string): Token[] {
     }
 
     // ── barlines ──────────────────────────────────────────────────────────
-    if (ch === '{') { tokens.push({ type: 'barline', style: 'repeatStart' });  i++; continue; }
-    if (ch === '}') { tokens.push({ type: 'barline', style: 'repeatEnd' });    i++; continue; }
-    if (ch === '[') { tokens.push({ type: 'barline', style: 'double' });       i++; continue; }
-    if (ch === ']') { tokens.push({ type: 'barline', style: 'double' });       i++; continue; }
-    if (ch === '|') { tokens.push({ type: 'barline', style: 'single' });       i++; continue; }
-    if (ch === 'Z') { tokens.push({ type: 'barline', style: 'final' });        i++; continue; }
+    if (ch === '{') { tokens.push({ type: 'barline', style: 'repeatStart', raw: '{' });  i++; continue; }
+    if (ch === '}') { tokens.push({ type: 'barline', style: 'repeatEnd', raw: '}' });    i++; continue; }
+    if (ch === '[') { tokens.push({ type: 'barline', style: 'double', raw: '[' });       i++; continue; }
+    if (ch === ']') { tokens.push({ type: 'barline', style: 'double', raw: ']' });       i++; continue; }
+    if (ch === '|') { tokens.push({ type: 'barline', style: 'single', raw: '|' });       i++; continue; }
+    if (ch === 'Z') { tokens.push({ type: 'barline', style: 'final', raw: 'Z' });        i++; continue; }
 
     // ── N1 N2 N3 = volta / numbered ending ────────────────────────────────
     const endM = rest.match(/^N(\d)/);

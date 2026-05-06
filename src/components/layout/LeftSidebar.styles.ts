@@ -10,8 +10,7 @@ export const SidebarWrapper = styled.div<{ $width: number }>`
   overflow: visible;
   border-right: ${({ $width, theme }) => ($width > 0 ? `1px solid ${theme.colors.border}` : 'none')};
 
-  ${mq.mobile} {
-    display: none;
+  ${mq.compactLayout} {
     width: 0;
     border-right: none;
   }
@@ -24,26 +23,36 @@ export const SidebarContainer = styled.aside`
   display: flex;
   flex-direction: column;
 
-  ${mq.mobile} {
+  ${mq.compactLayout} {
     position: fixed;
-    top: 42px;
-    left: 0;
+    top: 48px;
+    left: 52px;
     bottom: 0;
-    z-index: 100;
+    width: min(260px, calc(100vw - 52px));
+    z-index: 1000;
     box-shadow: 4px 0 20px rgba(0, 0, 0, 0.12);
+  }
+
+  ${mq.mobile} {
+    top: 42px;
+    left: 36px;
+    width: min(260px, calc(100vw - 36px));
   }
 `;
 
 export const SidebarOverlay = styled.div<{ $open: boolean }>`
   display: none;
 
-  ${mq.mobile} {
-    display: none;
+  ${mq.compactLayout} {
+    display: ${({ $open }) => ($open ? 'block' : 'none')};
     position: fixed;
-    inset: 0;
-    top: 42px;
-    z-index: 99;
+    inset: 48px 0 0 52px;
+    z-index: 990;
     background: rgba(0, 0, 0, 0.3);
+  }
+
+  ${mq.mobile} {
+    inset: 42px 0 0 36px;
   }
 `;
 
@@ -61,6 +70,10 @@ export const ResizeHandle = styled.div`
   &:hover,
   &.dragging {
     background: ${({ theme }) => theme.colors.border};
+  }
+
+  ${mq.compactLayout} {
+    display: none;
   }
 `;
 
@@ -97,13 +110,41 @@ export const SidebarSection = styled.div`
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
 `;
 
+export const SidebarTitleRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+`;
+
 export const SidebarTitle = styled.h3`
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   color: ${({ theme }) => theme.colors.textSecondary};
-  margin-bottom: 8px;
+  margin: 0;
   letter-spacing: 0.5px;
+`;
+
+export const CollapseButton = styled.button`
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.bgSecondary};
+    color: ${({ theme }) => theme.colors.textPrimary};
+  }
 `;
 
 export const MenuItem = styled.button<{ $active?: boolean }>`

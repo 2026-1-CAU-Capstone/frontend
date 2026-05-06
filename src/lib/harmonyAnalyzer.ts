@@ -365,9 +365,14 @@ export function analyzeHarmony(data: LeadSheetData): LeadSheetData {
     fc.chord.analysis!.functions = assignFn(fc, isMinor);
   }
 
-  /* Phase 5 — modal interchange (non-diatonic, non-secDom only) */
+  /* Phase 5 — modal interchange (non-diatonic, non-secDom, not in ii-V-I group)
+   * 관계적 ii-V-I의 ii/V/I로 이미 분류된 코드는 functional context가 우선.
+   * 예: B♭ 메이저에서 F-7 → B♭7 → E♭△7 의 F-7는 'related ii-V-I'의 ii지
+   *     'iv (parallel minor) 모달 인터체인지'가 아니다. */
   for (const fc of flat) {
     if (fc.chord.isDiatonic || fc.chord.analysis!.secondaryDominant) continue;
+    const inIIVI = fc.chord.analysis!.groupMemberships?.some(g => g.groupType === 'ii-V-I');
+    if (inIIVI) continue;
     const mi = detectMI(fc, keyPc, isMinor);
     if (mi) {
       fc.chord.analysis!.modalInterchange = mi;

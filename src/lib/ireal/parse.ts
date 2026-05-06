@@ -101,7 +101,8 @@ export function parse(tokens: Token[]): IRealMeasure[] {
   const hasContent = () => cells.length > 0;
 
   // ── main loop ────────────────────────────────────────────────────────────
-  for (const tok of tokens) {
+  for (let i = 0; i < tokens.length; i++) {
+    const tok = tokens[i];
     switch (tok.type) {
 
       // ─ barline ────────────────────────────────────────────────────────────
@@ -114,10 +115,44 @@ export function parse(tokens: Token[]): IRealMeasure[] {
         break;
       }
 
-      // ─ empty cell (XyQ) — force a measure boundary + empty measure ────────
+      // ─ empty cell (XyQ) ──────────────────────────────────────────────────
       case 'emptyCell': {
-        if (hasContent()) commit('single');
-        // commit an empty measure
+        if (hasContent()) {
+          commit('single');
+
+          // XyQKcl means the preceding chord spans another bar in iReal.
+          // Preserve that as a repeat-style measure.
+          const nextToken = tokens[i + 1];
+          if (nextToken?.type === 'barline' && nextToken.raw === 'Kcl') {
+            cells.push({ type: 'repeat' });
+            openBarline = 'single';
+            commit('single');
+          }
+          break;
+        }
+
+        let runEnd = i;
+        while (tokens[runEnd + 1]?.type === 'emptyCell') runEnd++;
+        let nextIdx = runEnd + 1;
+        while (tokens[nextIdx]?.type === 'newline') nextIdx++;
+        const afterRun = tokens[nextIdx];
+        if (afterRun?.type === 'barline' && afterRun.raw === '|') nextIdx++;
+        while (tokens[nextIdx]?.type === 'chordAnnotation') nextIdx++;
+        const afterBarline = tokens[nextIdx];
+
+        // iReal uses XyQ padding before N2/N3 so the ending aligns with N1.
+        // The ending measure itself consumes the last visual slot.
+        if (
+          afterRun?.type === 'barline' &&
+          afterRun.raw === '|' &&
+          afterBarline?.type === 'ending'
+        ) {
+          const emptyMeasures = Math.max(0, runEnd - i);
+          for (let n = 0; n < emptyMeasures; n++) commit('single');
+          i = runEnd;
+          break;
+        }
+
         commit('single');
         break;
       }

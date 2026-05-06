@@ -60,9 +60,8 @@ const MIDI_F3 = 53; // lower bound (inclusive)
 function transposeMeasures(measures: MeasureInfo[], semitones: number): MeasureInfo[] {
   if (semitones === 0) return measures;
 
-  // First pass: transpose all notes and collect MIDI values
-  let hasHigh = false;
-  let hasLow = false;
+  // First pass: transpose all notes
+  const midiValues: number[] = [];
   const transposed = measures.map(m => ({
     ...m,
     chord: m.chord ? transposeChord(m.chord, semitones) : m.chord,
@@ -70,8 +69,7 @@ function transposeMeasures(measures: MeasureInfo[], semitones: number): MeasureI
       if (n.duration.endsWith('r')) return { ...n };
       const acc = n.accidentals?.[0] as 'b' | '#' | 'n' | undefined;
       const midi = noteToMidi(n.keys[0], acc === 'n' ? undefined : acc) + semitones;
-      if (midi > MIDI_F6) hasHigh = true;
-      if (midi < MIDI_F3) hasLow = true;
+      midiValues.push(midi);
       const tr = midiToNote(midi);
       const newNote: NoteInfo = { keys: [tr.key], duration: n.duration, dotted: n.dotted, tie: n.tie, tuplet: n.tuplet };
       if (tr.acc) newNote.accidentals = { 0: tr.acc };
@@ -79,8 +77,14 @@ function transposeMeasures(measures: MeasureInfo[], semitones: number): MeasureI
     }),
   }));
 
-  // Octave adjustment: shift all pitched notes if any note is out of range
-  const octShift = hasHigh ? -12 : hasLow ? 12 : 0;
+  if (midiValues.length === 0) return transposed;
+
+  // Octave adjustment: use median pitch to decide, not a single outlier
+  const sorted = [...midiValues].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  let octShift = 0;
+  if (median > MIDI_F6) octShift = -12;
+  else if (median < MIDI_F3) octShift = 12;
   if (octShift === 0) return transposed;
 
   return transposed.map(m => ({
@@ -239,11 +243,12 @@ function buildVfNotes(measure: MeasureInfo, initialAcc?: Map<string, 'b' | '#' |
       const realAcc = n.accidentals?.[0] as 'b' | '#' | undefined;
       const current = activeAcc.get(letter);
       const keySigForLetter = keySigAcc?.get(letter);
+      // effective = what's currently "in force" (measure override > key sig default)
+      const effective = current ?? keySigForLetter;
       if (realAcc) {
-        if (current !== realAcc) note.addModifier(new Accidental(realAcc), 0);
+        if (effective !== realAcc) note.addModifier(new Accidental(realAcc), 0);
         activeAcc.set(letter, realAcc);
       } else {
-        const effective = current ?? keySigForLetter;
         if (effective && effective !== 'n') {
           note.addModifier(new Accidental('n'), 0);
           activeAcc.set(letter, 'n');

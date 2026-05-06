@@ -109,6 +109,19 @@ function parseChart(decoded) {
           commitBar();
         }
       } else {
+        const run = rest.match(/^(?:XyQ)+/)[0];
+        const afterRun = decoded.slice(i + run.length);
+
+        // iReal uses a full XyQ row before N2/N3 to align the next volta
+        // under the matching N1 slot. The ending bar itself occupies the
+        // final slot, so only count N-1 blanks as real empty bars.
+        if (/^(?:\s|Y)*\|[fpsl]*N\d/.test(afterRun)) {
+          const emptyBars = Math.max(0, run.length / 3 - 1);
+          for (let n = 0; n < emptyBars; n++) commitBar();
+          i += run.length;
+          continue;
+        }
+
         // Empty bar slot (no chords) — commit an empty bar so it takes up space
         commitBar();
       }

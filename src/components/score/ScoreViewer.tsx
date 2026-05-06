@@ -3,6 +3,7 @@ import type { ChordOverlay as ChordOverlayType } from '../../data/types';
 import { ChordOverlayLayer } from './ChordOverlayLayer';
 import { FullscreenButton, useFullscreen } from '../common/FullscreenButton';
 import { ZoomControls, useZoom } from '../common/ZoomControls';
+import { useCompactLayout } from '../../hooks/useCompactLayout';
 import {
   ViewerContainer,
   ScorePage,
@@ -34,12 +35,16 @@ export function ScoreViewer({
   const containerRef = useRef<HTMLDivElement>(null);
   const { isFullscreen, toggle } = useFullscreen(containerRef);
   const { zoom, zoomIn, zoomOut, setZoomLevel } = useZoom(100);
+  const isCompactLayout = useCompactLayout();
+  const effectiveZoom = isCompactLayout ? 100 : zoom;
 
   return (
     <ViewerContainer ref={containerRef}>
-      <ScorePage onClick={onBackgroundClick} style={{ width: `${zoom}%`, maxWidth: 'none' }}>
+      <ScorePage onClick={onBackgroundClick} style={{ width: `${effectiveZoom}%`, maxWidth: 'none' }}>
         <FullscreenButton isFullscreen={isFullscreen} onClick={toggle} />
-        <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onSetZoom={setZoomLevel} />
+        {!isCompactLayout && (
+          <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onSetZoom={setZoomLevel} />
+        )}
         {/* 원본 악보 이미지 */}
         {scoreImageUrl ? (
           <ScoreImage src={scoreImageUrl} alt="악보" draggable={false} />

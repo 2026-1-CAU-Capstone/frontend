@@ -8,6 +8,7 @@ export const BP = {
 export const mq = {
   mobile: `@media (max-width: ${BP.tablet}px)`,
   tablet: `@media (max-width: ${BP.tablet}px)`,
+  compactLayout: `@media (max-width: ${BP.desktop}px), (hover: none), (pointer: coarse)`,
   desktop: `@media (min-width: ${BP.desktop + 1}px)`,
 } as const;
 

@@ -1,4 +1,5 @@
 import styled from 'styled-components';
+import { mq } from '../../styles/theme';
 
 export const ViewerContainer = styled.div`
   position: relative;
@@ -14,6 +15,12 @@ export const ViewerContainer = styled.div`
     background: ${({ theme }) => theme.colors.bgSecondary};
     align-items: center;
   }
+
+  ${mq.compactLayout} {
+    justify-content: stretch;
+    padding: 0;
+    background: ${({ theme }) => theme.colors.bgPrimary};
+  }
 `;
 
 export const ScorePage = styled.div`
@@ -25,6 +32,13 @@ export const ScorePage = styled.div`
   box-shadow: ${({ theme }) => theme.shadows.xl};
   overflow: hidden;
   align-self: flex-start;
+
+  ${mq.compactLayout} {
+    max-width: none;
+    border-radius: 0;
+    box-shadow: none;
+    align-self: stretch;
+  }
 `;
 
 export const ScoreImage = styled.img`

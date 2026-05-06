@@ -162,7 +162,7 @@ const RightPanelWrapper = styled.div<{ $width: number }>`
   display: flex;
   flex-direction: column;
 
-  ${mq.mobile} {
+  ${mq.compactLayout} {
     display: none;
   }
 `;
@@ -196,7 +196,7 @@ const ResizeDivider = styled.div`
     inset: 0 -4px;
   }
 
-  ${mq.mobile} {
+  ${mq.compactLayout} {
     display: none;
   }
 `;

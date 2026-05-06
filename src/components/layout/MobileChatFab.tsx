@@ -8,7 +8,7 @@ import type { ChordOverlay } from '../../data/types';
 
 const Fab = styled.button`
   display: none;
-  ${mq.mobile} {
+  ${mq.compactLayout} {
     display: flex;
   }
   position: fixed;

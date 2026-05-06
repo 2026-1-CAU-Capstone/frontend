@@ -16,6 +16,52 @@ import type { NoteSheetData, NoteInfo, MeasureInfo } from '../../data/sampleMelo
 import { PianoKeyboard, type PianoNote } from './PianoKeyboard';
 import { NotePlayer } from '../../lib/note/notePlayer';
 
+/* ─── key helpers ────────────────────────────────────────────────────── */
+
+// Display key → LickEntry.key format: "Bb" → "Bb-maj", "Gm" → "G-min"
+export function displayKeyToLickKey(key: string): string {
+  if (key.endsWith('m') && key.length > 1 && key !== 'Am'.slice(-2)) {
+    // Check it's actually a minor key (ends with lowercase 'm')
+    const last = key[key.length - 1];
+    const secondLast = key[key.length - 2];
+    if (last === 'm' && secondLast !== secondLast.toUpperCase()) {
+      return key.slice(0, -1) + '-min';
+    }
+  }
+  if (key.endsWith('m')) return key.slice(0, -1) + '-min';
+  return key + '-maj';
+}
+
+const JAZZ_KEYS_MAJOR = ['C', 'F', 'Bb', 'Eb', 'Ab', 'Db', 'G', 'D', 'A', 'E', 'B', 'F#'];
+const JAZZ_KEYS_MINOR = ['Cm', 'Fm', 'Bbm', 'Ebm', 'Abm', 'Gm', 'Dm', 'Am', 'Em', 'Bm'];
+
+// Sharp-preferring keys: keep # notation instead of converting to b
+const SHARP_KEY_SET = new Set(['G', 'D', 'A', 'E', 'B', 'F#', 'Em', 'Bm', 'F#m', 'C#m', 'G#m']);
+
+function isSharpKey(key: string): boolean {
+  return SHARP_KEY_SET.has(key);
+}
+
+// Key-aware accidental resolution (replaces the old toFlat)
+function resolveAcc(pn: PianoNote, key: string): { vexKey: string; acc?: '#' | 'b' } {
+  if (!pn.acc) return { vexKey: pn.vexKey };
+
+  const [letter, octStr] = pn.vexKey.split('/');
+  const oct = parseInt(octStr);
+
+  // Defensive: B# → C (octave up), E# → F (not reachable from piano but safe)
+  if (letter === 'b' && pn.acc === '#') return { vexKey: `c/${oct + 1}` };
+  if (letter === 'e' && pn.acc === '#') return { vexKey: `f/${oct}` };
+
+  if (isSharpKey(key)) return { vexKey: pn.vexKey, acc: '#' };
+
+  // Flat keys: convert sharp → flat enharmonic
+  const SHARP_TO_FLAT: Record<string, string> = { c: 'd', d: 'e', f: 'g', g: 'a', a: 'b' };
+  const flatLetter = SHARP_TO_FLAT[letter];
+  if (!flatLetter) return { vexKey: pn.vexKey, acc: '#' };
+  return { vexKey: `${flatLetter}/${oct}`, acc: 'b' };
+}
+
 /* ─── duration helpers ───────────────────────────────────────────────── */
 
 const DUR_BEATS: Record<string, number> = {
@@ -454,6 +500,32 @@ const ACell = styled.span<{ $color?: string }>`
   color: ${({ $color }) => $color ?? 'inherit'};
 `;
 
+const KeySelect = styled.select`
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem;
+  padding: 4px 6px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+  color: ${({ theme }) => theme.colors.textPrimary};
+  height: 34px;
+`;
+
+const ToggleBtn = styled.button<{ $active?: boolean; $color?: string }>`
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  height: 34px;
+  border: 1.5px solid ${({ $active, $color }) => $active ? ($color ?? '#b8960a') : '#ddd'};
+  border-radius: 5px;
+  background: ${({ $active, $color }) => $active ? ($color ? $color + '22' : '#f5ecd0') : 'transparent'};
+  color: ${({ $active, $color }) => $active ? ($color ?? '#b8960a') : '#888'};
+  cursor: pointer;
+  &:hover { opacity: 0.8; }
+`;
+
 /* ─── component ──────────────────────────────────────────────────────── */
 
 interface LickCreatorProps {
@@ -466,6 +538,14 @@ export function LickCreator({ width, onSave, onCancel }: LickCreatorProps) {
   const [notes, setNotes] = useState<NoteInfo[]>([]);
   const [duration, setDuration] = useState('q');
   const [dotted, setDotted] = useState(false);
+  const [selectedKey, setSelectedKey] = useState('C');
+  const [tripletMode, setTripletMode] = useState(false);
+  const tripletCountRef = useRef(0);   // 0,1,2 → wraps; tracks position within triplet group
+  const [pendingTie, setPendingTie] = useState(false);
+  const [pendingGliss, setPendingGliss] = useState(false);
+  const [pendingGhost, setPendingGhost] = useState(false);
+  const [ottavaMode, setOttavaMode] = useState<'8va' | '8vb' | null>(null);
+  const ottavaOpenRef = useRef(false); // true = bracket is currently open
   const svgRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<NotePlayer | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -478,29 +558,87 @@ export function LickCreator({ width, onSave, onCancel }: LickCreatorProps) {
   /* ── add note from piano ─────────────────────────────────────────── */
   const handleNotePress = useCallback(
     (pn: PianoNote) => {
-      const flat = toFlat(pn);
+      const resolved = resolveAcc(pn, selectedKey);
       const ni: NoteInfo = {
-        keys: [flat.vexKey],
+        keys: [resolved.vexKey],
         duration,
         dotted: dotted || undefined,
       };
-      if (flat.acc) ni.accidentals = { 0: flat.acc };
+      if (resolved.acc) ni.accidentals = { 0: resolved.acc };
+      if (tripletMode) {
+        ni.tuplet = 3;
+        // beamBreak after every 3rd note in a group
+        const cnt = tripletCountRef.current;
+        if (cnt === 2) {
+          ni.beamBreak = true;
+          tripletCountRef.current = 0;
+        } else {
+          tripletCountRef.current = cnt + 1;
+        }
+      }
+      if (pendingTie) { ni.tie = true; setPendingTie(false); }
+      if (pendingGliss) { ni.gliss = true; setPendingGliss(false); }
+      if (pendingGhost) { ni.ghost = true; setPendingGhost(false); }
+      // 8va: first note of bracket gets ottavaStart, last note (when toggled off) gets ottavaEnd
+      if (ottavaMode && !ottavaOpenRef.current) {
+        ni.ottavaStart = ottavaMode;
+        ottavaOpenRef.current = true;
+      }
       setNotes((prev) => [...prev, ni]);
     },
-    [duration, dotted],
+    [duration, dotted, selectedKey, tripletMode, pendingTie, pendingGliss, pendingGhost, ottavaMode],
   );
 
   /* ── add rest ────────────────────────────────────────────────────── */
   const handleRest = useCallback(() => {
-    setNotes((prev) => [
-      ...prev,
-      { keys: ['b/4'], duration: duration + 'r', dotted: dotted || undefined },
-    ]);
-  }, [duration, dotted]);
+    const rest: NoteInfo = { keys: ['b/4'], duration: duration + 'r', dotted: dotted || undefined };
+    if (tripletMode) {
+      rest.tuplet = 3;
+      const cnt = tripletCountRef.current;
+      if (cnt === 2) { rest.beamBreak = true; tripletCountRef.current = 0; }
+      else tripletCountRef.current = cnt + 1;
+    }
+    setNotes((prev) => [...prev, rest]);
+  }, [duration, dotted, tripletMode]);
 
   /* ── undo / clear ────────────────────────────────────────────────── */
-  const handleUndo = useCallback(() => setNotes((p) => p.slice(0, -1)), []);
-  const handleClear = useCallback(() => setNotes([]), []);
+  const handleUndo = useCallback(() => {
+    setNotes((prev) => {
+      if (prev.length === 0) return prev;
+      const last = prev[prev.length - 1];
+      if (last.tuplet) {
+        // step back triplet counter
+        tripletCountRef.current = (tripletCountRef.current + 2) % 3;
+      }
+      return prev.slice(0, -1);
+    });
+  }, []);
+  const handleClear = useCallback(() => {
+    setNotes([]);
+    tripletCountRef.current = 0;
+    ottavaOpenRef.current = false;
+    setPendingTie(false);
+    setPendingGliss(false);
+    setPendingGhost(false);
+    setOttavaMode(null);
+  }, []);
+
+  // Close the 8va bracket: mark the last note as ottavaEnd, then toggle off
+  const handleOttavaToggle = useCallback((type: '8va' | '8vb') => {
+    if (ottavaMode === type && ottavaOpenRef.current) {
+      // Close: stamp ottavaEnd onto the last note
+      setNotes((prev) => {
+        if (prev.length === 0) return prev;
+        const last = { ...prev[prev.length - 1], ottavaEnd: true };
+        return [...prev.slice(0, -1), last];
+      });
+      ottavaOpenRef.current = false;
+      setOttavaMode(null);
+    } else {
+      setOttavaMode(type);
+      ottavaOpenRef.current = false;
+    }
+  }, [ottavaMode]);
 
   /* ── backspace for undo ──────────────────────────────────────────── */
   useEffect(() => {
@@ -520,12 +658,12 @@ export function LickCreator({ width, onSave, onCancel }: LickCreatorProps) {
     () => ({
       title: 'My Lick',
       composer: 'Me',
-      key: 'C',
+      key: selectedKey,
       timeSignature: '4/4',
       tempo: 120,
       measures,
     }),
-    [measures],
+    [measures, selectedKey],
   );
 
   const handlePlay = useCallback(async () => {
@@ -621,6 +759,20 @@ export function LickCreator({ width, onSave, onCancel }: LickCreatorProps) {
   return (
     <Container>
       <TopBar>
+        {/* Key */}
+        <SectionLabel>Key</SectionLabel>
+        <KeySelect value={selectedKey} onChange={(e) => setSelectedKey(e.target.value)}>
+          <optgroup label="Major">
+            {JAZZ_KEYS_MAJOR.map((k) => <option key={k} value={k}>{k}</option>)}
+          </optgroup>
+          <optgroup label="Minor">
+            {JAZZ_KEYS_MINOR.map((k) => <option key={k} value={k}>{k}</option>)}
+          </optgroup>
+        </KeySelect>
+
+        <Sep />
+
+        {/* Duration */}
         <SectionLabel>Duration</SectionLabel>
         {DUR_KEYS.map((d) => (
           <DurBtn
@@ -636,6 +788,58 @@ export function LickCreator({ width, onSave, onCancel }: LickCreatorProps) {
           style={{ fontSize: '1.4rem', fontWeight: 900 }}>
           .
         </DurBtn>
+
+        <Sep />
+
+        {/* Special modes */}
+        <ToggleBtn
+          $active={tripletMode}
+          $color="#7B3FB0"
+          title="Triplet mode (every 3 notes = 1 triplet group)"
+          onClick={() => { setTripletMode((v) => !v); tripletCountRef.current = 0; }}
+        >
+          \u00B3
+        </ToggleBtn>
+        <ToggleBtn
+          $active={pendingTie}
+          $color="#1565c0"
+          title="Next note will be tied to previous"
+          onClick={() => setPendingTie((v) => !v)}
+        >
+          Tie
+        </ToggleBtn>
+        <ToggleBtn
+          $active={pendingGliss}
+          $color="#2a8040"
+          title="Next note will have glissando from previous"
+          onClick={() => setPendingGliss((v) => !v)}
+        >
+          Gliss
+        </ToggleBtn>
+        <ToggleBtn
+          $active={pendingGhost}
+          $color="#888"
+          title="Next note will be a ghost note (parentheses)"
+          onClick={() => setPendingGhost((v) => !v)}
+        >
+          (Ghost)
+        </ToggleBtn>
+        <ToggleBtn
+          $active={ottavaMode === '8va'}
+          $color="#c47a20"
+          title="8va bracket — click to start, click again to close"
+          onClick={() => handleOttavaToggle('8va')}
+        >
+          8va
+        </ToggleBtn>
+        <ToggleBtn
+          $active={ottavaMode === '8vb'}
+          $color="#c47a20"
+          title="8vb bracket — one octave below written"
+          onClick={() => handleOttavaToggle('8vb')}
+        >
+          8vb
+        </ToggleBtn>
 
         <Sep />
 
