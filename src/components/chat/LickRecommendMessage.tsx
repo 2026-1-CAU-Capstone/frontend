@@ -56,10 +56,10 @@ export function jsonToLickEntry(json: Record<string, unknown>): LickEntry {
 
 const Wrapper = styled.div`
   margin: 12px 0 14px;
-  background: ${({ theme }) => theme.colors.bgPrimary};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 8px;
-  padding: 12px 10px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 4px 0 0;
 `;
 
 const Header = styled.div`

@@ -68,6 +68,10 @@ export async function streamWithRAG(
         chord_context_text: chordContextText ?? null,
         history: history.map(h => ({ role: h.role, content: h.content })),
         song_title: songTitle,
+        // The user already sees this song's chord chart on screen, so we
+        // don't want the AI to regenerate it. The server can honor this
+        // by stripping chart blocks for the in-context song.
+        suppress_inline_chart: !!chordContextText,
       }),
     });
 

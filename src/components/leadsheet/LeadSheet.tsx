@@ -759,28 +759,6 @@ const DegreeLabel = styled.span<{ $color: string; $size?: ChordSize }>`
   white-space: nowrap;
 `;
 
-const IIVILabel = styled.span<{ $size?: ChordSize }>`
-  position: absolute;
-  left: 4px;
-  top: -24px;
-  height: 18px;
-  display: inline-flex;
-  align-items: center;
-  font-size: ${({ $size }) =>
-    $size === 'compact' ? 'clamp(0.55rem, 1.5cqi, 0.7rem)' :
-    $size === 'split'   ? 'clamp(0.6rem,  1.6cqi, 0.78rem)' :
-                          'clamp(0.65rem, 1.7cqi, 0.85rem)'};
-  font-family: 'Noto Serif', 'Georgia', 'Times New Roman', serif;
-  font-weight: 700;
-  font-style: normal;
-  color: #1a1a1a;
-  line-height: 1;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-  z-index: 3;
-  pointer-events: none;
-`;
-
 /* ── Modal interchange decoration: purple highlight + label band ───────── */
 const MIHighlight = styled.div`
   position: absolute;
@@ -914,9 +892,6 @@ function ChordSymbol({
     >
       {degreeText && (
         <DegreeLabel $color={fnColor} $size={size}>{degreeText}</DegreeLabel>
-      )}
-      {showIIVILabel && iiviRole && (
-        <IIVILabel $size={size}>{iiviRole}</IIVILabel>
       )}
       {isModal && miDegree && (
         <>
@@ -1900,7 +1875,7 @@ export function LeadSheet({
   const [brackets, setBrackets] = useState<ResolvedBracket[]>([]);
   const [highlights, setHighlights] = useState<HighlightRect[]>([]);
   const [activeBarRect, setActiveBarRect] = useState<ActiveBarRect | null>(null);
-  const [dividers, setDividers] = useState<{ key: string; x: number; y: number; height: number; orient: 'v' | 'h' }[]>([]);
+  const [dividers, setDividers] = useState<{ key: string; spanKey: string; x: number; y: number; height: number; orient: 'v' | 'h' }[]>([]);
   const [hoveredSpanKey, setHoveredSpanKey] = useState<string | null>(null);
   const [activeTooltip, setActiveTooltip] = useState<{ hl: HighlightRect; anchorX: number } | null>(null);
   const arrowSpecs = useMemo(() => detectSecDomArrows(resolvedData), [resolvedData]);
@@ -2027,7 +2002,7 @@ export function LeadSheet({
 
       /* ── ii-V-I highlight bands ── */
       const resolvedHighlights: HighlightRect[] = [];
-      const resolvedDividers: { key: string; x: number; y: number; height: number; orient: 'v' | 'h' }[] = [];
+      const resolvedDividers: { key: string; spanKey: string; x: number; y: number; height: number; orient: 'v' | 'h' }[] = [];
       const HL_PAD_Y = 3;
       const HL_PAD_Y_TOP = 26;  // extra room above for ii / V / I labels
       const HL_LABEL_BAND = 18; // height of the label band (from top of highlight)
@@ -2140,6 +2115,7 @@ export function LeadSheet({
           // Horizontal divider: separates roman numeral band from chord row
           resolvedDividers.push({
             key: `divh-${spanIdx}-${si}`,
+            spanKey: `span-${spanIdx}`,
             orient: 'h',
             x: lx(hlLeft),
             y: ly(minY) - HL_PAD_Y_TOP + HL_LABEL_BAND,
@@ -2167,6 +2143,7 @@ export function LeadSheet({
               : gridRect.left + nxt.bi * barW;          // bar boundary
             resolvedDividers.push({
               key: `divv-${spanIdx}-${si}-${p}`,
+              spanKey: `span-${spanIdx}`,
               orient: 'v',
               x: lx(dividerX),
               y: ly(minY) - HL_PAD_Y_TOP,
@@ -2348,54 +2325,91 @@ export function LeadSheet({
           const topRadius = radiusParts.length === 4
             ? `${radiusParts[0]} ${radiusParts[1]} 0 0`
             : `${radius} ${radius} 0 0`;
+          const isHovered = hoveredSpanKey === hl.spanKey;
+          const showInlineLabels = isHovered && hl.rowPosition === 'only';
+          const labels = hl.kind === 'minor' ? ['ii°', 'V', 'i'] : ['ii', 'V', 'I'];
+
+          // Compact panel: tight 2px padding above and below the chord
+          // glyph so the chord text sits visually centered. The full hl
+          // rect reserves 26px above (HL_PAD_Y_TOP) and 3px below
+          // (HL_PAD_Y) for layout headroom; we want only ±2px around
+          // the chord itself when not hovered. Hover overlays the band
+          // above this compact panel.
+          const PANEL_TOP_OFFSET = 24; // 26 (HL_PAD_Y_TOP) − 2 padding
+          const panelY = hl.y + PANEL_TOP_OFFSET;
+          const panelHeight = hl.height - PANEL_TOP_OFFSET - 1; // 3 (HL_PAD_Y) − 2
           return (
             <div key={`bg-group-${hl.key}`}>
               <div
                 key={`bg-${hl.key}`}
                 style={{
                   position: 'absolute',
-                  left: hl.x, top: hl.y,
-                  width: hl.width, height: hl.height,
-                  background: 'rgba(255, 236, 179, 0.45)',
-                  border: '2px solid rgba(201, 133, 30, 0.55)',
+                  left: hl.x, top: panelY,
+                  width: hl.width, height: panelHeight,
+                  background: isHovered
+                    ? 'rgba(255, 220, 130, 0.55)'
+                    : 'rgba(255, 236, 179, 0.40)',
+                  border: isHovered
+                    ? '2.5px solid rgba(201, 133, 30, 0.95)'
+                    : '2px solid rgba(201, 133, 30, 0.55)',
                   boxSizing: 'border-box',
                   borderRadius: radius,
                   pointerEvents: 'none',
                   zIndex: 0,
+                  transition: 'background 0.15s, border-color 0.15s',
                 }}
               />
-              <div
-                key={`band-${hl.key}`}
-                style={{
-                  position: 'absolute',
-                  left: hl.x + 2, top: hl.y + 2,
-                  width: hl.width - 4,
-                  height: 18, // HL_LABEL_BAND
-                  background: 'rgba(201, 133, 30, 0.7)',
-                  borderRadius: topRadius,
-                  pointerEvents: 'none',
-                  zIndex: 1,
-                }}
-              />
+              {/* Dark amber label band — only on hover, sits flush above the panel */}
+              {isHovered && (
+                <div
+                  key={`band-${hl.key}`}
+                  style={{
+                    position: 'absolute',
+                    left: hl.x, top: hl.y + 2,
+                    width: hl.width,
+                    height: 20,
+                    background: 'rgba(201, 133, 30, 0.85)',
+                    borderRadius: topRadius,
+                    pointerEvents: 'none',
+                    zIndex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-around',
+                    color: '#fff',
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    letterSpacing: '0.05em',
+                    paddingInline: 6,
+                  }}
+                >
+                  {showInlineLabels &&
+                    labels.map((lab, i) => (
+                      <span key={i}>{lab}</span>
+                    ))}
+                </div>
+              )}
             </div>
           );
         })}
-        {af.showIIVI && dividers.map((dv) => (
-          <div
-            key={dv.key}
-            style={{
-              position: 'absolute',
-              left: dv.x, top: dv.y,
-              width: dv.orient === 'v' ? 1.5 : dv.height,
-              height: dv.orient === 'v' ? dv.height : 2,
-              background: dv.orient === 'v'
-                ? 'rgba(0, 0, 0, 0.4)'
-                : 'rgba(201, 133, 30, 0.7)',
-              pointerEvents: 'none',
-              zIndex: 2,
-            }}
-          />
-        ))}
+        {af.showIIVI && dividers
+          .filter((dv) => hoveredSpanKey === dv.spanKey)
+          .map((dv) => (
+            <div
+              key={dv.key}
+              style={{
+                position: 'absolute',
+                left: dv.x, top: dv.y,
+                width: dv.orient === 'v' ? 1.5 : dv.height,
+                height: dv.orient === 'v' ? dv.height : 2,
+                background: dv.orient === 'v'
+                  ? 'rgba(0, 0, 0, 0.4)'
+                  : 'rgba(201, 133, 30, 0.7)',
+                pointerEvents: 'none',
+                zIndex: 2,
+              }}
+            />
+          ))}
 
         {/* ── Active-bar playback highlight (sky blue, transparent) ── */}
         {activeBarRect && (

@@ -1,0 +1,18 @@
+{
+  "name": "lick-migrate",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "One-shot migration: user_licks.json -> POST /v1/licks on the Jazzify backend",
+  "scripts": {
+    "migrate": "tsx src/migrate.ts",
+    "dry-run": "tsx src/migrate.ts --dry-run",
+    "preview": "tsx src/migrate.ts --preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.0",
+    "tsx": "^4.19.2",
+    "typescript": "~5.9.3"
+  }
+}

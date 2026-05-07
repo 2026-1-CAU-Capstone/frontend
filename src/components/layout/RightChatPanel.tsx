@@ -292,7 +292,7 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
 
         {messages.map((msg) => (
           <div key={msg.id}>
-            <ChatMessage message={msg} />
+            <ChatMessage message={msg} suppressChart={!!chordContext} />
           </div>
         ))}
 

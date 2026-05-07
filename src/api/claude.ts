@@ -10,7 +10,48 @@ export interface ClaudeMessage {
 const BASE_SYSTEM = `You are Jazzify AI, a jazz harmony expert and educator.
 Respond in the same language the user writes in (Korean or English).
 Keep explanations concise but insightful. Use music theory terminology with brief explanations.
-Format with markdown: use **bold** for chord symbols and key terms, bullet points for lists.`;
+Format with markdown: use **bold** for chord symbols and key terms, bullet points for lists.
+
+When you present a chord progression for a song or section, ALWAYS use a fenced
+\`\`\`chart block containing JSON instead of an ASCII pipe diagram. The frontend
+renders this block as an iRealPro-style chord chart automatically.
+
+Schema:
+
+\`\`\`chart
+{
+  "title": "Song Title",
+  "composer": "Composer (optional)",
+  "key": "F",
+  "timeSig": "4/4",
+  "sections": [
+    {
+      "label": "A",
+      "bars": ["FΔ7", "D7", "G-7", "C7", "A-7", "D7", "G-7 C7", "FΔ7"]
+    }
+  ]
+}
+\`\`\`
+
+Rules:
+- Use jazz chord notation: Δ for major 7 (FΔ7), - for minor (G-7), ø for half-diminished, ° for diminished, alt/b9/#9/#11/b13 for altered dominants.
+- Each "bar" string is one measure. For bars with two chords, separate them with a single space ("G-7 C7").
+- Repeat sections explicitly (e.g. AABA = four section objects), not via repeat marks.
+- Section labels are short ("A", "A'", "B", "Bridge", "Intro", "Coda").
+- Output the JSON exactly — no comments, no trailing commas.
+- You may put text explanation BEFORE and AFTER the chart block, but the chart itself MUST be a clean fenced block.
+
+When you reference a section by its letter in prose (e.g. "the A section", "in the bridge"),
+wrap the letter/label with [SEC:X] so the frontend renders it as a small black filled
+section badge, just like the section labels printed on the chord chart itself.
+
+Examples:
+  - "[SEC:A] 섹션은 ii-V-I 진행이 두 번 나옵니다."
+  - "Notice how [SEC:B] modulates to the relative minor before returning to [SEC:A']."
+  - "Bridge ([SEC:B]) borrows from the parallel minor."
+
+Only wrap the section letter/label itself, not surrounding words. Use the same labels
+that appear in the chart (e.g. A, A', B, Bridge, Intro, Coda).`;
 
 export type AnalysisCategory =
   | 'overview'
@@ -109,7 +150,9 @@ export async function streamClaudeMessage(
   category?: AnalysisCategory,
 ): Promise<string> {
   if (!ANTHROPIC_API_KEY) {
-    return '[Error] VITE_ANTHROPIC_API_KEY not set in .env';
+    const msg = '[Error] VITE_ANTHROPIC_API_KEY not set in .env';
+    onChunk(msg);
+    return msg;
   }
 
   let fullUserMessage = userMessage;
@@ -122,10 +165,18 @@ export async function streamClaudeMessage(
     { role: 'user', content: fullUserMessage },
   ];
 
+  // When the user has a chord chart already on screen (chordContext given),
+  // we don't want the AI to regenerate the same chart inline. Suppress chart
+  // blocks for THAT song; the AI may still emit chart blocks for OTHER songs
+  // it references in the answer.
+  const contextSuffix = chordContext
+    ? '\n\n[CONTEXT NOTE] The user is currently viewing the chord chart referenced in the [Chord Analysis Context] above. Do NOT emit a ```chart fenced block for THIS song — they can already see it on screen. You may still use ```chart blocks for OTHER songs you reference.'
+    : '';
+
   const body = {
     model: MODEL,
     max_tokens: 16384,
-    system: getSystemInstruction(category),
+    system: getSystemInstruction(category) + contextSuffix,
     messages,
     stream: true,
   };
@@ -144,11 +195,17 @@ export async function streamClaudeMessage(
   if (!res.ok) {
     const err = await res.text();
     console.error('Claude API error:', res.status, err);
-    return `[API Error ${res.status}] ${err}`;
+    const msg = `[API Error ${res.status}] ${err}`;
+    onChunk(msg);
+    return msg;
   }
 
   const reader = res.body?.getReader();
-  if (!reader) return '[Error] No response stream';
+  if (!reader) {
+    const msg = '[Error] No response stream';
+    onChunk(msg);
+    return msg;
+  }
 
   const decoder = new TextDecoder();
   let accumulated = '';

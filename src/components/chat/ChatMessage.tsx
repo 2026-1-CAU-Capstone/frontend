@@ -6,7 +6,26 @@ import type { ChatMessage as ChatMessageType } from '../../data/types';
 import type { LickMatch } from '../../lib/lickMatcher';
 import { formatChordsInText } from './chordFormat';
 import { LickRecommendMessage, LickRecommendList, jsonToLickEntry } from './LickRecommendMessage';
+import { ChatChartCard } from './ChatChartCard';
+import { parseChatChart } from '../../lib/chatChartParser';
 import styled, { keyframes } from 'styled-components';
+
+/* Inline section label — black filled square with the letter, matches the
+ * LeadSheet SectionLabel style so the chat reads like the same chart. */
+const InlineSectionTag = styled.span`
+  display: inline-block;
+  background: #000;
+  color: #fff;
+  font-family: 'DM Sans', 'Pretendard', sans-serif;
+  font-size: 0.82em;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  padding: 4px 8px;
+  border-radius: 2px;
+  margin: 0 2px;
+  vertical-align: baseline;
+`;
 
 const LICK_TAG_RE = /\[LICK:(\d+)\]/g;
 import {
@@ -27,6 +46,12 @@ import {
 
 interface ChatMessageProps {
   message: ChatMessageType;
+  /**
+   * When true, suppress inline ```chart rendering. Used on the ChordPage
+   * RightChatPanel where the user is already viewing a chord chart and
+   * regenerating it inside the assistant's reply would be redundant.
+   */
+  suppressChart?: boolean;
 }
 
 /** Recursively walk React children and format chord symbols in text nodes */
@@ -96,7 +121,11 @@ function ThinkingMessage() {
   }, []);
   return (
     <ThinkingWrap>
-      <span>♩</span>
+      <img
+        src="/jazzifylogo.png"
+        alt="Jazzify"
+        style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover', display: 'block' }}
+      />
       <span>{THINKING_MESSAGES[idx]}...</span>
     </ThinkingWrap>
   );
@@ -147,7 +176,7 @@ const mdComponents: Components = {
   },
 };
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({ message, suppressChart = false }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
   const selectedChords = message.role === 'user' ? message.selectedChords ?? [] : [];
 
@@ -191,44 +220,90 @@ export function ChatMessage({ message }: ChatMessageProps) {
       (message.lickMatches ?? []).map(m => [m.lick.id, m])
     );
 
-    // 태그로 분할
+    /* Helper: take a plain text segment and emit markdown + inlined
+     * [LICK:id] cards + [SEC:label] section tags. Used as a sub-pass
+     * after chart-block splitting. */
+    const INLINE_TAG_RE = /\[(LICK|SEC):([^\]]+)\]/g;
+
+    const renderTextWithLicks = (text: string, keyPrefix: string): React.ReactNode[] => {
+      const out: React.ReactNode[] = [];
+      let textIdx = 0;
+      let lm: RegExpExecArray | null;
+      INLINE_TAG_RE.lastIndex = 0;
+
+      const flushMarkdown = (md: string, suffix: string) => {
+        if (!md) return;
+        out.push(
+          <MarkdownBody key={`${keyPrefix}-md-${suffix}`}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{md}</ReactMarkdown>
+          </MarkdownBody>
+        );
+      };
+
+      while ((lm = INLINE_TAG_RE.exec(text)) !== null) {
+        flushMarkdown(text.slice(textIdx, lm.index), String(textIdx));
+        const kind = lm[1]; // "LICK" | "SEC"
+        const value = lm[2];
+
+        if (kind === 'LICK') {
+          const id = parseInt(value, 10);
+          const match = lickById.get(id);
+          if (match) {
+            out.push(<LickRecommendMessage key={`${keyPrefix}-lick-${id}-${lm.index}`} match={match} />);
+          }
+        } else if (kind === 'SEC') {
+          out.push(
+            <InlineSectionTag key={`${keyPrefix}-sec-${lm.index}`}>{value}</InlineSectionTag>
+          );
+        }
+
+        textIdx = lm.index + lm[0].length;
+      }
+      flushMarkdown(text.slice(textIdx), 'tail');
+      return out;
+    };
+
+    /* Step 1: split by ```chart blocks. Each complete chart block becomes
+     * a ChatChartCard; everything else flows through renderTextWithLicks. */
+    const CHART_RE = /```\s*chart[ \t]*\n([\s\S]*?)\n```/g;
     const segments: React.ReactNode[] = [];
     let lastIdx = 0;
-    let m: RegExpExecArray | null;
-    LICK_TAG_RE.lastIndex = 0;
+    let cm: RegExpExecArray | null;
+    CHART_RE.lastIndex = 0;
 
-    while ((m = LICK_TAG_RE.exec(raw)) !== null) {
-      // 태그 앞 텍스트 → 마크다운 렌더
-      const before = raw.slice(lastIdx, m.index);
-      if (before) {
+    while ((cm = CHART_RE.exec(raw)) !== null) {
+      const before = raw.slice(lastIdx, cm.index);
+      if (before) segments.push(...renderTextWithLicks(before, `pre-${lastIdx}`));
+
+      if (suppressChart) {
+        // Caller wants charts hidden (e.g. ChordPage already shows the chart).
+        // Skip the block entirely — don't render it as a code block either.
+        lastIdx = cm.index + cm[0].length;
+        continue;
+      }
+
+      const parsed = parseChatChart(cm[1]);
+      if (parsed) {
+        segments.push(<ChatChartCard key={`chart-${cm.index}`} chart={parsed} />);
+      } else {
+        // Malformed JSON — fall through to original code-block rendering
         segments.push(
-          <MarkdownBody key={`txt-${lastIdx}`}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{before}</ReactMarkdown>
+          <MarkdownBody key={`chart-raw-${cm.index}`}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+              {`\`\`\`chart\n${cm[1]}\n\`\`\``}
+            </ReactMarkdown>
           </MarkdownBody>
         );
       }
-      // LickCard 인라인
-      const id = parseInt(m[1], 10);
-      const match = lickById.get(id);
-      if (match) {
-        segments.push(
-          <LickRecommendMessage key={`lick-${id}`} match={match} />
-        );
-      }
-      lastIdx = m.index + m[0].length;
+      lastIdx = cm.index + cm[0].length;
     }
 
-    // 남은 텍스트
-    const tail = raw.slice(lastIdx);
-    if (tail) {
-      segments.push(
-        <MarkdownBody key={`txt-tail`}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{tail}</ReactMarkdown>
-        </MarkdownBody>
-      );
-    }
+    /* Step 2: trailing text after the last chart block (or whole message
+     * if no chart blocks were found). */
+    const trail = raw.slice(lastIdx);
+    if (trail) segments.push(...renderTextWithLicks(trail, `tail`));
 
-    // 태그가 없었으면 기본 렌더
+    // Empty message → render whole thing as markdown
     if (segments.length === 0 && raw) {
       segments.push(
         <MarkdownBody key="txt-only">
@@ -252,12 +327,14 @@ export function ChatMessage({ message }: ChatMessageProps) {
     }
 
     return <>{segments}</>;
-  }, [message.content, message.role, message.lickMatches, message.savedLickMatches, message.lickProgressionLabel]);
+  }, [message.content, message.role, message.lickMatches, message.savedLickMatches, message.lickProgressionLabel, suppressChart]);
+
+  const isThinking = message.role === 'assistant' && !(message.content ?? '').trim();
 
   return (
     <MessageRow $role={message.role}>
       <Bubble $role={message.role}>
-        {message.role === 'assistant' && (
+        {message.role === 'assistant' && !isThinking && (
           <AssistantHeader>
             <AssistantIcon>
               <img

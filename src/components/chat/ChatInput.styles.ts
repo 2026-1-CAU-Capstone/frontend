@@ -195,7 +195,7 @@ export const Input = styled.textarea`
 export const SendButton = styled.button`
   width: 36px;
   height: 36px;
-  border-radius: 50%;
+  border-radius: 8px;
   border: none;
   background: linear-gradient(135deg, ${({ theme }) => theme.colors.gold}, ${({ theme }) => theme.colors.goldDark});
   color: white;
