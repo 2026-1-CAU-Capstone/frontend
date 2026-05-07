@@ -112,7 +112,7 @@ export default function MyLicksPage() {
     loadUserLicks().then(setLicks);
   }, []);
 
-  const handleDelete = useCallback((id: number) => {
+  const handleDelete = useCallback((id: number | string) => {
     deleteUserLick(id);
     loadUserLicks().then(setLicks);
   }, []);

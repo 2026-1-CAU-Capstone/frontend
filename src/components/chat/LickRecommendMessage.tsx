@@ -14,7 +14,7 @@ import type { LickMatch } from '../../lib/lickMatcher';
 import { NotePlayer } from '../../lib/note/notePlayer';
 import type { NoteInfo, MeasureInfo } from '../../data/sampleMelody';
 import { YoutubeEmbed } from '../common/YoutubeEmbed';
-import { LICK_VIDEOS } from '../../data/lickVideos';
+import { getLickVideo } from '../../data/lickVideos';
 
 /* ── AI 생성 릭: glick JSON → LickEntry 변환 ────────────────────────────── */
 
@@ -398,7 +398,7 @@ export function LickRecommendMessage({ match, tempoOverride }: Props) {
   const [saved, setSaved] = useState(() =>
     loadUserLicksSync().some((l) => l.id === lick.id)
   );
-  const video = LICK_VIDEOS[lick.id];
+  const video = getLickVideo(lick.id);
 
   useEffect(() => {
     const wrapper = wrapperRef.current;
@@ -499,7 +499,7 @@ export function LickRecommendMessage({ match, tempoOverride }: Props) {
         <div ref={svgRef} />
       </ScoreBox>
       {video && showVideo && (
-        <YoutubeEmbed videoId={video.videoId} startSec={video.startSec} autoplay />
+        <YoutubeEmbed videoId={video.videoId} startSec={video.startSec} endSec={video.endSec} autoplay />
       )}
     </Wrapper>
   );

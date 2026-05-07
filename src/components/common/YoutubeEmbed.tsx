@@ -21,14 +21,16 @@ const EmbedFrame = styled.div`
 interface Props {
   videoId: string;
   startSec?: number;
+  endSec?: number;
   /** 공통 너비 제한이 필요하면 지정 (px), 없으면 부모 폭 100% */
   maxWidth?: number;
   autoplay?: boolean;
 }
 
-export function YoutubeEmbed({ videoId, startSec, maxWidth, autoplay }: Props) {
+export function YoutubeEmbed({ videoId, startSec, endSec, maxWidth, autoplay }: Props) {
   const params = new URLSearchParams();
   if (startSec && startSec > 0) params.set('start', String(Math.floor(startSec)));
+  if (endSec && endSec > 0) params.set('end', String(Math.ceil(endSec)));
   if (autoplay) {
     params.set('autoplay', '1');
     params.set('mute', '0');

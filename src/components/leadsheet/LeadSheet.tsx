@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent } from 'react';
 import styled from 'styled-components';
 import type {
   LeadSheetData,
@@ -759,33 +759,8 @@ const ChordColumn = styled.div<{ $selected?: boolean; $selectable?: boolean }>`
   user-select: none;
 `;
 
-/* ── ii-V-I decoration: amber highlight + label band (MI와 동일 구조) ──── */
-const IIVIHighlight = styled.div`
-  position: absolute;
-  left: -8px;
-  right: -8px;
-  top: -26px;
-  bottom: -4px;
-  background: rgba(255, 220, 130, 0.18);
-  border: 2px solid rgba(180, 130, 10, 0.6);
-  box-sizing: border-box;
-  border-radius: 4px;
-  pointer-events: none;
-  z-index: 0;
-`;
-
-const IIVIBand = styled.div`
-  position: absolute;
-  left: -6px;
-  right: -6px;
-  top: -24px;
-  height: 18px;
-  background: rgba(180, 130, 10, 0.55);
-  border-radius: 2px 2px 0 0;
-  pointer-events: none;
-  z-index: 1;
-`;
-
+/* ── ii-V-I band text (kept for the per-chord roman numeral inside the
+ *    hover band rendered at the chord-cell level) ──────────────────────── */
 const IIVIBandText = styled.span<{ $size?: ChordSize }>`
   position: absolute;
   left: 0;
@@ -1382,15 +1357,6 @@ function hlBorderRadius(pos: HighlightRect['rowPosition']): string {
     case 'last':   return '0 4px 4px 0';
     case 'middle': return '0';
     default:       return '4px';
-  }
-}
-
-function bandBorderRadius(pos: HighlightRect['rowPosition']): string {
-  switch (pos) {
-    case 'first':  return '2px 0 0 0';
-    case 'last':   return '0 2px 0 0';
-    case 'middle': return '0';
-    default:       return '2px 2px 0 0';
   }
 }
 
@@ -2146,7 +2112,6 @@ export function LeadSheet({
       setArrows([]);
       setBrackets([]);
       setHighlights([]);
-      setDividers([]);
       return;
     }
 
@@ -2158,7 +2123,6 @@ export function LeadSheet({
         setArrows([]);
         setBrackets([]);
         setHighlights([]);
-        setDividers([]);
         return;
       }
 
@@ -2289,9 +2253,7 @@ export function LeadSheet({
 
       /* ── ii-V-I highlight bands ── */
       const resolvedHighlights: HighlightRect[] = [];
-      const HL_PAD_Y = 3;
       const HL_PAD_X = 6;
-      const HL_BAND_TOP = 38; // extra upward extension to contain the tab band
 
       for (let spanIdx = 0; spanIdx < iiviSpans.length; spanIdx++) {
         const span = iiviSpans[spanIdx];
@@ -2396,11 +2358,10 @@ export function LeadSheet({
             key: `hl-${spanIdx}-${si}`,
             spanKey: `span-${spanIdx}`,
             x: lx(hlLeft),
-            // Extend upward by HL_BAND_TOP so the dark band sits in the same
-            // area where the chord-relative IIVIBandText (top: -22) renders.
-            y: ly(gridRect.top) - HL_BAND_TOP,
+            // Vertically match the barline (BARLINE_GAP inset top & bottom).
+            y: ly(gridRect.top + BARLINE_GAP * scale),
             width: lw(hlRight - hlLeft),
-            height: lh(gridRect.height) + HL_BAND_TOP,
+            height: lh(gridRect.height - 2 * BARLINE_GAP * scale),
             label: span.label,
             kind: span.kind,
             rowPosition,
@@ -2576,33 +2537,19 @@ export function LeadSheet({
         {af.showIIVI && highlights.map((hl) => {
           const isHovered = hoveredSpanKey === hl.spanKey;
           return (
-            <Fragment key={`hl-group-${hl.key}`}>
-              <div
-                key={`bg-${hl.key}`}
-                style={{
-                  position: 'absolute',
-                  left: hl.x, top: hl.y,
-                  width: hl.width, height: hl.height,
-                  background: 'rgba(255, 236, 179, 0.45)',
-                  borderRadius: hlBorderRadius(hl.rowPosition),
-                  pointerEvents: 'none',
-                  zIndex: 0,
-                  ...hlBorder(hl.rowPosition, isHovered),
-                }}
-              />
-              <div
-                key={`band-${hl.key}`}
-                style={{
-                  position: 'absolute',
-                  left: hl.x, top: hl.y,
-                  width: hl.width, height: 18,
-                  background: 'rgba(180, 130, 10, 0.55)',
-                  borderRadius: bandBorderRadius(hl.rowPosition),
-                  pointerEvents: 'none',
-                  zIndex: 1,
-                }}
-              />
-            </Fragment>
+            <div
+              key={`bg-${hl.key}`}
+              style={{
+                position: 'absolute',
+                left: hl.x, top: hl.y,
+                width: hl.width, height: hl.height,
+                background: 'rgba(255, 236, 179, 0.45)',
+                borderRadius: hlBorderRadius(hl.rowPosition),
+                pointerEvents: 'none',
+                zIndex: 0,
+                ...hlBorder(hl.rowPosition, isHovered),
+              }}
+            />
           );
         })}
 
@@ -2696,7 +2643,6 @@ export function LeadSheet({
 
         {/* ── Event capture layer (above text, transparent) ── */}
         {af.showIIVI && highlights.map((hl) => {
-          const isHovered = hoveredSpanKey === hl.spanKey;
           return (
             <div
               key={`ev-${hl.key}`}

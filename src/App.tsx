@@ -8,6 +8,7 @@ import MyLicksPage from './pages/MyLicksPage';
 import Lick12KeyPage from './pages/Lick12KeyPage';
 import LeadSheetGeneratorPage from './pages/LeadSheetGeneratorPage';
 import InputPage from './pages/InputPage';
+import AdminPage from './pages/AdminPage';
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
         <Route path="/licks" element={<LicksPage />} />
         <Route path="/input" element={<InputPage />} />
         <Route path="/lick-input" element={<LickInputPage />} />
+        <Route path="/admin" element={<AdminPage />} />
         <Route path="/my-licks" element={<MyLicksPage />} />
         <Route path="/lick-practice/:id" element={<Lick12KeyPage />} />
       </Routes>

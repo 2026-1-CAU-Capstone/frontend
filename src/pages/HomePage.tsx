@@ -28,6 +28,32 @@ const Wrapper = styled.div`
   background: ${({ theme }) => theme.colors.bgPrimary};
   font-family: ${({ theme }) => theme.fonts.ui};
   overflow: hidden;
+  position: relative;
+`;
+
+/* Top-right Admin shortcut. Visible only in idle state for now —
+ * remove or hide behind an env flag once the app ships publicly. */
+const AdminBtn = styled.button`
+  position: absolute;
+  top: 16px;
+  right: 22px;
+  padding: 7px 14px;
+  border: 1.5px solid ${({ theme }) => theme.colors.border};
+  border-radius: 8px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  color: ${({ theme }) => theme.colors.textSecondary};
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  z-index: 50;
+  transition: all 0.12s;
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.gold};
+    color: ${({ theme }) => theme.colors.textPrimary};
+    background: ${({ theme }) => theme.colors.bgSecondary};
+  }
 `;
 
 /* ── Sidebar ─────────────────────────────────────────────────── */
@@ -455,6 +481,8 @@ export default function HomePage() {
 
   return (
     <Wrapper>
+      <AdminBtn onClick={() => navigate('/admin')}>Admin</AdminBtn>
+
       {/* ── Sidebar ────────────────────────────────────────────── */}
       <Sidebar>
         <BrandRow>

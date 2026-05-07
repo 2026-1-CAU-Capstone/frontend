@@ -167,7 +167,7 @@ const mdComponents: Components = {
         const json = JSON.parse(String(children).trim()) as Record<string, unknown>;
         const lick = jsonToLickEntry(json);
         const match: LickMatch = { lick, tier: 1 };
-        return <div className="glick-container"><LickRecommendMessage match={match} tempoOverride={songTempo} /></div>;
+        return <div className="glick-container"><LickRecommendMessage match={match} /></div>;
       } catch {
         // JSON 파싱 실패 시 일반 코드 블록으로 표시
         return <code className={className}>{children}</code>;
@@ -217,7 +217,7 @@ export function ChatMessage({ message, suppressChart = false, songTempo }: ChatM
 
 
     // [LICK:id] 태그를 파싱해 인라인 LickCard로 교체
-    const lickById = new Map<number, LickMatch>(
+    const lickById = new Map<number | string, LickMatch>(
       (message.lickMatches ?? []).map(m => [m.lick.id, m])
     );
 
