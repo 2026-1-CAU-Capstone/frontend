@@ -1,4 +1,5 @@
 import styled from 'styled-components';
+import { ProgressionArrow } from './ProgressionArrow';
 
 export const CardContainer = styled.div`
   padding: 12px;
@@ -55,9 +56,12 @@ export const ChordChip = styled.span<{ $func: 'T' | 'SD' | 'D' }>`
   overflow: hidden;
 `;
 
-export const Arrow = styled.span`
+export const Arrow = styled(ProgressionArrow)`
+  flex: 0 0 auto;
+  width: 18px;
+  height: 10px;
   color: ${({ theme }) => theme.colors.textSecondary};
-  font-size: 14px;
+  transform: translateY(1px);
 `;
 
 export const ChordStep = styled.span`

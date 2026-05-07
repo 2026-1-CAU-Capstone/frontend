@@ -1,4 +1,5 @@
 import styled from 'styled-components';
+import { ProgressionArrow } from './ProgressionArrow';
 
 export const InputWrapper = styled.div`
   border-top: 1px solid ${({ theme }) => theme.colors.border};
@@ -147,9 +148,12 @@ export const SelectedChordChip = styled.span`
   }
 `;
 
-export const SelectedChordArrow = styled.span`
+export const SelectedChordArrow = styled(ProgressionArrow)`
+  flex: 0 0 auto;
+  width: 18px;
+  height: 10px;
   color: ${({ theme }) => theme.colors.textSecondary};
-  font-size: 14px;
+  transform: translateY(1px);
 `;
 
 export const SelectedMoreChip = styled.span`

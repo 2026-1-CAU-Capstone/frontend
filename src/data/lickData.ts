@@ -36,7 +36,7 @@ interface RawLick {
 }
 
 export interface LickEntry {
-  id: number;
+  id: number | string;
   performer: string;
   title: string;
   album?: string;
@@ -213,17 +213,15 @@ function lickToSheet(lick: RawLick): NoteSheetData {
   };
 }
 
-/* ─── Load and parse ──────────────────────────────────────────────── */
+/* ─── Load from local JSON (frontend / 8000 licks) ───────────────── */
 
-let cachedLicks: LickEntry[] | null = null;
+let cachedFrontendLicks: LickEntry[] | null = null;
 
-export async function loadLicks(): Promise<LickEntry[]> {
-  if (cachedLicks) return cachedLicks;
-
+export async function loadFrontendLicks(): Promise<LickEntry[]> {
+  if (cachedFrontendLicks) return cachedFrontendLicks;
   const res = await fetch('/data/licks/licks.json');
   const raw: RawLick[] = await res.json();
-
-  cachedLicks = raw
+  cachedFrontendLicks = raw
     .filter((l) => l.n_events >= 8)
     .map((l) => ({
       id: l.id,
@@ -244,7 +242,17 @@ export async function loadLicks(): Promise<LickEntry[]> {
       fuzzyIntervals: l.fuzzy_interval,
       durationClasses: l.duration_class,
     }));
+  return cachedFrontendLicks;
+}
 
+/* ─── Load from backend API (verified / 54 licks) ────────────────── */
+
+let cachedLicks: LickEntry[] | null = null;
+
+export async function loadLicks(): Promise<LickEntry[]> {
+  if (cachedLicks) return cachedLicks;
+  const { fetchAllLicks } = await import('../api/licks');
+  cachedLicks = await fetchAllLicks();
   return cachedLicks;
 }
 
@@ -347,7 +355,7 @@ export function saveUserLick(lick: LickEntry): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
 }
 
-export function deleteUserLick(id: number): void {
+export function deleteUserLick(id: number | string): void {
   const existing = loadLocalLicks().filter((l) => l.id !== id);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
 }

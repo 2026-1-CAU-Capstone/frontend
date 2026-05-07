@@ -19,7 +19,8 @@ import { BackingPlayerBar, type MixChannel } from '../components/backing/Backing
 import { withLeadSheetSelectionIds } from '../lib/leadSheetSelection';
 import type { LeadSheetChordSelection } from '../components/leadsheet/LeadSheet';
 import { loadUserLicksSync } from '../data/lickData';
-import { findMatchingLicks } from '../lib/lickMatcher';
+import { findMatchingLicks, type LickMatch } from '../lib/lickMatcher';
+import { SavedLicksModal } from '../components/leadsheet/SavedLicksModal';
 
 const ANALYZED_SONG_ID = '__analyzed_all-of-me__';
 
@@ -433,8 +434,9 @@ export default function ChordPage() {
   const [selectedChordsData, setSelectedChordsData] = useState<ChordOverlay[]>([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [analysisMenuOpen, setAnalysisMenuOpen] = useState(false);
-  // ★ 저장된 릭 있는 마디 번호 세트 (B안)
+  // ★ 저장된 릭 있는 마디 번호 세트
   const [savedLickBarNums, setSavedLickBarNums] = useState<Set<number>>(new Set());
+  const [savedLicksModal, setSavedLicksModal] = useState<{ label: string; matches: LickMatch[] } | null>(null);
   const analysisMenuRef = useRef<HTMLDivElement>(null);
 
   const handleChordClick = (_chord: any, _measureNumber: number, target?: LeadSheetChordSelection) => {
@@ -649,7 +651,7 @@ export default function ChordPage() {
     return () => window.removeEventListener('jazzify:lickSaved', handler);
   }, [refreshSavedLickBars]);
 
-  const [rightPanelWidth, setRightPanelWidth] = useState(480);
+  const [rightPanelWidth, setRightPanelWidth] = useState(620);
   const dividerRef = useRef<HTMLDivElement>(null);
 
   const onDividerMouseDown = useCallback((e: React.MouseEvent) => {
@@ -740,9 +742,26 @@ export default function ChordPage() {
               selectedChordIds={selectedChordIds}
               selectionMode={isSelectionMode}
               savedLickBarNums={savedLickBarNums.size > 0 ? savedLickBarNums : undefined}
-              onSavedLickBadgeClick={(_bar, x, y) => {
-                setSelectionBubblePos({ x, y });
-                window.dispatchEvent(new CustomEvent('jazzify:requestLicks'));
+              onSavedLickBadgeClick={(barNum, spanLabel) => {
+                const saved = loadUserLicksSync();
+                if (saved.length === 0) { setSavedLicksModal({ label: spanLabel, matches: [] }); return; }
+                const keyMatch = chordContext?.match(/Key:\s*([A-G][b#]?)/);
+                const songKey = keyMatch ? keyMatch[1] : 'C';
+                const bar = sheet?.systems.flatMap((s) => s.bars).find((b) => b.measureNumber === barNum);
+                const firstChord = bar?.chords[0];
+                if (!firstChord || !sheet) return;
+                const overlay: ChordOverlay = {
+                  id: String(barNum),
+                  symbol: `${firstChord.root ?? ''}${firstChord.quality ?? ''}`,
+                  bar: barNum,
+                  pageNumber: 1,
+                  position: { x: 0, y: 0, width: 0, height: 0 },
+                  analysis: { degree: '', func: 'SD', diatonic: true },
+                };
+                const all = findMatchingLicks([overlay], sheet.title, songKey, saved, 50);
+                // tier 3은 임의 전조 결과라 제외, tier 1/2만 표시 (없으면 전체)
+                const direct = all.filter((m) => m.tier <= 2);
+                setSavedLicksModal({ label: spanLabel, matches: direct.length > 0 ? direct : all });
               }}
             />
           ) : (
@@ -807,6 +826,7 @@ export default function ChordPage() {
             isSelectionMode={isSelectionMode}
             onToggleSelectionMode={toggleSelectionMode}
             onClearSelectedChords={clearSelectedChords}
+            songTempo={tempo}
           />
         </RightPanelWrapper>
         </MainArea>
@@ -828,48 +848,35 @@ export default function ChordPage() {
           style={{
             position: 'fixed',
             left: selectionBubblePos.x,
-            top: selectionBubblePos.y - 12,
+            top: selectionBubblePos.y,
             transform: 'translate(-50%, -100%)',
             zIndex: 2000,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
             pointerEvents: 'auto',
           }}
           onMouseDown={(e) => e.stopPropagation()}
+          onClick={() => {
+            setSelectionBubblePos(null);
+            window.dispatchEvent(new CustomEvent('jazzify:requestLicks'));
+          }}
         >
           <div style={{
-            background: '#1a1a1a',
+            background: 'rgba(180, 130, 10, 0.9)',
             color: '#fff',
-            padding: '7px 14px',
-            borderRadius: '10px',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.28)',
+            padding: '3px 11px',
+            borderRadius: '4px 4px 0 0',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            fontSize: '13px',
-            fontWeight: 600,
+            gap: '5px',
+            fontSize: '11px',
+            fontWeight: 700,
             fontFamily: "'DM Sans', sans-serif",
             cursor: 'pointer',
             userSelect: 'none',
             whiteSpace: 'nowrap',
-          }}
-            onClick={() => {
-              setSelectionBubblePos(null);
-              // RightChatPanel의 handleRequestLicks 와 연동하기 위해
-              // 선택 상태가 이미 있으므로 커스텀 이벤트로 트리거
-              window.dispatchEvent(new CustomEvent('jazzify:requestLicks'));
-            }}
-          >
+            letterSpacing: '0.02em',
+          }}>
             💡 릭 추천받기
           </div>
-          {/* 말풍선 꼬리 */}
-          <div style={{
-            width: 0, height: 0,
-            borderLeft: '7px solid transparent',
-            borderRight: '7px solid transparent',
-            borderTop: '7px solid #1a1a1a',
-          }} />
         </div>
       )}
 
@@ -882,6 +889,15 @@ export default function ChordPage() {
         onVolumeChange={handleVolumeChange}
         disabled={!sheet || loading}
       />
+
+      {savedLicksModal && (
+        <SavedLicksModal
+          spanLabel={savedLicksModal.label}
+          matches={savedLicksModal.matches}
+          onClose={() => setSavedLicksModal(null)}
+          songTempo={tempo}
+        />
+      )}
     </PageContainer>
   );
 }

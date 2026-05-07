@@ -1,4 +1,5 @@
 import styled from 'styled-components';
+import { ProgressionArrow } from './ProgressionArrow';
 
 export const MessageRow = styled.div<{ $role: 'user' | 'assistant' }>`
   display: flex;
@@ -125,9 +126,12 @@ export const UserSelectedChord = styled.span`
   }
 `;
 
-export const UserSelectedArrow = styled.span`
+export const UserSelectedArrow = styled(ProgressionArrow)`
+  flex: 0 0 auto;
+  width: 17px;
+  height: 9px;
   color: rgba(0, 0, 0, 0.44);
-  font-size: 12px;
+  transform: translateY(1px);
 `;
 
 export const UserQuestionText = styled.div`

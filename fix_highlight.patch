@@ -1,0 +1,13 @@
+--- src/components/leadsheet/LeadSheet.tsx
++++ src/components/leadsheet/LeadSheet.tsx
+@@ -2063,7 +2063,5 @@
+             const rect = el.getBoundingClientRect();
+             hlRight = Math.max(hlRight, rect.right);
+-            minY = Math.min(minY, rect.top);
+-            maxY = Math.max(maxY, rect.bottom);
+           }
+ 
++          minY = gridRect.top + BARLINE_GAP * scale;
++          maxY = gridRect.bottom - BARLINE_GAP * scale;
++
+           // Fallback X: extend to end of last bar if no element was found

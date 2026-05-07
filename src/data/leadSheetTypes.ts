@@ -15,6 +15,7 @@ export interface LeadSheetChordAnalysis {
   functions?: { function: string; confidence: number; note?: string }[];
   groupMemberships?: { groupId: number; groupType: string; role: string; variant: string }[];
   modalInterchange?: { sourceMode: string; borrowedDegree: string };
+  subV?: { targetDegree: string; targetRootPc: number; originalVLabel: string };
   deceptiveResolution?: { expected: string; actual: string };
   modeSegment?: string;
   ambiguityScore?: number;

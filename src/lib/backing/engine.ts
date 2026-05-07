@@ -127,6 +127,9 @@ export function renderChart(chart: Chart, opts: RenderOptions): BackingEvent[] {
 
       if (voicing.length > 0) {
         const pattern = selectCompingPattern(chord.beats, bi, ci);
+        // 1-beat 코드는 단일 히트 → 한 박 내내 울리도록 길게 sustain.
+        // 다중 히트 패턴은 짧게 끊어 머디해지지 않게 유지.
+        const isSingleHit = pattern.length === 1;
         for (const [offset, velBase] of pattern) {
           if (offset >= chord.beats) continue;
           const t = barStart + (beatCursor + offset) * secPerBeat;
@@ -134,9 +137,9 @@ export function renderChart(chart: Chart, opts: RenderOptions): BackingEvent[] {
           // piano, drums, and the visual bar highlight all align.
           const vel = velBase + (rand(bi * 97 + ci * 11 + offset * 3) - 0.5) * 0.08;
           const microTime = t;
-          // Medium-short duration — long enough for reverb tails to bloom,
-          // short enough that successive chord hits stay clean
-          const duration = secPerBeat * 0.45;
+          const duration = isSingleHit
+            ? secPerBeat * chord.beats * 1.1   // 1박 코드: 한 박을 꽉 채워 잔향까지
+            : secPerBeat * 0.45;                // 패턴 히트: 머디함 방지용 짧은 길이
           for (const midi of voicing) {
             events.push({
               kind: "note",

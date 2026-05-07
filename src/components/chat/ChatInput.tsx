@@ -104,7 +104,7 @@ export function ChatInput({
               <SelectedChordRow>
                 {visibleChords.map((chord, i) => (
                   <SelectedChordStep key={chord.id}>
-                    {i > 0 && <SelectedChordArrow>→</SelectedChordArrow>}
+                    {i > 0 && <SelectedChordArrow />}
                     <SelectedChordChip>{formatChordsInText(chord.symbol)}</SelectedChordChip>
                   </SelectedChordStep>
                 ))}

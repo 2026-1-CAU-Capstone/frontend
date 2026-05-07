@@ -9,10 +9,12 @@ import {
   Accidental, Dot, Tuplet,
 } from 'vexflow';
 import type { LickEntry } from '../../data/lickData';
-import { saveUserLick } from '../../data/lickData';
+import { saveUserLick, deleteUserLick, loadUserLicksSync } from '../../data/lickData';
 import type { LickMatch } from '../../lib/lickMatcher';
 import { NotePlayer } from '../../lib/note/notePlayer';
 import type { NoteInfo, MeasureInfo } from '../../data/sampleMelody';
+import { YoutubeEmbed } from '../common/YoutubeEmbed';
+import { LICK_VIDEOS } from '../../data/lickVideos';
 
 /* ── AI 생성 릭: glick JSON → LickEntry 변환 ────────────────────────────── */
 
@@ -78,10 +80,36 @@ const PerformerName = styled.span`
 const SongName = styled.span`
   font-size: 12px;
   color: ${({ theme }) => theme.colors.textSecondary};
-  flex: 1;
+  max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex-shrink: 1;
+  min-width: 0;
+`;
+
+const TransposeBadge = styled.span`
+  font-size: 10px;
+  font-weight: 600;
+  color: #f57c00;
+  background: rgba(245, 124, 0, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  white-space: nowrap;
+`;
+
+// DEV-ONLY: lick id 디버그 뱃지 — 추후 제거 요청 시 삭제
+const DevIdBadge = styled.span`
+  font-size: 10px;
+  font-weight: 500;
+  color: #888;
+  background: rgba(0, 0, 0, 0.06);
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-family: ui-monospace, monospace;
 `;
 
 const CircleBtn = styled.button<{ $color: string }>`
@@ -356,15 +384,21 @@ function renderScore(el: HTMLDivElement, lick: LickEntry, availW: number) {
 
 interface Props {
   match: LickMatch;
+  tempoOverride?: number;
 }
 
-export function LickRecommendMessage({ match }: Props) {
+export function LickRecommendMessage({ match, tempoOverride }: Props) {
   const { lick, originalKey } = match;
   const wrapperRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<NotePlayer | null>(null);
   const [playing, setPlaying] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [showVideo, setShowVideo] = useState(false);
+  // 마운트 시 localStorage 확인 — 이미 저장된 릭이면 saved 상태로 시작
+  const [saved, setSaved] = useState(() =>
+    loadUserLicksSync().some((l) => l.id === lick.id)
+  );
+  const video = LICK_VIDEOS[lick.id];
 
   useEffect(() => {
     const wrapper = wrapperRef.current;
@@ -392,16 +426,21 @@ export function LickRecommendMessage({ match }: Props) {
     }
     const p = playerRef.current;
     if (p.playing) { p.stop(); setPlaying(false); }
-    else { setPlaying(true); await p.play(lick.sheetData, lick.tempo ?? 200); }
+    else { setPlaying(true); await p.play(lick.sheetData, tempoOverride ?? lick.tempo ?? 200); }
   }, [lick]);
 
   useEffect(() => () => { playerRef.current?.dispose(); }, []);
 
-  const handleSave = useCallback(() => {
-    saveUserLick(lick);
-    setSaved(true);
+  const handleToggleSave = useCallback(() => {
+    if (saved) {
+      deleteUserLick(lick.id);
+      setSaved(false);
+    } else {
+      saveUserLick(lick);
+      setSaved(true);
+    }
     window.dispatchEvent(new CustomEvent('jazzify:lickSaved'));
-  }, [lick]);
+  }, [lick, saved]);
 
   return (
     <Wrapper ref={wrapperRef}>
@@ -412,6 +451,13 @@ export function LickRecommendMessage({ match }: Props) {
             {lick.title && <SongName>{lick.title}</SongName>}
           </>
         )}
+        <TransposeBadge>
+          {originalKey
+            ? `${originalKey} → ${lick.key.split('-')[0]}`
+            : lick.key.split('-')[0]}
+        </TransposeBadge>
+        {/* DEV-ONLY: lick id — 추후 제거 요청 시 삭제 */}
+        <DevIdBadge title="Lick ID (dev)">#{lick.id}</DevIdBadge>
         <CircleBtn
           $color={playing ? '#1b5e20' : '#2e7d32'}
           onClick={togglePlay}
@@ -421,8 +467,8 @@ export function LickRecommendMessage({ match }: Props) {
         </CircleBtn>
         <CircleBtn
           $color={saved ? '#388e3c' : '#1a1a1a'}
-          onClick={saved ? undefined : handleSave}
-          title={saved ? '저장됨' : '내 릭에 저장'}
+          onClick={handleToggleSave}
+          title={saved ? '저장 취소' : '내 릭에 저장'}
         >
           {saved ? (
             /* 저장됨: 채워진 북마크 */
@@ -436,15 +482,25 @@ export function LickRecommendMessage({ match }: Props) {
             </svg>
           )}
         </CircleBtn>
-        {originalKey && (
-          <span style={{ fontSize: 10, color: '#f57c00', flexShrink: 0, marginLeft: 2 }}>
-            {originalKey}→이조
-          </span>
+        {video && (
+          <CircleBtn
+            $color={showVideo ? '#9b1c1c' : '#c4302b'}
+            onClick={() => setShowVideo((v) => !v)}
+            title={showVideo ? '원본 영상 닫기' : '원본 영상 보기'}
+          >
+            <svg width="13" height="9" viewBox="0 0 24 17" fill="white" aria-hidden>
+              <path d="M23.5 2.6a3 3 0 0 0-2.1-2.1C19.5 0 12 0 12 0S4.5 0 2.6.5A3 3 0 0 0 .5 2.6 31 31 0 0 0 0 8.5c0 2 .2 4 .5 5.9a3 3 0 0 0 2.1 2.1C4.5 17 12 17 12 17s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1c.3-1.9.5-3.9.5-5.9 0-2-.2-4-.5-5.9z"/>
+              <path d="M9.6 12.1V4.9L15.8 8.5z" fill="#c4302b"/>
+            </svg>
+          </CircleBtn>
         )}
       </Header>
       <ScoreBox>
         <div ref={svgRef} />
       </ScoreBox>
+      {video && showVideo && (
+        <YoutubeEmbed videoId={video.videoId} startSec={video.startSec} autoplay />
+      )}
     </Wrapper>
   );
 }
@@ -455,6 +511,7 @@ interface ListProps {
   matches: LickMatch[];
   savedMatches?: LickMatch[];
   progressionLabel: string;
+  songTempo?: number;
 }
 
 const TabRow = styled.div`
@@ -491,7 +548,7 @@ const EmptyState = styled.div`
   color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
-export function LickRecommendList({ matches, savedMatches = [] }: ListProps) {
+export function LickRecommendList({ matches, savedMatches = [], songTempo }: ListProps) {
   const [tab, setTab] = useState<'recommend' | 'saved'>('recommend');
   const active = tab === 'recommend' ? matches : savedMatches;
 
@@ -518,7 +575,7 @@ export function LickRecommendList({ matches, savedMatches = [] }: ListProps) {
         active.map((m, i) => (
           <div key={m.lick.id}>
             {i > 0 && <ListDivider />}
-            <LickRecommendMessage match={m} />
+            <LickRecommendMessage match={m} tempoOverride={songTempo} />
           </div>
         ))
       )}

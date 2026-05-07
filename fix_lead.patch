@@ -1,0 +1,16 @@
+--- src/components/leadsheet/LeadSheet.tsx
++++ src/components/leadsheet/LeadSheet.tsx
+@@ -2043,6 +2043,9 @@
+           let minY = Infinity, maxY = -Infinity;
+           for (const ck of rowCks) {
+             const el = chordElsRef.current[ck];
+             if (!el) continue;
+             const rect = el.getBoundingClientRect();
+             hlRight = Math.max(hlRight, rect.right);
+           }
+@@ -2108,6 +2111,21 @@
+             rowPosition,
+           });
+ 
++          const labels = span.label.split('-');
++          // ... compute label positions ...

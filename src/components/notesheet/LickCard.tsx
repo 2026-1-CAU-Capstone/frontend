@@ -18,6 +18,8 @@ import {
 import type { NoteInfo, MeasureInfo } from '../../data/sampleMelody';
 import type { LickEntry } from '../../data/lickData';
 import { NotePlayer } from '../../lib/note/notePlayer';
+import { YoutubeEmbed } from '../common/YoutubeEmbed';
+import { LICK_VIDEOS } from '../../data/lickVideos';
 
 /* ─── layout constants ──────────────────────────────────────────────── */
 
@@ -478,6 +480,8 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
   /* player */
   const playerRef = useRef<NotePlayer | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [showVideo, setShowVideo] = useState(false);
+  const video = LICK_VIDEOS[lick.id];
   const measureRectsRef = useRef<{ x: number; y: number; w: number }[]>([]);
   const noteElMapRef = useRef<Map<string, SVGElement>>(new Map());
   const prevNoteKeyRef = useRef<string | null>(null);
@@ -983,6 +987,19 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
         <PlayBtn $active={playing} onClick={(e) => { e.stopPropagation(); togglePlay(); }} style={{ color: '#2a6e3f', borderColor: '#2a6e3f' }}>
           {playing ? '\u23F9 Stop' : '\u25B6 Play'}
         </PlayBtn>
+        {video && (
+          <PlayBtn
+            onClick={(e) => { e.stopPropagation(); setShowVideo((v) => !v); }}
+            style={{ color: '#c4302b', borderColor: '#c4302b', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+            title={showVideo ? '\uC6D0\uBCF8 \uC601\uC0C1 \uB2EB\uAE30' : '\uC6D0\uBCF8 \uC601\uC0C1 \uBCF4\uAE30'}
+          >
+            <svg width="14" height="10" viewBox="0 0 24 17" aria-hidden>
+              <path fill="#c4302b" d="M23.5 2.6a3 3 0 0 0-2.1-2.1C19.5 0 12 0 12 0S4.5 0 2.6.5A3 3 0 0 0 .5 2.6 31 31 0 0 0 0 8.5c0 2 .2 4 .5 5.9a3 3 0 0 0 2.1 2.1C4.5 17 12 17 12 17s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1c.3-1.9.5-3.9.5-5.9 0-2-.2-4-.5-5.9z"/>
+              <path fill="#fff" d="M9.6 12.1V4.9L15.8 8.5z"/>
+            </svg>
+            YouTube
+          </PlayBtn>
+        )}
         {onDelete && (
           <PlayBtn onClick={(e) => { e.stopPropagation(); onDelete(); }} style={{ color: '#c62828', borderColor: '#e57373' }}>
             Delete
@@ -1009,6 +1026,9 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
         <SvgWrap ref={svgRef} />
       ) : (
         <Placeholder>scroll to render</Placeholder>
+      )}
+      {visible && video && showVideo && (
+        <YoutubeEmbed videoId={video.videoId} startSec={video.startSec} autoplay />
       )}
     </Card>
   );

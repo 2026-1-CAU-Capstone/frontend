@@ -495,29 +495,19 @@ export class NotePlayer {
       fi++;
     }
 
-    // Schedule comping (piano) — beats 2 & 4 (jazz swing feel)
+    // Schedule comping — one voicing per chord, at the chord's downbeat
     for (let ei = 0; ei < expanded.length; ei++) {
       const { m, origMi } = expanded[ei];
       if (m.chord) {
         const chords = m.chord.split(/\s{2,}/);
         const measStart = ei * measSec;
-        const compDur = bs * 0.5;
-        if (chords.length === 1) {
-          const midiNotes = chordToMidi(chords[0]);
-          for (const beat of [1, 3]) {
-            const t = measStart + beat * bs;
-            for (const midi of midiNotes) {
-              this.sched.push({ time: t, dur: compDur, midi, measure: origMi + miOffset, noteIndex: -1, track: 'comp' });
-            }
-          }
-        } else {
-          const beatsPerChord = [1, 3];
-          for (let ci = 0; ci < Math.min(chords.length, beatsPerChord.length); ci++) {
-            const midiNotes = chordToMidi(chords[ci]);
-            const t = measStart + beatsPerChord[ci] * bs;
-            for (const midi of midiNotes) {
-              this.sched.push({ time: t, dur: compDur, midi, measure: origMi + miOffset, noteIndex: -1, track: 'comp' });
-            }
+        const compDur = bs * 0.45;
+        const beatOffsets = chords.length === 1 ? [0] : [0, measSec / 2];
+        for (let ci = 0; ci < Math.min(chords.length, beatOffsets.length); ci++) {
+          const midiNotes = chordToMidi(chords[ci]);
+          const t = measStart + beatOffsets[ci];
+          for (const midi of midiNotes) {
+            this.sched.push({ time: t, dur: compDur, midi, measure: origMi + miOffset, noteIndex: -1, track: 'comp' });
           }
         }
       }

@@ -219,6 +219,41 @@ function detectSecDom(
   };
 }
 
+/* ── Phase 2b: SubV (tritone substitution) detection ─────────────────── */
+
+function detectSubV(
+  fc: FC, next: FC | undefined, isMinor: boolean, keyPc: number,
+): NonNullable<import('../data/leadSheetTypes').LeadSheetChordAnalysis['subV']> | null {
+  if (!DOMINANT_QUALITIES.has(fc.quality)) return null;
+  if (fc.interval === 7) return null; // diatonic V — not a substitution
+  if (fc.chord.analysis?.secondaryDominant) return null; // already a SecDom
+  // If the next chord sits a P5 below (P4 above), this chord is resolving as a secondary dominant
+  if (next && (fc.rootPc + 5) % 12 === next.rootPc) return null;
+
+  // The "original V" partner sits a tritone away; its target is a P5 above partner
+  const partnerPc = (fc.rootPc + 6) % 12;
+  const targetPc  = (partnerPc + 5) % 12;
+  const targetInt = (targetPc - keyPc + 12) % 12;
+
+  const scale = isMinor ? NATURAL_MINOR_SCALE : MAJOR_SCALE;
+  let valid = scale.includes(targetInt);
+  if (!valid && isMinor) {
+    valid = HARMONIC_MINOR_SCALE.includes(targetInt) || MELODIC_MINOR_SCALE.includes(targetInt);
+  }
+  if (!valid) return null;
+
+  const dqMaj: Record<number, string> = { 0: 'maj', 2: 'min', 4: 'min', 5: 'maj', 7: 'maj', 9: 'min', 11: 'min' };
+  const dqMin: Record<number, string> = { 0: 'min', 2: 'min', 3: 'maj', 5: 'min', 7: 'min', 8: 'maj', 10: 'maj' };
+  const tq = (isMinor ? dqMin : dqMaj)[targetInt] ?? 'maj';
+  const targetDeg = degreeName(targetInt, tq, isMinor);
+
+  return {
+    targetDegree: targetDeg,
+    targetRootPc: targetPc,
+    originalVLabel: `V/${targetDeg}`,
+  };
+}
+
 /* ── Phase 3: ii-V-I pattern detection ────────────────────────────────── */
 
 function detectGroups(flat: FC[]): void {
@@ -355,6 +390,13 @@ export function analyzeHarmony(data: LeadSheetData): LeadSheetData {
   for (let i = 0; i < flat.length; i++) {
     const sd = detectSecDom(flat[i], flat[i + 1], isMinor);
     if (sd) flat[i].chord.analysis!.secondaryDominant = sd;
+  }
+
+  /* Phase 2b — SubV (tritone substitution) */
+  for (let i = 0; i < flat.length; i++) {
+    if (flat[i].chord.analysis?.secondaryDominant) continue;
+    const sv = detectSubV(flat[i], flat[i + 1], isMinor, keyPc);
+    if (sv) flat[i].chord.analysis!.subV = sv;
   }
 
   /* Phase 3 — ii-V-I groups */

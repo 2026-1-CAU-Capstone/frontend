@@ -52,6 +52,7 @@ interface ChatMessageProps {
    * regenerating it inside the assistant's reply would be redundant.
    */
   suppressChart?: boolean;
+  songTempo?: number;
 }
 
 /** Recursively walk React children and format chord symbols in text nodes */
@@ -166,7 +167,7 @@ const mdComponents: Components = {
         const json = JSON.parse(String(children).trim()) as Record<string, unknown>;
         const lick = jsonToLickEntry(json);
         const match: LickMatch = { lick, tier: 1 };
-        return <div className="glick-container"><LickRecommendMessage match={match} /></div>;
+        return <div className="glick-container"><LickRecommendMessage match={match} tempoOverride={songTempo} /></div>;
       } catch {
         // JSON 파싱 실패 시 일반 코드 블록으로 표시
         return <code className={className}>{children}</code>;
@@ -176,7 +177,7 @@ const mdComponents: Components = {
   },
 };
 
-export function ChatMessage({ message, suppressChart = false }: ChatMessageProps) {
+export function ChatMessage({ message, suppressChart = false, songTempo }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
   const selectedChords = message.role === 'user' ? message.selectedChords ?? [] : [];
 
@@ -249,7 +250,7 @@ export function ChatMessage({ message, suppressChart = false }: ChatMessageProps
           const id = parseInt(value, 10);
           const match = lickById.get(id);
           if (match) {
-            out.push(<LickRecommendMessage key={`${keyPrefix}-lick-${id}-${lm.index}`} match={match} />);
+            out.push(<LickRecommendMessage key={`${keyPrefix}-lick-${id}-${lm.index}`} match={match} tempoOverride={songTempo} />);
           }
         } else if (kind === 'SEC') {
           out.push(
@@ -312,16 +313,24 @@ export function ChatMessage({ message, suppressChart = false }: ChatMessageProps
       );
     }
 
-    // 💡 버튼으로 온 lickMatches (태그 없는 경우) → 탭 패널
+    // 💡 버튼으로 온 lickMatches (lickProgressionLabel이 설정된 경우)만 탭 패널로 표시.
+    // LLM 스트리밍 응답에서는 lickMatches가 [LICK:id] 태그 매핑용으로만 쓰이므로,
+    // 태그가 아직 안 나온 초반에 모든 릭이 뭉텅이로 뜨지 않도록 fallback을 막는다.
     const hasTaggedLicks = LICK_TAG_RE.test(raw);
     LICK_TAG_RE.lastIndex = 0;
-    if (!hasTaggedLicks && message.lickMatches && message.lickMatches.length > 0) {
+    if (
+      !hasTaggedLicks &&
+      message.lickMatches &&
+      message.lickMatches.length > 0 &&
+      message.lickProgressionLabel // 💡 버튼 경로에서만 설정됨
+    ) {
       segments.push(
         <LickRecommendList
           key="lick-list"
           matches={message.lickMatches}
           savedMatches={message.savedLickMatches}
-          progressionLabel={message.lickProgressionLabel ?? ''}
+          progressionLabel={message.lickProgressionLabel}
+          songTempo={songTempo}
         />
       );
     }
@@ -353,7 +362,7 @@ export function ChatMessage({ message, suppressChart = false }: ChatMessageProps
                 <UserSelectedChordRow>
                   {selectedChords.map((chord, i) => (
                     <UserSelectedChordStep key={chord.id}>
-                      {i > 0 && <UserSelectedArrow>→</UserSelectedArrow>}
+                      {i > 0 && <UserSelectedArrow />}
                       <UserSelectedChord>{formatChordsInText(chord.symbol)}</UserSelectedChord>
                     </UserSelectedChordStep>
                   ))}

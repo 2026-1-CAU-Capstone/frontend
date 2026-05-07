@@ -10,7 +10,7 @@ import { LickCreator } from '../components/notesheet/LickCreator';
 import { PianoKeyboard, type PianoNote } from '../components/notesheet/PianoKeyboard';
 import { MelodyPreview } from '../components/notesheet/MelodyPreview';
 import type { TocEntry } from '../data/types';
-import { loadLicks, loadUserLicks, saveUserLick, type LickEntry } from '../data/lickData';
+import { loadLicks, loadFrontendLicks, loadUserLicks, saveUserLick, type LickEntry } from '../data/lickData';
 import type { NoteSheetData } from '../data/sampleMelody';
 
 const PAGE_SIZE = 30;
@@ -225,6 +225,29 @@ const Sentinel = styled.div`
   height: 1px;
 `;
 
+const SourceToggleWrap = styled.div`
+  display: flex;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 5px;
+  overflow: hidden;
+  flex-shrink: 0;
+`;
+
+const SourceBtn = styled.button<{ $active?: boolean }>`
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.78rem;
+  padding: 2px 10px;
+  border: none;
+  background: ${({ $active, theme }) => ($active ? theme.colors.textPrimary : theme.colors.bgPrimary)};
+  color: ${({ $active, theme }) => ($active ? theme.colors.bgPrimary : theme.colors.textSecondary)};
+  cursor: pointer;
+  font-weight: ${({ $active }) => ($active ? 600 : 400)};
+  transition: background 0.12s, color 0.12s;
+  &:hover {
+    background: ${({ $active, theme }) => ($active ? theme.colors.textPrimary : theme.colors.border)};
+  }
+`;
+
 const RightPanelWrapper = styled.div<{ $width: number }>`
   width: ${({ $width }) => $width}px;
   min-width: 180px;
@@ -386,21 +409,35 @@ export default function LicksPage() {
   const [melodySearch, setMelodySearch] = useState(false);
   const [searchMidis, setSearchMidis] = useState<number[]>([]);
 
+  /* lick source toggle */
+  const [lickSource, setLickSource] = useState<'backend' | 'frontend'>('backend');
+
   /* lick data */
   const [allLicks, setAllLicks] = useState<LickEntry[]>([]);
   const [loadingLicks, setLoadingLicks] = useState(true);
 
   useEffect(() => {
     setLoadingLicks(true);
-    loadLicks()
-      .then((licks) =>
-        loadUserLicks().then((userLicks) => {
-          setAllLicks([...userLicks, ...licks]);
-          setLoadingLicks(false);
-        }),
-      )
-      .catch((err) => { console.error('Failed to load licks:', err); setLoadingLicks(false); });
-  }, []);
+    setAllLicks([]);
+    setFilterPerformer('');
+    setFilterStyle('');
+    setFilterChord('');
+    setSearchQuery('');
+    if (lickSource === 'backend') {
+      loadLicks()
+        .then((licks) => { setAllLicks(licks); setLoadingLicks(false); })
+        .catch((err) => { console.error('Failed to load licks:', err); setLoadingLicks(false); });
+    } else {
+      loadFrontendLicks()
+        .then((licks) =>
+          loadUserLicks().then((userLicks) => {
+            setAllLicks([...userLicks, ...licks]);
+            setLoadingLicks(false);
+          }),
+        )
+        .catch((err) => { console.error('Failed to load licks:', err); setLoadingLicks(false); });
+    }
+  }, [lickSource]);
 
   /* filters */
   const [filterPerformer, setFilterPerformer] = useState('');
@@ -603,6 +640,11 @@ export default function LicksPage() {
           ) : (
             <>
               <ToolBar>
+                <SourceToggleWrap>
+                  <SourceBtn $active={lickSource === 'backend'} onClick={() => setLickSource('backend')}>Backend</SourceBtn>
+                  <SourceBtn $active={lickSource === 'frontend'} onClick={() => setLickSource('frontend')}>Frontend</SourceBtn>
+                </SourceToggleWrap>
+
                 <CreateBtn onClick={() => setCreating(true)}>+ Create Lick</CreateBtn>
                 <MelodyBtn
                   $active={melodySearch}

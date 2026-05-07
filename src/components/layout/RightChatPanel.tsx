@@ -4,6 +4,7 @@ import { ChatMessage } from '../chat/ChatMessage';
 import { ChatInput } from '../chat/ChatInput';
 import { type ClaudeMessage } from '../../api/claude';
 import { streamWithRAG, type RagDebugInfo } from '../../api/harmorag';
+import { RagDebugPanel } from '../chat/RagDebugPanel';
 import { findMatchingLicks, selectionProgressionLabel } from '../../lib/lickMatcher';
 import { loadUserLicks, loadUserLicksSync } from '../../data/lickData';
 import type { LickEntry } from '../../data/lickData';
@@ -25,6 +26,7 @@ interface RightChatPanelProps {
   isSelectionMode?: boolean;
   onToggleSelectionMode?: () => void;
   onClearSelectedChords?: () => void;
+  songTempo?: number;
 }
 
 interface MessageWithDebug extends ChatMessageType {
@@ -72,6 +74,7 @@ export function RightChatPanel({
   isSelectionMode = false,
   onToggleSelectionMode,
   onClearSelectedChords,
+  songTempo,
 }: RightChatPanelProps) {
   const [messages, setMessages] = useState<MessageWithDebug[]>([]);
   const [loading, setLoading] = useState(false);
@@ -159,12 +162,58 @@ export function RightChatPanel({
     };
     const aiMsgId = `ai-${Date.now()}`;
 
-    // AI 악보 생성 요청 감지 — "예시 보여줘", "만들어줘" 류 모두 포함
-    const GEN_KEYWORDS = /만들어|생성|작성|직접|그려줘?|generate|compose|짜봐|짜줘|써줘|(솔로|릭|라인|line).*(예시|보여|보여줘)|예시.*악보|악보.*예시/i;
-    const isGenQuery = GEN_KEYWORDS.test(text);
+    // "만들어줘", "생성해줘" 등 명시적 창작 요청만 AI 생성 모드
+    const CREATE_KEYWORDS = /만들어|생성|작성|직접|그려줘?|generate|compose|짜봐|짜줘|써줘/i;
+    const LICK_QUERY_KEYWORDS = /릭|라인|line|lick|솔로.*예시|예시.*솔로|연주.*예|거장|추천.*솔로/i;
+    const isGenQuery = CREATE_KEYWORDS.test(text);
+    const isLickQuery = !isGenQuery && LICK_QUERY_KEYWORDS.test(text);
 
     // LLM에게 보낼 실제 메시지 (유저에게는 원본 text만 보임)
     let textForLLM = text;
+
+    // 릭 DB 매칭: lick 쿼리일 때 관련 릭을 컨텍스트로 주입
+    let lickMatchesForMsg: ReturnType<typeof findMatchingLicks> = [];
+    if (isLickQuery) {
+      const keyMatch = chordContext?.match(/Key:\s*([A-G][b#♭]?)/);
+      const songKey = (keyMatch ? keyMatch[1] : 'C').replace('♭', 'b');
+      const chordsForMatch = selectedChords.length > 0 ? selectedChords : [];
+      lickMatchesForMsg = findMatchingLicks(chordsForMatch, songTitle, songKey, allLicksRef.current, 5);
+
+      if (lickMatchesForMsg.length > 0) {
+        const lickList = lickMatchesForMsg.map((m) => {
+          const l = m.lick;
+          const chordsStr = l.chords.slice(0, 4).join(' → ');
+          return `  [LICK:${l.id}] 연주자: ${l.performer} | 곡: ${l.title} | 키: ${l.key} | 진행: ${chordsStr}`;
+        }).join('\n');
+
+        textForLLM = `${text}
+
+[내부 지시 — 유저에게 보이지 않음: 릭 카드 삽입]
+아래는 DB에서 매칭된 실제 릭 목록입니다. 답변 안에서 각 릭을 자연스럽게 소개하면서 \`[LICK:아이디]\` 태그를 해당 위치에 삽입하세요. 이 태그는 자동으로 악보 카드로 렌더링됩니다.
+
+사용 가능한 릭:
+${lickList}
+
+엄격한 규칙:
+1. **메시지를 절대 [LICK:id] 태그로 시작하지 마세요.** 반드시 자연스러운 대화체 한국어 문장으로 먼저 운을 띄우세요. (예: "오, 그 진행이라면 좋은 예시가 하나 떠오르네요." / "이런 라인은 어떠세요?")
+2. 각 릭을 소개할 때는 **먼저 글로 누구의 어떤 곡인지, 왜 참고할 만한지 짧게 설명한 뒤**, 그 다음 줄에 \`[LICK:id]\` 태그를 단독으로 놓으세요. 절대 설명 전에 태그를 먼저 두지 마세요.
+3. 태그 뒤에는 그 릭에서 주목할 포인트(어떤 어프로치, 텐션, 리듬 등)를 한두 문장으로 덧붙여 자연스럽게 다음 흐름으로 이어가세요.
+4. 위 목록에 없는 id는 사용하지 마세요. 모든 릭을 다 보여줄 필요는 없습니다 — 문맥상 가장 어울리는 1~3개만 골라 소개하세요.
+
+이상적인 응답 흐름 예시:
+"그 진행이라면 거장들의 라인을 한번 참고해보면 좋을 것 같아요.
+
+먼저, [연주자]가 [곡]에서 연주한 라인인데, [어떤 점이 좋은지 한 줄] —
+
+[LICK:아이디]
+
+여기서 특히 [어떤 부분]이 인상적이에요. 비슷한 느낌으로는 [다른 연주자]의 솔로도 있는데요,
+
+[LICK:아이디]
+
+이쪽은 [어떤 차이점]이 있어서 또 다른 맛이 있죠. 한번 들어보시고 느낌이 어떤지 알려주세요!"`;
+      }
+    }
 
     // AI 릭 생성 요청: glick JSON 코드 블록 출력 지시
     if (isGenQuery) {
@@ -221,7 +270,7 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
       role: 'assistant',
       content: '',
       timestamp: Date.now(),
-      // 릭 카드는 💡 버튼(handleRequestLicks)에서만 설정. 일반 채팅은 텍스트만.
+      ...(lickMatchesForMsg.length > 0 ? { lickMatches: lickMatchesForMsg } : {}),
     };
     setMessages((prev) => [...prev, userMsg, aiMsg]);
     setLoading(true);
@@ -292,7 +341,8 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
 
         {messages.map((msg) => (
           <div key={msg.id}>
-            <ChatMessage message={msg} suppressChart={!!chordContext} />
+            {msg.ragDebug && <RagDebugPanel info={msg.ragDebug} />}
+            <ChatMessage message={msg} suppressChart={!!chordContext} songTempo={songTempo} />
           </div>
         ))}
 

@@ -26,7 +26,7 @@ export function AnalysisCard({ chords, explanation }: AnalysisCardProps) {
       <ChordChipRow>
         {visibleChords.map((chord, i) => (
           <ChordStep key={chord.id}>
-            {i > 0 && <Arrow>→</Arrow>}
+            {i > 0 && <Arrow />}
             <ChordChip $func={chord.analysis.func}>
               {chord.symbol}
               <FuncBadge func={chord.analysis.func} />
