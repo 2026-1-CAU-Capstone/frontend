@@ -135,19 +135,30 @@ def decompose_query(
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 2. Multi-Source Routing (Agentic 핵심 #2)
-#    각 쿼리를 올바른 소스에 라우팅해서 검색
+# 2. Multi-Source Routing + Reciprocal Rank Fusion (Agentic 핵심 #2)
+#    각 쿼리를 올바른 소스에 라우팅해 검색하고, RRF로 결과를 융합한다.
+#    RRF 공식:    score(c) = Σ_q  1 / (k + rank_q(c))
+#    - rank_q(c): sub-query q의 결과 안에서 청크 c의 순위 (1, 2, 3, ...)
+#    - k:         보통 60. rank 1과 rank 10의 차이를 부드럽게 만드는 상수
+#    이렇게 하면 (1) 쿼리별 score 스케일 차이를 무시하고,
+#                (2) 여러 쿼리에 걸쳐 일관되게 상위에 든 청크를 우선시한다.
 # ──────────────────────────────────────────────────────────────────────────────
 
-def route_and_retrieve(queries: list[dict], n_per_query: int = 3) -> list[dict]:
+def route_and_retrieve(
+    queries: list[dict],
+    n_per_query: int = 3,
+    rrf_k: int = 60,
+) -> list[dict]:
     """
     현재 소스: HarmoRAG (ChromaDB)
     추후 확장: Lick DB 검색 추가 예정
 
-    중복 청크 제거 후 score 기준 정렬하여 반환
+    각 sub-query를 따로 검색해 결과를 모은 뒤, Reciprocal Rank Fusion으로 융합.
+    원본 cosine score는 그대로 보존되고, 정렬 기준만 rrf_score로 바뀐다.
     """
-    seen_ids = set()
-    all_results = []
+    rrf_scores: dict[str, float] = {}
+    chunk_data:  dict[str, dict] = {}
+    matched_qs:  dict[str, list[str]] = {}
 
     for q in queries:
         results = search(
@@ -156,15 +167,26 @@ def route_and_retrieve(queries: list[dict], n_per_query: int = 3) -> list[dict]:
             level_filter=q.get("level"),
             tag_filter=q.get("tag"),
         )
-        for r in results:
-            if r["id"] not in seen_ids:
-                seen_ids.add(r["id"])
-                r["matched_query"] = q["query"]  # 어떤 쿼리로 찾았는지 추적
-                all_results.append(r)
+        for rank, r in enumerate(results, start=1):
+            cid = r["id"]
+            rrf_scores[cid] = rrf_scores.get(cid, 0.0) + 1.0 / (rrf_k + rank)
+            # 청크 메타데이터는 처음 등장한 것을 보존 (cosine score 포함)
+            if cid not in chunk_data:
+                chunk_data[cid] = r
+            matched_qs.setdefault(cid, []).append(q["query"])
 
-    # 유사도 높은 순 정렬
-    all_results.sort(key=lambda x: x["score"], reverse=True)
-    return all_results
+    # RRF score 내림차순 정렬
+    sorted_ids = sorted(rrf_scores.keys(), key=lambda c: rrf_scores[c], reverse=True)
+
+    fused: list[dict] = []
+    for cid in sorted_ids:
+        r = dict(chunk_data[cid])  # shallow copy — 원본을 건드리지 않음
+        r["rrf_score"]       = round(rrf_scores[cid], 6)
+        r["matched_queries"] = matched_qs[cid]
+        # 하위 호환: 기존 'matched_query' 필드를 첫 번째 매칭 쿼리로 유지
+        r["matched_query"]   = matched_qs[cid][0]
+        fused.append(r)
+    return fused
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -193,27 +215,33 @@ def build_context(
         ],
         "total_retrieved": len(results),
         "top_k": top_k,
+        "fusion": "rrf",
+        "rrf_k": 60,
         "chunks": [
             {
-                "id":           r["id"],
-                "score":        r["score"],
-                "title":        r["title"],
-                "song":         r["song"],
-                "level":        r["level"],
-                "matched_query": r.get("matched_query", ""),
-                "response":     r["response"][:400],  # 미리보기용
+                "id":               r["id"],
+                "score":            r["score"],            # cosine similarity (참고용)
+                "rrf_score":        r.get("rrf_score"),    # RRF 융합 점수 (정렬 기준)
+                "title":            r["title"],
+                "song":             r["song"],
+                "level":            r["level"],
+                "matched_query":    r.get("matched_query", ""),
+                "matched_queries":  r.get("matched_queries", []),
+                "response":         r["response"][:400],   # 미리보기용
             }
             for r in top_results
         ],
     }
 
     # 터미널 로그
-    print(f"\n[HarmoRAG] 쿼리 {len(queries)}개 → 청크 {len(results)}개 → top-{top_k}")
+    print(f"\n[HarmoRAG] 쿼리 {len(queries)}개 → 청크 {len(results)}개 → top-{top_k} (RRF)")
     for q in queries:
         print(f"  쿼리: {q['query'][:70]}... (lv={q.get('level')}, tag={q.get('tag')})")
     print()
     for r in top_results:
-        print(f"  [{r['score']}] {r['id']} — {r['title']}")
+        rrf = r.get("rrf_score", 0.0)
+        nmatch = len(r.get("matched_queries", []))
+        print(f"  rrf={rrf:.4f} cos={r['score']} (×{nmatch}) {r['id']} — {r['title']}")
 
     return format_for_llm(top_results), debug
 

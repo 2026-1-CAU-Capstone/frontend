@@ -759,73 +759,6 @@ const ChordColumn = styled.div<{ $selected?: boolean; $selectable?: boolean }>`
   user-select: none;
 `;
 
-/* ── ii-V-I band text (kept for the per-chord roman numeral inside the
- *    hover band rendered at the chord-cell level) ──────────────────────── */
-const IIVIBandText = styled.span<{ $size?: ChordSize }>`
-  position: absolute;
-  left: 0;
-  top: -22px;
-  font-size: ${({ $size }) =>
-    $size === 'compact' ? 'clamp(0.55rem, 1.5cqi, 0.7rem)' :
-    $size === 'split'   ? 'clamp(0.6rem,  1.6cqi, 0.78rem)' :
-                          'clamp(0.65rem, 1.7cqi, 0.85rem)'};
-  font-family: 'Noto Serif', 'Georgia', 'Times New Roman', serif;
-  font-weight: 700;
-  font-style: italic;
-  color: #1a1a1a;
-  line-height: 1;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-  z-index: 3;
-  pointer-events: none;
-`;
-
-/* ── Modal interchange decoration: purple highlight + label band ───────── */
-const MIHighlight = styled.div`
-  position: absolute;
-  left: -8px;
-  right: -8px;
-  top: -26px;
-  bottom: -4px;
-  background: rgba(220, 180, 240, 0.18);
-  border: 2px solid rgba(123, 63, 176, 0.6);
-  box-sizing: border-box;
-  border-radius: 4px;
-  pointer-events: none;
-  z-index: 0;
-`;
-
-const MIBand = styled.div`
-  position: absolute;
-  left: -6px;
-  right: -6px;
-  top: -24px;
-  height: 18px;
-  background: rgba(123, 63, 176, 0.55);
-  border-radius: 2px 2px 0 0;
-  pointer-events: none;
-  z-index: 1;
-`;
-
-const MIBandText = styled.span<{ $size?: ChordSize }>`
-  position: absolute;
-  left: 0;
-  top: -22px;
-  font-size: ${({ $size }) =>
-    $size === 'compact' ? 'clamp(0.55rem, 1.5cqi, 0.7rem)' :
-    $size === 'split'   ? 'clamp(0.6rem,  1.6cqi, 0.78rem)' :
-                          'clamp(0.65rem, 1.7cqi, 0.85rem)'};
-  font-family: 'Noto Serif', 'Georgia', 'Times New Roman', serif;
-  font-weight: 700;
-  font-style: italic;
-  color: #1a1a1a;
-  line-height: 1;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-  z-index: 3;
-  pointer-events: none;
-`;
-
 /* ── SubV (tritone substitution) decoration: green highlight + label band ── */
 const SubVHighlight = styled.div`
   position: absolute;
@@ -902,7 +835,6 @@ interface ChordSymbolProps {
   selected?: boolean;
   selectionMode?: boolean;
   iiviHovered?: boolean;
-  iiviRole?: string;
 }
 
 function ChordSymbol({
@@ -922,11 +854,14 @@ function ChordSymbol({
   selected,
   selectionMode = false,
   iiviHovered = false,
-  iiviRole,
 }: ChordSymbolProps) {
   const isNonDiatonic = showColors && chord.isDiatonic === false;
   const isModal = showColors && !!chord.analysis?.modalInterchange;
-  const isSubV  = showColors && !!chord.analysis?.subV;
+  // SubV (tritone substitution) highlighting is disabled for now —
+  // we're keeping only ii-V-I and modal-interchange decorations. Set
+  // to false unconditionally so all SubV-conditional rendering paths
+  // (band, badge, popup trigger, ChordWrap $subV outline) become inert.
+  const isSubV = false;
 
   const accChar =
     chord.accidental === '#' ? '♯' :
@@ -938,7 +873,6 @@ function ChordSymbol({
 
   const hasQuality = !!(base || tensions);
 
-  const miDegree  = isModal ? chord.analysis?.modalInterchange?.borrowedDegree : null;
   const subVLabel = isSubV  ? `SubV/${chord.analysis!.subV!.targetDegree}` : null;
 
   const handleChordWrapClick = !selectionMode && (isModal || isSubV) ? (e: React.MouseEvent) => {
@@ -955,13 +889,6 @@ function ChordSymbol({
       onPointerDown={selectionMode && selectionTarget ? (event) => onSelectionPointerDown?.(selectionTarget, event) : undefined}
       onPointerEnter={selectionMode && selectionTarget ? () => onSelectionPointerEnter?.(selectionTarget) : undefined}
     >
-      {isModal && miDegree && (
-        <>
-          <MIHighlight />
-          <MIBand />
-          <MIBandText $size={size}>{miDegree}</MIBandText>
-        </>
-      )}
       {isSubV && subVLabel && (
         <>
           <SubVHighlight />
@@ -969,9 +896,10 @@ function ChordSymbol({
           <SubVBandText $size={size}>{subVLabel}</SubVBandText>
         </>
       )}
-      {showIIVI && iiviRole && (
-        <IIVIBandText $size={size}>{iiviRole}</IIVIBandText>
-      )}
+      {/* Roman-numeral labels are now rendered inside the dark amber tab
+          at the LeadSheet level (so they're vertically centered in the
+          band via flex/translateY rather than via per-chord pixel
+          offsets that varied with chord-cell height). */}
       <ChordWrap
         $nonDiatonic={isNonDiatonic && !isSubV}
         $modal={isModal}
@@ -1093,7 +1021,6 @@ interface SystemRowProps {
   selectionTargetByKey?: Map<string, LeadSheetChordSelection>;
   selectionMode?: boolean;
   hoveredIiviChordKeys?: Set<string>;
-  iiviChordRoleMap?: Map<string, string>;
 }
 
 function SystemRowComponent({
@@ -1116,7 +1043,6 @@ function SystemRowComponent({
   selectionTargetByKey,
   selectionMode = false,
   hoveredIiviChordKeys,
-  iiviChordRoleMap,
 }: SystemRowProps) {
   const [top, bot] = timeSignature.split('/');
 
@@ -1201,7 +1127,6 @@ function SystemRowComponent({
                 selected={isChordSelected(target, chord)}
                 selectionMode={selectionMode}
                 iiviHovered={hoveredIiviChordKeys?.has(chordKey)}
-                iiviRole={iiviChordRoleMap?.get(chordKey)}
               />
             );
           };
@@ -1349,6 +1274,23 @@ interface HighlightRect {
   label: string;
   kind: 'major' | 'minor';
   rowPosition: 'only' | 'first' | 'middle' | 'last';
+  /** Roman-numeral labels rendered inside the dark amber tab. Each entry
+   *  is positioned at offsetX (px from band's left); vertical centering
+   *  is handled in CSS so we don't have to fudge pixel offsets. */
+  bandLabels: { offsetX: number; role: string }[];
+}
+
+interface ModalHighlightRect {
+  key: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  bandX: number;
+  bandY: number;
+  bandWidth: number;
+  bandHeight: number;
+  bandLabel: { offsetX: number; text: string };
 }
 
 function hlBorderRadius(pos: HighlightRect['rowPosition']): string {
@@ -1739,7 +1681,6 @@ export function LeadSheet({
   onChordRangeSelect,
   selectedChordIds,
   selectionMode = false,
-  savedLickBarNums,
   onSavedLickBadgeClick,
 }: LeadSheetProps) {
   // Resolve filters: prefer analysisFilters, fall back to legacy showAnalysis prop
@@ -1973,6 +1914,7 @@ export function LeadSheet({
   const [arrows, setArrows] = useState<ResolvedArrow[]>([]);
   const [brackets, setBrackets] = useState<ResolvedBracket[]>([]);
   const [highlights, setHighlights] = useState<HighlightRect[]>([]);
+  const [modalHighlights, setModalHighlights] = useState<ModalHighlightRect[]>([]);
   const [activeBarRect, setActiveBarRect] = useState<ActiveBarRect | null>(null);
   const [selectionHighlights, setSelectionHighlights] = useState<SelectionHighlightRect[]>([]);
   const [hoveredSpanKey, setHoveredSpanKey] = useState<string | null>(null);
@@ -1980,14 +1922,19 @@ export function LeadSheet({
   const arrowSpecs = useMemo(() => detectSecDomArrows(resolvedData), [resolvedData]);
   const bracketSpecs = useMemo(() => detectIIVBrackets(resolvedData), [resolvedData]);
   const iiviSpans = useMemo(() => detectIIVI(resolvedData), [resolvedData]);
-  const iiviChordRoleMap = useMemo(() => {
-    if (!af.showIIVI) return new Map<string, string>();
-    const map = new Map<string, string>();
-    for (const span of iiviSpans) {
-      span.chordKeys.forEach((ck, idx) => map.set(ck, span.chordRoles[idx]));
-    }
-    return map;
-  }, [af.showIIVI, iiviSpans]);
+  const modalChordLabels = useMemo(() => {
+    const labels: { chordKey: string; text: string }[] = [];
+    resolvedData.systems.forEach((system, si) => {
+      system.bars.forEach((bar, bi) => {
+        bar.chords.forEach((chord, ci) => {
+          const text = chord.analysis?.modalInterchange?.borrowedDegree;
+          if (!text) return;
+          labels.push({ chordKey: `${si}-${bi}-${ci}`, text });
+        });
+      });
+    });
+    return labels;
+  }, [resolvedData]);
   const hoveredIiviChordKeys = useMemo(() => {
     if (!af.showIIVI || !hoveredSpanKey) return new Set<string>();
     const spanIndex = Number(hoveredSpanKey.replace('span-', ''));
@@ -2030,6 +1977,15 @@ export function LeadSheet({
       const pageRect = freshPageEl.getBoundingClientRect();
       const nextRects: SelectionHighlightRect[] = [];
 
+      // Cross-row continuity: when the selection spans multiple system rows
+      // we want the highlight to read as one continuous band — extend the
+      // first row to the grid right edge and the last row from the grid
+      // left edge so the visual doesn't visually "skip" the line break.
+      const rowIndices = [...byRow.keys()].sort((a, b) => a - b);
+      const isMultiRow = rowIndices.length > 1;
+      const firstRowIdx = rowIndices[0];
+      const lastRowIdx = rowIndices[rowIndices.length - 1];
+
       [...byRow.entries()].forEach(([systemIndex, barMap]) => {
         const gridEl  = gridElsRef.current[systemIndex];
         if (!gridEl || barMap.size === 0) return;
@@ -2047,9 +2003,18 @@ export function LeadSheet({
           else { ranges.push({ minBi: bi, maxBi: bi }); }
         });
 
-        // Y/height: match the active-bar (sky-blue) overlay exactly = full grid row bounds
-        const y      = (gridRect.top - pageRect.top) / scale;
-        const height = gridRect.height / scale;
+        // Vertical bounds: match the yellow ii-V-I highlight EXACTLY so the
+        // green selection wraps the dark amber tab on top + the yellow
+        // panel below as a single block.
+        //   yellow tab top    = gridTop + BARLINE_GAP - TAB_HEIGHT
+        //   yellow panel bot  = gridTop + gridHeight - BARLINE_GAP
+        const TAB_HEIGHT = 22;
+        const y      = (gridRect.top - pageRect.top) / scale + BARLINE_GAP - TAB_HEIGHT;
+        const height = gridRect.height / scale - 2 * BARLINE_GAP + TAB_HEIGHT;
+
+        const isFirstRow = systemIndex === firstRowIdx;
+        const isLastRow  = systemIndex === lastRowIdx;
+        const isMiddleRow = isMultiRow && !isFirstRow && !isLastRow;
 
         ranges.forEach(({ minBi, maxBi }, index) => {
           // Left edge: leftmost selected chord's fractional start in the first bar
@@ -2059,8 +2024,11 @@ export function LeadSheet({
           const minChordIdx = selectedFirst ? Math.min(...selectedFirst) : 0;
           const startFraction = chordSpanInBar(firstChords, minChordIdx).start;
 
-          // Right edge: rightmost selected chord's fractional end in the last bar.
-          // 1-chord bar special case: cap at 0.5 (half-bar visual rule).
+          // Right edge: rightmost selected chord's fractional end in the
+          // last bar. The half-bar fraction (0.46) mirrors the ii-V-I
+          // yellow highlight so the green selection box lines up exactly
+          // with the yellow when the user selects a one-chord I bar.
+          const HALF_BAR_FRACTION = 0.46;
           const lastBar = resolvedData.systems[systemIndex]?.bars[maxBi];
           const lastChords = lastBar?.chords ?? [];
           const realChordCount = lastChords.filter(c => c.root).length;
@@ -2068,15 +2036,43 @@ export function LeadSheet({
           const maxChordIdx = selectedLast ? Math.max(...selectedLast) : 0;
           let endFraction: number;
           if (realChordCount === 1) {
-            endFraction = 0.5;
+            endFraction = HALF_BAR_FRACTION;
           } else if (realChordCount === 0) {
             endFraction = 1.0;
           } else {
             endFraction = chordSpanInBar(lastChords, maxChordIdx).end;
           }
 
-          const hlLeft  = gridRect.left + (minBi + startFraction) * barW;
-          const hlRight = gridRect.left + (maxBi + endFraction) * barW;
+          let hlLeft  = gridRect.left + (minBi + startFraction) * barW;
+          let hlRight = gridRect.left + (maxBi + endFraction) * barW;
+
+          if (isMultiRow) {
+            const isLastRangeInRow  = index === ranges.length - 1;
+            // Mirror the yellow ii-V-I cross-row rules:
+            //   - first row's last range bleeds out to the grid right edge
+            //   - middle rows are fully covered
+            //   - last row keeps its tight bounds (start at the selected
+            //     chord's bar, end at the chord's natural endFraction —
+            //     which is HALF_BAR_FRACTION for a one-chord I bar)
+            if (isFirstRow && isLastRangeInRow) hlRight = gridRect.right;
+            if (isMiddleRow) {
+              hlLeft = gridRect.left;
+              hlRight = gridRect.right;
+            }
+            // Force half-bar end on the last row's terminating range when
+            // the user has selected exactly one chord there (e.g. just
+            // the I of a cross-row ii-V-I). This mirrors the yellow
+            // highlight's I_CHORD_END_FRACTION rule even if the bar's
+            // chord array has filler/repeat cells that would otherwise
+            // skip the realChordCount === 1 branch above.
+            const selectedInLastBar = barMap.get(maxBi);
+            const lastRangeIsSingleChord =
+              minBi === maxBi && (selectedInLastBar?.size ?? 0) === 1;
+            if (isLastRow && isLastRangeInRow && lastRangeIsSingleChord) {
+              hlRight = gridRect.left + (maxBi + HALF_BAR_FRACTION) * barW;
+            }
+          }
+
           nextRects.push({
             key: `selection-${systemIndex}-${index}-${minBi}-${maxBi}`,
             x: (hlLeft - pageRect.left) / scale,
@@ -2108,10 +2104,11 @@ export function LeadSheet({
 
   useLayoutEffect(() => {
     const pageEl = pageRef.current;
-    if (!pageEl || (arrowSpecs.length === 0 && bracketSpecs.length === 0 && iiviSpans.length === 0)) {
+    if (!pageEl || (arrowSpecs.length === 0 && bracketSpecs.length === 0 && iiviSpans.length === 0 && modalChordLabels.length === 0)) {
       setArrows([]);
       setBrackets([]);
       setHighlights([]);
+      setModalHighlights([]);
       return;
     }
 
@@ -2123,6 +2120,7 @@ export function LeadSheet({
         setArrows([]);
         setBrackets([]);
         setHighlights([]);
+        setModalHighlights([]);
         return;
       }
 
@@ -2336,28 +2334,70 @@ export function LeadSheet({
 
           // Cross-row (consecutive): extend to grid width on open ends.
           // Last row (contains only I) keeps its tight left edge — start exactly
-          // at the I chord's bar so the boundary aligns with the chord.
+          // at the I chord's bar — and we force its right edge just shy of the
+          // bar midpoint so the I chord's highlight reads as a clean half-bar
+          // block (matching iReal's visual rule for one-chord bars). The 0.46
+          // factor pulls the right edge in slightly so it doesn't visually
+          // crowd whatever sits in the second half of the bar.
+          const I_CHORD_END_FRACTION = 0.46;
           if (isMultiRow && !isWrapAround) {
-            if (r === 0)                          hlRight = gridRect.right;
-            else if (r === rowIndices.length - 1) { /* keep hlLeft at I chord's bar */ }
-            else { hlLeft = gridRect.left; hlRight = gridRect.right; }
+            if (r === 0) {
+              hlRight = gridRect.right;
+            } else if (r === rowIndices.length - 1) {
+              hlRight = gridRect.left + (maxBi + I_CHORD_END_FRACTION) * barW;
+            } else {
+              hlLeft = gridRect.left;
+              hlRight = gridRect.right;
+            }
           }
           // Wrap-around: the departure row (largest si, contains ii–V) extends
-          // to the right edge; the arrival row (smallest si, contains I) stays tight.
-          if (isWrapAround && si === rowIndices[rowIndices.length - 1]) {
-            hlRight = gridRect.right;
+          // to the right edge; the arrival row (smallest si, contains I) is a
+          // half-bar block, same rule as the consecutive-cross-row last row.
+          if (isWrapAround) {
+            if (si === rowIndices[rowIndices.length - 1]) {
+              hlRight = gridRect.right;
+            } else if (si === rowIndices[0]) {
+              hlRight = gridRect.left + (maxBi + I_CHORD_END_FRACTION) * barW;
+            }
           }
 
-          const rowPosition: HighlightRect['rowPosition'] =
+          // Wrap-around: arrival row (smallest si) is a standalone resolution
+          // chord — there's no visual neighbor on either side, so close both
+          // edges with a full border. Without this its right edge is open
+          // because rowPosition='first' is meant for *consecutive* rows.
+          let rowPosition: HighlightRect['rowPosition'] =
             rowIndices.length === 1 ? 'only'
             : r === 0 ? 'first'
             : r === rowIndices.length - 1 ? 'last'
             : 'middle';
+          if (isWrapAround && r === 0) rowPosition = 'only';
+
+          // Compute the roman numeral labels rendered inside the dark
+          // amber tab — one per chord that lands on this row of the
+          // span. The X offset is measured from the band's left edge
+          // so vertical centering can be handled with pure CSS.
+          const finalHlX = lx(hlLeft);
+          const bandLabels: { offsetX: number; role: string }[] = [];
+          for (let kIdx = 0; kIdx < span.chordKeys.length; kIdx++) {
+            const ck = span.chordKeys[kIdx];
+            const [siStr] = ck.split('-');
+            if (Number(siStr) !== si) continue;
+            const role = span.chordRoles[kIdx]
+              ?? (span.kind === 'minor' ? ['ii°', 'V', 'i'][kIdx] : ['ii', 'V', 'I'][kIdx])
+              ?? '';
+            const el = chordElsRef.current[ck];
+            if (!el) continue;
+            const elRect = el.getBoundingClientRect();
+            // X position of chord glyph in page coords (matches the
+            // chord's left edge), then converted to band-local offset.
+            const chordX = lx(elRect.left);
+            bandLabels.push({ offsetX: chordX - finalHlX + 4, role });
+          }
 
           resolvedHighlights.push({
             key: `hl-${spanIdx}-${si}`,
             spanKey: `span-${spanIdx}`,
-            x: lx(hlLeft),
+            x: finalHlX,
             // Vertically match the barline (BARLINE_GAP inset top & bottom).
             y: ly(gridRect.top + BARLINE_GAP * scale),
             width: lw(hlRight - hlLeft),
@@ -2365,9 +2405,48 @@ export function LeadSheet({
             label: span.label,
             kind: span.kind,
             rowPosition,
+            bandLabels,
           });
 
         }
+      }
+
+      /* ── Modal interchange highlight bands ── */
+      const MI_HL_PAD_X = 8;
+      const MI_HL_OFFSET_TOP = 26;
+      const MI_HL_OFFSET_BOTTOM = 4;
+      const MI_TAB_PAD_X = 6;
+      const MI_TAB_OFFSET_TOP = 24;
+      const MI_TAB_HEIGHT = 18;
+      const MI_LABEL_INSET_X = 3;
+      const resolvedModalHighlights: ModalHighlightRect[] = [];
+
+      for (const { chordKey, text } of modalChordLabels) {
+        const el = chordElsRef.current[chordKey];
+        if (!el) continue;
+
+        const rect = el.getBoundingClientRect();
+        const chordX = lx(rect.left);
+        const chordY = ly(rect.top);
+        const chordW = lw(rect.width);
+        const chordH = lh(rect.height);
+        const bandX = chordX - MI_TAB_PAD_X;
+
+        resolvedModalHighlights.push({
+          key: `mi-${chordKey}`,
+          x: chordX - MI_HL_PAD_X,
+          y: chordY - MI_HL_OFFSET_TOP,
+          width: chordW + MI_HL_PAD_X * 2,
+          height: chordH + MI_HL_OFFSET_TOP + MI_HL_OFFSET_BOTTOM,
+          bandX,
+          bandY: chordY - MI_TAB_OFFSET_TOP,
+          bandWidth: chordW + MI_TAB_PAD_X * 2,
+          bandHeight: MI_TAB_HEIGHT,
+          bandLabel: {
+            offsetX: chordX - bandX + MI_LABEL_INSET_X,
+            text,
+          },
+        });
       }
 
       setArrowFrame({
@@ -2377,6 +2456,7 @@ export function LeadSheet({
       setArrows(resolvedArrows);
       setBrackets(resolvedBrackets);
       setHighlights(resolvedHighlights);
+      setModalHighlights(resolvedModalHighlights);
     };
 
     measure();
@@ -2396,7 +2476,7 @@ export function LeadSheet({
       observer.disconnect();
       window.removeEventListener('resize', measure);
     };
-  }, [arrowSpecs, bracketSpecs, iiviSpans, resolvedData, effectiveScale]);
+  }, [arrowSpecs, bracketSpecs, iiviSpans, modalChordLabels, resolvedData, effectiveScale]);
 
   /* ── Active-bar playback highlight ───────────────────────────────────
    * Transparent sky-blue overlay covering the bar currently being played.
@@ -2533,25 +2613,132 @@ export function LeadSheet({
             ))}
           </ArrowLayer>
         )}
-        {/* ── Background highlight layer (behind text) ── */}
+        {/* ── Background highlight layer (behind text) ──
+            Mirrors the Modal Interchange decoration: yellow translucent
+            panel + a dark amber "tab" above with the per-chord roman
+            numerals (ii / V / I) sitting on top. Both are always visible;
+            hover only thickens the surrounding border via hlBorder. */}
         {af.showIIVI && highlights.map((hl) => {
           const isHovered = hoveredSpanKey === hl.spanKey;
+          const baseRadius = hlBorderRadius(hl.rowPosition);
+          const bandRadius = (() => {
+            switch (hl.rowPosition) {
+              case 'first':  return '4px 0 0 0';
+              case 'last':   return '0 4px 0 0';
+              case 'middle': return '0';
+              default:       return '4px 4px 0 0';
+            }
+          })();
           return (
-            <div
-              key={`bg-${hl.key}`}
-              style={{
-                position: 'absolute',
-                left: hl.x, top: hl.y,
-                width: hl.width, height: hl.height,
-                background: 'rgba(255, 236, 179, 0.45)',
-                borderRadius: hlBorderRadius(hl.rowPosition),
-                pointerEvents: 'none',
-                zIndex: 0,
-                ...hlBorder(hl.rowPosition, isHovered),
-              }}
-            />
+            <div key={`bg-group-${hl.key}`}>
+              <div
+                key={`band-${hl.key}`}
+                style={{
+                  position: 'absolute',
+                  left: hl.x,
+                  top: hl.y - 22,
+                  width: hl.width,
+                  height: 22,
+                  background: 'rgba(201, 133, 30, 0.85)',
+                  borderRadius: bandRadius,
+                  pointerEvents: 'none',
+                  zIndex: 1,
+                }}
+              >
+                {/* Roman-numeral labels — vertically centered inside the
+                    tab via top:50% + translateY, so we never have to
+                    fudge pixel offsets. Horizontal X is the chord's
+                    rendered position relative to the band. */}
+                {hl.bandLabels.map((lab, i) => (
+                  <span
+                    key={i}
+                    style={{
+                      position: 'absolute',
+                      left: lab.offsetX,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: '#111',
+                      fontFamily: "'Noto Serif', 'Georgia', 'Times New Roman', serif",
+                      fontWeight: 700,
+                      fontSize: '0.95rem',
+                      letterSpacing: '0.04em',
+                      lineHeight: 1,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {lab.role}
+                  </span>
+                ))}
+              </div>
+              <div
+                key={`bg-${hl.key}`}
+                style={{
+                  position: 'absolute',
+                  left: hl.x, top: hl.y,
+                  width: hl.width, height: hl.height,
+                  background: isHovered
+                    ? 'rgba(255, 220, 130, 0.55)'
+                    : 'rgba(255, 236, 179, 0.45)',
+                  borderRadius: baseRadius,
+                  pointerEvents: 'none',
+                  zIndex: 0,
+                  ...hlBorder(hl.rowPosition, isHovered),
+                  transition: 'background 0.15s',
+                }}
+              />
+            </div>
           );
         })}
+        {af.showColors && modalHighlights.map((hl) => (
+          <div key={`mi-group-${hl.key}`}>
+            <div
+              style={{
+                position: 'absolute',
+                left: hl.bandX,
+                top: hl.bandY,
+                width: hl.bandWidth,
+                height: hl.bandHeight,
+                background: 'rgba(123, 63, 176, 0.55)',
+                borderRadius: '2px 2px 0 0',
+                pointerEvents: 'none',
+                zIndex: 1,
+              }}
+            >
+              <span
+                style={{
+                  position: 'absolute',
+                  left: hl.bandLabel.offsetX,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: '#111',
+                  fontFamily: "'Noto Serif', 'Georgia', 'Times New Roman', serif",
+                  fontWeight: 700,
+                  fontSize: '1rem',
+                  letterSpacing: '0.04em',
+                  lineHeight: 1,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {hl.bandLabel.text}
+              </span>
+            </div>
+            <div
+              style={{
+                position: 'absolute',
+                left: hl.x,
+                top: hl.y,
+                width: hl.width,
+                height: hl.height,
+                background: 'rgba(220, 180, 240, 0.18)',
+                border: '2px solid rgba(123, 63, 176, 0.6)',
+                boxSizing: 'border-box',
+                borderRadius: 4,
+                pointerEvents: 'none',
+                zIndex: 0,
+              }}
+            />
+          </div>
+        ))}
 
         {/* ── Active-bar playback highlight (sky blue, transparent) ── */}
         {activeBarRect && (
@@ -2637,12 +2824,23 @@ export function LeadSheet({
             selectionTargetByKey={selectionTargetByKey}
             selectionMode={selectionMode}
             hoveredIiviChordKeys={hoveredIiviChordKeys}
-            iiviChordRoleMap={iiviChordRoleMap}
           />
         ))}
 
-        {/* ── Event capture layer (above text, transparent) ── */}
+        {/* ── Event capture layer (above text, transparent) ──
+            Hover shows the tooltip; click opens the saved-licks modal for
+            this ii-V-I span (replaces the old "★ 저장 릭" pill badge). */}
         {af.showIIVI && highlights.map((hl) => {
+          const handleSpanClick = () => {
+            if (!onSavedLickBadgeClick) return;
+            const spanIdx = Number(hl.spanKey.replace('span-', ''));
+            const span = iiviSpans[spanIdx];
+            if (!span) return;
+            const [siStr, biStr] = span.chordKeys[0].split('-');
+            const bar = resolvedData.systems[Number(siStr)]?.bars[Number(biStr)];
+            const barNum = bar?.measureNumber ?? -1;
+            onSavedLickBadgeClick(barNum, hl.label);
+          };
           return (
             <div
               key={`ev-${hl.key}`}
@@ -2661,6 +2859,7 @@ export function LeadSheet({
                 setHoveredSpanKey(null);
                 setActiveTooltip(null);
               }}
+              onClick={handleSpanClick}
               style={{
                 position: 'absolute',
                 left: hl.x, top: hl.y,
@@ -2668,8 +2867,6 @@ export function LeadSheet({
                 boxSizing: 'border-box',
                 background: 'transparent',
                 borderRadius: hlBorderRadius(hl.rowPosition),
-                // 테두리 없음 — 탭 라벨로 hover 표시
-
                 cursor: 'pointer',
                 pointerEvents: selectionMode ? 'none' : 'auto',
                 zIndex: 3,
@@ -2678,47 +2875,6 @@ export function LeadSheet({
           );
         })}
 
-        {/* ── 저장된 릭 ★ 뱃지 — ii-V-I 하이라이트 첫 행 위 ── */}
-        {savedLickBarNums && savedLickBarNums.size > 0 && highlights
-          .filter((hl) => hl.rowPosition === 'only' || hl.rowPosition === 'first')
-          .map((hl) => {
-            const spanIdx = Number(hl.spanKey.replace('span-', ''));
-            const span = iiviSpans[spanIdx];
-            if (!span) return null;
-            const [siStr, biStr] = span.chordKeys[0].split('-');
-            const bar = resolvedData.systems[Number(siStr)]?.bars[Number(biStr)];
-            if (!bar) return null;
-            const barNum = bar.measureNumber ?? -1;
-            if (!savedLickBarNums.has(barNum)) return null;
-            return (
-              <div
-                key={`saved-badge-${hl.key}`}
-                onClick={() => onSavedLickBadgeClick?.(barNum, hl.label)}
-                title="저장된 릭 보기"
-                style={{
-                  position: 'absolute',
-                  left: hl.x + 4,
-                  top: hl.y - 2,
-                  transform: 'translateY(-100%)',
-                  background: '#B8860B',
-                  color: '#fff',
-                  fontSize: 10,
-                  fontWeight: 700,
-                  padding: '1px 5px',
-                  borderRadius: 8,
-                  cursor: 'pointer',
-                  zIndex: 10,
-                  pointerEvents: 'auto',
-                  userSelect: 'none',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                ★ 저장 릭
-              </div>
-            );
-          })
-          .filter(Boolean)
-        }
 
         {/* ── 2-5-1 라벨 — 마우스를 따라다니는 툴팁 ── */}
         {activeTooltip && (

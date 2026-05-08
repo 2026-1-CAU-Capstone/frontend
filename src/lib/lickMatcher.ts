@@ -6,7 +6,7 @@
  */
 
 import type { LickEntry } from '../data/lickData';
-import type { MeasureInfo } from '../data/sampleMelody';
+import type { MeasureInfo, NoteInfo } from '../data/sampleMelody';
 import type { ChordOverlay } from '../data/types';
 
 /* ── pitch constants ─────────────────────────────────────────────────────── */
@@ -102,6 +102,68 @@ function transposeMeasures(measures: MeasureInfo[], semitones: number, useFlats:
   }));
 }
 
+/* ── octave range adjustment ─────────────────────────────────────────────── */
+
+// Treble-staff readability bounds (MIDI). Anything above HIGH gets dropped an
+// octave; anything below LOW gets raised. Values picked to keep notes within
+// ~1 ledger above (A5) and ~2 ledger below (G3) the staff in typical cases.
+const OCTAVE_HIGH = 81; // A5
+const OCTAVE_LOW = 55;  // G3
+
+function noteMidis(note: NoteInfo): number[] {
+  if (note.duration.endsWith('r')) return [];
+  return note.keys.map((key, ki) => {
+    const [letterPart, octStr] = key.split('/');
+    const letter = letterPart[0].toLowerCase();
+    const pc = NOTE_TO_PC[letter] ?? 0;
+    const acc = note.accidentals?.[ki] as 'b' | '#' | undefined;
+    const adjPc = ((pc + (acc === '#' ? 1 : acc === 'b' ? -1 : 0)) + 12) % 12;
+    return (parseInt(octStr ?? '4', 10) + 1) * 12 + adjPc;
+  });
+}
+
+function shiftMeasuresOctave(measures: MeasureInfo[], octaves: number): MeasureInfo[] {
+  if (octaves === 0) return measures;
+  return measures.map((m) => ({
+    ...m,
+    notes: m.notes.map((n) => {
+      if (n.duration.endsWith('r')) return n;
+      return {
+        ...n,
+        keys: n.keys.map((k) => {
+          const [letter, octStr] = k.split('/');
+          return `${letter}/${parseInt(octStr ?? '4', 10) + octaves}`;
+        }),
+      };
+    }),
+  }));
+}
+
+/**
+ * 이조로 음표가 너무 높거나 낮아진 경우 한 옥타브 단위로 보정.
+ * - 최고음이 OCTAVE_HIGH(A5) 초과 → 한 옥타브 낮춤
+ * - 최저음이 OCTAVE_LOW(G3) 미만 → 한 옥타브 높임
+ * 양쪽 모두 위반하면(릭의 음역이 보정 가능 범위보다 넓음) 보정 생략.
+ */
+function fitOctaveRange(measures: MeasureInfo[]): MeasureInfo[] {
+  const all: number[] = [];
+  for (const m of measures) for (const n of m.notes) all.push(...noteMidis(n));
+  if (all.length === 0) return measures;
+
+  let max = Math.max(...all);
+  let min = Math.min(...all);
+  let shift = 0;
+
+  while (max > OCTAVE_HIGH && (min - 12) >= OCTAVE_LOW) {
+    max -= 12; min -= 12; shift -= 1;
+  }
+  while (min < OCTAVE_LOW && (max + 12) <= OCTAVE_HIGH) {
+    max += 12; min += 12; shift += 1;
+  }
+
+  return shiftMeasuresOctave(measures, shift);
+}
+
 /** Return a new LickEntry transposed by `semitones`. If 0, returns original. */
 function transposeLick(lick: LickEntry, semitones: number): LickEntry {
   if (semitones === 0) return lick;
@@ -114,13 +176,16 @@ function transposeLick(lick: LickEntry, semitones: number): LickEntry {
   const isMinor = lick.key.toLowerCase().includes('min') || lick.key.includes('-min');
   const newKey = `${newKeyRoot}-${isMinor ? 'min' : 'maj'}`;
 
+  const transposed = transposeMeasures(lick.sheetData.measures, semitones, uf);
+  const fitted = fitOctaveRange(transposed);
+
   return {
     ...lick,
     key: newKey,
     chords: lick.chords.map((c) => transposeChordLabel(c, semitones, uf)),
     sheetData: {
       ...lick.sheetData,
-      measures: transposeMeasures(lick.sheetData.measures, semitones, uf),
+      measures: fitted,
     },
   };
 }

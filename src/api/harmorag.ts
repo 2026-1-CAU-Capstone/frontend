@@ -12,11 +12,13 @@ const RAG_CLOSE = '\x00END_DEBUG\x00';
 
 export interface RagChunk {
   id: string;
-  score: number;
+  score: number;                       // cosine similarity (참고용)
+  rrf_score?: number;                  // Reciprocal Rank Fusion score (정렬 기준)
   title: string;
   song: string;
   level: number;
-  matched_query: string;
+  matched_query: string;               // 첫 번째 매칭 쿼리 (하위 호환)
+  matched_queries?: string[];          // 이 청크를 회수한 모든 sub-query
   response: string;
 }
 
@@ -24,6 +26,8 @@ export interface RagDebugInfo {
   queries: Array<{ query: string; level: number | null; tag: string | null }>;
   total_retrieved: number;
   top_k: number;
+  fusion?: 'rrf' | 'score';            // 융합 방식 (서버가 알려줌)
+  rrf_k?: number;
   chunks: RagChunk[];
   error?: string;
 }

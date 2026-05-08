@@ -143,12 +143,30 @@ const ChunkBody = styled.div`
 function ChunkItem({ chunk }: { chunk: RagChunk }) {
   const [open, setOpen] = useState(false);
   const pct = chunk.score;
+  const matchCount = chunk.matched_queries?.length ?? 1;
 
   return (
     <ChunkCard>
       <ChunkHeader onClick={() => setOpen(v => !v)}>
         <ScoreBar $pct={pct} />
         <ScoreNum $pct={pct}>{pct.toFixed(3)}</ScoreNum>
+        {chunk.rrf_score != null && (
+          <span
+            title={`RRF score (정렬 기준) — ${matchCount}개 sub-query에서 회수됨`}
+            style={{
+              flexShrink: 0,
+              fontSize: 10,
+              fontWeight: 600,
+              padding: '1px 5px',
+              borderRadius: 3,
+              background: matchCount > 1 ? '#1976d2' : '#90a4ae',
+              color: '#fff',
+            }}
+          >
+            RRF {chunk.rrf_score.toFixed(4)}
+            {matchCount > 1 ? ` ×${matchCount}` : ''}
+          </span>
+        )}
         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {chunk.title}
         </span>
@@ -160,8 +178,18 @@ function ChunkItem({ chunk }: { chunk: RagChunk }) {
       {open && (
         <ChunkBody>
           <div style={{ color: '#888', fontSize: 10, marginBottom: 4 }}>
-            id: {chunk.id} · matched: "{chunk.matched_query.slice(0, 50)}..."
+            id: {chunk.id}
           </div>
+          {chunk.matched_queries && chunk.matched_queries.length > 0 && (
+            <div style={{ color: '#888', fontSize: 10, marginBottom: 6 }}>
+              회수한 sub-query ({chunk.matched_queries.length}개):
+              <ul style={{ margin: '2px 0 0 14px', padding: 0 }}>
+                {chunk.matched_queries.map((q, i) => (
+                  <li key={i} style={{ listStyle: 'disc' }}>"{q}"</li>
+                ))}
+              </ul>
+            </div>
+          )}
           {chunk.response}
         </ChunkBody>
       )}
@@ -186,6 +214,11 @@ export function RagDebugPanel({ info }: RagDebugPanelProps) {
         <Badge $color={badgeColor}>
           top {(topScore * 100).toFixed(0)}%
         </Badge>
+        {info.fusion === 'rrf' && (
+          <Badge $color="#1976d2" title={`Reciprocal Rank Fusion (k=${info.rrf_k ?? 60})`}>
+            RRF
+          </Badge>
+        )}
         <span style={{ fontWeight: 400, color: '#888' }}>
           {info.queries?.length ?? 0}개 쿼리 · {info.total_retrieved ?? 0}개 검색 · {info.chunks?.length ?? 0}개 사용
         </span>
