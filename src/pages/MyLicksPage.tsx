@@ -148,7 +148,7 @@ export default function MyLicksPage() {
             key={lick.id}
             lick={lick}
             width={cardWidth}
-            displayId={i + 1}
+            displayId={licks.length - i}
             onDelete={() => handleDelete(lick.id)}
             onClick={() => navigate(`/lick-practice/${lick.id}`)}
           />

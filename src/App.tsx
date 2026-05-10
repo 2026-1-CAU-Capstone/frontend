@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import ChordPage from './pages/ChordPage';
 import NotePage from './pages/NotePage';
@@ -12,7 +12,7 @@ import AdminPage from './pages/AdminPage';
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/chord" element={<ChordPage />} />
@@ -25,6 +25,6 @@ export default function App() {
         <Route path="/my-licks" element={<MyLicksPage />} />
         <Route path="/lick-practice/:id" element={<Lick12KeyPage />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }

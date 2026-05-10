@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../styles/theme';
 import { IconSidebar } from '../components/layout/IconSidebar';
@@ -10,7 +11,7 @@ import { LickCreator } from '../components/notesheet/LickCreator';
 import { PianoKeyboard, type PianoNote } from '../components/notesheet/PianoKeyboard';
 import { MelodyPreview } from '../components/notesheet/MelodyPreview';
 import type { TocEntry } from '../data/types';
-import { loadLicks, loadFrontendLicks, loadUserLicks, saveUserLick, type LickEntry } from '../data/lickData';
+import { loadLicks, loadFrontendLicks, loadUserLicks, saveUserLick, invalidateLicksCache, type LickEntry } from '../data/lickData';
 import type { NoteSheetData } from '../data/sampleMelody';
 
 const PAGE_SIZE = 30;
@@ -380,7 +381,7 @@ function melodySimilarity(query: QueryFeatures, lick: LickEntry): number {
 
 /* ─── visibility wrapper ─────────────────────────────────────────────── */
 
-function VisibleLickCard({ lick, width, displayId }: { lick: LickEntry; width: number; displayId: number }) {
+function VisibleLickCard({ lick, width, displayId, onDelete, onEdit }: { lick: LickEntry; width: number; displayId: number; onDelete?: () => void; onEdit?: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
 
@@ -397,7 +398,7 @@ function VisibleLickCard({ lick, width, displayId }: { lick: LickEntry; width: n
 
   return (
     <div ref={ref}>
-      <LickCard lick={lick} width={width} visible={visible} compact displayId={displayId} />
+      <LickCard lick={lick} width={width} visible={visible} compact displayId={displayId} onDelete={onDelete} onEdit={onEdit} />
     </div>
   );
 }
@@ -405,6 +406,7 @@ function VisibleLickCard({ lick, width, displayId }: { lick: LickEntry; width: n
 /* ─── component ──────────────────────────────────────────────────────── */
 
 export default function LicksPage() {
+  const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const [melodySearch, setMelodySearch] = useState(false);
   const [searchMidis, setSearchMidis] = useState<number[]>([]);
@@ -438,6 +440,26 @@ export default function LicksPage() {
         .catch((err) => { console.error('Failed to load licks:', err); setLoadingLicks(false); });
     }
   }, [lickSource]);
+
+  /* edit (backend only) — navigate to JSON tool with prefilled data + editingId */
+  const handleEditLick = useCallback((lick: LickEntry) => {
+    navigate('/lick-input', { state: { editingLick: lick } });
+  }, [navigate]);
+
+  /* delete (backend only) — DELETE /api/v1/licks/{publicId} */
+  const handleDeleteLick = useCallback(async (lick: LickEntry) => {
+    const ok = window.confirm(`"${lick.performer} — ${lick.title}" 릭을 삭제할까요?`);
+    if (!ok) return;
+    try {
+      const { deleteLick } = await import('../api/licks');
+      await deleteLick(String(lick.id));
+      invalidateLicksCache();
+      setAllLicks((prev) => prev.filter((l) => l.id !== lick.id));
+    } catch (err) {
+      console.error('Delete failed', err);
+      alert(err instanceof Error ? err.message : '삭제 실패');
+    }
+  }, []);
 
   /* filters */
   const [filterPerformer, setFilterPerformer] = useState('');
@@ -758,7 +780,13 @@ export default function LicksPage() {
                       {melodySearch && queryFeatures.intervals.length > 0 && score > 0 && (
                         <ScoreBadge>{Math.round(score * 100)}% match</ScoreBadge>
                       )}
-                      <VisibleLickCard lick={lick} width={feedWidth} displayId={i + 1} />
+                      <VisibleLickCard
+                        lick={lick}
+                        width={feedWidth}
+                        displayId={rankedLicks.length - i}
+                        onDelete={lickSource === 'backend' ? () => handleDeleteLick(lick) : undefined}
+                        onEdit={lickSource === 'backend' ? () => handleEditLick(lick) : undefined}
+                      />
                     </div>
                   ))}
                   {shown < rankedLicks.length && <Sentinel ref={sentinelRef} />}

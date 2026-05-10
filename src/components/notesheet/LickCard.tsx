@@ -470,10 +470,11 @@ interface LickCardProps {
   compact?: boolean;
   displayId?: number;
   onDelete?: () => void;
+  onEdit?: () => void;
   onClick?: () => void;
 }
 
-export function LickCard({ lick, width, visible, compact, displayId, onDelete, onClick }: LickCardProps) {
+export function LickCard({ lick, width, visible, compact, displayId, onDelete, onEdit, onClick }: LickCardProps) {
   const svgRef = useRef<HTMLDivElement>(null);
   const renderedRef = useRef(false);
 
@@ -580,7 +581,7 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
 
     const data = lick.sheetData;
     const nMeasures = data.measures.length;
-    const [numBeats, beatValue] = data.timeSignature.split('/').map(Number);
+    const [numBeats, beatValue] = (data.timeSignature ?? '4/4').split('/').map(Number);
     const vexKey = toVexKey(lick.key);
     const keySigAcc = keySigAccidentals(vexKey);
     const DECOR_FIRST = decorFirstWidth(vexKey);
@@ -698,7 +699,7 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
         if (firstInLine) {
           stave.addClef('treble');
           if (vexKey && vexKey !== 'C') stave.addKeySignature(vexKey);
-          if (m === 0) stave.addTimeSignature(data.timeSignature);
+          if (m === 0) stave.addTimeSignature(data.timeSignature ?? '4/4');
         }
         const measure = data.measures[m];
         if (measure.repeatStart) stave.setBegBarType(BarlineType.REPEAT_BEGIN);
@@ -734,10 +735,33 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
           }
         }
 
+        const beams = buildManualBeams(vfNotes, measure.notes);
+        const voice = new Voice({ numBeats, beatValue });
+        voice.setStrict(false);
+        voice.addTickables(vfNotes);
+
+        new Formatter().joinVoices([voice]).formatToStave([voice], stave);
+        voice.draw(ctx, stave);
+        beams.forEach((b) => b.setContext(ctx).draw());
+
         if (measure.chord) {
           const barContentX = firstInLine ? x + lineDecorW + 4 : x + 4;
           const barContentW = barW - 8;
-          const chordY = y + 12;
+          // Default chord baseline = y + 12 (above stave area).
+          // For measures with very high notes, lift the chord baseline so it
+          // sits above the topmost note glyph (incl. ledger lines / stems).
+          const baseChordY = y + 12;
+          const SAFE_GAP = 4;
+          let topNoteY = Infinity;
+          for (const n of vfNotes) {
+            try {
+              const bb = n.getBoundingBox();
+              if (bb && bb.y < topNoteY) topNoteY = bb.y;
+            } catch { /* noop */ }
+          }
+          const chordY = Number.isFinite(topNoteY) && topNoteY - SAFE_GAP < baseChordY
+            ? topNoteY - SAFE_GAP
+            : baseChordY;
           const svg = el.querySelector('svg');
           if (svg) {
             const chords = measure.chord.split(/\s{2,}/);
@@ -751,15 +775,6 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
             }
           }
         }
-
-        const beams = buildManualBeams(vfNotes, measure.notes);
-        const voice = new Voice({ numBeats, beatValue });
-        voice.setStrict(false);
-        voice.addTickables(vfNotes);
-
-        new Formatter().joinVoices([voice]).formatToStave([voice], stave);
-        voice.draw(ctx, stave);
-        beams.forEach((b) => b.setContext(ctx).draw());
 
         // Render tuplet brackets
         {
@@ -976,7 +991,12 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
     noteElMapRef.current = noteMap;
   }, [visible, width, lick]);
 
-  const keyNorm = lick.key.split('-')[0] || '?';
+  const keyNorm = (() => {
+    const k = lick.key || '';
+    if (k.endsWith('-min')) return k.slice(0, -4) + 'm';
+    if (k.endsWith('-maj')) return k.slice(0, -4);
+    return k || '?';
+  })();
 
   return (
     <Card style={onClick ? { cursor: 'pointer' } : undefined} onClick={onClick}>
@@ -998,6 +1018,11 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
               <path fill="#fff" d="M9.6 12.1V4.9L15.8 8.5z"/>
             </svg>
             YouTube
+          </PlayBtn>
+        )}
+        {onEdit && (
+          <PlayBtn onClick={(e) => { e.stopPropagation(); onEdit(); }} style={{ color: '#1565c0', borderColor: '#90caf9' }}>
+            Edit
           </PlayBtn>
         )}
         {onDelete && (

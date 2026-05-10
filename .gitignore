@@ -45,3 +45,12 @@ tools/pdf2midi/tmp/
 
 # External datasets (large, fetched locally, not source)
 data/DigThatLick/
+
+# Capacitor / iOS — generated build artifacts
+ios/App/Pods/
+ios/App/build/
+ios/DerivedData/
+ios/App/App/public/
+ios/App/Podfile.lock
+*.xcuserstate
+xcuserdata/

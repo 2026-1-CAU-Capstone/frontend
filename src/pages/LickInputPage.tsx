@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import {
   Renderer, Stave, StaveNote, Voice, Formatter, Beam, Accidental, Dot, BarlineType, StaveTie, Tuplet, VoltaType, Repetition,
@@ -1107,6 +1107,10 @@ const JsonPreview = styled.pre`
 
 export default function LickInputPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  // 라우터 state로 전달된 편집 대상 릭 (LicksPage의 Edit 버튼 → setState)
+  const editingLick = (location.state as { editingLick?: LickEntry } | null)?.editingLick;
+  const editingId = editingLick ? String(editingLick.id) : null;
 
   // Completed measures
   const [measures, setMeasures] = useState<MeasureInfo[]>([]);
@@ -1132,6 +1136,27 @@ export default function LickInputPage() {
   const [bpmText, setBpmText] = useState('200');
   const bpmManualRef = useRef(false);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // 편집 모드: 라우터 state의 lick으로 폼 prefill (마운트 시 1회)
+  const prefilledRef = useRef(false);
+  useEffect(() => {
+    if (!editingLick || prefilledRef.current) return;
+    prefilledRef.current = true;
+    setPerformer(editingLick.performer ?? '');
+    setTitle(editingLick.title ?? '');
+    setAlbum(editingLick.album ?? '');
+    setInstrument(editingLick.instrument ?? '');
+    const keyRoot = (editingLick.key ?? '').split('-')[0];
+    setLickKey(keyRoot);
+    if (editingLick.tempo) {
+      setBpm(editingLick.tempo);
+      setBpmText(String(editingLick.tempo));
+      bpmManualRef.current = true;
+    }
+    setMeasures(editingLick.sheetData?.measures ?? []);
+  }, [editingLick]);
   const [playing, setPlaying] = useState(false);
   const playAbortRef = useRef<AbortController | null>(null);
   const svgRef = useRef<HTMLDivElement>(null);
@@ -1533,9 +1558,9 @@ export default function LickInputPage() {
     }
   }, [measures.length]);
 
-  /* save to localStorage */
-  const handleSave = useCallback(() => {
-    if (allMeasures.length === 0) return;
+  /* save to backend (POST /api/v1/licks) — falls back to localStorage on failure */
+  const handleSave = useCallback(async () => {
+    if (allMeasures.length === 0 || saving) return;
     const totalN = allMeasures.reduce((s, m) => s + m.notes.filter(n => !n.duration.endsWith('r')).length, 0);
     const entry: LickEntry = {
       id: Date.now(),
@@ -1561,10 +1586,34 @@ export default function LickInputPage() {
       },
       ...computeLickFeatures(allMeasures),
     };
-    saveUserLick(entry);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
-  }, [allMeasures, performer, title, instrument, bpm, lickKey]);
+
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const { createLick, updateLick } = await import('../api/licks');
+      const { invalidateLicksCache } = await import('../data/lickData');
+      let persisted: LickEntry;
+      if (editingId) {
+        // 편집 모드: PUT — 같은 publicId로 덮어쓰기
+        persisted = await updateLick(editingId, entry);
+      } else {
+        persisted = await createLick(entry);
+      }
+      invalidateLicksCache();
+      saveUserLick(persisted);
+      setSaved(true);
+      setTimeout(() => {
+        setSaved(false);
+        if (editingId) navigate('/licks');
+      }, 1200);
+    } catch (err) {
+      console.error('Backend save failed', err);
+      setSaveError(err instanceof Error ? err.message : 'Save failed');
+      setTimeout(() => setSaveError(null), 4000);
+    } finally {
+      setSaving(false);
+    }
+  }, [allMeasures, performer, title, instrument, album, bpm, lickKey, saving, editingId, navigate]);
 
   /* copy */
   const handleCopy = useCallback(() => {
@@ -1655,9 +1704,20 @@ export default function LickInputPage() {
         <CopyBtn $copied={copied} onClick={handleCopy} disabled={totalNotes === 0}>
           {copied ? '\u2713 Copied!' : 'Copy JSON'}
         </CopyBtn>
-        <SaveBtn $saved={saved} onClick={handleSave} disabled={totalNotes === 0}>
-          {saved ? '\u2713 Saved!' : 'Save Lick'}
+        <SaveBtn $saved={saved} onClick={handleSave} disabled={totalNotes === 0 || saving}>
+          {saving
+            ? (editingId ? 'Updating\u2026' : 'Saving\u2026')
+            : saved
+              ? (editingId ? '\u2713 Updated!' : '\u2713 Saved!')
+              : saveError
+                ? '\u2715 Failed'
+                : (editingId ? 'Update Lick' : 'Save Lick')}
         </SaveBtn>
+        {saveError && (
+          <span style={{ color: '#c0392b', fontSize: '12px', marginLeft: '8px', alignSelf: 'center' }}>
+            {saveError}
+          </span>
+        )}
 
         <Sep />
 

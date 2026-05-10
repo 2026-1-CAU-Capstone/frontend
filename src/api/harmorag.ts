@@ -4,6 +4,7 @@
  */
 
 import { streamClaudeMessage, type ClaudeMessage } from './claude';
+import { isNativeApp } from '../lib/platform';
 
 const RAG_SERVER = 'http://127.0.0.1:8001';
 
@@ -36,6 +37,12 @@ let serverAlive: boolean | null = null;
 
 async function checkServer(): Promise<boolean> {
   if (serverAlive !== null) return serverAlive;
+  // 네이티브 앱(iOS/Android WebView)에선 localhost 자체가 의미 없으므로
+  // 헬스체크 스킵하고 즉시 폴백으로 진입.
+  if (isNativeApp()) {
+    serverAlive = false;
+    return serverAlive;
+  }
   try {
     const res = await fetch(`${RAG_SERVER}/health`, { signal: AbortSignal.timeout(800) });
     serverAlive = res.ok;

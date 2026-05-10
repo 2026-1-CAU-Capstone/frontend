@@ -256,6 +256,11 @@ export async function loadLicks(): Promise<LickEntry[]> {
   return cachedLicks;
 }
 
+/** Force refresh of the cached backend licks (e.g. after delete/create). */
+export function invalidateLicksCache(): void {
+  cachedLicks = null;
+}
+
 /* ─── Feature computation for custom licks ───────────────────────── */
 
 const SEMI_MAP: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
@@ -342,11 +347,38 @@ export async function loadUserLicks(): Promise<LickEntry[]> {
   const [seed, local] = await Promise.all([loadSeedLicks(), Promise.resolve(loadLocalLicks())]);
   const seedIds = new Set(seed.map((l) => l.id));
   const merged = [...seed, ...local.filter((l) => !seedIds.has(l.id))];
-  return merged;
+
+  // AI 생성 릭 제외: 음수 ID(_genId--) 또는 performer === 'AI 생성'
+  const filtered = merged.filter((l) => {
+    const idNum = typeof l.id === 'number' ? l.id : Number(l.id);
+    if (Number.isFinite(idNum) && idNum < 0) return false;
+    if (l.performer === 'AI 생성') return false;
+    return true;
+  });
+
+  // 정렬: ID 내림차순 (= 최근 → 옛날, 맨 옛날 = 1번)
+  filtered.sort((a, b) => {
+    const an = typeof a.id === 'number' ? a.id : Number(a.id);
+    const bn = typeof b.id === 'number' ? b.id : Number(b.id);
+    return bn - an;
+  });
+
+  return filtered;
 }
 
 export function loadUserLicksSync(): LickEntry[] {
-  return loadLocalLicks();
+  const filtered = loadLocalLicks().filter((l) => {
+    const idNum = typeof l.id === 'number' ? l.id : Number(l.id);
+    if (Number.isFinite(idNum) && idNum < 0) return false;
+    if (l.performer === 'AI 생성') return false;
+    return true;
+  });
+  filtered.sort((a, b) => {
+    const an = typeof a.id === 'number' ? a.id : Number(a.id);
+    const bn = typeof b.id === 'number' ? b.id : Number(b.id);
+    return bn - an;
+  });
+  return filtered;
 }
 
 export function saveUserLick(lick: LickEntry): void {

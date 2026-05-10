@@ -24,8 +24,8 @@ const BARLINE_PAD  = 18;  // px — left padding reserved for barline decoration
 const BAR_H        = 78;  // px — row height (snug around chord content)
 const BARLINE_GAP  = 6;   // px — vertical inset at top/bottom of each barline
 const ROW_GAP      = 64;  // px — space between rows (extra room for bigger labels)
-const SECTION_GAP  = 36;  // px — extra space before a new section (A, B, …)
-const LABEL_OFFSET = 42;  // px — how far the section label floats above the grid
+const SECTION_GAP  = 84;  // px — extra space before a new section (A, B, …)
+const LABEL_OFFSET = 90;  // px — how far the section label floats above the grid
 const CHORD_FONT   = "'MuseJazz Text', 'Oswald', 'DM Sans', sans-serif";
 const LABEL_FONT   = "'DM Sans', 'Pretendard', sans-serif"; // gothic for A/B labels
 
@@ -283,7 +283,9 @@ const KeyOption = styled.button<{ $active?: boolean }>`
 
 const SystemRow = styled.div<{ $sectionStart?: boolean }>`
   display: flex;
-  align-items: stretch;
+  /* center (not stretch) so the larger TimeSig on row 1 doesn't inflate the
+   * BarsGrid height — every row's chord grid stays at BAR_H regardless. */
+  align-items: center;
   margin-bottom: ${ROW_GAP}px;
   ${({ $sectionStart }) => $sectionStart && `margin-top: ${SECTION_GAP}px;`}
   /* overflow visible so the section label can float above the grid */
@@ -365,7 +367,7 @@ const SectionLabel = styled.div`
   background: #000;
   color: #fff;
   font-family: ${LABEL_FONT};
-  font-size: clamp(0.75rem, 1.8cqi, 1.1rem);
+  font-size: clamp(1rem, 2.4cqi, 1.5rem);
   font-weight: 800;
   line-height: 1;
   padding: 3px 7px 3px 6px;
@@ -375,7 +377,8 @@ const SectionLabel = styled.div`
 
 /* ─── volta ending bracket ──────────────────────────────────────────────── */
 
-const VOLTA_HEIGHT = 34;
+// 볼타 브래킷 높이 — 충분한 여백을 두어 IIVI/모달 인터체인지 밴드와 겹치지 않도록.
+const VOLTA_HEIGHT = 56;
 
 const VoltaBracket = styled.div<{ $cols?: number }>`
   position: absolute;
@@ -974,6 +977,16 @@ function RepeatStartBarline() {
   );
 }
 
+/* final:  thin | thick — end of song marker */
+function FinalBarline() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'stretch', height: '100%' }}>
+      <div style={{ width: '1.5px', background: '#000', marginRight: '2px' }} />
+      <div style={{ width: '4px',   background: '#000' }} />
+    </div>
+  );
+}
+
 /* repeat-end:  ●  thin | thick */
 function RepeatEndBarline() {
   return (
@@ -1004,6 +1017,7 @@ function LeftBarline({ kind }: { kind: LeftBarlineKind }) {
 interface SystemRowProps {
   system: LeadSheetSystem;
   isFirst: boolean;
+  isLast: boolean;
   timeSignature: string;
   systemIndex: number;
   registerChordEl: (id: string, el: HTMLSpanElement | null) => void;
@@ -1026,6 +1040,7 @@ interface SystemRowProps {
 function SystemRowComponent({
   system,
   isFirst,
+  isLast,
   timeSignature,
   systemIndex,
   registerChordEl,
@@ -1098,10 +1113,14 @@ function SystemRowComponent({
           const lastNonEmpty = system.bars.findLastIndex((b: { chords: unknown[] }) => b.chords.length > 0);
 
           // End barline logic
-          let endBarlineType: 'none' | 'repeat-end' | 'normal' = 'none';
+          let endBarlineType: 'none' | 'repeat-end' | 'normal' | 'final' = 'none';
           const isLastReal = i === (lastNonEmpty >= 0 ? lastNonEmpty : system.bars.length - 1);
           if (isLastReal) {
-            endBarlineType = system.hasRepeatEnd ? 'repeat-end' : 'normal';
+            endBarlineType = system.hasRepeatEnd
+              ? 'repeat-end'
+              : isLast
+                ? 'final'
+                : 'normal';
           }
 
           const kind: LeftBarlineKind = i === 0 ? firstBarlineKind : 'normal';
@@ -1132,7 +1151,7 @@ function SystemRowComponent({
           };
 
           return (
-            <BarCell key={i}>
+            <BarCell key={i} data-bar-cell={`${systemIndex}-${i}`}>
               {/* Left barline — skip for empty trailing bars */}
               {!isEmpty && (
                 <BarlineArea>
@@ -1143,7 +1162,9 @@ function SystemRowComponent({
               {/* End barline */}
               {endBarlineType !== 'none' && (
                 <EndBarlineArea>
-                  {endBarlineType === 'repeat-end' ? <RepeatEndBarline /> : <NormalLine />}
+                  {endBarlineType === 'repeat-end' ? <RepeatEndBarline />
+                    : endBarlineType === 'final' ? <FinalBarline />
+                    : <NormalLine />}
                 </EndBarlineArea>
               )}
 
@@ -1294,11 +1315,13 @@ interface ModalHighlightRect {
 }
 
 function hlBorderRadius(pos: HighlightRect['rowPosition']): string {
+  // Body's TOP corners stay sharp because the dark amber tab sits above
+  // and provides the rounded top edge — together they read as one shape.
   switch (pos) {
-    case 'first':  return '4px 0 0 4px';
-    case 'last':   return '0 4px 4px 0';
+    case 'first':  return '0 0 0 4px';
+    case 'last':   return '0 0 4px 0';
     case 'middle': return '0';
-    default:       return '4px';
+    default:       return '0 0 4px 4px';
   }
 }
 
@@ -2024,11 +2047,11 @@ export function LeadSheet({
           const minChordIdx = selectedFirst ? Math.min(...selectedFirst) : 0;
           const startFraction = chordSpanInBar(firstChords, minChordIdx).start;
 
-          // Right edge: rightmost selected chord's fractional end in the
-          // last bar. The half-bar fraction (0.46) mirrors the ii-V-I
-          // yellow highlight so the green selection box lines up exactly
-          // with the yellow when the user selects a one-chord I bar.
-          const HALF_BAR_FRACTION = 0.46;
+          // Right edge: mirror yellow ii-V-I exactly.
+          //   - single-row 1-chord bar: 0.5  (yellow line ~2323)
+          //   - cross-row last-row I:  0.46 (yellow I_CHORD_END_FRACTION)
+          const SINGLE_BAR_END_FRACTION = 0.5;
+          const I_CHORD_END_FRACTION   = 0.46;
           const lastBar = resolvedData.systems[systemIndex]?.bars[maxBi];
           const lastChords = lastBar?.chords ?? [];
           const realChordCount = lastChords.filter(c => c.root).length;
@@ -2036,7 +2059,7 @@ export function LeadSheet({
           const maxChordIdx = selectedLast ? Math.max(...selectedLast) : 0;
           let endFraction: number;
           if (realChordCount === 1) {
-            endFraction = HALF_BAR_FRACTION;
+            endFraction = SINGLE_BAR_END_FRACTION;
           } else if (realChordCount === 0) {
             endFraction = 1.0;
           } else {
@@ -2069,7 +2092,34 @@ export function LeadSheet({
             const lastRangeIsSingleChord =
               minBi === maxBi && (selectedInLastBar?.size ?? 0) === 1;
             if (isLastRow && isLastRangeInRow && lastRangeIsSingleChord) {
-              hlRight = gridRect.left + (maxBi + HALF_BAR_FRACTION) * barW;
+              hlRight = gridRect.left + (maxBi + I_CHORD_END_FRACTION) * barW;
+            }
+          }
+
+          // ── Modal interchange override ──
+          // If the leftmost / rightmost selected chord is a modal-interchange
+          // chord, mirror the purple highlight's bounds exactly. Constants must
+          // match the modal-highlight measurement above:
+          //   left  = chord text left - MI_HL_PAD_X (8)
+          //   right = next sibling chord left - MI_SIBLING_GAP (8)
+          //         | bar cell right - (BARLINE_RIGHT_PAD + MI_BAR_INSET) (12)
+          const MI_HL_PAD_X      = 8;
+          const MI_SIBLING_GAP   = 8;
+          const MI_BAR_END_INSET = 12;
+          const firstChordObj = firstChords[minChordIdx];
+          if (firstChordObj?.analysis?.modalInterchange) {
+            const elL = chordElsRef.current[`${systemIndex}-${minBi}-${minChordIdx}`];
+            if (elL) hlLeft = elL.getBoundingClientRect().left - MI_HL_PAD_X * scale;
+          }
+          const lastChordObj = lastChords[maxChordIdx];
+          if (lastChordObj?.analysis?.modalInterchange) {
+            const elR = chordElsRef.current[`${systemIndex}-${maxBi}-${maxChordIdx}`];
+            const barCell = elR?.closest(`[data-bar-cell="${systemIndex}-${maxBi}"]`) as HTMLElement | null;
+            if (barCell) {
+              const nextEl = chordElsRef.current[`${systemIndex}-${maxBi}-${maxChordIdx + 1}`];
+              hlRight = nextEl
+                ? nextEl.getBoundingClientRect().left - MI_SIBLING_GAP * scale
+                : barCell.getBoundingClientRect().right - MI_BAR_END_INSET * scale;
             }
           }
 
@@ -2129,7 +2179,6 @@ export function LeadSheet({
       const lx = (screenX: number) => (screenX - pageRect.left) / scale;
       const ly = (screenY: number) => (screenY - pageRect.top) / scale;
       const lw = (screenW: number) => screenW / scale;
-      const lh = (screenH: number) => screenH / scale;
       const pageW = pageRect.width / scale;
       const pageH = pageRect.height / scale;
       const resolvedArrows: ResolvedArrow[] = [];
@@ -2195,6 +2244,24 @@ export function LeadSheet({
         }
 
         const edgeInset = 24;
+        // If the source chord sits mid-row (row doesn't reach near the page
+        // right edge — e.g. final system with fewer than 4 bars), draw a
+        // single short arrow at the source instead of the long wrap-around.
+        const SHORT_ARROW_THRESHOLD = 160;
+        if (pageW - edgeInset - x1 > SHORT_ARROW_THRESHOLD) {
+          const shortEndX = x1 + 70;
+          const shortCx   = x1 + 35;
+          const shortCy   = y1 - 28;
+          resolvedArrows.push({
+            key: spec.key,
+            segments: [{
+              d: `M ${x1} ${y1} Q ${shortCx} ${shortCy} ${shortEndX} ${y1}`,
+              markerEnd: true,
+            }],
+          });
+          continue;
+        }
+
         const exitX = pageW - edgeInset;
         const entryX = edgeInset;
         const sourceExitY = y1;   // exit at same chord-mid height
@@ -2227,7 +2294,7 @@ export function LeadSheet({
 
       /* ── ii-V brackets ── */
       const resolvedBrackets: ResolvedBracket[] = [];
-      const BRACKET_GAP = 4;   // px below chord bottom
+      const BRACKET_GAP = 4;   // px below row bottom
       const BRACKET_DEPTH = 10; // px height of the bracket
 
       for (const spec of bracketSpecs) {
@@ -2240,7 +2307,16 @@ export function LeadSheet({
 
         const x1 = lx(rect1.left) + lw(rect1.width) / 2;
         const x2 = lx(rect2.left) + lw(rect2.width) / 2;
-        const yBase = Math.max(ly(rect1.bottom), ly(rect2.bottom)) + BRACKET_GAP;
+
+        /* yBase는 같은 행의 grid 하단(BARLINE_GAP 안쪽) 기준으로 통일.
+         * 코드 텍스트 bottom은 superscript/subscript 유무에 따라 달라지므로
+         * chord rect를 쓰면 같은 행에서도 브래킷 높이가 어긋남. */
+        const siStr = spec.chordId1.split('-')[0];
+        const gridEl = gridElsRef.current[Number(siStr)];
+        const gridRect = gridEl?.getBoundingClientRect();
+        const yBase = gridRect
+          ? ly(gridRect.bottom - BARLINE_GAP * scale) + BRACKET_GAP
+          : Math.max(ly(rect1.bottom), ly(rect2.bottom)) + BRACKET_GAP;
         const yBottom = yBase + BRACKET_DEPTH;
 
         resolvedBrackets.push({
@@ -2252,6 +2328,19 @@ export function LeadSheet({
       /* ── ii-V-I highlight bands ── */
       const resolvedHighlights: HighlightRect[] = [];
       const HL_PAD_X = 6;
+
+      // Canonical row height for THIS song — measured from the median of all
+      // system grids so the value adapts per-song (longer songs may render
+      // smaller chord rows) but stays uniform across rows within a single song.
+      const measuredHeights: number[] = [];
+      for (let si = 0; si < resolvedData.systems.length; si++) {
+        const el = gridElsRef.current[si];
+        if (el) measuredHeights.push(el.getBoundingClientRect().height / scale);
+      }
+      measuredHeights.sort((a, b) => a - b);
+      const canonicalRowHeight = measuredHeights.length > 0
+        ? measuredHeights[Math.floor(measuredHeights.length / 2)]
+        : BAR_H;
 
       for (let spanIdx = 0; spanIdx < iiviSpans.length; spanIdx++) {
         const span = iiviSpans[spanIdx];
@@ -2361,16 +2450,20 @@ export function LeadSheet({
             }
           }
 
-          // Wrap-around: arrival row (smallest si) is a standalone resolution
-          // chord — there's no visual neighbor on either side, so close both
-          // edges with a full border. Without this its right edge is open
-          // because rowPosition='first' is meant for *consecutive* rows.
+          // Wrap-around overrides:
+          //   - arrival row (smallest si, contains I): 'only' — standalone,
+          //     close all edges since there's no neighbor row.
+          //   - departure row (largest si, contains ii–V): 'first' — left
+          //     side closes at the ii chord, right side bleeds to grid.right.
+          //     Without this it'd inherit 'last' (left open / right closed),
+          //     making the F-7 (ii) corner unrounded.
           let rowPosition: HighlightRect['rowPosition'] =
             rowIndices.length === 1 ? 'only'
             : r === 0 ? 'first'
             : r === rowIndices.length - 1 ? 'last'
             : 'middle';
           if (isWrapAround && r === 0) rowPosition = 'only';
+          if (isWrapAround && r === rowIndices.length - 1) rowPosition = 'first';
 
           // Compute the roman numeral labels rendered inside the dark
           // amber tab — one per chord that lands on this row of the
@@ -2399,9 +2492,12 @@ export function LeadSheet({
             spanKey: `span-${spanIdx}`,
             x: finalHlX,
             // Vertically match the barline (BARLINE_GAP inset top & bottom).
-            y: ly(gridRect.top + BARLINE_GAP * scale),
+            // canonicalRowHeight is measured once per song and shared across
+            // every highlight in the song, so all rows are uniform — yet the
+            // size still adapts naturally for songs with smaller/larger rows.
+            y: ly(gridRect.top) + BARLINE_GAP,
             width: lw(hlRight - hlLeft),
-            height: lh(gridRect.height - 2 * BARLINE_GAP * scale),
+            height: canonicalRowHeight - 2 * BARLINE_GAP,
             label: span.label,
             kind: span.kind,
             rowPosition,
@@ -2414,11 +2510,14 @@ export function LeadSheet({
       /* ── Modal interchange highlight bands ── */
       const MI_HL_PAD_X = 8;
       const MI_HL_OFFSET_TOP = 26;
-      const MI_HL_OFFSET_BOTTOM = 4;
-      const MI_TAB_PAD_X = 6;
-      const MI_TAB_OFFSET_TOP = 24;
-      const MI_TAB_HEIGHT = 18;
+      // Match IIVI band height (22) so 2-5-1 and modal interchange use the
+      // exact same band/body layout — body height = canonicalRow - 2*GAP, band
+      // sits ABOVE body separately with same offset.
+      const MI_TAB_HEIGHT = 22;
       const MI_LABEL_INSET_X = 3;
+      const MI_BAR_INSET = 6;     // 마디 끝 barline 여백
+      const MI_SIBLING_GAP = 8;   // 같은 마디 내 다음 코드와 간격
+      const BARLINE_RIGHT_PAD = 6;
       const resolvedModalHighlights: ModalHighlightRect[] = [];
 
       for (const { chordKey, text } of modalChordLabels) {
@@ -2428,19 +2527,46 @@ export function LeadSheet({
         const rect = el.getBoundingClientRect();
         const chordX = lx(rect.left);
         const chordY = ly(rect.top);
-        const chordW = lw(rect.width);
-        const chordH = lh(rect.height);
-        const bandX = chordX - MI_TAB_PAD_X;
+
+        /* ── 우측만 확장: 같은 마디 내 다음 코드 직전 또는 마디 끝 안쪽까지 ── */
+        let rightEdgeScreen = rect.right + MI_HL_PAD_X * scale;
+        const parts = chordKey.split('-').map(Number);
+        const si = parts[0], bi = parts[1], ci = parts[2];
+        const barCell = el.closest(`[data-bar-cell="${si}-${bi}"]`) as HTMLElement | null;
+        if (barCell) {
+          const nextEl = chordElsRef.current[`${si}-${bi}-${ci + 1}`];
+          rightEdgeScreen = nextEl
+            ? Math.max(rightEdgeScreen, nextEl.getBoundingClientRect().left - MI_SIBLING_GAP * scale)
+            : Math.max(rightEdgeScreen, barCell.getBoundingClientRect().right - (BARLINE_RIGHT_PAD + MI_BAR_INSET) * scale);
+        }
+        const leftEdgeScreen = rect.left - MI_HL_PAD_X * scale;
+        const hlX = lx(leftEdgeScreen);
+        const hlW = lw(rightEdgeScreen - leftEdgeScreen);
+        // Band shares the body's exact x/width so the two read as one shape
+        // (matches the ii-V-I layout). bandX/bandWidth kept for back-compat.
+        const bandX = hlX;
+        const bandWidth = hlW;
+
+        /* ── 세로 높이: 곡당 캐노니컬 행 높이를 사용해 ii-V-I 하이라이트와
+         * 완전히 동일한 디자인 로직으로 정렬되도록 함. y는 각 행의 gridRect.top
+         * 기준이지만 height는 곡 전체 공통이라 모든 블록이 한 곡 안에서 균일. */
+        const gridEl = gridElsRef.current[si];
+        const gridRect = gridEl?.getBoundingClientRect();
+        const hlY = gridRect
+          ? ly(gridRect.top) + BARLINE_GAP
+          : chordY - MI_HL_OFFSET_TOP;
+        const hlHeight = canonicalRowHeight - 2 * BARLINE_GAP;
 
         resolvedModalHighlights.push({
           key: `mi-${chordKey}`,
-          x: chordX - MI_HL_PAD_X,
-          y: chordY - MI_HL_OFFSET_TOP,
-          width: chordW + MI_HL_PAD_X * 2,
-          height: chordH + MI_HL_OFFSET_TOP + MI_HL_OFFSET_BOTTOM,
+          x: hlX,
+          y: hlY,
+          width: hlW,
+          height: hlHeight,
           bandX,
-          bandY: chordY - MI_TAB_OFFSET_TOP,
-          bandWidth: chordW + MI_TAB_PAD_X * 2,
+          // 탭은 본체 위에 분리되어 위치 — IIVI 하이라이트와 동일한 로직.
+          bandY: hlY - MI_TAB_HEIGHT,
+          bandWidth,
           bandHeight: MI_TAB_HEIGHT,
           bandLabel: {
             offsetX: chordX - bandX + MI_LABEL_INSET_X,
@@ -2680,6 +2806,7 @@ export function LeadSheet({
                     ? 'rgba(255, 220, 130, 0.55)'
                     : 'rgba(255, 236, 179, 0.45)',
                   borderRadius: baseRadius,
+                  boxSizing: 'border-box',
                   pointerEvents: 'none',
                   zIndex: 0,
                   ...hlBorder(hl.rowPosition, isHovered),
@@ -2698,8 +2825,8 @@ export function LeadSheet({
                 top: hl.bandY,
                 width: hl.bandWidth,
                 height: hl.bandHeight,
-                background: 'rgba(123, 63, 176, 0.55)',
-                borderRadius: '2px 2px 0 0',
+                background: 'rgba(123, 63, 176, 0.85)',
+                borderRadius: '4px 4px 0 0',
                 pointerEvents: 'none',
                 zIndex: 1,
               }}
@@ -2713,7 +2840,7 @@ export function LeadSheet({
                   color: '#111',
                   fontFamily: "'Noto Serif', 'Georgia', 'Times New Roman', serif",
                   fontWeight: 700,
-                  fontSize: '1rem',
+                  fontSize: '0.95rem',
                   letterSpacing: '0.04em',
                   lineHeight: 1,
                   whiteSpace: 'nowrap',
@@ -2729,10 +2856,10 @@ export function LeadSheet({
                 top: hl.y,
                 width: hl.width,
                 height: hl.height,
-                background: 'rgba(220, 180, 240, 0.18)',
-                border: '2px solid rgba(123, 63, 176, 0.6)',
+                background: 'rgba(220, 180, 240, 0.45)',
+                border: '2px solid rgba(123, 63, 176, 0.5)',
                 boxSizing: 'border-box',
-                borderRadius: 4,
+                borderRadius: '0 0 4px 4px',
                 pointerEvents: 'none',
                 zIndex: 0,
               }}
@@ -2807,6 +2934,7 @@ export function LeadSheet({
             key={i}
             system={system}
             isFirst={i === 0}
+            isLast={i === resolvedData.systems.length - 1}
             systemIndex={i}
             timeSignature={resolvedData.timeSignature}
             registerChordEl={registerChordEl}

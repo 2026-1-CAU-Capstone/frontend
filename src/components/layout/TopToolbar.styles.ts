@@ -2,18 +2,20 @@ import styled from 'styled-components';
 import { mq } from '../../styles/theme';
 
 export const ToolbarContainer = styled.header`
-  height: 48px;
+  /* iOS notch/Dynamic Island 영역만큼 위쪽에 패딩 추가.
+   * env() 값이 0이면(웹 또는 안전영역 없는 디바이스) 영향 없음. */
+  height: calc(48px + env(safe-area-inset-top, 0px));
+  padding: env(safe-area-inset-top, 0px) calc(16px + env(safe-area-inset-right, 0px)) 0 calc(16px + env(safe-area-inset-left, 0px));
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
   background: ${({ theme }) => theme.colors.bgPrimary};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   flex-shrink: 0;
 
   ${mq.mobile} {
-    height: 42px;
-    padding: 0 10px;
+    height: calc(42px + env(safe-area-inset-top, 0px));
+    padding: env(safe-area-inset-top, 0px) calc(10px + env(safe-area-inset-right, 0px)) 0 calc(10px + env(safe-area-inset-left, 0px));
   }
 `;
 
