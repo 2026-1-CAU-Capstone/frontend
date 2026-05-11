@@ -6,12 +6,10 @@ import { IconSidebar } from '../components/layout/IconSidebar';
 import { TopToolbar } from '../components/layout/TopToolbar';
 import { LeftSidebar } from '../components/layout/LeftSidebar';
 import { LickCard } from '../components/notesheet/LickCard';
-import { LickCreator } from '../components/notesheet/LickCreator';
 import { PianoKeyboard, type PianoNote } from '../components/notesheet/PianoKeyboard';
 import { MelodyPreview } from '../components/notesheet/MelodyPreview';
 import type { TocEntry } from '../data/types';
-import { loadLicks, loadFrontendLicks, loadUserLicks, saveUserLick, invalidateLicksCache, type LickEntry } from '../data/lickData';
-import type { NoteSheetData } from '../data/sampleMelody';
+import { loadLicks, loadFrontendLicks, loadUserLicks, invalidateLicksCache, type LickEntry } from '../data/lickData';
 import { transposeLick, normalizeKeyInput, formatKeyDisplay } from '../lib/transpose';
 
 const PAGE_SIZE = 30;
@@ -95,19 +93,6 @@ const CountText = styled.span`
   color: ${({ theme }) => theme.colors.textSecondary};
   margin-left: auto;
   font-size: 0.78rem;
-`;
-
-const CreateBtn = styled.button`
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.82rem;
-  padding: 3px 12px;
-  border: 1px solid #b8960a;
-  border-radius: 4px;
-  background: #f5ecd0;
-  color: #8B6914;
-  cursor: pointer;
-  font-weight: 600;
-  &:hover { background: #ede3c0; }
 `;
 
 const MelodyBtn = styled.button<{ $active?: boolean }>`
@@ -373,7 +358,6 @@ function VisibleLickCard({ lick, width, displayId, onDelete, onEdit, onTranspose
 
 export default function LicksPage() {
   const navigate = useNavigate();
-  const [creating, setCreating] = useState(false);
   const [melodySearch, setMelodySearch] = useState(false);
   const [searchMidis, setSearchMidis] = useState<number[]>([]);
 
@@ -549,55 +533,6 @@ export default function LicksPage() {
     return () => ro.disconnect();
   }, []);
 
-  /* ── save created lick ────────────────────────────────────────────── */
-  const handleSaveLick = useCallback((data: NoteSheetData) => {
-    // Extract pitched notes from all measures
-    const pitched = data.measures.flatMap((m) =>
-      m.notes.filter((n) => !n.duration.endsWith('r')),
-    );
-    const noteCount = pitched.length;
-
-    // Compute analysis arrays so the lick is searchable
-    const pitches = pitched.map((n) => {
-      const acc = n.accidentals ? (n.accidentals[0] as '#' | 'b' | 'n' | undefined) : undefined;
-      return vexToMidi(n.keys[0], acc);
-    });
-    const intervals: number[] = [];
-    for (let i = 1; i < pitches.length; i++) intervals.push(pitches[i] - pitches[i - 1]);
-    const parsons = intervals.map((iv) => (iv > 0 ? 1 : iv < 0 ? -1 : 0));
-    const fuzzyIntervals = intervals.map(toFuzzy);
-    const durationClasses = pitched.map((n) => durationClass(n.duration, n.dotted));
-
-    // Convert display key ("Bb", "Gm") to LickEntry format ("Bb-maj", "G-min")
-    const rawKey = data.key ?? 'C';
-    const lickKey = rawKey.endsWith('m') && rawKey.length > 1
-      ? rawKey.slice(0, -1) + '-min'
-      : rawKey + '-maj';
-
-    const newLick: LickEntry = {
-      id: -(Date.now()),
-      performer: 'Me',
-      title: 'My Custom Lick',
-      instrument: 'piano',
-      style: 'custom',
-      tempo: data.tempo ?? 120,
-      key: lickKey,
-      rhythmfeel: 'straight',
-      tag: 'user-created',
-      chords: [],
-      nEvents: noteCount,
-      label: `My Custom Lick (${rawKey})`,
-      sheetData: data,
-      intervals,
-      parsons,
-      fuzzyIntervals,
-      durationClasses,
-    };
-    saveUserLick(newLick);
-    setAllLicks((prev) => [newLick, ...prev]);
-    setCreating(false);
-  }, []);
-
   /* ── melody search handlers ──────────────────────────────────────── */
   const handleSearchNote = useCallback((pn: PianoNote) => {
     setSearchMidis((prev) => [...prev, pn.midi]);
@@ -638,21 +573,12 @@ export default function LicksPage() {
           />
 
         <CenterColumn>
-          {creating ? (
-            <LickCreator
-              width={feedWidth}
-              onSave={handleSaveLick}
-              onCancel={() => setCreating(false)}
-            />
-          ) : (
-            <>
               <ToolBar>
                 <SourceToggleWrap>
                   <SourceBtn $active={lickSource === 'backend'} onClick={() => setLickSource('backend')}>Backend</SourceBtn>
                   <SourceBtn $active={lickSource === 'frontend'} onClick={() => setLickSource('frontend')}>Frontend</SourceBtn>
                 </SourceToggleWrap>
 
-                <CreateBtn onClick={() => setCreating(true)}>+ Create Lick</CreateBtn>
                 <MelodyBtn
                   $active={melodySearch}
                   onClick={() => { setMelodySearch((v) => !v); if (melodySearch) setSearchMidis([]); }}
@@ -778,8 +704,6 @@ export default function LicksPage() {
                   {shown < rankedLicks.length && <Sentinel ref={sentinelRef} />}
                 </Feed>
               )}
-            </>
-          )}
         </CenterColumn>
         </MainArea>
       </RightSection>

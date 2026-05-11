@@ -19,7 +19,7 @@ import type { NoteInfo, MeasureInfo } from '../../data/sampleMelody';
 import type { LickEntry } from '../../data/lickData';
 import { NotePlayer } from '../../lib/note/notePlayer';
 import { YoutubeEmbed } from '../common/YoutubeEmbed';
-import { LICK_VIDEOS } from '../../data/lickVideos';
+import { getLickVideo } from '../../data/lickVideos';
 
 /* ─── layout constants ──────────────────────────────────────────────── */
 
@@ -514,7 +514,8 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
   const [playing, setPlaying] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
   const [scrollable, setScrollable] = useState(false);
-  const video = LICK_VIDEOS[lick.id];
+  // 백엔드가 attach한 lick.video 우선, 없으면 정적 registry + localStorage 오버라이드로 폴백.
+  const video = lick.video ?? getLickVideo(lick.id);
 
   const defaultBpm = lick.tempo && lick.tempo > 200 ? lick.tempo : 200;
   const [bpm, setBpm] = useState(defaultBpm);

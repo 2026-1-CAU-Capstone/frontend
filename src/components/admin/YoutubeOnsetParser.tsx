@@ -6,6 +6,8 @@ import {
   loadLickVideoOverrides,
   type LickVideo,
 } from '../../data/lickVideos';
+import { loadLicks, invalidateLicksCache } from '../../data/lickData';
+import { updateLickVideo } from '../../api/licks';
 
 /* ─────────────────────────────────────────────────────────────────────────
  * YouTube Onset Parser — admin-only tool for tagging lick start/end times.
@@ -14,8 +16,9 @@ import {
  *   1. Paste a YouTube URL (any standard form), Load.
  *   2. Use Space to play/pause, ←/→ to seek ±2s.
  *   3. Pause precisely on the lick boundary, click "시작 기록" / "끝 기록".
- *   4. Type the lick id, click "전송" — saved to localStorage so the chat's
- *      YouTube button on that lick uses your custom onset/offset.
+ *   4. Type the lick # (display number), click "전송" — fetches backend
+ *      licks list, maps display # → publicId, calls PUT /v1/licks/{id}/video.
+ *      Also cached in localStorage for immediate frontend use.
  *   5. Click "JSON 복사" to grab all overrides for permanent inclusion in
  *      src/data/lickVideos.ts.
  *
@@ -100,7 +103,8 @@ export function YoutubeOnsetParser() {
   const [duration, setDuration] = useState(0);
   const [startSec, setStartSec] = useState<number | null>(null);
   const [endSec, setEndSec] = useState<number | null>(null);
-  const [lickIdInput, setLickIdInput] = useState('');
+  const [lickNumInput, setLickNumInput] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [statusKind, setStatusKind] = useState<'ok' | 'err'>('ok');
   const [overrides, setOverrides] = useState<Record<string, LickVideo>>(() =>
@@ -230,23 +234,53 @@ export function YoutubeOnsetParser() {
     setStatus(`끝 = ${formatTime(currentTime)}`);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!videoId) return setStatus('영상이 로드되지 않았습니다', 'err');
     if (startSec == null) return setStatus('시작 시간이 없습니다', 'err');
     if (endSec == null) return setStatus('끝 시간이 없습니다', 'err');
     if (endSec <= startSec) return setStatus('끝이 시작보다 빠릅니다', 'err');
-    const id = lickIdInput.trim();
-    if (!id) return setStatus('Lick ID가 없습니다', 'err');
+    const numStr = lickNumInput.trim();
+    if (!numStr) return setStatus('Lick # 번호가 없습니다', 'err');
+    const num = parseInt(numStr, 10);
+    if (!Number.isFinite(num) || num < 1) return setStatus('유효하지 않은 번호입니다', 'err');
 
-    const video: LickVideo = {
-      videoId,
-      startSec: Number(startSec.toFixed(3)),
-      endSec: Number(endSec.toFixed(3)),
-      url: urlInput,
-    };
-    saveLickVideoOverride(id, video);
-    setOverrides(loadLickVideoOverrides());
-    setStatus(`저장됨 — Lick #${id} : ${formatTime(startSec)} → ${formatTime(endSec)}`);
+    setSubmitting(true);
+    setStatus('백엔드 릭 목록 조회 중…');
+    try {
+      // 백엔드는 createdAt desc로 정렬되어 옴 → licks[0] = 최신.
+      // displayId 규칙: 맨 옛날 = #1, 최신 = #N. licks[i]의 displayId = N - i.
+      // 즉 사용자가 입력한 num에 해당하는 배열 인덱스 = N - num.
+      const licks = await loadLicks();
+      const N = licks.length;
+      if (num > N) {
+        throw new Error(`#${num} 없음. 현재 총 ${N}개 릭 (#1 ~ #${N})`);
+      }
+      const idx = N - num;
+      const target = licks[idx];
+      if (!target || typeof target.id !== 'string') {
+        throw new Error(`#${num}의 백엔드 publicId를 찾지 못함`);
+      }
+
+      const video: LickVideo = {
+        videoId,
+        startSec: Number(startSec.toFixed(3)),
+        endSec: Number(endSec.toFixed(3)),
+        url: urlInput,
+      };
+      await updateLickVideo(target.id, video);
+      invalidateLicksCache();
+      // localStorage에도 즉시 캐시 (재로딩 시 즉시 반영)
+      saveLickVideoOverride(target.id, video);
+      setOverrides(loadLickVideoOverrides());
+      setStatus(
+        `✓ 저장됨 — #${num} (${target.performer} — ${target.title}) : ${formatTime(startSec)} → ${formatTime(endSec)}`,
+      );
+    } catch (err) {
+      console.error('Submit video failed', err);
+      setStatus(err instanceof Error ? err.message : '전송 실패', 'err');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleExport = async () => {
@@ -305,13 +339,18 @@ export function YoutubeOnsetParser() {
 
       <Row>
         <Input
-          value={lickIdInput}
-          onChange={(e) => setLickIdInput(e.target.value)}
-          placeholder="Lick ID (예: 2)"
+          type="number"
+          min={1}
+          value={lickNumInput}
+          onChange={(e) => setLickNumInput(e.target.value)}
+          placeholder="Lick # (예: 64)"
           style={{ maxWidth: 200 }}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !submitting) handleSubmit(); }}
+          disabled={submitting}
         />
-        <BtnPrimary onClick={handleSubmit}>전송</BtnPrimary>
+        <BtnPrimary onClick={handleSubmit} disabled={submitting}>
+          {submitting ? '전송 중…' : '전송'}
+        </BtnPrimary>
       </Row>
 
       {statusMessage && (

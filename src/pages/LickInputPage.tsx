@@ -37,11 +37,24 @@ function convertAcc(pn: PianoNote, mode: 'b' | '#'): { vexKey: string; acc?: 'b'
   return { vexKey: `${flatLetter}/${oct}`, acc: 'b' };
 }
 
+/**
+ * Tuplet beat scaling — N notes occupy the time of the largest power of 2
+ * strictly less than N (3→2, 4→2, 5→4, 6→4, 7→4, 9→8, …). This generalises
+ * the previous "triplet only" rule so n-tuplet (4+, 5+, …) groups also shrink
+ * total beat duration, preventing premature measure auto-close as the user
+ * adds the 4th, 5th, … note to an n-tuplet group.
+ */
+function tupletScale(t?: number): number {
+  if (!t || t < 2) return 1;
+  const denom = Math.pow(2, Math.floor(Math.log2(t - 1)));
+  return denom / t;
+}
+
 function getBeats(dur: string, dotted?: boolean, tuplet?: number): number {
   const base = dur.replace(/r$/, '');
   let b = DUR_BEATS[base] ?? 1;
   if (dotted) b *= 1.5;
-  if (tuplet === 3) b *= 2 / 3;
+  b *= tupletScale(tuplet);
   return b;
 }
 
@@ -230,7 +243,12 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
     const availForBars = totalW - decorW;
     const weights = indices.map((i) => measureMinWidth(measures[i]));
     const totalWeight = weights.reduce((s, w) => s + w, 0);
-    const stretch = !isLastLine || indices.length >= MAX_PER_LINE;
+    /* 기본: 마지막 줄이고 마디 수가 MAX_PER_LINE 미만이면 자연 폭으로(×1.3) 좌측 정렬.
+     * 단, 자연 폭 합이 가용 폭을 넘어가면(=꽉 찼으면) 강제로 stretch 모드로 전환해서
+     * 비율을 유지한 채 가용 폭에 맞게 비례 축소. 그래야 마지막 줄 음표가 화면 우측을
+     * 침범하지 않음. */
+    const naturalWithFactor = totalWeight * 1.3;
+    const stretch = !isLastLine || indices.length >= MAX_PER_LINE || naturalWithFactor > availForBars;
 
     let x = MARGIN.left;
     for (let j = 0; j < indices.length; j++) {
@@ -1659,7 +1677,7 @@ export default function LickInputPage() {
         const baseDur = n.duration.replace(/r$/, '');
         let beats = DUR_BEATS[baseDur] ?? 1;
         if (n.dotted) beats *= 1.5;
-        if (n.tuplet === 3) beats *= 2 / 3;
+        beats *= tupletScale(n.tuplet);
 
         // Merge tied notes: accumulate duration, skip tied targets
         if (!isRest && n.tie) {
@@ -1669,7 +1687,7 @@ export default function LickInputPage() {
             const lb = ln.duration.replace(/r$/, '');
             let lbeats = DUR_BEATS[lb] ?? 1;
             if (ln.dotted) lbeats *= 1.5;
-            if (ln.tuplet === 3) lbeats *= 2 / 3;
+            lbeats *= tupletScale(ln.tuplet);
             beats += lbeats;
             if (!ln.tie) { look++; break; }
             look++;

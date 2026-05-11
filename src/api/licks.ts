@@ -24,6 +24,12 @@ interface LickResponse {
   parsons: number[] | null;
   fuzzyIntervals: number[] | null;
   durationClasses: number[] | null;
+  video?: {
+    videoId: string;
+    startSec: number;
+    endSec?: number | null;
+    url?: string | null;
+  } | null;
 }
 
 interface PageData<T> {
@@ -58,6 +64,16 @@ function toEntry(r: LickResponse): LickEntry {
     parsons: r.parsons ?? [],
     fuzzyIntervals: r.fuzzyIntervals ?? [],
     durationClasses: r.durationClasses ?? [],
+    ...(r.video
+      ? {
+          video: {
+            videoId: r.video.videoId,
+            startSec: r.video.startSec,
+            ...(r.video.endSec != null ? { endSec: r.video.endSec } : {}),
+            ...(r.video.url ? { url: r.video.url } : {}),
+          },
+        }
+      : {}),
   };
 }
 
@@ -176,6 +192,31 @@ export async function updateLick(publicId: string, entry: LickEntry): Promise<Li
   }
   const json: { data: LickResponse } = await res.json();
   return toEntry(json.data);
+}
+
+/* ── Update video (PUT /licks/{id}/video) ────────────────────────────────── */
+
+export interface LickVideoPayload {
+  videoId: string;
+  startSec: number;
+  endSec: number;
+  url: string;
+}
+
+export async function updateLickVideo(publicId: string, video: LickVideoPayload): Promise<void> {
+  const res = await fetch(`${API_BASE}/v1/licks/${encodeURIComponent(publicId)}/video`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(video),
+  });
+  if (!res.ok) {
+    let detail = '';
+    try {
+      const j = await res.json() as { code?: string; message?: string; detail?: string };
+      detail = j.detail || j.message || '';
+    } catch {/* ignore */}
+    throw new Error(`Video 저장 실패 (${res.status}) ${detail}`.trim());
+  }
 }
 
 /* ── Delete ───────────────────────────────────────────────────────────────── */

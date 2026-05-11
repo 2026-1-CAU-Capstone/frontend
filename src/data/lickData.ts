@@ -54,6 +54,13 @@ export interface LickEntry {
   parsons: number[];       // contour: 1=up, -1=down, 0=same
   fuzzyIntervals: number[];// categorised intervals (±1 step, ±2 small leap, etc.)
   durationClasses: number[];// quantised duration per note
+  /** Backend-attached YouTube reference (PUT /v1/licks/{id}/video). */
+  video?: {
+    videoId: string;
+    startSec: number;
+    endSec?: number;
+    url?: string;
+  };
 }
 
 /* ─── Pitch helpers ───────────────────────────────────────────────── */

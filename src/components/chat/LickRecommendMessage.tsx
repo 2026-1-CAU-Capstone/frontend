@@ -398,7 +398,7 @@ export function LickRecommendMessage({ match, tempoOverride }: Props) {
   const [saved, setSaved] = useState(() =>
     loadUserLicksSync().some((l) => l.id === lick.id)
   );
-  const video = getLickVideo(lick.id);
+  const video = lick.video ?? getLickVideo(lick.id);
 
   useEffect(() => {
     const wrapper = wrapperRef.current;
