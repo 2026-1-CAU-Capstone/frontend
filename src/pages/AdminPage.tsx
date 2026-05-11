@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import LickInputPage from './LickInputPage';
 import { YoutubeOnsetParser } from '../components/admin/YoutubeOnsetParser';
+import { SymbolicJazzViewer } from '../components/admin/SymbolicJazzViewer';
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Admin tools page — internal/test only.
@@ -14,7 +15,7 @@ import { YoutubeOnsetParser } from '../components/admin/YoutubeOnsetParser';
  *                         chat's YouTube button picks them up.
  * ──────────────────────────────────────────────────────────────────────── */
 
-type Tab = 'youtube' | 'lickjson';
+type Tab = 'youtube' | 'lickjson' | 'sjs';
 
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>('youtube');
@@ -33,12 +34,16 @@ export default function AdminPage() {
           <TabBtn $active={tab === 'lickjson'} onClick={() => setTab('lickjson')}>
             Lick JSON Tool
           </TabBtn>
+          <TabBtn $active={tab === 'sjs'} onClick={() => setTab('sjs')}>
+            Symbolic Jazz Standards
+          </TabBtn>
         </TabRow>
       </TopBar>
 
       <Content>
         {tab === 'youtube' && <YoutubeOnsetParser />}
         {tab === 'lickjson' && <LickInputPage />}
+        {tab === 'sjs' && <SymbolicJazzViewer />}
       </Content>
     </Page>
   );

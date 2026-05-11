@@ -1,0 +1,1471 @@
+[
+  {
+    "sjs_slug": "an-affair-to-remember-nat-king-cole",
+    "sjs_title": "\"An Affair to Remember \"  Nat King Cole",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "autumn-leaves-keely-smith",
+    "sjs_title": "\"Autumn Leaves\"  Keely Smith",
+    "ireal_id": "autumn-leaves",
+    "ireal_title": "Autumn Leaves",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "i-hadn-t-anyone-till-you-ella-fitzgerald",
+    "sjs_title": "\"I Hadn't Anyone Till You\" Ella Fitzgerald",
+    "ireal_id": "i-hadn-t-anyone-till-you",
+    "ireal_title": "I Hadn T Anyone Till You",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "2012-easy-living-andrea-motis-scott-robinson-sant-andreu-jazz-band-joan-chamorro",
+    "sjs_title": "2012 easy living ANDREA MOTIS SCOTT ROBINSON SANT ANDREU JAZZ BAND ( joan chamorro direccion)",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "accentuate-the-positive",
+    "sjs_title": "Accentuate the Positive",
+    "ireal_id": "ac-cent-tchu-ate-the-positive",
+    "ireal_title": "Ac Cent Tchu Ate The Positive",
+    "match_method": "fuzzy",
+    "confidence": 0.933
+  },
+  {
+    "sjs_slug": "ain-t-that-a-kick-in-the-head",
+    "sjs_title": "Ain't That A Kick In The Head",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "alanis-morissette-let-s-do-it-let-s-fall-in-love",
+    "sjs_title": "Alanis Morissette - Let's do it (let's fall in love)",
+    "ireal_id": "let-s-do-it-(let-s-fall-in-love)",
+    "ireal_title": "Let S Do It (Let S Fall In Love)",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "all-of-me",
+    "sjs_title": "All of Me",
+    "ireal_id": "all-of-me",
+    "ireal_title": "All Of Me",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "all-of-you-ella-fitzgerald",
+    "sjs_title": "All Of You - Ella Fitzgerald",
+    "ireal_id": "all-of-you",
+    "ireal_title": "All Of You",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "always",
+    "sjs_title": "Always",
+    "ireal_id": "always",
+    "ireal_title": "Always",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "andra-day-god-bless-the-child",
+    "sjs_title": "Andra Day - God Bless the Child",
+    "ireal_id": "god-bless-the-child",
+    "ireal_title": "God Bless The Child",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "andy-williams-a-summer-place-1962",
+    "sjs_title": "Andy Williams - A Summer Place - 1962",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "andy-williams-love-is-a-many-splendored-thing",
+    "sjs_title": "Andy Williams - Love Is A Many Splendored Thing",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "anita-o-day-i-ll-see-you-in-my-dreams",
+    "sjs_title": "ANITA O'DAY I'll See You In My Dreams",
+    "ireal_id": "i-ll-see-you-in-my-dreams",
+    "ireal_title": "I Ll See You In My Dreams",
+    "match_method": "ireal-in-sjs",
+    "confidence": 0.679
+  },
+  {
+    "sjs_slug": "anything-goes-remastered-1998",
+    "sjs_title": "Anything Goes (Remastered 1998)",
+    "ireal_id": "anything-goes",
+    "ireal_title": "Anything Goes",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "anytime-anywhere",
+    "sjs_title": "Anytime, Anywhere",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "april-in-paris",
+    "sjs_title": "April In Paris",
+    "ireal_id": "april-in-paris",
+    "ireal_title": "April In Paris",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "aretha-franklin-if-ever-i-would-leave-you",
+    "sjs_title": "Aretha Franklin - If Ever I Would Leave You",
+    "ireal_id": "if-ever-i-would-leave-you",
+    "ireal_title": "If Ever I Would Leave You",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "aretha-franklin-for-all-we-know",
+    "sjs_title": "Aretha Franklin : For All We Know",
+    "ireal_id": "for-all-we-know",
+    "ireal_title": "For All We Know",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "ask-me-by-chris-connor",
+    "sjs_title": "Ask Me by Chris Connor",
+    "ireal_id": "ask-me-now",
+    "ireal_title": "Ask Me Now",
+    "match_method": "sjs-in-ireal",
+    "confidence": 0.625
+  },
+  {
+    "sjs_slug": "autumn-in-new-york",
+    "sjs_title": "Autumn in New York",
+    "ireal_id": "autumn-in-new-york",
+    "ireal_title": "Autumn In New York",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "barbra-streisand-if-i-loved-you",
+    "sjs_title": "Barbra Streisand: If i loved you",
+    "ireal_id": "if-i-loved-you",
+    "ireal_title": "If I Loved You",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "begin-the-beguine-ella-fitzgerald",
+    "sjs_title": "Begin The Beguine - Ella fitzgerald",
+    "ireal_id": "begin-the-beguine",
+    "ireal_title": "Begin The Beguine",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "berlin-eydie-gorme-steve-lawrence-1961-cheek-to-cheek",
+    "sjs_title": "Berlin / Eydie Gorme / Steve Lawrence, 1961: Cheek to Cheek",
+    "ireal_id": "cheek-to-cheek",
+    "ireal_title": "Cheek To Cheek",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "beverly-kenney-the-more-i-see-you",
+    "sjs_title": "Beverly Kenney - The More I See You",
+    "ireal_id": "the-more-i-see-you",
+    "ireal_title": "The More I See You",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "big-spender-from-sweet-charity",
+    "sjs_title": "Big Spender (from \"Sweet Charity\")",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "billie-holiday-as-time-goes-by",
+    "sjs_title": "Billie Holiday - As Time Goes By",
+    "ireal_id": "as-time-goes-by",
+    "ireal_title": "As Time Goes By",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "billie-holiday-for-heaven-s-sake",
+    "sjs_title": "billie holiday - for heaven's sake",
+    "ireal_id": "for-heaven-s-sake",
+    "ireal_title": "For Heaven S Sake",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "billy-williams-i-m-gonna-sit-right-down-and-write-myself-a-letter-78-rpm",
+    "sjs_title": "Billy Williams 'I'm Gonna Sit Right Down And Write Myself A Letter' 78 rpm",
+    "ireal_id": "i-m-gonna-sit-right-down-and-write-myself-a-letter",
+    "ireal_title": "I M Gonna Sit Right Down And Write Myself A Letter",
+    "match_method": "ireal-in-sjs",
+    "confidence": 0.69
+  },
+  {
+    "sjs_slug": "blossom-dearie-lover-man",
+    "sjs_title": "Blossom Dearie - Lover man",
+    "ireal_id": "lover-man",
+    "ireal_title": "Lover Man",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "blossom-dearie-manhattan",
+    "sjs_title": "Blossom Dearie - Manhattan",
+    "ireal_id": "manhattan",
+    "ireal_title": "Manhattan",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "blue-and-sentimental",
+    "sjs_title": "Blue And Sentimental",
+    "ireal_id": "blue-and-sentimental",
+    "ireal_title": "Blue And Sentimental",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "blue-moon-dean-martin",
+    "sjs_title": "Blue Moon - Dean Martin",
+    "ireal_id": "blue-moon",
+    "ireal_title": "Blue Moon",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "blue-room-ella-fitzgerald",
+    "sjs_title": "Blue Room - Ella Fitzgerald",
+    "ireal_id": "the-blue-room",
+    "ireal_title": "The Blue Room",
+    "match_method": "sjs-in-ireal",
+    "confidence": 0.727
+  },
+  {
+    "sjs_slug": "but-not-for-me-vocal-version",
+    "sjs_title": "But Not For Me (Vocal Version)",
+    "ireal_id": "but-not-for-me",
+    "ireal_title": "But Not For Me",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "can-t-help-lovin-that-man",
+    "sjs_title": "Can't Help Lovin' That Man",
+    "ireal_id": "can-t-help-lovin--dat-man",
+    "ireal_title": "Can T Help Lovin'Dat Man",
+    "match_method": "fuzzy",
+    "confidence": 0.923
+  },
+  {
+    "sjs_slug": "canadian-sunset-sung-by-andy-williams",
+    "sjs_title": "Canadian Sunset - sung by Andy Williams",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "carmen-mcrae-the-folks-who-live-on-the-hill",
+    "sjs_title": "Carmen McRae The Folks Who Live On The Hill",
+    "ireal_id": "the-folks-who-live-on-the-hill",
+    "ireal_title": "The Folks Who Live On The Hill",
+    "match_method": "ireal-in-sjs",
+    "confidence": 0.686
+  },
+  {
+    "sjs_slug": "carmen-mcrae-ray-bryant-quartet-east-of-the-sun",
+    "sjs_title": "Carmen Mcrae, Ray Bryant Quartet — East Of The Sun",
+    "ireal_id": "east-of-the-sun",
+    "ireal_title": "East Of The Sun",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "carolina-in-the-morning-1997-remaster",
+    "sjs_title": "Carolina In The Morning (1997 Remaster)",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "chim-chim-cher-ee",
+    "sjs_title": "Chim Chim Cher-Ee",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "chris-connor-lullaby-of-birdland",
+    "sjs_title": "Chris Connor - Lullaby of birdland",
+    "ireal_id": "lullaby-of-birdland",
+    "ireal_title": "Lullaby Of Birdland",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "dancing-in-the-dark",
+    "sjs_title": "Dancing In The Dark",
+    "ireal_id": "dancing-in-the-dark",
+    "ireal_title": "Dancing In The Dark",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "darn-that-dream",
+    "sjs_title": "Darn That Dream",
+    "ireal_id": "darn-that-dream",
+    "ireal_title": "Darn That Dream",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "day-in-day-out",
+    "sjs_title": "Day In Day Out",
+    "ireal_id": "day-in,-day-out",
+    "ireal_title": "Day In, Day Out",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "days-of-wine-and-roses-remastered-2006",
+    "sjs_title": "Days Of Wine And Roses (Remastered/2006)",
+    "ireal_id": "days-of-wine-and-roses",
+    "ireal_title": "Days Of Wine And Roses",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "dean-martin-good-mornin-life-remastered-1957",
+    "sjs_title": "Dean Martin - Good Mornin' Life (Remastered) 1957",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "dean-martin-innamorata",
+    "sjs_title": "DEAN MARTIN - INNAMORATA",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "diamonds-are-a-girl-s-best-friend",
+    "sjs_title": "Diamonds Are a Girl's Best Friend",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "diana-panton-happy-talk-audio",
+    "sjs_title": "Diana Panton - Happy Talk (Audio)",
+    "ireal_id": "happy-talk",
+    "ireal_title": "Happy Talk",
+    "match_method": "ireal-in-sjs",
+    "confidence": 0.643
+  },
+  {
+    "sjs_slug": "dinah-washington-cry-me-river",
+    "sjs_title": "Dinah Washington - Cry me River",
+    "ireal_id": "cry-me-a-river",
+    "ireal_title": "Cry Me A River",
+    "match_method": "fuzzy",
+    "confidence": 0.952
+  },
+  {
+    "sjs_slug": "dinah-washington-i-concentrate-on-you",
+    "sjs_title": "Dinah Washington - I Concentrate On You",
+    "ireal_id": "i-concentrate-on-you",
+    "ireal_title": "I Concentrate On You",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "don-t-blame-me",
+    "sjs_title": "Don't Blame Me",
+    "ireal_id": "don-t-blame-me",
+    "ireal_title": "Don T Blame Me",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "don-t-rain-on-my-parade",
+    "sjs_title": "Don't Rain On My Parade",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "doris-day-my-dream-is-yours",
+    "sjs_title": "Doris Day ~~~ My Dream Is Yours",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "dorothy-dandridge-i-ve-got-a-crush-on-you",
+    "sjs_title": "Dorothy Dandridge - I've Got A Crush On You",
+    "ireal_id": "i-ve-got-a-crush-on-you",
+    "ireal_title": "I Ve Got A Crush On You",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "dorothy-dandridge-i-ve-grown-accustomed-to-your-face",
+    "sjs_title": "Dorothy Dandridge I've Grown Accustomed To Your Face",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "dorothy-squires-i-m-walking-behind-you",
+    "sjs_title": "Dorothy Squires :  I'm Walking Behind You",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "dream-sinatra-cover",
+    "sjs_title": "Dream (Sinatra cover)",
+    "ireal_id": "dream",
+    "ireal_title": "Dream",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "easy-to-love-ella-fitzgerald",
+    "sjs_title": "Easy To Love - Ella Fitzgerald",
+    "ireal_id": "easy-to-love",
+    "ireal_title": "Easy To Love",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "ella-fitzgerald-louis-armstrong-isn-t-this-a-lovely-day",
+    "sjs_title": "Ella Fitzgerald & Louis Armstrong - Isn't This A Lovely Day",
+    "ireal_id": "isn-t-this-a-lovely-day-(to-be-caught-in-the-rain)",
+    "ireal_title": "Isn T This A Lovely Day (To Be Caught In The Rain)",
+    "match_method": "sjs-in-ireal",
+    "confidence": 0.486
+  },
+  {
+    "sjs_slug": "ella-fitzgerald-all-the-things-you-are-with-lyrics",
+    "sjs_title": "Ella Fitzgerald - All The Things You Are (with lyrics)",
+    "ireal_id": "all-the-things-you-are",
+    "ireal_title": "All The Things You Are",
+    "match_method": "ireal-in-sjs",
+    "confidence": 0.643
+  },
+  {
+    "sjs_slug": "ella-fitzgerald-hard-hearted-hannah",
+    "sjs_title": "Ella Fitzgerald - Hard Hearted Hannah",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "ella-fitzgerald-just-a-sittin-and-a-rockin",
+    "sjs_title": "Ella Fitzgerald - Just A-Sittin' and A-Rockin'",
+    "ireal_id": "just-a-sittin--and-a-rockin",
+    "ireal_title": "Just A Sittin'And A Rockin",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "ella-fitzgerald-misty",
+    "sjs_title": "Ella Fitzgerald - Misty",
+    "ireal_id": "misty",
+    "ireal_title": "Misty",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "ella-fitzgerald-ev-ry-time-we-say-goodbye-with-lyrics",
+    "sjs_title": "Ella Fitzgerald Ev'ry time we say goodbye (with lyrics)",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "ella-fitzgerald-i-can-t-give-you-anything-but-love-live",
+    "sjs_title": "Ella Fitzgerald: I Can't Give You Anything But Love (Live)",
+    "ireal_id": "i-can-t-give-you-anything-but-love",
+    "ireal_title": "I Can T Give You Anything But Love",
+    "match_method": "ireal-in-sjs",
+    "confidence": 0.871
+  },
+  {
+    "sjs_slug": "ethel-ennis-love-for-sale",
+    "sjs_title": "Ethel Ennis - Love For Sale",
+    "ireal_id": "love-for-sale",
+    "ireal_title": "Love For Sale",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "ethel-ennis-my-foolish-heart",
+    "sjs_title": "Ethel Ennis - My Foolish Heart",
+    "ireal_id": "my-foolish-heart",
+    "ireal_title": "My Foolish Heart",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "etta-james-at-last-lyrics",
+    "sjs_title": "Etta James - At Last - Lyrics",
+    "ireal_id": "at-last",
+    "ireal_title": "At Last",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "etta-jones-bye-bye-blackbird",
+    "sjs_title": "Etta Jones - Bye Bye Blackbird",
+    "ireal_id": "bye-bye-blackbird",
+    "ireal_title": "Bye Bye Blackbird",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "exactly-like-you",
+    "sjs_title": "Exactly Like You",
+    "ireal_id": "exactly-like-you",
+    "ireal_title": "Exactly Like You",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "fly-me-to-the-moon-2008-remastered",
+    "sjs_title": "Fly Me To The Moon (2008 Remastered)",
+    "ireal_id": "fly-me-to-the-moon",
+    "ireal_title": "Fly Me To The Moon",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "fools-rush-in-2020-mix",
+    "sjs_title": "Fools Rush In (2020 Mix)",
+    "ireal_id": "fools-rush-in",
+    "ireal_title": "Fools Rush In",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "frank-sinatra-ill-wind",
+    "sjs_title": "Frank Sinatra - Ill Wind",
+    "ireal_id": "ill-wind",
+    "ireal_title": "Ill Wind",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "frank-sinatra-just-one-of-those-things-sinatra-57-in-concert",
+    "sjs_title": "Frank Sinatra - Just One Of Those Things (Sinatra '57 In Concert)",
+    "ireal_id": "just-one-of-those-things",
+    "ireal_title": "Just One Of Those Things",
+    "match_method": "ireal-in-sjs",
+    "confidence": 0.625
+  },
+  {
+    "sjs_slug": "frank-sinatra-moon-river",
+    "sjs_title": "Frank Sinatra - Moon River",
+    "ireal_id": "moon-river",
+    "ireal_title": "Moon River",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "frank-sinatra-the-tender-trap",
+    "sjs_title": "Frank Sinatra - The Tender Trap",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "frankie-laine-jo-stafford-in-the-cool-cool-cool-of-the-evening",
+    "sjs_title": "Frankie Laine & Jo Stafford - In The Cool, Cool, Cool Of The Evening",
+    "ireal_id": "in-the-cool,-cool,-cool-of-the-evening",
+    "ireal_title": "In The Cool, Cool, Cool Of The Evening",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "fred-astaire-fascinating-rhythm",
+    "sjs_title": "Fred Astaire - Fascinating Rhythm",
+    "ireal_id": "fascinating-rhythm",
+    "ireal_title": "Fascinating Rhythm",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "george-shearing-quintet-dakota-staton-in-the-night",
+    "sjs_title": "George Shearing Quintet / Dakota Staton - In The Night",
+    "ireal_id": "blues-in-the-night",
+    "ireal_title": "Blues In The Night",
+    "match_method": "sjs-in-ireal",
+    "confidence": 0.667
+  },
+  {
+    "sjs_slug": "get-out-of-town-acoustic-version",
+    "sjs_title": "Get Out Of Town (Acoustic Version)",
+    "ireal_id": "get-out-of-town",
+    "ireal_title": "Get Out Of Town",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "happiness-is-a-thing-called-joe-beverly-kenney",
+    "sjs_title": "Happiness Is a Thing Called Joe - Beverly Kenney",
+    "ireal_id": "happiness-is-a-thing-called-joe",
+    "ireal_title": "Happiness Is A Thing Called Joe",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "happy-days-are-here-again",
+    "sjs_title": "Happy Days Are Here Again",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "haunted-heart",
+    "sjs_title": "Haunted Heart",
+    "ireal_id": "haunted-heart",
+    "ireal_title": "Haunted Heart",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "helen-merrill-with-quincy-jones-septet-falling-in-love-with-love",
+    "sjs_title": "Helen Merrill with Quincy Jones Septet - Falling in Love with Love",
+    "ireal_id": "falling-in-love-with-love",
+    "ireal_title": "Falling In Love With Love",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "here-s-that-rainy-day-susie-arioli",
+    "sjs_title": "Here's That Rainy Day - Susie Arioli",
+    "ireal_id": "here-s-that-rainy-day",
+    "ireal_title": "Here S That Rainy Day",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "hooray-for-hollywood",
+    "sjs_title": "Hooray For Hollywood",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "how-about-me-by-ethel-ennis",
+    "sjs_title": "How About Me by Ethel Ennis",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "how-about-you",
+    "sjs_title": "How About You",
+    "ireal_id": "how-about-you",
+    "ireal_title": "How About You",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "how-deep-is-the-ocean",
+    "sjs_title": "How Deep Is the Ocean",
+    "ireal_id": "how-deep-is-the-ocean",
+    "ireal_title": "How Deep Is The Ocean",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "how-high-the-moon-1995-digital-remaster",
+    "sjs_title": "How High The Moon (1995 Digital Remaster)",
+    "ireal_id": "how-high-the-moon",
+    "ireal_title": "How High The Moon",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "i-could-write-a-book",
+    "sjs_title": "I Could Write A Book",
+    "ireal_id": "i-could-write-a-book",
+    "ireal_title": "I Could Write A Book",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "i-cover-the-waterfront",
+    "sjs_title": "I Cover The Waterfront",
+    "ireal_id": "i-cover-the-waterfront",
+    "ireal_title": "I Cover The Waterfront",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "i-cried-for-you-ella-fitzgerald",
+    "sjs_title": "I Cried For You - Ella Fitzgerald",
+    "ireal_id": "i-cried-for-you",
+    "ireal_title": "I Cried For You",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "i-enjoy-being-a-girl",
+    "sjs_title": "I Enjoy Being A Girl",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "i-fall-in-love-too-easily",
+    "sjs_title": "I Fall In Love Too Easily",
+    "ireal_id": "i-fall-in-love-too-easily",
+    "ireal_title": "I Fall In Love Too Easily",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "i-got-rhythm",
+    "sjs_title": "I Got Rhythm",
+    "ireal_id": "i-got-rhythm",
+    "ireal_title": "I Got Rhythm",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "i-guess-i-ll-have-to-change-my-plan",
+    "sjs_title": "I Guess I'll Have To Change My Plan",
+    "ireal_id": "i-guess-i-ll-have-to-change-my-plan",
+    "ireal_title": "I Guess I Ll Have To Change My Plan",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "i-had-the-craziest-dream-beverly-kenney",
+    "sjs_title": "I Had The Craziest Dream - Beverly Kenney",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "i-have-dreamed-remastered-2002",
+    "sjs_title": "I Have Dreamed (Remastered 2002)",
+    "ireal_id": "i-have-dreamed",
+    "ireal_title": "I Have Dreamed",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "i-left-my-heart-in-san-francisco-remastered",
+    "sjs_title": "I Left My Heart In San Francisco (Remastered)",
+    "ireal_id": "i-left-my-heart-in-san-francisco",
+    "ireal_title": "I Left My Heart In San Francisco",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "i-loves-you-porgy-nina-simone",
+    "sjs_title": "I Loves You Porgy - Nina Simone",
+    "ireal_id": "i-loves-you-porgy",
+    "ireal_title": "I Loves You Porgy",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "i-thought-about-you",
+    "sjs_title": "I Thought About You",
+    "ireal_id": "i-thought-about-you",
+    "ireal_title": "I Thought About You",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "i-wish-i-knew-remastered-2004",
+    "sjs_title": "I Wish I Knew (Remastered 2004)",
+    "ireal_id": "i-wish-i-knew",
+    "ireal_title": "I Wish I Knew",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "i-ll-always-love-you-day-after-day",
+    "sjs_title": "I'll Always Love You (Day After Day)",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "i-m-a-fool-to-want-you-remastered",
+    "sjs_title": "I'm A Fool To Want You (Remastered)",
+    "ireal_id": "i-m-a-fool-to-want-you",
+    "ireal_title": "I M A Fool To Want You",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "i-m-sitting-on-top-of-the-world-remastered",
+    "sjs_title": "I'm Sitting On Top Of The World (Remastered)",
+    "ireal_id": "i-m-sitting-on-top-of-the-world",
+    "ireal_title": "I M Sitting On Top Of The World",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "i-m-through-with-love",
+    "sjs_title": "I'm Through with Love",
+    "ireal_id": "i-m-through-with-love",
+    "ireal_title": "I M Through With Love",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "i-ve-got-the-world-on-a-string-remastered-2000",
+    "sjs_title": "I've Got The World On A String (Remastered 2000)",
+    "ireal_id": "i-ve-got-the-world-on-a-string",
+    "ireal_title": "I Ve Got The World On A String",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "i-ve-got-you-under-my-skin",
+    "sjs_title": "I've Got You Under My Skin",
+    "ireal_id": "i-ve-got-you-under-my-skin",
+    "ireal_title": "I Ve Got You Under My Skin",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "imagination",
+    "sjs_title": "Imagination",
+    "ireal_id": "imagination",
+    "ireal_title": "Imagination",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "in-a-mellow-tone-ella-fitzgerald",
+    "sjs_title": "In a Mellow Tone -  Ella Fitzgerald",
+    "ireal_id": "in-a-mellow-tone-(in-a-mellotone)",
+    "ireal_title": "In A Mellow Tone (In A Mellotone)",
+    "match_method": "sjs-in-ireal",
+    "confidence": 0.52
+  },
+  {
+    "sjs_slug": "isn-t-it-romantic-ella-fitzgerald",
+    "sjs_title": "Isn't It Romantic - Ella Fitzgerald",
+    "ireal_id": "isn-t-it-romantic-",
+    "ireal_title": "Isn T It Romantic",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "it-could-happen-to-you",
+    "sjs_title": "It Could Happen to You",
+    "ireal_id": "it-could-happen-to-you",
+    "ireal_title": "It Could Happen To You",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "it-don-t-mean-a-thing-louis-armstrong-duke-ellington",
+    "sjs_title": "It Don't Mean A Thing - Louis Armstrong & Duke Ellington",
+    "ireal_id": "it-don-t-mean-a-thing",
+    "ireal_title": "It Don T Mean A Thing",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "it-never-was-you",
+    "sjs_title": "It Never Was You",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "it-s-a-most-unusual-day-beverly-kenney",
+    "sjs_title": "It's A Most Unusual Day - Beverly Kenney",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "it-s-de-lovely",
+    "sjs_title": "It's De-Lovely",
+    "ireal_id": "it-s-de-lovely",
+    "ireal_title": "It S De Lovely",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "jane-monheit-and-michael-buble-i-won-t-dance",
+    "sjs_title": "Jane Monheit and Michael Buble - I Won't Dance",
+    "ireal_id": "i-won-t-dance",
+    "ireal_title": "I Won T Dance",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "janet-seidel-crazy-rhythm",
+    "sjs_title": "Janet Seidel /  Crazy Rhythm",
+    "ireal_id": "crazy-rhythm",
+    "ireal_title": "Crazy Rhythm",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "john-coltrane-johnny-hartman-my-one-and-only-love",
+    "sjs_title": "john coltrane & johnny hartman / \"my one and only love\"",
+    "ireal_id": "my-one-and-only-love",
+    "ireal_title": "My One And Only Love",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "judy-garland-embraceable-you-1940-original-version",
+    "sjs_title": "Judy Garland- Embraceable You (1940 ORIGINAL  VERSION)",
+    "ireal_id": "embraceable-you",
+    "ireal_title": "Embraceable You",
+    "match_method": "ireal-in-sjs",
+    "confidence": 0.56
+  },
+  {
+    "sjs_slug": "julie-london-i-ll-never-smile-again-hq-audio",
+    "sjs_title": "Julie London - I'll never smile again (HQ Audio)",
+    "ireal_id": "i-ll-never-smile-again",
+    "ireal_title": "I Ll Never Smile Again",
+    "match_method": "ireal-in-sjs",
+    "confidence": 0.72
+  },
+  {
+    "sjs_slug": "julie-london-i-m-glad-there-is-you",
+    "sjs_title": "Julie London - I'm Glad There Is You",
+    "ireal_id": "i-m-glad-there-is-you",
+    "ireal_title": "I M Glad There Is You",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "julie-london-i-m-in-the-mood-for-love",
+    "sjs_title": "Julie London - I'm In The Mood For Love",
+    "ireal_id": "i-m-in-the-mood-for-love",
+    "ireal_title": "I M In The Mood For Love",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "julie-london-everything-happens-to-me",
+    "sjs_title": "julie london everything happens to me",
+    "ireal_id": "everything-happens-to-me",
+    "ireal_title": "Everything Happens To Me",
+    "match_method": "ireal-in-sjs",
+    "confidence": 0.656
+  },
+  {
+    "sjs_slug": "just-a-gigolo",
+    "sjs_title": "Just A Gigolo",
+    "ireal_id": "just-a-gigolo",
+    "ireal_title": "Just A Gigolo",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "just-in-time-remastered-1998",
+    "sjs_title": "Just In Time (Remastered 1998)",
+    "ireal_id": "just-in-time",
+    "ireal_title": "Just In Time",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "just-squeeze-me",
+    "sjs_title": "Just Squeeze Me",
+    "ireal_id": "just-squeeze-me",
+    "ireal_title": "Just Squeeze Me",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "katharine-mcphee-all-the-way-audio",
+    "sjs_title": "Katharine McPhee - All the Way (Audio)",
+    "ireal_id": "all-the-way",
+    "ireal_title": "All The Way",
+    "match_method": "ireal-in-sjs",
+    "confidence": 0.643
+  },
+  {
+    "sjs_slug": "katharine-mcphee-i-ll-be-seeing-you-audio",
+    "sjs_title": "Katharine McPhee - I'll Be Seeing You (Audio)",
+    "ireal_id": "i-ll-be-seeing-you",
+    "ireal_title": "I Ll Be Seeing You",
+    "match_method": "ireal-in-sjs",
+    "confidence": 0.737
+  },
+  {
+    "sjs_slug": "katharine-whalen-just-you-just-me",
+    "sjs_title": "Katharine Whalen - Just You Just Me",
+    "ireal_id": "just-you,-just-me",
+    "ireal_title": "Just You, Just Me",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "let-s-face-the-music-and-dance",
+    "sjs_title": "Let's Face The Music and Dance",
+    "ireal_id": "let-s-face-the-music-and-dance",
+    "ireal_title": "Let S Face The Music And Dance",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "lita-roza-between-the-devil-and-the-deep-blue-sea",
+    "sjs_title": "Lita Roza - Between The Devil And The Deep Blue Sea",
+    "ireal_id": "between-the-devil-and-the-deep-blue-sea",
+    "ireal_title": "Between The Devil And The Deep Blue Sea",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "little-white-lies",
+    "sjs_title": "Little White Lies",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "long-ago-and-far-away",
+    "sjs_title": "Long Ago and Far Away",
+    "ireal_id": "long-ago-and-far-away",
+    "ireal_title": "Long Ago And Far Away",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "louis-armstrong-makin-whoopee-enregistrement-los-angeles-1957",
+    "sjs_title": "Louis Armstrong - Makin' Whoopee (enregistrement : Los Angeles, 1957)",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "louis-prima-keely-smith-i-gotta-right-to-sing-the-blues-live-at-tahoe-1957",
+    "sjs_title": "Louis Prima, Keely Smith - I Gotta Right to Sing the Blues [Live at Tahoe 1957]",
+    "ireal_id": "i-gotta-right-to-sing-the-blues",
+    "ireal_title": "I Gotta Right To Sing The Blues",
+    "match_method": "ireal-in-sjs",
+    "confidence": 0.625
+  },
+  {
+    "sjs_slug": "love-is-here-to-stay-remastered-1998",
+    "sjs_title": "Love Is Here To Stay (Remastered 1998)",
+    "ireal_id": "our-love-is-here-to-stay",
+    "ireal_title": "Our Love Is Here To Stay",
+    "match_method": "sjs-in-ireal",
+    "confidence": 0.842
+  },
+  {
+    "sjs_slug": "love-me-or-leave-me-regina-spektor",
+    "sjs_title": "Love me or leave me - Regina Spektor",
+    "ireal_id": "love-me-or-leave-me",
+    "ireal_title": "Love Me Or Leave Me",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "lover",
+    "sjs_title": "Lover",
+    "ireal_id": "lover",
+    "ireal_title": "Lover",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "lullaby-of-broadway",
+    "sjs_title": "Lullaby Of Broadway",
+    "ireal_id": "broadway",
+    "ireal_title": "Broadway",
+    "match_method": "ireal-in-sjs",
+    "confidence": 0.471
+  },
+  {
+    "sjs_slug": "madeleine-peyroux-last-night-when-we-were-young-music-box-san-diego-ca-9-23-18",
+    "sjs_title": "Madeleine Peyroux / Last Night When We Were Young / Music Box - San Diego, CA / 9/23/18",
+    "ireal_id": "last-night-when-we-were-young",
+    "ireal_title": "Last Night When We Were Young",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "make-someone-happy-from-do-re-mi",
+    "sjs_title": "Make Someone Happy (From \"Do Re Mi\")",
+    "ireal_id": "make-someone-happy",
+    "ireal_title": "Make Someone Happy",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "may-i-never-love-again",
+    "sjs_title": "May I Never Love Again",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "medley-moonglow-theme-from-picnic",
+    "sjs_title": "Medley: Moonglow / Theme from Picnic",
+    "ireal_id": "moonglow",
+    "ireal_title": "Moonglow",
+    "match_method": "ireal-in-sjs",
+    "confidence": 0.571
+  },
+  {
+    "sjs_slug": "mel-torm-i-m-getting-sentimental-over-you",
+    "sjs_title": "Mel Tormé - I'm Getting Sentimental Over You",
+    "ireal_id": "i-m-getting-sentimental-over-you",
+    "ireal_title": "I M Getting Sentimental Over You",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "michael-bubl-come-fly-with-me",
+    "sjs_title": "Michael Bublé - Come Fly With Me",
+    "ireal_id": "come-fly-with-me",
+    "ireal_title": "Come Fly With Me",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "mood-indigo-remastered",
+    "sjs_title": "Mood Indigo (Remastered)",
+    "ireal_id": "mood-indigo",
+    "ireal_title": "Mood Indigo",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "moonlight-in-vermont",
+    "sjs_title": "Moonlight In Vermont",
+    "ireal_id": "moonlight-in-vermont",
+    "ireal_title": "Moonlight In Vermont",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "moonlight-serenade",
+    "sjs_title": "Moonlight Serenade",
+    "ireal_id": "moonlight-serenade",
+    "ireal_title": "Moonlight Serenade",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "more",
+    "sjs_title": "More",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "mountain-greenery",
+    "sjs_title": "Mountain Greenery",
+    "ireal_id": "mountain-greenery",
+    "ireal_title": "Mountain Greenery",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "my-blue-heaven",
+    "sjs_title": "My Blue Heaven",
+    "ireal_id": "heaven",
+    "ireal_title": "Heaven",
+    "match_method": "ireal-in-sjs",
+    "confidence": 0.5
+  },
+  {
+    "sjs_slug": "nancy-wilson-glad-to-be-unhappy",
+    "sjs_title": "Nancy Wilson - \"Glad To Be Unhappy\"",
+    "ireal_id": "glad-to-be-unhappy",
+    "ireal_title": "Glad To Be Unhappy",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "nancy-wilson-i-wish-you-love-capitol-records-1960",
+    "sjs_title": "Nancy Wilson - I Wish You Love (Capitol Records 1960)",
+    "ireal_id": "i-wish-you-love",
+    "ireal_title": "I Wish You Love",
+    "match_method": "ireal-in-sjs",
+    "confidence": 0.522
+  },
+  {
+    "sjs_slug": "nat-king-cole-l-o-v-e-lyric-video",
+    "sjs_title": "Nat King Cole - L-O-V-E (Lyric Video)",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "natalie-cole-but-beautiful",
+    "sjs_title": "Natalie Cole - But Beautiful",
+    "ireal_id": "but-beautiful",
+    "ireal_title": "But Beautiful",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "nellie-mckay-in-a-sentimental-mood",
+    "sjs_title": "Nellie McKay - In a Sentimental Mood",
+    "ireal_id": "in-a-sentimental-mood",
+    "ireal_title": "In A Sentimental Mood",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "peggy-lee-ain-t-we-got-fun",
+    "sjs_title": "Peggy Lee - Ain't We Got Fun",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "ray-charles-come-rain-or-come-shine",
+    "sjs_title": "Ray Charles - Come Rain or Come Shine",
+    "ireal_id": "come-rain-or-come-shine",
+    "ireal_title": "Come Rain Or Come Shine",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "ray-charles-and-betty-carter-baby-it-s-cold-outside",
+    "sjs_title": "Ray Charles and Betty Carter - Baby It's Cold Outside",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "robbie-williams-have-you-met-miss-jones",
+    "sjs_title": "Robbie Williams - Have You Met Miss Jones?",
+    "ireal_id": "have-you-met-miss-jones-",
+    "ireal_title": "Have You Met Miss Jones",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "robbie-williams-beyond-the-sea-live-at-the-albert-2001",
+    "sjs_title": "Robbie Williams | Beyond The Sea (Live At The Albert 2001)",
+    "ireal_id": "beyond-the-sea",
+    "ireal_title": "Beyond The Sea",
+    "match_method": "ireal-in-sjs",
+    "confidence": 0.462
+  },
+  {
+    "sjs_slug": "rod-stewart-i-can-t-get-started",
+    "sjs_title": "Rod Stewart - I Can't Get Started",
+    "ireal_id": "i-can-t-get-started",
+    "ireal_title": "I Can T Get Started",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "rose-murphy-me-and-my-shadow-78rpm",
+    "sjs_title": "Rose Murphy: Me and my shadow 78rpm",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "sarah-mckenzie-i-m-old-fashioned-live-montreux-jazz-festival-2017",
+    "sjs_title": "Sarah McKenzie - I'm Old Fashioned (Live) | Montreux Jazz Festival 2017",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "sarah-vaughan-just-friends-columbia-records-1949",
+    "sjs_title": "Sarah Vaughan - Just Friends (Columbia Records 1949)",
+    "ireal_id": "just-friends",
+    "ireal_title": "Just Friends",
+    "match_method": "ireal-in-sjs",
+    "confidence": 0.478
+  },
+  {
+    "sjs_slug": "sarah-vaughan-let-s-put-out-the-lights",
+    "sjs_title": "Sarah Vaughan - Let's Put Out The Lights",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "sarah-vaughan-sings-my-favorite-things",
+    "sjs_title": "Sarah Vaughan sings \"My Favorite Things\"",
+    "ireal_id": "my-favorite-things",
+    "ireal_title": "My Favorite Things",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "seth-macfarlane-almost-like-being-in-love-audio",
+    "sjs_title": "Seth MacFarlane - Almost Like Being In Love (Audio)",
+    "ireal_id": "almost-like-being-in-love",
+    "ireal_title": "Almost Like Being In Love",
+    "match_method": "ireal-in-sjs",
+    "confidence": 0.808
+  },
+  {
+    "sjs_slug": "shirley-horn-i-could-have-told-you",
+    "sjs_title": "Shirley Horn \"I Could Have Told You\"",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "silje-nergaard-bewitched-bothered-and-bewildered",
+    "sjs_title": "Silje Nergaard- Bewitched, Bothered and Bewildered",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "sophie-milman-like-someone-in-love",
+    "sjs_title": "Sophie Milman - Like Someone In Love",
+    "ireal_id": "like-someone-in-love",
+    "ireal_title": "Like Someone In Love",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "stacey-kent-how-insensitive",
+    "sjs_title": "Stacey Kent -  How insensitive",
+    "ireal_id": "how-insensitive",
+    "ireal_title": "How Insensitive",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "sue-raney-i-remember-you",
+    "sjs_title": "Sue Raney- I Remember You",
+    "ireal_id": "i-remember-you",
+    "ireal_title": "I Remember You",
+    "match_method": "ireal-in-sjs",
+    "confidence": 0.6
+  },
+  {
+    "sjs_slug": "the-boy-next-door",
+    "sjs_title": "The Boy Next Door",
+    "ireal_id": "the-boy-next-door",
+    "ireal_title": "The Boy Next Door",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "the-end-of-a-love-affair-1999-remastered",
+    "sjs_title": "The End Of A Love Affair (1999 Remastered)",
+    "ireal_id": "the-end-of-a-love-affair",
+    "ireal_title": "The End Of A Love Affair",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "the-impossible-dream",
+    "sjs_title": "The Impossible Dream",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "the-last-dance-1998-remaster",
+    "sjs_title": "The Last Dance (1998 Remaster)",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "the-man-i-love-dinah-shore",
+    "sjs_title": "The Man I Love - Dinah Shore",
+    "ireal_id": "the-man-i-love",
+    "ireal_title": "The Man I Love",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "the-man-that-got-away-1991-remastered",
+    "sjs_title": "The Man That Got Away (1991 Remastered)",
+    "ireal_id": "the-man-that-got-away",
+    "ireal_title": "The Man That Got Away",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "the-masquerade-is-over",
+    "sjs_title": "The Masquerade Is Over",
+    "ireal_id": "the-masquerade-is-over",
+    "ireal_title": "The Masquerade Is Over",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "the-meaning-of-the-blues-2002-remastered",
+    "sjs_title": "The Meaning Of The Blues (2002 Remastered)",
+    "ireal_id": "the-meaning-of-the-blues",
+    "ireal_title": "The Meaning Of The Blues",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "tom-jones-hello-young-lovers-this-is-tom-jones-tv-show-1970",
+    "sjs_title": "Tom Jones - Hello Young Lovers - This is Tom Jones TV Show 1970",
+    "ireal_id": "hello-young-lovers",
+    "ireal_title": "Hello Young Lovers",
+    "match_method": "exact",
+    "confidence": 1.0
+  },
+  {
+    "sjs_slug": "tony-bennett-i-wanna-be-around-original",
+    "sjs_title": "Tony Bennett - I Wanna Be Around (ORIGINAL)",
+    "ireal_id": null,
+    "match_method": "none",
+    "confidence": 0.0
+  },
+  {
+    "sjs_slug": "zing-went-the-strings-of-my-heart-listen-darling-warner-archive",
+    "sjs_title": "Zing Went The Strings Of My Heart | Listen, Darling | Warner Archive",
+    "ireal_id": "zing-went-the-strings-of-my-heart",
+    "ireal_title": "Zing Went The Strings Of My Heart",
+    "match_method": "ireal-in-sjs",
+    "confidence": 0.509
+  },
+  {
+    "sjs_slug": "ngela-cervantes-y-chema-saiz-lush-life",
+    "sjs_title": "Ángela Cervantes y Chema Saiz - Lush Life",
+    "ireal_id": "lush-life",
+    "ireal_title": "Lush Life",
+    "match_method": "exact",
+    "confidence": 1.0
+  }
+]

@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../styles/theme';
 import { LickCard } from '../components/notesheet/LickCard';
-import { loadUserLicks, deleteUserLick, type LickEntry } from '../data/lickData';
+import { loadLicks, invalidateLicksCache, type LickEntry } from '../data/lickData';
+import { deleteLick } from '../api/licks';
 
 /* ─── styled ───────────────────────────────────────────────────────────── */
 
@@ -52,6 +53,14 @@ const Count = styled.span`
   color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
+const ErrorBanner = styled.div`
+  padding: 8px 16px;
+  background: #fdecea;
+  color: #b3261e;
+  font-size: 0.85rem;
+  border-bottom: 1px solid #f3c7c1;
+`;
+
 const ListArea = styled.div`
   flex: 1;
   overflow-y: auto;
@@ -76,10 +85,17 @@ const EmptyMsg = styled.div`
   opacity: 0.5;
 `;
 
+const LoadingMsg = styled(EmptyMsg)`
+  opacity: 0.7;
+`;
+
 /* ─── visibility wrapper ─────────────────────────────────────────────── */
 
-function VisibleLickCard({ lick, width, displayId, onDelete, onClick }: {
-  lick: LickEntry; width: number; displayId: number; onDelete: () => void; onClick: () => void;
+function VisibleLickCard({ lick, width, displayId, onDelete, onEdit, onClick }: {
+  lick: LickEntry; width: number; displayId: number;
+  onDelete: () => void;
+  onEdit?: () => void;
+  onClick: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
@@ -97,7 +113,7 @@ function VisibleLickCard({ lick, width, displayId, onDelete, onClick }: {
 
   return (
     <div ref={ref}>
-      <LickCard lick={lick} width={width} visible={visible} compact displayId={displayId} onDelete={onDelete} onClick={onClick} />
+      <LickCard lick={lick} width={width} visible={visible} compact displayId={displayId} onDelete={onDelete} onEdit={onEdit} onClick={onClick} />
     </div>
   );
 }
@@ -107,15 +123,54 @@ function VisibleLickCard({ lick, width, displayId, onDelete, onClick }: {
 export default function MyLicksPage() {
   const navigate = useNavigate();
   const [licks, setLicks] = useState<LickEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchLicks = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    loadLicks()
+      .then((entries) => {
+        setLicks(entries);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Failed to load licks from backend:', err);
+        setError(err instanceof Error ? err.message : '릭을 불러오지 못했습니다.');
+        setLicks([]);
+        setLoading(false);
+      });
+  }, []);
 
   useEffect(() => {
-    loadUserLicks().then(setLicks);
-  }, []);
+    fetchLicks();
+  }, [fetchLicks]);
 
-  const handleDelete = useCallback((id: number | string) => {
-    deleteUserLick(id);
-    loadUserLicks().then(setLicks);
-  }, []);
+  const handleDelete = useCallback(async (lick: LickEntry) => {
+    if (typeof lick.id !== 'string') {
+      setError(`삭제 불가: 백엔드 publicId 형식이 아닙니다 (${lick.id}).`);
+      return;
+    }
+    const ok = window.confirm(`"${lick.performer} — ${lick.title}" 릭을 삭제할까요?`);
+    if (!ok) return;
+    try {
+      await deleteLick(lick.id);
+      invalidateLicksCache();
+      // optimistically remove from list, then refresh from server
+      setLicks((prev) => prev.filter((l) => l.id !== lick.id));
+      fetchLicks();
+    } catch (err) {
+      console.error('Delete failed:', err);
+      setError(err instanceof Error ? err.message : '삭제 실패');
+      setTimeout(() => setError(null), 4000);
+    }
+  }, [fetchLicks]);
+
+  /* edit (backend only) — JSON tool로 이동, editingLick state 전달.
+   * LicksPage의 handleEditLick과 동일 패턴. */
+  const handleEdit = useCallback((lick: LickEntry) => {
+    navigate('/lick-input', { state: { editingLick: lick } });
+  }, [navigate]);
 
   /* width tracking */
   const listRef = useRef<HTMLDivElement>(null);
@@ -136,20 +191,26 @@ export default function MyLicksPage() {
       <Header>
         <BackBtn onClick={() => navigate('/lick-input')}>&larr; Lick Tool</BackBtn>
         <Title>My Licks</Title>
-        <Count>{licks.length} lick{licks.length !== 1 ? 's' : ''}</Count>
+        <Count>{loading ? '...' : `${licks.length} lick${licks.length !== 1 ? 's' : ''}`}</Count>
       </Header>
 
+      {error && <ErrorBanner>{error}</ErrorBanner>}
+
       <ListArea ref={listRef}>
-        {licks.length === 0 && (
-          <EmptyMsg>No custom licks yet. Use the Lick JSON Tool to create one.</EmptyMsg>
+        {loading && <LoadingMsg>Loading…</LoadingMsg>}
+        {!loading && licks.length === 0 && !error && (
+          <EmptyMsg>아직 등록된 릭이 없습니다. Lick JSON Tool에서 추가해주세요.</EmptyMsg>
         )}
         {licks.map((lick, i) => (
           <VisibleLickCard
-            key={lick.id}
+            key={String(lick.id)}
             lick={lick}
             width={cardWidth}
+            /* 백엔드는 createdAt desc로 보내므로 최상단(i=0)이 가장 최근.
+             * 번호는 LicksPage와 동일하게 가장 오래된 것이 #1, 최신이 #N. */
             displayId={licks.length - i}
-            onDelete={() => handleDelete(lick.id)}
+            onDelete={() => handleDelete(lick)}
+            onEdit={typeof lick.id === 'string' ? () => handleEdit(lick) : undefined}
             onClick={() => navigate(`/lick-practice/${lick.id}`)}
           />
         ))}

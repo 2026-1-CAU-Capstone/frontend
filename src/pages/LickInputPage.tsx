@@ -639,7 +639,7 @@ const ToolBar = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 18px;
+  padding: 10px 18px 10px 8px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ theme }) => theme.colors.bgSecondary};
   flex-wrap: wrap;
@@ -772,11 +772,6 @@ const BpmInput = styled.input`
   &:focus { border-color: ${({ theme }) => theme.colors.textSecondary}; }
 `;
 
-const InfoText = styled.span`
-  font-size: 0.82rem;
-  color: ${({ theme }) => theme.colors.textSecondary};
-`;
-
 const SectionLabel = styled.span`
   font-size: 0.82rem;
   color: ${({ theme }) => theme.colors.textSecondary};
@@ -822,14 +817,6 @@ const PianoArea = styled.div`
   background: ${({ theme }) => theme.colors.bgSecondary};
 `;
 
-const KeyHint = styled.div`
-  text-align: center;
-  font-size: 0.78rem;
-  color: ${({ theme }) => theme.colors.textSecondary};
-  opacity: 0.5;
-  padding-bottom: 8px;
-  background: ${({ theme }) => theme.colors.bgSecondary};
-`;
 
 const SheetArea = styled.div`
   flex: 1;
@@ -1090,18 +1077,82 @@ const EmptyHint = styled.div`
   opacity: 0.5;
 `;
 
-const JsonPreview = styled.pre`
-  margin: 0 16px 16px;
-  padding: 12px 16px;
-  background: #1e1e1e;
-  color: #d4d4d4;
+/* ── Load JSON modal ────────────────────────────────────────────────── */
+
+const ModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+`;
+
+const ModalCard = styled.div`
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  width: min(720px, 92vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+`;
+
+const ModalTitle = styled.div`
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #111;
+`;
+
+const ModalHint = styled.div`
+  font-size: 0.78rem;
+  color: #666;
+  line-height: 1.5;
+`;
+
+const JsonTextarea = styled.textarea`
+  flex: 1;
+  min-height: 280px;
+  padding: 12px;
+  border: 1px solid #ccc;
   border-radius: 8px;
   font-family: 'JetBrains Mono', 'Menlo', monospace;
-  font-size: 0.72rem;
-  overflow-x: auto;
-  max-height: 240px;
-  overflow-y: auto;
+  font-size: 0.78rem;
+  resize: vertical;
+  outline: none;
+  &:focus { border-color: #888; }
 `;
+
+const ModalErr = styled.div`
+  font-size: 0.8rem;
+  color: #c62828;
+  background: #fdecea;
+  padding: 6px 10px;
+  border-radius: 6px;
+`;
+
+const ModalActions = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+`;
+
+const ModalBtn = styled.button<{ $primary?: boolean }>`
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  padding: 6px 16px;
+  border: 1px solid ${({ $primary }) => ($primary ? '#1565c0' : '#bbb')};
+  background: ${({ $primary }) => ($primary ? '#1976d2' : '#fff')};
+  color: ${({ $primary }) => ($primary ? '#fff' : '#333')};
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  &:hover { opacity: 0.85; }
+`;
+
 
 /* ─── component ────────────────────────────────────────────────────────── */
 
@@ -1130,8 +1181,18 @@ export default function LickInputPage() {
   const [tieNext, setTieNext] = useState(false);
   const [tripletMode, setTripletMode] = useState(false);
   const tripletCountRef = useRef(0);
+  /* N-tuplet (4+, 5+, ...) mode — counts notes/rests added while active and
+   * keeps re-assigning their `tuplet` value to the current count so the group
+   * "grows" with each new entry. Reset on toggle / measure close.
+   * Mutually exclusive with tripletMode. */
+  const [nTupletMode, setNTupletMode] = useState(false);
+  const nTupletCountRef = useRef(0);
+  const [nTupletDisplay, setNTupletDisplay] = useState(0);
   const [copied, setCopied] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
+  // Load JSON modal — paste a lick JSON to populate the editor
+  const [loadJsonOpen, setLoadJsonOpen] = useState(false);
+  const [loadJsonText, setLoadJsonText] = useState('');
+  const [loadJsonError, setLoadJsonError] = useState<string | null>(null);
   const [bpm, setBpm] = useState(200);
   const [bpmText, setBpmText] = useState('200');
   const bpmManualRef = useRef(false);
@@ -1244,6 +1305,59 @@ export default function LickInputPage() {
     }
   }, [measures.length, pushEditUndo]);
 
+  /* Insert a rest slot BEFORE the currently selected note. Uses the duration
+   * currently chosen in the top toolbar. After insertion the new slot becomes
+   * the selected note, so the user can immediately:
+   *   - press a piano key → the rest is replaced by that pitch (existing
+   *     handleNotePress behavior already does pitch-replace when selected)
+   *   - tweak accidentals / make it shorter or longer, etc.
+   * If the inserted slot is in a measure that's already full, that's fine —
+   * VexFlow renders in non-strict mode and the user can adjust durations. */
+  const handleInsertBefore = useCallback(() => {
+    if (!selectedNote) return;
+    pushEditUndo();
+    const newNote: NoteInfo = {
+      keys: ['b/4'],
+      duration: duration + 'r',
+      dotted: dotted || undefined,
+    };
+    if (tripletMode) newNote.tuplet = 3;
+
+    const { mi, ni } = selectedNote;
+    if (mi < measures.length) {
+      setMeasures((prev) => prev.map((m, i) =>
+        i === mi
+          ? { ...m, notes: [...m.notes.slice(0, ni), newNote, ...m.notes.slice(ni)] }
+          : m,
+      ));
+    } else {
+      setCurNotes((prev) => [...prev.slice(0, ni), newNote, ...prev.slice(ni)]);
+    }
+    // Selection stays at the same (mi, ni) — which is now the newly inserted
+    // slot. The originally-selected note has shifted to ni + 1.
+  }, [selectedNote, duration, dotted, tripletMode, measures.length, pushEditUndo]);
+
+  /* When n-tuplet mode is active, bump the running count and stamp every
+   * note in the current group with the new tuplet number so the bracket label
+   * grows as the user adds entries. Returns the transformed array to feed
+   * into setCurNotes. */
+  const applyNTuplet = useCallback((notes: NoteInfo[]): NoteInfo[] => {
+    if (!nTupletMode) return notes;
+    const k = nTupletCountRef.current + 1;
+    nTupletCountRef.current = k;
+    setNTupletDisplay(k);
+    return notes.map((n, i) =>
+      i >= notes.length - k ? { ...n, tuplet: k } : n,
+    );
+  }, [nTupletMode]);
+
+  /* Detect synchronous auto-close (mirrors maybeAutoClose's predicate) so we
+   * can reset n-tuplet state when a measure closes mid-group. */
+  const willMeasureClose = useCallback((notes: NoteInfo[]): boolean => {
+    const beats = notes.reduce((s, n) => s + getBeats(n.duration, n.dotted, n.tuplet), 0);
+    return notes.length > 0 && beats >= 4 - 0.001;
+  }, []);
+
   /* piano input — store real pitch, display logic handled in renderSheet */
   const handleNotePress = useCallback((pn: PianoNote) => {
     const conv = convertAcc(pn, accMode === 'n' ? 'b' : accMode);
@@ -1300,8 +1414,9 @@ export default function LickInputPage() {
       newNotes = [...curNotes, ni];
     }
 
-    setCurNotes(newNotes);
-    maybeAutoClose(newNotes);
+    const finalNotes = applyNTuplet(newNotes);
+    setCurNotes(finalNotes);
+    maybeAutoClose(finalNotes);
 
     // Auto-exit triplet mode after 3 notes
     if (tripletMode) {
@@ -1311,16 +1426,55 @@ export default function LickInputPage() {
         tripletCountRef.current = 0;
       }
     }
-  }, [duration, dotted, accMode, tieNext, tripletMode, curNotes, measures.length, maybeAutoClose, pushEditUndo, selectedNote, updateNote]);
+
+    // If the measure just auto-closed mid n-tuplet group, reset the count so
+    // the next measure starts a fresh group rather than appending to the old.
+    if (nTupletMode && willMeasureClose(finalNotes)) {
+      nTupletCountRef.current = 0;
+      setNTupletDisplay(0);
+    }
+  }, [duration, dotted, accMode, tieNext, tripletMode, nTupletMode, curNotes, measures.length, maybeAutoClose, pushEditUndo, selectedNote, updateNote, applyNTuplet, willMeasureClose]);
 
   const handleRest = useCallback((dur?: string) => {
-    pushEditUndo();
     const d = dur ?? duration;
+
+    /* If a rest is currently selected, REPLACE its duration in place rather
+     * than appending a new rest at the end. This lets the user select an
+     * inserted rest and freely switch between whole / half / quarter / 8th /
+     * 16th rests until they get the desired length. */
+    if (selectedNote) {
+      const { mi, ni } = selectedNote;
+      const target = mi < measures.length
+        ? measures[mi]?.notes[ni]
+        : curNotes[ni];
+      if (target?.duration.endsWith('r')) {
+        pushEditUndo();
+        const replaced: NoteInfo = {
+          ...target,
+          duration: d + 'r',
+          dotted: dotted || undefined,
+          tuplet: tripletMode ? 3 : undefined,
+        };
+        if (mi < measures.length) {
+          setMeasures((prev) => prev.map((m, i) =>
+            i === mi ? { ...m, notes: m.notes.map((n, j) => j === ni ? replaced : n) } : m,
+          ));
+        } else {
+          setCurNotes((prev) => prev.map((n, j) => j === ni ? replaced : n));
+        }
+        return;
+      }
+    }
+
+    /* Default — no rest selected: append a new rest at the end of the
+     * current measure (original behavior). */
+    pushEditUndo();
     const ni: NoteInfo = { keys: ['b/4'], duration: d + 'r', dotted: dotted || undefined };
     if (tripletMode) ni.tuplet = 3;
     const newNotes = [...curNotes, ni];
-    setCurNotes(newNotes);
-    maybeAutoClose(newNotes);
+    const finalNotes = applyNTuplet(newNotes);
+    setCurNotes(finalNotes);
+    maybeAutoClose(finalNotes);
     if (tripletMode) {
       tripletCountRef.current += 1;
       if (tripletCountRef.current >= 3) {
@@ -1328,7 +1482,11 @@ export default function LickInputPage() {
         tripletCountRef.current = 0;
       }
     }
-  }, [duration, dotted, tripletMode, curNotes, maybeAutoClose, pushEditUndo]);
+    if (nTupletMode && willMeasureClose(finalNotes)) {
+      nTupletCountRef.current = 0;
+      setNTupletDisplay(0);
+    }
+  }, [duration, dotted, tripletMode, nTupletMode, curNotes, maybeAutoClose, pushEditUndo, selectedNote, measures, applyNTuplet, willMeasureClose]);
 
   /* undo: pop edit-undo stack first, then fall back to removing last note / measure */
   const handleUndo = useCallback(() => {
@@ -1558,6 +1716,66 @@ export default function LickInputPage() {
     }
   }, [measures.length]);
 
+  /* Load JSON modal — accepts either:
+   *   - a full lick entry: { performer, title, ..., sheetData: { measures: [...] } }
+   *   - the inner sheetData object: { measures: [...] }
+   * Populates the editor with the parsed measures + metadata. */
+  const handleLoadJson = useCallback(() => {
+    setLoadJsonError(null);
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(loadJsonText) as Record<string, unknown>;
+    } catch (e) {
+      setLoadJsonError(e instanceof Error ? `JSON 파싱 실패: ${e.message}` : 'Invalid JSON');
+      return;
+    }
+
+    // Locate measures: prefer parsed.sheetData.measures, fall back to parsed.measures
+    const sheetData = parsed.sheetData as { measures?: unknown } | undefined;
+    const measuresRaw = (sheetData?.measures ?? parsed.measures) as MeasureInfo[] | undefined;
+    if (!Array.isArray(measuresRaw)) {
+      setLoadJsonError('JSON에 measures 배열이 없습니다. `sheetData.measures` 또는 최상위 `measures` 필드가 필요합니다.');
+      return;
+    }
+
+    pushEditUndo();
+    setMeasures(measuresRaw);
+    setCurNotes([]);
+    setCurChord('');
+    setSelectedNote(null);
+
+    // Pull metadata if present (top-level overrides sheetData-nested)
+    const sheetMeta = sheetData as Record<string, unknown> | undefined;
+    const pickStr = (key: string): string | undefined => {
+      const v = parsed[key] ?? sheetMeta?.[key];
+      return typeof v === 'string' ? v : undefined;
+    };
+    const pickNum = (key: string): number | undefined => {
+      const v = parsed[key] ?? sheetMeta?.[key];
+      return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+    };
+
+    const p = pickStr('performer');
+    if (p !== undefined) setPerformer(p);
+    const t = pickStr('title');
+    if (t !== undefined) setTitle(t);
+    const a = pickStr('album');
+    if (a !== undefined) setAlbum(a);
+    const inst = pickStr('instrument');
+    if (inst !== undefined) setInstrument(inst);
+    const k = pickStr('key');
+    if (k !== undefined) setLickKey(k.split('-')[0]);
+    const tempo = pickNum('tempo');
+    if (tempo !== undefined) {
+      setBpm(tempo);
+      setBpmText(String(tempo));
+      bpmManualRef.current = true;
+    }
+
+    setLoadJsonOpen(false);
+    setLoadJsonText('');
+  }, [loadJsonText, pushEditUndo]);
+
   /* save to backend (POST /api/v1/licks) — falls back to localStorage on failure */
   const handleSave = useCallback(async () => {
     if (allMeasures.length === 0 || saving) return;
@@ -1640,10 +1858,32 @@ export default function LickInputPage() {
         <MetaInput value={instrument} onChange={(e) => setInstrument(e.target.value)} placeholder="e.g. as" style={{ width: 70 }} />
         <MetaLabel>Key</MetaLabel>
         <MetaInput value={lickKey} onChange={(e) => setLickKey(e.target.value)} placeholder="e.g. Ab" style={{ width: 50 }} />
+
+        <Spacer />
+
+        <Btn onClick={() => { setLoadJsonText(''); setLoadJsonError(null); setLoadJsonOpen(true); }}>
+          Load JSON
+        </Btn>
+        <CopyBtn $copied={copied} onClick={handleCopy} disabled={totalNotes === 0}>
+          {copied ? '✓ Copied!' : 'Copy JSON'}
+        </CopyBtn>
+        <SaveBtn $saved={saved} onClick={handleSave} disabled={totalNotes === 0 || saving}>
+          {saving
+            ? (editingId ? 'Updating…' : 'Saving…')
+            : saved
+              ? (editingId ? '✓ Updated!' : '✓ Saved!')
+              : saveError
+                ? '✕ Failed'
+                : (editingId ? 'Update Lick' : 'Save Lick')}
+        </SaveBtn>
+        {saveError && (
+          <span style={{ color: '#c0392b', fontSize: '12px', marginLeft: '8px', alignSelf: 'center' }}>
+            {saveError}
+          </span>
+        )}
       </Header>
 
       <ToolBar>
-        <SectionLabel>Duration</SectionLabel>
         {DUR_KEYS.map((d) => (
           <DurCol key={d.value}>
             <DurBtn $active={duration === d.value} onClick={() => { setDuration(d.value); setDotted(false); }} title={d.title}>
@@ -1667,11 +1907,39 @@ export default function LickInputPage() {
         </DurBtn>
         <DurBtn
           $active={tripletMode}
-          onClick={() => setTripletMode((v) => { if (!v) tripletCountRef.current = 0; return !v; })}
+          onClick={() => {
+            // Triplet & n-tuplet are mutually exclusive
+            setNTupletMode(false);
+            nTupletCountRef.current = 0;
+            setNTupletDisplay(0);
+            setTripletMode((v) => { if (!v) tripletCountRef.current = 0; return !v; });
+          }}
           title="Triplet mode (T) — next 3 notes become triplet"
           style={{ fontSize: '0.95rem', fontWeight: 700 }}
         >
           3
+        </DurBtn>
+        <DurBtn
+          $active={nTupletMode}
+          onClick={() => {
+            // Toggle n-tuplet mode. Turning ON resets count; turning OFF keeps
+            // already-stamped tuplet values on the notes.
+            if (nTupletMode) {
+              setNTupletMode(false);
+              nTupletCountRef.current = 0;
+              setNTupletDisplay(0);
+            } else {
+              setTripletMode(false);
+              tripletCountRef.current = 0;
+              setNTupletMode(true);
+              nTupletCountRef.current = 0;
+              setNTupletDisplay(0);
+            }
+          }}
+          title="N-tuplet mode — every added note/rest joins one growing tuplet group (count increases per entry). Toggle off to end the group."
+          style={{ fontSize: '0.85rem', fontWeight: 700 }}
+        >
+          {nTupletMode && nTupletDisplay > 0 ? `${nTupletDisplay}+` : '3+'}
         </DurBtn>
         <BarlineBtn onClick={closeMeasure} disabled={curNotes.length === 0} title="Close measure (Enter)">|</BarlineBtn>
 
@@ -1695,31 +1963,10 @@ export default function LickInputPage() {
         <BeatIndicator $full={curBeats >= 4}>
           {curBeats}/{4} beats
         </BeatIndicator>
+        <Btn onClick={handleUndo} title="Undo (Backspace)">Undo</Btn>
+        <Btn onClick={handleClear}>Clear</Btn>
 
         <Spacer />
-
-        <Btn onClick={() => setShowPreview((v) => !v)} disabled={totalNotes === 0}>
-          {showPreview ? 'Hide JSON' : 'Preview JSON'}
-        </Btn>
-        <CopyBtn $copied={copied} onClick={handleCopy} disabled={totalNotes === 0}>
-          {copied ? '\u2713 Copied!' : 'Copy JSON'}
-        </CopyBtn>
-        <SaveBtn $saved={saved} onClick={handleSave} disabled={totalNotes === 0 || saving}>
-          {saving
-            ? (editingId ? 'Updating\u2026' : 'Saving\u2026')
-            : saved
-              ? (editingId ? '\u2713 Updated!' : '\u2713 Saved!')
-              : saveError
-                ? '\u2715 Failed'
-                : (editingId ? 'Update Lick' : 'Save Lick')}
-        </SaveBtn>
-        {saveError && (
-          <span style={{ color: '#c0392b', fontSize: '12px', marginLeft: '8px', alignSelf: 'center' }}>
-            {saveError}
-          </span>
-        )}
-
-        <Sep />
 
         <SectionLabel>BPM</SectionLabel>
         <BpmInput
@@ -1742,20 +1989,11 @@ export default function LickInputPage() {
         <PlayBtn $playing={playing} onClick={handlePlay} disabled={totalNotes === 0}>
           {playing ? '■ Stop' : '▶ Play'}
         </PlayBtn>
-        <Btn onClick={handleUndo} title="Undo (Backspace)">Undo</Btn>
-        <Btn onClick={handleClear}>Clear</Btn>
-
-        <Spacer />
-
-        <InfoText>
-          {totalNotes} notes &middot; {allMeasures.length} bars
-        </InfoText>
       </ToolBar>
 
       <PianoArea>
         <PianoKeyboard onNotePress={handleNotePress} mute />
       </PianoArea>
-      <KeyHint>1=whole &middot; 2=half &middot; 4=quarter &middot; 8=8th &middot; 6=16th &middot; L=tie &middot; T=triplet &middot; Enter=close measure &middot; Backspace=undo</KeyHint>
 
       {selectedNote && selNoteInfo && (
         <NoteEditBar>
@@ -1763,6 +2001,18 @@ export default function LickInputPage() {
             Note: {selNoteInfo.keys[0]} ({selNoteInfo.duration.replace('r', ' rest')})
             {selNoteInfo.accidentals?.[0] === 'b' ? ' ♭' : selNoteInfo.accidentals?.[0] === '#' ? ' ♯' : selNoteInfo.accidentals?.[0] === 'n' ? ' ♮' : ''}
           </NoteEditLabel>
+          <Sep />
+
+          {/* Insert Before — 선택된 음표 앞에 (상단 툴바에서 고른) duration의
+           * 쉼표 슬롯을 끼워넣음. 슬롯이 새로 선택 상태가 되므로 그 자리에서
+           * 바로 피아노로 음을 치면 음표로 교체 / 음정/임시표/길이 조정 가능. */}
+          <NoteEditBtn
+            onClick={handleInsertBefore}
+            title={`Insert ${duration}${dotted ? '·' : ''} rest before selected note`}
+          >
+            ↤ Insert
+          </NoteEditBtn>
+
           <Sep />
 
           {/* Accidental buttons */}
@@ -1909,8 +2159,6 @@ export default function LickInputPage() {
         </NoteEditBar>
       )}
 
-      {showPreview && jsonOutput && <JsonPreview>{jsonOutput}</JsonPreview>}
-
       <SheetArea ref={sheetAreaRef}>
         {totalNotes === 0 && <EmptyHint>Type chord &rarr; play notes &rarr; Enter or | to close measure</EmptyHint>}
         <div style={{ position: 'relative' }} onClick={handleSheetClick}>
@@ -1974,6 +2222,30 @@ export default function LickInputPage() {
           })()}
         </div>
       </SheetArea>
+
+      {loadJsonOpen && (
+        <ModalOverlay onClick={() => setLoadJsonOpen(false)}>
+          <ModalCard onClick={(e) => e.stopPropagation()}>
+            <ModalTitle>Load JSON</ModalTitle>
+            <ModalHint>
+              릭 JSON을 붙여넣으세요. 전체 lick entry 또는 <code>sheetData</code> 내부 객체 모두 지원
+              (<code>measures</code> 배열만 있으면 됨). 로드 시 편집기 내용이 교체됩니다 (Undo 가능).
+            </ModalHint>
+            <JsonTextarea
+              autoFocus
+              spellCheck={false}
+              placeholder='{"performer":"Charlie Parker","title":"Donna Lee","key":"Ab","tempo":200,"sheetData":{"measures":[{"chord":"Eb-7","notes":[{"keys":["b/4"],"duration":"8"}]}]}}'
+              value={loadJsonText}
+              onChange={(e) => { setLoadJsonText(e.target.value); if (loadJsonError) setLoadJsonError(null); }}
+            />
+            {loadJsonError && <ModalErr>{loadJsonError}</ModalErr>}
+            <ModalActions>
+              <ModalBtn onClick={() => setLoadJsonOpen(false)}>Cancel</ModalBtn>
+              <ModalBtn $primary onClick={handleLoadJson} disabled={!loadJsonText.trim()}>Load</ModalBtn>
+            </ModalActions>
+          </ModalCard>
+        </ModalOverlay>
+      )}
     </Page>
   );
 }

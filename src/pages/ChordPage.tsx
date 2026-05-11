@@ -626,19 +626,46 @@ export default function ChordPage() {
     const keyMatch = chordContext?.match(/Key:\s*([A-G][b#]?)/);
     const songKey = keyMatch ? keyMatch[1] : 'C';
     const barNums = new Set<number>();
-    // 각 시스템의 ii-V-I 시작 마디 탐지
+
+    // 모든 (chord, barNum) pair를 한 번에 평탄화 — groupId로 묶어서 ii-V-I 전체 진행을 모음
+    const flat: { chord: NonNullable<typeof sheet.systems[0]['bars'][0]['chords'][0]>; barNum: number }[] = [];
     for (const system of sheet.systems) {
       for (const bar of system.bars) {
-        const firstChord = bar.chords[0];
-        if (!firstChord?.analysis?.groupMemberships) continue;
-        const isIIStart = firstChord.analysis.groupMemberships.some(
-          (g) => g.groupType === 'ii-V-I' && g.role === 'ii' && g.variant !== 'incomplete'
-        );
-        if (!isIIStart) continue;
-        // 이 마디부터 ii-V-I 패턴 — 저장된 릭과 매칭되는지 확인
-        const overlay = { id: String(bar.measureNumber), symbol: `${firstChord.root ?? ''}${firstChord.quality ?? ''}`, bar: bar.measureNumber ?? 0, pageNumber: 1, position: { x: 0, y: 0, width: 0, height: 0 }, analysis: { degree: '', func: 'SD' as const, diatonic: true } };
-        const matches = findMatchingLicks([overlay], sheet.title, songKey, saved, 1);
-        if (matches.length > 0) barNums.add(bar.measureNumber ?? 0);
+        for (const c of bar.chords) {
+          if (c) flat.push({ chord: c, barNum: bar.measureNumber ?? 0 });
+        }
+      }
+    }
+
+    // groupId → [chords in that ii-V-I group] (role 순서: ii → V → I)
+    const byGroup = new Map<number, { chord: typeof flat[0]['chord']; barNum: number; role: string }[]>();
+    for (const fc of flat) {
+      const memberships = fc.chord.analysis?.groupMemberships ?? [];
+      for (const g of memberships) {
+        if (g.groupType !== 'ii-V-I' || g.variant === 'incomplete') continue;
+        if (!byGroup.has(g.groupId)) byGroup.set(g.groupId, []);
+        byGroup.get(g.groupId)!.push({ ...fc, role: g.role });
+      }
+    }
+
+    for (const group of byGroup.values()) {
+      // role 순서대로 정렬: ii → V → I/i
+      const ROLE_ORDER: Record<string, number> = { ii: 0, V: 1, I: 2, i: 2 };
+      group.sort((a, b) => (ROLE_ORDER[a.role] ?? 9) - (ROLE_ORDER[b.role] ?? 9));
+      if (group.length === 0) continue;
+      const overlays = group.map(({ chord, barNum }) => ({
+        id: String(barNum) + '-' + (chord.root ?? ''),
+        symbol: `${chord.root ?? ''}${chord.quality ?? ''}`,
+        bar: barNum,
+        pageNumber: 1,
+        position: { x: 0, y: 0, width: 0, height: 0 },
+        analysis: { degree: '', func: 'SD' as const, diatonic: true },
+      }));
+      const matches = findMatchingLicks(overlays, sheet.title, songKey, saved, 1);
+      if (matches.length > 0) {
+        // ii 코드가 있는 첫 bar에 뱃지 표시
+        const iiBarNum = group.find((g) => g.role === 'ii')?.barNum ?? group[0].barNum;
+        barNums.add(iiBarNum);
       }
     }
     setSavedLickBarNums(barNums);
@@ -747,18 +774,53 @@ export default function ChordPage() {
                 if (saved.length === 0) { setSavedLicksModal({ label: spanLabel, matches: [] }); return; }
                 const keyMatch = chordContext?.match(/Key:\s*([A-G][b#]?)/);
                 const songKey = keyMatch ? keyMatch[1] : 'C';
-                const bar = sheet?.systems.flatMap((s) => s.bars).find((b) => b.measureNumber === barNum);
-                const firstChord = bar?.chords[0];
-                if (!firstChord || !sheet) return;
-                const overlay: ChordOverlay = {
-                  id: String(barNum),
-                  symbol: `${firstChord.root ?? ''}${firstChord.quality ?? ''}`,
-                  bar: barNum,
-                  pageNumber: 1,
-                  position: { x: 0, y: 0, width: 0, height: 0 },
-                  analysis: { degree: '', func: 'SD', diatonic: true },
-                };
-                const all = findMatchingLicks([overlay], sheet.title, songKey, saved, 50);
+                if (!sheet) return;
+
+                // spanLabel 예: "C Major 2-5-1" / "F minor 2-5-1" → 토닉 + 모드 추출
+                const labelMatch = spanLabel.match(/^([A-G][b#]?)\s+(Major|minor)/i);
+                const NOTE_TO_PC: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+                const PC_TO_FLAT  = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+                const PC_TO_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+                const useFlats = (pc: number) => [0,5,10,3,8,1,6].includes(pc);
+                const pcToName = (pc: number) => (useFlats(pc) ? PC_TO_FLAT : PC_TO_SHARP)[pc];
+
+                let overlays: ChordOverlay[];
+                if (labelMatch) {
+                  const tonicRoot = labelMatch[1];
+                  const isMinor = labelMatch[2].toLowerCase() === 'minor';
+                  const tonicLetter = tonicRoot[0].toUpperCase() as keyof typeof NOTE_TO_PC;
+                  const acc = tonicRoot[1];
+                  let tonicPc = NOTE_TO_PC[tonicLetter] ?? 0;
+                  if (acc === 'b') tonicPc = (tonicPc - 1 + 12) % 12;
+                  else if (acc === '#') tonicPc = (tonicPc + 1) % 12;
+
+                  const iiPc = (tonicPc + 2) % 12;
+                  const vPc  = (tonicPc + 7) % 12;
+                  const iiSym = `${pcToName(iiPc)}${isMinor ? 'ø7' : '-7'}`;
+                  const vSym  = `${pcToName(vPc)}7`;
+                  const iSym  = `${pcToName(tonicPc)}${isMinor ? '-7' : '△7'}`;
+
+                  const mk = (id: string, sym: string): ChordOverlay => ({
+                    id, symbol: sym, bar: barNum, pageNumber: 1,
+                    position: { x: 0, y: 0, width: 0, height: 0 },
+                    analysis: { degree: '', func: 'SD', diatonic: true },
+                  });
+                  overlays = [mk(`${barNum}-ii`, iiSym), mk(`${barNum}-v`, vSym), mk(`${barNum}-i`, iSym)];
+                } else {
+                  // fallback: 라벨 파싱 실패 시 기존 동작 (bar 첫 코드)
+                  const bar = sheet.systems.flatMap((s) => s.bars).find((b) => b.measureNumber === barNum);
+                  const firstChord = bar?.chords[0];
+                  if (!firstChord) return;
+                  overlays = [{
+                    id: String(barNum),
+                    symbol: `${firstChord.root ?? ''}${firstChord.quality ?? ''}`,
+                    bar: barNum, pageNumber: 1,
+                    position: { x: 0, y: 0, width: 0, height: 0 },
+                    analysis: { degree: '', func: 'SD', diatonic: true },
+                  }];
+                }
+
+                const all = findMatchingLicks(overlays, sheet.title, songKey, saved, 50);
                 // tier 3은 임의 전조 결과라 제외, tier 1/2만 표시 (없으면 전체)
                 const direct = all.filter((m) => m.tier <= 2);
                 setSavedLicksModal({ label: spanLabel, matches: direct.length > 0 ? direct : all });

@@ -24,7 +24,12 @@ import { LICK_VIDEOS } from '../../data/lickVideos';
 /* ─── layout constants ──────────────────────────────────────────────── */
 
 const LINE_HEIGHT = 140;
-const MARGIN = { top: 20, left: 10, right: 10, bottom: 10 };
+/* MARGIN.top: 코드 라벨이 고음 노트 위로 올라갈 때를 대비해 충분히 확보.
+ * MARGIN.right: 마지막 마디의 코드 라벨(예: "C-7"이 ~40px)이 SVG 우측 끝에서
+ * 잘리지 않도록 확보. */
+const MARGIN = { top: 40, left: 10, right: 44, bottom: 10 };
+/* 코드 라벨의 최소 baseline y — SVG 상단 밖으로 텍스트가 나가지 않도록 클램프. */
+const CHORD_MIN_Y = 16;
 const CHORD_FONT = "'MuseJazz Text', 'DM Sans', sans-serif";
 const MAX_PER_LINE = 6;
 const MEASURE_HL_COLOR = 'rgba(100, 181, 246, 0.13)';
@@ -759,9 +764,11 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
               if (bb && bb.y < topNoteY) topNoteY = bb.y;
             } catch { /* noop */ }
           }
-          const chordY = Number.isFinite(topNoteY) && topNoteY - SAFE_GAP < baseChordY
+          const rawChordY = Number.isFinite(topNoteY) && topNoteY - SAFE_GAP < baseChordY
             ? topNoteY - SAFE_GAP
             : baseChordY;
+          // SVG 상단 밖으로 텍스트가 나가지 않도록 최소값으로 클램프.
+          const chordY = Math.max(rawChordY, CHORD_MIN_Y);
           const svg = el.querySelector('svg');
           if (svg) {
             const chords = measure.chord.split(/\s{2,}/);
@@ -1021,13 +1028,13 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
           </PlayBtn>
         )}
         {onEdit && (
-          <PlayBtn onClick={(e) => { e.stopPropagation(); onEdit(); }} style={{ color: '#1565c0', borderColor: '#90caf9' }}>
-            Edit
+          <PlayBtn onClick={(e) => { e.stopPropagation(); onEdit(); }} style={{ color: '#1565c0', borderColor: '#90caf9' }} title="Edit">
+            {'✎ Edit'}
           </PlayBtn>
         )}
         {onDelete && (
-          <PlayBtn onClick={(e) => { e.stopPropagation(); onDelete(); }} style={{ color: '#c62828', borderColor: '#e57373' }}>
-            Delete
+          <PlayBtn onClick={(e) => { e.stopPropagation(); onDelete(); }} style={{ color: '#c62828', borderColor: '#e57373' }} title="Delete">
+            {'\u{1F5D1} Delete'}
           </PlayBtn>
         )}
       </MetaRow>
