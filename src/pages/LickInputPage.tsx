@@ -37,6 +37,11 @@ function convertAcc(pn: PianoNote, mode: 'b' | '#'): { vexKey: string; acc?: 'b'
   return { vexKey: `${flatLetter}/${oct}`, acc: 'b' };
 }
 
+/* Autosave: 작성 중인 lick(편집 모드 제외)을 15초마다 localStorage에 저장.
+ * 새로고침/크래시 후 마운트 시 자동 복구. handleSave 성공/handleClear에서 삭제.
+ * 버전 키에 v1 suffix — 스키마 바뀌면 v2로 올려서 옛 드래프트 무시되도록. */
+const DRAFT_KEY = 'lickInput.draft.v1';
+
 /**
  * Tuplet beat scaling — N notes occupy the time of the largest power of 2
  * strictly less than N (3→2, 4→2, 5→4, 6→4, 7→4, 9→8, …). This generalises
@@ -1234,8 +1239,71 @@ export default function LickInputPage() {
       setBpmText(String(editingLick.tempo));
       bpmManualRef.current = true;
     }
-    setMeasures(editingLick.sheetData?.measures ?? []);
+    // Defensive: 일부 응답에선 sheetData가 JSON 직렬화된 string으로 올 수 있음
+    // (백엔드 직렬화 방식에 따라). 그 경우 그냥 .measures 접근하면 undefined.
+    let sd: unknown = editingLick.sheetData;
+    if (typeof sd === 'string') {
+      try { sd = JSON.parse(sd); } catch { sd = null; }
+    }
+    const sdMeasures = (sd as { measures?: unknown } | null)?.measures;
+    const editMeasures = Array.isArray(sdMeasures) ? (sdMeasures as MeasureInfo[]) : [];
+    if (editMeasures.length === 0) {
+      console.warn('[LickInputPage] Edit 진입 시 measures가 비어 있음. editingLick:', editingLick);
+    }
+    setMeasures(editMeasures);
   }, [editingLick]);
+
+  /* ── Autosave draft to localStorage every 15s (new-lick mode only) ──
+   * 편집 모드(/my-licks → Edit)에서는 라우터 state가 source of truth라
+   * 드래프트를 덮어쓰지 않음. 작성 중 새로고침/크래시 후 돌아왔을 때
+   * 자동 복구된다. handleSave 성공 또는 handleClear 시 키 삭제. */
+  const draftLoadedRef = useRef(false);
+  useEffect(() => {
+    if (editingLick || draftLoadedRef.current) return;
+    draftLoadedRef.current = true;
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      if (!d || typeof d !== 'object') return;
+      if (Array.isArray(d.measures)) setMeasures(d.measures);
+      if (Array.isArray(d.curNotes)) setCurNotes(d.curNotes);
+      if (typeof d.curChord === 'string') setCurChord(d.curChord);
+      if (typeof d.performer === 'string') setPerformer(d.performer);
+      if (typeof d.title === 'string') setTitle(d.title);
+      if (typeof d.album === 'string') setAlbum(d.album);
+      if (typeof d.instrument === 'string') setInstrument(d.instrument);
+      if (typeof d.lickKey === 'string') setLickKey(d.lickKey);
+      if (typeof d.bpm === 'number' && d.bpm >= 20 && d.bpm <= 400) {
+        setBpm(d.bpm);
+        setBpmText(String(d.bpm));
+        bpmManualRef.current = true;
+      }
+    } catch (e) {
+      console.warn('Failed to load lick draft', e);
+    }
+  }, [editingLick]);
+
+  useEffect(() => {
+    if (editingLick) return;
+    const intv = setInterval(() => {
+      try {
+        const isEmpty =
+          measures.length === 0 &&
+          curNotes.length === 0 &&
+          !performer && !title && !album && !instrument && !lickKey && !curChord;
+        if (isEmpty) return;
+        const draft = {
+          measures, curNotes, curChord,
+          performer, title, album, instrument, lickKey, bpm,
+        };
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      } catch (e) {
+        console.warn('Failed to autosave lick draft', e);
+      }
+    }, 15000);
+    return () => clearInterval(intv);
+  }, [editingLick, measures, curNotes, curChord, performer, title, album, instrument, lickKey, bpm]);
   const [playing, setPlaying] = useState(false);
   const playAbortRef = useRef<AbortController | null>(null);
   const svgRef = useRef<HTMLDivElement>(null);
@@ -1529,6 +1597,7 @@ export default function LickInputPage() {
     setMeasures([]);
     setCurNotes([]);
     setCurChord('');
+    try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
   }, []);
 
   /* keyboard shortcuts */
@@ -1837,6 +1906,7 @@ export default function LickInputPage() {
       }
       invalidateLicksCache();
       saveUserLick(persisted);
+      try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
       setSaved(true);
       setTimeout(() => {
         setSaved(false);

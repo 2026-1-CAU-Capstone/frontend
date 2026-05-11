@@ -1,5 +1,9 @@
 import type { NoteSheetData, MeasureInfo } from '../../data/sampleMelody';
 import Soundfont from 'soundfont-player';
+import { loadSampledDrumKit } from '../backing/sampledDrumKit';
+import { createReverbBus, type ReverbBus } from '../backing/reverb';
+import type { TriggerableInstrument } from '../backing/soundfont';
+import type { DrumPiece } from '../backing/types';
 
 /* ─── pitch helpers ──────────────────────────────────────────────────── */
 
@@ -131,74 +135,16 @@ function chordToMidi(raw: string): number[] {
   return parsed.intervals.map((iv) => base + iv);
 }
 
-/* ─── synthesized drum hits (no soundfont needed) ───────────────────── */
+/* ─── drum hits ──────────────────────────────────────────────────────── */
 
-type DrumType = 'ride' | 'hihat' | 'kick';
-
+/**
+ * Per-hit drum event in the schedule. Uses the same DrumPiece vocabulary
+ * as the backing engine so we can share the sampled Gretsch kit + reverb bus.
+ */
 interface DrumHit {
   time: number;
-  type: DrumType;
-}
-
-function synthDrum(ctx: AudioContext, when: number, type: DrumType, gain: number) {
-  const g = ctx.createGain();
-  g.gain.value = gain;
-  g.connect(ctx.destination);
-
-  if (type === 'ride') {
-    // Filtered noise burst — bright, metallic ping
-    const len = 0.18;
-    const buf = ctx.createBuffer(1, ctx.sampleRate * len, ctx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1);
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    const bp = ctx.createBiquadFilter();
-    bp.type = 'bandpass';
-    bp.frequency.value = 8000;
-    bp.Q.value = 1.5;
-    const env = ctx.createGain();
-    env.gain.setValueAtTime(0.7, when);
-    env.gain.exponentialRampToValueAtTime(0.001, when + len);
-    src.connect(bp).connect(env).connect(g);
-    src.start(when);
-    src.stop(when + len);
-    return { stop() { try { src.stop(); } catch { /* */ } } };
-  }
-
-  if (type === 'hihat') {
-    // Short tight noise — closed hi-hat foot
-    const len = 0.06;
-    const buf = ctx.createBuffer(1, ctx.sampleRate * len, ctx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1);
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    const hp = ctx.createBiquadFilter();
-    hp.type = 'highpass';
-    hp.frequency.value = 9000;
-    const env = ctx.createGain();
-    env.gain.setValueAtTime(0.6, when);
-    env.gain.exponentialRampToValueAtTime(0.001, when + len);
-    src.connect(hp).connect(env).connect(g);
-    src.start(when);
-    src.stop(when + len);
-    return { stop() { try { src.stop(); } catch { /* */ } } };
-  }
-
-  // kick — low sine thump
-  const len = 0.15;
-  const osc = ctx.createOscillator();
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(120, when);
-  osc.frequency.exponentialRampToValueAtTime(40, when + len);
-  const env = ctx.createGain();
-  env.gain.setValueAtTime(0.5, when);
-  env.gain.exponentialRampToValueAtTime(0.001, when + len);
-  osc.connect(env).connect(g);
-  osc.start(when);
-  osc.stop(when + len);
-  return { stop() { try { osc.stop(); } catch { /* */ } } };
+  piece: DrumPiece;
+  velocity: number;
 }
 
 /* ─── metronome click (woodblock-style) ─────────────────────────────── */
@@ -312,6 +258,10 @@ export class NotePlayer {
   private ctx: AudioContext | null = null;
   private melodyInst: Soundfont.Player | null = null;
   private compInst: Soundfont.Player | null = null;
+  private drumKit: TriggerableInstrument | null = null;
+  private reverb: ReverbBus | null = null;
+  private pianoAmp: GainNode | null = null;
+  private drumAmp: GainNode | null = null;
   private loading: Promise<void> | null = null;
   private sched: SchedNote[] = [];
   private drumSched: DrumHit[] = [];
@@ -387,10 +337,15 @@ export class NotePlayer {
 
   dispose() {
     this.stop();
+    this.drumKit?.stopAll();
     this.ctx?.close();
     this.ctx = null;
     this.melodyInst = null;
     this.compInst = null;
+    this.drumKit = null;
+    this.reverb = null;
+    this.pianoAmp = null;
+    this.drumAmp = null;
     this.loading = null;
   }
 
@@ -399,6 +354,27 @@ export class NotePlayer {
   private async ensureCtx() {
     if (!this.ctx) {
       this.ctx = new AudioContext();
+      // Shared "small jazz club" reverb bus. Piano + drums route through it;
+      // metronome stays dry so it remains a clinical click reference.
+      this.reverb = createReverbBus(this.ctx);
+
+      // Piano amp → reverb dry + wet send (light room ambience on the comp/melody).
+      this.pianoAmp = this.ctx.createGain();
+      this.pianoAmp.gain.value = 1.0;
+      this.pianoAmp.connect(this.reverb.dry);
+      const pianoSend = this.ctx.createGain();
+      pianoSend.gain.value = 0.18;
+      this.pianoAmp.connect(pianoSend);
+      pianoSend.connect(this.reverb.wet);
+
+      // Drum amp → reverb dry + a stronger wet send so the ride tail lingers.
+      this.drumAmp = this.ctx.createGain();
+      this.drumAmp.gain.value = 1.0;
+      this.drumAmp.connect(this.reverb.dry);
+      const drumSend = this.ctx.createGain();
+      drumSend.gain.value = 0.42;
+      this.drumAmp.connect(drumSend);
+      drumSend.connect(this.reverb.wet);
     }
     if (this.ctx.state === 'suspended') {
       await this.ctx.resume();
@@ -406,14 +382,22 @@ export class NotePlayer {
   }
 
   private ensureInstruments(): Promise<void> {
-    if (this.melodyInst && this.compInst) return Promise.resolve();
+    if (this.melodyInst && this.compInst && this.drumKit) return Promise.resolve();
     if (this.loading) return this.loading;
     this.loading = Promise.all([
       Soundfont.instrument(this.ctx!, 'acoustic_grand_piano' as Soundfont.InstrumentName, { gain: 2.5 }),
       Soundfont.instrument(this.ctx!, 'acoustic_grand_piano' as Soundfont.InstrumentName, { gain: 1.8 }),
-    ]).then(([melody, comp]) => {
+      loadSampledDrumKit(this.ctx!, this.drumAmp ?? undefined),
+    ]).then(([melody, comp, drums]) => {
+      // Route piano through the reverb bus so the comp/melody get a small room.
+      // soundfont-player exposes destination via `.connect()`, not via options.
+      if (this.pianoAmp) {
+        melody.connect(this.pianoAmp);
+        comp.connect(this.pianoAmp);
+      }
       this.melodyInst = melody;
       this.compInst = comp;
+      this.drumKit = drums;
     });
     return this.loading;
   }
@@ -462,16 +446,33 @@ export class NotePlayer {
       const isRest = f.note.duration.endsWith('r');
       let totalBeats = f.beats;
 
-      // If this note has a tie, merge duration with following tied notes
+      // tieContinuation 음표: 앞 tie=true 음이 이미 흡수해서 재생했음.
+      // 시간 커서만 진행, 자체 attack은 발생하지 않음. (그러나 만약 무슨
+      // 이유로 단독으로 오면 아래 일반 분기에서 재생되도록 함)
+      if (f.note.tieContinuation && !f.note.tie) {
+        // 직전 음이 tie=true였는지 확인 — 그렇다면 이미 흡수됨.
+        const prev = fi > 0 ? flat[fi - 1] : null;
+        if (prev?.note.tie) {
+          mt += f.beats;
+          fi++;
+          continue;
+        }
+        // 단독 tieContinuation (drop된 시작) → 일반 음으로 재생
+      }
+
+      // tie=true 음이면 연속된 tie 체인 (tie=true 또는 tieContinuation)만
+      // 흡수해서 길이를 합산. 그 다음의 독립적 음(슬러 대상 등)은 절대
+      // 흡수하지 않음 — 자기 attack을 가져야 함.
       if (!isRest && f.note.tie) {
         let look = fi + 1;
         while (look < flat.length) {
+          const nxt = flat[look].note;
+          if (!nxt.tie && !nxt.tieContinuation) break;
           totalBeats += flat[look].beats;
-          // Stop merging after a note that doesn't have tie
-          if (!flat[look].note.tie) { look++; break; }
+          // tieContinuation but not tie → 체인의 끝, 흡수 후 종료
+          if (nxt.tieContinuation && !nxt.tie) { look++; break; }
           look++;
         }
-        // Schedule the merged note
         const dur = totalBeats * bs;
         for (let ki = 0; ki < f.note.keys.length; ki++) {
           const acc = f.note.accidentals?.[ki];
@@ -513,25 +514,57 @@ export class NotePlayer {
       }
     }
 
-    // Schedule swing drums — ride on every beat + swing upbeat, hi-hat on 2 & 4, kick on 1 & 3
+    // Schedule swing drums — classic medium-swing "spang-a-lang" ride pattern.
+    //   ride on every beat, plus swung "a" of 2 and "a" of 4 (no upbeats after 1/3)
+    //   hi-hat foot chick on beats 2 & 4 (backbeat)
+    //   feathered kick on every beat — felt more than heard
+    // Velocities are humanized per bar so the ride doesn't sound like a metronome.
     this.drumSched = [];
-    const swingOffset = bs * 2 / 3; // triplet-feel upbeat
+    const swingOffset = bs * 2 / 3; // triplet-feel "a"
+    // Deterministic pseudo-random in [-1, 1] per (bar, slot) so renders are stable.
+    const jitter = (bar: number, slot: number) => {
+      const x = Math.sin(bar * 12.9898 + slot * 78.233) * 43758.5453;
+      return (x - Math.floor(x)) * 2 - 1;
+    };
+    const VEL_JITTER = 0.08;
+    const pushHit = (time: number, piece: DrumPiece, baseVel: number, bar: number, slot: number) => {
+      const v = baseVel + jitter(bar, slot) * VEL_JITTER;
+      this.drumSched.push({
+        time,
+        piece,
+        velocity: Math.max(0.12, Math.min(1.0, v)),
+      });
+    };
     for (let ei = 0; ei < expanded.length; ei++) {
       const measStart = ei * measSec;
-      for (let beat = 0; beat < tsNum; beat++) {
-        const t = measStart + beat * bs;
-        // Ride: downbeat + swing upbeat (skip upbeat on beat 4 for breathing room)
-        this.drumSched.push({ time: t, type: 'ride' });
-        if (beat < tsNum - 1) {
-          this.drumSched.push({ time: t + swingOffset, type: 'ride' });
-        }
-        // Hi-hat foot: beats 2 & 4
-        if (beat === 1 || beat === 3) {
-          this.drumSched.push({ time: t, type: 'hihat' });
-        }
-        // Kick: beats 1 & 3 (gentle)
-        if (beat === 0 || beat === 2) {
-          this.drumSched.push({ time: t, type: 'kick' });
+      if (tsNum === 4) {
+        // Ride pattern — quarter notes on every beat, alternating accents.
+        pushHit(measStart + 0 * bs, 'ride', 0.78, ei, 0);
+        pushHit(measStart + 1 * bs, 'ride', 0.64, ei, 1);
+        pushHit(measStart + 2 * bs, 'ride', 0.74, ei, 2);
+        pushHit(measStart + 3 * bs, 'ride', 0.64, ei, 3);
+        // Swung "a" of 2 and "a" of 4 — the iconic spang-a-lang ornaments.
+        pushHit(measStart + 1 * bs + swingOffset, 'ride', 0.52, ei, 4);
+        pushHit(measStart + 3 * bs + swingOffset, 'ride', 0.52, ei, 5);
+        // Hi-hat foot on the backbeat (2 & 4) — a bit louder so it sits under the ride.
+        pushHit(measStart + 1 * bs, 'hihat-foot', 0.88, ei, 6);
+        pushHit(measStart + 3 * bs, 'hihat-foot', 0.88, ei, 7);
+        // Feathered kick on every beat — bebop "four on the floor", very soft.
+        pushHit(measStart + 0 * bs, 'kick', 0.34, ei, 8);
+        pushHit(measStart + 1 * bs, 'kick', 0.28, ei, 9);
+        pushHit(measStart + 2 * bs, 'kick', 0.34, ei, 10);
+        pushHit(measStart + 3 * bs, 'kick', 0.28, ei, 11);
+      } else {
+        // Fallback for non-4/4: keep the legacy "ride on every beat + upbeat" feel
+        // since dedicated patterns for other meters don't exist yet.
+        for (let beat = 0; beat < tsNum; beat++) {
+          const t = measStart + beat * bs;
+          pushHit(t, 'ride', 0.72, ei, beat * 4);
+          if (beat < tsNum - 1) {
+            pushHit(t + swingOffset, 'ride', 0.5, ei, beat * 4 + 1);
+          }
+          if (beat === 1 || beat === 3) pushHit(t, 'hihat-foot', 0.85, ei, beat * 4 + 2);
+          if (beat === 0 || beat === 2) pushHit(t, 'kick', 0.32, ei, beat * 4 + 3);
         }
       }
     }
@@ -572,15 +605,19 @@ export class NotePlayer {
       this.nextIdx++;
     }
 
-    // schedule upcoming drum hits
-    if (this.drumEnabled) {
+    // schedule upcoming drum hits — sampled Gretsch kit, routed through the
+    // reverb bus so the ride and hi-hat get a club-room tail.
+    if (this.drumEnabled && this.drumKit) {
       while (this.nextDrumIdx < this.drumSched.length) {
         const d = this.drumSched[this.nextDrumIdx];
         if (d.time > now + LA) break;
         if (d.time >= now - 0.05) {
-          const baseGain = d.type === 'ride' ? 0.18 : d.type === 'hihat' ? 0.22 : 0.15;
-          const node = synthDrum(this.ctx!, this.origin + d.time, d.type, baseGain * this.drumVolume);
-          this.activeNodes.push(node);
+          this.drumKit.trigger({
+            note: d.piece,
+            time: this.origin + d.time,
+            duration: 0,
+            velocity: d.velocity * this.drumVolume,
+          });
         }
         this.nextDrumIdx++;
       }

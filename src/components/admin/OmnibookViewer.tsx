@@ -1,8 +1,11 @@
 /**
- * Charlie Parker Omnibook MusicXML viewer.
+ * Omnibook MusicXML viewer.
  *
- * data/omnibook/Omnibook xml/*.xml 50곡을 좌측 사이드바에 나열하고
- * 선택 시 xmlMelodyParser로 파싱해 NoteSheet로 렌더 — SJS 뷰어와 동일 패턴.
+ * source prop으로 어떤 작곡가 폴더를 렌더할지 결정:
+ *   - 'parker' → data/omnibook/Omnibook xml/*.xml (50+ songs)
+ *   - 'miles'  → data/miles_davis_xml/*.musicxml
+ * Vite glob은 빌드 타임에 static 경로를 요구하므로 두 글랍을 모두 정의해 두고
+ * source별로 분기.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -10,8 +13,14 @@ import styled from 'styled-components';
 import { NoteSheet } from '../notesheet/NoteSheet';
 import type { NoteSheetData } from '../../data/sampleMelody';
 import { loadXmlMelody } from '../../lib/note/xmlMelodyParser';
+import { useLickRegionPicker, LickRegionControls } from './lickRegionPicker';
 
-const omnibookModules = import.meta.glob('../../../data/omnibook/Omnibook xml/*.xml', {
+const parkerModules = import.meta.glob('../../../data/omnibook/Omnibook xml/*.xml', {
+  import: 'default',
+  query: '?url',
+}) as Record<string, () => Promise<string>>;
+
+const milesModules = import.meta.glob('../../../data/miles_davis_xml/*.musicxml', {
   import: 'default',
   query: '?url',
 }) as Record<string, () => Promise<string>>;
@@ -22,13 +31,22 @@ interface OmnibookEntry {
   loadUrl: () => Promise<string>;
 }
 
-const omnibookEntries: OmnibookEntry[] = Object.entries(omnibookModules)
-  .map(([path, loadUrl]) => {
-    const fn = path.split('/').pop() ?? '';
-    const title = decodeURIComponent(fn).replace(/\.xml$/i, '').replace(/_/g, ' ');
-    return { id: fn, title, loadUrl };
-  })
-  .sort((a, b) => a.title.localeCompare(b.title));
+function buildEntries(modules: Record<string, () => Promise<string>>): OmnibookEntry[] {
+  return Object.entries(modules)
+    .map(([path, loadUrl]) => {
+      const fn = path.split('/').pop() ?? '';
+      const title = decodeURIComponent(fn).replace(/\.(musicxml|xml)$/i, '').replace(/_/g, ' ');
+      return { id: fn, title, loadUrl };
+    })
+    .sort((a, b) => a.title.localeCompare(b.title));
+}
+
+const SOURCES = {
+  parker: { entries: buildEntries(parkerModules), composer: 'Charlie Parker' },
+  miles:  { entries: buildEntries(milesModules),  composer: 'Miles Davis' },
+} as const;
+
+export type OmnibookSource = keyof typeof SOURCES;
 
 const Layout = styled.div`
   display: grid;
@@ -128,12 +146,21 @@ const Empty = styled.div`
   font-size: 13px;
 `;
 
-export function OmnibookViewer() {
+export function OmnibookViewer({ source = 'parker' }: { source?: OmnibookSource } = {}) {
+  const { entries: omnibookEntries } = SOURCES[source];
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheet, setSheet] = useState<NoteSheetData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+
+  // Source 바뀌면 선택/상태 초기화
+  useEffect(() => {
+    setSelectedId(null);
+    setSheet(null);
+    setError(null);
+    setSearch('');
+  }, [source]);
 
   useEffect(() => {
     if (!selectedId) { setSheet(null); setError(null); return; }
@@ -150,13 +177,26 @@ export function OmnibookViewer() {
         setSheet(null);
         setLoading(false);
       });
-  }, [selectedId]);
+  }, [selectedId, omnibookEntries]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return omnibookEntries;
     return omnibookEntries.filter((e) => e.title.toLowerCase().includes(q));
-  }, [search]);
+  }, [search, omnibookEntries]);
+
+  /* ── Lick region picker (always-on hook; uses empty sheet when none loaded) ─ */
+  const emptySheet: NoteSheetData = useMemo(
+    () => ({ title: '', composer: '', key: 'C', timeSignature: '4/4', measures: [] }),
+    [],
+  );
+  const performer = source === 'parker' ? 'Charlie Parker' : 'Miles Davis';
+  const picker = useLickRegionPicker({
+    sheetData: sheet ?? emptySheet,
+    performer,
+    title: sheet?.title ?? '',
+    tag: source === 'parker' ? 'omnibook-parker-region' : 'omnibook-miles-region',
+  });
 
   return (
     <Layout>
@@ -194,8 +234,16 @@ export function OmnibookViewer() {
               {sheet.tempo && <span>tempo: {sheet.tempo}</span>}
               <span>{sheet.measures.length} measures</span>
             </MetaRow>
+            <div style={{ marginBottom: 8 }}>
+              <LickRegionControls picker={picker} />
+            </div>
             <Section>
-              <NoteSheet data={sheet} />
+              <NoteSheet
+                data={sheet}
+                selectable={picker.selectMode}
+                selectedRange={picker.selectedRange}
+                onSelectionChange={picker.setSelectedRange}
+              />
             </Section>
           </>
         )}

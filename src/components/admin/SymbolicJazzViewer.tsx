@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import { useLickRegionPicker, LickRegionControls } from './lickRegionPicker';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { NoteSheet } from '../notesheet/NoteSheet';
@@ -388,6 +389,7 @@ const OctaveBtn = styled.button`
   &:disabled { opacity: 0.4; cursor: default; }
 `;
 
+
 const ChordRow = styled.div`
   display: flex;
   flex-wrap: wrap;
@@ -630,6 +632,14 @@ function StemRenderer({
     [title, name, stem, octaveShift, quantize],
   );
 
+  /* ── Lick region selection (admin) — global helper ──────────────────── */
+  const picker = useLickRegionPicker({
+    sheetData,
+    performer: name,
+    title,
+    tag: 'sjs-region',
+  });
+
   const totalNotes = stem.bars.reduce((s, b) => s + b.length, 0);
   const chordPreview = stem.chords.slice(0, 12);
 
@@ -644,6 +654,7 @@ function StemRenderer({
           {octaveShift !== autoShift && ` (auto: ${autoShift > 0 ? '+' : ''}${autoShift})`}
         </StemMeta>
         <Spacer />
+        <LickRegionControls picker={picker} />
         <OctaveCtrl>
           <span>Octave:</span>
           <OctaveBtn onClick={() => onOctaveShift(-1)} title="옥타브 내림">▼</OctaveBtn>
@@ -670,7 +681,12 @@ function StemRenderer({
           )}
         </ChordRow>
       )}
-      <NoteSheet data={sheetData} />
+      <NoteSheet
+        data={sheetData}
+        selectable={picker.selectMode}
+        selectedRange={picker.selectedRange}
+        onSelectionChange={picker.setSelectedRange}
+      />
     </StemSection>
   );
 }

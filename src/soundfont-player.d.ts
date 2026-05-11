@@ -4,6 +4,7 @@ declare module 'soundfont-player' {
       play(note: string | number, when?: number, opts?: PlayOptions): AudioNode;
       stop(): void;
       schedule(when: number, events: Array<{ note: string | number; time?: number; duration?: number; gain?: number }>): void;
+      connect(destination: AudioNode): Player;
     }
 
     interface PlayOptions {

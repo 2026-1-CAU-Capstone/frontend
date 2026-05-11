@@ -1,11 +1,32 @@
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 
+export type Articulation =
+  | 'staccato'        // ·  short
+  | 'staccatissimo'   // very short (filled wedge)
+  | 'accent'          // >
+  | 'tenuto'          // –
+  | 'marcato'         // ^  strong accent
+  | 'detached-legato'; // –· tenuto + staccato
+
+export type Ornament =
+  | 'trill'           // tr
+  | 'mordent'         // ✱
+  | 'inverted-mordent'
+  | 'turn'
+  | 'inverted-turn'
+  | 'tremolo';
+
+export type Dynamic =
+  | 'pp' | 'p' | 'mp' | 'mf' | 'f' | 'ff' | 'fff'
+  | 'sfz' | 'fp';
+
 export interface NoteInfo {
   keys: string[];                               // VexFlow keys e.g. ['c/5']
   duration: string;                             // 'w','h','q','8','16' or 'wr','hr','qr','8r'
   dotted?: boolean;
   accidentals?: Record<number, '#' | 'b' | 'n'>;
   tie?: boolean;                                // tie to the NEXT note of same pitch
+  tieContinuation?: boolean;                    // this note is the receiving end of a tie — visually rendered but absorbed into prev note's sound by the player
   gliss?: boolean;                              // glissando to the NEXT note
   tuplet?: number;                              // e.g. 3 = triplet (3 notes in time of 2)
   beamBreak?: boolean;                          // force beam break AFTER this note
@@ -13,6 +34,16 @@ export interface NoteInfo {
   ghost?: boolean;                              // ghost note — rendered in parentheses ()
   ottavaStart?: '8va' | '8vb';                 // start of ottava bracket at this note
   ottavaEnd?: boolean;                          // end of ottava bracket at this note
+
+  // ── Phrasing & expression (MusicXML import) ─────────────────────────────
+  slurStart?: boolean;                          // <slur type="start"/> at this note
+  slurStop?: boolean;                           // <slur type="stop"/> at this note
+  articulations?: Articulation[];               // staccato/accent/tenuto/...
+  fermata?: boolean;                            // fermata 𝄐 over the note
+  ornaments?: Ornament[];                       // trill/mordent/turn/...
+  dynamics?: Dynamic;                           // dynamic marking placed at this note onset
+  grace?: boolean;                              // grace note (small/acciaccatura)
+  graceSlash?: boolean;                         // acciaccatura slash (true) vs appoggiatura (false)
 }
 
 export type NavigationMarker =
@@ -28,6 +59,11 @@ export interface MeasureInfo {
   volta?: 1 | 2;           // volta bracket (1st / 2nd ending)
   navigation?: NavigationMarker;  // D.C., D.S., Coda, Fine, etc.
   bracket?: boolean;              // intro bracket — skipped on loop, jumps to first chord measure
+
+  // ── Mid-piece changes from MusicXML <attributes> mid-stream ─────────────
+  timeSignature?: string;         // override at this measure (e.g. '3/4' switch)
+  key?: string;                   // override key (display name like 'F' / 'Eb')
+  anacrusis?: boolean;            // pickup measure — fewer beats than time sig
 }
 
 export interface NoteSheetData {

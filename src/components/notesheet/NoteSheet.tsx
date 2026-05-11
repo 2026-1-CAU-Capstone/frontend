@@ -14,6 +14,15 @@ import {
   Tuplet,
   VoltaType,
   Repetition,
+  Articulation,
+  Ornament,
+  Annotation,
+  AnnotationVerticalJustify,
+  GraceNote,
+  GraceNoteGroup,
+  Curve,
+  TextBracket,
+  TextBracketPosition,
 } from 'vexflow';
 import type { NoteSheetData, MeasureInfo } from '../../data/sampleMelody';
 import { NotePlayer } from '../../lib/note/notePlayer';
@@ -89,15 +98,33 @@ const MAX_PER_LINE = 8;
  * This keeps VexFlow's native proportions crisp. */
 function getBarLayout(containerW: number) {
   // Always render with desktop-size constants
-  const barW = 175, decorFirst = 80, decorOther = 40, lineH = 170;
+  const decorFirst = 80, decorOther = 40, lineH = 170;
   // Scale factor: shrink proportionally below 800px
   const scale = containerW < 1000 ? Math.max(0.42, containerW / 1000) : 1;
-  return { barW, decorFirst, decorOther, lineH, scale };
+  return { decorFirst, decorOther, lineH, scale };
 }
 
 const FIXED_BAR_W = 175;
 const DECOR_FIRST = 80;
 const DECOR_OTHER = 40;
+
+/* Per-duration minimum px reservation. Used to grow dense bars beyond
+ * FIXED_BAR_W when they contain many short notes (16th/32nd) — otherwise
+ * VexFlow's Formatter crams notes too close together. */
+const PX_PER_DUR: Record<string, number> = {
+  w: 70, h: 50, q: 38, '8': 26, '16': 19, '32': 14,
+};
+
+function measureMinWidth(m: MeasureInfo): number {
+  let w = 22;
+  for (const n of m.notes) {
+    const base = n.duration.replace(/[dr]/g, '');
+    w += PX_PER_DUR[base] ?? 28;
+    if (n.accidentals) w += Object.keys(n.accidentals).length * 8;
+    if (n.dotted) w += 5;
+  }
+  return Math.max(w, FIXED_BAR_W);
+}
 const MEASURE_HL_COLOR = 'rgba(100, 181, 246, 0.13)';
 
 const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25, '32': 0.125 };
@@ -180,13 +207,13 @@ function drawGlissLine(svgEl: SVGElement, fromNote: StaveNote, toNote: StaveNote
   svgEl.appendChild(txt);
 }
 
-function packLines(measures: MeasureInfo[], availW: number, barW = FIXED_BAR_W, dFirst = DECOR_FIRST, dOther = DECOR_OTHER): number[][] {
+function packLines(measures: MeasureInfo[], availW: number, dFirst = DECOR_FIRST, dOther = DECOR_OTHER): number[][] {
   const lines: number[][] = [];
   let line: number[] = [];
   let usedW = 0;
 
   for (let i = 0; i < measures.length; i++) {
-    const mw = barW;
+    const mw = measureMinWidth(measures[i]);
     const decor = line.length === 0
       ? (lines.length === 0 ? dFirst : dOther)
       : 0;
@@ -491,9 +518,15 @@ interface NoteSheetProps {
   selectedKey?: string;
   allKeys?: readonly string[];
   onKeyChange?: (key: string) => void;
+  /** Region-selection mode (admin lick picker). When true, clicking a measure
+   * sets/extends the selected range. */
+  selectable?: boolean;
+  /** Inclusive [start, end] measure indices, or null for no selection. */
+  selectedRange?: [number, number] | null;
+  onSelectionChange?: (range: [number, number] | null) => void;
 }
 
-export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheetProps) {
+export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable, selectedRange, onSelectionChange }: NoteSheetProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(900);
@@ -623,6 +656,83 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
     svg.insertBefore(rect, svg.firstChild);
   }, [activeMeasure]);
 
+  /* ── selection highlight (admin region picker) ────────────────────── */
+  useEffect(() => {
+    const svg = svgRef.current?.querySelector('svg');
+    if (!svg) return;
+    // Remove any previous selection rects
+    svg.querySelectorAll('.m-sel').forEach((n) => n.remove());
+    if (!selectedRange) return;
+    const [start, end] = selectedRange;
+    const lo = Math.max(0, Math.min(start, end));
+    const hi = Math.max(start, end);
+    for (let i = lo; i <= hi; i++) {
+      const r = measureRectsRef.current[i];
+      if (!r) continue;
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('class', 'm-sel');
+      rect.setAttribute('x', String(r.x));
+      rect.setAttribute('y', String(r.y + 10));
+      rect.setAttribute('width', String(r.w));
+      rect.setAttribute('height', String(unscaledLineHRef.current - 20));
+      // Match the ChordPage green selection style.
+      rect.setAttribute('fill', 'rgba(35, 149, 88, 0.62)');
+      rect.setAttribute('stroke', 'rgba(19, 111, 65, 0.95)');
+      rect.setAttribute('stroke-width', '2');
+      rect.setAttribute('rx', '4');
+      svg.insertBefore(rect, svg.firstChild);
+    }
+  }, [selectedRange, data]);
+
+  /* ── click → toggle / extend selection (admin mode only) ─────────── */
+  useEffect(() => {
+    const svg = svgRef.current?.querySelector('svg');
+    if (!svg || !selectable || !onSelectionChange) return;
+    const handler = (e: MouseEvent) => {
+      const pt = (svg as SVGSVGElement).createSVGPoint();
+      pt.x = e.clientX;
+      pt.y = e.clientY;
+      const ctm = (svg as SVGSVGElement).getScreenCTM();
+      if (!ctm) return;
+      const local = pt.matrixTransform(ctm.inverse());
+      const lineH = unscaledLineHRef.current;
+      // Hit-test: find the measure rect that contains (local.x, local.y)
+      let hit = -1;
+      for (let i = 0; i < measureRectsRef.current.length; i++) {
+        const r = measureRectsRef.current[i];
+        if (!r) continue;
+        if (local.x >= r.x && local.x <= r.x + r.w
+            && local.y >= r.y && local.y <= r.y + lineH) {
+          hit = i;
+          break;
+        }
+      }
+      if (hit < 0) {
+        // Clicked outside any measure → clear selection
+        onSelectionChange(null);
+        return;
+      }
+      if (!selectedRange) {
+        onSelectionChange([hit, hit]);
+      } else if (e.shiftKey) {
+        // Shift-click extends range from existing anchor (lo of current)
+        const [a, b] = selectedRange;
+        const anchor = Math.min(a, b);
+        onSelectionChange([Math.min(anchor, hit), Math.max(anchor, hit)]);
+      } else {
+        // Plain click: if same single measure already selected, clear; else
+        // start fresh single-measure selection.
+        if (selectedRange[0] === hit && selectedRange[1] === hit) {
+          onSelectionChange(null);
+        } else {
+          onSelectionChange([hit, hit]);
+        }
+      }
+    };
+    (svg as SVGSVGElement).addEventListener('click', handler);
+    return () => { (svg as SVGSVGElement).removeEventListener('click', handler); };
+  }, [selectable, selectedRange, onSelectionChange, data]);
+
   /* ── auto-scroll to active measure ────────────────────────────────── */
   useEffect(() => {
     if (activeMeasure < 0) return;
@@ -666,7 +776,7 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
     // Render at virtual (unscaled) size, then CSS-scale down
     const renderW = width / layout.scale;
     const totalW = renderW - MARGIN.left - MARGIN.right;
-    const lines = packLines(data.measures, totalW, layout.barW, layout.decorFirst, layout.decorOther);
+    const lines = packLines(data.measures, totalW, layout.decorFirst, layout.decorOther);
     const numLines = lines.length;
     const totalH = MARGIN.top + numLines * layout.lineH + MARGIN.bottom;
 
@@ -717,9 +827,14 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
       const decorW = isFirstLine ? layout.decorFirst : layout.decorOther;
       const availForBars = totalW - decorW;
 
-      const barW = (isLastLine && indices.length < MAX_PER_LINE)
-        ? layout.barW
-        : availForBars / indices.length;
+      // Per-bar min widths (more space for dense bars). Distribute the line's
+      // available width proportionally; last partial line keeps natural widths.
+      const mins = indices.map((i) => measureMinWidth(data.measures[i]));
+      const totalMin = mins.reduce((a, b) => a + b, 0) || 1;
+      const stretch = (isLastLine && indices.length < MAX_PER_LINE)
+        ? 1
+        : Math.max(1, availForBars / totalMin);
+      const barWidths = mins.map((m) => m * stretch);
 
       let x = MARGIN.left;
 
@@ -727,6 +842,7 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
         const m = indices[j];
         const firstInLine = j === 0;
         const isLastBar = m === data.measures.length - 1;
+        const barW = barWidths[j];
         const w = firstInLine ? barW + decorW : barW;
 
         const measure = data.measures[m];
@@ -740,6 +856,13 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
           stave.addClef('treble');
           if (data.key && data.key !== 'C') stave.addKeySignature(data.key);
           if (isFirstLine) stave.addTimeSignature(data.timeSignature);
+        }
+        // Mid-piece changes (MusicXML <attributes> emitted mid-stream).
+        if (measure.key && !firstInLine) {
+          stave.addKeySignature(measure.key);
+        }
+        if (measure.timeSignature) {
+          stave.addTimeSignature(measure.timeSignature);
         }
         // Repeat / end barlines
         if (measure.repeatStart) stave.setBegBarType(BarlineType.REPEAT_BEGIN);
@@ -771,7 +894,17 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
         const activeAcc = tieCarryAcc ? new Map(tieCarryAcc) : new Map<string, 'b' | '#' | 'n'>();
         tieCarryAcc = undefined;
 
-        const vfNotes = measure.notes.map((n) => {
+        // Build vfNotes manually so we can skip grace notes (which become
+        // modifiers on the next real note, not standalone tickables).
+        // vfNoteIdxOf[i] = vfNotes index for measure.notes[i], or -1 if grace.
+        // measureIdxOfVf[j] = measure.notes index for vfNotes[j].
+        const vfNotes: StaveNote[] = [];
+        const vfNoteIdxOf: number[] = new Array(measure.notes.length).fill(-1);
+        const measureIdxOfVf: number[] = [];
+        let pendingGraces: GraceNote[] = [];
+
+        for (let mi_ = 0; mi_ < measure.notes.length; mi_++) {
+          const n = measure.notes[mi_];
           const isRest = n.duration.endsWith('r');
           const dur = buildDuration(n.duration, n.dotted);
 
@@ -786,8 +919,69 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
             }
           }
 
+          if (n.grace) {
+            // Build a GraceNote — not added to vfNotes (not a tickable).
+            const g = new GraceNote({
+              keys: isRest ? ['b/4'] : keys,
+              duration: dur,
+              slash: !!n.graceSlash,
+            });
+            if (n.dotted) Dot.buildAndAttach([g]);
+            if (realAcc && !isRest) g.addModifier(new Accidental(realAcc), 0);
+            pendingGraces.push(g);
+            continue;
+          }
+
           const note = new StaveNote({ keys: isRest ? ['b/4'] : keys, duration: dur, autoStem: true });
           if (n.dotted) Dot.buildAndAttach([note]);
+
+          // Attach accumulated grace notes (if any) as a GraceNoteGroup modifier.
+          if (pendingGraces.length > 0) {
+            try {
+              const group = new GraceNoteGroup(pendingGraces, false);
+              note.addModifier(group, 0);
+            } catch (e) { console.warn('grace group failed', e); }
+            pendingGraces = [];
+          }
+
+          // ── Modifiers from MusicXML import: articulations, fermata,
+          //    ornaments, dynamics, grace notes. Renderer/parser-agnostic
+          //    so manually-authored notes also pick these up. ──────────
+          if (n.articulations) {
+            const ART_VF: Record<string, string> = {
+              staccato: 'a.', staccatissimo: 'av',
+              accent: 'a>', tenuto: 'a-',
+              marcato: 'a^', 'detached-legato': 'a-.',
+            };
+            for (const a of n.articulations) {
+              const code = ART_VF[a];
+              if (code) note.addModifier(new Articulation(code).setPosition(3), 0); // 3 = above
+            }
+          }
+          if (n.fermata) {
+            note.addModifier(new Articulation('a@a').setPosition(3), 0);
+          }
+          if (n.ornaments) {
+            const ORN_VF: Record<string, string> = {
+              trill: 'tr', mordent: 'mordent',
+              'inverted-mordent': 'mordent_inverted',
+              turn: 'turn', 'inverted-turn': 'turn_inverted',
+              tremolo: 'tr',
+            };
+            for (const o of n.ornaments) {
+              const code = ORN_VF[o];
+              if (code) note.addModifier(new Ornament(code), 0);
+            }
+          }
+          if (n.dynamics) {
+            const ann = new Annotation(n.dynamics);
+            ann.setVerticalJustification(AnnotationVerticalJustify.BOTTOM);
+            note.addModifier(ann, 0);
+          }
+          // Grace notes — attach a GraceNoteGroup so the grace appears
+          // BEFORE this (parent) note. Marked via parent.grace OR by a
+          // separate `grace` array we'll add later if needed. Here we
+          // skip parent notes that ARE grace (those become group members).
 
           if (!isRest) {
             const noteId = keys[0];
@@ -812,10 +1006,24 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
               }
             }
           }
-          return note;
-        });
+          vfNoteIdxOf[mi_] = vfNotes.length;
+          measureIdxOfVf.push(mi_);
+          vfNotes.push(note);
+        }
+        // Trailing graces at end of measure → attach to last real note.
+        if (pendingGraces.length > 0 && vfNotes.length > 0) {
+          try {
+            const group = new GraceNoteGroup(pendingGraces, false);
+            vfNotes[vfNotes.length - 1].addModifier(group, 0);
+          } catch (e) { console.warn('trailing grace group failed', e); }
+          pendingGraces = [];
+        }
 
-        const lastNote = measure.notes[measure.notes.length - 1];
+        // Find last non-grace note for cross-measure tie carry.
+        let lastNote: typeof measure.notes[0] | undefined;
+        for (let li = measure.notes.length - 1; li >= 0; li--) {
+          if (!measure.notes[li].grace) { lastNote = measure.notes[li]; break; }
+        }
         if (lastNote?.tie && !lastNote.duration.endsWith('r')) {
           let tieAcc = lastNote.accidentals?.[0] as 'b' | '#' | undefined;
           let tieKey = lastNote.keys[0];
@@ -857,7 +1065,8 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
 
         for (let ni = 0; ni < vfNotes.length; ni++) {
           const vn = vfNotes[ni];
-          const isTuplet = !!measure.notes[ni].tuplet;
+          const sourceIdx = measureIdxOfVf[ni];
+          const isTuplet = !!measure.notes[sourceIdx]?.tuplet;
           const dur = vn.getDuration();
           const isBeamable = dur === '8' || dur === '16' || dur === '8d' || dur === '16d';
           const isRest = vn.isRest();
@@ -893,7 +1102,7 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
             }
             beamGroup.push(vn);
             if (!isTuplet) groupBeats += noteBeats;
-            if (measure.notes[ni].beamBreak) {
+            if (measure.notes[sourceIdx]?.beamBreak) {
               if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
               beamGroup = []; groupBeats = 0; postTupletMerged = false;
             }
@@ -918,14 +1127,19 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
           if (svgNode) noteElMapRef.current.set(`${m}-${ni}`, svgNode as SVGElement);
         }
 
-        // ── Tuplet brackets ──
+        // ── Tuplet brackets — walk measure.notes but skip graces; map
+        //    real indices → vfNotes via vfNoteIdxOf. ──
         {
           let ti = 0;
           while (ti < measure.notes.length) {
+            if (measure.notes[ti].grace) { ti++; continue; }
             if (measure.notes[ti].tuplet === 3) {
               const group: StaveNote[] = [];
               while (ti < measure.notes.length && measure.notes[ti].tuplet === 3 && group.length < 3) {
-                group.push(vfNotes[ti]); ti++;
+                if (measure.notes[ti].grace) { ti++; continue; }
+                const vIdx = vfNoteIdxOf[ti];
+                if (vIdx >= 0) group.push(vfNotes[vIdx]);
+                ti++;
               }
               if (group.length >= 2) {
                 const stemDown = group[0].getStemDirection() === -1;
@@ -942,10 +1156,14 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
     }
 
     // Draw ties
+    // NOTE: allVfNotes is indexed by VFNOTES position (excludes graces).
+    // Below we walk measure.notes and skip graces, so flatIdx increments
+    // 1:1 with allVfNotes regardless of how many graces are in between.
     let flatIdx = 0;
     for (let mi = 0; mi < data.measures.length; mi++) {
       const measure = data.measures[mi];
       for (let ni = 0; ni < measure.notes.length; ni++) {
+        if (measure.notes[ni].grace) continue;
         if (measure.notes[ni].tie) {
           const from = allVfNotes[flatIdx];
           const to = allVfNotes[flatIdx + 1];
@@ -958,6 +1176,66 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
       }
     }
 
+    // Draw slurs — pair slurStart with the next slurStop on same line.
+    {
+      const startStack: { flatIdx: number }[] = [];
+      let flatIdxS = 0;
+      for (let mi = 0; mi < data.measures.length; mi++) {
+        const measure = data.measures[mi];
+        for (let ni = 0; ni < measure.notes.length; ni++) {
+          const n = measure.notes[ni];
+          if (n.grace) continue;
+          if (n.slurStart) startStack.push({ flatIdx: flatIdxS });
+          if (n.slurStop && startStack.length > 0) {
+            const start = startStack.shift()!;
+            const from = allVfNotes[start.flatIdx];
+            const to = allVfNotes[flatIdxS];
+            if (from && to && measureLine.get(from.mi) === measureLine.get(to.mi)) {
+              try {
+                const curve = new Curve(from.vfNote, to.vfNote, {});
+                curve.setContext(ctx).draw();
+              } catch (e) { console.warn('slur draw failed', e); }
+            }
+          }
+          flatIdxS++;
+        }
+      }
+    }
+
+    // Draw ottava brackets (8va / 8vb).
+    {
+      let activeOttava: { kind: '8va' | '8vb'; flatIdx: number } | null = null;
+      let flatIdxO = 0;
+      for (let mi = 0; mi < data.measures.length; mi++) {
+        const measure = data.measures[mi];
+        for (let ni = 0; ni < measure.notes.length; ni++) {
+          const n = measure.notes[ni];
+          if (n.grace) continue;
+          if (n.ottavaStart && !activeOttava) {
+            activeOttava = { kind: n.ottavaStart, flatIdx: flatIdxO };
+          }
+          if (n.ottavaEnd && activeOttava) {
+            const from = allVfNotes[activeOttava.flatIdx];
+            const to = allVfNotes[flatIdxO];
+            if (from && to && measureLine.get(from.mi) === measureLine.get(to.mi)) {
+              try {
+                const tb = new TextBracket({
+                  start: from.vfNote,
+                  stop: to.vfNote,
+                  text: activeOttava.kind === '8va' ? '8' : '8',
+                  superscript: 'va',
+                  position: activeOttava.kind === '8va' ? TextBracketPosition.TOP : TextBracketPosition.BOTTOM,
+                });
+                tb.setContext(ctx).draw();
+              } catch (e) { console.warn('ottava draw failed', e); }
+            }
+            activeOttava = null;
+          }
+          flatIdxO++;
+        }
+      }
+    }
+
     // Draw glissando lines
     const svgElGliss = el.querySelector('svg');
     if (svgElGliss) {
@@ -965,6 +1243,7 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange }: NoteSheet
       for (let mi = 0; mi < data.measures.length; mi++) {
         const measure = data.measures[mi];
         for (let ni = 0; ni < measure.notes.length; ni++) {
+          if (measure.notes[ni].grace) continue;
           if (measure.notes[ni].gliss) {
             const from = allVfNotes[flatIdx];
             const to = allVfNotes[flatIdx + 1];
