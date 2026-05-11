@@ -35,9 +35,10 @@ const MEASURE_HL_COLOR = 'rgba(100, 181, 246, 0.13)';
 const DECOR_OTHER = 35;
 /* Uniform per-note base width: every note contributes the same horizontal allotment regardless
  * of duration, so the rendered distance between consecutive notes (8th-8th, 16th-16th, etc.) is
- * the same across all licks. Combined with a low softmaxFactor in the Formatter call below, this
- * makes VexFlow distribute notes evenly by count rather than proportionally by duration. */
-const PX_PER_DUR: Record<string, number> = { w: 18, h: 18, q: 18, '8': 18, '16': 18 };
+ * the same across all licks. The value is set high enough (22) to give VexFlow room to render
+ * note glyphs without crowding; combined with the softmaxFactor in the Formatter call below this
+ * makes spacing nearly uniform by count rather than proportional to duration. */
+const PX_PER_DUR: Record<string, number> = { w: 22, h: 22, q: 22, '8': 22, '16': 22 };
 const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25 };
 
 /**
@@ -629,7 +630,8 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
     // Unified spacing: every lick renders at MULT_DEFAULT regardless of length, so the
     // note-to-note distance is identical across all licks. If the music doesn't fit at this
     // spacing, allow horizontal scroll (no compression, no CSS scale — those would alter spacing).
-    const MULT_DEFAULT = 1.4;
+    // Note width budget = PX_PER_DUR (22) × MULT_DEFAULT (1.15) ≈ 25 px per note.
+    const MULT_DEFAULT = 1.15;
 
     const decorTotal = MARGIN.left + decorW + MARGIN.right;
     const baseTotal = baseWidths.reduce((s, w) => s + w, 0);
@@ -725,11 +727,10 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
         voice.setStrict(false);
         voice.addTickables(vfNotes);
 
-        // softmaxFactor close to 1 → VexFlow distributes notes nearly evenly by count rather
-        // than proportionally to duration, so 8th-8th and 16th-16th spacing render the same.
-        const formatter = new Formatter({ softmaxFactor: 1 });
-        formatter.joinVoices([voice]);
-        formatter.format([voice], stave.getNoteEndX() - stave.getNoteStartX());
+        // Low softmaxFactor → VexFlow distributes notes more evenly by count rather than
+        // proportionally to duration. formatToStave handles bar alignment using stave's
+        // intrinsic note area, which keeps bar lines / next-measure x positions correct.
+        new Formatter({ softmaxFactor: 5 }).joinVoices([voice]).formatToStave([voice], stave);
         voice.draw(ctx, stave);
         beams.forEach((b) => b.setContext(ctx).draw());
 
