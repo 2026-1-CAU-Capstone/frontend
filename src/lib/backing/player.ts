@@ -7,6 +7,7 @@ import type {
 } from "./types";
 import { renderChart } from "./engine";
 import { loadInstruments, type TriggerableInstrument } from "./soundfont";
+import { loadDrumLoopPlayer, type DrumLoopPlayer } from "./drumLoopPlayer";
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Backing player.
@@ -32,6 +33,8 @@ export function createBackingPlayer(
   let piano: TriggerableInstrument | null = null;
   let bass: TriggerableInstrument | null = null;
   let drums: TriggerableInstrument | null = null;
+  let drumLoop: DrumLoopPlayer | null = null;
+  let drumLoopUrl: string | null = null;       // currently-loaded loop URL
   let loading: Promise<void> | null = null;
 
   let events: BackingEvent[] = [];
@@ -61,6 +64,26 @@ export function createBackingPlayer(
       drums = inst.drums;
     });
     return loading;
+  }
+
+  /** Lazy-load drum loop player if config.drumLoop is set. Reloads when URL changes. */
+  async function ensureDrumLoop(): Promise<void> {
+    const cfg = config.drumLoop;
+    if (config.drumMode !== "loop" || !cfg) {
+      if (drumLoop) { drumLoop.dispose(); drumLoop = null; drumLoopUrl = null; }
+      return;
+    }
+    if (drumLoop && drumLoopUrl === cfg.url) return;
+    drumLoop?.dispose();
+    drumLoop = null;
+    drumLoopUrl = null;
+    try {
+      const c = ensureCtx();
+      drumLoop = await loadDrumLoopPlayer(c, c.destination, cfg);
+      drumLoopUrl = cfg.url;
+    } catch (err) {
+      console.warn("[backing] drum loop load failed, falling back to hit mode:", err);
+    }
   }
 
   /* ── event building ──────────────────────────────────────────────── */
@@ -119,6 +142,8 @@ export function createBackingPlayer(
     const absTime = origin + ev.time;
 
     if (ev.kind === "drum") {
+      // Loop mode owns the entire drum part — skip per-hit dispatch.
+      if (config.drumMode === "loop" && drumLoop) return;
       const vol = config.volume?.drums ?? 1;
       if (vol <= 0) return;
       drums?.trigger({
@@ -148,6 +173,7 @@ export function createBackingPlayer(
     piano?.stopAll();
     bass?.stopAll();
     drums?.stopAll();
+    drumLoop?.stop();
   }
 
   /* ── public API ──────────────────────────────────────────────────── */
@@ -156,6 +182,7 @@ export function createBackingPlayer(
     if (playing) return;
     ensureCtx();
     await ensureInstruments();
+    await ensureDrumLoop();
     build();
     playing = true;
     lastBarFired = -2;
@@ -169,7 +196,22 @@ export function createBackingPlayer(
         break;
       }
     }
+
+    // Start the drum loop in sync with the transport origin.
+    if (config.drumMode === "loop" && drumLoop) {
+      const drumVol = config.volume?.drums ?? 1;
+      drumLoop.setGain((config.drumLoop?.gain ?? 1) * drumVol);
+      // Resuming mid-stream: skip into the loop's phase so it aligns with elapsed time.
+      // BufferSource doesn't support arbitrary offset + loop reliably across browsers
+      // for non-zero offsets, so for paused-resume we restart from loop t=0.
+      drumLoop.start(origin + elapsed, opts().bpm);
+    }
+
     tick();
+  }
+
+  function opts() {
+    return { bpm: config.bpm ?? chart.bpm };
   }
 
   function pause(): void {
@@ -191,12 +233,36 @@ export function createBackingPlayer(
   }
 
   function setConfig(next: Partial<BackingConfig>): void {
+    const prevMode = config.drumMode;
+    const prevUrl = config.drumLoop?.url;
     config = { ...config, ...next };
-    if (playing) build();
+    if (playing) {
+      build();
+      // If drum mode or loop URL changed mid-playback, restart the loop accordingly.
+      const modeChanged = prevMode !== config.drumMode;
+      const urlChanged = prevUrl !== config.drumLoop?.url;
+      if (modeChanged || urlChanged) {
+        drumLoop?.stop();
+        if (config.drumMode === "loop") {
+          ensureDrumLoop().then(() => {
+            if (!playing || !ctx) return;
+            const drumVol = config.volume?.drums ?? 1;
+            drumLoop?.setGain((config.drumLoop?.gain ?? 1) * drumVol);
+            drumLoop?.start(ctx.currentTime, opts().bpm);
+          });
+        }
+      } else if (config.drumMode === "loop" && drumLoop) {
+        const drumVol = config.volume?.drums ?? 1;
+        drumLoop.setGain((config.drumLoop?.gain ?? 1) * drumVol);
+      }
+    }
   }
 
   function dispose(): void {
     stop();
+    drumLoop?.dispose();
+    drumLoop = null;
+    drumLoopUrl = null;
     ctx?.close();
     ctx = null;
     piano = null;

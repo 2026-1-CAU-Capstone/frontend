@@ -7,6 +7,8 @@ import {
 import Soundfont from 'soundfont-player';
 import type { NoteInfo, MeasureInfo } from '../data/sampleMelody';
 import { loadUserLicks, type LickEntry } from '../data/lickData';
+import { getLickVideo, type LickVideo } from '../data/lickVideos';
+import { YoutubeEmbed } from '../components/common/YoutubeEmbed';
 
 /* ─── transposition helpers ───────────────────────────────────────────── */
 
@@ -648,11 +650,6 @@ const BpmInput = styled.input`
   outline: none;
 `;
 
-const BpmLabel = styled.span`
-  font-size: 0.72rem;
-  color: ${({ theme }) => theme.colors.textSecondary};
-`;
-
 const ListArea = styled.div`
   flex: 1;
   overflow-y: auto;
@@ -706,7 +703,6 @@ const SheetWrap = styled.div`
 `;
 
 const PlayKeyBtn = styled.button<{ $playing?: boolean }>`
-  margin-top: 6px;
   font-size: 0.72rem;
   padding: 3px 8px;
   border: 1px solid ${({ $playing }) => ($playing ? '#c0392b' : '#2a6e3f')};
@@ -718,16 +714,49 @@ const PlayKeyBtn = styled.button<{ $playing?: boolean }>`
   &:hover { opacity: 0.85; }
 `;
 
+const YoutubeBtn = styled.button<{ $active?: boolean }>`
+  font-size: 0.72rem;
+  padding: 3px 6px;
+  border: 1px solid #c4302b;
+  border-radius: 4px;
+  background: ${({ $active }) => ($active ? '#c4302b' : '#fff')};
+  color: ${({ $active }) => ($active ? '#fff' : '#c4302b')};
+  cursor: pointer;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  &:hover { opacity: 0.85; }
+`;
+
+const PlayBpmRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+`;
+
+const RightCol = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+`;
+
 /* ─── key row component ───────────────────────────────────────────────── */
 
-function KeyRow({ keyName, measures, width, isOriginal, bpm }: {
-  keyName: string; measures: MeasureInfo[]; width: number; isOriginal: boolean; bpm: number;
+function KeyRow({ keyName, measures, width, isOriginal, defaultBpm, video }: {
+  keyName: string; measures: MeasureInfo[]; width: number; isOriginal: boolean; defaultBpm: number; video?: LickVideo;
 }) {
   const svgRef = useRef<HTMLDivElement>(null);
   const renderedRef = useRef(false);
   const visRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [bpm, setBpm] = useState(defaultBpm);
+  const [bpmText, setBpmText] = useState(String(defaultBpm));
+  const [showVideo, setShowVideo] = useState(false);
+  useEffect(() => { setBpm(defaultBpm); setBpmText(String(defaultBpm)); }, [defaultBpm]);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -818,13 +847,54 @@ function KeyRow({ keyName, measures, width, isOriginal, bpm }: {
           {keyName}
           {isOriginal && <OriginalBadge>original</OriginalBadge>}
         </KeyLabel>
-        <PlayKeyBtn $playing={playing} onClick={handlePlay}>
-          {playing ? '\u25A0' : '\u25B6'}
-        </PlayKeyBtn>
+        <PlayBpmRow>
+          <PlayKeyBtn $playing={playing} onClick={handlePlay}>
+            {playing ? '\u25A0' : '\u25B6'}
+          </PlayKeyBtn>
+          {video && (
+            <YoutubeBtn
+              $active={showVideo}
+              onClick={() => setShowVideo((v) => !v)}
+              title={showVideo ? '\uC6D0\uBCF8 \uC601\uC0C1 \uB2EB\uAE30' : '\uC6D0\uBCF8 \uC601\uC0C1 \uBCF4\uAE30'}
+            >
+              <svg width="12" height="9" viewBox="0 0 24 17" aria-hidden>
+                <path fill={showVideo ? '#fff' : '#c4302b'} d="M23.5 2.6a3 3 0 0 0-2.1-2.1C19.5 0 12 0 12 0S4.5 0 2.6.5A3 3 0 0 0 .5 2.6 31 31 0 0 0 0 8.5c0 2 .2 4 .5 5.9a3 3 0 0 0 2.1 2.1C4.5 17 12 17 12 17s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1c.3-1.9.5-3.9.5-5.9 0-2-.2-4-.5-5.9z" />
+                <path fill={showVideo ? '#c4302b' : '#fff'} d="M9.6 12.1V4.9L15.8 8.5z" />
+              </svg>
+            </YoutubeBtn>
+          )}
+          <BpmInput
+            type="text"
+            inputMode="numeric"
+            value={bpmText}
+            onChange={(e) => {
+              const v = e.target.value.replace(/[^0-9]/g, '');
+              setBpmText(v);
+              const n = Number(v);
+              if (n >= 20 && n <= 400) setBpm(n);
+            }}
+            onBlur={() => {
+              const n = Math.max(20, Math.min(400, Number(bpmText) || defaultBpm));
+              setBpm(n);
+              setBpmText(String(n));
+            }}
+          />
+        </PlayBpmRow>
       </KeyCol>
-      <SheetWrap>
-        <div ref={svgRef} />
-      </SheetWrap>
+      <RightCol>
+        <SheetWrap>
+          <div ref={svgRef} />
+        </SheetWrap>
+        {video && showVideo && (
+          <YoutubeEmbed
+            videoId={video.videoId}
+            startSec={video.startSec}
+            endSec={video.endSec}
+            maxWidth={480}
+            autoplay
+          />
+        )}
+      </RightCol>
     </KeySection>
   );
 }
@@ -879,6 +949,7 @@ export default function Lick12KeyPage() {
   }
 
   const order = getTranspositionOrder(lick.key);
+  const video = getLickVideo(lick.id);
 
   return (
     <Page>
@@ -886,12 +957,6 @@ export default function Lick12KeyPage() {
         <BackBtn onClick={() => navigate(-1)}>&larr; Back</BackBtn>
         <TitleText>12-Key Practice</TitleText>
         <SubText>{lick.performer} — {lick.title}</SubText>
-        <BpmLabel>BPM</BpmLabel>
-        <BpmInput
-          type="number"
-          value={bpm}
-          onChange={(e) => setBpm(Math.max(20, Math.min(400, Number(e.target.value) || 200)))}
-        />
       </Header>
       <ListArea ref={listRef}>
         {order.map(({ keyName, semitones }) => (
@@ -901,7 +966,8 @@ export default function Lick12KeyPage() {
             measures={transposeMeasures(lick.sheetData.measures, semitones)}
             width={sheetWidth}
             isOriginal={semitones === 0}
-            bpm={bpm}
+            defaultBpm={bpm}
+            video={video}
           />
         ))}
       </ListArea>

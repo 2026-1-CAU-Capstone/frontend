@@ -264,6 +264,22 @@ export interface BackingConfig {
   volume?: Partial<Record<Exclude<InstrumentId, "drums"> | "drums", number>>;
   /** Count-in bars before playback starts (default 0). */
   countIn?: number;
+  /**
+   * Drum source mode.
+   *  - "hit"  (default): per-hit sample triggering driven by drums.ts patterns
+   *  - "loop": continuous real-recording loop, replacing all per-hit drums.
+   *           Requires `drumLoop` to be set with the audio file URL and
+   *           recorded BPM. Pitch will shift via playbackRate scaling.
+   */
+  drumMode?: "hit" | "loop";
+  /** Drum loop source. Required when drumMode === "loop". */
+  drumLoop?: {
+    url: string;
+    recordedBpm: number;
+    gain?: number;
+    /** Max playbackRate deviation from 1.0 (default 0.15). */
+    maxRateDeviation?: number;
+  };
 }
 
 /* ─── Player lifecycle callbacks ─────────────────────────────────────── */

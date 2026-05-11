@@ -31,10 +31,13 @@ const MARGIN = { top: 40, left: 10, right: 44, bottom: 10 };
 /* 코드 라벨의 최소 baseline y — SVG 상단 밖으로 텍스트가 나가지 않도록 클램프. */
 const CHORD_MIN_Y = 16;
 const CHORD_FONT = "'MuseJazz Text', 'DM Sans', sans-serif";
-const MAX_PER_LINE = 6;
 const MEASURE_HL_COLOR = 'rgba(100, 181, 246, 0.13)';
 const DECOR_OTHER = 35;
-const PX_PER_DUR: Record<string, number> = { w: 50, h: 35, q: 28, '8': 22, '16': 18 };
+/* Uniform per-note base width: every note contributes the same horizontal allotment regardless
+ * of duration, so the rendered distance between consecutive notes (8th-8th, 16th-16th, etc.) is
+ * the same across all licks. Combined with a low softmaxFactor in the Formatter call below, this
+ * makes VexFlow distribute notes evenly by count rather than proportionally by duration. */
+const PX_PER_DUR: Record<string, number> = { w: 18, h: 18, q: 18, '8': 18, '16': 18 };
 const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25 };
 
 /**
@@ -74,6 +77,17 @@ function toVexKey(key: string): string {
   const mode = parts[1] || '';
   if (mode === 'min' || mode === 'minor') return root + 'm';
   return root;
+}
+
+/** Map instrument shorthand codes to display names. Unknown values render as-is. */
+const INSTRUMENT_DISPLAY: Record<string, string> = {
+  as: 'Alto Saxophone',
+  ts: 'Tenor Saxophone',
+};
+
+function formatInstrument(inst: string | undefined): string {
+  if (!inst) return '';
+  return INSTRUMENT_DISPLAY[inst.trim().toLowerCase()] ?? inst;
 }
 
 /** Split formatted chord into base, extension number, and tensions. */
@@ -159,27 +173,6 @@ function measureMinWidth(m: MeasureInfo): number {
   return Math.max(w, 55);
 }
 
-function packLines(measures: MeasureInfo[], availW: number, decorFirst: number): number[][] {
-  const lines: number[][] = [];
-  let line: number[] = [];
-  let usedW = 0;
-  for (let i = 0; i < measures.length; i++) {
-    const mw = measureMinWidth(measures[i]);
-    const decor = line.length === 0 ? (lines.length === 0 ? decorFirst : DECOR_OTHER) : 0;
-    if (line.length > 0 && (usedW + mw > availW || line.length >= MAX_PER_LINE)) {
-      lines.push(line);
-      line = [i];
-      usedW = (lines.length === 0 ? decorFirst : DECOR_OTHER) + mw;
-    } else {
-      if (line.length === 0) usedW = decor;
-      line.push(i);
-      usedW += mw;
-    }
-  }
-  if (line.length > 0) lines.push(line);
-  return lines;
-}
-
 /* ─── styled ────────────────────────────────────────────────────────── */
 
 const Card = styled.div`
@@ -253,8 +246,21 @@ const PlayBtn = styled.button<{ $active?: boolean }>`
   &:hover { background: #f0f0f0; }
 `;
 
-const SvgWrap = styled.div`
-  overflow-x: auto;
+const BpmInput = styled.input`
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+  width: 44px;
+  padding: 2px 4px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fff;
+  color: #333;
+  text-align: center;
+  outline: none;
+`;
+
+const SvgWrap = styled.div<{ $scroll?: boolean }>`
+  overflow-x: ${({ $scroll }) => ($scroll ? 'auto' : 'hidden')};
   overflow-y: hidden;
 `;
 
@@ -476,18 +482,43 @@ interface LickCardProps {
   displayId?: number;
   onDelete?: () => void;
   onEdit?: () => void;
+  onTranspose?: () => void;
   onClick?: () => void;
 }
 
-export function LickCard({ lick, width, visible, compact, displayId, onDelete, onEdit, onClick }: LickCardProps) {
+export function LickCard({ lick, width, visible, compact, displayId, onDelete, onEdit, onTranspose, onClick }: LickCardProps) {
   const svgRef = useRef<HTMLDivElement>(null);
   const renderedRef = useRef(false);
+
+  /* measure SvgWrap's actual rendered width — the `width` prop comes from the
+   * parent's feedWidth which may not match the real container after CSS layout
+   * (sidebars, paddings, scrollbars). Track the live width here so the sizing
+   * math always sees the true container. */
+  const [containerW, setContainerW] = useState<number>(width);
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el || !visible) return;
+    const update = () => {
+      const w = el.clientWidth;
+      if (w > 0) setContainerW(w);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [visible]);
 
   /* player */
   const playerRef = useRef<NotePlayer | null>(null);
   const [playing, setPlaying] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
+  const [scrollable, setScrollable] = useState(false);
   const video = LICK_VIDEOS[lick.id];
+
+  const defaultBpm = lick.tempo && lick.tempo > 200 ? lick.tempo : 200;
+  const [bpm, setBpm] = useState(defaultBpm);
+  const [bpmText, setBpmText] = useState(String(defaultBpm));
+  useEffect(() => { setBpm(defaultBpm); setBpmText(String(defaultBpm)); }, [defaultBpm]);
   const measureRectsRef = useRef<{ x: number; y: number; w: number }[]>([]);
   const noteElMapRef = useRef<Map<string, SVGElement>>(new Map());
   const prevNoteKeyRef = useRef<string | null>(null);
@@ -557,11 +588,9 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
       drawMeasureHL(-1);
     } else {
       setPlaying(true);
-      const has16ths = lick.sheetData.measures.some((m) => m.notes.some((n) => n.duration === '16' || n.duration === '16r'));
-      const defaultBpm = has16ths ? 120 : 200;
-      await p.play(lick.sheetData, lick.tempo ?? defaultBpm);
+      await p.play(lick.sheetData, bpm);
     }
-  }, [lick, highlightNote, clearNoteHighlight, drawMeasureHL]);
+  }, [lick, bpm, highlightNote, clearNoteHighlight, drawMeasureHL]);
 
   // cleanup on unmount
   useEffect(() => () => { playerRef.current?.dispose(); }, []);
@@ -575,14 +604,16 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
     renderedRef.current = false;
   }, [lick.id, clearNoteHighlight, drawMeasureHL]);
 
-  /* render notation — auto-scale then multi-line if needed */
+  /* render notation — default size → CSS scale → horizontal scroll */
   useEffect(() => {
     const el = svgRef.current;
-    if (!el || !visible || renderedRef.current) return;
+    if (!el || !visible) return;
     if (!lick.sheetData.measures.length) return;
 
     renderedRef.current = true;
     el.innerHTML = '';
+    el.style.width = '';
+    el.style.height = '';
 
     const data = lick.sheetData;
     const nMeasures = data.measures.length;
@@ -591,89 +622,44 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
     const keySigAcc = keySigAccidentals(vexKey);
     const DECOR_FIRST = decorFirstWidth(vexKey);
 
-    const cardInner = width;
+    const cardInner = containerW > 0 ? containerW : width;
     const decorW = DECOR_FIRST;
     const baseWidths = data.measures.map((m) => measureMinWidth(m));
 
-    // 1) Natural (spacious) widths
-    const MULT_MAX = 1.4;
-    const MULT_MIN = 1.0;
-    const spaciousWidths = baseWidths.map((w) => w * MULT_MAX);
-    const spaciousW = MARGIN.left + decorW + spaciousWidths.reduce((s, w) => s + w, 0) + MARGIN.right;
+    // Unified spacing: every lick renders at MULT_DEFAULT regardless of length, so the
+    // note-to-note distance is identical across all licks. If the music doesn't fit at this
+    // spacing, allow horizontal scroll (no compression, no CSS scale — those would alter spacing).
+    const MULT_DEFAULT = 1.4;
 
-    let measWidths: number[];
-    let multiLine = false;
-    let scale = 1;
+    const decorTotal = MARGIN.left + decorW + MARGIN.right;
+    const baseTotal = baseWidths.reduce((s, w) => s + w, 0);
+    const naturalW = decorTotal + baseTotal * MULT_DEFAULT;
 
-    const MIN_SCALE = 0.45;
+    const mult = MULT_DEFAULT;
+    const scale = 1;
+    const scroll = naturalW > cardInner;
+    const svgW = naturalW;
 
-    if (spaciousW <= cardInner) {
-      // Fits at natural size — single line, keep original spacing
-      measWidths = spaciousWidths;
-    } else {
-      // 2) Try compressing note spacing to fit single line
-      const tightW = MARGIN.left + decorW + baseWidths.reduce((s, w) => s + w * MULT_MIN, 0) + MARGIN.right;
-      if (tightW <= cardInner) {
-        // Find multiplier that fills the card exactly
-        const availForNotes = cardInner - MARGIN.left - decorW - MARGIN.right;
-        const baseTotal = baseWidths.reduce((s, w) => s + w, 0);
-        const mult = availForNotes / baseTotal;
-        measWidths = baseWidths.map((w) => w * mult);
-      } else {
-        // 3) Try CSS scale to keep single line (scale down to MIN_SCALE)
-        scale = cardInner / tightW;
-        if (scale >= MIN_SCALE) {
-          // Single line, tight spacing + CSS scale
-          measWidths = baseWidths.map((w) => w * MULT_MIN);
-        } else {
-          // 4) Too small — go multi-line
-          scale = 1;
-          multiLine = true;
-          measWidths = baseWidths.map((w) => w * MULT_MIN);
-        }
-      }
-    }
+    const measWidths = baseWidths.map((w) => w * mult);
+    setScrollable(scroll);
 
-    // Build line layout
-    let lines: number[][];
-    if (multiLine) {
-      const availW = cardInner - MARGIN.left - MARGIN.right;
-      lines = packLines(data.measures, availW, DECOR_FIRST);
-    } else {
-      lines = [Array.from({ length: nMeasures }, (_, i) => i)];
-    }
-
-    // Safety: if any multi-line row still overflows, apply CSS scale
-    if (multiLine) {
-      let maxLineW = 0;
-      for (const indices of lines) {
-        const lineDecorW = indices[0] === 0 ? DECOR_FIRST : DECOR_OTHER;
-        const lineW = MARGIN.left + lineDecorW + indices.reduce((s, i) => s + measWidths[i], 0) + MARGIN.right;
-        if (lineW > maxLineW) maxLineW = lineW;
-      }
-      if (maxLineW > cardInner) {
-        scale = cardInner / maxLineW;
-      }
-    }
-
-    const nLines = lines.length;
-    const totalNoteW = MARGIN.left + decorW + measWidths.reduce((s, w) => s + w, 0) + MARGIN.right;
-    const svgW = multiLine
-      ? (scale < 1 ? cardInner / scale : cardInner)
-      : Math.max(totalNoteW, cardInner);
+    const lines: number[][] = [Array.from({ length: nMeasures }, (_, i) => i)];
+    const nLines = 1;
     const totalH = MARGIN.top + nLines * LINE_HEIGHT + MARGIN.bottom;
 
     const renderer = new Renderer(el, Renderer.Backends.SVG);
     renderer.resize(svgW, totalH);
     const ctx = renderer.getContext();
 
-    // Apply CSS scale if needed
+    // Apply CSS scale if needed. Transform doesn't affect layout box, so we only set the height
+    // (so the card doesn't reserve excess vertical space). Width is left to SvgWrap's natural
+    // flow (= Card content width) so ResizeObserver keeps measuring the real container.
     const svgEl = el.querySelector('svg');
-    if (svgEl && scale < 1) {
+    if (svgEl && scale !== 1) {
       svgEl.style.transformOrigin = 'top left';
       svgEl.style.transform = `scale(${scale})`;
+      svgEl.style.overflow = 'visible';
       el.style.height = `${totalH * scale}px`;
-      el.style.width = `${cardInner}px`;
     }
 
     const allVfNotes: StaveNote[] = [];
@@ -685,19 +671,13 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
       const y = MARGIN.top + li * LINE_HEIGHT;
       let x = MARGIN.left;
 
-      // For multi-line: stretch bars to fill width
       const lineDecorW = indices[0] === 0 ? DECOR_FIRST : DECOR_OTHER;
-      const lineWeights = indices.map((i) => measWidths[i]);
-      const lineTotalWeight = lineWeights.reduce((s, w) => s + w, 0);
-      const lineAvail = svgW - MARGIN.left - MARGIN.right - lineDecorW;
-      const isLastLine = li === nLines - 1;
-      const stretch = multiLine && (!isLastLine || indices.length >= MAX_PER_LINE);
 
       for (let j = 0; j < indices.length; j++) {
         const m = indices[j];
         const firstInLine = j === 0;
         const isLast = m === nMeasures - 1;
-        const barW = stretch ? (lineWeights[j] / lineTotalWeight) * lineAvail : measWidths[m];
+        const barW = measWidths[m];
         const w = firstInLine ? barW + lineDecorW : barW;
 
         const stave = new Stave(x, y, w);
@@ -745,7 +725,11 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
         voice.setStrict(false);
         voice.addTickables(vfNotes);
 
-        new Formatter().joinVoices([voice]).formatToStave([voice], stave);
+        // softmaxFactor close to 1 → VexFlow distributes notes nearly evenly by count rather
+        // than proportionally to duration, so 8th-8th and 16th-16th spacing render the same.
+        const formatter = new Formatter({ softmaxFactor: 1 });
+        formatter.joinVoices([voice]);
+        formatter.format([voice], stave.getNoteEndX() - stave.getNoteStartX());
         voice.draw(ctx, stave);
         beams.forEach((b) => b.setContext(ctx).draw());
 
@@ -996,7 +980,7 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
       }
     }
     noteElMapRef.current = noteMap;
-  }, [visible, width, lick]);
+  }, [visible, width, containerW, lick]);
 
   const keyNorm = (() => {
     const k = lick.key || '';
@@ -1014,6 +998,24 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
         <PlayBtn $active={playing} onClick={(e) => { e.stopPropagation(); togglePlay(); }} style={{ color: '#2a6e3f', borderColor: '#2a6e3f' }}>
           {playing ? '\u23F9 Stop' : '\u25B6 Play'}
         </PlayBtn>
+        <BpmInput
+          type="text"
+          inputMode="numeric"
+          value={bpmText}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => {
+            const v = e.target.value.replace(/[^0-9]/g, '');
+            setBpmText(v);
+            const n = Number(v);
+            if (n >= 20 && n <= 400) setBpm(n);
+          }}
+          onBlur={() => {
+            const n = Math.max(20, Math.min(400, Number(bpmText) || defaultBpm));
+            setBpm(n);
+            setBpmText(String(n));
+          }}
+          title="BPM"
+        />
         {video && (
           <PlayBtn
             onClick={(e) => { e.stopPropagation(); setShowVideo((v) => !v); }}
@@ -1037,12 +1039,21 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
             {'\u{1F5D1} Delete'}
           </PlayBtn>
         )}
+        {onTranspose && (
+          <PlayBtn
+            onClick={(e) => { e.stopPropagation(); onTranspose(); }}
+            style={{ color: '#7b1fa2', borderColor: '#ce93d8' }}
+            title="Transpose (change original key)"
+          >
+            {'⇋ Transpose'}
+          </PlayBtn>
+        )}
       </MetaRow>
       {!compact && (
         <TagRow>
           <Badge>{keyNorm}</Badge>
           <Badge $color="#e8eef5">{lick.style}</Badge>
-          <Badge $color="#eee">{lick.instrument}</Badge>
+          <Badge $color="#eee">{formatInstrument(lick.instrument)}</Badge>
           {lick.tempo && <Badge $color="#f5f0e0">{lick.tempo} bpm</Badge>}
           <Badge $color="#f0eee8">{lick.rhythmfeel}</Badge>
           <Badge $color="#ede8f0">{lick.tag}</Badge>
@@ -1051,11 +1062,11 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
       {compact && (
         <TagRow>
           <Badge>{keyNorm}</Badge>
-          <Badge $color="#eee">{lick.instrument}</Badge>
+          <Badge $color="#eee">{formatInstrument(lick.instrument)}</Badge>
         </TagRow>
       )}
       {visible ? (
-        <SvgWrap ref={svgRef} />
+        <SvgWrap ref={svgRef} $scroll={scrollable} />
       ) : (
         <Placeholder>scroll to render</Placeholder>
       )}

@@ -15,6 +15,32 @@ import type { ChordOverlay, TocEntry } from '../data/types';
 import { getSongIndex, getSong, type SongEntry } from '../lib/ireal/irealLoader';
 import { buildChordContext } from '../api/chordContext';
 import { createBackingPlayer, leadSheetToChart, type BackingPlayer } from '../lib/backing';
+import type { BackingConfig } from '../lib/backing/types';
+
+/**
+ * Experimental drum-loop mode. Activates when both localStorage keys are set:
+ *   - jazzify.drumLoop.url:        public path to the loop file
+ *   - jazzify.drumLoop.recordedBpm: integer BPM the loop was recorded at
+ * Optional:
+ *   - jazzify.drumLoop.gain (default 1.0)
+ * To disable: remove the keys (or `jazzify.drumLoop.url = ""`).
+ */
+function readDrumLoopConfig(): BackingConfig {
+  try {
+    const url = localStorage.getItem('jazzify.drumLoop.url')?.trim();
+    const bpmStr = localStorage.getItem('jazzify.drumLoop.recordedBpm')?.trim();
+    if (!url || !bpmStr) return {};
+    const recordedBpm = parseInt(bpmStr, 10);
+    if (!Number.isFinite(recordedBpm) || recordedBpm < 30 || recordedBpm > 400) return {};
+    const gain = parseFloat(localStorage.getItem('jazzify.drumLoop.gain') ?? '1') || 1;
+    return {
+      drumMode: 'loop',
+      drumLoop: { url, recordedBpm, gain, maxRateDeviation: 0.15 },
+    };
+  } catch {
+    return {};
+  }
+}
 import { BackingPlayerBar, type MixChannel } from '../components/backing/BackingPlayerBar';
 import { withLeadSheetSelectionIds } from '../lib/leadSheetSelection';
 import type { LeadSheetChordSelection } from '../components/leadsheet/LeadSheet';
@@ -501,7 +527,7 @@ export default function ChordPage() {
     const chart = leadSheetToChart(sheet);
     setTempo(chart.bpm);
     setActiveBar(-1);
-    const player = createBackingPlayer(chart);
+    const player = createBackingPlayer(chart, readDrumLoopConfig());
     player.on('onBar', (bar) => setActiveBar(bar));
     player.on('onDone', () => setIsPlaying(false));
     playerRef.current = player;

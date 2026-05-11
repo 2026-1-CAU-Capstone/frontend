@@ -53,19 +53,23 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
 
   for (const mEl of doc.querySelectorAll('part > measure')) {
     const notes: NoteInfo[] = [];
-    let chord: string | undefined;
+    const measureChords: string[] = [];
 
-    // chord symbol from <harmony>
-    const harmEl = mEl.querySelector('harmony');
-    if (harmEl) {
-      const root  = text(harmEl, 'root-step') ?? '';
-      const alter = text(harmEl, 'root-alter');
-      const kind  = text(harmEl, 'kind') ?? '';
-      const acc   = alter === '1' ? '#' : alter === '-1' ? 'b' : '';
-      chord = root + acc + kindToSymbol(kind);
-    }
+    // Walk measure children in document order so we can interleave
+    // <harmony> chord changes with <note> elements within the same measure.
+    for (const child of Array.from(mEl.children)) {
+      if (child.tagName === 'harmony') {
+        const root  = text(child, 'root-step') ?? '';
+        const alter = text(child, 'root-alter');
+        const kind  = text(child, 'kind') ?? '';
+        const acc   = alter === '1' ? '#' : alter === '-1' ? 'b' : '';
+        const sym   = root + acc + kindToSymbol(kind);
+        if (sym && measureChords[measureChords.length - 1] !== sym) measureChords.push(sym);
+        continue;
+      }
+      if (child.tagName !== 'note') continue;
 
-    for (const nEl of mEl.querySelectorAll('note')) {
+      const nEl = child;
       // ── Skip chord tones (simultaneous notes) — keep top note only
       if (nEl.querySelector('chord')) continue;
 
@@ -90,8 +94,19 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
       const vf = TYPE_TO_VF[typeStr] ?? 'q';
       const isDotted = !!nEl.querySelector('dot');
 
+      // Tuplet detection — <time-modification><actual-notes>3</actual><normal-notes>2</normal>
+      const tmEl = nEl.querySelector('time-modification');
+      let tuplet: number | undefined;
+      if (tmEl) {
+        const actual = parseInt(text(tmEl, 'actual-notes') ?? '0', 10);
+        const normal = parseInt(text(tmEl, 'normal-notes') ?? '0', 10);
+        if (actual > normal && actual > 1) tuplet = actual;
+      }
+
       if (isRest) {
-        notes.push({ keys: ['b/4'], duration: vf + 'r', dotted: isDotted || undefined });
+        const restNote: NoteInfo = { keys: ['b/4'], duration: vf + 'r', dotted: isDotted || undefined };
+        if (tuplet) restNote.tuplet = tuplet;
+        notes.push(restNote);
         continue;
       }
 
@@ -106,6 +121,7 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
         duration: vf,
         dotted: isDotted || undefined,
       };
+      if (tuplet) ni.tuplet = tuplet;
 
       // accidental — skip if already covered by key signature
       const isInKeySig = keySigLetters.has(step);
@@ -142,6 +158,9 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
     if (notes.length === 0) {
       notes.push({ keys: ['b/4'], duration: 'wr' });
     }
+    // Multiple chord changes per measure → join with double-space so the
+    // NoteSheet renderer auto-splits them across the bar.
+    const chord = measureChords.length > 0 ? measureChords.join('  ') : undefined;
     measures.push({ notes, chord });
   }
 
@@ -210,6 +229,12 @@ function noteDurBeats(el: Element): number {
   const typeStr = el.querySelector('type')?.textContent ?? 'quarter';
   let b = DUR_DIVS[typeStr] ?? 1;
   if (el.querySelector('dot')) b *= 1.5;
+  const tm = el.querySelector('time-modification');
+  if (tm) {
+    const actual = parseInt(tm.querySelector('actual-notes')?.textContent ?? '0', 10);
+    const normal = parseInt(tm.querySelector('normal-notes')?.textContent ?? '0', 10);
+    if (actual > 0 && normal > 0) b *= normal / actual;
+  }
   return b;
 }
 

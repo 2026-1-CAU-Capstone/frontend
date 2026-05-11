@@ -5,7 +5,6 @@ import { mq } from '../styles/theme';
 import { IconSidebar } from '../components/layout/IconSidebar';
 import { TopToolbar } from '../components/layout/TopToolbar';
 import { LeftSidebar } from '../components/layout/LeftSidebar';
-import { RightChatPanel } from '../components/layout/RightChatPanel';
 import { LickCard } from '../components/notesheet/LickCard';
 import { LickCreator } from '../components/notesheet/LickCreator';
 import { PianoKeyboard, type PianoNote } from '../components/notesheet/PianoKeyboard';
@@ -13,6 +12,7 @@ import { MelodyPreview } from '../components/notesheet/MelodyPreview';
 import type { TocEntry } from '../data/types';
 import { loadLicks, loadFrontendLicks, loadUserLicks, saveUserLick, invalidateLicksCache, type LickEntry } from '../data/lickData';
 import type { NoteSheetData } from '../data/sampleMelody';
+import { transposeLick, normalizeKeyInput, formatKeyDisplay } from '../lib/transpose';
 
 const PAGE_SIZE = 30;
 
@@ -249,40 +249,6 @@ const SourceBtn = styled.button<{ $active?: boolean }>`
   }
 `;
 
-const RightPanelWrapper = styled.div<{ $width: number }>`
-  width: ${({ $width }) => $width}px;
-  min-width: 180px;
-  flex-shrink: 0;
-  display: flex;
-
-  ${mq.compactLayout} {
-    display: none;
-  }
-`;
-
-const ResizeDivider = styled.div`
-  width: 5px;
-  flex-shrink: 0;
-  cursor: col-resize;
-  background: transparent;
-  position: relative;
-  transition: background 0.15s;
-
-  &:hover, &.dragging {
-    background: ${({ theme }) => theme.colors.border};
-  }
-
-  &::after {
-    content: '';
-    position: absolute;
-    inset: 0 -4px;
-  }
-
-  ${mq.mobile} {
-    display: none;
-  }
-`;
-
 /* ─── pitch / duration helpers (for user-lick analysis) ──────────────── */
 
 const SEMI_MAP: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
@@ -381,7 +347,7 @@ function melodySimilarity(query: QueryFeatures, lick: LickEntry): number {
 
 /* ─── visibility wrapper ─────────────────────────────────────────────── */
 
-function VisibleLickCard({ lick, width, displayId, onDelete, onEdit }: { lick: LickEntry; width: number; displayId: number; onDelete?: () => void; onEdit?: () => void }) {
+function VisibleLickCard({ lick, width, displayId, onDelete, onEdit, onTranspose }: { lick: LickEntry; width: number; displayId: number; onDelete?: () => void; onEdit?: () => void; onTranspose?: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
 
@@ -398,7 +364,7 @@ function VisibleLickCard({ lick, width, displayId, onDelete, onEdit }: { lick: L
 
   return (
     <div ref={ref}>
-      <LickCard lick={lick} width={width} visible={visible} compact displayId={displayId} onDelete={onDelete} onEdit={onEdit} />
+      <LickCard lick={lick} width={width} visible={visible} compact displayId={displayId} onDelete={onDelete} onEdit={onEdit} onTranspose={onTranspose} />
     </div>
   );
 }
@@ -458,6 +424,48 @@ export default function LicksPage() {
     } catch (err) {
       console.error('Delete failed', err);
       alert(err instanceof Error ? err.message : '삭제 실패');
+    }
+  }, []);
+
+  /* transpose (backend only, TEMP TOOL) — change the lick's original key.
+   * Shifts every note, every chord change, and the top-level chord/key fields,
+   * then PUTs the updated lick. This is a maintenance shortcut and is expected
+   * to be removed before public release. */
+  const handleTransposeLick = useCallback(async (lick: LickEntry) => {
+    const currentDisplay = formatKeyDisplay(lick.key);
+    const input = window.prompt(
+      `"${lick.performer} — ${lick.title}"\n` +
+      `Original key: ${currentDisplay}\n` +
+      `New key (e.g. Ab, F#m, Bb-maj):`,
+      currentDisplay,
+    );
+    if (input === null) return;
+    const newKey = normalizeKeyInput(input);
+    if (!newKey) {
+      alert(`Invalid key: "${input}"`);
+      return;
+    }
+    if (newKey === lick.key) return;
+
+    const result = transposeLick(lick.sheetData, lick.chords, lick.key, newKey);
+    if (!result) {
+      alert('Transpose failed (could not parse keys).');
+      return;
+    }
+
+    try {
+      const { updateLick } = await import('../api/licks');
+      const updated = await updateLick(String(lick.id), {
+        ...lick,
+        key: result.key,
+        chords: result.chords,
+        sheetData: result.sheetData,
+      });
+      invalidateLicksCache();
+      setAllLicks((prev) => prev.map((l) => (l.id === lick.id ? updated : l)));
+    } catch (err) {
+      console.error('Transpose failed', err);
+      alert(err instanceof Error ? err.message : 'Transpose 실패');
     }
   }, []);
 
@@ -616,29 +624,6 @@ export default function LicksPage() {
   /* toc */
   const toc = useMemo<TocEntry[]>(() => [{ title: 'Lick Database', page: 1 }], []);
 
-  /* resizable right panel */
-  const [rightPanelWidth, setRightPanelWidth] = useState(360);
-  const dividerRef = useRef<HTMLDivElement>(null);
-
-  const onDividerMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startWidth = rightPanelWidth;
-    dividerRef.current?.classList.add('dragging');
-
-    const onMove = (ev: MouseEvent) => {
-      const delta = startX - ev.clientX;
-      setRightPanelWidth(Math.max(180, Math.min(720, startWidth + delta)));
-    };
-    const onUp = () => {
-      dividerRef.current?.classList.remove('dragging');
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  }, [rightPanelWidth]);
-
   return (
     <PageContainer>
       <IconSidebar />
@@ -786,6 +771,7 @@ export default function LicksPage() {
                         displayId={rankedLicks.length - i}
                         onDelete={lickSource === 'backend' ? () => handleDeleteLick(lick) : undefined}
                         onEdit={lickSource === 'backend' ? () => handleEditLick(lick) : undefined}
+                        onTranspose={lickSource === 'backend' ? () => handleTransposeLick(lick) : undefined}
                       />
                     </div>
                   ))}
@@ -795,16 +781,6 @@ export default function LicksPage() {
             </>
           )}
         </CenterColumn>
-
-        <ResizeDivider ref={dividerRef} onMouseDown={onDividerMouseDown} />
-
-        <RightPanelWrapper $width={rightPanelWidth}>
-          <RightChatPanel
-            selectedChords={[]}
-            groupExplanation={null}
-            songTitle="Jazzify Licks"
-          />
-        </RightPanelWrapper>
         </MainArea>
       </RightSection>
     </PageContainer>

@@ -21,6 +21,18 @@ export interface LickVideo {
 export const LICK_VIDEOS: Record<string | number, LickVideo> = {
   // Rusty Bryant — That Old Black Magic (lick id 2) → 2:17
   2: { videoId: 'MV8wWjVqCng', startSec: 137 },
+  63: {
+    videoId: 'g3tETxZY7Vo',
+    startSec: 50.604,
+    endSec: 55.108,
+    url: 'https://www.youtube.com/watch?v=g3tETxZY7Vo&list=RDg3tETxZY7Vo&start_radio=1',
+  },
+  64: {
+    videoId: 'HSeiIvBdAis',
+    startSec: 52.319,
+    endSec: 55.522,
+    url: 'https://youtu.be/HSeiIvBdAis?si=UVVa2QDkBM4UedlG',
+  },
 };
 
 const LS_OVERRIDES_KEY = 'lick_videos_overrides';

@@ -1844,7 +1844,9 @@ export default function LickInputPage() {
   return (
     <Page>
       <Header>
-        <BackBtn onClick={() => navigate('/')}>&#8592; Home</BackBtn>
+        <BackBtn onClick={() => navigate(editingId ? '/licks' : '/')}>
+          &#8592; {editingId ? 'Licks' : 'Home'}
+        </BackBtn>
         <Title>Lick JSON Tool</Title>
         <BackBtn onClick={() => navigate('/my-licks')}>My Licks</BackBtn>
         <Sep />
@@ -1858,6 +1860,11 @@ export default function LickInputPage() {
         <MetaInput value={instrument} onChange={(e) => setInstrument(e.target.value)} placeholder="e.g. as" style={{ width: 70 }} />
         <MetaLabel>Key</MetaLabel>
         <MetaInput value={lickKey} onChange={(e) => setLickKey(e.target.value)} placeholder="e.g. Ab" style={{ width: 50 }} />
+        {editingLick && (
+          <span style={{ fontSize: '12px', color: '#888', alignSelf: 'center', marginLeft: '4px' }}>
+            #{editingLick.id}
+          </span>
+        )}
 
         <Spacer />
 

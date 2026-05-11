@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import LickInputPage from './LickInputPage';
 import { YoutubeOnsetParser } from '../components/admin/YoutubeOnsetParser';
 import { SymbolicJazzViewer } from '../components/admin/SymbolicJazzViewer';
+import { OmnibookViewer } from '../components/admin/OmnibookViewer';
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Admin tools page — internal/test only.
@@ -15,7 +16,7 @@ import { SymbolicJazzViewer } from '../components/admin/SymbolicJazzViewer';
  *                         chat's YouTube button picks them up.
  * ──────────────────────────────────────────────────────────────────────── */
 
-type Tab = 'youtube' | 'lickjson' | 'sjs';
+type Tab = 'youtube' | 'lickjson' | 'sjs' | 'omnibook';
 
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>('youtube');
@@ -37,6 +38,9 @@ export default function AdminPage() {
           <TabBtn $active={tab === 'sjs'} onClick={() => setTab('sjs')}>
             Symbolic Jazz Standards
           </TabBtn>
+          <TabBtn $active={tab === 'omnibook'} onClick={() => setTab('omnibook')}>
+            Charlie Parker Omnibook
+          </TabBtn>
         </TabRow>
       </TopBar>
 
@@ -44,6 +48,7 @@ export default function AdminPage() {
         {tab === 'youtube' && <YoutubeOnsetParser />}
         {tab === 'lickjson' && <LickInputPage />}
         {tab === 'sjs' && <SymbolicJazzViewer />}
+        {tab === 'omnibook' && <OmnibookViewer />}
       </Content>
     </Page>
   );
