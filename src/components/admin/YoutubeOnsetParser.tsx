@@ -7,7 +7,7 @@ import {
   type LickVideo,
 } from '../../data/lickVideos';
 import { loadLicks, invalidateLicksCache } from '../../data/lickData';
-import { updateLickVideo } from '../../api/licks';
+import { updateLickVideo, updateLick } from '../../api/licks';
 
 /* ─────────────────────────────────────────────────────────────────────────
  * YouTube Onset Parser — admin-only tool for tagging lick start/end times.
@@ -94,6 +94,22 @@ function formatTime(sec: number): string {
   return `${m}:${String(s).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
 }
 
+/** YouTube oEmbed 로 영상 제목 fetch. CORS-friendly, API 키 불필요.
+ *  실패 시 (지역 제한, 비공개 영상 등) null 반환 — caller 가 graceful fallback. */
+async function fetchYoutubeTitle(videoId: string): Promise<string | null> {
+  try {
+    const url = `https://www.youtube.com/oembed?url=${encodeURIComponent(
+      `https://www.youtube.com/watch?v=${videoId}`,
+    )}&format=json`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const json = (await res.json()) as { title?: string };
+    return json.title?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 /* ─── component ──────────────────────────────────────────────────────── */
 
 export function YoutubeOnsetParser() {
@@ -107,6 +123,7 @@ export function YoutubeOnsetParser() {
   const [submitting, setSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [statusKind, setStatusKind] = useState<'ok' | 'err'>('ok');
+  const [overwriteTitle, setOverwriteTitle] = useState(true);
   const [overrides, setOverrides] = useState<Record<string, LickVideo>>(() =>
     loadLickVideoOverrides(),
   );
@@ -268,12 +285,35 @@ export function YoutubeOnsetParser() {
         url: urlInput,
       };
       await updateLickVideo(target.id, video);
+
+      // 체크박스가 켜져있으면 영상 제목으로 lick title 도 갱신.
+      // oEmbed 실패하거나 제목이 동일하면 skip — 불필요한 PUT 안 보냄.
+      let displayTitle = target.title;
+      let titleNote = '';
+      if (overwriteTitle) {
+        const ytTitle = await fetchYoutubeTitle(videoId);
+        if (!ytTitle) {
+          titleNote = ' · (영상 제목 조회 실패)';
+        } else if (ytTitle === target.title) {
+          titleNote = ' · (title 동일, skip)';
+        } else {
+          try {
+            await updateLick(target.id, { ...target, title: ytTitle });
+            displayTitle = ytTitle;
+            titleNote = ` · title="${ytTitle}"`;
+          } catch (err) {
+            console.warn('title update failed', err);
+            titleNote = ' · (title 업데이트 실패)';
+          }
+        }
+      }
+
       invalidateLicksCache();
       // localStorage에도 즉시 캐시 (재로딩 시 즉시 반영)
       saveLickVideoOverride(target.id, video);
       setOverrides(loadLickVideoOverrides());
       setStatus(
-        `✓ 저장됨 — #${num} (${target.performer} — ${target.title}) : ${formatTime(startSec)} → ${formatTime(endSec)}`,
+        `✓ 저장됨 — #${num} (${target.performer} — ${displayTitle}) : ${formatTime(startSec)} → ${formatTime(endSec)}${titleNote}`,
       );
     } catch (err) {
       console.error('Submit video failed', err);
@@ -351,6 +391,15 @@ export function YoutubeOnsetParser() {
         <BtnPrimary onClick={handleSubmit} disabled={submitting}>
           {submitting ? '전송 중…' : '전송'}
         </BtnPrimary>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.88rem', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={overwriteTitle}
+            onChange={(e) => setOverwriteTitle(e.target.checked)}
+            disabled={submitting}
+          />
+          영상 제목으로 곡 title 덮어쓰기
+        </label>
       </Row>
 
       {statusMessage && (

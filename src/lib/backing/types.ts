@@ -272,14 +272,16 @@ export interface BackingConfig {
    *           recorded BPM. Pitch will shift via playbackRate scaling.
    */
   drumMode?: "hit" | "loop";
-  /** Drum loop source. Required when drumMode === "loop". */
+  /** Drum loop source. Required when drumMode === "loop". The loop is
+   * time-stretched offline (pitch-preserving) to match `bpm` exactly. */
   drumLoop?: {
     url: string;
     recordedBpm: number;
     gain?: number;
-    /** Max playbackRate deviation from 1.0 (default 0.15). */
-    maxRateDeviation?: number;
   };
+  /** Piano reverb send level, 0..1. Drives the same wet bus loadInstruments
+   * sets up. Default ~0.22 (matches the soundfont module's static value). */
+  pianoReverb?: number;
 }
 
 /* ─── Player lifecycle callbacks ─────────────────────────────────────── */
@@ -295,7 +297,12 @@ export interface BackingPlayerCallbacks {
 
 export interface BackingPlayer {
   readonly playing: boolean;
-  play(): Promise<void>;
+  /** `opts.startAt` (AudioContext seconds) anchors the first event so it lands
+   *  on the beat. Pass the value returned from `useCountInIntro.run().startAt`
+   *  to keep first-bar timing tight against the count-in. */
+  play(opts?: { startAt?: number }): Promise<void>;
+  /** Pre-warm AudioContext + instruments + drum 자원 (count-in 과 병렬용). */
+  preload(): Promise<void>;
   pause(): void;
   stop(): void;
   setConfig(next: Partial<BackingConfig>): void;

@@ -1,18 +1,16 @@
 /* ─────────────────────────────────────────────────────────────────────────
- * Drum-loop player — replaces per-hit drum scheduling with a continuous
- * real-recording loop (e.g. a live jazz drummer playing swing on a ride
- * cymbal with room ambience).
+ * Drum-loop player — plays a continuous real-recording drum loop, time-
+ * stretched offline so the BPM matches the player exactly while the pitch
+ * stays at its original value. (Raw playbackRate would shift pitch as a
+ * side effect; for piano/bass to stay in tune the drums must be detached
+ * from that.)
  *
- * Used when BackingConfig.drumLoop is set. The loop's recorded BPM is
- * scaled to the playback BPM via `playbackRate`; pitch shifts as a side
- * effect (acceptable within the ±15% range a typical jazz tempo spans).
- *
- * The loop file is *expected to be musically loopable* — measured so that
- * one period equals an integer number of bars at the recorded BPM.
- * If the bar boundaries drift over many bars, the buffer-source's
- * `loop = true` repeats seamlessly because we set `loopStart`/`loopEnd`
- * exactly to the buffer endpoints.
+ * Used when BackingConfig.drumLoop is set. The loop file should be musically
+ * loopable (length = integer bars at the recorded BPM), so the pre-stretched
+ * buffer also loops cleanly via AudioBufferSourceNode.loop.
  * ──────────────────────────────────────────────────────────────────────── */
+
+import { stretchAudioBuffer } from './timeStretch';
 
 export interface DrumLoopConfig {
   /** Public URL of the loop audio file (wav/mp3). */
@@ -21,20 +19,16 @@ export interface DrumLoopConfig {
   recordedBpm: number;
   /** Linear gain (0..2). Default 1. */
   gain?: number;
-  /**
-   * Max playbackRate deviation from 1.0 — clamps pitch shift to a tolerable
-   * range. Default 0.15 (±15%).
-   */
-  maxRateDeviation?: number;
 }
 
 export interface DrumLoopPlayer {
-  /** Begin loop playback at `originTime` (AudioContext time, sec). */
+  /** Begin loop playback at `originTime` (AudioContext time, sec). The buffer
+   *  is time-stretched (offline, pitch-preserving) to match `targetBpm`. */
   start(originTime: number, targetBpm: number): void;
-  /** Stop any active loop nodes. Idempotent. */
-  stop(): void;
   /** Update gain in real time. */
   setGain(gain: number): void;
+  /** Stop any active loop nodes. Idempotent. */
+  stop(): void;
   dispose(): void;
 }
 
@@ -47,14 +41,26 @@ export async function loadDrumLoopPlayer(
   const res = await fetch(cfg.url);
   if (!res.ok) throw new Error(`drum loop fetch failed: ${res.status} ${cfg.url}`);
   const arr = await res.arrayBuffer();
-  const buffer = await ctx.decodeAudioData(arr);
+  const original = await ctx.decodeAudioData(arr);
 
   const bus = ctx.createGain();
   bus.gain.value = cfg.gain ?? 1;
   bus.connect(destination);
 
-  const maxDev = cfg.maxRateDeviation ?? 0.15;
   let active: AudioBufferSourceNode | null = null;
+  // Cache the stretched buffer keyed by the BPM it was generated for — re-using
+  // it avoids re-running SoundTouch when the user toggles play/stop at the
+  // same tempo.
+  let cachedBpm: number | null = null;
+  let cachedBuffer: AudioBuffer | null = null;
+
+  function getBufferForBpm(targetBpm: number): AudioBuffer {
+    if (cachedBpm === targetBpm && cachedBuffer) return cachedBuffer;
+    const tempoRatio = targetBpm / cfg.recordedBpm;
+    cachedBuffer = stretchAudioBuffer(ctx, original, tempoRatio);
+    cachedBpm = targetBpm;
+    return cachedBuffer;
+  }
 
   function stopActive() {
     if (!active) return;
@@ -66,27 +72,27 @@ export async function loadDrumLoopPlayer(
   return {
     start(originTime, targetBpm) {
       stopActive();
-      const ratio = targetBpm / cfg.recordedBpm;
-      const clamped = Math.max(1 - maxDev, Math.min(1 + maxDev, ratio));
+      const buffer = getBufferForBpm(targetBpm);
       const src = ctx.createBufferSource();
       src.buffer = buffer;
       src.loop = true;
       src.loopStart = 0;
       src.loopEnd = buffer.duration;
-      src.playbackRate.value = clamped;
+      src.playbackRate.value = 1;
       src.connect(bus);
-      // Schedule slightly into the future to avoid context-time underrun
       const startAt = Math.max(originTime, ctx.currentTime + 0.005);
       src.start(startAt);
       active = src;
     },
-    stop: stopActive,
     setGain(g) {
       bus.gain.value = g;
     },
+    stop: stopActive,
     dispose() {
       stopActive();
       try { bus.disconnect(); } catch { /* noop */ }
+      cachedBuffer = null;
+      cachedBpm = null;
     },
   };
 }

@@ -29,7 +29,12 @@ export interface NoteInfo {
   tieContinuation?: boolean;                    // this note is the receiving end of a tie — visually rendered but absorbed into prev note's sound by the player
   gliss?: boolean;                              // glissando to the NEXT note
   tuplet?: number;                              // e.g. 3 = triplet (3 notes in time of 2)
-  beamBreak?: boolean;                          // force beam break AFTER this note
+  tupletBracket?: boolean;                      // set on the FIRST note of a tuplet group; whether to draw the bracket (XML <tuplet bracket="yes|no">). Default true.
+  beamBreak?: boolean;                          // force beam break AFTER this note (= XML <beam>end</beam>)
+  noBeam?: boolean;                             // render as a standalone flagged note (= XML beamable note with no <beam>)
+  restInBeam?: boolean;                         // rest that sits inside an open beam group — keep the beam line going over it instead of flushing
+
+  stem?: 'up' | 'down';                         // explicit stem direction (= XML <stem>); overrides autoStem
   chord?: string;                               // chord change at this note position
   ghost?: boolean;                              // ghost note — rendered in parentheses ()
   ottavaStart?: '8va' | '8vb';                 // start of ottava bracket at this note

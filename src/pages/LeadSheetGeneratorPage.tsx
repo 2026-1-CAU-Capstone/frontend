@@ -10,6 +10,8 @@ import type { NoteInfo, MeasureInfo, NavigationMarker } from '../data/sampleMelo
 /* ─── helpers ──────────────────────────────────────────────────────────── */
 
 import Soundfont from 'soundfont-player';
+import { useCountInIntro } from '../hooks/useCountInIntro';
+import { swungBeats } from '../lib/note/swing';
 
 const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25 };
 const SEMI_MAP: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
@@ -38,7 +40,10 @@ function getBeats(dur: string, dotted?: boolean, tuplet?: number): number {
   const base = dur.replace(/r$/, '');
   let b = DUR_BEATS[base] ?? 1;
   if (dotted) b *= 1.5;
-  if (tuplet === 3) b *= 2 / 3;
+  if (tuplet && tuplet >= 2) {
+    const denom = Math.pow(2, Math.floor(Math.log2(tuplet - 1)));
+    b *= denom / tuplet;
+  }
   return b;
 }
 
@@ -409,12 +414,13 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       const beams: Beam[] = [];
       let beamGroup: StaveNote[] = [];
       let groupBeats = 0;
-      let inTuplet = false;
+      let inTupletN = 0;
       let postTupletMerged = false;
 
       for (let ni = 0; ni < vfNotes.length; ni++) {
         const vn = vfNotes[ni];
-        const isTuplet = !!measure.notes[ni].tuplet;
+        const tupletN = measure.notes[ni].tuplet ?? 0;
+        const isTuplet = tupletN >= 3;
         const dur = vn.getDuration();
         const isBeamable = dur === '8' || dur === '16' || dur === '8d' || dur === '16d';
         const isRest = vn.isRest();
@@ -429,8 +435,8 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
           postTupletMerged = false;
         }
 
-        if (isTuplet !== inTuplet && beamGroup.length > 0) {
-          const prevIs16Triplet = inTuplet && beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
+        if (tupletN !== inTupletN && beamGroup.length > 0) {
+          const prevIs16Triplet = inTupletN === 3 && beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
           if (prevIs16Triplet && isBeamable && !isRest && !isTuplet) {
             postTupletMerged = true;
           } else {
@@ -439,7 +445,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
             if (!isTuplet) groupBeats = 0;
           }
         }
-        inTuplet = isTuplet;
+        inTupletN = tupletN;
 
         if (isBeamable && !isRest) {
           if (!isTuplet && !postTupletMerged) {
@@ -454,6 +460,13 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
           }
           beamGroup.push(vn);
           if (!isTuplet) groupBeats += noteBeats;
+          if (isTuplet && beamGroup.length === tupletN) {
+            beams.push(new Beam(beamGroup, true));
+            beamGroup = [];
+            groupBeats = 0;
+            postTupletMerged = false;
+            continue;
+          }
           if (measure.notes[ni].beamBreak) {
             if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
             beamGroup = [];
@@ -472,19 +485,21 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       voice.draw(ctx, stave);
       beams.forEach((bm) => bm.setContext(ctx).draw());
 
-      // Render tuplet brackets (groups of 3)
+      // Render tuplet brackets — any N-tuplet (3, 5, 6, 7, …) with the correct number above
       {
         let ti = 0;
         while (ti < measure.notes.length) {
-          if (measure.notes[ti].tuplet === 3) {
+          const n = measure.notes[ti].tuplet;
+          if (n && n >= 3) {
             const group: StaveNote[] = [];
-            while (ti < measure.notes.length && measure.notes[ti].tuplet === 3 && group.length < 3) {
+            while (ti < measure.notes.length && measure.notes[ti].tuplet === n && group.length < n) {
               group.push(vfNotes[ti]);
               ti++;
             }
             if (group.length >= 2) {
               const stemDown = group[0].getStemDirection() === -1;
-              const tuplet = new Tuplet(group, { numNotes: group.length, notesOccupied: 2 });
+              const notesOccupied = Math.pow(2, Math.floor(Math.log2(n - 1)));
+              const tuplet = new Tuplet(group, { numNotes: group.length, notesOccupied });
               if (stemDown) tuplet.setTupletLocation(-1);
               tuplet.setContext(ctx).draw();
             }
@@ -1365,8 +1380,13 @@ export default function LeadSheetGeneratorPage() {
 
   useEffect(() => {
     if (bpmManualRef.current) return;
-    const has16ths = allMeasures.some((m) => m.notes.some((n) => n.duration === '16' || n.duration === '16r'));
-    const newBpm = has16ths ? 120 : 200;
+    const has16ths = allMeasures.some((m) =>
+      m.notes.some((n) => {
+        const base = n.duration.replace(/[dr]/g, '');
+        return base === '16' || base === '32';
+      }),
+    );
+    const newBpm = has16ths ? 150 : 200;
     setBpm(newBpm);
     setBpmText(String(newBpm));
   }, [allMeasures]);
@@ -1697,26 +1717,40 @@ export default function LeadSheetGeneratorPage() {
     }
   }, [playing]);
 
+  const countIn = useCountInIntro();
+
   const handlePlay = useCallback(async () => {
-    if (playing) {
+    if (playing || countIn.active) {
       playAbortRef.current?.abort();
       pauseResolveRef.current?.();
       pauseResolveRef.current = null;
       pausedRef.current = false;
+      countIn.cancel();
       setPaused(false);
       setPlaying(false);
       return;
     }
     if (allMeasures.length === 0) return;
 
-    const [sax, piano] = await Promise.all([ensurePiano(), ensurePiano()]);
+    setPlaying(true);
+    // 카운트인과 병렬로 piano soundfont 로드 — 첫 재생 지연 제거.
+    const pianoPair = Promise.all([ensurePiano(), ensurePiano()]);
+    const cin = await countIn.run({ bpm });
+    if (!cin.ok) { setPlaying(false); return; }
+    const [sax, piano] = await pianoPair;
     const abort = new AbortController();
     playAbortRef.current = abort;
     pausedRef.current = false;
     setPaused(false);
-    setPlaying(true);
 
     const beatDur = 60 / bpm;
+    // Swung-time projection: distance between two straight-beat positions in
+    // wall-clock seconds, after the swing-feel non-linear remap. Off-beat 8ths
+    // sit ~24% later inside the beat. Quarter notes and downbeats land exactly
+    // on integer-beat boundaries so chord comping fires in straight time even
+    // while the melody breathes.
+    const beatRange = (start: number, b: number) =>
+      (swungBeats(start + b) - swungBeats(start)) * beatDur;
 
     // Helper: expand repeat/volta/navigation for a set of measures
     type ExpandedM = { m: MeasureInfo; origMi: number };
@@ -1796,7 +1830,7 @@ export default function LeadSheetGeneratorPage() {
     const colorNote = (key: string, color: string) => {
       const svg = elMap.get(key);
       if (!svg) return;
-      const apply = (el: Element) => { const s = (el as SVGElement).style; s.fill = color; s.stroke = color; };
+      const apply = (el: Element) => { (el as SVGElement).style.fill = color; };
       apply(svg);
       svg.querySelectorAll('*').forEach(apply);
     };
@@ -1897,7 +1931,9 @@ export default function LeadSheetGeneratorPage() {
           for (const b of boundaries) {
             const waitBeats = (b - startBeat) - elapsed;
             if (waitBeats > 0.001) {
-              const waitSec = waitBeats * beatDur;
+              // Swung wait — off-beat starts get a shorter wall-clock leg to the
+              // next downbeat than straight 8ths would.
+              const waitSec = beatRange(startBeat + elapsed, waitBeats);
               await new Promise<void>((resolve, reject) => {
                 const timer = setTimeout(resolve, waitSec * 1000);
                 abort.signal.addEventListener('abort', () => { clearTimeout(timer); reject('stop'); }, { once: true });
@@ -1908,7 +1944,7 @@ export default function LeadSheetGeneratorPage() {
           }
           const leftBeats = totalBeats - elapsed;
           if (leftBeats > 0.001) {
-            const waitSec = leftBeats * beatDur;
+            const waitSec = beatRange(startBeat + elapsed, leftBeats);
             await new Promise<void>((resolve, reject) => {
               const timer = setTimeout(resolve, waitSec * 1000);
               abort.signal.addEventListener('abort', () => { clearTimeout(timer); reject('stop'); }, { once: true });
@@ -1925,7 +1961,10 @@ export default function LeadSheetGeneratorPage() {
           const baseDur = n.duration.replace(/r$/, '');
           let beats = DUR_BEATS[baseDur] ?? 1;
           if (n.dotted) beats *= 1.5;
-          if (n.tuplet === 3) beats *= 2 / 3;
+          if (n.tuplet && n.tuplet >= 2) {
+            const denom = Math.pow(2, Math.floor(Math.log2(n.tuplet - 1)));
+            beats *= denom / n.tuplet;
+          }
 
           if (!isRest) highlight(mi, ni);
 
@@ -1939,13 +1978,16 @@ export default function LeadSheetGeneratorPage() {
               const lb = ln.duration.replace(/r$/, '');
               let lbeats = DUR_BEATS[lb] ?? 1;
               if (ln.dotted) lbeats *= 1.5;
-              if (ln.tuplet === 3) lbeats *= 2 / 3;
+              if (ln.tuplet && ln.tuplet >= 2) {
+                const denom = Math.pow(2, Math.floor(Math.log2(ln.tuplet - 1)));
+                lbeats *= denom / ln.tuplet;
+              }
               tieSegs.push({ emIdx: flat[look].emIdx, beatPos: flat[look].beatPos, beats: lbeats });
               if (!ln.tie) { look++; break; }
               look++;
             }
             const totalBeats = tieSegs.reduce((s, seg) => s + seg.beats, 0);
-            const sec = totalBeats * beatDur;
+            const sec = beatRange(beatPos, totalBeats);
             const acc = n.accidentals?.[0] as '#' | 'b' | 'n' | undefined;
             const midi = vexToMidi(n.keys[0], acc);
             sax.play(String(midi), 0, { duration: sec * 0.9, gain: 3 });
@@ -1956,7 +1998,7 @@ export default function LeadSheetGeneratorPage() {
             continue;
           }
 
-          const sec = beats * beatDur;
+          const sec = beatRange(beatPos, beats);
           if (!isRest) {
             const acc = n.accidentals?.[0] as '#' | 'b' | 'n' | undefined;
             const midi = vexToMidi(n.keys[0], acc);
@@ -2026,6 +2068,7 @@ export default function LeadSheetGeneratorPage() {
 
   return (
     <Page>
+      {countIn.overlay}
       <Header>
         <BackBtn onClick={() => navigate('/note')}>&#8592; Note</BackBtn>
         <Title>Lead Sheet Generator</Title>

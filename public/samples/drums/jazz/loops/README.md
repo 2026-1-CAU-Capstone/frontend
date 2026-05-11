@@ -1,7 +1,27 @@
 # Jazz drum loops — drop site
 
-Place the loop WAV/MP3 file here, then point the backing player at it via
-`BackingConfig.drumLoop`:
+The backing player's mixer ("Brushes" / "Sticks" buttons) reads two fixed
+filenames from this folder:
+
+| Kit       | Expected filename               | Source (Freesound)                                                   | License  |
+|-----------|---------------------------------|----------------------------------------------------------------------|----------|
+| Brushes   | `brushes-145bpm.wav`            | [#107846 vincent sermonne brush-loop](https://freesound.org/people/vincent%20sermonne/sounds/107846/) | CC-BY 4.0 |
+| Sticks    | `sticks-120bpm.mp3`             | [#353081 jimrsbjorklund jazz-drum-beat-120-bpm](https://freesound.org/people/jimrsbjorklund/sounds/353081/) | CC0 |
+
+Download from Freesound (free account required), rename to the exact
+filename above, and drop the file here. Pick the matching kit from the
+backing player's mixer popup. The "Synth Kit" option falls back to the
+built-in per-hit sampler and doesn't need any file here.
+
+**Attribution requirement:** when "Brushes" is selected the UI shows
+"Drums: Vincent Sermonne — Freesound #107846 (CC-BY 4.0)" automatically,
+so the CC-BY obligation is met as long as the kit is visible during use.
+
+---
+
+## Advanced: pointing at a different file
+
+If you want to use your own loop, you can call `setConfig` manually:
 
 ```ts
 player.setConfig({

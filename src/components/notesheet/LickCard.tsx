@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+﻿import { useEffect, useRef, useState, useCallback } from 'react';
 import styled from 'styled-components';
 import {
   Renderer,
@@ -20,6 +20,7 @@ import type { LickEntry } from '../../data/lickData';
 import { NotePlayer } from '../../lib/note/notePlayer';
 import { YoutubeEmbed } from '../common/YoutubeEmbed';
 import { getLickVideo } from '../../data/lickVideos';
+import { useCountInIntro } from '../../hooks/useCountInIntro';
 
 /* ─── layout constants ──────────────────────────────────────────────── */
 
@@ -55,8 +56,9 @@ function formatChord(raw: string): string {
   let q = m[3];
 
   // Quality normalisations (order matters: specific before general)
-  q = q.replace(/^(-7b5|-7\(b5\)|m7b5)/,  '\u00F87');   // half-dim → ø7
-  q = q.replace(/^j7/,                     '\u25B37');   // j7 → △7
+  q = q.replace(/^(-7b5|-7\(b5\)|m7b5|mi7b5|min7b5)/, '\u00F87');   // half-dim → ø7
+  q = q.replace(/^(Maj7|maj7|Ma7|ma7|M7|j7)/,         '\u25B37');   // major-7 → △7
+  q = q.replace(/^(mi|min)/,                          '-');         // minor   → -
   q = q.replace(/^h7/,                     '\u00F87');   // h7 → ø7
   q = q.replace(/^h(?!\d)/,                '\u00F8');    // h  → ø
   q = q.replace(/^o7/,                     '\u00B07');   // o7 → °7
@@ -177,6 +179,7 @@ function measureMinWidth(m: MeasureInfo): number {
 /* ─── styled ────────────────────────────────────────────────────────── */
 
 const Card = styled.div`
+  position: relative; /* scoped CountInOverlay 가 카드 내부에 absolute 로 자리잡도록 */
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   padding: 12px 20px 8px;
 
@@ -343,19 +346,24 @@ function buildManualBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
   const beams: Beam[] = [];
   let beamGroup: StaveNote[] = [];
   let beatPos = 0;          // absolute beat position within the measure
-  let inTuplet = false;
+  let inTupletN = 0;        // 0 = not in tuplet, else the N of the current N-tuplet group
   let postTupletMerged = false;
 
   for (let i = 0; i < vfNotes.length; i++) {
     const vn = vfNotes[i];
-    const isTuplet = !!notes[i]?.tuplet;
+    const tupletN = notes[i]?.tuplet ?? 0;
+    const isTuplet = tupletN >= 3;
     const dur = vn.getDuration();
     const isBeamable = dur === '8' || dur === '16' || dur === '8d' || dur === '16d';
     const isRest = vn.isRest();
     const noteDots = vn.getModifiersByType('Dot')?.length ?? 0;
     let noteBeats = DUR_BEATS[dur.replace('d', '')] ?? 1;
     if (noteDots > 0 || dur.endsWith('d')) noteBeats *= 1.5;
-    if (isTuplet) noteBeats *= 2 / 3;
+    if (isTuplet) {
+      // N-tuplet occupies the time of the largest power of 2 strictly less than N
+      const denom = Math.pow(2, Math.floor(Math.log2(tupletN - 1)));
+      noteBeats *= denom / tupletN;
+    }
 
     if (postTupletMerged && beamGroup.length > 0) {
       if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
@@ -363,9 +371,9 @@ function buildManualBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
       postTupletMerged = false;
     }
 
-    // Break beam group at tuplet boundary
-    if (isTuplet !== inTuplet && beamGroup.length > 0) {
-      const prevIs16Triplet = inTuplet && beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
+    // Break beam group when the tuplet status / N changes
+    if (tupletN !== inTupletN && beamGroup.length > 0) {
+      const prevIs16Triplet = inTupletN === 3 && beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
       if (prevIs16Triplet && isBeamable && !isRest && !isTuplet) {
         postTupletMerged = true;
       } else {
@@ -373,7 +381,7 @@ function buildManualBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
         beamGroup = [];
       }
     }
-    inTuplet = isTuplet;
+    inTupletN = tupletN;
 
     if (isBeamable && !isRest) {
       if (!isTuplet && !postTupletMerged) {
@@ -387,8 +395,8 @@ function buildManualBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
         }
       }
       beamGroup.push(vn);
-      // Split consecutive triplet groups (every 3 notes)
-      if (isTuplet && beamGroup.length === 3) {
+      // Split consecutive N-tuplet groups every N notes (3 notes for triplet, 5 for quintuplet, …)
+      if (isTuplet && beamGroup.length === tupletN) {
         beams.push(new Beam(beamGroup, true));
         beamGroup = [];
         beatPos += noteBeats;
@@ -517,7 +525,19 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
   // 백엔드가 attach한 lick.video 우선, 없으면 정적 registry + localStorage 오버라이드로 폴백.
   const video = lick.video ?? getLickVideo(lick.id);
 
-  const defaultBpm = lick.tempo && lick.tempo > 200 ? lick.tempo : 200;
+  /* 디폴트 BPM 규칙:
+   *  - 16분음표(혹은 32분음표) 가 한 음이라도 있으면 → 최저 150 (lick.tempo 가 더 빠르면 그 값 사용)
+   *  - 그 외 (8분음표 이상만) → 200 고정
+   * 16분음표가 있는 릭을 200 으로 시작하면 손가락이 못 따라가서 사실상 못 들음. */
+  const has16thOrShorter = lick.sheetData.measures.some((m) =>
+    m.notes.some((n) => {
+      const base = n.duration.replace(/[dr]/g, '');
+      return base === '16' || base === '32';
+    }),
+  );
+  const defaultBpm = has16thOrShorter
+    ? Math.max(150, lick.tempo ?? 150)
+    : 200;
   const [bpm, setBpm] = useState(defaultBpm);
   const [bpmText, setBpmText] = useState(String(defaultBpm));
   useEffect(() => { setBpm(defaultBpm); setBpmText(String(defaultBpm)); }, [defaultBpm]);
@@ -529,7 +549,7 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
   const colorNote = useCallback((key: string, color: string) => {
     const el = noteElMapRef.current.get(key);
     if (!el) return;
-    const apply = (e: Element) => { const s = (e as SVGElement).style; s.fill = color; s.stroke = color; };
+    const apply = (e: Element) => { (e as SVGElement).style.fill = color; };
     apply(el);
     el.querySelectorAll('*').forEach(apply);
     let parent = el.parentElement;
@@ -573,26 +593,36 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
     svg.insertBefore(rect, svg.firstChild);
   }, []);
 
+  const countIn = useCountInIntro({ scoped: true });
+
   const togglePlay = useCallback(async () => {
     if (!playerRef.current) {
-      const p = new NotePlayer();
-      p.drumEnabled = false;
+      const p = new NotePlayer({ lickMode: true });
       p.onMeasure = (idx) => drawMeasureHL(idx);
       p.onNote = (mi, ni) => highlightNote(mi, ni);
       p.onDone = () => { setPlaying(false); };
       playerRef.current = p;
     }
     const p = playerRef.current;
-    if (p.playing) {
+    if (p.playing || countIn.active) {
       p.stop();
+      countIn.cancel();
       setPlaying(false);
       clearNoteHighlight();
       drawMeasureHL(-1);
-    } else {
-      setPlaying(true);
-      await p.play(lick.sheetData, bpm);
+      return;
     }
-  }, [lick, bpm, highlightNote, clearNoteHighlight, drawMeasureHL]);
+    setPlaying(true);
+    // 카운트인과 병렬로 인스트루먼트 로딩 — 첫 재생 지연 제거.
+    const preload = p.preload();
+    const cin = await countIn.run({ bpm });
+    if (!cin.ok) {
+      setPlaying(false);
+      return;
+    }
+    await preload;
+    await p.play(lick.sheetData, bpm, { startAt: cin.startAt });
+  }, [lick, bpm, countIn, highlightNote, clearNoteHighlight, drawMeasureHL]);
 
   // cleanup on unmount
   useEffect(() => () => { playerRef.current?.dispose(); }, []);
@@ -769,19 +799,21 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
           }
         }
 
-        // Render tuplet brackets
+        // Render tuplet brackets — any N-tuplet (3, 5, 6, 7, …) with the correct number above
         {
           let ti = 0;
           while (ti < measure.notes.length) {
-            if (measure.notes[ti].tuplet === 3) {
+            const n = measure.notes[ti].tuplet;
+            if (n && n >= 3) {
               const group: StaveNote[] = [];
-              while (ti < measure.notes.length && measure.notes[ti].tuplet === 3 && group.length < 3) {
+              while (ti < measure.notes.length && measure.notes[ti].tuplet === n && group.length < n) {
                 group.push(vfNotes[ti]);
                 ti++;
               }
               if (group.length >= 2) {
                 const stemDown = group[0].getStemDirection() === -1;
-                const tuplet = new Tuplet(group, { numNotes: group.length, notesOccupied: 2 });
+                const notesOccupied = Math.pow(2, Math.floor(Math.log2(n - 1)));
+                const tuplet = new Tuplet(group, { numNotes: group.length, notesOccupied });
                 if (stemDown) tuplet.setTupletLocation(-1);
                 tuplet.setContext(ctx).draw();
               }
@@ -993,6 +1025,7 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
 
   return (
     <Card style={onClick ? { cursor: 'pointer' } : undefined} onClick={onClick}>
+      {countIn.overlay}
       <MetaRow>
         <LickId>#{displayId ?? lick.id}</LickId>
         <Performer>{lick.performer}</Performer>
@@ -1073,7 +1106,7 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
         <Placeholder>scroll to render</Placeholder>
       )}
       {visible && video && showVideo && (
-        <YoutubeEmbed videoId={video.videoId} startSec={video.startSec} autoplay />
+        <YoutubeEmbed videoId={video.videoId} startSec={video.startSec} endSec={video.endSec} autoplay />
       )}
     </Card>
   );

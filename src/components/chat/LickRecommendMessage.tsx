@@ -12,6 +12,7 @@ import type { LickEntry } from '../../data/lickData';
 import { saveUserLick, deleteUserLick, loadUserLicksSync } from '../../data/lickData';
 import type { LickMatch } from '../../lib/lickMatcher';
 import { NotePlayer } from '../../lib/note/notePlayer';
+import { useCountInIntro } from '../../hooks/useCountInIntro';
 import type { NoteInfo, MeasureInfo } from '../../data/sampleMelody';
 import { YoutubeEmbed } from '../common/YoutubeEmbed';
 import { getLickVideo } from '../../data/lickVideos';
@@ -332,14 +333,16 @@ function renderScore(el: HTMLDivElement, lick: LickEntry, availW: number) {
     voice.draw(ctx, stave);
     beams.forEach((b) => b.setContext(ctx).draw());
 
-    // 투플렛
+    // 투플렛 — 3, 5, 6, 7 ... 모든 N-tuplet 처리
     let ti = 0;
     while (ti < measure.notes.length) {
-      if (measure.notes[ti].tuplet === 3) {
+      const n = measure.notes[ti].tuplet;
+      if (n && n >= 3) {
         const g: StaveNote[] = [];
-        while (ti < measure.notes.length && measure.notes[ti].tuplet === 3 && g.length < 3) { g.push(vfNotes[ti]); ti++; }
+        while (ti < measure.notes.length && measure.notes[ti].tuplet === n && g.length < n) { g.push(vfNotes[ti]); ti++; }
         if (g.length >= 2) {
-          const tup = new Tuplet(g, { numNotes: g.length, notesOccupied: 2 });
+          const notesOccupied = Math.pow(2, Math.floor(Math.log2(n - 1)));
+          const tup = new Tuplet(g, { numNotes: g.length, notesOccupied });
           if (g[0].getStemDirection() === -1) tup.setTupletLocation(-1);
           tup.setContext(ctx).draw();
         }
@@ -417,17 +420,29 @@ export function LickRecommendMessage({ match, tempoOverride }: Props) {
     return () => ro.disconnect();
   }, [lick]);
 
+  const countIn = useCountInIntro();
+
   const togglePlay = useCallback(async () => {
     if (!playerRef.current) {
-      const p = new NotePlayer();
-      p.drumEnabled = false;
+      const p = new NotePlayer({ lickMode: true });
       p.onDone = () => setPlaying(false);
       playerRef.current = p;
     }
     const p = playerRef.current;
-    if (p.playing) { p.stop(); setPlaying(false); }
-    else { setPlaying(true); await p.play(lick.sheetData, tempoOverride ?? lick.tempo ?? 200); }
-  }, [lick]);
+    if (p.playing || countIn.active) {
+      p.stop();
+      countIn.cancel();
+      setPlaying(false);
+      return;
+    }
+    const bpm = tempoOverride ?? lick.tempo ?? 200;
+    setPlaying(true);
+    const preload = p.preload();
+    const cin = await countIn.run({ bpm });
+    if (!cin.ok) { setPlaying(false); return; }
+    await preload;
+    await p.play(lick.sheetData, bpm, { startAt: cin.startAt });
+  }, [lick, tempoOverride, countIn]);
 
   useEffect(() => () => { playerRef.current?.dispose(); }, []);
 
@@ -444,6 +459,7 @@ export function LickRecommendMessage({ match, tempoOverride }: Props) {
 
   return (
     <Wrapper ref={wrapperRef}>
+      {countIn.overlay}
       <Header>
         {lick.performer && lick.performer !== 'AI 생성' && (
           <>

@@ -684,8 +684,8 @@ function StemRenderer({
       <NoteSheet
         data={sheetData}
         selectable={picker.selectMode}
-        selectedRange={picker.selectedRange}
-        onSelectionChange={picker.setSelectedRange}
+        selectedRanges={picker.selectedRanges}
+        onSelectionChange={picker.setSelectedRanges}
       />
     </StemSection>
   );

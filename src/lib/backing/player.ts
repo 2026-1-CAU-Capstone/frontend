@@ -8,6 +8,12 @@ import type {
 import { renderChart } from "./engine";
 import { loadInstruments, type TriggerableInstrument } from "./soundfont";
 import { loadDrumLoopPlayer, type DrumLoopPlayer } from "./drumLoopPlayer";
+import {
+  getPlayerSettings,
+  subscribePlayerSettings,
+  type PlayerSettings,
+} from "../note/playerSettings";
+import { DRUM_KIT_PRESETS } from "./drumKitPresets";
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Backing player.
@@ -22,17 +28,41 @@ import { loadDrumLoopPlayer, type DrumLoopPlayer } from "./drumLoopPlayer";
 const LOOKAHEAD_SEC = 0.2;
 const TICK_TOLERANCE_SEC = 0.05;
 
+/** Merge the global PlayerSettings into a BackingConfig — explicit fields in
+ *  the config take precedence so callers can override per-player if needed. */
+function mixSettingsIntoConfig(
+  s: PlayerSettings,
+  base: BackingConfig,
+): BackingConfig {
+  const kitCfg = DRUM_KIT_PRESETS[s.drumKit].toConfig();
+  return {
+    ...kitCfg,                   // drumMode + drumLoop
+    ...base,                     // caller overrides win
+    volume: {
+      piano: s.pianoVolume,
+      bass: s.bassVolume,
+      drums: s.drumVolume,
+      ...(base.volume ?? {}),
+    },
+    pianoReverb: base.pianoReverb ?? s.pianoReverb,
+  };
+}
+
 export function createBackingPlayer(
   chart: Chart,
   initialConfig: BackingConfig = {},
 ): BackingPlayer {
   const callbacks: BackingPlayerCallbacks = {};
-  let config: BackingConfig = { ...initialConfig };
+  // Seed config with the global mixer settings so volume / reverb / kit are
+  // shared across every backing player and note-sheet player.
+  const seeded = mixSettingsIntoConfig(getPlayerSettings(), initialConfig);
+  let config: BackingConfig = seeded;
 
   let ctx: AudioContext | null = null;
   let piano: TriggerableInstrument | null = null;
   let bass: TriggerableInstrument | null = null;
   let drums: TriggerableInstrument | null = null;
+  let pianoReverbSend: GainNode | null = null;
   let drumLoop: DrumLoopPlayer | null = null;
   let drumLoopUrl: string | null = null;       // currently-loaded loop URL
   let loading: Promise<void> | null = null;
@@ -62,8 +92,21 @@ export function createBackingPlayer(
       piano = inst.piano;
       bass = inst.bass;
       drums = inst.drums;
+      pianoReverbSend = inst.pianoReverbSend;
+      // Apply any pianoReverb setting that was already in config when we loaded.
+      applyPianoReverb();
     });
     return loading;
+  }
+
+  function applyPianoReverb() {
+    if (!ctx || !pianoReverbSend) return;
+    if (config.pianoReverb === undefined) return;
+    pianoReverbSend.gain.setTargetAtTime(
+      config.pianoReverb,
+      ctx.currentTime,
+      0.05,
+    );
   }
 
   /** Lazy-load drum loop player if config.drumLoop is set. Reloads when URL changes. */
@@ -178,7 +221,16 @@ export function createBackingPlayer(
 
   /* ── public API ──────────────────────────────────────────────────── */
 
-  async function play(): Promise<void> {
+  /** AudioContext + instruments + drum 자원을 미리 로드. play() 가 같은 ensure* 들을
+   *  호출하지만 모두 idempotent (캐시) 라 카운트인과 병렬로 호출해두면 첫 재생
+   *  지연이 사라진다. */
+  async function preload(): Promise<void> {
+    ensureCtx();
+    await ensureInstruments();
+    await ensureDrumLoop();
+  }
+
+  async function play(playOpts: { startAt?: number } = {}): Promise<void> {
     if (playing) return;
     ensureCtx();
     await ensureInstruments();
@@ -186,7 +238,17 @@ export function createBackingPlayer(
     build();
     playing = true;
     lastBarFired = -2;
-    origin = ctx!.currentTime - elapsed;
+    // Lead the origin slightly so the first event (time=0) is strictly in the
+    // future. With a caller-supplied `startAt` (count-in's exact downbeat) we
+    // trust the audio clock and use a tight 5 ms margin so the first event
+    // lands essentially ON the beat. Without it we use the wider 50 ms margin
+    // that covers post-count-in setTimeout slop.
+    const SCHED_LEAD = playOpts.startAt != null ? 0.005 : 0.05;
+    const now = ctx!.currentTime;
+    const desiredOrigin = playOpts.startAt != null
+      ? Math.max(playOpts.startAt, now + SCHED_LEAD)
+      : now + SCHED_LEAD;
+    origin = desiredOrigin - elapsed;
 
     // Fast-forward nextIdx on resume
     nextIdx = 0;
@@ -236,22 +298,28 @@ export function createBackingPlayer(
     const prevMode = config.drumMode;
     const prevUrl = config.drumLoop?.url;
     config = { ...config, ...next };
+
+    // Apply pianoReverb immediately whether playing or not.
+    applyPianoReverb();
+
     if (playing) {
-      build();
-      // If drum mode or loop URL changed mid-playback, restart the loop accordingly.
+      // Drum kit / loop URL changes mid-playback would need a re-time-stretch
+      // (offline, 50-200ms gap) and would desync against the comp/bass that
+      // were already scheduled at the old tempo. Mirroring NotePlayer.setDrumKit,
+      // we fully stop the player so the user explicitly resumes on the new kit.
       const modeChanged = prevMode !== config.drumMode;
       const urlChanged = prevUrl !== config.drumLoop?.url;
       if (modeChanged || urlChanged) {
-        drumLoop?.stop();
+        stop();
+        callbacks.onDone?.();
+        // Pre-fetch the new loop so the next play() doesn't wait on IO.
         if (config.drumMode === "loop") {
-          ensureDrumLoop().then(() => {
-            if (!playing || !ctx) return;
-            const drumVol = config.volume?.drums ?? 1;
-            drumLoop?.setGain((config.drumLoop?.gain ?? 1) * drumVol);
-            drumLoop?.start(ctx.currentTime, opts().bpm);
-          });
+          ensureDrumLoop().catch(() => { /* logged in loader */ });
         }
-      } else if (config.drumMode === "loop" && drumLoop) {
+        return;
+      }
+      build();
+      if (config.drumMode === "loop" && drumLoop) {
         const drumVol = config.volume?.drums ?? 1;
         drumLoop.setGain((config.drumLoop?.gain ?? 1) * drumVol);
       }
@@ -260,6 +328,8 @@ export function createBackingPlayer(
 
   function dispose(): void {
     stop();
+    unsubSettings?.();
+    unsubSettings = null;
     drumLoop?.dispose();
     drumLoop = null;
     drumLoopUrl = null;
@@ -268,12 +338,21 @@ export function createBackingPlayer(
     piano = null;
     bass = null;
     drums = null;
+    pianoReverbSend = null;
     loading = null;
   }
+
+  // Subscribe to the global mixer store so every player instance picks up
+  // changes from any UI without per-page glue code. The diff is funneled
+  // through setConfig so kit-change-forces-stop semantics still apply.
+  let unsubSettings: (() => void) | null = subscribePlayerSettings((next) => {
+    setConfig(mixSettingsIntoConfig(next, {}));
+  });
 
   return {
     get playing() { return playing; },
     play,
+    preload,
     pause,
     stop,
     setConfig,

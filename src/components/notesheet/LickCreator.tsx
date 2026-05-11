@@ -15,6 +15,7 @@ import {
 import type { NoteSheetData, NoteInfo, MeasureInfo } from '../../data/sampleMelody';
 import { PianoKeyboard, type PianoNote } from './PianoKeyboard';
 import { NotePlayer } from '../../lib/note/notePlayer';
+import { useCountInIntro } from '../../hooks/useCountInIntro';
 
 /* ─── key helpers ────────────────────────────────────────────────────── */
 
@@ -652,21 +653,29 @@ export function LickCreator({ width, onSave, onCancel }: LickCreatorProps) {
     [measures, selectedKey],
   );
 
+  const countIn = useCountInIntro();
+
   const handlePlay = useCallback(async () => {
     if (!playerRef.current) {
-      const p = new NotePlayer();
-      p.drumEnabled = false;
+      const p = new NotePlayer({ lickMode: true });
       p.onMeasure = (idx) => setActiveMeasure(idx);
       p.onDone = () => { setPlaying(false); };
       playerRef.current = p;
     }
     const p = playerRef.current;
-    if (p.playing) {
+    if (p.playing || countIn.active) {
       p.stop();
+      countIn.cancel();
       setPlaying(false);
-    } else if (measures.length > 0) {
+      return;
+    }
+    if (measures.length > 0) {
       setPlaying(true);
-      await p.play(sheetData, 120);
+      const preload = p.preload();
+      const cin = await countIn.run({ bpm: 120 });
+      if (!cin.ok) { setPlaying(false); return; }
+      await preload;
+      await p.play(sheetData, 120, { startAt: cin.startAt });
     }
   }, [measures, sheetData]);
 
@@ -744,6 +753,7 @@ export function LickCreator({ width, onSave, onCancel }: LickCreatorProps) {
 
   return (
     <Container>
+      {countIn.overlay}
       <TopBar>
         {/* Key */}
         <SectionLabel>Key</SectionLabel>

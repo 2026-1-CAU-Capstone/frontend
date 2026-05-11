@@ -26,6 +26,18 @@ import {
 } from 'vexflow';
 import type { NoteSheetData, MeasureInfo } from '../../data/sampleMelody';
 import { NotePlayer } from '../../lib/note/notePlayer';
+import { useCountInIntro } from '../../hooks/useCountInIntro';
+import {
+  DRUM_KIT_PRESETS,
+  type DrumKitId,
+} from '../../lib/backing/drumKitPresets';
+import {
+  getPlayerSettings,
+  setPlayerSetting,
+  subscribePlayerSettings,
+  type BassMode,
+  type PlayerSettings,
+} from '../../lib/note/playerSettings';
 import { FullscreenButton, useFullscreen } from '../common/FullscreenButton';
 
 /* ─── constants ─────────────────────────────────────────────────────────── */
@@ -36,7 +48,11 @@ const CHORD_FONT = "'MuseJazz Text', 'DM Sans', sans-serif";
 
 function formatChord(raw: string): string {
   return raw
-    .replace(/j7/g, '\u25B37')
+    // Major-7 longforms: consume the WHOLE "Maj7"/"Ma7"/"maj7"/"ma7"/"M7"/"j7"
+    // prefix so the leading letters don't survive as in "Maj7" \u2192 "Ma\u25B37".
+    .replace(/Maj7|maj7|Ma7|ma7|M7|j7/g, '\u25B37')
+    // Minor: "min" and "mi" (both with or without trailing digit/quality) \u2192 "-"
+    .replace(/m(?:in|i)/g, '-')
     .replace(/(?<=[A-G])b(?=[^a-z]|$)/g, '\u266D')
     .replace(/(\d)b/g, '$1\u266D')
     .replace(/b(\d)/g, '\u266D$1')
@@ -127,7 +143,34 @@ function measureMinWidth(m: MeasureInfo): number {
 }
 const MEASURE_HL_COLOR = 'rgba(100, 181, 246, 0.13)';
 
-const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25, '32': 0.125 };
+const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25, '32': 0.125, '64': 0.0625, '128': 0.03125 };
+
+/** Pitch helpers for scheduling anacrusis pickup notes during the count-in. */
+const PITCH_SEMI: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
+function noteToMidi(key: string, acc?: '#' | 'b' | 'n'): number {
+  const [n, o] = key.split('/');
+  let s = PITCH_SEMI[n] ?? 0;
+  if (acc === '#') s += 1;
+  else if (acc === 'b') s -= 1;
+  return (parseInt(o) + 1) * 12 + s;
+}
+
+/** Compute the playable beat-length of a measure (sum of its notes), used for
+ *  anacrusis detection. Mirrors NotePlayer.build()'s per-note beat formula. */
+function measureBeats(m: MeasureInfo): number {
+  let beats = 0;
+  for (const n of m.notes) {
+    const base = n.duration.replace(/[dr]/g, '');
+    let b = DUR_BEATS[base] ?? 1;
+    if (n.dotted) b *= 1.5;
+    if (n.tuplet && n.tuplet >= 2) {
+      const denom = Math.pow(2, Math.floor(Math.log2(n.tuplet - 1)));
+      b *= denom / n.tuplet;
+    }
+    beats += b;
+  }
+  return beats;
+}
 
 /* ─── key signature accidentals ──────────────────────────────────────── */
 const KEY_SIG_FLATS = ['b', 'e', 'a', 'd', 'g', 'c', 'f'];
@@ -450,28 +493,74 @@ const MixerPopup = styled.div`
   bottom: 100%;
   left: 0;
   right: 0;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   background: #1e1e1e;
+  border-radius: 14px;
+  padding: 18px 22px;
+  box-shadow: 0 -6px 22px rgba(0,0,0,0.55);
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+
+  @media (max-width: 720px) {
+    grid-template-columns: 1fr;
+    max-width: 100%;
+  }
+`;
+
+/** A grouped channel strip — title bar on top, controls stacked below. */
+const MixerSection = styled.div<{ $accent?: string }>`
+  background: #262626;
+  border: 1px solid #333;
+  border-left: 3px solid ${({ $accent }) => $accent ?? '#666'};
   border-radius: 10px;
-  padding: 10px 14px;
-  box-shadow: 0 -2px 12px rgba(0,0,0,0.3);
-  overflow: hidden;
+  padding: 10px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+
+const MixerSectionFull = styled(MixerSection)`
+  grid-column: 1 / -1;
+`;
+
+const MixerSectionTitle = styled.div`
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #ddd;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 `;
 
 const MixerRow = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
-  &:not(:last-child) { margin-bottom: 8px; }
 `;
 
 const MixerLabel = styled.span`
   font-family: 'DM Sans', sans-serif;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   color: #aaa;
-  width: 46px;
+  width: 64px;
   flex-shrink: 0;
   white-space: nowrap;
+`;
+
+const MixerValue = styled.span`
+  font-family: 'JetBrains Mono', 'Menlo', monospace;
+  font-size: 0.72rem;
+  color: #888;
+  width: 38px;
+  text-align: right;
+  flex-shrink: 0;
 `;
 
 const MixerSlider = styled.input`
@@ -480,21 +569,60 @@ const MixerSlider = styled.input`
   min-width: 0;
   height: 4px;
   border-radius: 2px;
-  background: #444;
+  background: #3a3a3a;
   outline: none;
   &::-webkit-slider-thumb {
     -webkit-appearance: none;
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    background: #ccc;
+    background: #ddd;
+    cursor: pointer;
+  }
+  &::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #ddd;
+    border: none;
     cursor: pointer;
   }
 `;
 
-const SvgContainer = styled.div`
+const KitGroup = styled.div`
+  display: flex;
+  gap: 4px;
+  flex: 1;
+`;
+
+const KitBtn = styled.button<{ $active?: boolean }>`
+  flex: 1;
+  background: ${({ $active }) => ($active ? '#4caf50' : '#3a3a3a')};
+  color: #fff;
+  border: 1px solid ${({ $active }) => ($active ? '#4caf50' : '#4a4a4a')};
+  border-radius: 5px;
+  padding: 5px 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  &:hover {
+    background: ${({ $active }) => ($active ? '#45a049' : '#4a4a4a')};
+  }
+`;
+
+const AttribLine = styled.div`
+  font-size: 9px;
+  color: #888;
+  margin-top: 2px;
+  text-align: right;
+  line-height: 1.1;
+`;
+
+const SvgContainer = styled.div<{ $seekable?: boolean }>`
   width: 100%;
   padding: 0 20px 40px;
+  ${({ $seekable }) => $seekable && 'cursor: pointer;'}
 
   @media (max-width: 960px) {
     padding: 0 4px 20px;
@@ -519,14 +647,23 @@ interface NoteSheetProps {
   allKeys?: readonly string[];
   onKeyChange?: (key: string) => void;
   /** Region-selection mode (admin lick picker). When true, clicking a measure
-   * sets/extends the selected range. */
+   * sets/extends the selected ranges. */
   selectable?: boolean;
-  /** Inclusive [start, end] measure indices, or null for no selection. */
-  selectedRange?: [number, number] | null;
-  onSelectionChange?: (range: [number, number] | null) => void;
+  /** Inclusive [start, end] measure indices per region. Multiple disjoint
+   * regions are supported (Cmd/Ctrl+click to add). */
+  selectedRanges?: Array<[number, number]>;
+  onSelectionChange?: (ranges: Array<[number, number]>) => void;
+  /** Render a small 1-based measure number above each bar. */
+  showMeasureNumbers?: boolean;
+  /** Ignore any explicit per-note stem direction from the source data and let
+   *  VexFlow auto-stem (high notes → stem down, low notes → stem up). Useful
+   *  for sources like the Charlie Parker Omnibook where the XML hard-codes
+   *  stems-up for jazz-single-line convention but the on-screen rendering
+   *  reads better with standard engraver auto-stem. */
+  forceAutoStem?: boolean;
 }
 
-export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable, selectedRange, onSelectionChange }: NoteSheetProps) {
+export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable, selectedRanges, onSelectionChange, showMeasureNumbers, forceAutoStem }: NoteSheetProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(900);
@@ -543,12 +680,21 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
   const [tempoText, setTempoText] = useState(String(data.tempo ?? 120));
   const [activeMeasure, setActiveMeasure] = useState(-1);
   const [paused, setPaused] = useState(false);
-  const [drumOn] = useState(true);
-  const [metroOn, setMetroOn] = useState(false);
-  const [pianoVol, setPianoVol] = useState(1.0);
-  const [drumVol, setDrumVol] = useState(1.0);
-  const [metroVol, setMetroVol] = useState(0.6);
+  /* Global mixer state — every NotePlayer instance reads from / writes to the
+   * same store via setPlayerSetting, so the mixer is truly global. */
+  const [settings, setSettingsState] = useState<PlayerSettings>(() => getPlayerSettings());
+  useEffect(() => subscribePlayerSettings(setSettingsState), []);
   const [mixerOpen, setMixerOpen] = useState(false);
+  const [drumKitError, setDrumKitError] = useState<string | null>(null);
+  const metroOn = settings.metroEnabled;
+  const melodyVol = settings.melodyVolume;
+  const pianoVol = settings.pianoVolume;
+  const bassVol = settings.bassVolume;
+  const pianoReverb = settings.pianoReverb;
+  const drumVol = settings.drumVolume;
+  const metroVol = settings.metroVolume;
+  const drumKit = settings.drumKit;
+  const bassMode = settings.bassMode;
   const measureRectsRef = useRef<{ x: number; y: number; w: number }[]>([]);
   const noteElMapRef = useRef<Map<string, SVGElement>>(new Map());
   const prevNoteKeyRef = useRef<string | null>(null);
@@ -557,7 +703,7 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
   const colorNote = useCallback((key: string, color: string) => {
     const el = noteElMapRef.current.get(key);
     if (!el) return;
-    const apply = (e: Element) => { const s = (e as SVGElement).style; s.fill = color; s.stroke = color; };
+    const apply = (e: Element) => { (e as SVGElement).style.fill = color; };
     apply(el);
     el.querySelectorAll('*').forEach(apply);
     // Walk up to vf-stavenote for stem/flag
@@ -590,20 +736,14 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
     p.onMeasure = (idx) => setActiveMeasure(idx);
     p.onNote = (mi, ni) => highlightNote(mi, ni);
     p.onDone = () => { setPlaying(false); };
+    p.onDrumKitError = (msg) => setDrumKitError(msg);
     playerRef.current = p;
     return () => p.dispose();
   }, [highlightNote, clearNoteHighlight]);
 
-  // sync mix settings to player
-  useEffect(() => {
-    const p = playerRef.current;
-    if (!p) return;
-    p.drumEnabled = drumOn;
-    p.metroEnabled = metroOn;
-    p.pianoVolume = pianoVol;
-    p.drumVolume = drumVol;
-    p.metroVolume = metroVol;
-  }, [drumOn, metroOn, pianoVol, drumVol, metroVol]);
+  /* NotePlayer instances subscribe to playerSettings on construction, so any
+   * setPlayerSetting() call below propagates automatically — no per-player
+   * sync useEffects needed here anymore. */
 
   // stop on song change & sync tempo
   useEffect(() => {
@@ -615,19 +755,93 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
     setTempoText(String(t));
   }, [data]);
 
+  const countIn = useCountInIntro();
+
   const togglePlay = useCallback(async () => {
     const p = playerRef.current;
     if (!p) return;
-    if (p.playing) {
-      p.pause();
+    if (p.playing || countIn.active) {
+      if (p.playing) {
+        p.pause();
+        setPaused(true);
+      }
+      countIn.cancel();
+      p.cancelStandaloneNotes();
       setPlaying(false);
-      setPaused(true);
-    } else {
-      setPlaying(true);
-      setPaused(false);
-      await p.play(data, tempo);
+      return;
     }
-  }, [data, tempo]);
+    setPlaying(true);
+    setPaused(false);
+    const preload = p.preload();
+
+    // ── Anacrusis (pickup) handling ───────────────────────────────────────
+    // If the song opens with a pickup measure (shorter than the time
+    // signature), the user's musical intent is: count-in clicks fill the
+    // missing leading beats, the pickup notes sound DURING the count-in
+    // (on its last A beats), and bar-1's downbeat lands exactly on the
+    // count-in's resolution. We achieve this by:
+    //   1. Detecting anacrusis from first-measure note durations
+    //   2. Scheduling pickup notes via the player's soundfont aligned to
+    //      the count-in's last A audio-context beats
+    //   3. Stripping the pickup measure and calling play() with
+    //      startAt = count-in end, measureOffset = 1 so highlights keep
+    //      pointing at the original bar indices.
+    const firstMeas = data.measures[0];
+    const [tsNumStr] = (data.timeSignature || '4/4').split('/');
+    const tsNum = parseInt(tsNumStr, 10) || 4;
+    const firstBeats = firstMeas ? measureBeats(firstMeas) : 0;
+    const hasAnacrusis = !!firstMeas
+      && (firstMeas.anacrusis || (firstBeats > 0 && firstBeats < tsNum - 0.001));
+
+    await preload;
+    const beatDur = 60 / tempo;
+    // Anchor: when the count-in's first click will sound, in the PLAYER's
+    // ctx clock. Count-in clicks live in a separate AudioContext but both
+    // contexts advance at wall-clock rate, so reading both at the same JS
+    // tick gives us a stable offset (the +0.06 mirrors the internal lead
+    // inside useCountInIntro).
+    const cinStart = p.ctxNow() + 0.06;
+
+    if (hasAnacrusis) {
+      const anacrusisBeats = firstBeats;
+      // Pickup notes sound during count-in's last `anacrusisBeats` beats.
+      // They start at the (tsNum - anacrusisBeats)'th beat of the count-in
+      // and end exactly when the count-in resolves.
+      const pickupStart = cinStart + (tsNum - anacrusisBeats) * beatDur;
+      const songStart = cinStart + tsNum * beatDur;
+
+      // Schedule pickup notes. We walk firstMeas.notes accumulating beat
+      // position so each note's onset lines up with the engraver's rhythm
+      // (handles dotted / tuplet / rest within the pickup correctly).
+      let beatCursor = 0;
+      for (const n of firstMeas.notes) {
+        const base = n.duration.replace(/[dr]/g, '');
+        let b = DUR_BEATS[base] ?? 1;
+        if (n.dotted) b *= 1.5;
+        if (n.tuplet && n.tuplet >= 2) {
+          const denom = Math.pow(2, Math.floor(Math.log2(n.tuplet - 1)));
+          b *= denom / n.tuplet;
+        }
+        const isRest = n.duration.endsWith('r');
+        if (!isRest && !n.tieContinuation) {
+          const midi = noteToMidi(n.keys[0], n.accidentals?.[0]);
+          const when = pickupStart + beatCursor * beatDur;
+          const dur = Math.max(b * beatDur * 0.9, 0.04);
+          p.scheduleStandaloneNote(midi, when, dur);
+        }
+        beatCursor += b;
+      }
+
+      const cin = await countIn.run({ bpm: tempo });
+      if (!cin.ok) { p.cancelStandaloneNotes(); setPlaying(false); return; }
+      const strippedData: NoteSheetData = { ...data, measures: data.measures.slice(1) };
+      await p.play(strippedData, tempo, { startAt: songStart, measureOffset: 1 });
+    } else {
+      const cin = await countIn.run({ bpm: tempo });
+      if (!cin.ok) { setPlaying(false); return; }
+      await p.play(data, tempo, { startAt: cinStart + tsNum * beatDur });
+    }
+  }, [data, tempo, countIn]);
 
   const handleStop = useCallback(() => {
     playerRef.current?.stop();
@@ -656,35 +870,65 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
     svg.insertBefore(rect, svg.firstChild);
   }, [activeMeasure]);
 
+  /* ── measure-number labels (opt-in) ──────────────────────────────────
+   * Small "1, 2, 3…" labels at the top-left of each measure, sitting above
+   * the stave so they don't collide with notes or chord labels. */
+  useEffect(() => {
+    const svg = svgRef.current?.querySelector('svg');
+    if (!svg) return;
+    svg.querySelectorAll('.m-num').forEach((n) => n.remove());
+    if (!showMeasureNumbers) return;
+    const rects = measureRectsRef.current;
+    for (let i = 0; i < rects.length; i++) {
+      const r = rects[i];
+      if (!r) continue;
+      const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      txt.setAttribute('class', 'm-num');
+      txt.setAttribute('x', String(r.x + 2));
+      txt.setAttribute('y', String(r.y + 6));
+      txt.setAttribute('font-family', "'DM Sans', sans-serif");
+      txt.setAttribute('font-size', '11');
+      txt.setAttribute('font-weight', '700');
+      txt.setAttribute('fill', '#1565c0');
+      txt.textContent = String(i + 1);
+      svg.appendChild(txt);
+    }
+  }, [data, width, showMeasureNumbers]);
+
   /* ── selection highlight (admin region picker) ────────────────────── */
   useEffect(() => {
     const svg = svgRef.current?.querySelector('svg');
     if (!svg) return;
-    // Remove any previous selection rects
     svg.querySelectorAll('.m-sel').forEach((n) => n.remove());
-    if (!selectedRange) return;
-    const [start, end] = selectedRange;
-    const lo = Math.max(0, Math.min(start, end));
-    const hi = Math.max(start, end);
-    for (let i = lo; i <= hi; i++) {
-      const r = measureRectsRef.current[i];
-      if (!r) continue;
-      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      rect.setAttribute('class', 'm-sel');
-      rect.setAttribute('x', String(r.x));
-      rect.setAttribute('y', String(r.y + 10));
-      rect.setAttribute('width', String(r.w));
-      rect.setAttribute('height', String(unscaledLineHRef.current - 20));
-      // Match the ChordPage green selection style.
-      rect.setAttribute('fill', 'rgba(35, 149, 88, 0.62)');
-      rect.setAttribute('stroke', 'rgba(19, 111, 65, 0.95)');
-      rect.setAttribute('stroke-width', '2');
-      rect.setAttribute('rx', '4');
-      svg.insertBefore(rect, svg.firstChild);
+    const ranges = selectedRanges ?? [];
+    for (const [start, end] of ranges) {
+      const lo = Math.max(0, Math.min(start, end));
+      const hi = Math.max(start, end);
+      for (let i = lo; i <= hi; i++) {
+        const r = measureRectsRef.current[i];
+        if (!r) continue;
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('class', 'm-sel');
+        rect.setAttribute('x', String(r.x));
+        rect.setAttribute('y', String(r.y + 10));
+        rect.setAttribute('width', String(r.w));
+        rect.setAttribute('height', String(unscaledLineHRef.current - 20));
+        rect.setAttribute('fill', 'rgba(35, 149, 88, 0.62)');
+        rect.setAttribute('stroke', 'rgba(19, 111, 65, 0.95)');
+        rect.setAttribute('stroke-width', '2');
+        rect.setAttribute('rx', '4');
+        svg.insertBefore(rect, svg.firstChild);
+      }
     }
-  }, [selectedRange, data]);
+  }, [selectedRanges, data]);
 
-  /* ── click → toggle / extend selection (admin mode only) ─────────── */
+  /* ── click → toggle / extend selection (admin mode only) ─────────────
+   * Every click in select mode toggles a single-measure region:
+   *   - click an unselected measure → add new disjoint region
+   *   - click an already-selected measure → remove the region containing it
+   *   - shift+click → extend the LAST region from its lo as anchor
+   *   - click in whitespace → no-op (use the Clear button to wipe all)
+   */
   useEffect(() => {
     const svg = svgRef.current?.querySelector('svg');
     if (!svg || !selectable || !onSelectionChange) return;
@@ -696,7 +940,6 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
       if (!ctm) return;
       const local = pt.matrixTransform(ctm.inverse());
       const lineH = unscaledLineHRef.current;
-      // Hit-test: find the measure rect that contains (local.x, local.y)
       let hit = -1;
       for (let i = 0; i < measureRectsRef.current.length; i++) {
         const r = measureRectsRef.current[i];
@@ -707,31 +950,61 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
           break;
         }
       }
-      if (hit < 0) {
-        // Clicked outside any measure → clear selection
-        onSelectionChange(null);
+      if (hit < 0) return;
+
+      const ranges = selectedRanges ?? [];
+
+      if (e.shiftKey && ranges.length > 0) {
+        const last = ranges[ranges.length - 1];
+        const anchor = Math.min(last[0], last[1]);
+        onSelectionChange([
+          ...ranges.slice(0, -1),
+          [Math.min(anchor, hit), Math.max(anchor, hit)],
+        ]);
         return;
       }
-      if (!selectedRange) {
-        onSelectionChange([hit, hit]);
-      } else if (e.shiftKey) {
-        // Shift-click extends range from existing anchor (lo of current)
-        const [a, b] = selectedRange;
-        const anchor = Math.min(a, b);
-        onSelectionChange([Math.min(anchor, hit), Math.max(anchor, hit)]);
+
+      const containing = ranges.findIndex(([lo, hi]) =>
+        hit >= Math.min(lo, hi) && hit <= Math.max(lo, hi),
+      );
+      if (containing >= 0) {
+        onSelectionChange(ranges.filter((_, i) => i !== containing));
       } else {
-        // Plain click: if same single measure already selected, clear; else
-        // start fresh single-measure selection.
-        if (selectedRange[0] === hit && selectedRange[1] === hit) {
-          onSelectionChange(null);
-        } else {
-          onSelectionChange([hit, hit]);
+        onSelectionChange([...ranges, [hit, hit]]);
+      }
+    };
+    (svg as SVGSVGElement).addEventListener('click', handler);
+    return () => { (svg as SVGSVGElement).removeEventListener('click', handler); };
+  }, [selectable, selectedRanges, onSelectionChange, data]);
+
+  /* ── click → seek during playback (when not in selection mode) ───── */
+  useEffect(() => {
+    const svg = svgRef.current?.querySelector('svg');
+    if (!svg || selectable) return;
+    const handler = (e: MouseEvent) => {
+      const p = playerRef.current;
+      if (!p || !p.playing) return;
+      const pt = (svg as SVGSVGElement).createSVGPoint();
+      pt.x = e.clientX;
+      pt.y = e.clientY;
+      const ctm = (svg as SVGSVGElement).getScreenCTM();
+      if (!ctm) return;
+      const local = pt.matrixTransform(ctm.inverse());
+      const lineH = unscaledLineHRef.current;
+      for (let i = 0; i < measureRectsRef.current.length; i++) {
+        const r = measureRectsRef.current[i];
+        if (!r) continue;
+        if (local.x >= r.x && local.x <= r.x + r.w
+            && local.y >= r.y && local.y <= r.y + lineH) {
+          p.seekToMeasure(i);
+          setActiveMeasure(i);
+          return;
         }
       }
     };
     (svg as SVGSVGElement).addEventListener('click', handler);
     return () => { (svg as SVGSVGElement).removeEventListener('click', handler); };
-  }, [selectable, selectedRange, onSelectionChange, data]);
+  }, [selectable, data]);
 
   /* ── auto-scroll to active measure ────────────────────────────────── */
   useEffect(() => {
@@ -932,7 +1205,15 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
             continue;
           }
 
-          const note = new StaveNote({ keys: isRest ? ['b/4'] : keys, duration: dur, autoStem: true });
+          // Explicit stem direction (e.g. MusicXML import preserves the engraver's
+          // choice on the middle line / phrase boundaries). Falls back to autoStem.
+          // forceAutoStem ignores the source's stem and lets VexFlow decide based on pitch.
+          const explicitStemDir = forceAutoStem
+            ? undefined
+            : n.stem === 'up' ? 1 : n.stem === 'down' ? -1 : undefined;
+          const note = explicitStemDir !== undefined && !isRest
+            ? new StaveNote({ keys, duration: dur, stem_direction: explicitStemDir })
+            : new StaveNote({ keys: isRest ? ['b/4'] : keys, duration: dur, autoStem: true });
           if (n.dotted) Dot.buildAndAttach([note]);
 
           // Attach accumulated grace notes (if any) as a GraceNoteGroup modifier.
@@ -1056,62 +1337,130 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
           }
         }
 
-        // ── Advanced beams ──
+        // ── Beam grouping ──
+        // Two modes:
+        //   1. Explicit mode (MusicXML import): per-note flags `noBeam` / `beamBreak`
+        //      fully describe XML's <beam number="1"> start/continue/end pattern.
+        //      A new beam group opens implicitly when we encounter a beamable note
+        //      after any flush point (rest, non-beamable, noBeam, beamBreak,
+        //      tuplet-bracket transition into a new tuplet). This faithfully
+        //      preserves engraver choices like "16th-triplet beamed together with
+        //      an adjacent 8th" (very common in Parker's lines).
+        //   2. Heuristic mode (manual data): no notes carry explicit beam flags;
+        //      group by beat boundary, force-flush N-tuplets at length===N, and
+        //      use the prevIs16Triplet/postTupletMerged trick to glue 16th-trip+8th.
         const beams: Beam[] = [];
         let beamGroup: StaveNote[] = [];
-        let groupBeats = 0;
-        let inTuplet = false;
-        let postTupletMerged = false;
+        // When any note carries an explicit stem direction (MusicXML import),
+        // pass auto_stem=false so Beam respects each note's stem_direction
+        // rather than averaging pitch positions (which would flip the stems
+        // the engraver intentionally chose).
+        //
+        // forceAutoStem (Omnibook viewer): override the above and let Beam pick
+        // a shared direction from pitch — otherwise each note's individual
+        // autoStem decision can produce a jagged beam through the noteheads.
+        const beamAutoStem = forceAutoStem
+          || !measure.notes.some((nn) => nn.stem !== undefined);
+        const explicitBeamMode = measure.notes.some((nn) => nn.noBeam || nn.beamBreak);
 
-        for (let ni = 0; ni < vfNotes.length; ni++) {
-          const vn = vfNotes[ni];
-          const sourceIdx = measureIdxOfVf[ni];
-          const isTuplet = !!measure.notes[sourceIdx]?.tuplet;
-          const dur = vn.getDuration();
-          const isBeamable = dur === '8' || dur === '16' || dur === '8d' || dur === '16d';
-          const isRest = vn.isRest();
-          const noteDots = vn.getModifiersByType('Dot')?.length ?? 0;
-          let noteBeats = DUR_BEATS[dur.replace('d', '')] ?? 1;
-          if (noteDots > 0 || dur.endsWith('d')) noteBeats *= 1.5;
+        if (explicitBeamMode) {
+          for (let ni = 0; ni < vfNotes.length; ni++) {
+            const vn = vfNotes[ni];
+            const sourceIdx = measureIdxOfVf[ni];
+            const sourceNote = measure.notes[sourceIdx];
+            const dur = vn.getDuration();
+            const isBeamable = dur === '8' || dur === '16' || dur === '32' || dur === '64' || dur === '128' || dur === '8d' || dur === '16d' || dur === '32d' || dur === '64d';
+            const isRest = vn.isRest();
 
-          if (postTupletMerged && beamGroup.length > 0) {
-            if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
-            beamGroup = []; groupBeats = 0; postTupletMerged = false;
-          }
-          if (isTuplet !== inTuplet && beamGroup.length > 0) {
-            const prevIs16Triplet = inTuplet && beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
-            if (prevIs16Triplet && isBeamable && !isRest && !isTuplet) {
-              postTupletMerged = true;
-            } else {
-              if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
+            // Rest-inside-beam: XML beamed *over* this rest (e.g. 16th-rest
+            // between two 16ths). Keep the group open and push the rest so
+            // VexFlow's Beam draws across it.
+            if (isRest && sourceNote?.restInBeam && beamGroup.length > 0) {
+              beamGroup.push(vn);
+              continue;
+            }
+            // Rest, non-beamable, or noBeam → flush group.
+            if (isRest || !isBeamable || sourceNote?.noBeam) {
+              if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, beamAutoStem));
               beamGroup = [];
-              if (!isTuplet) groupBeats = 0;
+              continue;
+            }
+
+            // Group runs purely on XML's explicit beam markers (beamBreak=end).
+            // We DON'T flush at tuplet boundaries — engravers freely beam across
+            // tuplet/non-tuplet transitions and even tuplet/tuplet of differing N
+            // (e.g. triplet 8ths into 9-tuplet 16ths on one primary beam).
+
+            beamGroup.push(vn);
+
+            if (sourceNote?.beamBreak) {
+              if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, beamAutoStem));
+              beamGroup = [];
             }
           }
-          inTuplet = isTuplet;
+          if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, beamAutoStem));
+        } else {
+          // Heuristic mode (legacy auto-beaming for manually-authored licks).
+          let groupBeats = 0;
+          let inTupletN = 0;
+          let postTupletMerged = false;
 
-          if (isBeamable && !isRest) {
-            if (!isTuplet && !postTupletMerged) {
-              const newGroupBeats = groupBeats + noteBeats;
-              const has16 = dur === '16' || dur === '16d' || beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
-              const boundary = has16 ? 1 : 2;
-              if (groupBeats > 0 && Math.floor((groupBeats - 0.001) / boundary) !== Math.floor((newGroupBeats - 0.001) / boundary) && beamGroup.length > 0) {
-                if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
-                beamGroup = []; groupBeats = 0;
-              }
-            }
-            beamGroup.push(vn);
-            if (!isTuplet) groupBeats += noteBeats;
-            if (measure.notes[sourceIdx]?.beamBreak) {
-              if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
+          for (let ni = 0; ni < vfNotes.length; ni++) {
+            const vn = vfNotes[ni];
+            const sourceIdx = measureIdxOfVf[ni];
+            const tupletN = measure.notes[sourceIdx]?.tuplet ?? 0;
+            const isTuplet = tupletN >= 3;
+            const dur = vn.getDuration();
+            const isBeamable = dur === '8' || dur === '16' || dur === '32' || dur === '64' || dur === '128' || dur === '8d' || dur === '16d' || dur === '32d' || dur === '64d';
+            const isRest = vn.isRest();
+            const noteDots = vn.getModifiersByType('Dot')?.length ?? 0;
+            let noteBeats = DUR_BEATS[dur.replace('d', '')] ?? 1;
+            if (noteDots > 0 || dur.endsWith('d')) noteBeats *= 1.5;
+
+            if (postTupletMerged && beamGroup.length > 0) {
+              if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, beamAutoStem));
               beamGroup = []; groupBeats = 0; postTupletMerged = false;
             }
-          } else {
-            if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
-            beamGroup = []; groupBeats = 0; postTupletMerged = false;
+            if (tupletN !== inTupletN && beamGroup.length > 0) {
+              const prevIs16Triplet = inTupletN === 3 && beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
+              if (prevIs16Triplet && isBeamable && !isRest && !isTuplet) {
+                postTupletMerged = true;
+              } else {
+                if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, beamAutoStem));
+                beamGroup = [];
+                if (!isTuplet) groupBeats = 0;
+              }
+            }
+            inTupletN = tupletN;
+
+            if (isBeamable && !isRest) {
+              if (!isTuplet && !postTupletMerged) {
+                const newGroupBeats = groupBeats + noteBeats;
+                const has16 = dur === '16' || dur === '16d' || beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
+                const boundary = has16 ? 1 : 2;
+                if (groupBeats > 0 && Math.floor((groupBeats - 0.001) / boundary) !== Math.floor((newGroupBeats - 0.001) / boundary) && beamGroup.length > 0) {
+                  if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, beamAutoStem));
+                  beamGroup = []; groupBeats = 0;
+                }
+              }
+              beamGroup.push(vn);
+              if (!isTuplet) groupBeats += noteBeats;
+              if (isTuplet && beamGroup.length === tupletN) {
+                beams.push(new Beam(beamGroup, beamAutoStem));
+                beamGroup = []; groupBeats = 0; postTupletMerged = false;
+                continue;
+              }
+              if (measure.notes[sourceIdx]?.beamBreak) {
+                if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, beamAutoStem));
+                beamGroup = []; groupBeats = 0; postTupletMerged = false;
+              }
+            } else {
+              if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, beamAutoStem));
+              beamGroup = []; groupBeats = 0; postTupletMerged = false;
+            }
           }
+          if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, beamAutoStem));
         }
-        if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
 
         const voice = new Voice({ numBeats, beatValue });
         voice.setStrict(false);
@@ -1127,15 +1476,18 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
           if (svgNode) noteElMapRef.current.set(`${m}-${ni}`, svgNode as SVGElement);
         }
 
-        // ── Tuplet brackets — walk measure.notes but skip graces; map
-        //    real indices → vfNotes via vfNoteIdxOf. ──
+        // ── Tuplet brackets — any N-tuplet (3, 5, 6, 7, …). Walk measure.notes but
+        //    skip graces; map real indices → vfNotes via vfNoteIdxOf. ──
         {
           let ti = 0;
           while (ti < measure.notes.length) {
             if (measure.notes[ti].grace) { ti++; continue; }
-            if (measure.notes[ti].tuplet === 3) {
+            const n = measure.notes[ti].tuplet;
+            if (n && n >= 3) {
               const group: StaveNote[] = [];
-              while (ti < measure.notes.length && measure.notes[ti].tuplet === 3 && group.length < 3) {
+              // The first note of the tuplet group carries the bracket preference.
+              const bracketAttr = measure.notes[ti].tupletBracket;
+              while (ti < measure.notes.length && measure.notes[ti].tuplet === n && group.length < n) {
                 if (measure.notes[ti].grace) { ti++; continue; }
                 const vIdx = vfNoteIdxOf[ti];
                 if (vIdx >= 0) group.push(vfNotes[vIdx]);
@@ -1143,7 +1495,14 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
               }
               if (group.length >= 2) {
                 const stemDown = group[0].getStemDirection() === -1;
-                const tuplet = new Tuplet(group, { numNotes: group.length, notesOccupied: 2 });
+                const notesOccupied = Math.pow(2, Math.floor(Math.log2(n - 1)));
+                // bracket=false → number only (idiomatic for beamed jazz tuplets).
+                // bracket=true → explicit horizontal bracket. Undefined → VexFlow default.
+                const tupletOpts: { numNotes: number; notesOccupied: number; bracketed?: boolean } = {
+                  numNotes: group.length, notesOccupied,
+                };
+                if (bracketAttr !== undefined) tupletOpts.bracketed = bracketAttr;
+                const tuplet = new Tuplet(group, tupletOpts);
                 if (stemDown) tuplet.setTupletLocation(-1);
                 tuplet.setContext(ctx).draw();
               }
@@ -1309,6 +1668,7 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
 
   return (
     <Wrapper ref={wrapRef}>
+      {countIn.overlay}
       <FullscreenButton isFullscreen={isFullscreen} onClick={toggleFullscreen} />
       <Header>
         <HeaderLeft>
@@ -1339,31 +1699,121 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
         <Composer>{data.composer}</Composer>
       </Header>
 
-      <SvgContainer ref={svgRef} />
+      <SvgContainer ref={svgRef} $seekable={playing && !selectable} />
 
       <PlayerBar>
-        {/* ── Mixer popup ── */}
-        {mixerOpen && (
-          <MixerPopup>
-            <MixerRow>
-              <MixerLabel>피아노</MixerLabel>
-              <MixerSlider type="range" min="0" max="100" value={Math.round(pianoVol * 100)}
-                onChange={(e) => setPianoVol(Number(e.target.value) / 100)} />
-            </MixerRow>
-            <MixerRow>
-              <MixerLabel>드럼</MixerLabel>
-              <MixerSlider type="range" min="0" max="100" value={Math.round(drumVol * 100)}
-                onChange={(e) => setDrumVol(Number(e.target.value) / 100)} />
-            </MixerRow>
-            <MixerRow>
-              <MixerLabel>메트로놈</MixerLabel>
-              <MixToggle $on={metroOn} onClick={() => setMetroOn(v => !v)}>{metroOn ? 'ON' : 'OFF'}</MixToggle>
-              {metroOn && (
-                <MixerSlider type="range" min="0" max="100" value={Math.round(metroVol * 100)}
-                  onChange={(e) => setMetroVol(Number(e.target.value) / 100)} />
-              )}
-            </MixerRow>
-          </MixerPopup>
+        {/* -- Mixer popup — split into Piano / Bass / Drums channel strips.
+             Every change writes to the global playerSettings store so other
+             players (LickCard, LickRecommend, etc.) pick up the change too. -- */}
+          {mixerOpen && (
+            <MixerPopup>
+              {/* Melody (sax/lead) — full-width channel */}
+              <MixerSectionFull $accent='#e8a838'>
+                <MixerSectionTitle>🎵 멜로디</MixerSectionTitle>
+                <MixerRow>
+                  <MixerLabel>볼륨</MixerLabel>
+                  <MixerSlider type='range' min='0' max='200' value={Math.round(melodyVol * 100)}
+                    onChange={(e) => setPlayerSetting('melodyVolume', Number(e.target.value) / 100)} />
+                  <MixerValue>{Math.round(melodyVol * 100)}</MixerValue>
+                </MixerRow>
+              </MixerSectionFull>
+
+              {/* Piano — volume + reverb */}
+              <MixerSection $accent='#7eb6e8'>
+                <MixerSectionTitle>🎹 피아노</MixerSectionTitle>
+                <MixerRow>
+                  <MixerLabel>볼륨</MixerLabel>
+                  <MixerSlider type='range' min='0' max='200' value={Math.round(pianoVol * 100)}
+                    onChange={(e) => setPlayerSetting('pianoVolume', Number(e.target.value) / 100)} />
+                  <MixerValue>{Math.round(pianoVol * 100)}</MixerValue>
+                </MixerRow>
+                <MixerRow>
+                  <MixerLabel>잔향</MixerLabel>
+                  <MixerSlider type='range' min='0' max='100' value={Math.round(pianoReverb * 100)}
+                    onChange={(e) => setPlayerSetting('pianoReverb', Number(e.target.value) / 100)} />
+                  <MixerValue>{Math.round(pianoReverb * 100)}</MixerValue>
+                </MixerRow>
+              </MixerSection>
+
+              {/* Bass — volume + walking pattern */}
+              <MixerSection $accent='#b87edd'>
+                <MixerSectionTitle>🎸 베이스</MixerSectionTitle>
+                <MixerRow>
+                  <MixerLabel>볼륨</MixerLabel>
+                  <MixerSlider type='range' min='0' max='200' value={Math.round(bassVol * 100)}
+                    onChange={(e) => setPlayerSetting('bassVolume', Number(e.target.value) / 100)} />
+                  <MixerValue>{Math.round(bassVol * 100)}</MixerValue>
+                </MixerRow>
+                <MixerRow>
+                  <MixerLabel>패턴</MixerLabel>
+                  <KitGroup>
+                    {(
+                      [
+                        { id: 'half',       label: '1박/코드' },
+                        { id: 'two-feel',   label: '2-feel' },
+                        { id: 'four-feel',  label: '4-feel' },
+                      ] as { id: BassMode; label: string }[]
+                    ).map(({ id, label }) => (
+                      <KitBtn
+                        key={id}
+                        type='button'
+                        $active={bassMode === id}
+                        onClick={() => setPlayerSetting('bassMode', id)}
+                      >
+                        {label}
+                      </KitBtn>
+                    ))}
+                  </KitGroup>
+                </MixerRow>
+              </MixerSection>
+
+              {/* Drums — kit + volume in the same section */}
+              <MixerSectionFull $accent='#dd7e7e'>
+                <MixerSectionTitle>🥁 드럼</MixerSectionTitle>
+                <MixerRow>
+                  <MixerLabel>볼륨</MixerLabel>
+                  <MixerSlider type='range' min='0' max='200' value={Math.round(drumVol * 100)}
+                    onChange={(e) => setPlayerSetting('drumVolume', Number(e.target.value) / 100)} />
+                  <MixerValue>{Math.round(drumVol * 100)}</MixerValue>
+                </MixerRow>
+                <MixerRow>
+                  <MixerLabel>킷</MixerLabel>
+                  <KitGroup>
+                    {(Object.keys(DRUM_KIT_PRESETS) as DrumKitId[]).map((id) => (
+                      <KitBtn key={id} type='button' $active={drumKit === id}
+                        onClick={() => setPlayerSetting('drumKit', id)}>
+                        {DRUM_KIT_PRESETS[id].label}
+                      </KitBtn>
+                    ))}
+                  </KitGroup>
+                </MixerRow>
+                {DRUM_KIT_PRESETS[drumKit].attribution && (
+                  <AttribLine>{DRUM_KIT_PRESETS[drumKit].attribution}</AttribLine>
+                )}
+                {drumKitError && (
+                  <AttribLine style={{ color: '#ff8a8a' }}>{drumKitError}</AttribLine>
+                )}
+              </MixerSectionFull>
+
+              {/* Metronome — full-width footer row */}
+              <MixerSectionFull $accent='#888'>
+                <MixerSectionTitle>⏱ 메트로놈</MixerSectionTitle>
+                <MixerRow>
+                  <MixerLabel>{metroOn ? 'ON' : 'OFF'}</MixerLabel>
+                  <MixToggle $on={metroOn}
+                    onClick={() => setPlayerSetting('metroEnabled', !metroOn)}>
+                    {metroOn ? 'ON' : 'OFF'}
+                  </MixToggle>
+                  {metroOn && (
+                    <>
+                      <MixerSlider type='range' min='0' max='200' value={Math.round(metroVol * 100)}
+                        onChange={(e) => setPlayerSetting('metroVolume', Number(e.target.value) / 100)} />
+                      <MixerValue>{Math.round(metroVol * 100)}</MixerValue>
+                    </>
+                  )}
+                </MixerRow>
+              </MixerSectionFull>
+            </MixerPopup>
         )}
         {/* Transport */}
         <PlayerRow>

@@ -45,6 +45,9 @@ export interface BackingInstruments {
   piano: TriggerableInstrument;
   bass: TriggerableInstrument;
   drums: TriggerableInstrument;
+  /** Gain node that feeds the piano's wet-reverb send. Adjust to tune the
+   * piano's apparent room size live (matches NotePlayer.setPianoReverb). */
+  pianoReverbSend: GainNode;
 }
 
 /* ─── helpers ────────────────────────────────────────────────────────── */
@@ -139,5 +142,6 @@ export async function loadInstruments(ctx: AudioContext): Promise<BackingInstrum
     piano: wrapPitched(piano, 1.0),
     bass: wrapPitched(bass, 1.0),
     drums,
+    pianoReverbSend: pianoSend,
   };
 }

@@ -7,10 +7,10 @@ import {
 import { PianoKeyboard, playMidi, type PianoNote } from '../components/notesheet/PianoKeyboard';
 import type { NoteInfo, MeasureInfo } from '../data/sampleMelody';
 import { saveUserLick, computeLickFeatures, type LickEntry } from '../data/lickData';
+import { NotePlayer } from '../lib/note/notePlayer';
+import { useCountInIntro } from '../hooks/useCountInIntro';
 
 /* ─── helpers ──────────────────────────────────────────────────────────── */
-
-import Soundfont from 'soundfont-player';
 
 const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25 };
 const SEMI_MAP: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
@@ -66,28 +66,6 @@ function getBeats(dur: string, dotted?: boolean, tuplet?: number): number {
 function measureBeats(notes: NoteInfo[]): number {
   return notes.reduce((s, n) => s + getBeats(n.duration, n.dotted, n.tuplet), 0);
 }
-
-/* ─── piano playback ─────────────────────────────────────────────────── */
-
-let _pianoCtx: AudioContext | null = null;
-let _pianoInst: Soundfont.Player | null = null;
-let _pianoLoading: Promise<void> | null = null;
-
-function ensurePiano(): Promise<Soundfont.Player> {
-  if (_pianoInst) return Promise.resolve(_pianoInst);
-  if (!_pianoCtx) _pianoCtx = new AudioContext();
-  if (_pianoCtx.state === 'suspended') _pianoCtx.resume();
-  if (!_pianoLoading) {
-    _pianoLoading = Soundfont.instrument(
-      _pianoCtx,
-      'acoustic_grand_piano' as Soundfont.InstrumentName,
-      { gain: 2.5 },
-    ).then((inst) => { _pianoInst = inst; });
-  }
-  return _pianoLoading.then(() => _pianoInst!);
-}
-
-// ensurePiano().catch(() => {});
 
 /* ─── key signature accidentals ────────────────────────────────────────── */
 
@@ -365,17 +343,18 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       voice.addTickables(vfNotes);
       new Formatter().joinVoices([voice]).formatToStave([voice], stave);
 
-      // Manual beaming: group consecutive beamable notes (8th, 16th)
-      // 16th triplet + one following note beam together, then break
+      // Manual beaming: group consecutive beamable notes (8th, 16th).
+      // N-tuplet groups stay beamed together (3 for triplet, 5 for quintuplet, …).
       const beams: Beam[] = [];
       let beamGroup: StaveNote[] = [];
       let groupBeats = 0;
-      let inTuplet = false;
-      let postTupletMerged = false; // true after merging one note post-16th-triplet
+      let inTupletN = 0; // 0 = outside tuplet; else the N of the current N-tuplet group
+      let postTupletMerged = false;
 
       for (let ni = 0; ni < vfNotes.length; ni++) {
         const vn = vfNotes[ni];
-        const isTuplet = !!measure.notes[ni].tuplet;
+        const tupletN = measure.notes[ni].tuplet ?? 0;
+        const isTuplet = tupletN >= 3;
         const dur = vn.getDuration();
         const isBeamable = dur === '8' || dur === '16' || dur === '8d' || dur === '16d';
         const isRest = vn.isRest();
@@ -383,7 +362,6 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         let noteBeats = DUR_BEATS[dur.replace('d', '')] ?? 1;
         if (noteDots > 0 || dur.endsWith('d')) noteBeats *= 1.5;
 
-        // After merging one post-tuplet note, force break before next note
         if (postTupletMerged && beamGroup.length > 0) {
           if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
           beamGroup = [];
@@ -391,11 +369,11 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
           postTupletMerged = false;
         }
 
-        // Break beam group at tuplet boundary — allow one merge after 16th triplet
-        if (isTuplet !== inTuplet && beamGroup.length > 0) {
-          const prevIs16Triplet = inTuplet && beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
+        // Break beam group when tuplet N changes (including entering/leaving a tuplet).
+        // Allow one note to merge after a 16th triplet (legacy beaming convention).
+        if (tupletN !== inTupletN && beamGroup.length > 0) {
+          const prevIs16Triplet = inTupletN === 3 && beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
           if (prevIs16Triplet && isBeamable && !isRest && !isTuplet) {
-            // Allow this one note to merge, then mark for break
             postTupletMerged = true;
           } else {
             if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
@@ -403,12 +381,11 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
             if (!isTuplet) groupBeats = 0;
           }
         }
-        inTuplet = isTuplet;
+        inTupletN = tupletN;
 
         if (isBeamable && !isRest) {
           if (!isTuplet && !postTupletMerged) {
             const newGroupBeats = groupBeats + noteBeats;
-            // Break at 1-beat boundary for 16th notes, 2-beat boundary for 8th notes
             const has16 = dur === '16' || dur === '16d' || beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
             const boundary = has16 ? 1 : 2;
             if (groupBeats > 0 && Math.floor((groupBeats - 0.001) / boundary) !== Math.floor((newGroupBeats - 0.001) / boundary) && beamGroup.length > 0) {
@@ -419,7 +396,16 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
           }
           beamGroup.push(vn);
           if (!isTuplet) groupBeats += noteBeats;
-          // Force beam break after this note if beamBreak is set
+          // Force a beam break once an N-tuplet group has accumulated N notes (so 5/7/9-tuplets
+          // stay beamed together — and don't accidentally continue past N if the data omits a
+          // beamBreak flag on the last tuplet note).
+          if (isTuplet && beamGroup.length === tupletN) {
+            beams.push(new Beam(beamGroup, true));
+            beamGroup = [];
+            groupBeats = 0;
+            postTupletMerged = false;
+            continue;
+          }
           if (measure.notes[ni].beamBreak) {
             if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
             beamGroup = [];
@@ -438,19 +424,22 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       voice.draw(ctx, stave);
       beams.forEach((bm) => bm.setContext(ctx).draw());
 
-      // Render tuplet brackets (groups of 3)
+      // Render tuplet brackets — any N-tuplet (3, 5, 6, 7, …) with the correct number above
       {
         let ti = 0;
         while (ti < measure.notes.length) {
-          if (measure.notes[ti].tuplet === 3) {
+          const n = measure.notes[ti].tuplet;
+          if (n && n >= 3) {
             const group: StaveNote[] = [];
-            while (ti < measure.notes.length && measure.notes[ti].tuplet === 3 && group.length < 3) {
+            while (ti < measure.notes.length && measure.notes[ti].tuplet === n && group.length < n) {
               group.push(vfNotes[ti]);
               ti++;
             }
             if (group.length >= 2) {
               const stemDown = group[0].getStemDirection() === -1;
-              const tuplet = new Tuplet(group, { numNotes: group.length, notesOccupied: 2 });
+              // notesOccupied = largest power of 2 strictly less than n (3→2, 5→4, 7→4, 9→8…)
+              const notesOccupied = Math.pow(2, Math.floor(Math.log2(n - 1)));
+              const tuplet = new Tuplet(group, { numNotes: group.length, notesOccupied });
               if (stemDown) tuplet.setTupletLocation(-1);
               tuplet.setContext(ctx).draw();
             }
@@ -801,19 +790,19 @@ const SectionLabel = styled.span`
   margin-right: 2px;
 `;
 
-const ChordInput = styled.input`
+const TwoFiveOneSelect = styled.select`
   font-family: 'MuseJazz Text', 'DM Sans', sans-serif;
-  font-size: 1.15rem;
-  font-weight: 400;
-  width: 100px;
-  padding: 5px 10px;
+  font-size: 1.05rem;
+  font-weight: 500;
+  width: 110px;
+  padding: 5px 8px;
   border: 1px solid #b8960a;
   border-radius: 6px;
   background: #fffbe6;
   color: #8B6914;
   outline: none;
+  cursor: pointer;
   &:focus { border-color: #8B6914; box-shadow: 0 0 0 2px rgba(184, 150, 10, 0.15); }
-  &::placeholder { color: #c4a850; opacity: 0.6; }
 `;
 
 const MeasureIndicator = styled.span`
@@ -1177,6 +1166,26 @@ const ModalBtn = styled.button<{ $primary?: boolean }>`
 `;
 
 
+/* ─── 2-5-1 auto-tagger ────────────────────────────────────────────────── */
+
+const TWO_FIVE_ONE_KEYS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'] as const;
+type TwoFiveOneKey = typeof TWO_FIVE_ONE_KEYS[number];
+
+const TWO_FIVE_ONE_BY_KEY: Record<TwoFiveOneKey, [string, string, string]> = {
+  'C':  ['Dm7',  'G7',  'CM7'],
+  'Db': ['Ebm7', 'Ab7', 'DbM7'],
+  'D':  ['Em7',  'A7',  'DM7'],
+  'Eb': ['Fm7',  'Bb7', 'EbM7'],
+  'E':  ['F#m7', 'B7',  'EM7'],
+  'F':  ['Gm7',  'C7',  'FM7'],
+  'F#': ['G#m7', 'C#7', 'F#M7'],
+  'G':  ['Am7',  'D7',  'GM7'],
+  'Ab': ['Bbm7', 'Eb7', 'AbM7'],
+  'A':  ['Bm7',  'E7',  'AM7'],
+  'Bb': ['Cm7',  'F7',  'BbM7'],
+  'B':  ['C#m7', 'F#7', 'BM7'],
+};
+
 /* ─── component ────────────────────────────────────────────────────────── */
 
 export default function LickInputPage() {
@@ -1305,9 +1314,8 @@ export default function LickInputPage() {
     return () => clearInterval(intv);
   }, [editingLick, measures, curNotes, curChord, performer, title, album, instrument, lickKey, bpm]);
   const [playing, setPlaying] = useState(false);
-  const playAbortRef = useRef<AbortController | null>(null);
+  const playerRef = useRef<NotePlayer | null>(null);
   const svgRef = useRef<HTMLDivElement>(null);
-  const chordRef = useRef<HTMLInputElement>(null);
   const positionsRef = useRef<MeasurePos[]>([]);
   const [measurePositions, setMeasurePositions] = useState<MeasurePos[]>([]);
   const notePositionsRef = useRef<NotePos[]>([]);
@@ -1339,10 +1347,16 @@ export default function LickInputPage() {
   const currentIdx = curNotes.length > 0 || curChord ? measures.length : -1;
 
   // Auto-adjust BPM based on 16th note presence
+  // 16분음표(또는 32분음표) 한 음이라도 있으면 최저 150 BPM
   useEffect(() => {
     if (bpmManualRef.current) return;
-    const has16ths = allMeasures.some((m) => m.notes.some((n) => n.duration === '16' || n.duration === '16r'));
-    const newBpm = has16ths ? 120 : 200;
+    const has16ths = allMeasures.some((m) =>
+      m.notes.some((n) => {
+        const base = n.duration.replace(/[dr]/g, '');
+        return base === '16' || base === '32';
+      }),
+    );
+    const newBpm = has16ths ? 150 : 200;
     setBpm(newBpm);
     setBpmText(String(newBpm));
   }, [allMeasures]);
@@ -1354,7 +1368,6 @@ export default function LickInputPage() {
       setMeasures((prev) => [...prev, { notes, chord: curChordRef.current || undefined }]);
       setCurNotes([]);
       setCurChord('');
-      setTimeout(() => chordRef.current?.focus(), 50);
     }
   }, []);
 
@@ -1365,7 +1378,6 @@ export default function LickInputPage() {
     setMeasures((prev) => [...prev, { notes: curNotes, chord: curChord || undefined }]);
     setCurNotes([]);
     setCurChord('');
-    setTimeout(() => chordRef.current?.focus(), 50);
   }, [curNotes, curChord, pushEditUndo]);
 
   /* width tracking */
@@ -1717,81 +1729,39 @@ export default function LickInputPage() {
     return JSON.stringify(entry, null, 2);
   }, [allMeasures, performer, title, album, instrument, lickKey, bpm]);
 
-  /* playback */
+  const countIn = useCountInIntro();
+
+  /* playback — lick mode: melody + piano comp (no bass/drums), lush reverb */
   const handlePlay = useCallback(async () => {
-    if (playing) {
-      playAbortRef.current?.abort();
+    if (allMeasures.length === 0) return;
+    if (!playerRef.current) {
+      const p = new NotePlayer({ lickMode: true });
+      p.onDone = () => setPlaying(false);
+      playerRef.current = p;
+    }
+    const p = playerRef.current;
+    if (p.playing || countIn.active) {
+      p.stop();
+      countIn.cancel();
       setPlaying(false);
       return;
     }
-    if (allMeasures.length === 0) return;
-
-    const sax = await ensurePiano();
-    const abort = new AbortController();
-    playAbortRef.current = abort;
     setPlaying(true);
+    const preload = p.preload();
+    const cin = await countIn.run({ bpm });
+    if (!cin.ok) { setPlaying(false); return; }
+    await preload;
+    await p.play({
+      title: title || 'Lick',
+      composer: performer || '',
+      key: lickKey || 'C',
+      timeSignature: '4/4',
+      tempo: bpm,
+      measures: allMeasures,
+    }, bpm, { startAt: cin.startAt });
+  }, [allMeasures, bpm, title, performer, lickKey, countIn]);
 
-    const beatDur = 60 / bpm; // seconds per beat
-
-    // Flatten all notes for tie merging
-    const flat: NoteInfo[] = [];
-    for (const m of allMeasures) for (const n of m.notes) flat.push(n);
-
-    try {
-      let i = 0;
-      while (i < flat.length) {
-        if (abort.signal.aborted) throw 'stop';
-        const n = flat[i];
-        const isRest = n.duration.endsWith('r');
-        const baseDur = n.duration.replace(/r$/, '');
-        let beats = DUR_BEATS[baseDur] ?? 1;
-        if (n.dotted) beats *= 1.5;
-        beats *= tupletScale(n.tuplet);
-
-        // Merge tied notes: accumulate duration, skip tied targets
-        if (!isRest && n.tie) {
-          let look = i + 1;
-          while (look < flat.length) {
-            const ln = flat[look];
-            const lb = ln.duration.replace(/r$/, '');
-            let lbeats = DUR_BEATS[lb] ?? 1;
-            if (ln.dotted) lbeats *= 1.5;
-            lbeats *= tupletScale(ln.tuplet);
-            beats += lbeats;
-            if (!ln.tie) { look++; break; }
-            look++;
-          }
-          const sec = beats * beatDur;
-          const acc = n.accidentals?.[0] as '#' | 'b' | 'n' | undefined;
-          const midi = vexToMidi(n.keys[0], acc);
-          sax.play(String(midi), 0, { duration: sec * 0.9, gain: 3 });
-          await new Promise<void>((resolve, reject) => {
-            const timer = setTimeout(resolve, sec * 1000);
-            abort.signal.addEventListener('abort', () => { clearTimeout(timer); reject('stop'); }, { once: true });
-          });
-          i = look;
-          continue;
-        }
-
-        const sec = beats * beatDur;
-        if (!isRest) {
-          const acc = n.accidentals?.[0] as '#' | 'b' | 'n' | undefined;
-          const midi = vexToMidi(n.keys[0], acc);
-          sax.play(String(midi), 0, { duration: sec * 0.9, gain: 3 });
-        }
-        await new Promise<void>((resolve, reject) => {
-          const timer = setTimeout(resolve, sec * 1000);
-          abort.signal.addEventListener('abort', () => { clearTimeout(timer); reject('stop'); }, { once: true });
-        });
-        i++;
-      }
-    } catch {
-      // stopped
-    }
-
-    sax.stop();
-    setPlaying(false);
-  }, [playing, allMeasures, bpm]);
+  useEffect(() => () => { playerRef.current?.dispose(); }, []);
 
   /* update chord for any measure (completed or current) */
   const updateMeasureChord = useCallback((idx: number, chord: string) => {
@@ -1802,6 +1772,37 @@ export default function LickInputPage() {
       setMeasures((prev) => prev.map((m, i) => i === idx ? { ...m, chord: chord || undefined } : m));
     }
   }, [measures.length]);
+
+  /* 2-5-1 auto-tagger: fill ii-V-I chords for the chosen major key into the
+   * first 3 chord slots. If the 1st measure already has a chord, start from
+   * the 2nd measure instead. Creates empty measures as needed. */
+  const applyTwoFiveOne = useCallback((key: TwoFiveOneKey) => {
+    const chords = TWO_FIVE_ONE_BY_KEY[key];
+    if (!chords) return;
+
+    pushEditUndo();
+
+    const hasCurrent = curNotes.length > 0 || !!curChord;
+    const combined: MeasureInfo[] = hasCurrent
+      ? [...measures, { notes: curNotes, chord: curChord || undefined }]
+      : [...measures];
+
+    const firstChord = combined[0]?.chord;
+    const startIdx = firstChord ? 1 : 0;
+
+    while (combined.length < startIdx + 3) {
+      combined.push({ notes: [], chord: undefined });
+    }
+
+    for (let k = 0; k < 3; k++) {
+      combined[startIdx + k] = { ...combined[startIdx + k], chord: chords[k] };
+    }
+
+    setMeasures(combined);
+    setCurNotes([]);
+    setCurChord('');
+    setSelectedNote(null);
+  }, [measures, curNotes, curChord, pushEditUndo]);
 
   /* Load JSON modal — accepts either:
    *   - a full lick entry: { performer, title, ..., sheetData: { measures: [...] } }
@@ -1931,6 +1932,7 @@ export default function LickInputPage() {
 
   return (
     <Page>
+      {countIn.overlay}
       <Header>
         <BackBtn onClick={() => navigate(editingId ? '/licks' : '/')}>
           &#8592; {editingId ? 'Licks' : 'Home'}
@@ -2040,17 +2042,22 @@ export default function LickInputPage() {
 
         <Sep />
 
-        <SectionLabel>Chord</SectionLabel>
-        <ChordInput
-          ref={chordRef}
-          value={curChord}
-          onChange={(e) => setCurChord(e.target.value)}
-          onBlur={() => setCurChord(normalizeChord(curChord))}
-          placeholder="e.g. Dm7"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') { e.preventDefault(); setCurChord(normalizeChord(curChord)); closeMeasure(); }
+        <SectionLabel>2-5-1</SectionLabel>
+        <TwoFiveOneSelect
+          value=""
+          onChange={(e) => {
+            const key = e.target.value as TwoFiveOneKey | '';
+            if (!key) return;
+            applyTwoFiveOne(key);
+            e.target.value = '';
           }}
-        />
+          title="Pick a major key to auto-fill ii-V-I into the chord cells"
+        >
+          <option value="">Key…</option>
+          {TWO_FIVE_ONE_KEYS.map((k) => (
+            <option key={k} value={k}>{k}</option>
+          ))}
+        </TwoFiveOneSelect>
 
         <Sep />
 

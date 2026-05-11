@@ -14,6 +14,8 @@ import { NoteSheet } from '../notesheet/NoteSheet';
 import type { NoteSheetData } from '../../data/sampleMelody';
 import { loadXmlMelody } from '../../lib/note/xmlMelodyParser';
 import { useLickRegionPicker, LickRegionControls } from './lickRegionPicker';
+import { inferKeyFromMeasures } from '../../lib/note/keyInference';
+import { OMNIBOOK_KEY_OVERRIDES } from '../../data/omnibookKeys';
 
 const parkerModules = import.meta.glob('../../../data/omnibook/Omnibook xml/*.xml', {
   import: 'default',
@@ -65,6 +67,16 @@ const Sidebar = styled.div`
   display: flex;
   flex-direction: column;
   min-height: 0;
+`;
+
+const ControlsWrapper = styled.div`
+  padding: 10px;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  background: ${({ theme }) => theme.colors.bgSecondary};
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-radius: 8px 8px 0 0;
 `;
 
 const SearchInput = styled.input`
@@ -162,6 +174,7 @@ export function OmnibookViewer({ source = 'parker' }: { source?: OmnibookSource 
     setSearch('');
   }, [source]);
 
+  const composerOverride = SOURCES[source].composer;
   useEffect(() => {
     if (!selectedId) { setSheet(null); setError(null); return; }
     const entry = omnibookEntries.find((e) => e.id === selectedId);
@@ -170,14 +183,25 @@ export function OmnibookViewer({ source = 'parker' }: { source?: OmnibookSource 
     setError(null);
     entry.loadUrl()
       .then((url) => loadXmlMelody(url, entry.title))
-      .then((data) => { setSheet(data); setLoading(false); })
+      .then((data) => {
+        // The Omnibook XMLs almost never have a <creator type="composer"> tag —
+        // force the composer to the performer so the header is never blank/"Unknown".
+        // The XMLs also almost all have <fifths>0</fifths> regardless of the
+        // tune's actual key; recover the tonal center from the chord progression,
+        // falling back to a manual override map for tunes where the heuristic
+        // doesn't land on the right answer.
+        const manualKey = OMNIBOOK_KEY_OVERRIDES[source]?.[entry.id];
+        const inferredKey = manualKey ?? inferKeyFromMeasures(data.measures) ?? data.key;
+        setSheet({ ...data, composer: composerOverride, key: inferredKey });
+        setLoading(false);
+      })
       .catch((e) => {
         console.error('Failed to load Omnibook XML', e);
         setError(String(e));
         setSheet(null);
         setLoading(false);
       });
-  }, [selectedId, omnibookEntries]);
+  }, [selectedId, omnibookEntries, composerOverride, source]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -201,6 +225,9 @@ export function OmnibookViewer({ source = 'parker' }: { source?: OmnibookSource 
   return (
     <Layout>
       <Sidebar>
+        <ControlsWrapper>
+          <LickRegionControls picker={picker} />
+        </ControlsWrapper>
         <SearchInput
           placeholder={`Search ${omnibookEntries.length} pieces…`}
           value={search}
@@ -234,15 +261,14 @@ export function OmnibookViewer({ source = 'parker' }: { source?: OmnibookSource 
               {sheet.tempo && <span>tempo: {sheet.tempo}</span>}
               <span>{sheet.measures.length} measures</span>
             </MetaRow>
-            <div style={{ marginBottom: 8 }}>
-              <LickRegionControls picker={picker} />
-            </div>
             <Section>
               <NoteSheet
                 data={sheet}
                 selectable={picker.selectMode}
-                selectedRange={picker.selectedRange}
-                onSelectionChange={picker.setSelectedRange}
+                selectedRanges={picker.selectedRanges}
+                onSelectionChange={picker.setSelectedRanges}
+                showMeasureNumbers
+                forceAutoStem
               />
             </Section>
           </>

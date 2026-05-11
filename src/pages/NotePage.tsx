@@ -782,6 +782,7 @@ export default function NotePage() {
               selectedKey={selectedKey}
               allKeys={allKeys}
               onKeyChange={(k) => setSelectedKey(k)}
+              forceAutoStem
             />
           ) : (
             <LoadingState>

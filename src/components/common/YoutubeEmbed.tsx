@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import styled from 'styled-components';
 
 const EmbedFrame = styled.div`
@@ -27,25 +28,129 @@ interface Props {
   autoplay?: boolean;
 }
 
-export function YoutubeEmbed({ videoId, startSec, endSec, maxWidth, autoplay }: Props) {
-  const params = new URLSearchParams();
-  if (startSec && startSec > 0) params.set('start', String(Math.floor(startSec)));
-  if (endSec && endSec > 0) params.set('end', String(Math.ceil(endSec)));
-  if (autoplay) {
-    params.set('autoplay', '1');
-    params.set('mute', '0');
+/* ─── IFrame Player API loader (singleton) ─────────────────────────── */
+
+interface YTPlayer {
+  getCurrentTime(): number;
+  pauseVideo(): void;
+  playVideo(): void;
+  seekTo(sec: number, allowSeekAhead: boolean): void;
+  destroy(): void;
+}
+
+interface YTNamespace {
+  Player: new (
+    el: HTMLElement | string,
+    opts: {
+      videoId: string;
+      playerVars?: Record<string, string | number>;
+      events?: {
+        onReady?: (e: { target: YTPlayer }) => void;
+        onStateChange?: (e: { data: number; target: YTPlayer }) => void;
+      };
+    },
+  ) => YTPlayer;
+  PlayerState: { PLAYING: number };
+}
+
+declare global {
+  interface Window {
+    YT?: YTNamespace;
+    onYouTubeIframeAPIReady?: () => void;
   }
-  const qs = params.toString();
-  const allow = `accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture${autoplay ? '; autoplay' : ''}`;
+}
+
+let apiReady: Promise<YTNamespace> | null = null;
+
+function loadYTApi(): Promise<YTNamespace> {
+  if (apiReady) return apiReady;
+  apiReady = new Promise<YTNamespace>((resolve) => {
+    if (window.YT?.Player) {
+      resolve(window.YT);
+      return;
+    }
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      prev?.();
+      if (window.YT) resolve(window.YT);
+    };
+    if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      document.head.appendChild(tag);
+    }
+  });
+  return apiReady;
+}
+
+/* ─── Component ─────────────────────────────────────────────────────── */
+
+export function YoutubeEmbed({ videoId, startSec, endSec, maxWidth, autoplay }: Props) {
+  const mountRef = useRef<HTMLDivElement>(null);
+  const playerRef = useRef<YTPlayer | null>(null);
+  const rafRef = useRef<number>(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    loadYTApi().then((YT) => {
+      if (cancelled || !mountRef.current) return;
+
+      // YT.Player replaces the given element with an <iframe>. Use an inner div
+      // so the outer EmbedFrame keeps its absolute-positioned iframe styling.
+      const inner = document.createElement('div');
+      mountRef.current.appendChild(inner);
+
+      playerRef.current = new YT.Player(inner, {
+        videoId,
+        playerVars: {
+          // start/end here are integer-second fallbacks; we re-seek + JS-pause below for ms precision
+          start: startSec ? Math.floor(startSec) : 0,
+          autoplay: autoplay ? 1 : 0,
+          rel: 0,
+          modestbranding: 1,
+          playsinline: 1,
+          enablejsapi: 1,
+          origin: window.location.origin,
+        },
+        events: {
+          onReady: (e) => {
+            if (startSec && startSec > 0) e.target.seekTo(startSec, true);
+            if (autoplay) e.target.playVideo();
+          },
+          onStateChange: (e) => {
+            const PLAYING = YT.PlayerState.PLAYING;
+            cancelAnimationFrame(rafRef.current);
+            if (e.data !== PLAYING || !endSec || endSec <= 0) return;
+
+            const tick = () => {
+              const p = playerRef.current;
+              if (!p) return;
+              const t = p.getCurrentTime();
+              if (t >= endSec) {
+                p.pauseVideo();
+                return;
+              }
+              rafRef.current = requestAnimationFrame(tick);
+            };
+            rafRef.current = requestAnimationFrame(tick);
+          },
+        },
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(rafRef.current);
+      try { playerRef.current?.destroy(); } catch { /* already destroyed */ }
+      playerRef.current = null;
+      if (mountRef.current) mountRef.current.innerHTML = '';
+    };
+  }, [videoId, startSec, endSec, autoplay]);
+
   return (
     <EmbedFrame style={maxWidth ? { maxWidth } : undefined}>
-      <iframe
-        src={`https://www.youtube.com/embed/${videoId}${qs ? `?${qs}` : ''}`}
-        title="YouTube video"
-        loading="lazy"
-        allow={allow}
-        allowFullScreen
-      />
+      <div ref={mountRef} style={{ position: 'absolute', inset: 0 }} />
     </EmbedFrame>
   );
 }

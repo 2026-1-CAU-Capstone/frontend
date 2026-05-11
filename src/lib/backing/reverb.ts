@@ -41,7 +41,8 @@ export function createReverbBus(ctx: AudioContext, destination?: AudioNode): Rev
   wet.gain.value = 1.0;
 
   const convolver = ctx.createConvolver();
-  convolver.buffer = buildImpulseResponse(ctx, 1.2, 2.8);
+  // Longer tail so piano chords ring like a real club kit — was 1.2s/2.8.
+  convolver.buffer = buildImpulseResponse(ctx, 2.0, 2.2);
 
   // High-frequency roll-off to keep cymbal reverb dark and jazzy
   const tone = ctx.createBiquadFilter();
@@ -49,9 +50,11 @@ export function createReverbBus(ctx: AudioContext, destination?: AudioNode): Rev
   tone.frequency.value = 4000;
   tone.gain.value = -6;
 
-  // Final wet level — how loud the reverb is overall
+  // Final wet level — how loud the reverb is overall. Bumped from 0.35 so the
+  // piano send (~0.45 by default) gives a clearly audible room without needing
+  // the user to crank the slider.
   const wetLevel = ctx.createGain();
-  wetLevel.gain.value = 0.35;
+  wetLevel.gain.value = 0.6;
 
   wet.connect(convolver).connect(tone).connect(wetLevel).connect(output);
 

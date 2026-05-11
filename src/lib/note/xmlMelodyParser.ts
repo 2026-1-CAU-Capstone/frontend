@@ -26,8 +26,10 @@ import type {
  */
 
 const TYPE_TO_VF: Record<string, string> = {
-  whole: 'w', half: 'h', quarter: 'q', eighth: '8', '16th': '16', '32nd': '32', '64th': '32',
+  whole: 'w', half: 'h', quarter: 'q', eighth: '8', '16th': '16', '32nd': '32', '64th': '64', '128th': '128',
 };
+
+const BEAMABLE_XML_TYPES = new Set(['eighth', '16th', '32nd', '64th', '128th']);
 
 const ACC_MAP: Record<string, '#' | 'b' | 'n'> = {
   sharp: '#', flat: 'b', natural: 'n',
@@ -121,6 +123,14 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
   const soundEl = doc.querySelector('sound[tempo]');
   const tempo = soundEl ? Math.round(parseFloat(soundEl.getAttribute('tempo')!)) : undefined;
 
+  // Does this document engrave beam decisions anywhere? Well-engraved scores
+  // (Parker Omnibook) carry <beam> elements throughout; a measure that omits
+  // them is INTENTIONALLY unbeamed (commonly happens around tied eighths so
+  // the tie curve reads clearly). A bare transcription (e.g. miles_davis_xml/
+  // Airegin) carries no beam info at all and expects the renderer to auto-beam.
+  // File-level detection picks the right interpretation in each case.
+  const docHasBeams = doc.querySelector('beam') !== null;
+
   /* ── parse measures in order, tracking running state ─────────────── */
   const measures: MeasureInfo[] = [];
   const state: ParserState = {
@@ -156,6 +166,12 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
     }
 
     const measureChords: string[] = [];
+
+    // Beam-open tracker: turns true on <beam>begin</beam>, false after the
+    // matching <beam>end</beam>. Used to flag rests that sit inside a beam
+    // group (XML encoding: rests carry no <beam> element, but the engraver
+    // wants the beam line to extend over them — common in 16th-rest patterns).
+    let beamOpen = false;
 
     // Per-measure parser context for slur/ottava etc.
     let pendingFermata = false;
@@ -273,9 +289,18 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
       if (tag === 'harmony') {
         const root  = text(child, 'root-step') ?? '';
         const alter = text(child, 'root-alter');
-        const kind  = text(child, 'kind') ?? '';
+        const kindEl = child.querySelector('kind');
+        const kind  = (kindEl?.textContent ?? '').trim();
         const acc   = alter === '1' ? '#' : alter === '-1' ? 'b' : '';
-        const sym   = root + acc + kindToSymbol(kind);
+        // Prefer the engraver-supplied text="…" hint when present (e.g. text="7"
+        // for dominant, text="m7b5" for half-diminished). Otherwise fall back to
+        // a kind-keyed default — using '' for plain major triads (Omnibook
+        // convention: just the root letter) and '°' for plain diminished.
+        const kindText = kindEl?.getAttribute('text');
+        const suffix = (kindText !== null && kindText !== undefined)
+          ? kindText
+          : kindToSymbol(kind);
+        const sym = root + acc + suffix;
         if (sym && measureChords[measureChords.length - 1] !== sym) measureChords.push(sym);
         continue;
       }
@@ -368,12 +393,28 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
         const normal = parseInt(text(tmEl, 'normal-notes') ?? '0', 10);
         if (actual > normal && actual > 1) tuplet = actual;
       }
+      // Tuplet bracket — appears on <tuplet type="start"> inside <notations>.
+      // bracket="no" means draw just the "3" / "5" / … without a horizontal
+      // bracket (idiomatic for beamed tuplets in jazz lead sheets).
+      let tupletBracketAttr: boolean | undefined;
+      const tupletStartEl = notations?.querySelector('tuplet[type="start"]');
+      if (tupletStartEl) {
+        const br = tupletStartEl.getAttribute('bracket');
+        if (br === 'no') tupletBracketAttr = false;
+        else if (br === 'yes') tupletBracketAttr = true;
+      }
 
       if (isRest) {
         const restNote: NoteInfo = { keys: ['b/4'], duration: vf + 'r' };
         if (isDotted) restNote.dotted = true;
         if (tuplet) restNote.tuplet = tuplet;
+        if (tupletBracketAttr !== undefined) restNote.tupletBracket = tupletBracketAttr;
         if (noteFermata) restNote.fermata = true;
+        // If we're inside an open beam group (between <beam>begin</beam> and
+        // its matching <beam>end</beam>), the rest sits visually under the beam.
+        if (docHasBeams && beamOpen && BEAMABLE_XML_TYPES.has(typeStr)) {
+          restNote.restInBeam = true;
+        }
         measure.notes.push(restNote);
         flatNoteIdx++;
         continue;
@@ -391,24 +432,38 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
       };
       if (isDotted) ni.dotted = true;
       if (tuplet) ni.tuplet = tuplet;
+      if (tupletBracketAttr !== undefined) ni.tupletBracket = tupletBracketAttr;
       if (isGrace) {
         ni.grace = true;
         if (graceSlash) ni.graceSlash = true;
       }
 
-      // Accidental (key-sig aware).
+      // Accidental — semantically the FLAT/SHARP/NATURAL on the actual sounding
+      // pitch (NotePlayer.vexToMidi maps letter+accidental→MIDI without consulting
+      // the key signature, so the parser MUST encode key-sig-implied alterations
+      // here too). The NoteSheet renderer suppresses drawing the symbol when it
+      // already matches the key signature / active accidental state.
       const isInKeySig = state.keySigLetters.has(step);
       const accText = text(nEl, 'accidental');
+      const alterTxt = text(pitchEl, 'alter');
+      const alterVal = alterTxt !== null ? parseInt(alterTxt, 10) : null;
       if (accText && ACC_MAP[accText]) {
-        const acc = ACC_MAP[accText];
-        if (acc === 'n' && isInKeySig) ni.accidentals = { 0: 'n' };
-        else if (!isInKeySig) ni.accidentals = { 0: acc };
-      } else {
-        const alter = parseInt(text(pitchEl, 'alter') ?? '0', 10);
-        if (alter === 1 && !isInKeySig)  ni.accidentals = { 0: '#' };
-        if (alter === -1 && !isInKeySig) ni.accidentals = { 0: 'b' };
-        if (alter === 0 && isInKeySig)   ni.accidentals = { 0: 'n' };
+        // Engraver drew an explicit accidental — that IS the sounding pitch.
+        ni.accidentals = { 0: ACC_MAP[accText] };
+      } else if (alterVal === 1) {
+        // <alter>1</alter>: sharp pitch (key sig or not — the actual pitch is sharp).
+        ni.accidentals = { 0: '#' };
+      } else if (alterVal === -1) {
+        // <alter>-1</alter>: flat pitch — e.g. F-major's Bb encoded as
+        // <step>B<alter>-1 without <accidental> because the key sig handles
+        // the visual. Player MUST see the flat to sound the correct pitch.
+        ni.accidentals = { 0: 'b' };
+      } else if (alterVal === 0 && isInKeySig) {
+        // <alter>0</alter> on a key-sig letter = explicit natural override.
+        ni.accidentals = { 0: 'n' };
       }
+      // alter absent / 0 outside key sig → no accidental flag; player reads
+      // the natural pitch which is correct.
 
       // Tie (visualization): mark tie=true on this note if it ties to the
       // next note. We keep BOTH notes (start + stop) — the renderer draws
@@ -448,6 +503,45 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
         ni.ottavaStart = state.ottava;
       }
 
+      // ── Explicit beam grouping (primary <beam number="1">).
+      // MusicXML encodes per-note beam membership:
+      //   begin    → first note of a beam group
+      //   continue → interior note
+      //   end      → last note of a beam group → beamBreak = true
+      //   (absent in an engraved measure) → standalone flagged note → noBeam = true
+      // We only handle the primary beam; secondary/tertiary beams (16th/32nd
+      // tails) are drawn automatically by VexFlow's Beam from the note types.
+      // Non-beamable types (whole/half/quarter) never carry a beam element and
+      // need no annotation. We only consult <beam> when the surrounding measure
+      // has ANY beam markup — otherwise the engraver simply didn't specify and
+      // we hand off to the renderer's heuristic auto-beamer.
+      if (BEAMABLE_XML_TYPES.has(typeStr) && !isGrace && docHasBeams) {
+        let primaryBeam: string | null = null;
+        for (const be of nEl.querySelectorAll('beam')) {
+          if ((be.getAttribute('number') ?? '1') === '1') {
+            primaryBeam = (be.textContent ?? '').trim();
+            break;
+          }
+        }
+        if (primaryBeam === null) {
+          ni.noBeam = true;
+          beamOpen = false;
+        } else if (primaryBeam === 'begin') {
+          beamOpen = true;
+        } else if (primaryBeam === 'end') {
+          ni.beamBreak = true;
+          beamOpen = false;
+        }
+        // 'continue' / hooks keep beamOpen at its current value.
+      }
+
+      // ── Explicit stem direction (<stem>up|down</stem>).
+      // VexFlow's autoStem picks per-note based on pitch position alone, which
+      // diverges from the engraver's choice on the staff-middle line (B4) and
+      // for stem-flipped phrases. Honour the XML directly when present.
+      const stemTxt = text(nEl, 'stem');
+      if (stemTxt === 'up' || stemTxt === 'down') ni.stem = stemTxt;
+
       measure.notes.push(ni);
       flatNoteIdx++;
     }
@@ -475,16 +569,31 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
 /* ─── MusicXML chord kind → symbol ───────────────────────────────────── */
 
 function kindToSymbol(kind: string): string {
+  // Used only when <kind> has no text="…" attribute. Use U+25B3 △ (white
+  // up-pointing triangle) for the maj-7 symbol — NoteSheet's formatChord /
+  // LickCard's appendChordSVG both expect this exact codepoint. The visually
+  // similar U+0394 Δ (Greek capital delta) renders as a Greek letter in the
+  // chord font, not the music glyph.
   const MAP: Record<string, string> = {
-    major: 'Δ', minor: '-', dominant: '7',
-    'major-seventh': 'Δ7', 'minor-seventh': '-7',
-    'dominant-seventh': '7', 'half-diminished': 'ø7',
-    diminished: '°7', 'diminished-seventh': '°7',
-    augmented: '+', 'augmented-seventh': '+7',
-    suspended: 'sus', 'suspended-fourth': 'sus4',
-    'major-sixth': '6', 'minor-sixth': '-6',
-    'major-minor': '-Δ7', 'major-ninth': 'Δ9',
-    'dominant-ninth': '9', 'minor-ninth': '-9',
+    major: '',                  // plain major triad → just the root letter
+    minor: '-',
+    dominant: '7',
+    'major-seventh': '△7',
+    'minor-seventh': '-7',
+    'dominant-seventh': '7',
+    'half-diminished': 'ø7',
+    diminished: '°',             // plain diminished triad → root + °
+    'diminished-seventh': '°7',
+    augmented: '+',
+    'augmented-seventh': '+7',
+    suspended: 'sus',
+    'suspended-fourth': 'sus4',
+    'major-sixth': '6',
+    'minor-sixth': '-6',
+    'major-minor': '-△7',
+    'major-ninth': '△9',
+    'dominant-ninth': '9',
+    'minor-ninth': '-9',
   };
   return MAP[kind] ?? kind;
 }

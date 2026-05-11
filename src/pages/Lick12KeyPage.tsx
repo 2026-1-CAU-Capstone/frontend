@@ -5,6 +5,8 @@ import {
   Renderer, Stave, StaveNote, Voice, Formatter, Beam, Accidental, Dot, BarlineType, VoltaType, StaveTie, Tuplet, Repetition,
 } from 'vexflow';
 import Soundfont from 'soundfont-player';
+import { useCountInIntro } from '../hooks/useCountInIntro';
+import { swungBeats } from '../lib/note/swing';
 import type { NoteInfo, MeasureInfo } from '../data/sampleMelody';
 import { loadUserLicks, type LickEntry } from '../data/lickData';
 import { getLickVideo, type LickVideo } from '../data/lickVideos';
@@ -156,11 +158,12 @@ function buildManualBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
   const beams: Beam[] = [];
   let beamGroup: StaveNote[] = [];
   let groupBeats = 0;
-  let inTuplet = false;
+  let inTupletN = 0; // 0 = outside tuplet; else N of the current N-tuplet
   let postTupletMerged = false;
   for (let i = 0; i < vfNotes.length; i++) {
     const vn = vfNotes[i];
-    const isTuplet = !!notes[i]?.tuplet;
+    const tupletN = notes[i]?.tuplet ?? 0;
+    const isTuplet = tupletN >= 3;
     const dur = vn.getDuration();
     const isBeamable = dur === '8' || dur === '16' || dur === '8d' || dur === '16d';
     const isRest = vn.isRest();
@@ -175,9 +178,9 @@ function buildManualBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
       postTupletMerged = false;
     }
 
-    // Break beam group at tuplet boundary — allow one merge after 16th triplet
-    if (isTuplet !== inTuplet && beamGroup.length > 0) {
-      const prevIs16Triplet = inTuplet && beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
+    // Break beam group when tuplet N changes (legacy: one merge after 16th triplet)
+    if (tupletN !== inTupletN && beamGroup.length > 0) {
+      const prevIs16Triplet = inTupletN === 3 && beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
       if (prevIs16Triplet && isBeamable && !isRest && !isTuplet) {
         postTupletMerged = true;
       } else {
@@ -186,7 +189,7 @@ function buildManualBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
         if (!isTuplet) groupBeats = 0;
       }
     }
-    inTuplet = isTuplet;
+    inTupletN = tupletN;
 
     if (isBeamable && !isRest) {
       if (!isTuplet && !postTupletMerged) {
@@ -201,6 +204,14 @@ function buildManualBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
       }
       beamGroup.push(vn);
       if (!isTuplet) groupBeats += noteBeats;
+      // Force a beam break once an N-tuplet group has accumulated N notes.
+      if (isTuplet && beamGroup.length === tupletN) {
+        beams.push(new Beam(beamGroup, true));
+        beamGroup = [];
+        groupBeats = 0;
+        postTupletMerged = false;
+        continue;
+      }
       if (notes[i]?.beamBreak) {
         if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
         beamGroup = [];
@@ -488,19 +499,21 @@ function renderMeasures(el: HTMLDivElement, measures: MeasureInfo[], minWidth: n
     voice.draw(ctx, stave);
     beams.forEach((b) => b.setContext(ctx).draw());
 
-    // Render tuplet brackets
+    // Render tuplet brackets — any N-tuplet (3, 5, 6, 7, …) with the correct number above
     {
       let ti = 0;
       while (ti < measure.notes.length) {
-        if (measure.notes[ti].tuplet === 3) {
+        const n = measure.notes[ti].tuplet;
+        if (n && n >= 3) {
           const group: StaveNote[] = [];
-          while (ti < measure.notes.length && measure.notes[ti].tuplet === 3 && group.length < 3) {
+          while (ti < measure.notes.length && measure.notes[ti].tuplet === n && group.length < n) {
             group.push(vfNotes[ti]);
             ti++;
           }
           if (group.length >= 2) {
             const stemDown = group[0].getStemDirection() === -1;
-            const tuplet = new Tuplet(group, { numNotes: group.length, notesOccupied: 2 });
+            const notesOccupied = Math.pow(2, Math.floor(Math.log2(n - 1)));
+            const tuplet = new Tuplet(group, { numNotes: group.length, notesOccupied });
             if (stemDown) tuplet.setTupletLocation(-1);
             tuplet.setContext(ctx).draw();
           }
@@ -776,16 +789,31 @@ function KeyRow({ keyName, measures, width, isOriginal, defaultBpm, video }: {
     renderMeasures(svgRef.current, measures, width, keyName);
   }, [visible, width, measures]);
 
+  const countIn = useCountInIntro();
+
   const handlePlay = useCallback(async () => {
-    if (playing) { abortRef.current?.abort(); setPlaying(false); return; }
-    const sax = await ensurePiano();
+    if (playing || countIn.active) {
+      abortRef.current?.abort();
+      countIn.cancel();
+      setPlaying(false);
+      return;
+    }
+    setPlaying(true);
+    // 카운트인과 병렬로 sax soundfont 로드 — 첫 재생 지연 제거.
+    const saxPromise = ensurePiano();
+    const cin = await countIn.run({ bpm });
+    if (!cin.ok) { setPlaying(false); return; }
+    const sax = await saxPromise;
     const abort = new AbortController();
     abortRef.current = abort;
-    setPlaying(true);
     const beatDur = 60 / bpm;
+    // Swing-feel beat→seconds projection. Off-beat 8ths sit later in the
+    // beat (long-short feel). Quarters and larger durations are unaffected.
+    const toSec = (beatPos: number) => swungBeats(beatPos) * beatDur;
     try {
       // Flatten all notes for tie handling
       const allNotes = measures.flatMap(m => m.notes);
+      let mt = 0; // cumulative beat cursor (straight-time beats)
       let ni = 0;
       while (ni < allNotes.length) {
         if (abort.signal.aborted) throw 'stop';
@@ -794,7 +822,10 @@ function KeyRow({ keyName, measures, width, isOriginal, defaultBpm, video }: {
         const baseDur = n.duration.replace(/r$/, '');
         let beats = DUR_BEATS[baseDur] ?? 1;
         if (n.dotted) beats *= 1.5;
-        if (n.tuplet === 3) beats *= 2 / 3;
+        if (n.tuplet && n.tuplet >= 2) {
+          const denom = Math.pow(2, Math.floor(Math.log2(n.tuplet - 1)));
+          beats *= denom / n.tuplet;
+        }
 
         // Merge tied notes
         if (!isRest && n.tie) {
@@ -804,12 +835,15 @@ function KeyRow({ keyName, measures, width, isOriginal, defaultBpm, video }: {
             const lb = ln.duration.replace(/r$/, '');
             let lbeats = DUR_BEATS[lb] ?? 1;
             if (ln.dotted) lbeats *= 1.5;
-            if (ln.tuplet === 3) lbeats *= 2 / 3;
+            if (ln.tuplet && ln.tuplet >= 2) {
+              const denom = Math.pow(2, Math.floor(Math.log2(ln.tuplet - 1)));
+              lbeats *= denom / ln.tuplet;
+            }
             beats += lbeats;
             if (!ln.tie) { look++; break; }
             look++;
           }
-          const sec = beats * beatDur;
+          const sec = toSec(mt + beats) - toSec(mt);
           const acc = n.accidentals?.[0] as '#' | 'b' | 'n' | undefined;
           const midi = noteToMidi(n.keys[0], acc === 'n' ? undefined : acc);
           sax.play(String(midi), 0, { duration: sec * 0.9, gain: 3 });
@@ -817,11 +851,12 @@ function KeyRow({ keyName, measures, width, isOriginal, defaultBpm, video }: {
             const timer = setTimeout(resolve, sec * 1000);
             abort.signal.addEventListener('abort', () => { clearTimeout(timer); reject('stop'); }, { once: true });
           });
+          mt += beats;
           ni = look;
           continue;
         }
 
-        const sec = beats * beatDur;
+        const sec = toSec(mt + beats) - toSec(mt);
         if (!isRest) {
           const acc = n.accidentals?.[0] as '#' | 'b' | 'n' | undefined;
           const midi = noteToMidi(n.keys[0], acc === 'n' ? undefined : acc);
@@ -831,6 +866,7 @@ function KeyRow({ keyName, measures, width, isOriginal, defaultBpm, video }: {
           const timer = setTimeout(resolve, sec * 1000);
           abort.signal.addEventListener('abort', () => { clearTimeout(timer); reject('stop'); }, { once: true });
         });
+        mt += beats;
         ni++;
       }
     } catch { /* stopped */ }
@@ -842,6 +878,7 @@ function KeyRow({ keyName, measures, width, isOriginal, defaultBpm, video }: {
 
   return (
     <KeySection ref={visRef}>
+      {countIn.overlay}
       <KeyCol>
         <KeyLabel $active={isOriginal}>
           {keyName}
@@ -913,11 +950,19 @@ export default function Lick12KeyPage() {
       const found = licks.find((l) => String(l.id) === id);
       if (found) {
         setLick(found);
-        if (found.tempo) {
+        const has16ths = found.sheetData.measures.some((m) =>
+          m.notes.some((n) => {
+            const base = n.duration.replace(/[dr]/g, '');
+            return base === '16' || base === '32';
+          }),
+        );
+        // 16분음표 릭은 무조건 최저 BPM 150
+        if (has16ths) {
+          setBpm(Math.max(150, found.tempo ?? 150));
+        } else if (found.tempo) {
           setBpm(found.tempo);
         } else {
-          const has16ths = found.sheetData.measures.some((m) => m.notes.some((n) => n.duration === '16' || n.duration === '16r'));
-          setBpm(has16ths ? 120 : 200);
+          setBpm(200);
         }
       }
     });

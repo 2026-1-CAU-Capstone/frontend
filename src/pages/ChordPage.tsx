@@ -15,38 +15,13 @@ import type { ChordOverlay, TocEntry } from '../data/types';
 import { getSongIndex, getSong, type SongEntry } from '../lib/ireal/irealLoader';
 import { buildChordContext } from '../api/chordContext';
 import { createBackingPlayer, leadSheetToChart, type BackingPlayer } from '../lib/backing';
-import type { BackingConfig } from '../lib/backing/types';
-
-/**
- * Experimental drum-loop mode. Activates when both localStorage keys are set:
- *   - jazzify.drumLoop.url:        public path to the loop file
- *   - jazzify.drumLoop.recordedBpm: integer BPM the loop was recorded at
- * Optional:
- *   - jazzify.drumLoop.gain (default 1.0)
- * To disable: remove the keys (or `jazzify.drumLoop.url = ""`).
- */
-function readDrumLoopConfig(): BackingConfig {
-  try {
-    const url = localStorage.getItem('jazzify.drumLoop.url')?.trim();
-    const bpmStr = localStorage.getItem('jazzify.drumLoop.recordedBpm')?.trim();
-    if (!url || !bpmStr) return {};
-    const recordedBpm = parseInt(bpmStr, 10);
-    if (!Number.isFinite(recordedBpm) || recordedBpm < 30 || recordedBpm > 400) return {};
-    const gain = parseFloat(localStorage.getItem('jazzify.drumLoop.gain') ?? '1') || 1;
-    return {
-      drumMode: 'loop',
-      drumLoop: { url, recordedBpm, gain, maxRateDeviation: 0.15 },
-    };
-  } catch {
-    return {};
-  }
-}
-import { BackingPlayerBar, type MixChannel } from '../components/backing/BackingPlayerBar';
+import { BackingPlayerBar } from '../components/backing/BackingPlayerBar';
 import { withLeadSheetSelectionIds } from '../lib/leadSheetSelection';
 import type { LeadSheetChordSelection } from '../components/leadsheet/LeadSheet';
 import { loadUserLicksSync } from '../data/lickData';
 import { findMatchingLicks, type LickMatch } from '../lib/lickMatcher';
 import { SavedLicksModal } from '../components/leadsheet/SavedLicksModal';
+import { useCountInIntro } from '../hooks/useCountInIntro';
 
 const ANALYZED_SONG_ID = '__analyzed_all-of-me__';
 
@@ -506,28 +481,25 @@ export default function ChordPage() {
     setSelectedChordsData([]);
   }, [sheet?.id]);
 
-  const [volumes, setVolumes] = useState<Record<MixChannel, number>>({
-    piano: 1,
-    bass: 1,
-    drums: 0.9,
-  });
-
-  const handleVolumeChange = useCallback((channel: MixChannel, volume: number) => {
-    setVolumes((prev) => ({ ...prev, [channel]: volume }));
-  }, []);
+  // Mixer state (volumes, drumKit, reverb, bassMode) lives in the global
+  // playerSettings store — BackingPlayer subscribes directly, so this page
+  // doesn't need to mirror or push those values. Only page-local state
+  // (the chart, tempo) is owned here.
 
   // Load song index on mount
   useEffect(() => {
     getSongIndex().then(setSongIndex).catch(() => {});
   }, []);
 
-  // (Re)create backing player whenever the loaded sheet changes
+  // (Re)create backing player whenever the loaded sheet changes. The player
+  // hydrates from the global mixer store on construction so we don't need
+  // to pass volumes/kit/reverb explicitly.
   useEffect(() => {
     if (!sheet) return;
     const chart = leadSheetToChart(sheet);
     setTempo(chart.bpm);
     setActiveBar(-1);
-    const player = createBackingPlayer(chart, readDrumLoopConfig());
+    const player = createBackingPlayer(chart);
     player.on('onBar', (bar) => setActiveBar(bar));
     player.on('onDone', () => setIsPlaying(false));
     playerRef.current = player;
@@ -539,32 +511,35 @@ export default function ChordPage() {
     };
   }, [sheet]);
 
-  // Push tempo changes into the live player config
+  // Push tempo changes into the live player config (per-page state, not global)
   useEffect(() => {
     playerRef.current?.setConfig({ bpm: tempo });
   }, [tempo]);
 
-  // Push mixer volume changes into the live player config
-  useEffect(() => {
-    playerRef.current?.setConfig({ volume: volumes });
-  }, [volumes]);
+  const countIn = useCountInIntro();
 
   const handlePlayPause = useCallback(async () => {
     const player = playerRef.current;
     if (!player) return;
-    if (isPlaying) {
-      player.pause();
+    if (isPlaying || countIn.active) {
+      if (isPlaying) player.pause();
+      countIn.cancel();
       setIsPlaying(false);
       return;
     }
     setIsPlaying(true);
+    // 카운트인과 병렬로 instruments + drum 자원 로드 — 첫 재생 지연 제거.
+    const preload = player.preload();
+    const cin = await countIn.run({ bpm: tempo });
+    if (!cin.ok) { setIsPlaying(false); return; }
     try {
-      await player.play();
+      await preload;
+      await player.play({ startAt: cin.startAt });
     } catch (err) {
       console.error('[backing] play failed:', err);
       setIsPlaying(false);
     }
-  }, [isPlaying]);
+  }, [isPlaying, tempo, countIn]);
 
   // Load selected song
   useEffect(() => {
@@ -728,6 +703,7 @@ export default function ChordPage() {
 
   return (
     <PageContainer onClick={() => setSelectionBubblePos(null)}>
+      {countIn.overlay}
       <IconSidebar />
       <RightSection>
         <TopToolbar
@@ -973,8 +949,6 @@ export default function ChordPage() {
         tempo={tempo}
         onTempoChange={setTempo}
         onPlayPause={handlePlayPause}
-        volumes={volumes}
-        onVolumeChange={handleVolumeChange}
         disabled={!sheet || loading}
       />
 
