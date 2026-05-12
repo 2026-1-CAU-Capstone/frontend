@@ -28,37 +28,8 @@ interface Props {
   autoplay?: boolean;
 }
 
-/* ─── IFrame Player API loader (singleton) ─────────────────────────── */
-
-interface YTPlayer {
-  getCurrentTime(): number;
-  pauseVideo(): void;
-  playVideo(): void;
-  seekTo(sec: number, allowSeekAhead: boolean): void;
-  destroy(): void;
-}
-
-interface YTNamespace {
-  Player: new (
-    el: HTMLElement | string,
-    opts: {
-      videoId: string;
-      playerVars?: Record<string, string | number>;
-      events?: {
-        onReady?: (e: { target: YTPlayer }) => void;
-        onStateChange?: (e: { data: number; target: YTPlayer }) => void;
-      };
-    },
-  ) => YTPlayer;
-  PlayerState: { PLAYING: number };
-}
-
-declare global {
-  interface Window {
-    YT?: YTNamespace;
-    onYouTubeIframeAPIReady?: () => void;
-  }
-}
+/* ─── IFrame Player API loader (singleton) ──────────────────────────
+ *  YT / YTPlayer types come from src/youtube-iframe.d.ts. */
 
 let apiReady: Promise<YTNamespace> | null = null;
 

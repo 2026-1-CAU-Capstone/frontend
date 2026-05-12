@@ -234,30 +234,6 @@ const SourceBtn = styled.button<{ $active?: boolean }>`
   }
 `;
 
-/* ─── pitch / duration helpers (for user-lick analysis) ──────────────── */
-
-const SEMI_MAP: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
-
-function vexToMidi(key: string, acc?: '#' | 'b' | 'n'): number {
-  const [n, o] = key.split('/');
-  let s = SEMI_MAP[n] ?? 0;
-  if (acc === '#') s += 1;
-  if (acc === 'b') s -= 1;
-  return (parseInt(o) + 1) * 12 + s;
-}
-
-const DUR_BEATS_MAP: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25 };
-
-function durationClass(dur: string, dotted?: boolean): number {
-  const base = dur.replace(/r$/, '');
-  let beats = DUR_BEATS_MAP[base] ?? 1;
-  if (dotted) beats *= 1.5;
-  if (beats >= 2) return 2;
-  if (beats >= 1) return 1;
-  if (beats >= 0.5) return 0;
-  if (beats >= 0.25) return -1;
-  return -2;
-}
 
 /* ─── melody similarity ──────────────────────────────────────────────── */
 

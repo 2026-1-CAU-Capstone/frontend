@@ -1,7 +1,7 @@
 declare module 'soundfont-player' {
   namespace Soundfont {
     interface Player {
-      play(note: string | number, when?: number, opts?: PlayOptions): AudioNode;
+      play(note: string | number, when?: number, opts?: PlayOptions): AudioBufferSourceNode;
       stop(): void;
       schedule(when: number, events: Array<{ note: string | number; time?: number; duration?: number; gain?: number }>): void;
       connect(destination: AudioNode): Player;

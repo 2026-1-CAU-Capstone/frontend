@@ -281,7 +281,6 @@ export class NotePlayer {
    * Indexed by source measure index; for measures that appear multiple times
    * in the expanded timeline (repeats / D.C.), holds the FIRST occurrence. */
   private measureStartTimes: number[] = [];
-  private totalDuration = 0;
   private raf = 0;
   private _playing = false;
   private activeNodes: { stop(): void }[] = [];
@@ -749,7 +748,6 @@ export class NotePlayer {
     for (let i = 0; i < measureBeats.length; i++) {
       measureStartBeats.push(measureStartBeats[i] + measureBeats[i]);
     }
-    const measureEndBeats = (ei: number) => measureStartBeats[ei + 1];
 
     // First-occurrence start time per source measure — used by seekToMeasure.
     // swingRatio influences only the seconds projection; measureStartBeats is
@@ -763,7 +761,6 @@ export class NotePlayer {
         this.measureStartTimes[oi] = toSec(measureStartBeats[ei]);
       }
     }
-    this.totalDuration = toSec(measureStartBeats[expanded.length]);
 
     // Flatten all notes with expanded measure index and timing info
     interface FlatNote { origMi: number; ni: number; note: typeof data.measures[0]['notes'][0]; beats: number; expandIdx: number }

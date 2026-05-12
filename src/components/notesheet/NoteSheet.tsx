@@ -1213,7 +1213,7 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
             ? undefined
             : n.stem === 'up' ? 1 : n.stem === 'down' ? -1 : undefined;
           const note = explicitStemDir !== undefined && !isRest
-            ? new StaveNote({ keys, duration: dur, stem_direction: explicitStemDir })
+            ? new StaveNote({ keys, duration: dur, stemDirection: explicitStemDir })
             : new StaveNote({ keys: isRest ? ['b/4'] : keys, duration: dur, autoStem: true });
           if (n.dotted) Dot.buildAndAttach([note]);
 

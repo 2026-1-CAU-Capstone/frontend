@@ -128,23 +128,6 @@ function midiToVex(midi: number, preferSharps: boolean): { key: string; accident
 }
 
 /**
- * Build a set of pitch-classes that are already altered by the key signature.
- * e.g. key sig -2 (Bb major) → flats on B and E → pc set {10, 3}
- */
-function keySignatureAccidentals(sf: number): Set<number> {
-  const FLAT_ORDER  = [11, 4, 9, 2, 7, 0, 5];
-  const SHARP_ORDER = [5, 0, 7, 2, 9, 4, 11];
-
-  const s = new Set<number>();
-  if (sf < 0) {
-    for (let i = 0; i < Math.min(-sf, 7); i++) s.add(FLAT_ORDER[i]);
-  } else {
-    for (let i = 0; i < Math.min(sf, 7); i++) s.add(SHARP_ORDER[i]);
-  }
-  return s;
-}
-
-/**
  * Letters whose natural pitch is altered by the key signature.
  * F major (sf=-1) → {'b'}; Bb major (sf=-2) → {'b','e'}; G major (sf=1) → {'f'}.
  * Used to decide when an unaltered note needs an explicit ♮ to override key sig.
@@ -353,7 +336,6 @@ export async function loadMidiMelody(
   const meta = midi.tracks[0] ?? [];
   const melody = melodyTrack(midi);
   const { key, preferSharps, sf } = parseKey(meta.length ? meta : melody);
-  const keySigPcs = keySignatureAccidentals(sf);
   const keySigLetters = keySignatureLetters(sf);
   const timeSig = parseTimeSig(meta.length ? meta : melody);
   const tempo = parseTempo(meta.length ? meta : melody);

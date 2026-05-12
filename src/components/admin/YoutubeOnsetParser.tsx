@@ -28,39 +28,8 @@ import { updateLickVideo, updateLick } from '../../api/licks';
  * mounts; subsequent mounts reuse the loaded global.
  * ──────────────────────────────────────────────────────────────────────── */
 
-/* ─── YouTube IFrame API loader ──────────────────────────────────────── */
-
-type YtPlayerState = -1 | 0 | 1 | 2 | 3 | 5;
-
-interface YtPlayer {
-  playVideo: () => void;
-  pauseVideo: () => void;
-  getCurrentTime: () => number;
-  getDuration: () => number;
-  seekTo: (seconds: number, allowSeekAhead?: boolean) => void;
-  getPlayerState: () => YtPlayerState;
-  destroy: () => void;
-}
-
-interface YtConstructor {
-  new (
-    el: HTMLElement | string,
-    opts: {
-      videoId: string;
-      width?: number | string;
-      height?: number | string;
-      playerVars?: Record<string, number | string>;
-      events?: { onReady?: (e: { target: YtPlayer }) => void };
-    },
-  ): YtPlayer;
-}
-
-declare global {
-  interface Window {
-    YT?: { Player: YtConstructor; loaded: number };
-    onYouTubeIframeAPIReady?: () => void;
-  }
-}
+/* ─── YouTube IFrame API loader ────────────────────────────────────────
+ *  YT / YTPlayer types come from src/youtube-iframe.d.ts. */
 
 let ytApiPromise: Promise<void> | null = null;
 
@@ -128,14 +97,14 @@ export function YoutubeOnsetParser() {
     loadLickVideoOverrides(),
   );
 
-  const playerRef = useRef<YtPlayer | null>(null);
+  const playerRef = useRef<YTPlayer | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number>(0);
 
   /* Mount/destroy player whenever videoId changes */
   useEffect(() => {
     if (!videoId || !containerRef.current) return;
-    let player: YtPlayer | null = null;
+    let player: YTPlayer | null = null;
     let cancelled = false;
 
     loadYouTubeApi().then(() => {
@@ -278,7 +247,7 @@ export function YoutubeOnsetParser() {
         throw new Error(`#${num}의 백엔드 publicId를 찾지 못함`);
       }
 
-      const video: LickVideo = {
+      const video = {
         videoId,
         startSec: Number(startSec.toFixed(3)),
         endSec: Number(endSec.toFixed(3)),
