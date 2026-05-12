@@ -70,6 +70,93 @@ function measureBeats(notes: NoteInfo[]): number {
   return notes.reduce((s, n) => s + getBeats(n.duration, n.dotted, n.tuplet), 0);
 }
 
+/* ─── measure normalization ───────────────────────────────────────────────
+ *
+ * LLM-generated solo JSON occasionally produces measures whose notes don't
+ * add up to a clean bar (typically over-stuffed — 5 to 9 beats in one
+ * "measure"). VexFlow's `voice.setStrict(false)` will still render it, but
+ * the visual result is a wall of unbroken beams with no barlines — which is
+ * exactly the bug screenshot.
+ *
+ * This normalizer walks each input measure note-by-note and flushes a new
+ * bar every `beatsPerBar` (4 by default), so a 9-beat blob becomes 3 clean
+ * measures (4 + 4 + 1) the renderer can lay out properly. Bar-level metadata
+ * (chord, repeat, volta, navigation) is preserved on the first / last
+ * sub-bar so the on-screen score reads identically.
+ *
+ * Limitations: doesn't tie-split an individual note that straddles a bar
+ * line (e.g. a quarter on beat 4.5 spilling into beat 1 of the next bar);
+ * such a note stays whole and goes to the bar where it starts. That keeps
+ * the implementation linear and avoids inventing tied note pairs that
+ * don't match what the LLM actually wrote — empirically the over-stuffing
+ * happens at note boundaries far more often than mid-note.
+ */
+function splitMeasuresByBeats(measures: MeasureInfo[], beatsPerBar = 4): MeasureInfo[] {
+  const out: MeasureInfo[] = [];
+  const EPS = 0.001;
+
+  for (const src of measures) {
+    const srcNotes = Array.isArray(src.notes) ? src.notes : [];
+    if (srcNotes.length === 0) {
+      out.push(src);
+      continue;
+    }
+
+    const total = measureBeats(srcNotes);
+    if (total <= beatsPerBar + EPS) {
+      // Already legal — pass through unchanged.
+      out.push(src);
+      continue;
+    }
+
+    let bucket: NoteInfo[] = [];
+    let cursor = 0;
+    let isFirst = true;
+    let lastFlushedIdx = -1;
+
+    const flush = (isFinal: boolean) => {
+      if (bucket.length === 0) return;
+      const piece: MeasureInfo = { notes: bucket };
+      if (isFirst) {
+        // Carry leading metadata only to the first sub-bar.
+        if (src.chord) piece.chord = src.chord;
+        if (src.repeatStart) piece.repeatStart = true;
+        if (src.volta) piece.volta = src.volta;
+        if (src.bracket) piece.bracket = true;
+        if (src.timeSignature) piece.timeSignature = src.timeSignature;
+        if (src.key) piece.key = src.key;
+        if (src.anacrusis) piece.anacrusis = true;
+        isFirst = false;
+      }
+      if (isFinal) {
+        // End-of-bar metadata sticks to the last sub-bar.
+        if (src.repeatEnd) piece.repeatEnd = true;
+        if (src.navigation) piece.navigation = src.navigation;
+      }
+      out.push(piece);
+      lastFlushedIdx = out.length - 1;
+      bucket = [];
+      cursor = 0;
+    };
+
+    for (const n of srcNotes) {
+      const b = getBeats(n.duration, n.dotted, n.tuplet);
+      if (cursor + b > beatsPerBar + EPS && bucket.length > 0) {
+        flush(false);
+      }
+      bucket.push(n);
+      cursor += b;
+    }
+    flush(true);
+
+    // Edge case: nothing got flushed (e.g. a single mega-note > 4 beats) —
+    // fall back to the original so we don't drop data silently.
+    if (lastFlushedIdx === -1) out.push(src);
+  }
+
+  return out;
+}
+
 /* ─── piano playback ─────────────────────────────────────────────────── */
 
 let _pianoCtx: AudioContext | null = null;
@@ -171,20 +258,52 @@ const NAV_REPETITION: Record<NavigationMarker, number[]> = {
 const SHEET_SCALE = 1.35;
 const LINE_HEIGHT = 170;
 const MARGIN = { top: 30, left: 10, right: 10, bottom: 10 };
+/** Soft cap on bars per line. The actual line break is driven by the
+ *  per-measure intrinsic width (see `measureWidth`), so this only bites
+ *  for very thin measures (lots of whole notes) that would otherwise
+ *  fit a dozen-plus to a line and look like a crammed timeline. */
 const MAX_PER_LINE = 8;
 const DECOR_FIRST = 70;
 const DECOR_OTHER = 35;
-const FIXED_BAR_W = 175;
+/** Intrinsic width per duration token. Heuristic — VexFlow's Formatter does
+ *  the fine-grained spacing inside the cell, but the cell itself must be at
+ *  least this wide so a bar full of 8th/16th notes isn't compressed into
+ *  the same width as one whole note. Tuned empirically: 4 quarter notes
+ *  → ~205px, 8 eighth notes → ~245px, 16 sixteenths → ~320px. */
+const NOTE_W: Record<string, number> = {
+  w: 90, h: 64, q: 42, '8': 26, '16': 18, '32': 14,
+};
+/** Fallback when a measure is empty / unrecognised. */
+const FIXED_BAR_W = 200;
 
 interface MeasurePos { idx: number; x: number; y: number; w: number; chordX: number; }
 interface NotePos { mi: number; ni: number; x: number; y: number; w: number; h: number; }
+
+/** Intrinsic visual width for one measure based on its notes — not used for
+ *  pixel-perfect placement (the Formatter does that), but as the weight when
+ *  we proportionally divide each line's available width across its bars. A
+ *  16th-rich bar gets more pixels than a half-note-rich one. */
+function measureWidth(m: MeasureInfo): number {
+  if (!m.notes || m.notes.length === 0) return FIXED_BAR_W;
+  let w = 0;
+  for (const n of m.notes) {
+    const base = n.duration.replace(/r$/, '');
+    let nw = NOTE_W[base] ?? 26;
+    if (n.dotted) nw *= 1.4;
+    if (n.tuplet && n.tuplet >= 3) nw *= 0.85;
+    if (n.accidentals?.[0]) nw += 6;
+    w += nw;
+  }
+  /* Leading/trailing padding for chord text + the barline glyph. */
+  return Math.max(w + 22, 150);
+}
 
 function packLines(measures: MeasureInfo[], availW: number): number[][] {
   const lines: number[][] = [];
   let line: number[] = [];
   let usedW = 0;
   for (let i = 0; i < measures.length; i++) {
-    const mw = FIXED_BAR_W;
+    const mw = measureWidth(measures[i]);
     const decor = line.length === 0 ? (lines.length === 0 ? DECOR_FIRST : DECOR_OTHER) : 0;
     if (line.length > 0 && (usedW + mw > availW || line.length >= MAX_PER_LINE)) {
       lines.push(line);
@@ -293,16 +412,27 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
     const y = MARGIN.top + li * LINE_HEIGHT;
     const decorW = isFirstLine ? DECOR_FIRST : DECOR_OTHER;
     const availForBars = totalW - decorW;
-    const barW = (isLastLine && indices.length < MAX_PER_LINE)
-      ? FIXED_BAR_W
-      : availForBars / indices.length;
+
+    /* Allocate each bar a width proportional to its intrinsic note density
+     * (so a 16th-heavy bar gets more pixels than a half-note bar). The line
+     * fully fills `availForBars` — except for the last line when it has
+     * less content than the soft cap, in which case bars keep their
+     * natural width (left-aligned) so a short final phrase doesn't
+     * stretch out cartoonishly. */
+    const intrinsics = indices.map((idx) => measureWidth(measures[idx]));
+    const totalIntrinsic = intrinsics.reduce((s, w) => s + w, 0);
+    const shouldStretch =
+      !isLastLine || indices.length >= MAX_PER_LINE || totalIntrinsic > availForBars;
+    const barWidths = shouldStretch && totalIntrinsic > 0
+      ? intrinsics.map((w) => (w / totalIntrinsic) * availForBars)
+      : intrinsics;
 
     let x = MARGIN.left;
     for (let j = 0; j < indices.length; j++) {
       const m = indices[j];
       const firstInLine = j === 0;
       const isLast = m === measures.length - 1 && m !== currentIdx;
-      const w = firstInLine ? barW + decorW : barW;
+      const w = firstInLine ? barWidths[j] + decorW : barWidths[j];
 
       const stave = new Stave(x, y, w);
       if (firstInLine) {
@@ -310,11 +440,14 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         if (sheetKey && sheetKey !== 'C') stave.addKeySignature(sheetKey);
         if (isFirstLine) stave.addTimeSignature('4/4');
       }
-      // Repeat / end barlines
+      // Repeat / end barlines. Default in VexFlow is SINGLE, but assigning
+      // it explicitly avoids edge cases where adjacent staves overlap and
+      // the bar line visually disappears (the bug screenshot).
       const mData = measures[m];
       if (mData.repeatStart) stave.setBegBarType(BarlineType.REPEAT_BEGIN);
       if (mData.repeatEnd) stave.setEndBarType(BarlineType.REPEAT_END);
       else if (isLast) stave.setEndBarType(BarlineType.END);
+      else stave.setEndBarType(BarlineType.SINGLE);
       // Navigation markers (D.C., Coda, Segno, Fine, etc.)
       if (mData.navigation) {
         const repTypes = NAV_REPETITION[mData.navigation];
@@ -1385,7 +1518,7 @@ export default function SoloGeneratorPage() {
       if (!raw) return;
       const d = JSON.parse(raw);
       if (!d || typeof d !== 'object') return;
-      if (Array.isArray(d.measures)) setMeasures(d.measures);
+      if (Array.isArray(d.measures)) setMeasures(splitMeasuresByBeats(d.measures, 4));
       if (Array.isArray(d.curNotes)) setCurNotes(d.curNotes);
       if (typeof d.curChord1 === 'string') setCurChord1(d.curChord1);
       if (typeof d.curChord2 === 'string') setCurChord2(d.curChord2);
@@ -1660,7 +1793,7 @@ export default function SoloGeneratorPage() {
       }
       // Re-normalize chord cells so pasted multi-chord ("D-7 G7") becomes the
       // canonical 2-space form the sheet renderer can split on.
-      const normalized = (data.measures as MeasureInfo[]).map((m) => {
+      const chordNormalized = (data.measures as MeasureInfo[]).map((m) => {
         const nm: MeasureInfo = { ...m };
         if (typeof nm.chord === 'string') {
           const parts = nm.chord.split(/\s+/).filter(Boolean);
@@ -1677,6 +1810,10 @@ export default function SoloGeneratorPage() {
         }
         return nm;
       });
+      // Snap measures that exceed 4 beats into multiple legal bars so the
+      // renderer can draw real barlines / line breaks instead of bleeding
+      // beams across the page (the bug screenshot).
+      const normalized = splitMeasuresByBeats(chordNormalized, 4);
       setMeasures(normalized);
       setCurNotes([]);
       setCurChord1('');
