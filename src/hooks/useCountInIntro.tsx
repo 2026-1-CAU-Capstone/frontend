@@ -26,19 +26,25 @@ interface RunOptions {
 export interface CountInResult {
   /** False if the user cancelled the count-in before it finished. */
   ok: boolean;
-  /** Audio-context time (seconds) when the downbeat AFTER the count-in lands.
-   *  Pass into NotePlayer.play({ startAt }) so the first note hits ON the beat
-   *  regardless of microtask / await slop between resolve and the play() call. */
+  /** Audio-context time (seconds) when the downbeat AFTER the count-in lands,
+   *  measured on the count-in's shared AudioContext clock. Only valid if the
+   *  caller's player happens to share that same clock (rare). Prefer
+   *  `downbeatInSec` for cross-ctx scheduling. */
   startAt: number;
+  /** Seconds from `run()` resolve to the downbeat, in ANY clock. Convert to a
+   *  target ctx's audio time via `targetCtx.currentTime + downbeatInSec`. This
+   *  avoids the count-in-ctx vs player-ctx clock drift that occurs when the
+   *  two AudioContexts were created at different wall-clock moments. */
+  downbeatInSec: number;
 }
 
 /**
  * Swing-feel count-in intro.
  *
  * 패턴 (countInPatterns.ts):
- *   - bpm < 150: SIMPLE  (1 2 3 4)
- *   - 150~199:    MEDIUM  (1 _ 2 _ / 1 2 3 4)
- *   - bpm >= 200: FAST    (1 _ 쿵 _ 2 _ 쿵 _ / 1 _ 2 _ / 1 2 3 4)
+ *   - bpm < 100:  SIMPLE  (1 2 3 4)
+ *   - 100~249:    MEDIUM  (1 2 / 1 2 3 4)
+ *   - bpm >= 250: FAST    (1 _ 2 _ / 1 2 / 1 2 3 4)
  *
  * 각 cell 은 음악 한 박씩 차지. 짝 (label='') cell 은 audio silent + 비활성화.
  * 활성 하이라이트는 "마지막 numbered/쿵 cell" 에서 유지 (짝 박을 지나는 동안
@@ -75,7 +81,9 @@ export function useCountInIntro(options: HookOptions = {}) {
 
   const run = useCallback(
     async ({ bpm, pattern: patternOverride }: RunOptions): Promise<CountInResult> => {
-      if (!Number.isFinite(bpm) || bpm <= 0) return { ok: true, startAt: getCountInTime() };
+      if (!Number.isFinite(bpm) || bpm <= 0) {
+        return { ok: true, startAt: getCountInTime(), downbeatInSec: 0 };
+      }
       const chosenPattern = patternOverride ?? selectPattern(bpm);
       const cells = flatCells(chosenPattern);
       const totalCells = cells.length;
@@ -139,7 +147,11 @@ export function useCountInIntro(options: HookOptions = {}) {
       setCurrentBeat(0);
       scheduledRef.current = [];
       timeoutsRef.current = [];
-      return { ok: !cancelled, startAt: downbeatAudioTime };
+      // Clock-agnostic delta: how many seconds from "now" until the downbeat.
+      // setTimeout slop at this point is typically a few ms past the downbeat,
+      // so this clamps to >= 0.
+      const downbeatInSec = Math.max(0, downbeatAudioTime - getCountInTime());
+      return { ok: !cancelled, startAt: downbeatAudioTime, downbeatInSec };
     },
     [clearAll],
   );

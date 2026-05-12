@@ -2877,6 +2877,8 @@ export function LeadSheet({
               width: activeBarRect.width,
               height: activeBarRect.height,
               background: 'rgba(135, 206, 250, 0.28)',
+              border: 'none',
+              outline: 'none',
               pointerEvents: 'none',
               zIndex: 1,
             }}

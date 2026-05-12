@@ -186,7 +186,14 @@ function resolveQuality(src: LeadSheetChord): ChordQuality {
     }
   }
 
-  // Final fallback: major triad
+  // Final fallback: major triad. Warn so unrecognized inputs surface rather
+  // than silently playing a wrong chord.
+  if (raw || canonical) {
+    console.warn(
+      `[leadSheetToChart] unknown chord quality, falling back to "maj":`,
+      { quality: raw, normalizedQuality: canonical },
+    );
+  }
   return "maj";
 }
 

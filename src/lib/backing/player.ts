@@ -66,6 +66,10 @@ export function createBackingPlayer(
   let drumLoop: DrumLoopPlayer | null = null;
   let drumLoopUrl: string | null = null;       // currently-loaded loop URL
   let loading: Promise<void> | null = null;
+  // In-flight drum loop fetch; second concurrent call awaits this instead of
+  // racing a parallel fetch (whose late-arriving result would otherwise clobber
+  // the newer selection).
+  let drumLoopLoading: Promise<void> | null = null;
 
   let events: BackingEvent[] = [];
   let origin = 0;
@@ -109,24 +113,40 @@ export function createBackingPlayer(
     );
   }
 
-  /** Lazy-load drum loop player if config.drumLoop is set. Reloads when URL changes. */
-  async function ensureDrumLoop(): Promise<void> {
+  /** Lazy-load drum loop player if config.drumLoop is set. Reloads when URL
+   *  changes. Concurrent / rapid-fire calls (e.g. sticks→brushes→sticks) chain
+   *  off the in-flight fetch and the chain re-evaluates against the latest
+   *  config when it resolves — so a stale load can't clobber the newer one. */
+  function ensureDrumLoop(): Promise<void> {
+    if (drumLoopLoading) return drumLoopLoading.then(() => ensureDrumLoop());
     const cfg = config.drumLoop;
     if (config.drumMode !== "loop" || !cfg) {
       if (drumLoop) { drumLoop.dispose(); drumLoop = null; drumLoopUrl = null; }
-      return;
+      return Promise.resolve();
     }
-    if (drumLoop && drumLoopUrl === cfg.url) return;
+    if (drumLoop && drumLoopUrl === cfg.url) return Promise.resolve();
+    const targetUrl = cfg.url;
     drumLoop?.dispose();
     drumLoop = null;
     drumLoopUrl = null;
-    try {
-      const c = ensureCtx();
-      drumLoop = await loadDrumLoopPlayer(c, c.destination, cfg);
-      drumLoopUrl = cfg.url;
-    } catch (err) {
-      console.warn("[backing] drum loop load failed, falling back to hit mode:", err);
-    }
+    drumLoopLoading = (async () => {
+      try {
+        const c = ensureCtx();
+        const player = await loadDrumLoopPlayer(c, c.destination, cfg);
+        // Config may have flipped during the fetch — drop a stale result.
+        if (config.drumLoop?.url !== targetUrl) {
+          player.dispose();
+          return;
+        }
+        drumLoop = player;
+        drumLoopUrl = targetUrl;
+      } catch (err) {
+        console.warn("[backing] drum loop load failed, falling back to hit mode:", err);
+      } finally {
+        drumLoopLoading = null;
+      }
+    })();
+    return drumLoopLoading;
   }
 
   /* ── event building ──────────────────────────────────────────────── */
@@ -263,10 +283,10 @@ export function createBackingPlayer(
     if (config.drumMode === "loop" && drumLoop) {
       const drumVol = config.volume?.drums ?? 1;
       drumLoop.setGain((config.drumLoop?.gain ?? 1) * drumVol);
-      // Resuming mid-stream: skip into the loop's phase so it aligns with elapsed time.
-      // BufferSource doesn't support arbitrary offset + loop reliably across browsers
-      // for non-zero offsets, so for paused-resume we restart from loop t=0.
-      drumLoop.start(origin + elapsed, opts().bpm);
+      // Resume from pause: seek into the loop buffer so it stays phase-aligned
+      // with the comp/bass that were already mid-bar. AudioBufferSourceNode's
+      // start(when, offset) is part of the standard API.
+      drumLoop.start(origin + elapsed, opts().bpm, elapsed);
     }
 
     tick();
@@ -297,19 +317,20 @@ export function createBackingPlayer(
   function setConfig(next: Partial<BackingConfig>): void {
     const prevMode = config.drumMode;
     const prevUrl = config.drumLoop?.url;
+    const prevBpm = config.bpm;
     config = { ...config, ...next };
 
     // Apply pianoReverb immediately whether playing or not.
     applyPianoReverb();
 
     if (playing) {
-      // Drum kit / loop URL changes mid-playback would need a re-time-stretch
-      // (offline, 50-200ms gap) and would desync against the comp/bass that
-      // were already scheduled at the old tempo. Mirroring NotePlayer.setDrumKit,
-      // we fully stop the player so the user explicitly resumes on the new kit.
+      // Mid-playback drum-kit / loop-URL / BPM changes all desync against
+      // events already scheduled at the old tempo (and require a re-time-
+      // stretch on loop kits). Fully stop so the user explicitly resumes.
       const modeChanged = prevMode !== config.drumMode;
       const urlChanged = prevUrl !== config.drumLoop?.url;
-      if (modeChanged || urlChanged) {
+      const bpmChanged = "bpm" in next && prevBpm !== config.bpm;
+      if (modeChanged || urlChanged || bpmChanged) {
         stop();
         callbacks.onDone?.();
         // Pre-fetch the new loop so the next play() doesn't wait on IO.
@@ -318,7 +339,6 @@ export function createBackingPlayer(
         }
         return;
       }
-      build();
       if (config.drumMode === "loop" && drumLoop) {
         const drumVol = config.volume?.drums ?? 1;
         drumLoop.setGain((config.drumLoop?.gain ?? 1) * drumVol);
@@ -357,6 +377,7 @@ export function createBackingPlayer(
     stop,
     setConfig,
     dispose,
+    ctxNow() { return ctx?.currentTime ?? 0; },
     on(ev, cb) {
       callbacks[ev] = cb as never;
     },

@@ -866,6 +866,7 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
     rect.setAttribute('width', String(r.w));
     rect.setAttribute('height', String(unscaledLineHRef.current - 20));
     rect.setAttribute('fill', MEASURE_HL_COLOR);
+    rect.setAttribute('stroke', 'none');
     rect.setAttribute('rx', '4');
     svg.insertBefore(rect, svg.firstChild);
   }, [activeMeasure]);

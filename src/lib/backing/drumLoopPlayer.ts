@@ -23,8 +23,10 @@ export interface DrumLoopConfig {
 
 export interface DrumLoopPlayer {
   /** Begin loop playback at `originTime` (AudioContext time, sec). The buffer
-   *  is time-stretched (offline, pitch-preserving) to match `targetBpm`. */
-  start(originTime: number, targetBpm: number): void;
+   *  is time-stretched (offline, pitch-preserving) to match `targetBpm`.
+   *  `bufferOffsetSec` seeks into the loop buffer so resume-from-pause lands
+   *  at the right phase (defaults to 0 = loop t=0). */
+  start(originTime: number, targetBpm: number, bufferOffsetSec?: number): void;
   /** Update gain in real time. */
   setGain(gain: number): void;
   /** Stop any active loop nodes. Idempotent. */
@@ -70,7 +72,7 @@ export async function loadDrumLoopPlayer(
   }
 
   return {
-    start(originTime, targetBpm) {
+    start(originTime, targetBpm, bufferOffsetSec = 0) {
       stopActive();
       const buffer = getBufferForBpm(targetBpm);
       const src = ctx.createBufferSource();
@@ -81,7 +83,13 @@ export async function loadDrumLoopPlayer(
       src.playbackRate.value = 1;
       src.connect(bus);
       const startAt = Math.max(originTime, ctx.currentTime + 0.005);
-      src.start(startAt);
+      // Wrap offset into the buffer duration. Negative or NaN → 0.
+      const dur = buffer.duration;
+      const offset =
+        dur > 0 && Number.isFinite(bufferOffsetSec) && bufferOffsetSec > 0
+          ? bufferOffsetSec % dur
+          : 0;
+      src.start(startAt, offset);
       active = src;
     },
     setGain(g) {

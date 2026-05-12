@@ -534,7 +534,7 @@ export default function ChordPage() {
     if (!cin.ok) { setIsPlaying(false); return; }
     try {
       await preload;
-      await player.play({ startAt: cin.startAt });
+      await player.play({ startAt: player.ctxNow() + cin.downbeatInSec });
     } catch (err) {
       console.error('[backing] play failed:', err);
       setIsPlaying(false);

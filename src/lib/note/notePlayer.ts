@@ -344,6 +344,7 @@ export class NotePlayer {
   private applySettings(s: PlayerSettings) {
     const drumKitChanged = this.drumKitId !== s.drumKit;
     const bassModeChanged = this.bassMode !== s.bassMode;
+    const swingRatioChanged = this.swingRatio !== s.swingRatio;
 
     if (this.lickMode) {
       // Lick audition: silence rhythm section, boost melody, max piano reverb.
@@ -369,14 +370,15 @@ export class NotePlayer {
       this.bassMode = s.bassMode;
       this.setPianoReverb(s.pianoReverb);
     }
+    this.swingRatio = s.swingRatio;
 
     if (drumKitChanged) {
       // setDrumKit is async; fire-and-forget — playback transitions are handled internally.
       this.setDrumKit(s.drumKit).catch(() => { /* logged in setDrumKit */ });
     }
-    // Bass pattern changed mid-playback → rebuild schedule from current position so
-    // the new feel (half / two-feel / four-feel) takes effect on the very next beat.
-    if (bassModeChanged && this._playing && this.lastData && this.ctx) {
+    // Bass pattern / swing ratio change mid-playback → rebuild schedule from
+    // current position so the new feel takes effect on the very next beat.
+    if ((bassModeChanged || swingRatioChanged) && this._playing && this.lastData && this.ctx) {
       this.rebuildScheduleFromElapsed();
     }
   }
@@ -487,9 +489,11 @@ export class NotePlayer {
     this.origin = desiredOrigin - this.elapsed;
 
     // Start the drum loop in sync with playback if a loop kit is selected.
+    // Pass `elapsed` as buffer offset so a paused-resume keeps drums phase-
+    // aligned with the comp/bass instead of restarting from t=0.
     if (this.drumKitId !== 'synth' && this.drumLoop && this.drumEnabled) {
       this.drumLoop.setGain(this.drumVolume);
-      this.drumLoop.start(this.origin + this.elapsed, tempo);
+      this.drumLoop.start(this.origin + this.elapsed, tempo, this.elapsed);
     }
 
     // skip past notes on resume
@@ -714,7 +718,6 @@ export class NotePlayer {
     this.lastTempo = tempo;
     const bs = 60 / tempo; // seconds per beat
     const [tsNum] = (data.timeSignature || '4/4').split('/').map(Number);
-    const measSec = tsNum * bs; // fixed measure duration (e.g. 4 beats)
     this.sched = [];
 
     // Expand repeats/volta/navigation from the very first measure
@@ -722,13 +725,45 @@ export class NotePlayer {
     const miOffset = 0;
     const expanded = expandMeasures(srcMeasures);
 
+    // Per-measure ACTUAL beat length. Measures whose notes sum to less than the
+    // time signature (e.g. a lick excerpt with a short first bar) advance the
+    // global cursor by exactly what their notes demand — no padding to tsNum.
+    // Empty measures fall back to tsNum so rests/silent bars still consume a
+    // full bar. Computed once and used by every track (melody, comp, bass,
+    // drums, metronome) so all tracks stay locked together.
+    const noteBeats = (n: typeof data.measures[0]['notes'][0]): number => {
+      const base = n.duration.replace(/[dr]/g, '');
+      let b = DUR_BEATS[base] ?? 1;
+      if (n.dotted) b *= 1.5;
+      if (n.tuplet && n.tuplet >= 2) {
+        const denom = Math.pow(2, Math.floor(Math.log2(n.tuplet - 1)));
+        b *= denom / n.tuplet;
+      }
+      return b;
+    };
+    const measureBeats: number[] = expanded.map(({ m }) => {
+      const total = m.notes.reduce((s, n) => s + noteBeats(n), 0);
+      return total > 0.001 ? total : tsNum;
+    });
+    const measureStartBeats: number[] = [0];
+    for (let i = 0; i < measureBeats.length; i++) {
+      measureStartBeats.push(measureStartBeats[i] + measureBeats[i]);
+    }
+    const measureEndBeats = (ei: number) => measureStartBeats[ei + 1];
+
     // First-occurrence start time per source measure — used by seekToMeasure.
+    // swingRatio influences only the seconds projection; measureStartBeats is
+    // pre-swing so it stays valid even if swing toggles.
+    const swingRatio = this.swingEnabled ? this.swingRatio : 0.5;
+    const toSec = (beatPos: number) => swungBeats(beatPos, swingRatio) * bs;
     this.measureStartTimes = new Array(srcMeasures.length).fill(-1);
     for (let ei = 0; ei < expanded.length; ei++) {
       const oi = expanded[ei].origMi;
-      if (this.measureStartTimes[oi] < 0) this.measureStartTimes[oi] = ei * measSec;
+      if (this.measureStartTimes[oi] < 0) {
+        this.measureStartTimes[oi] = toSec(measureStartBeats[ei]);
+      }
     }
-    this.totalDuration = expanded.length * measSec;
+    this.totalDuration = toSec(measureStartBeats[expanded.length]);
 
     // Flatten all notes with expanded measure index and timing info
     interface FlatNote { origMi: number; ni: number; note: typeof data.measures[0]['notes'][0]; beats: number; expandIdx: number }
@@ -753,8 +788,6 @@ export class NotePlayer {
     // can apply swing as a non-linear beat→time mapping at schedule time. The
     // straight-time cursor stays linear in beats; only the seconds projection
     // is bent.
-    const swingRatio = this.swingEnabled ? this.swingRatio : 0.5;
-    const toSec = (beatPos: number) => swungBeats(beatPos, swingRatio) * bs;
 
     let fi = 0;
     let mt = 0; // global melody time cursor (BEATS)
@@ -762,15 +795,19 @@ export class NotePlayer {
     let measCount = 0;
     while (fi < flat.length) {
       const f = flat[fi];
-      // Advance measure time cursor when expanded measure changes
+      // Advance measure time cursor when expanded measure changes. We snap mt
+      // forward to the start of the new measure ONLY if it's behind — this
+      // catches empty bars (no notes processed) and tied chains that ended
+      // short. Bars whose notes sum to exactly measureBeats[ei] hit this with
+      // mt already at the right position, so the snap is a no-op there and the
+      // following measure starts back-to-back with the previous note. Partial
+      // bars (e.g. 12 sixteenths in a 4/4 lick) likewise advance immediately
+      // because measureStartBeats reflects the actual length, not tsNum.
       if (f.expandIdx !== currentEi) {
         if (currentEi !== -1) measCount++;
         if (currentEi === -1) measCount = 1; // first measure
         currentEi = f.expandIdx;
-        // 마디 경계 catch-up — 부분 채움 마디에서 mt 가 새 마디보다 뒤쳐졌으면
-        // 다음 마디 시작 박자로 끌어올린다. (drum/comp 는 절대 마디 위치라
-        // 멜로디만 swing 변환 후 약간 어긋날 수 있으니 catch-up 도 beats 단위.)
-        const newMeasStartBeats = f.expandIdx * tsNum;
+        const newMeasStartBeats = measureStartBeats[f.expandIdx];
         if (mt < newMeasStartBeats) mt = newMeasStartBeats;
       }
 
@@ -863,9 +900,9 @@ export class NotePlayer {
       const { m, origMi } = expanded[ei];
       if (!m.chord) continue;
       const chordTokens = m.chord.split(/\s{2,}/);
-      const measStartBeat = ei * tsNum;
+      const measStartBeat = measureStartBeats[ei];
       const slotCount = Math.min(chordTokens.length, 2); // 1 or 2 chords per measure
-      const slotBeats = tsNum / slotCount;
+      const slotBeats = measureBeats[ei] / slotCount;
       for (let ci = 0; ci < slotCount; ci++) {
         const parsed = parseChordSymbol(chordTokens[ci]);
         if (!parsed) continue;
@@ -976,8 +1013,9 @@ export class NotePlayer {
       });
     };
     for (let ei = 0; ei < expanded.length; ei++) {
-      const measStart = ei * measSec;
-      if (tsNum === 4) {
+      const measStart = toSec(measureStartBeats[ei]);
+      const measLen = measureBeats[ei];
+      if (tsNum === 4 && Math.abs(measLen - 4) < 0.001) {
         // Ride pattern — quarter notes on every beat, alternating accents.
         pushHit(measStart + 0 * bs, 'ride', 0.78, ei, 0);
         pushHit(measStart + 1 * bs, 'ride', 0.64, ei, 1);
@@ -995,12 +1033,13 @@ export class NotePlayer {
         pushHit(measStart + 2 * bs, 'kick', 0.34, ei, 10);
         pushHit(measStart + 3 * bs, 'kick', 0.28, ei, 11);
       } else {
-        // Fallback for non-4/4: keep the legacy "ride on every beat + upbeat" feel
-        // since dedicated patterns for other meters don't exist yet.
-        for (let beat = 0; beat < tsNum; beat++) {
+        // Fallback for non-4/4 OR a partial/over-stuffed bar: ride per beat
+        // across exactly the bar's actual length.
+        const fullBeats = Math.floor(measLen + 0.001);
+        for (let beat = 0; beat < fullBeats; beat++) {
           const t = measStart + beat * bs;
           pushHit(t, 'ride', 0.72, ei, beat * 4);
-          if (beat < tsNum - 1) {
+          if (beat < fullBeats - 1) {
             pushHit(t + swingOffset, 'ride', 0.5, ei, beat * 4 + 1);
           }
           if (beat === 1 || beat === 3) pushHit(t, 'hihat-foot', 0.85, ei, beat * 4 + 2);
@@ -1010,11 +1049,12 @@ export class NotePlayer {
     }
     this.drumSched.sort((a, b) => a.time - b.time);
 
-    // Schedule metronome clicks — accent on beat 1
+    // Schedule metronome clicks — accent on beat 1, one click per actual beat.
     this.metroSched = [];
     for (let ei = 0; ei < expanded.length; ei++) {
-      const measStart = ei * measSec;
-      for (let beat = 0; beat < tsNum; beat++) {
+      const measStart = toSec(measureStartBeats[ei]);
+      const fullBeats = Math.floor(measureBeats[ei] + 0.001);
+      for (let beat = 0; beat < fullBeats; beat++) {
         this.metroSched.push({ time: measStart + beat * bs, accent: beat === 0 });
       }
     }

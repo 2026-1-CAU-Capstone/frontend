@@ -1743,6 +1743,24 @@ export default function LeadSheetGeneratorPage() {
     pausedRef.current = false;
     setPaused(false);
 
+    // Align the first note with the count-in's downbeat. cin.downbeatInSec
+    // measures setTimeout slop between cin resolve and here in any clock.
+    if (cin.downbeatInSec > 0) {
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(resolve, cin.downbeatInSec * 1000);
+          abort.signal.addEventListener(
+            'abort',
+            () => { clearTimeout(timer); reject('stop'); },
+            { once: true },
+          );
+        });
+      } catch {
+        setPlaying(false);
+        return;
+      }
+    }
+
     const beatDur = 60 / bpm;
     // Swung-time projection: distance between two straight-beat positions in
     // wall-clock seconds, after the swing-feel non-linear remap. Off-beat 8ths

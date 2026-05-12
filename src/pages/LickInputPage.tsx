@@ -9,6 +9,7 @@ import type { NoteInfo, MeasureInfo } from '../data/sampleMelody';
 import { saveUserLick, computeLickFeatures, type LickEntry } from '../data/lickData';
 import { NotePlayer } from '../lib/note/notePlayer';
 import { useCountInIntro } from '../hooks/useCountInIntro';
+import { PATTERN_SIMPLE } from '../lib/note/countInPatterns';
 
 /* ─── helpers ──────────────────────────────────────────────────────────── */
 
@@ -911,7 +912,7 @@ const ChordCellInput = styled.input`
   outline: none;
 `;
 
-function normalizeChord(raw: string): string {
+function normalizeSingleChord(raw: string): string {
   if (!raw) return raw;
   const m = raw.match(/^([A-Ga-g][b#]?)(.*)/);
   if (!m) return raw;
@@ -940,6 +941,16 @@ function normalizeChord(raw: string): string {
   q = q.replace(/^aug$/i, '+');
 
   return root + q;
+}
+
+/* Normalize one cell value. A measure may carry multiple chords separated by
+ * whitespace ("D-7 G7" or "D-7  G7"); the sheet renderer splits on ≥2 spaces,
+ * so we always emit the 2-space separator here. */
+function normalizeChord(raw: string): string {
+  if (!raw) return raw;
+  const parts = raw.split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return normalizeSingleChord(raw.trim());
+  return parts.map(normalizeSingleChord).join('  ');
 }
 
 function splitChord(chord: string): { base: string; ext: string; tensions: { acc: string; num: string }[] } {
@@ -986,6 +997,26 @@ function formatChordDisplay(raw: string): string {
   return root + acc + q;
 }
 
+function renderChordParts(chord: string, keyPrefix: string) {
+  const { base, ext, tensions } = splitChord(chord);
+  const dimMatch = base.match(/^(.*?)([\u00F8\u00B0])$/);
+  const baseText = dimMatch ? dimMatch[1] : base;
+  const dimSymbol = dimMatch ? dimMatch[2] : '';
+  return (
+    <>
+      <ChordBase>{baseText}</ChordBase>
+      {dimSymbol && <ChordHalfDim>{dimSymbol}</ChordHalfDim>}
+      {ext && <ChordExt>{ext}</ChordExt>}
+      {tensions.map((t, i) => (
+        <span key={`${keyPrefix}-t-${i}`}>
+          {t.acc && <ChordTensionAcc>{t.acc}</ChordTensionAcc>}
+          <ChordTensionNum>{t.num}</ChordTensionNum>
+        </span>
+      ))}
+    </>
+  );
+}
+
 function ChordCell({ value, onChange, style }: {
   value: string;
   onChange: (v: string) => void;
@@ -993,8 +1024,12 @@ function ChordCell({ value, onChange, style }: {
 }) {
   const [editing, setEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const formatted = formatChordDisplay(value);
-  const { base, ext, tensions } = splitChord(formatted);
+
+  // Multi-chord per measure: split on \u22652 spaces (canonical) or 1+ space
+  // (fallback for un-normalized input pasted via Load JSON).
+  const chords = value
+    ? value.split(/\s{2,}|\s+(?=[A-G])/).filter(Boolean)
+    : [];
 
   return (
     <ChordCellWrap $hasValue={!!value} style={style} onClick={() => { setEditing(true); setTimeout(() => inputRef.current?.focus(), 0); }}>
@@ -1008,23 +1043,11 @@ function ChordCell({ value, onChange, style }: {
         />
       ) : (
         <ChordCellDisplay>
-          {value ? (() => {
-            // Separate half-dim/dim symbol from base if present
-            const dimMatch = base.match(/^(.*?)([\u00F8\u00B0])$/);
-            const baseText = dimMatch ? dimMatch[1] : base;
-            const dimSymbol = dimMatch ? dimMatch[2] : '';
-            return <>
-              <ChordBase>{baseText}</ChordBase>
-              {dimSymbol && <ChordHalfDim>{dimSymbol}</ChordHalfDim>}
-              {ext && <ChordExt>{ext}</ChordExt>}
-              {tensions.map((t, i) => (
-                <span key={i}>
-                  {t.acc && <ChordTensionAcc>{t.acc}</ChordTensionAcc>}
-                  <ChordTensionNum>{t.num}</ChordTensionNum>
-                </span>
-              ))}
-            </>;
-          })() : null}
+          {chords.map((c, i) => (
+            <span key={`c-${i}`} style={{ marginRight: i < chords.length - 1 ? 6 : 0 }}>
+              {renderChordParts(formatChordDisplay(c), `c-${i}`)}
+            </span>
+          ))}
         </ChordCellDisplay>
       )}
     </ChordCellWrap>
@@ -1748,7 +1771,8 @@ export default function LickInputPage() {
     }
     setPlaying(true);
     const preload = p.preload();
-    const cin = await countIn.run({ bpm });
+    // 릭 재생: BPM 무관하게 SIMPLE 카운트인.
+    const cin = await countIn.run({ bpm, pattern: PATTERN_SIMPLE });
     if (!cin.ok) { setPlaying(false); return; }
     await preload;
     await p.play({
@@ -1758,7 +1782,7 @@ export default function LickInputPage() {
       timeSignature: '4/4',
       tempo: bpm,
       measures: allMeasures,
-    }, bpm, { startAt: cin.startAt });
+    }, bpm, { startAt: p.ctxNow() + cin.downbeatInSec });
   }, [allMeasures, bpm, title, performer, lickKey, countIn]);
 
   useEffect(() => () => { playerRef.current?.dispose(); }, []);
@@ -1827,7 +1851,19 @@ export default function LickInputPage() {
     }
 
     pushEditUndo();
-    setMeasures(measuresRaw);
+    // Re-normalize chord cells so pasted multi-chord ("D-7 G7") becomes the
+    // canonical 2-space form ("D-7  G7") the sheet renderer can split on.
+    const normalized = measuresRaw.map((m) => {
+      const nm: MeasureInfo = { ...m };
+      if (typeof nm.chord === 'string') nm.chord = normalizeChord(nm.chord);
+      if (Array.isArray(nm.notes)) {
+        nm.notes = nm.notes.map((n) =>
+          typeof n.chord === 'string' ? { ...n, chord: normalizeChord(n.chord) } : n,
+        );
+      }
+      return nm;
+    });
+    setMeasures(normalized);
     setCurNotes([]);
     setCurChord('');
     setSelectedNote(null);

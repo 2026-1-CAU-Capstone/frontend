@@ -144,6 +144,23 @@ function keySignatureAccidentals(sf: number): Set<number> {
   return s;
 }
 
+/**
+ * Letters whose natural pitch is altered by the key signature.
+ * F major (sf=-1) → {'b'}; Bb major (sf=-2) → {'b','e'}; G major (sf=1) → {'f'}.
+ * Used to decide when an unaltered note needs an explicit ♮ to override key sig.
+ */
+function keySignatureLetters(sf: number): Set<string> {
+  const FLAT_LETTERS  = ['b', 'e', 'a', 'd', 'g', 'c', 'f'];
+  const SHARP_LETTERS = ['f', 'c', 'g', 'd', 'a', 'e', 'b'];
+  const out = new Set<string>();
+  if (sf < 0) {
+    for (let i = 0; i < Math.min(-sf, 7); i++) out.add(FLAT_LETTERS[i]);
+  } else {
+    for (let i = 0; i < Math.min(sf, 7); i++) out.add(SHARP_LETTERS[i]);
+  }
+  return out;
+}
+
 /* ─── Duration quantisation ──────────────────────────────────────────── */
 
 const DUR_GRID = [
@@ -337,6 +354,7 @@ export async function loadMidiMelody(
   const melody = melodyTrack(midi);
   const { key, preferSharps, sf } = parseKey(meta.length ? meta : melody);
   const keySigPcs = keySignatureAccidentals(sf);
+  const keySigLetters = keySignatureLetters(sf);
   const timeSig = parseTimeSig(meta.length ? meta : melody);
   const tempo = parseTempo(meta.length ? meta : melody);
 
@@ -377,13 +395,19 @@ export async function loadMidiMelody(
       const q = quantise(rawBeats);
 
       const { key: vk, accidental } = midiToVex(ev.midi, preferSharps);
-      const accidentals: Record<number, '#' | 'b'> = {};
-      if (accidental && !keySigPcs.has(ev.midi % 12)) {
-        accidentals[0] = accidental;
-      }
-
+      // Convention: keys[0] + accidentals[0] together encode the absolute pitch
+      // (the player's vexToMidi ignores key signature). Always emit the
+      // accidental — the NoteSheet renderer dedupes it against the key sig so
+      // we don't get redundant glyphs. When a note's letter is altered by the
+      // key sig but the note is the natural, emit 'n' so player and renderer
+      // agree on the override.
       const ni: NoteInfo = { keys: [vk], duration: q.vf, dotted: q.dot || undefined };
-      if (Object.keys(accidentals).length > 0) ni.accidentals = accidentals;
+      const letter = vk.split('/')[0];
+      if (accidental) {
+        ni.accidentals = { 0: accidental };
+      } else if (keySigLetters.has(letter)) {
+        ni.accidentals = { 0: 'n' };
+      }
       notes.push(ni);
 
       // Advance cursor using actual onset + quantised duration (stay in tick space)

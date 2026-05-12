@@ -1,5 +1,7 @@
 /* ─── Song index for /note page ──────────────────────────────────────── */
 
+import { chordMatchIndex } from './chordMatchIndex';
+
 export type SongGroup = 'external' | 'manual';
 
 export interface NoteSongEntry {
@@ -10,6 +12,13 @@ export interface NoteSongEntry {
   group: SongGroup;
   fileType: 'midi' | 'xml' | 'mxl' | 'json';
   loadUrl: () => Promise<string>;
+  /**
+   * If set, the page should replace the parsed chord field on each measure
+   * with the chord progression from jazz1460.json at this index. Used to
+   * clone external songs into "manual" with chord-analysis data layered on
+   * top of the melody parsed from the source file.
+   */
+  chordJazzIndex?: number;
 }
 
 /* ── Vite glob imports ────────────────────────────────────────────────── */
@@ -107,7 +116,7 @@ const pdmxSongs: NoteSongEntry[] = Object.entries(pdmxModules).map(
 
 /* ── Manual songs (hand-crafted JSON) ─────────────────────────────────── */
 
-const manualSongs: NoteSongEntry[] = [
+const handCraftedManualSongs: NoteSongEntry[] = [
   {
     id: 'manual:Autumn_Leaves',
     title: 'Autumn Leaves',
@@ -118,6 +127,38 @@ const manualSongs: NoteSongEntry[] = [
     loadUrl: async () => '/data/data-jazzstandards-main/Autumn_Leaves.json',
   },
 ];
+
+/* ── Manual clones: every external song whose title appears in jazz1460. ──
+ * The clones reuse the same source-file loader as the corresponding external
+ * entry, but carry a `chordJazzIndex` so the page can overlay chord-analysis
+ * chords (from jazz1460.json) on top of the parsed melody. The original
+ * external entries are left untouched. */
+
+const externalById = new Map<string, NoteSongEntry>();
+for (const s of [...omnibookSongs, ...wjazzdSongs, ...jazzstandardSongs, ...pdmxSongs]) {
+  externalById.set(s.id, s);
+}
+
+const clonedManualSongs: NoteSongEntry[] = chordMatchIndex.flatMap((match) => {
+  const source = externalById.get(match.noteId);
+  if (!source) return [];
+  const entry: NoteSongEntry = {
+    id: `manual-clone:${match.noteId}`,
+    title: source.title,
+    composer: source.composer,
+    collection: `manual (${source.collection})`,
+    group: 'manual',
+    fileType: source.fileType,
+    loadUrl: source.loadUrl,
+    chordJazzIndex: match.jazzIndex,
+  };
+  return [entry];
+});
+
+const manualSongs: NoteSongEntry[] = [
+  ...handCraftedManualSongs,
+  ...clonedManualSongs,
+].sort((a, b) => a.title.localeCompare(b.title));
 
 /* ── Exports ─────────────────────────────────────────────────────────── */
 

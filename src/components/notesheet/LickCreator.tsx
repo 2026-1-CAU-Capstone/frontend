@@ -16,6 +16,7 @@ import type { NoteSheetData, NoteInfo, MeasureInfo } from '../../data/sampleMelo
 import { PianoKeyboard, type PianoNote } from './PianoKeyboard';
 import { NotePlayer } from '../../lib/note/notePlayer';
 import { useCountInIntro } from '../../hooks/useCountInIntro';
+import { PATTERN_SIMPLE } from '../../lib/note/countInPatterns';
 
 /* ─── key helpers ────────────────────────────────────────────────────── */
 
@@ -672,10 +673,11 @@ export function LickCreator({ width, onSave, onCancel }: LickCreatorProps) {
     if (measures.length > 0) {
       setPlaying(true);
       const preload = p.preload();
-      const cin = await countIn.run({ bpm: 120 });
+      // 릭 재생: BPM 무관하게 SIMPLE 카운트인.
+      const cin = await countIn.run({ bpm: 120, pattern: PATTERN_SIMPLE });
       if (!cin.ok) { setPlaying(false); return; }
       await preload;
-      await p.play(sheetData, 120, { startAt: cin.startAt });
+      await p.play(sheetData, 120, { startAt: p.ctxNow() + cin.downbeatInSec });
     }
   }, [measures, sheetData]);
 
@@ -745,6 +747,7 @@ export function LickCreator({ width, onSave, onCancel }: LickCreatorProps) {
     rect.setAttribute('width', String(r.w));
     rect.setAttribute('height', String(LINE_HEIGHT - 16));
     rect.setAttribute('fill', MEASURE_HL_COLOR);
+    rect.setAttribute('stroke', 'none');
     rect.setAttribute('rx', '4');
     svg.insertBefore(rect, svg.firstChild);
   }, [activeMeasure]);

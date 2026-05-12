@@ -30,6 +30,10 @@ export interface PlayerSettings {
   drumEnabled: boolean;
   metroEnabled: boolean;
   metroVolume: number;
+  /** 8th-note swing ratio. 0.5 = straight 8ths. 0.62 = classic medium swing.
+   *  0.66 = strong swing (triplet feel). Applied uniformly across all melody
+   *  playback paths via lib/note/swing.ts. */
+  swingRatio: number;
 }
 
 const DEFAULTS: PlayerSettings = {
@@ -43,6 +47,7 @@ const DEFAULTS: PlayerSettings = {
   drumEnabled: true,
   metroEnabled: false,
   metroVolume: 0.6,
+  swingRatio: 0.62,
 };
 
 const LS_KEY = 'jazzify_player_settings_v1';

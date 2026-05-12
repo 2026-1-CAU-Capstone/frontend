@@ -297,9 +297,10 @@ export interface BackingPlayerCallbacks {
 
 export interface BackingPlayer {
   readonly playing: boolean;
-  /** `opts.startAt` (AudioContext seconds) anchors the first event so it lands
-   *  on the beat. Pass the value returned from `useCountInIntro.run().startAt`
-   *  to keep first-bar timing tight against the count-in. */
+  /** `opts.startAt` (AudioContext seconds, in THIS player's ctx clock) anchors
+   *  the first event so it lands on the beat. Compute via
+   *  `player.ctxNow() + cin.downbeatInSec` to bridge the count-in's separate
+   *  AudioContext clock. */
   play(opts?: { startAt?: number }): Promise<void>;
   /** Pre-warm AudioContext + instruments + drum 자원 (count-in 과 병렬용). */
   preload(): Promise<void>;
@@ -307,6 +308,9 @@ export interface BackingPlayer {
   stop(): void;
   setConfig(next: Partial<BackingConfig>): void;
   dispose(): void;
+  /** Audio-context time (sec). Returns 0 if ctx has not been created yet —
+   *  call `preload()` first for a stable clock. */
+  ctxNow(): number;
   /** Attach / replace a callback. */
   on<K extends keyof BackingPlayerCallbacks>(ev: K, cb: BackingPlayerCallbacks[K]): void;
 }

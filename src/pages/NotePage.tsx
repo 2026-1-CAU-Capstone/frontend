@@ -18,6 +18,8 @@ import { noteSongs, externalSongs, manualSongs } from '../data/noteSongs';
 import type { SongGroup } from '../data/noteSongs';
 import { loadMidiMelody } from '../lib/note/midiMelodyParser';
 import { loadXmlMelody, loadMxlMelody } from '../lib/note/xmlMelodyParser';
+import { injectChordsFromLeadSheet } from '../lib/note/jazz1460ChordInject';
+import { getSong } from '../lib/ireal/irealLoader';
 
 const SAMPLE_ID = '__sample__';
 
@@ -575,7 +577,7 @@ export default function NotePage() {
     (async () => {
       try {
         const url = await song.loadUrl();
-        const data =
+        let data =
           song.fileType === 'json'
             ? await fetch(url).then((r) => { if (!r.ok) throw new Error(`${r.status} ${r.statusText}`); return r.json(); }) as NoteSheetData
             : song.fileType === 'midi'
@@ -583,6 +585,10 @@ export default function NotePage() {
               : song.fileType === 'mxl'
                 ? await loadMxlMelody(url, song.title)
                 : await loadXmlMelody(url, song.title);
+        if (song.chordJazzIndex !== undefined) {
+          const lead = await getSong(song.chordJazzIndex);
+          if (lead) data = injectChordsFromLeadSheet(data, lead);
+        }
         if (!cancelled) setSheet(data);
       } catch (err) {
         if (!cancelled) {

@@ -6,6 +6,7 @@ import {
 } from 'vexflow';
 import Soundfont from 'soundfont-player';
 import { useCountInIntro } from '../hooks/useCountInIntro';
+import { PATTERN_SIMPLE } from '../lib/note/countInPatterns';
 import { swungBeats } from '../lib/note/swing';
 import type { NoteInfo, MeasureInfo } from '../data/sampleMelody';
 import { loadUserLicks, type LickEntry } from '../data/lickData';
@@ -801,7 +802,8 @@ function KeyRow({ keyName, measures, width, isOriginal, defaultBpm, video }: {
     setPlaying(true);
     // 카운트인과 병렬로 sax soundfont 로드 — 첫 재생 지연 제거.
     const saxPromise = ensurePiano();
-    const cin = await countIn.run({ bpm });
+    // 릭 재생: BPM 무관하게 SIMPLE 카운트인.
+    const cin = await countIn.run({ bpm, pattern: PATTERN_SIMPLE });
     if (!cin.ok) { setPlaying(false); return; }
     const sax = await saxPromise;
     const abort = new AbortController();
@@ -811,6 +813,18 @@ function KeyRow({ keyName, measures, width, isOriginal, defaultBpm, video }: {
     // beat (long-short feel). Quarters and larger durations are unaffected.
     const toSec = (beatPos: number) => swungBeats(beatPos) * beatDur;
     try {
+      // Align the first note with the count-in's downbeat. cin.downbeatInSec
+      // captures the setTimeout slop between cin resolve and here.
+      if (cin.downbeatInSec > 0) {
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(resolve, cin.downbeatInSec * 1000);
+          abort.signal.addEventListener(
+            'abort',
+            () => { clearTimeout(timer); reject('stop'); },
+            { once: true },
+          );
+        });
+      }
       // Flatten all notes for tie handling
       const allNotes = measures.flatMap(m => m.notes);
       let mt = 0; // cumulative beat cursor (straight-time beats)

@@ -21,6 +21,7 @@ import { NotePlayer } from '../../lib/note/notePlayer';
 import { YoutubeEmbed } from '../common/YoutubeEmbed';
 import { getLickVideo } from '../../data/lickVideos';
 import { useCountInIntro } from '../../hooks/useCountInIntro';
+import { PATTERN_SIMPLE } from '../../lib/note/countInPatterns';
 
 /* ─── layout constants ──────────────────────────────────────────────── */
 
@@ -589,6 +590,7 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
     rect.setAttribute('width', String(r.w));
     rect.setAttribute('height', String(LINE_HEIGHT - 16));
     rect.setAttribute('fill', MEASURE_HL_COLOR);
+    rect.setAttribute('stroke', 'none');
     rect.setAttribute('rx', '4');
     svg.insertBefore(rect, svg.firstChild);
   }, []);
@@ -615,13 +617,14 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
     setPlaying(true);
     // 카운트인과 병렬로 인스트루먼트 로딩 — 첫 재생 지연 제거.
     const preload = p.preload();
-    const cin = await countIn.run({ bpm });
+    // 릭 재생은 BPM과 무관하게 항상 SIMPLE (1 2 3 4) 카운트인 사용.
+    const cin = await countIn.run({ bpm, pattern: PATTERN_SIMPLE });
     if (!cin.ok) {
       setPlaying(false);
       return;
     }
     await preload;
-    await p.play(lick.sheetData, bpm, { startAt: cin.startAt });
+    await p.play(lick.sheetData, bpm, { startAt: p.ctxNow() + cin.downbeatInSec });
   }, [lick, bpm, countIn, highlightNote, clearNoteHighlight, drawMeasureHL]);
 
   // cleanup on unmount

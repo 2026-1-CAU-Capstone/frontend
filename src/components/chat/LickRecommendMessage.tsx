@@ -13,6 +13,7 @@ import { saveUserLick, deleteUserLick, loadUserLicksSync } from '../../data/lick
 import type { LickMatch } from '../../lib/lickMatcher';
 import { NotePlayer } from '../../lib/note/notePlayer';
 import { useCountInIntro } from '../../hooks/useCountInIntro';
+import { PATTERN_SIMPLE } from '../../lib/note/countInPatterns';
 import type { NoteInfo, MeasureInfo } from '../../data/sampleMelody';
 import { YoutubeEmbed } from '../common/YoutubeEmbed';
 import { getLickVideo } from '../../data/lickVideos';
@@ -438,10 +439,11 @@ export function LickRecommendMessage({ match, tempoOverride }: Props) {
     const bpm = tempoOverride ?? lick.tempo ?? 200;
     setPlaying(true);
     const preload = p.preload();
-    const cin = await countIn.run({ bpm });
+    // 릭 재생: BPM 무관하게 SIMPLE 카운트인.
+    const cin = await countIn.run({ bpm, pattern: PATTERN_SIMPLE });
     if (!cin.ok) { setPlaying(false); return; }
     await preload;
-    await p.play(lick.sheetData, bpm, { startAt: cin.startAt });
+    await p.play(lick.sheetData, bpm, { startAt: p.ctxNow() + cin.downbeatInSec });
   }, [lick, tempoOverride, countIn]);
 
   useEffect(() => () => { playerRef.current?.dispose(); }, []);
