@@ -35,8 +35,8 @@ const Wrapper = styled.div`
  * remove or hide behind an env flag once the app ships publicly. */
 const AdminBtn = styled.button`
   position: absolute;
-  top: 16px;
-  right: 22px;
+  top: max(16px, env(safe-area-inset-top, 0px));
+  right: max(22px, calc(env(safe-area-inset-right, 0px) + 16px));
   padding: 7px 14px;
   border: 1.5px solid ${({ theme }) => theme.colors.border};
   border-radius: 8px;
@@ -54,6 +54,42 @@ const AdminBtn = styled.button`
     color: ${({ theme }) => theme.colors.textPrimary};
     background: ${({ theme }) => theme.colors.bgSecondary};
   }
+
+  ${mq.mobile} {
+    padding: 5px 10px;
+    font-size: 0.74rem;
+  }
+`;
+
+/* Compact-screen brand strip — replaces the desktop sidebar's BrandRow on
+ * phones/tablets so the user still sees the Jazzify wordmark. */
+const MobileBrandBar = styled.div`
+  display: none;
+  ${mq.mobile} {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: absolute;
+    top: max(14px, env(safe-area-inset-top, 0px));
+    left: max(16px, env(safe-area-inset-left, 0px));
+    z-index: 40;
+    pointer-events: none;
+  }
+`;
+
+const MobileBrandLogo = styled.img`
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  object-fit: cover;
+`;
+
+const MobileBrandName = styled.span`
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: ${({ theme }) => theme.colors.textPrimary};
+  letter-spacing: 0.02em;
 `;
 
 /* ── Sidebar ─────────────────────────────────────────────────── */
@@ -205,7 +241,7 @@ const Intro = styled.div<{ $phase: Phase }>`
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0 20px 28px;
+  padding: 0 20px 22px;
   transition: max-height 0.45s ease, opacity 0.3s ease, padding 0.35s ease;
 
   ${({ $phase }) =>
@@ -222,6 +258,10 @@ const Intro = styled.div<{ $phase: Phase }>`
           padding: 0;
           overflow: hidden;
         `}
+
+  ${mq.mobile} {
+    padding: ${({ $phase }) => ($phase === 'idle' ? '0 14px 12px' : '0')};
+  }
 `;
 
 const HeroLogo = styled.img`
@@ -262,6 +302,66 @@ const Subtitle = styled.p`
   ${mq.mobile} {
     font-size: 0.92rem;
   }
+`;
+
+/* ── Mobile/tablet tool grid (replaces the hidden sidebar) ────────────
+ *  Desktop hides this — the sidebar still owns the tool list there.   */
+
+const ToolGrid = styled.div<{ $phase: Phase }>`
+  display: none;
+
+  ${mq.mobile} {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    width: 100%;
+    max-width: 480px;
+    margin: 22px auto 0;
+    padding: 0 16px;
+    animation: ${fadeIn} 0.5s 0.15s ease both;
+
+    ${({ $phase }) =>
+      $phase === 'chatting' &&
+      css`
+        display: none;
+      `}
+  }
+`;
+
+const ToolCard = styled.button`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 18px 6px 14px;
+  border: 1.5px solid ${({ theme }) => theme.colors.border};
+  border-radius: 14px;
+  background: ${({ theme }) => theme.colors.bgSecondary};
+  color: ${({ theme }) => theme.colors.textPrimary};
+  font-family: ${({ theme }) => theme.fonts.ui};
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.15s, background 0.15s;
+
+  &:active {
+    transform: scale(0.97);
+    border-color: ${({ theme }) => theme.colors.gold};
+  }
+`;
+
+const ToolCardIcon = styled.span`
+  font-size: 1.6rem;
+  line-height: 1;
+  color: ${({ theme }) => theme.colors.gold};
+`;
+
+const ToolCardLabel = styled.span`
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-align: center;
+  line-height: 1.2;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 /* ── Messages area (chatting only) ───────────────────────────── */
@@ -308,7 +408,10 @@ const Bottom = styled.div<{ $phase: Phase }>`
   transition: padding 0.3s ease;
 
   ${mq.mobile} {
-    padding: ${({ $phase }) => ($phase === 'idle' ? '0 12px 24px' : '0 12px 14px')};
+    padding: ${({ $phase }) =>
+      $phase === 'idle'
+        ? '14px 12px max(20px, env(safe-area-inset-bottom, 0px))'
+        : '0 12px max(14px, env(safe-area-inset-bottom, 0px))'};
   }
 `;
 
@@ -481,6 +584,10 @@ export default function HomePage() {
 
   return (
     <Wrapper>
+      <MobileBrandBar>
+        <MobileBrandLogo src="/jazzifylogo.png" alt="Jazzify" />
+        <MobileBrandName>Jazzify</MobileBrandName>
+      </MobileBrandBar>
       <AdminBtn onClick={() => navigate('/admin')}>Admin</AdminBtn>
 
       {/* ── Sidebar ────────────────────────────────────────────── */}
@@ -530,6 +637,16 @@ export default function HomePage() {
           <Greeting>오늘은 무슨 이야기를 할까요?</Greeting>
           <Subtitle>화성학, 재즈 이론, 코드 진행에 대해 물어보세요</Subtitle>
         </Intro>
+
+        {/* Mobile/tablet tool grid — desktop hides it (sidebar covers the role) */}
+        <ToolGrid $phase={phase}>
+          {TOOLS.map((t) => (
+            <ToolCard key={t.path} onClick={() => navigate(t.path)}>
+              <ToolCardIcon>{t.icon}</ToolCardIcon>
+              <ToolCardLabel>{t.label}</ToolCardLabel>
+            </ToolCard>
+          ))}
+        </ToolGrid>
 
         {/* Chat messages */}
         <MessagesArea $phase={phase} ref={messagesAreaRef} onScroll={handleScroll}>

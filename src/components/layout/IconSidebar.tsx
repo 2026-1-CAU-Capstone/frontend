@@ -14,22 +14,32 @@ const Rail = styled.nav`
   background: ${({ theme }) => theme.colors.bgPrimary};
   border-right: 1px solid ${({ theme }) => theme.colors.border};
 
+  /* iPhone notch / iPad gesture area */
+  padding-top: max(10px, env(safe-area-inset-top, 0px));
+  padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+
   ${mq.mobile} {
-    width: 36px;
-    padding: 6px 0;
-    gap: 4px;
+    width: 58px;
+    padding: 8px 0;
+    gap: 6px;
+    padding-top: max(8px, env(safe-area-inset-top, 0px));
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
   }
 `;
 
 const NavBtn = styled.button<{ $active?: boolean }>`
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
+  flex-direction: column;
+  gap: 0;
 
   ${mq.mobile} {
-    width: 28px;
-    height: 28px;
-    border-radius: 7px;
-    svg { width: 16px; height: 16px; }
+    width: 50px;
+    height: 46px;
+    border-radius: 9px;
+    gap: 2px;
+    padding: 4px 0;
+    svg { width: 18px; height: 18px; }
   }
   display: flex;
   align-items: center;
@@ -46,6 +56,19 @@ const NavBtn = styled.button<{ $active?: boolean }>`
   }
 `;
 
+const NavLabel = styled.span`
+  display: none;
+
+  ${mq.mobile} {
+    display: block;
+    font-family: ${({ theme }) => theme.fonts.ui};
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1;
+  }
+`;
+
 const Divider = styled.div`
   width: 28px;
   height: 1px;
@@ -53,7 +76,7 @@ const Divider = styled.div`
   margin: 4px 0;
 
   ${mq.mobile} {
-    width: 20px;
+    width: 36px;
     margin: 2px 0;
   }
 `;
@@ -103,6 +126,7 @@ export function IconSidebar() {
           title={label}
         >
           <Icon />
+          <NavLabel>{label}</NavLabel>
         </NavBtn>
       ))}
     </Rail>
