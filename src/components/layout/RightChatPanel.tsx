@@ -27,7 +27,19 @@ interface RightChatPanelProps {
   onToggleSelectionMode?: () => void;
   onClearSelectedChords?: () => void;
   songTempo?: number;
+  /** Pre-formatted note-level dump of the user-selected NoteSheet range.
+   *  Attached to LLM context only when the user asks a solo / line / note-
+   *  level question (heuristic below). Casual "analyze this chord progression"
+   *  queries don't include it, so they stay token-cheap. */
+  notesContext?: string;
 }
+
+/** Keywords that signal the user wants to talk about the actual played notes
+ *  (line shape, solo choices, voice leading, approach tones, why-this-note),
+ *  rather than just the chord skeleton. When matched AND `notesContext` is
+ *  available, we attach the per-note dump to the model context. */
+const NOTE_LEVEL_KEYWORDS =
+  /솔로|솔로잉|라인|멜로디|음표|노트|음정|음역|어프로치|어떤\s*음|이\s*음|이\s*노트|왜.*했|왜.*골|왜.*이렇|왜.*쳤|왜.*연주|즉흥|임프로|보이싱|텐션|보이스\s*리딩|approach|why.*play|why.*chose|why.*note|melody|line|solo/i;
 
 interface MessageWithDebug extends ChatMessageType {
   ragDebug?: RagDebugInfo;
@@ -75,6 +87,7 @@ export function RightChatPanel({
   onToggleSelectionMode,
   onClearSelectedChords,
   songTempo,
+  notesContext,
 }: RightChatPanelProps) {
   const [messages, setMessages] = useState<MessageWithDebug[]>([]);
   const [loading, setLoading] = useState(false);
@@ -276,7 +289,16 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
     setLoading(true);
 
     const selectedChordContext = buildSelectedChordContext(selectedChords);
-    const contextForModel = appendSelectedChordContext(chordContext, selectedChordContext);
+    let contextForModel = appendSelectedChordContext(chordContext, selectedChordContext);
+
+    // Solo / line / note-level question → attach the per-note dump of the
+    // selected NoteSheet range so the model can reason about specific pitches,
+    // rhythms, approach tones, voice leading, etc. We only attach when both
+    // (a) a selection exists with note data and (b) the question keyword
+    // signals note-level intent — otherwise token-cheap chord-only context.
+    if (notesContext && NOTE_LEVEL_KEYWORDS.test(text)) {
+      contextForModel = [contextForModel, notesContext].filter(Boolean).join('\n\n');
+    }
 
     const finalText = await streamWithRAG(
       textForLLM,
@@ -305,7 +327,7 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
       prev.map((m) => (m.id === aiMsgId ? { ...m, content: finalText } : m)),
     );
     setLoading(false);
-  }, [chordContext, selectedChords, songTitle]);
+  }, [chordContext, selectedChords, songTitle, notesContext]);
 
   return (
     <PanelContainer>

@@ -12,8 +12,8 @@ import { Toggle } from '../components/common/Toggle';
 import { ToolbarButton } from '../components/layout/TopToolbar.styles';
 import { useAutoHighlight } from '../hooks/useAutoHighlight';
 import { sampleMelody } from '../data/sampleMelody';
-import type { NoteSheetData } from '../data/sampleMelody';
-import type { TocEntry } from '../data/types';
+import type { NoteSheetData, MeasureInfo, NoteInfo } from '../data/sampleMelody';
+import type { ChordOverlay, TocEntry } from '../data/types';
 import { noteSongs, externalSongs, manualSongs } from '../data/noteSongs';
 import type { SongGroup } from '../data/noteSongs';
 import { loadMidiMelody } from '../lib/note/midiMelodyParser';
@@ -160,6 +160,90 @@ function transposeNoteData(data: NoteSheetData, targetKey: string): NoteSheetDat
   };
 }
 
+/* ─── selection → chat context ───────────────────────────────────────── */
+
+/** Pretty-print a single note for LLM consumption. e.g. `c#/5 [8.]`, `e/4 [q]`,
+ *  `rest [h]`. Duration is kept in VexFlow shorthand so the model sees the
+ *  same rhythmic vocabulary it would in the score. */
+function formatNote(n: NoteInfo): string {
+  const isRest = n.duration.endsWith('r');
+  if (isRest) return `rest [${n.duration}]`;
+  const acc = n.accidentals?.[0];
+  const pitch = acc ? `${n.keys[0]}${acc}` : n.keys[0];
+  const dotted = n.dotted ? '.' : '';
+  const tuplet = n.tuplet ? ` (${n.tuplet}-tuplet)` : '';
+  const tie = n.tie ? ' ~' : '';
+  return `${pitch} [${n.duration}${dotted}]${tuplet}${tie}`;
+}
+
+/** Build the data the chat panel needs from a set of selected measure ranges.
+ *  - `selectedChords` reuses the ChordOverlay pipeline already wired into
+ *    RightChatPanel / ChatInput (so the UI shows the chord chips for free).
+ *  - `notesContext` is a separate string the panel attaches ONLY when the
+ *    user asks a solo / note-level question (heuristic in RightChatPanel),
+ *    so casual "analyze this chord progression" queries don't waste tokens
+ *    on per-note dumps. */
+function buildNoteSelectionData(
+  sheet: NoteSheetData,
+  ranges: Array<[number, number]>,
+): { selectedChords: ChordOverlay[]; notesContext: string } {
+  const measures = sheet.measures;
+  // Collect unique measure indices preserving order across multiple disjoint
+  // ranges. Sorted within a range, ranges in click order.
+  const indices: number[] = [];
+  const seen = new Set<number>();
+  for (const [a, b] of ranges) {
+    const lo = Math.max(0, Math.min(a, b));
+    const hi = Math.min(measures.length - 1, Math.max(a, b));
+    for (let i = lo; i <= hi; i++) {
+      if (!seen.has(i)) { seen.add(i); indices.push(i); }
+    }
+  }
+  if (indices.length === 0) return { selectedChords: [], notesContext: '' };
+
+  /* Chord overlays — minimal stub so RightChatPanel's chord pipeline reuses
+   *  unchanged. Most fields are intentionally empty because NotePage has no
+   *  per-chord harmonic analysis the way ChordPage does. */
+  const selectedChords: ChordOverlay[] = [];
+  let lastChord = '';
+  for (const i of indices) {
+    const m = measures[i];
+    const symbol = m.chord ?? lastChord; // carry the last labelled chord through unlabelled measures
+    if (m.chord) lastChord = m.chord;
+    if (!symbol) continue;
+    selectedChords.push({
+      id: `note-sel-${i}`,
+      symbol,
+      bar: i + 1,
+      pageNumber: 1,
+      position: { x: 0, y: 0, width: 0, height: 0 },
+      analysis: { degree: '', func: 'SD', diatonic: true },
+    });
+  }
+
+  /* Per-measure note dump. Format optimised for an LLM: one bar per line,
+   *  notes joined with ` · ` so rhythmic groupings are visually distinct
+   *  from chord boundaries. */
+  const summarizeMeasure = (m: MeasureInfo, idx: number): string => {
+    const chord = m.chord ? ` (${m.chord})` : '';
+    const notesStr = m.notes.length === 0
+      ? 'empty'
+      : m.notes.map(formatNote).join(' · ');
+    return `Bar ${idx + 1}${chord}: ${notesStr}`;
+  };
+
+  const lines = [
+    '=== Selected Solo Section (notes) ===',
+    'These are the exact notes the player chose to play in the user-selected bars.',
+    'Use them when the user asks about WHY a particular note / line / approach was chosen,',
+    'or for any line-level (rhythmic, melodic, voice-leading) discussion.',
+    ...indices.map((i) => summarizeMeasure(measures[i], i)),
+  ];
+  const notesContext = lines.join('\n');
+
+  return { selectedChords, notesContext };
+}
+
 /* ─── styled ─────────────────────────────────────────────────────────── */
 
 const PageContainer = styled.div`
@@ -293,7 +377,7 @@ const CollectionTag = styled.span`
   opacity: 0.7;
 `;
 
-const LeadSheetBtn = styled.button`
+const SoloGenBtn = styled.button`
   font-family: 'DM Sans', sans-serif;
   font-size: 0.82rem;
   padding: 4px 12px;
@@ -510,12 +594,48 @@ export default function NotePage() {
     return () => document.removeEventListener('mousedown', handler);
   }, [keyMenuOpen]);
 
+  /* ── measure-range selection (for note-chat) ───────────────────────────
+   *  Mirrors ChordPage's chord-selection flow: user toggles selection mode
+   *  from the ChatInput, clicks measures on the NoteSheet to build disjoint
+   *  ranges, and the selected region's chord progression + notes are sent
+   *  with the next LLM question. */
+  const [isNoteSelectionMode, setIsNoteSelectionMode] = useState(false);
+  const [noteSelectedRanges, setNoteSelectedRanges] = useState<Array<[number, number]>>([]);
+
+  const toggleNoteSelectionMode = useCallback(() => {
+    setIsNoteSelectionMode((prev) => {
+      const next = !prev;
+      if (!next) setNoteSelectedRanges([]);
+      return next;
+    });
+  }, []);
+
+  const clearNoteSelection = useCallback(() => {
+    setNoteSelectedRanges([]);
+  }, []);
+
+  // Reset selection on song change.
+  useEffect(() => {
+    setNoteSelectedRanges([]);
+    setIsNoteSelectionMode(false);
+  }, [sheet?.title]);
+
   // Transposed sheet data
   const transposedSheet = useMemo(() => {
     if (!sheet) return null;
     if (selectedKey === sheet.key) return sheet;
     return transposeNoteData(sheet, selectedKey);
   }, [sheet, selectedKey]);
+
+  /* Selection-derived data fed into the chat panel. ChordOverlay[] keeps the
+   * existing chord-progression UI/serialisation; notesContext is a separate
+   * string so the panel can choose to include it only for solo questions. */
+  const noteSelectionData = useMemo(() => {
+    if (!transposedSheet || noteSelectedRanges.length === 0) {
+      return { selectedChords: [] as ChordOverlay[], notesContext: '' };
+    }
+    return buildNoteSelectionData(transposedSheet, noteSelectedRanges);
+  }, [transposedSheet, noteSelectedRanges]);
 
   /* convert (instrument transposition) */
   const CONVERT_KEYS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'] as const;
@@ -674,7 +794,7 @@ export default function NotePage() {
         <CenterColumn>
           <SongPickerBar>
             <span>Note</span>
-            <LeadSheetBtn onClick={() => navigate('/note/leadsheetgenerator')}>Lead Sheet Generator</LeadSheetBtn>
+            <SoloGenBtn onClick={() => navigate('/note/sologenerator')}>Solo Generator</SoloGenBtn>
             <SongSelect
               value={songGroup}
               onChange={(e) => {
@@ -789,6 +909,9 @@ export default function NotePage() {
               allKeys={allKeys}
               onKeyChange={(k) => setSelectedKey(k)}
               forceAutoStem
+              selectable={isNoteSelectionMode}
+              selectedRanges={noteSelectedRanges}
+              onSelectionChange={setNoteSelectedRanges}
             />
           ) : (
             <LoadingState>
@@ -801,9 +924,17 @@ export default function NotePage() {
 
         <RightPanelWrapper $width={rightPanelWidth}>
           <RightChatPanel
-            selectedChords={[]}
-            groupExplanation={null}
+            selectedChords={noteSelectionData.selectedChords}
+            groupExplanation={
+              noteSelectionData.selectedChords.length > 0
+                ? '이 구간의 코드 진행과 선택한 음표가 다음 질문의 분석 대상으로 포함됩니다.'
+                : null
+            }
             songTitle={sheet?.title ?? 'Jazzify AI'}
+            isSelectionMode={isNoteSelectionMode}
+            onToggleSelectionMode={toggleNoteSelectionMode}
+            onClearSelectedChords={clearNoteSelection}
+            notesContext={noteSelectionData.notesContext}
           />
         </RightPanelWrapper>
         </MainArea>
@@ -811,6 +942,11 @@ export default function NotePage() {
 
       <MobileChatFab
         songTitle={sheet?.title ?? 'Jazzify AI'}
+        selectedChords={noteSelectionData.selectedChords}
+        isSelectionMode={isNoteSelectionMode}
+        onToggleSelectionMode={toggleNoteSelectionMode}
+        onClearSelectedChords={clearNoteSelection}
+        notesContext={noteSelectionData.notesContext}
       />
     </PageContainer>
   );

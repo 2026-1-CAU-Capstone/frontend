@@ -6,7 +6,7 @@
  *
  * 패턴 선택:
  *   - bpm < 100  → SIMPLE  (4 박, "1 2 3 4")
- *   - 100~249    → MEDIUM  (6 박, "1 2" / "1 2 3 4")
+ *   - 100~249    → MEDIUM  (8 박, "1 _ 2 _" / "1 2 3 4")
  *   - bpm >= 250 → FAST    (10 박, "1 _ 2 _" / "1 2" / "1 2 3 4")
  *
  * MEDIUM/FAST 는 재즈 드러머가 카운트 오프 할 때의 swing-feel 을 시각화한 것:
@@ -43,7 +43,7 @@ export const PATTERN_SIMPLE: Pattern = {
 
 export const PATTERN_MEDIUM: Pattern = {
   rows: [
-    [N('1'), N('2')],
+    [N('1'), _(), N('2'), _()],
     [A('1'), N('2'), N('3'), N('4')],
   ],
 };

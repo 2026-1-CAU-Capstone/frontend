@@ -43,7 +43,7 @@ export interface CountInResult {
  *
  * 패턴 (countInPatterns.ts):
  *   - bpm < 100:  SIMPLE  (1 2 3 4)
- *   - 100~249:    MEDIUM  (1 2 / 1 2 3 4)
+ *   - 100~249:    MEDIUM  (1 _ 2 _ / 1 2 3 4)
  *   - bpm >= 250: FAST    (1 _ 2 _ / 1 2 / 1 2 3 4)
  *
  * 각 cell 은 음악 한 박씩 차지. 짝 (label='') cell 은 audio silent + 비활성화.

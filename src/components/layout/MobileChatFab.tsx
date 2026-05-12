@@ -82,6 +82,7 @@ interface MobileChatFabProps {
   isSelectionMode?: boolean;
   onToggleSelectionMode?: () => void;
   onClearSelectedChords?: () => void;
+  notesContext?: string;
 }
 
 export function MobileChatFab({
@@ -92,6 +93,7 @@ export function MobileChatFab({
   isSelectionMode = false,
   onToggleSelectionMode,
   onClearSelectedChords,
+  notesContext,
 }: MobileChatFabProps) {
   const [open, setOpen] = useState(false);
 
@@ -124,6 +126,7 @@ export function MobileChatFab({
               isSelectionMode={isSelectionMode}
               onToggleSelectionMode={onToggleSelectionMode}
               onClearSelectedChords={onClearSelectedChords}
+              notesContext={notesContext}
             />
           </ChatArea>
         </Overlay>

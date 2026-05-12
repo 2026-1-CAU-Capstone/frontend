@@ -6,7 +6,7 @@ import LicksPage from './pages/LicksPage';
 import LickInputPage from './pages/LickInputPage';
 import MyLicksPage from './pages/MyLicksPage';
 import Lick12KeyPage from './pages/Lick12KeyPage';
-import LeadSheetGeneratorPage from './pages/LeadSheetGeneratorPage';
+import SoloGeneratorPage from './pages/SoloGeneratorPage';
 import InputPage from './pages/InputPage';
 import AdminPage from './pages/AdminPage';
 
@@ -17,7 +17,7 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/chord" element={<ChordPage />} />
         <Route path="/note" element={<NotePage />} />
-        <Route path="/note/leadsheetgenerator" element={<LeadSheetGeneratorPage />} />
+        <Route path="/note/sologenerator" element={<SoloGeneratorPage />} />
         <Route path="/licks" element={<LicksPage />} />
         <Route path="/input" element={<InputPage />} />
         <Route path="/lick-input" element={<LickInputPage />} />

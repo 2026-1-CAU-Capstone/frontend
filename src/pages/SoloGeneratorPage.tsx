@@ -17,6 +17,25 @@ const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.
 const SEMI_MAP: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
 const SHARP_TO_FLAT: Record<string, string> = { c: 'd', d: 'e', f: 'g', g: 'a', a: 'b' };
 
+/* Autosave: 작성 중인 solo를 10초마다 localStorage에 저장. 새로고침/크래시 후
+ * 마운트 시 자동 복구. handleSaveSolo 성공/handleClear에서 삭제.
+ * 백엔드 미개발 상태라 "저장된 솔로"도 localStorage에 누적 — 추후 백엔드 붙으면
+ * 같은 entry shape으로 POST 하면 된다. 스키마 변경 시 v2로 올려서 옛 드래프트 무시. */
+const DRAFT_KEY = 'leadSheetGenerator.draft.v1';
+const SOLOS_KEY = 'jazzify_user_solos';
+
+interface SoloEntry {
+  id: number | string;
+  title: string;
+  composer: string;
+  genre?: string;
+  key: string;
+  timeSignature: string;
+  tempo: number;
+  measures: MeasureInfo[];
+  createdAt: number;
+}
+
 function vexToMidi(key: string, acc?: '#' | 'b' | 'n'): number {
   const [n, o] = key.split('/');
   let s = SEMI_MAP[n] ?? 0;
@@ -1287,7 +1306,7 @@ const EmptyHint = styled.div`
 
 /* ─── component ────────────────────────────────────────────────────────── */
 
-export default function LeadSheetGeneratorPage() {
+export default function SoloGeneratorPage() {
   const navigate = useNavigate();
 
   const [measures, setMeasures] = useState<MeasureInfo[]>([]);
@@ -1334,6 +1353,8 @@ export default function LeadSheetGeneratorPage() {
   const [bpmText, setBpmText] = useState('200');
   const bpmManualRef = useRef(false);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const [paused, setPaused] = useState(false);
   const playAbortRef = useRef<AbortController | null>(null);
@@ -1351,6 +1372,58 @@ export default function LeadSheetGeneratorPage() {
   const [noteChordEditing, setNoteChordEditing] = useState(false);
   const [noteChordValue, setNoteChordValue] = useState('');
   const noteChordInputRef = useRef<HTMLInputElement>(null);
+
+  /* ── Load draft on mount: restore the last in-progress solo state ──────
+   * 같은 페이지를 다시 열거나 새로고침해도 작성하던 내용이 살아남음.
+   * handleSaveSolo 성공 / handleClear 시 키 삭제. */
+  const draftLoadedRef = useRef(false);
+  useEffect(() => {
+    if (draftLoadedRef.current) return;
+    draftLoadedRef.current = true;
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      if (!d || typeof d !== 'object') return;
+      if (Array.isArray(d.measures)) setMeasures(d.measures);
+      if (Array.isArray(d.curNotes)) setCurNotes(d.curNotes);
+      if (typeof d.curChord1 === 'string') setCurChord1(d.curChord1);
+      if (typeof d.curChord2 === 'string') setCurChord2(d.curChord2);
+      if (typeof d.composer === 'string') setComposer(d.composer);
+      if (typeof d.genre === 'string') setGenre(d.genre);
+      if (typeof d.sheetTitle === 'string') setSheetTitle(d.sheetTitle);
+      if (typeof d.sheetKey === 'string') setSheetKey(d.sheetKey);
+      if (typeof d.bpm === 'number' && d.bpm >= 20 && d.bpm <= 400) {
+        setBpm(d.bpm);
+        setBpmText(String(d.bpm));
+        bpmManualRef.current = true;
+      }
+    } catch (e) {
+      console.warn('Failed to load lead-sheet draft', e);
+    }
+  }, []);
+
+  /* ── Autosave draft every 10s — survives reload/crash ────────────────── */
+  useEffect(() => {
+    const intv = setInterval(() => {
+      try {
+        const isEmpty =
+          measures.length === 0 &&
+          curNotes.length === 0 &&
+          !curChord1 && !curChord2 &&
+          !composer && !genre && !sheetTitle;
+        if (isEmpty) return;
+        const draft = {
+          measures, curNotes, curChord1, curChord2,
+          composer, genre, sheetTitle, sheetKey, bpm,
+        };
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      } catch (e) {
+        console.warn('Failed to autosave lead-sheet draft', e);
+      }
+    }, 10000);
+    return () => clearInterval(intv);
+  }, [measures, curNotes, curChord1, curChord2, composer, genre, sheetTitle, sheetKey, bpm]);
 
   const editUndoStack = useRef<{ measures: MeasureInfo[]; curNotes: NoteInfo[]; curChord1: string; curChord2: string; repeatStart: boolean; repeatEnd: boolean; volta: 0 | 1 | 2; navigation: NavigationMarker | ''; bracket: boolean }[]>([]);
   const pushEditUndo = useCallback(() => {
@@ -1575,6 +1648,7 @@ export default function LeadSheetGeneratorPage() {
     setCurNotes([]);
     setCurChord1('');
     setCurChord2('');
+    try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
   }, []);
 
   const handleLoadJson = useCallback(() => {
@@ -1584,7 +1658,26 @@ export default function LeadSheetGeneratorPage() {
         setLoadJsonError('Invalid format: missing "measures" array');
         return;
       }
-      setMeasures(data.measures);
+      // Re-normalize chord cells so pasted multi-chord ("D-7 G7") becomes the
+      // canonical 2-space form the sheet renderer can split on.
+      const normalized = (data.measures as MeasureInfo[]).map((m) => {
+        const nm: MeasureInfo = { ...m };
+        if (typeof nm.chord === 'string') {
+          const parts = nm.chord.split(/\s+/).filter(Boolean);
+          nm.chord = parts.length > 1
+            ? parts.map(normalizeChord).join('  ')
+            : normalizeChord(nm.chord.trim());
+        }
+        if (Array.isArray(nm.notes)) {
+          nm.notes = nm.notes.map((n) =>
+            typeof n.chord === 'string'
+              ? { ...n, chord: normalizeChord(n.chord) }
+              : n,
+          );
+        }
+        return nm;
+      });
+      setMeasures(normalized);
       setCurNotes([]);
       setCurChord1('');
       setCurChord2('');
@@ -2056,26 +2149,43 @@ export default function LeadSheetGeneratorPage() {
     }
   }, [measures.length]);
 
-  /* save as JSON file — download to user's machine */
-  const handleSaveJson = useCallback(() => {
-    if (allMeasures.length === 0) return;
-    const id = Date.now();
-    const safeTitle = (sheetTitle || 'Untitled').replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
-    const safeComposer = (composer || 'Unknown').replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
-    const safeKey = (sheetKey || 'C').replace(/[^a-zA-Z0-9#b]/g, '');
-    const filename = `${id}_${safeTitle}_${safeComposer}_${safeKey}.json`;
-
-    const blob = new Blob([jsonOutput], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
-  }, [allMeasures, jsonOutput, sheetTitle, composer, sheetKey]);
+  /* save solo to localStorage. Mirrors LickInputPage's handleSave flow — but
+   * backend isn't ready yet, so the entry is appended to a localStorage list
+   * (SOLOS_KEY) instead of being POSTed. When the API ships, swap the body of
+   * the try-block for `await createSolo(entry)` + cache invalidate, no other
+   * changes needed. On success the in-progress draft is removed. */
+  const handleSaveSolo = useCallback(() => {
+    if (allMeasures.length === 0 || saving) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const now = Date.now();
+      const entry: SoloEntry = {
+        id: now,
+        title: sheetTitle || 'Untitled',
+        composer: composer || 'Unknown',
+        ...(genre ? { genre } : {}),
+        key: sheetKey,
+        timeSignature: '4/4',
+        tempo: bpm,
+        measures: allMeasures,
+        createdAt: now,
+      };
+      const raw = localStorage.getItem(SOLOS_KEY);
+      const existing: SoloEntry[] = raw ? JSON.parse(raw) : [];
+      existing.push(entry);
+      localStorage.setItem(SOLOS_KEY, JSON.stringify(existing));
+      try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1200);
+    } catch (err) {
+      console.error('Solo save failed', err);
+      setSaveError(err instanceof Error ? err.message : 'Save failed');
+      setTimeout(() => setSaveError(null), 4000);
+    } finally {
+      setSaving(false);
+    }
+  }, [allMeasures, sheetTitle, composer, genre, sheetKey, bpm, saving]);
 
   const handleCopy = useCallback(() => {
     if (!jsonOutput) return;
@@ -2089,7 +2199,7 @@ export default function LeadSheetGeneratorPage() {
       {countIn.overlay}
       <Header>
         <BackBtn onClick={() => navigate('/note')}>&#8592; Note</BackBtn>
-        <Title>Lead Sheet Generator</Title>
+        <Title>Solo Generator</Title>
         <Sep />
         <MetaLabel>Title</MetaLabel>
         <MetaInput value={sheetTitle} onChange={(e) => setSheetTitle(e.target.value)} placeholder="e.g. Autumn Leaves" style={{ width: 160 }} />
@@ -2117,8 +2227,8 @@ export default function LeadSheetGeneratorPage() {
         <JsonBtn $bg="#7b1fa2" $hover="#6a1b9a" onClick={() => { setShowLoadModal(true); setLoadJsonText(''); setLoadJsonError(''); }}>
           Load JSON
         </JsonBtn>
-        <JsonBtn $bg="#ef6c00" $hover="#e65100" onClick={handleSaveJson} disabled={totalNotes === 0}>
-          {saved ? '\u2713 Saved!' : 'Save JSON'}
+        <JsonBtn $bg="#ef6c00" $hover="#e65100" onClick={handleSaveSolo} disabled={totalNotes === 0 || saving}>
+          {saved ? '\u2713 Saved!' : saveError ? '\u26a0 Save failed' : 'Save Solo'}
         </JsonBtn>
       </Header>
 
