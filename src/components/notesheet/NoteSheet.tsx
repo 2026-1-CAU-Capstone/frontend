@@ -572,8 +572,6 @@ const MixerSection = styled.div`
   &:not(:last-child) { border-bottom: 1px solid #232323; }
 `;
 
-const MixerSectionFull = MixerSection;
-
 const MixerSectionTitle = styled.div`
   font-family: 'DM Sans', sans-serif;
   font-size: 0.78rem;

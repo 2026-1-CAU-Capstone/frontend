@@ -1,19 +1,31 @@
 """
-STEP 1: 청크 분할 스크립트
-17개 .txt 파일 → 개별 Q&A 청크 JSON으로 변환
+STEP 1: 청크 분할 스크립트.
+
+데이터 폴더 두 갈래를 처리한다:
+
+    data/explanation/standards/   → source_type='standard' (1곡 = 1파일 정형 분석)
+    data/explanation/lessons/     → source_type='lesson'   (강의 트랜스크립트)
+
+두 폴더 모두 동일한 Q&A 섹션 포맷을 사용한다 (앞에 `###` prefix 가 붙는지만 차이).
+공통 파서로 섹션을 잘라내고, 폴더별로 메타데이터(곡명/출처/대상곡 목록)를
+조금씩 다르게 채운다. 모든 청크는 같은 컬렉션에 들어가지만 `source_type` 메타로
+필터링 가능.
 
 실행: python 1_chunk.py
-결과: chunks/ 폴더에 chunks.json 생성
+결과: chunks/chunks.json
 """
 
 import os
 import re
 import json
+from typing import Iterable
 
-DATA_DIR = "../data/explanation/jazzstandard"
+DATA_ROOT = "../data/explanation"
+STANDARDS_DIR = os.path.join(DATA_ROOT, "standards")
+LESSONS_DIR = os.path.join(DATA_ROOT, "lessons")
 OUTPUT_FILE = "chunks/chunks.json"
 
-# 곡별 메타데이터 (파일명 → 추가 태그)
+# 곡별 메타데이터 (standards/*.txt 파일명 → 토픽 태그)
 TOPIC_TAGS = {
     "allofme":                   ["secondary-dominant", "extended-secondary", "dim7", "modal-interchange"],
     "anthropology":              ["rhythm-changes", "tritone-sub", "dual-function", "bridge"],
@@ -34,98 +46,187 @@ TOPIC_TAGS = {
     "therewillneverbeanotheryou": ["non-diatonic", "secondary-dominant", "II7", "backdoor"],
 }
 
+# Metadata 라벨은 두 포맷 모두 흡수:
+#   standards: `- **곡명:** ...`         (markdown bold, KR-only)
+#   lessons:   `강의 출처 (Source): ...`  (no bold, optional EN label)
+# `\*{0,2}` 가 0 또는 2개 별표를 허용하고, `\s*(?:\([^)]*\))?` 가 `(Source)` 같은
+# 영문 보조 라벨을 흡수한다.
+META_PATTERNS = {
+    "song":           r"\*{0,2}곡명\s*(?:\([^)]*\))?\s*:\*{0,2}\s*(.+)",
+    "composer":       r"\*{0,2}작곡\s*(?:\([^)]*\))?\s*:\*{0,2}\s*(.+)",
+    "key":            r"\*{0,2}센터 키\s*(?:\([^)]*\))?\s*:\*{0,2}\s*(.+)",
+    "form":           r"\*{0,2}형식\s*(?:\([^)]*\))?\s*:\*{0,2}\s*(.+)",
+    "source":         r"\*{0,2}강의 출처\s*(?:\([^)]*\))?\s*:\*{0,2}\s*(.+)",
+    "analyzed_songs": r"분석 대상 곡\s*(?:\([^)]*\))?\s*:\s*(.+)",
+}
+
 
 def parse_file_meta(text: str) -> dict:
-    """파일 상단 곡 정보 파싱"""
-    meta = {}
-    patterns = {
-        "song":     r"\*\*곡명:\*\*\s*(.+)",
-        "composer": r"\*\*작곡:\*\*\s*(.+)",
-        "key":      r"\*\*센터 키:\*\*\s*(.+)",
-        "form":     r"\*\*형식:\*\*\s*(.+)",
-        "source":   r"\*\*강의 출처:\*\*\s*(.+)",
-    }
-    for field, pattern in patterns.items():
-        m = re.search(pattern, text)
-        meta[field] = m.group(1).strip() if m else ""
-    return meta
+    """파일 상단 메타 블록 파싱. 키가 없으면 빈 문자열로 둔다."""
+    out = {}
+    for field, pat in META_PATTERNS.items():
+        m = re.search(pat, text)
+        out[field] = m.group(1).strip() if m else ""
+    return out
 
 
-def parse_chunks(filename: str, text: str) -> list[dict]:
-    """### 1-1., ### 2-1. 등의 섹션을 청크로 분할"""
-    base = filename.replace(".txt", "")
-    meta = parse_file_meta(text)
-    topic_tags = TOPIC_TAGS.get(base, [])
-    chunks = []
+# 섹션 헤더: `### N-M.` 또는 `N-M.` (lessons 는 ### 없이 평문)
+SECTION_RE = re.compile(
+    r"^(?:###\s+)?(\d+-\d+)\.\s+(.+?)$\n(.*?)(?=^(?:###\s+)?\d+-\d+\.|\Z)",
+    re.MULTILINE | re.DOTALL,
+)
 
-    # 레벨별 섹션 분할 (### 1-x, ### 2-x, ### 3-x)
-    section_pattern = re.compile(
-        r"### (\d+-\d+)\.\s+(.+?)\n(.*?)(?=\n### \d+-\d+\.|\Z)",
-        re.DOTALL
+
+def parse_sections(text: str) -> Iterable[tuple[str, str, str]]:
+    """(section_id, title, body) 튜플 반복."""
+    for m in SECTION_RE.finditer(text):
+        yield m.group(1), m.group(2).strip(), m.group(3).strip()
+
+
+def parse_qa(body: str) -> tuple[str, str]:
+    """**instruction:** / **response:** 블록 분리. KR/EN 라벨 변형까지 흡수."""
+    inst_m = re.search(
+        r"\*\*instruction(?:\s*\(KR\))?:\*\*\s*(.+?)(?=\n\*\*(?:instruction|response)\s*(?:\([A-Z]+\))?:|\Z)",
+        body,
+        re.DOTALL,
     )
+    resp_m = re.search(
+        r"\*\*response(?:\s*\(KR\))?:\*\*\s*(.+?)(?=\n\*\*response\s*\([A-Z]+\):|\Z)",
+        body,
+        re.DOTALL,
+    )
+    instruction = inst_m.group(1).strip() if inst_m else ""
+    response = resp_m.group(1).strip() if resp_m else body
+    return instruction, response
 
-    for m in section_pattern.finditer(text):
-        section_id  = m.group(1)          # "1-1"
-        section_title = m.group(2).strip() # "곡의 키 센터 확인법"
-        body = m.group(3).strip()
 
-        # instruction / response 파싱
-        inst_m = re.search(r"\*\*instruction:\*\*\s*(.+?)(?=\n\*\*response:|$)", body, re.DOTALL)
-        resp_m = re.search(r"\*\*response:\*\*\s*(.+)", body, re.DOTALL)
-        instruction = inst_m.group(1).strip() if inst_m else ""
-        response    = resp_m.group(1).strip() if resp_m else body
+def build_chunk(
+    *,
+    source_type: str,
+    file_base: str,
+    meta: dict,
+    section_id: str,
+    title: str,
+    instruction: str,
+    response: str,
+    topic_tags: list[str],
+) -> dict:
+    embed_text = (
+        f"{title}\n질문: {instruction}\n답변: {response}"
+        if instruction
+        else f"{title}\n{response}"
+    )
+    return {
+        "id":           f"{source_type}__{file_base}__{section_id}",
+        "source_type":  source_type,
+        "song":         meta.get("song", ""),
+        "key":          meta.get("key", ""),
+        "source":       meta.get("source", ""),
+        "analyzed_songs": meta.get("analyzed_songs", ""),
+        "level":        int(section_id.split("-")[0]),
+        "section_id":   section_id,
+        "title":        title,
+        "instruction":  instruction,
+        "response":     response,
+        "embed_text":   embed_text,
+        "topic_tags":   topic_tags,
+        "file":         file_base,
+    }
 
-        # 레벨 추출 (1 = 범용 개념, 2 = 곡별 분석, 3 = 연주 판단)
-        level = int(section_id.split("-")[0])
 
-        # 임베딩할 텍스트: instruction + response 합친 것
-        embed_text = f"{section_title}\n질문: {instruction}\n답변: {response}" if instruction else f"{section_title}\n{response}"
+def chunk_standards(dir_path: str) -> list[dict]:
+    """곡-단위 정형 분석 (standards/)."""
+    chunks = []
+    for fname in sorted(os.listdir(dir_path)):
+        if not fname.endswith(".txt"):
+            continue
+        path = os.path.join(dir_path, fname)
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+        if not text.strip():
+            print(f"  SKIP (empty): standards/{fname}")
+            continue
+        base = fname[:-4]
+        meta = parse_file_meta(text)
+        tags = TOPIC_TAGS.get(base, [])
+        before = len(chunks)
+        for section_id, title, body in parse_sections(text):
+            instruction, response = parse_qa(body)
+            chunks.append(build_chunk(
+                source_type="standard",
+                file_base=base,
+                meta=meta,
+                section_id=section_id,
+                title=title,
+                instruction=instruction,
+                response=response,
+                topic_tags=tags,
+            ))
+        print(f"  standards/{fname}: {len(chunks) - before}개 청크")
+    return chunks
 
-        chunk = {
-            "id":           f"{base}__{section_id}",
-            "song":         meta.get("song", ""),
-            "key":          meta.get("key", ""),
-            "source":       meta.get("source", ""),
-            "level":        level,
-            "section_id":   section_id,
-            "title":        section_title,
-            "instruction":  instruction,
-            "response":     response,
-            "embed_text":   embed_text,
-            "topic_tags":   topic_tags,
-            "file":         base,
-        }
-        chunks.append(chunk)
 
+def chunk_lessons(dir_path: str) -> list[dict]:
+    """강의 트랜스크립트 (lessons/). `analyzed_songs` 메타에서 곡 목록 추출."""
+    chunks = []
+    for fname in sorted(os.listdir(dir_path)):
+        if not fname.endswith(".txt"):
+            continue
+        path = os.path.join(dir_path, fname)
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+        if not text.strip():
+            print(f"  SKIP (empty): lessons/{fname}")
+            continue
+        base = fname[:-4]
+        meta = parse_file_meta(text)
+        # lessons 파일은 한 강의가 여러 곡을 다루는 경우가 흔하다. analyzed_songs
+        # 필드를 그대로 메타에 보존해 두면 retrieval 단에서 키워드 매칭 가능.
+        before = len(chunks)
+        for section_id, title, body in parse_sections(text):
+            instruction, response = parse_qa(body)
+            chunks.append(build_chunk(
+                source_type="lesson",
+                file_base=base,
+                meta=meta,
+                section_id=section_id,
+                title=title,
+                instruction=instruction,
+                response=response,
+                topic_tags=[],
+            ))
+        print(f"  lessons/{fname}: {len(chunks) - before}개 청크")
     return chunks
 
 
 def main():
     os.makedirs("chunks", exist_ok=True)
-    all_chunks = []
+    all_chunks: list[dict] = []
 
-    files = sorted([f for f in os.listdir(DATA_DIR) if f.endswith(".txt")])
-    for fname in files:
-        path = os.path.join(DATA_DIR, fname)
-        with open(path, encoding="utf-8") as f:
-            text = f.read()
-        if not text.strip():
-            print(f"  SKIP (empty): {fname}")
-            continue
-        chunks = parse_chunks(fname, text)
-        all_chunks.extend(chunks)
-        print(f"  {fname}: {len(chunks)}개 청크")
+    if os.path.isdir(STANDARDS_DIR):
+        all_chunks.extend(chunk_standards(STANDARDS_DIR))
+    else:
+        print(f"  (no folder) {STANDARDS_DIR}")
+
+    if os.path.isdir(LESSONS_DIR):
+        all_chunks.extend(chunk_lessons(LESSONS_DIR))
+    else:
+        print(f"  (no folder) {LESSONS_DIR}")
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(all_chunks, f, ensure_ascii=False, indent=2)
 
-    print(f"\n총 {len(all_chunks)}개 청크 → {OUTPUT_FILE} 저장 완료")
+    by_type: dict[str, int] = {}
+    for c in all_chunks:
+        by_type[c["source_type"]] = by_type.get(c["source_type"], 0) + 1
+    print(f"\n총 {len(all_chunks)}개 청크 → {OUTPUT_FILE}")
+    for k, v in sorted(by_type.items()):
+        print(f"  {k}: {v}")
 
-    # 샘플 출력
     if all_chunks:
-        print("\n[샘플 청크]")
         sample = all_chunks[0]
-        print(f"  id: {sample['id']}")
+        print(f"\n[샘플] {sample['id']}")
+        print(f"  source_type: {sample['source_type']}")
         print(f"  song: {sample['song']}")
         print(f"  title: {sample['title']}")
         print(f"  level: {sample['level']}")

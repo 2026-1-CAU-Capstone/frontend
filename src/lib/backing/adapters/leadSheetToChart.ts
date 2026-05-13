@@ -201,7 +201,7 @@ const QUALITY_MAP: Record<string, ChordQuality> = {
 
   // dominant family — natural extensions
   "7": "dom7", "9": "dom9", "13": "dom13",
-  "7sus": "7sus4", "9sus": "7sus4", "13sus": "7sus4", "7susadd3": "7sus4",
+  "7sus": "7sus4", "9sus": "7sus4", "7susadd3": "7sus4",
   "7alt": "7alt", alt: "7alt",
 
   // dominant alterations — single

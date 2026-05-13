@@ -66,16 +66,18 @@ def main():
             embeddings=[e.tolist() for e in batch_embeds],
             documents=[c["embed_text"] for c in batch_chunks],
             metadatas=[{
-                "song":       c["song"],
-                "key":        c["key"],
-                "source":     c["source"],
-                "level":      c["level"],
-                "section_id": c["section_id"],
-                "title":      c["title"],
-                "instruction":c["instruction"][:500],   # 메타데이터 크기 제한
-                "response":   c["response"][:1000],
-                "topic_tags": ",".join(c["topic_tags"]),
-                "file":       c["file"],
+                "source_type":    c.get("source_type", "standard"),
+                "song":           c["song"],
+                "key":            c["key"],
+                "source":         c["source"],
+                "analyzed_songs": c.get("analyzed_songs", ""),
+                "level":          c["level"],
+                "section_id":     c["section_id"],
+                "title":          c["title"],
+                "instruction":    c["instruction"][:500],   # 메타데이터 크기 제한
+                "response":       c["response"][:1000],
+                "topic_tags":     ",".join(c["topic_tags"]),
+                "file":           c["file"],
             } for c in batch_chunks],
         )
         print(f"   배치 {i//batch_size + 1}: {len(batch_chunks)}개 저장")

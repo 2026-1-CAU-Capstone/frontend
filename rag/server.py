@@ -20,10 +20,14 @@ load_dotenv("../.env")
 
 app = FastAPI(title="HarmoRAG Server")
 
-# CORS (프론트엔드 localhost:5173에서 접근 허용)
+# CORS: 로컬 dev (localhost) + 같은 Tailnet 의 모든 peer (100.x.x.x CGNAT 대역)
+# 까지 허용. Tailnet 은 사적 망이라 origin 별로 일일이 등록하지 않고 regex 로
+# 100.x.x.x 모두 열어둠. 추가로 *.ts.net 같은 MagicDNS 호스트를 쓰는 케이스도
+# 동일 regex 로 흡수하려고 호스트 부분에 둘 다 매칭.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1|100\.\d{1,3}\.\d{1,3}\.\d{1,3}|[\w-]+\.[\w-]+\.ts\.net)(:\d+)?$",
     allow_methods=["*"],
     allow_headers=["*"],
 )

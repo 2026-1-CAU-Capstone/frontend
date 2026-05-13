@@ -32,9 +32,10 @@ def _init():
 def search(
     query: str,
     n_results: int = 5,
-    level_filter: int | None = None,      # 1=개념, 2=곡분석, 3=연주판단
-    song_filter: str | None = None,        # 특정 곡만 검색
-    tag_filter: str | None = None,         # 특정 태그만 (예: "tritone-sub")
+    level_filter: int | None = None,         # 1=개념, 2=곡분석, 3=연주판단
+    song_filter: str | None = None,           # 특정 곡만 검색
+    tag_filter: str | None = None,            # 특정 태그만 (예: "tritone-sub")
+    source_type: str | list[str] | None = None,  # 'standard' | 'lesson' (또는 둘 다)
 ) -> list[dict]:
     """
     쿼리 → 관련 청크 top-N 반환
@@ -42,7 +43,8 @@ def search(
     반환 형식:
     [
       {
-        "id": "allofme__1-1",
+        "id": "standard__allofme__1-1",
+        "source_type": "standard",
         "score": 0.87,        # 코사인 유사도 (높을수록 관련성 높음)
         "title": "곡의 키 센터 확인법",
         "song": "All of Me",
@@ -62,6 +64,11 @@ def search(
         where["level"] = level_filter
     if song_filter is not None:
         where["song"] = {"$contains": song_filter}
+    if source_type is not None:
+        if isinstance(source_type, str):
+            where["source_type"] = source_type
+        else:
+            where["source_type"] = {"$in": list(source_type)}
 
     embedding = _model.encode(query).tolist()
 
@@ -81,17 +88,19 @@ def search(
             continue
 
         chunks.append({
-            "id":          results["ids"][0][i],
-            "score":       round(1 - dist, 4),   # distance → similarity
-            "title":       meta["title"],
-            "song":        meta["song"],
-            "key":         meta["key"],
-            "level":       meta["level"],
-            "section_id":  meta["section_id"],
-            "instruction": meta["instruction"],
-            "response":    meta["response"],
-            "topic_tags":  meta["topic_tags"].split(","),
-            "source":      meta["source"],
+            "id":             results["ids"][0][i],
+            "score":          round(1 - dist, 4),   # distance → similarity
+            "source_type":    meta.get("source_type", "standard"),
+            "title":          meta["title"],
+            "song":           meta["song"],
+            "key":            meta["key"],
+            "level":          meta["level"],
+            "section_id":     meta["section_id"],
+            "instruction":    meta["instruction"],
+            "response":       meta["response"],
+            "topic_tags":     meta["topic_tags"].split(","),
+            "source":         meta["source"],
+            "analyzed_songs": meta.get("analyzed_songs", ""),
         })
 
     return chunks

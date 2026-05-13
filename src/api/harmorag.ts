@@ -1,12 +1,28 @@
 /**
  * HarmoRAG — FastAPI 서버를 통한 RAG 강화 Claude 호출
  * 서버가 꺼져 있으면 자동으로 직접 Claude 호출로 폴백
+ *
+ * Endpoint 결정 우선순위:
+ *   1. VITE_RAG_BASE                — 임시 Mac mini 서버 / 정식 백엔드 URL
+ *   2. http://127.0.0.1:8001        — 로컬 개발용 폴백
+ *
+ * (선택) VITE_RAG_TOKEN 가 설정돼 있으면 Authorization: Bearer 헤더가
+ * 자동으로 붙습니다. tmp-rag-server/.env 의 RAG_AUTH_TOKEN 과 같은 값을
+ * 사용하세요.
  */
 
 import { streamClaudeMessage, type ClaudeMessage } from './claude';
 import { isNativeApp } from '../lib/platform';
 
-const RAG_SERVER = 'http://127.0.0.1:8001';
+const RAG_SERVER =
+  (import.meta.env.VITE_RAG_BASE as string | undefined)?.trim().replace(/\/+$/, '')
+  || 'http://127.0.0.1:8001';
+
+const RAG_TOKEN = (import.meta.env.VITE_RAG_TOKEN as string | undefined)?.trim() || '';
+
+function authHeaders(base: Record<string, string> = {}): Record<string, string> {
+  return RAG_TOKEN ? { ...base, Authorization: `Bearer ${RAG_TOKEN}` } : base;
+}
 
 const RAG_OPEN  = '\x00RAG_DEBUG\x00';
 const RAG_CLOSE = '\x00END_DEBUG\x00';
@@ -38,13 +54,17 @@ let serverAlive: boolean | null = null;
 async function checkServer(): Promise<boolean> {
   if (serverAlive !== null) return serverAlive;
   // 네이티브 앱(iOS/Android WebView)에선 localhost 자체가 의미 없으므로
-  // 헬스체크 스킵하고 즉시 폴백으로 진입.
-  if (isNativeApp()) {
+  // 로컬호스트 endpoint면 폴백. 공용 URL(https)이면 정상 체크 진행.
+  const isLocalEndpoint = /(localhost|127\.0\.0\.1)/.test(RAG_SERVER);
+  if (isNativeApp() && isLocalEndpoint) {
     serverAlive = false;
     return serverAlive;
   }
   try {
-    const res = await fetch(`${RAG_SERVER}/health`, { signal: AbortSignal.timeout(800) });
+    const res = await fetch(`${RAG_SERVER}/health`, {
+      headers: authHeaders(),
+      signal: AbortSignal.timeout(1500),
+    });
     serverAlive = res.ok;
   } catch {
     serverAlive = false;
@@ -73,7 +93,7 @@ export async function streamWithRAG(
   try {
     const res = await fetch(`${RAG_SERVER}/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({
         message,
         chord_context_text: chordContextText ?? null,

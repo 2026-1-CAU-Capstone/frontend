@@ -19,11 +19,24 @@ __pycache__/
 *.py[cod]
 *.pyo
 
-# RAG — 재생성 가능하거나 너무 큰 파일
-frontend/
+# RAG — 재생성 가능하거나 너무 큰 파일 (temp self-hosted server, see ../tmp-rag-server)
+# *.py / requirements.txt 같은 소스만 추적 — venv·시크릿·인덱스·캐시는 전부 제외.
+rag/.venv/
 rag/venv/
+rag/.env
+rag/.env.local
+rag/__pycache__/
+rag/**/__pycache__/
+rag/*.pyc
 rag/db/
 rag/chunks/
+rag/data/
+rag/logs/
+rag/chroma/
+rag/*.sqlite
+rag/*.sqlite3
+rag/*.duckdb
+rag/*.bin
 
 # Editor directories and files
 .vscode/*
