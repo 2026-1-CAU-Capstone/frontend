@@ -5,6 +5,7 @@ import LickInputPage from './LickInputPage';
 import { YoutubeOnsetParser } from '../components/admin/YoutubeOnsetParser';
 import { SymbolicJazzViewer } from '../components/admin/SymbolicJazzViewer';
 import { OmnibookViewer } from '../components/admin/OmnibookViewer';
+import { SoloLibrary } from '../components/admin/SoloLibrary';
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Admin tools page — internal/test only.
@@ -16,7 +17,7 @@ import { OmnibookViewer } from '../components/admin/OmnibookViewer';
  *                         chat's YouTube button picks them up.
  * ──────────────────────────────────────────────────────────────────────── */
 
-type Tab = 'youtube' | 'lickjson' | 'sjs' | 'solo';
+type Tab = 'youtube' | 'lickjson' | 'sjs' | 'solo' | 'sololib';
 
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>('youtube');
@@ -41,6 +42,9 @@ export default function AdminPage() {
           <TabBtn $active={tab === 'solo'} onClick={() => setTab('solo')}>
             Solo Dataset
           </TabBtn>
+          <TabBtn $active={tab === 'sololib'} onClick={() => setTab('sololib')}>
+            Solo Library (Backend)
+          </TabBtn>
         </TabRow>
       </TopBar>
 
@@ -49,6 +53,7 @@ export default function AdminPage() {
         {tab === 'lickjson' && <LickInputPage />}
         {tab === 'sjs' && <SymbolicJazzViewer />}
         {tab === 'solo' && <OmnibookViewer source="solo" />}
+        {tab === 'sololib' && <SoloLibrary />}
       </Content>
     </Page>
   );

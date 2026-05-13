@@ -13,6 +13,8 @@ import Soundfont from 'soundfont-player';
 import { useCountInIntro } from '../hooks/useCountInIntro';
 import { swungBeats } from '../lib/note/swing';
 import { normalizeChord, formatChordDisplay } from '../lib/jazz-harmony';
+import { createSolo } from '../api/solos';
+import { buildUserSoloDraft, invalidateSolosCache, pushSoloToCache } from '../data/soloData';
 
 const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25 };
 const SEMI_MAP: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
@@ -20,22 +22,8 @@ const SHARP_TO_FLAT: Record<string, string> = { c: 'd', d: 'e', f: 'g', g: 'a', 
 
 /* Autosave: 작성 중인 solo를 10초마다 localStorage에 저장. 새로고침/크래시 후
  * 마운트 시 자동 복구. handleSaveSolo 성공/handleClear에서 삭제.
- * 백엔드 미개발 상태라 "저장된 솔로"도 localStorage에 누적 — 추후 백엔드 붙으면
- * 같은 entry shape으로 POST 하면 된다. 스키마 변경 시 v2로 올려서 옛 드래프트 무시. */
+ * 저장된 솔로 자체는 백엔드 (POST /v1/solos) 로 보낸다 — soloData.ts 참고. */
 const DRAFT_KEY = 'leadSheetGenerator.draft.v1';
-const SOLOS_KEY = 'jazzify_user_solos';
-
-interface SoloEntry {
-  id: number | string;
-  title: string;
-  composer: string;
-  genre?: string;
-  key: string;
-  timeSignature: string;
-  tempo: number;
-  measures: MeasureInfo[];
-  createdAt: number;
-}
 
 function vexToMidi(key: string, acc?: '#' | 'b' | 'n'): number {
   const [n, o] = key.split('/');
@@ -2304,32 +2292,28 @@ export default function SoloGeneratorPage() {
     }
   }, [measures.length]);
 
-  /* save solo to localStorage. Mirrors LickInputPage's handleSave flow — but
-   * backend isn't ready yet, so the entry is appended to a localStorage list
-   * (SOLOS_KEY) instead of being POSTed. When the API ships, swap the body of
-   * the try-block for `await createSolo(entry)` + cache invalidate, no other
-   * changes needed. On success the in-progress draft is removed. */
-  const handleSaveSolo = useCallback(() => {
+  /* Save solo to backend (POST /v1/solos). The backend auto-derives chords/
+   * features from sheetData so we only need to send title/instrument/source
+   * + the editor state. On success: invalidate the solos cache + clear the
+   * autosave draft. On failure: surface error for 4s, keep draft so the user
+   * can retry. */
+  const handleSaveSolo = useCallback(async () => {
     if (allMeasures.length === 0 || saving) return;
     setSaving(true);
     setSaveError(null);
     try {
-      const now = Date.now();
-      const entry: SoloEntry = {
-        id: now,
+      const draft = buildUserSoloDraft({
         title: sheetTitle || 'Untitled',
         composer: composer || 'Unknown',
-        ...(genre ? { genre } : {}),
+        genre: genre || undefined,
         key: sheetKey,
         timeSignature: '4/4',
         tempo: bpm,
         measures: allMeasures,
-        createdAt: now,
-      };
-      const raw = localStorage.getItem(SOLOS_KEY);
-      const existing: SoloEntry[] = raw ? JSON.parse(raw) : [];
-      existing.push(entry);
-      localStorage.setItem(SOLOS_KEY, JSON.stringify(existing));
+      });
+      const persisted = await createSolo(draft);
+      pushSoloToCache(persisted);
+      invalidateSolosCache();  // next listing reload will refetch
       try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
       setSaved(true);
       setTimeout(() => setSaved(false), 1200);
