@@ -304,10 +304,152 @@ NTR = GUITAR                  (기타 전용)
 
 ---
 
-## 10. 다음 단계 (Phase 3 — 진짜 알고리즘 파기)
+## 10. PhraseUtilities — 3대 fit 함수 정독 (Phase 3 완료)
 
-1. **`PhraseUtilities.java`의 3개 fit*** 함수 정독** — 음을 어떻게 매핑하는지의 실제 산수
-2. **`SourcePhrase` 클래스 이해** — sourceChordSymbol + getProcessedPhrasePitch 같은 헬퍼들
-3. **Retrigger 규칙 6종의 후처리 로직** — `fixRetriggerRule()` 함수 추적
-4. **AccType + YamChord enum 매핑표** 완성
-5. → Phase 4 진입: TS 포팅 시작 (`src/lib/yamaha-sty/`)
+위치: `core/RhythmMusicGeneration/src/main/java/org/jjazz/rhythmmusicgeneration/api/PhraseUtilities.java` (450줄)
+
+### 공통 패턴 (3개 함수 모두 공유)
+
+```
+1. rootPitchDelta = (ecsDest.근음 - pSrc.근음) mod 12   // 평행 이동량
+2. ecsSrc = pSrc.getSourceChordSymbol()
+3. (빠른 경로) src와 dest 코드 타입이 같고 스케일 강제 없으면:
+   → 단순 트랜스포지션
+4. (일반 경로) src/dest 코드 타입이 다르면:
+   → mapSrcDestDegrees = pSrc.getDestDegrees(ecsDest, mode)
+   → 각 srcNote의 디그리 추출 → destDegree → destRelPitch → 옥타브 결정
+5. destPitch = Note(srcPitch + delta).getClosestPitch(destRelPitch)
+   ← 이 메서드가 옥타브 점프 방지의 핵심 (보이스 리딩)
+6. PARENT_NOTE 클라이언트 프로퍼티 = srcNote (디버깅/추적용)
+```
+
+### 3개 함수의 차이점
+
+| 함수 | ChordMode | 추가 처리 | 복잡도 |
+|---|---|---|---|
+| **fitBassPhrase** | `ChordMode.OFF` | 슬래시 코드(`bassNote≠root`) 처리 + PEDAL_BASS 분기 | 음 하나씩 처리 |
+| **fitMelodyPhrase** | `OFF` 또는 `NO_INVERSION` (chordMode 파라미터로 결정) | 없음 (가장 단순) | 음 하나씩 처리 |
+| **fitChordPhrase** | `INVERSION_ALLOWED` | **보이싱 전체 최적화** (heap permutation + score) | 9! 순열 + 점수 |
+
+### fitChordPhrase의 핵심 — 보이스 리딩 최적화
+
+```
+1. dest 디그리 매핑 (전위 허용): mapSrcDestDegrees
+2. heap permutation: dest 디그리들의 모든 순열 생성 (최대 9!=362,880개)
+3. 각 순열마다:
+   a. computeParallelChord(relPitches, startBelow=true)
+   b. computeParallelChord(relPitches, startBelow=false)
+   c. score = computeChordMatchingScore(src, dest, ecsDest)
+4. 최저 점수 voicing 채택
+```
+
+### `computeChordMatchingScore()` — 재즈 보이싱 이론의 알고리즘화
+
+```java
+score = src.computeDistance(dest)                          // 각 보이스 이동 거리 합
+      + 3 * |src.topPitch - dest.topPitch|                  // ★ 탑 음 변화 (3배 가중치)
+      +     |src.bottomPitch - dest.bottomPitch|            // 베이스 음 변화
+
+페널티 (size > 2일 때):
+  ├─ 13코드인데 옥타브 안에 압축됨 (maxPitch-minPitch < 11)  → +4 × size
+  ├─ 탑 2음이 반음 간격 (contiguous)                        → +3 × size
+  ├─ 9♭ 인터벌 (옥타브 + 반음, maxPitch-minPitch == 13)      → +4 × size
+  └─ 첫 2음 6도+ 떨어졌고 첫 음이 근음이 아니면              → +2 × size
+```
+
+**음악 이론적 함의**:
+1. 탑 음 변화 3배 가중치 = 멜로디 라인 우선 (재즈 피아니스트의 컴핑 원칙)
+2. 13코드 압축 페널티 = **쿼탈 보이싱**(4도 간격) 유도 — Bill Evans 식
+3. 탑 contiguous 페널티 = 탑 dissonance(♭9, ♯9) 회피
+4. 6도+ 게이트 = 베이스가 근음이어야 6도 이상 공간 허용
+
+이게 **야마하의 비공개 보이싱 알고리즘을 JJazzLab 개발자가 음악적으로 추론한 결과**. 단순한 트랜스포지션이 아니라 음악 이론에 입각한 의사결정.
+
+### 결정적 예시 (주석에서)
+
+```
+pSrc = [C3, G3, B3, E4]      ← C7M에서 녹음된 보이싱
+ecsSrc = C7M
+ecsDest = F7♭5
+
+→ pDest = [F3, B3, E♭4, A♭4]
+
+해석:
+- C(ROOT) → F(ROOT)            : C3→F3
+- G(FIFTH) → B(♭5 of F7♭5)     : G3→B3
+- B(SEVENTH) → E♭(♭7 of F7♭5)  : B3→E♭4
+- E(THIRD) → A♭(major3rd of F) : E4→A♭4 ... 잠깐 F7♭5에서 3rd는 A 아닌가?
+   → 점수 함수가 A vs A♭ 중 보이스 리딩이 좋은 쪽 선택
+```
+
+---
+
+## 11. 알고리즘 전체 정리도 (한 마디 처리 흐름)
+
+```
+[입력] 리드시트 1마디: Am7 (목표 코드)
+       + 현재 섹션: Main A
+       + 이전 마디의 phrase (보이스 리딩용 컨텍스트)
+              ↓
+1. Style.getStylePart(MAIN_A) → 채널별 sourcePhrase 가져오기
+              ↓
+2. for each channel:
+   a. CtabChannelSettings 조회 → ntr, ntt, sourceChord
+   b. fitSrcPhraseToChordSymbol(srcPhrase, ctb2, Am7)
+      ↓ ↓ ↓
+      NTR/NTT 분기로 3개 fit*** 중 하나 호출
+      ↓ ↓ ↓
+      변형된 destPhrase 반환
+   c. 후처리: chordRootUpperLimit, retriggerRule
+              ↓
+3. 모든 채널의 phrase 결합 → 한 마디 MIDI
+              ↓
+4. SoundFont 신디사이저로 전송 → 오디오 🔊
+```
+
+---
+
+## 12. 다음 단계 (Phase 4 — TS 포팅 시작)
+
+전부 이해됨. 이제 TS로 옮기는 단계.
+
+**포팅 우선순위 (의존성 순서):**
+
+```
+1. 기반 음악 이론 타입
+   ├─ Note, Degree, ChordType (이미 jazz-harmony에 포팅됨!)
+   └─ ScaleInstance (스케일 강제용)
+
+2. 데이터 모델
+   ├─ Style, StylePart, StylePartType (enum)
+   ├─ Ctb2ChannelSettings (NTR/NTT/RetriggerRule enum)
+   ├─ CtabChannelSettings (containing 1~3 Ctb2)
+   └─ YamChord (sourceChordType 매핑)
+
+3. 파서
+   └─ CASMDataReader → TS class 'StyParser'
+      ├─ SMF 헤더 + 트랙 파싱 (smf-parser 라이브러리 활용)
+      ├─ CASM/CSEG/Sdec/Ctab/Cntt 파싱
+      └─ Style 객체 반환
+
+4. SourcePhrase 추상화
+   ├─ 한 채널의 MIDI 이벤트 묶음
+   ├─ getSourceChordSymbol() (CMaj7 등)
+   ├─ getDestDegrees(ecsDest, ChordMode) ← 핵심 헬퍼
+   └─ getProcessedPhrasePitch()
+
+5. 변환 엔진 (PhraseUtilities 3대 함수)
+   ├─ fitBassPhrase2ChordSymbol
+   ├─ fitMelodyPhrase2ChordSymbol
+   └─ fitChordPhrase2ChordSymbol (heap permutation + score)
+
+6. 결정 트리 (fitSrcPhraseToChordSymbol)
+   └─ NTR/NTT/scale 분기 로직
+
+7. Jazzify 통합
+   ├─ Chart → SongStructure 변환
+   ├─ 섹션 선택 로직 (1절은 Main A, 후렴 Main B 등)
+   └─ player.ts에 새 backing engine 추가 (기존 룰 기반과 A/B 토글)
+```
+
+총 ~3000~4000줄 TS 예상 (자바 9,200줄 → 자바의 verbosity 감안).
