@@ -90,8 +90,12 @@ const GM_NAME_BY_PROGRAM: Record<number, string> = {
 };
 
 export interface StyBackingOptions {
-  /** URL of the .sty/.sst file (default: '/styles/psBase.sst'). */
+  /** URL of the .sty/.sst file (default: '/styles/psBase.sst'). Ignored
+   *  when `styleData` is given. */
   styleUrl?: string;
+  /** Pre-loaded .sty bytes (priority over `styleUrl`). Use when the file
+   *  came from a user upload via IndexedDB. */
+  styleData?: ArrayBuffer;
 }
 
 export function createStyBackingPlayer(
@@ -120,8 +124,13 @@ export function createStyBackingPlayer(
       ctx = ctx ?? new AudioContext();
       await ctx.resume();
 
-      const resp = await fetch(styleUrl);
-      const buf = await resp.arrayBuffer();
+      let buf: ArrayBuffer;
+      if (options.styleData) {
+        buf = options.styleData;
+      } else {
+        const resp = await fetch(styleUrl);
+        buf = await resp.arrayBuffer();
+      }
       style = parseStyleFile(buf, { name: 'sty' });
 
       const programs = new Set<number>();

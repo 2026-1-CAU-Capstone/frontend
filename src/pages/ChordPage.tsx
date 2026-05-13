@@ -16,6 +16,7 @@ import { getSongIndex, getSong, type SongEntry } from '../lib/ireal/irealLoader'
 import { buildChordContext } from '../api/chordContext';
 import { createBackingPlayer, leadSheetToChart, type BackingPlayer } from '../lib/backing';
 import { createStyBackingPlayer } from '../lib/yamaha-sty';
+import { StyleSelector, BUILTIN_STYLE, type StyleSelectorChoice } from '../components/yamaha-sty/StyleSelector';
 import { getPlayerSettings, inferPlayStyle, setPlayerSetting } from '../lib/note/playerSettings';
 import { BackingPlayerBar } from '../components/backing/BackingPlayerBar';
 import { withLeadSheetSelectionIds } from '../lib/leadSheetSelection';
@@ -436,6 +437,7 @@ export default function ChordPage() {
     if (typeof window === 'undefined') return 'rule';
     return window.localStorage.getItem('jazzify.engine') === 'sty' ? 'sty' : 'rule';
   });
+  const [styleChoice, setStyleChoice] = useState<StyleSelectorChoice>(BUILTIN_STYLE);
   const [activeBar, setActiveBar] = useState(-1);
   const [selectedChordIds, setSelectedChordIds] = useState<string[]>([]);
   const [selectedChordsData, setSelectedChordsData] = useState<ChordOverlay[]>([]);
@@ -512,7 +514,12 @@ export default function ChordPage() {
     if (inferred && inferred !== getPlayerSettings().style) {
       setPlayerSetting('style', inferred);
     }
-    const player = engineBackend === 'sty' ? createStyBackingPlayer(chart) : createBackingPlayer(chart);
+    const player = engineBackend === 'sty'
+      ? createStyBackingPlayer(chart, {}, {
+          styleUrl: styleChoice.url,
+          styleData: styleChoice.buffer,
+        })
+      : createBackingPlayer(chart);
     player.on('onBar', (bar) => setActiveBar(bar));
     player.on('onDone', () => setIsPlaying(false));
     playerRef.current = player;
@@ -522,7 +529,7 @@ export default function ChordPage() {
       setIsPlaying(false);
       setActiveBar(-1);
     };
-  }, [sheet, engineBackend]);
+  }, [sheet, engineBackend, styleChoice]);
 
   // Push tempo changes into the live player config (per-page state, not global)
   useEffect(() => {
@@ -964,6 +971,9 @@ export default function ChordPage() {
           window.localStorage.setItem('jazzify.engine', b);
         }}
       />
+      {engineBackend === 'sty' && (
+        <StyleSelector currentName={styleChoice.name} onSelect={setStyleChoice} />
+      )}
 
       <BackingPlayerBar
         playing={isPlaying}
