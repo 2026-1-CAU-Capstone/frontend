@@ -126,3 +126,29 @@ export function chordTypeFromYamIndex(index: number): ChordType {
 export function yamChordNameAt(index: number): string {
   return YAM_CHORD_NAMES[index];
 }
+
+/**
+ * Translate a .sty `sourceChordType` byte (0x00..0x22) to an index into
+ * YAM_CHORD_NAMES.
+ *
+ * Yamaha's wire format numbers chords *in reverse* — byte 0x00 means "Maj"
+ * (the simplest chord), byte 0x21 means "1+2+5" (the most complex). The
+ * special byte 0x22 means "cancel all instruments"; JJazzLab substitutes
+ * it with the "1+5" power-chord index 2.
+ *
+ * (CtabChannelSettings.java line 154:
+ *    sourceChordType = (b1 == 0x22) ? ALL_CHORDS.get(2)
+ *                                   : ALL_CHORDS.get(0x21 - b1); )
+ */
+export function yamIndexFromSourceByte(b: number): number {
+  if (b < 0 || b > 0x22) {
+    throw new RangeError(`sourceChordType byte out of range: ${b}`);
+  }
+  if (b === 0x22) return 2; // "cancel all" → 1+5
+  return 0x21 - b;
+}
+
+/** Convenience: byte → ChordType in one call. */
+export function chordTypeFromSourceByte(b: number) {
+  return chordTypeFromYamIndex(yamIndexFromSourceByte(b));
+}
