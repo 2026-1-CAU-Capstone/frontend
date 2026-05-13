@@ -47,6 +47,31 @@ import type { StylePartType } from './style-part-type';
  * means the section is silent for this style — rare but possible for stub
  * styles).
  */
+/**
+ * Try to find the Yamaha Fill-In pattern that bridges two sections.
+ *
+ * Yamaha names fills "Fill In AB" = "during A, played to lead into B" etc.
+ * Most styles ship the diagonal "AA / BB / CC / DD" fills plus a "BA" or
+ * "AB" cross-fade. We try the exact diagonal first, then fall back to the
+ * same-letter fill, then to undefined (caller falls back to main pattern).
+ */
+function pickFillIn(
+  style: Style,
+  fromLabel: string | undefined,
+  toLabel: string | undefined,
+): StylePart | undefined {
+  const tryGet = (t: StylePartType): StylePart | undefined => style.parts.get(t);
+  const from = (fromLabel ?? 'A').charAt(0).toUpperCase();
+  const to = (toLabel ?? 'A').charAt(0).toUpperCase();
+  if ('ABCD'.includes(from) && 'ABCD'.includes(to)) {
+    const cross = `Fill_In_${from}${to}` as StylePartType;
+    if (tryGet(cross)) return tryGet(cross);
+    const same = `Fill_In_${from}${from}` as StylePartType;
+    if (tryGet(same)) return tryGet(same);
+  }
+  return undefined;
+}
+
 function pickStylePart(style: Style, sectionLabel: string | undefined): StylePart | undefined {
   const tryGet = (t: StylePartType): StylePart | undefined => style.parts.get(t);
   const fallback = () => tryGet('Main_A') ?? tryGet('Main_B');
@@ -193,9 +218,11 @@ export function createStyBackingPlayer(
     let absoluteTime = opts.startAt ?? (ctx.currentTime + 0.1);
     let barIndex = 0;
 
-    for (const section of chart.sections) {
-      const stylePart = pickStylePart(style, section.label);
-      if (!stylePart) {
+    for (let sIdx = 0; sIdx < chart.sections.length; sIdx++) {
+      const section = chart.sections[sIdx];
+      const nextSection = chart.sections[sIdx + 1];
+      const mainStylePart = pickStylePart(style, section.label);
+      if (!mainStylePart) {
         // No usable StylePart — skip the section silently (still tick barIndex).
         for (const _ of section.bars) {
           const idx = barIndex;
@@ -206,10 +233,15 @@ export function createStyBackingPlayer(
         }
         continue;
       }
-      const styleBarsPerCycle = Math.max(1, Math.round(stylePart.sizeInBeats / beatsPerBar));
+      const styleBarsPerCycle = Math.max(1, Math.round(mainStylePart.sizeInBeats / beatsPerBar));
       let cyclePos = 0;
-      const mainA = stylePart; // alias to preserve the rest of the loop body
-      for (const bar of section.bars) {
+      for (let bIdx = 0; bIdx < section.bars.length; bIdx++) {
+        const bar = section.bars[bIdx];
+        const isLastBarOfSection = bIdx === section.bars.length - 1;
+        const wantsFill = isLastBarOfSection && nextSection !== undefined
+          && nextSection.label !== section.label;
+        const fill = wantsFill ? pickFillIn(style, section.label, nextSection?.label) : undefined;
+        const mainA = fill ?? mainStylePart;
         const chord = bar.chords[0];
         if (chord) {
           const chordType = chordTypeFromQuality(chord.quality);
@@ -222,13 +254,24 @@ export function createStyBackingPlayer(
             if (!ctab) continue;
 
             // Slice the source phrase to the current bar's beat window and
-            // re-base its ticks to 0.
+            // re-base its ticks to 0. We also cap each note's duration so
+            // it ends within this bar — equivalent to RetriggerRule = STOP
+            // for cross-bar notes. PITCH_SHIFT (Yamaha's pitch-bend retrigger)
+            // is not yet implemented; STOP avoids notes from the previous
+            // chord bleeding through to the next one, which is the most
+            // important musical correctness for chord transitions.
+            const sliceLengthTick = sliceEndTick - sliceStartTick;
             const slicedNotes = phrase.notes
               .filter((n) => n.tick >= sliceStartTick && n.tick < sliceEndTick)
-              .map<SourceNoteEvent>((n) => ({
-                ...n,
-                tick: n.tick - sliceStartTick,
-              }));
+              .map<SourceNoteEvent>((n) => {
+                const relTick = n.tick - sliceStartTick;
+                const maxDur = sliceLengthTick - relTick;
+                return {
+                  ...n,
+                  tick: relTick,
+                  durationTicks: Math.max(1, Math.min(n.durationTicks, maxDur)),
+                };
+              });
             if (slicedNotes.length === 0) continue;
 
             // Drum channel — route through DrumMachine using GM drum map.
