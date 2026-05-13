@@ -135,6 +135,71 @@ export class ChordType {
       && this.getDegreeByNatural('SIXTH')?.name === 'SIXTH_OR_THIRTEENTH';
   }
   isNinth(): boolean { return this.getDegreeByNatural('NINTH') != null; }
+
+  /**
+   * Pick the most probable Degree for a given relative-pitch-class (0-11).
+   *
+   * First tries an exact pitch match in this chord type. If none, falls back
+   * to musically-reasonable defaults: e.g. b3 on a major chord becomes #9,
+   * b3 on any other chord stays as THIRD_FLAT. Port of
+   * ChordType.getDegreeMostProbable (LGPL v2.1).
+   *
+   * @throws if relPitch is outside 0-11
+   */
+  getDegreeMostProbable(relPitch: number): Degree {
+    if (relPitch < 0 || relPitch > 11) {
+      throw new RangeError(`relPitch=${relPitch}`);
+    }
+    const found = this.getDegreeByPitch(relPitch);
+    if (found !== null) return found;
+
+    switch (relPitch) {
+      case 0:  return Degrees.ROOT;
+      case 1:  return Degrees.NINTH_FLAT;
+      case 2:  return Degrees.NINTH;
+      case 3:  return this.isMajor() ? Degrees.NINTH_SHARP : Degrees.THIRD_FLAT;
+      case 4:  return Degrees.THIRD;
+      case 5:  return Degrees.FOURTH_OR_ELEVENTH;
+      case 6:  return Degrees.ELEVENTH_SHARP;
+      case 7:  return Degrees.FIFTH;
+      case 8:  return Degrees.THIRTEENTH_FLAT;
+      case 9:  return Degrees.SIXTH_OR_THIRTEENTH;
+      case 10: return Degrees.SEVENTH_FLAT;
+      case 11: return Degrees.SEVENTH;
+      default: throw new RangeError(`relPitch=${relPitch}`);
+    }
+  }
+
+  /**
+   * Fit harmonically degree `d` to this chord type.
+   *
+   * Port of ChordType.fitDegree(Degree) from JJazzLab (LGPL v2.1). Used by
+   * SourcePhrase.getDestDegrees to map a source-phrase degree onto the
+   * nearest chord tone of the destination chord. Returns null if no fit.
+   *
+   * Examples:
+   *   d=ELEVENTH_SHARP, this="m7b5" → FIFTH_FLAT  (same pitch class)
+   *   d=ELEVENTH_SHARP, this="M7"   → null
+   *   d=SEVENTH, this="6"           → SIXTH_OR_THIRTEENTH (special)
+   *   d=SIXTH_OR_THIRTEENTH, this="M7" → SEVENTH (special)
+   */
+  fitDegree(d: Degree): Degree | null {
+    // Try natural degree match
+    let destDegree = this.getDegreeByNatural(d.natural);
+
+    if (destDegree === null) {
+      // Same pitch class via a different natural (e.g. b5 vs #11)
+      destDegree = this.getDegreeByPitch(d.pitch);
+    } else if (this.extension.includes('6') && d.natural === 'SEVENTH') {
+      // "6" chord receiving a 7th source → use 6th
+      destDegree = Degrees.SIXTH_OR_THIRTEENTH;
+    } else if (this.getDegreeByNatural('SEVENTH') !== null && d.natural === 'SIXTH') {
+      // Chord has a 7th, source sent 6th → use 7th
+      destDegree = this.getDegreeByNatural('SEVENTH');
+    }
+
+    return destDegree;
+  }
 }
 
 export { DEGREE_INDEX_ORDER };
