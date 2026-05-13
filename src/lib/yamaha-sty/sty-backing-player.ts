@@ -274,8 +274,39 @@ export function createStyBackingPlayer(
               });
             if (slicedNotes.length === 0) continue;
 
-            // Drum channel — route through DrumMachine using GM drum map.
-            // Drum patterns don't get chord-transposed; we play them as-is.
+            // Prefer the melodic Soundfont if one is mounted for this
+            // channel. Some Yamaha styles label channels as RHYTHM /
+            // SUBRHYTHM (drum AccType) while routing a melodic program
+            // (e.g. psBase puts a violin on ch 15 with AccType=RHYTHM),
+            // and routing that into the DrumMachine via gmNoteToDrumGroup
+            // produces near-silence. The right discriminator is "do we
+            // have a melodic Soundfont instance?" — if yes, use it.
+            const inst = instByChannel.get(ch);
+            if (inst) {
+              const transformed = transformPhrase(
+                { channel: ch, notes: slicedNotes },
+                ctab,
+                {
+                  rootRelPitch: chord.root,
+                  chordType,
+                  bassRelPitch: chord.bass ?? chord.root,
+                },
+              );
+              for (const n of transformed) {
+                const t = absoluteTime + (n.tick / ppq) * secondsPerBeat;
+                const dur = Math.max(0.05, (n.durationTicks / ppq) * secondsPerBeat);
+                inst.start({
+                  note: n.pitch,
+                  time: t,
+                  duration: dur,
+                  velocity: n.velocity,
+                });
+              }
+              continue;
+            }
+
+            // No melodic Soundfont — fall back to DrumMachine if this is
+            // a real drum AccType. Drum patterns aren't chord-transposed.
             if (isDrums(ctab.accType) && drumMachine) {
               for (const n of slicedNotes) {
                 const group = gmNoteToDrumGroup(n.pitch);
@@ -289,30 +320,10 @@ export function createStyBackingPlayer(
               }
               continue;
             }
-
-            // Melodic channel — chord-fit + smplr Soundfont
-            const inst = instByChannel.get(ch);
-            if (!inst) continue;
-            const transformed = transformPhrase(
-              { channel: ch, notes: slicedNotes },
-              ctab,
-              {
-                rootRelPitch: chord.root,
-                chordType,
-                bassRelPitch: chord.bass ?? chord.root,
-              },
-            );
-
-            for (const n of transformed) {
-              const t = absoluteTime + (n.tick / ppq) * secondsPerBeat;
-              const dur = Math.max(0.05, (n.durationTicks / ppq) * secondsPerBeat);
-              inst.start({
-                note: n.pitch,
-                time: t,
-                duration: dur,
-                velocity: n.velocity,
-              });
-            }
+            // Channel has neither a melodic Soundfont nor a drum-acc-type
+            // mapping — drop it. Real Yamaha styles sometimes leave a
+            // channel's program unassigned; we silently skip rather than
+            // crash.
           }
         }
 

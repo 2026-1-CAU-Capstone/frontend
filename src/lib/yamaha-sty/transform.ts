@@ -63,8 +63,25 @@ export function transformPhrase(
     // Guitar NTTs: chord-style voicing
     result = fitChordPhraseToChord(phrase, srcRoot, srcType, dest.rootRelPitch, dest.chordType);
   } else if (ctb2.ntr === 'ROOT_FIXED') {
-    // Chord-oriented patterns (pads, comping)
-    result = fitChordPhraseToChord(phrase, srcRoot, srcType, dest.rootRelPitch, dest.chordType);
+    // Chord-oriented patterns (pads, comping) — UNLESS this is a bass
+    // channel, in which case the .sty author mis-labelled it (Yamaha
+    // doesn't strictly forbid it) and the musically-correct behaviour
+    // is bass-line fitting. Same goes for melodic phrase channels.
+    if (ctab.accType === 'BASS') {
+      result = fitBassPhraseToChord(
+        phrase, srcRoot, srcType,
+        dest.rootRelPitch, dest.chordType,
+        dest.bassRelPitch,
+      );
+    } else if (ctab.accType === 'PHRASE1' || ctab.accType === 'PHRASE2') {
+      result = fitMelodyPhraseToChord(
+        phrase, srcRoot, srcType, dest.rootRelPitch, dest.chordType,
+      );
+    } else {
+      result = fitChordPhraseToChord(
+        phrase, srcRoot, srcType, dest.rootRelPitch, dest.chordType,
+      );
+    }
   } else {
     // ROOT_TRANSPOSITION — melody-oriented
     result = dispatchRootTransposition(phrase, ctb2, srcRoot, srcType, dest);
