@@ -57,7 +57,11 @@ function formatChord(raw: string): string {
   let q = m[3];
 
   // Quality normalisations (order matters: specific before general)
-  q = q.replace(/^(-7b5|-7\(b5\)|m7b5|mi7b5|min7b5)/, '\u00F87');   // half-dim → ø7
+  q = q.replace(/^(-7b5|-7\(b5\)|m7b5|mi7b5|min7b5)/, '\u00F87');
+  // Major + digit (Maj9, M11, j7, \u2026) \u2192 \u25B3 + digit kept via lookahead.
+  q = q.replace(/^(?:Maj|maj|Ma|ma|M|j)(?=\d)/, '\u25B3');
+  // Bare 'm' (followed by digit/end, NOT another letter \u2014 to avoid maj/min).
+  q = q.replace(/^m(?![a-zA-Z])/, '-');   // half-dim → ø7
   q = q.replace(/^(Maj7|maj7|Ma7|ma7|M7|j7)/,         '\u25B37');   // major-7 → △7
   q = q.replace(/^(mi|min)/,                          '-');         // minor   → -
   q = q.replace(/^h7/,                     '\u00F87');   // h7 → ø7
@@ -456,8 +460,9 @@ function keySigAccidentals(vexKey: string): Map<string, 'b' | '#'> {
   return map;
 }
 
-function buildVfNotes(measure: MeasureInfo, initialAcc?: Map<string, 'b' | '#' | 'n'>, keySigAcc?: Map<string, 'b' | '#'>): StaveNote[] {
-  const activeAcc = initialAcc ? new Map(initialAcc) : new Map<string, 'b' | '#' | 'n'>();
+type LickAcc = 'b' | '#' | 'n' | '##' | 'bb';
+function buildVfNotes(measure: MeasureInfo, initialAcc?: Map<string, LickAcc>, keySigAcc?: Map<string, 'b' | '#'>): StaveNote[] {
+  const activeAcc = initialAcc ? new Map(initialAcc) : new Map<string, LickAcc>();
 
   return measure.notes.map((n) => {
     const isRest = n.duration.endsWith('r');
@@ -476,7 +481,7 @@ function buildVfNotes(measure: MeasureInfo, initialAcc?: Map<string, 'b' | '#' |
       // letter-based (applies to all octaves).
       const noteId = n.keys[0];
       const letter = noteId.split('/')[0];
-      const realAcc = n.accidentals?.[0] as 'b' | '#' | undefined;
+      const realAcc = n.accidentals?.[0] as LickAcc | undefined;
       const current = activeAcc.get(noteId);
       const keySigForLetter = keySigAcc?.get(letter);
 
@@ -716,7 +721,7 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
     }
 
     const allVfNotes: StaveNote[] = [];
-    let tieCarryAcc: Map<string, 'b' | '#' | 'n'> | undefined;
+    let tieCarryAcc: Map<string, LickAcc> | undefined;
 
     const stavePositions: { x: number; y: number; w: number }[] = [];
     for (let li = 0; li < nLines; li++) {
@@ -767,7 +772,7 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
         tieCarryAcc = undefined;
         const lastNote = measure.notes[measure.notes.length - 1];
         if (lastNote?.tie && !lastNote.duration.endsWith('r')) {
-          const acc = lastNote.accidentals?.[0] as 'b' | '#' | undefined;
+          const acc = lastNote.accidentals?.[0] as LickAcc | undefined;
           if (acc) {
             // Carry by full letter+octave key (modern engraving convention).
             tieCarryAcc = new Map([[lastNote.keys[0], acc]]);

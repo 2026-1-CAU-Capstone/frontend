@@ -36,13 +36,6 @@ rag/chunks/
 *.sln
 *.sw?
 
-# pdf2midi tooling outputs (generated MIDI/MusicXML/MP3 corpora — too large for git, revisit with LFS later)
-data/pdf2midi/
-tools/pdf2midi/node_modules/
-tools/pdf2midi/logs/
-tools/pdf2midi/input/
-tools/pdf2midi/tmp/
-
 # External datasets (large, fetched locally, not source)
 data/DigThatLick/
 

@@ -22,11 +22,13 @@ const SEMI: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11
 /* NoteInfo.keys 는 letter+accidental 이 곧 절대음정인 컨벤션 (LickInputPage 의
  * 피아노 입력, computeLickFeatures 모두 동일). 키 시그니처는 LickCard 의
  * ♮ 자동 표시에만 쓰이고, 재생 음높이는 letter+acc 만으로 결정한다. */
-function vexToMidi(key: string, acc?: '#' | 'b' | 'n'): number {
+function vexToMidi(key: string, acc?: '#' | 'b' | 'n' | '##' | 'bb'): number {
   const [n, o] = key.split('/');
   let s = SEMI[n] ?? 0;
   if (acc === '#') s += 1;
   else if (acc === 'b') s -= 1;
+  else if (acc === '##') s += 2;
+  else if (acc === 'bb') s -= 2;
   return (parseInt(o) + 1) * 12 + s;
 }
 
@@ -735,8 +737,9 @@ export class NotePlayer {
       let b = DUR_BEATS[base] ?? 1;
       if (n.dotted) b *= 1.5;
       if (n.tuplet && n.tuplet >= 2) {
-        const denom = Math.pow(2, Math.floor(Math.log2(n.tuplet - 1)));
-        b *= denom / n.tuplet;
+        // Prefer XML-supplied normal-notes; fall back to power-of-2 heuristic.
+        const normal = n.tupletNormal ?? Math.pow(2, Math.floor(Math.log2(n.tuplet - 1)));
+        b *= normal / n.tuplet;
       }
       return b;
     };
@@ -773,9 +776,10 @@ export class NotePlayer {
         let beats = DUR_BEATS[base] ?? 1;
         if (n.dotted) beats *= 1.5;
         if (n.tuplet && n.tuplet >= 2) {
-          // N-tuplet: occupies the time of the largest power of 2 strictly less than N
-          const denom = Math.pow(2, Math.floor(Math.log2(n.tuplet - 1)));
-          beats *= denom / n.tuplet;
+          // Prefer XML-supplied normal-notes; fall back to power-of-2 heuristic
+          // (largest power of 2 strictly less than N).
+          const normal = n.tupletNormal ?? Math.pow(2, Math.floor(Math.log2(n.tuplet - 1)));
+          beats *= normal / n.tuplet;
         }
         flat.push({ origMi: origMi + miOffset, ni, note: n, beats, expandIdx: ei });
       }

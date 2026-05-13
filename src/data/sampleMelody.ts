@@ -24,11 +24,12 @@ export interface NoteInfo {
   keys: string[];                               // VexFlow keys e.g. ['c/5']
   duration: string;                             // 'w','h','q','8','16' or 'wr','hr','qr','8r'
   dotted?: boolean;
-  accidentals?: Record<number, '#' | 'b' | 'n'>;
+  accidentals?: Record<number, '#' | 'b' | 'n' | '##' | 'bb'>;
   tie?: boolean;                                // tie to the NEXT note of same pitch
   tieContinuation?: boolean;                    // this note is the receiving end of a tie — visually rendered but absorbed into prev note's sound by the player
   gliss?: boolean;                              // glissando to the NEXT note
-  tuplet?: number;                              // e.g. 3 = triplet (3 notes in time of 2)
+  tuplet?: number;                              // actual-notes (e.g. 3 = triplet, 5 = quintuplet)
+  tupletNormal?: number;                        // normal-notes — denominator in N:M ratio (e.g. 3:2, 5:4, 7:6). Inferred from `tuplet` when absent.
   tupletBracket?: boolean;                      // set on the FIRST note of a tuplet group; whether to draw the bracket (XML <tuplet bracket="yes|no">). Default true.
   beamBreak?: boolean;                          // force beam break AFTER this note (= XML <beam>end</beam>)
   noBeam?: boolean;                             // render as a standalone flagged note (= XML beamable note with no <beam>)
@@ -47,6 +48,8 @@ export interface NoteInfo {
   fermata?: boolean;                            // fermata 𝄐 over the note
   ornaments?: Ornament[];                       // trill/mordent/turn/...
   dynamics?: Dynamic;                           // dynamic marking placed at this note onset
+  hairpinStart?: 'cresc' | 'dim';               // start of < or > hairpin
+  hairpinStop?: boolean;                        // end of an active hairpin
   grace?: boolean;                              // grace note (small/acciaccatura)
   graceSlash?: boolean;                         // acciaccatura slash (true) vs appoggiatura (false)
 }
@@ -68,6 +71,7 @@ export interface MeasureInfo {
   // ── Mid-piece changes from MusicXML <attributes> mid-stream ─────────────
   timeSignature?: string;         // override at this measure (e.g. '3/4' switch)
   key?: string;                   // override key (display name like 'F' / 'Eb')
+  clef?: 'treble' | 'bass' | 'alto' | 'tenor'; // mid-piece clef change
   anacrusis?: boolean;            // pickup measure — fewer beats than time sig
   tempo?: number;                 // mid-piece tempo change (BPM, quarter=N)
 }

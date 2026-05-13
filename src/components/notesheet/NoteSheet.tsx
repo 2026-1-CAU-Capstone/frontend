@@ -24,7 +24,7 @@ import {
   TextBracket,
   TextBracketPosition,
   Tremolo,
-  StaveTempo,
+  StaveHairpin,
 } from 'vexflow';
 import type { NoteSheetData, MeasureInfo } from '../../data/sampleMelody';
 import { NotePlayer } from '../../lib/note/notePlayer';
@@ -48,13 +48,26 @@ const LINE_HEIGHT = 170;
 const MARGIN = { top: 40, left: 10, right: 30, bottom: 40 };
 const CHORD_FONT = "'MuseJazz Text', 'DM Sans', sans-serif";
 
+/**
+ * Normalize chord-quality text to the jazz lead-sheet glyphs we expect downstream:
+ *   maj7 / M7 / j7    →  △7
+ *   minor (m, mi, min)→  -
+ *   m7b5 / -7b5       →  ø7
+ *   o, dim            →  °
+ * Tension accidentals (b9, #11, etc.) are spelled with ♭ / ♯.
+ */
 function formatChord(raw: string): string {
   return raw
-    // Major-7 longforms: consume the WHOLE "Maj7"/"Ma7"/"maj7"/"ma7"/"M7"/"j7"
-    // prefix so the leading letters don't survive as in "Maj7" \u2192 "Ma\u25B37".
-    .replace(/Maj7|maj7|Ma7|ma7|M7|j7/g, '\u25B37')
-    // Minor: "min" and "mi" (both with or without trailing digit/quality) \u2192 "-"
+    // Major + digit (Maj7, maj7, Ma9, ma11, M13, j7, \u2026) \u2192 \u25B3 + digit kept.
+    // Match the prefix only; the digit is preserved by the lookahead.
+    .replace(/(?:Maj|maj|Ma|ma|M|j)(?=\d)/g, '\u25B3')
+    // Minor: "min" or "mi" \u2192 "-"
     .replace(/m(?:in|i)/g, '-')
+    // Bare 'm' (not followed by a letter \u2014 to avoid maj/min typed by
+    // an engraver) \u2192 "-". The `(?<!di)` guard prevents matching the final
+    // 'm' inside "dim" / "Adim" (which would mangle it to "Adi-").
+    // E.g. "Dm7" \u2192 "D-7", "Cm" \u2192 "C-".
+    .replace(/(?<!di)m(?![a-zA-Z])/g, '-')
     .replace(/(?<=[A-G])b(?=[^a-z]|$)/g, '\u266D')
     .replace(/(\d)b/g, '$1\u266D')
     .replace(/b(\d)/g, '\u266D$1')
@@ -67,17 +80,25 @@ function formatChord(raw: string): string {
     .replace(/o(?!\d)/g, '\u00B0');
 }
 
-function splitChordParts(formatted: string): { base: string; ext: string; tension: string } {
-  const m = formatted.match(/^(\D*?)(\d+)(.*)$/);
-  if (!m) return { base: formatted, ext: '', tension: '' };
-  return { base: m[1], ext: m[2], tension: m[3] || '' };
+function splitChordParts(formatted: string): { base: string; ext: string; tension: string; bass?: string } {
+  // Slash chord — the bass after '/' is rendered at full size (NOT tension).
+  let bass: string | undefined;
+  let body = formatted;
+  const slashIdx = formatted.indexOf('/');
+  if (slashIdx > 0) {
+    body = formatted.slice(0, slashIdx);
+    bass = formatted.slice(slashIdx);   // includes leading '/'
+  }
+  const m = body.match(/^(\D*?)(\d+)(.*)$/);
+  if (!m) return { base: body, ext: '', tension: '', ...(bass ? { bass } : {}) };
+  return { base: m[1], ext: m[2], tension: m[3] || '', ...(bass ? { bass } : {}) };
 }
 
 function appendChordSVG(
   svgEl: SVGElement, x: number, y: number,
   chord: string, font: string, size: number,
 ) {
-  const { base, ext, tension } = splitChordParts(formatChord(chord));
+  const { base, ext, tension, bass } = splitChordParts(formatChord(chord));
   const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
   txt.setAttribute('x', String(x));
   txt.setAttribute('y', String(y));
@@ -119,6 +140,18 @@ function appendChordSVG(
       tensionSpan.textContent = tension;
       txt.appendChild(tensionSpan);
     }
+  }
+
+  // Slash chord bass — drawn at full root size after everything else.
+  if (bass) {
+    const bassSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+    bassSpan.setAttribute('font-size', String(size));
+    bassSpan.setAttribute('dx', '1');
+    // dy resets if a tension was last (was raised); use a small downward shift
+    // to bring it back down to baseline level.
+    bassSpan.setAttribute('dy', tension ? String(size * 0.4) : (ext ? String(size * 0.18) : '0'));
+    bassSpan.textContent = bass;
+    txt.appendChild(bassSpan);
   }
 
   svgEl.appendChild(txt);
@@ -1108,12 +1141,15 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
     noteElMapRef.current.clear();
     const rects: { x: number; y: number; w: number }[] = [];
     const stavePositions: { x: number; y: number; w: number }[] = [];
-    const allVfNotes: { mi: number; ni: number; vfNote: StaveNote }[] = [];
+    // `keys` mirrors the StaveNote's keys array (post enharmonic conversion).
+    // Used by tie/slur drawing to match chord-tone indices across paired notes.
+    const allVfNotes: { mi: number; ni: number; vfNote: StaveNote; keys: string[] }[] = [];
     const measureLine = new Map<number, number>();
     const sheetKey = data.key ?? 'C';
     const keySigAcc = keySigAccidentals(sheetKey);
     const useFlats = isKeyFlat(sheetKey);
-    let tieCarryAcc: Map<string, 'b' | '#' | 'n'> | undefined;
+    type Acc = 'b' | '#' | 'n' | '##' | 'bb';
+    let tieCarryAcc: Map<string, Acc> | undefined;
 
     for (let li = 0; li < numLines; li++) {
       const indices = lines[li];
@@ -1160,13 +1196,25 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
         if (measure.timeSignature) {
           stave.addTimeSignature(measure.timeSignature);
         }
-        // Mid-piece tempo marking — show "♩ = N" above this measure.
-        if (measure.tempo) {
+        // Mid-piece clef change. We always emit the engraver-requested clef
+        // at this measure (a clef set on `firstInLine` already drew the default
+        // treble; this overrides it for the rest of the line).
+        if (measure.clef && !firstInLine) {
+          stave.addClef(measure.clef);
+        } else if (measure.clef && firstInLine) {
+          // Replace the default 'treble' clef set above.
+          // (We already called addClef('treble') unconditionally — VexFlow
+          // lets you add another clef; the explicit one wins by order.)
+          stave.addClef(measure.clef);
+        }
+        // Tempo marking ("♩ = N") above measure:
+        //   - Initial tempo (data.tempo) on the very first stave only
+        //   - Mid-piece tempo (measure.tempo) wherever set
+        // Use Stave.setTempo (canonical API) instead of addModifier(new StaveTempo).
+        const tempoToDraw = measure.tempo ?? (m === 0 && data.tempo ? data.tempo : undefined);
+        if (tempoToDraw) {
           try {
-            stave.addModifier(new StaveTempo(
-              { duration: 'q', dots: 0, bpm: measure.tempo },
-              0, -10,
-            ).setShiftX(0));
+            stave.setTempo({ duration: 'q', dots: 0, bpm: tempoToDraw }, -10);
           } catch (e) { console.warn('tempo marking failed', e); }
         }
         // Repeat / end barlines
@@ -1196,7 +1244,7 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
         // ── Notes ──
         measureLine.set(m, li);
 
-        const activeAcc = tieCarryAcc ? new Map(tieCarryAcc) : new Map<string, 'b' | '#' | 'n'>();
+        const activeAcc = tieCarryAcc ? new Map(tieCarryAcc) : new Map<string, Acc>();
         tieCarryAcc = undefined;
 
         // Build vfNotes manually so we can skip grace notes (which become
@@ -1215,7 +1263,9 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
 
           // Enharmonic: convert sharps to flats in flat keys
           let keys = n.keys;
-          let realAcc = n.accidentals?.[0] as 'b' | '#' | undefined;
+          let realAcc = n.accidentals?.[0] as Acc | undefined;
+          // Enharmonic flat-key conversion: single sharp → flat. Skip double
+          // sharps (rare; converting C## → D would mis-spell the note).
           if (!isRest && useFlats && realAcc === '#') {
             const conv = enharmonicToFlat(n.keys[0], '#');
             if (conv) {
@@ -1328,7 +1378,7 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
               // Enharmonic conversion only applied to keys[0] above — but the
               // accidentals map is keyed by ORIGINAL chord-tone index. Use the
               // converted realAcc for ki=0 and the raw acc for other indices.
-              const acc = ki === 0 ? realAcc : (n.accidentals?.[ki] as 'b' | '#' | 'n' | undefined);
+              const acc = ki === 0 ? realAcc : (n.accidentals?.[ki] as Acc | undefined);
               const current = activeAcc.get(noteId);
               const keySigForLetter = keySigAcc.get(letter);
 
@@ -1366,19 +1416,29 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
           if (!measure.notes[li].grace) { lastNote = measure.notes[li]; break; }
         }
         if (lastNote?.tie && !lastNote.duration.endsWith('r')) {
-          let tieAcc = lastNote.accidentals?.[0] as 'b' | '#' | undefined;
-          let tieKey = lastNote.keys[0];
-          if (useFlats && tieAcc === '#') {
-            const conv = enharmonicToFlat(tieKey, '#');
-            if (conv) { tieKey = conv.key; tieAcc = conv.acc; }
+          // Carry ALL altered tones of a tied chord — not just keys[0].
+          // Modern convention: each (letter+octave) tracks independently.
+          const carry = new Map<string, Acc>();
+          for (let ki = 0; ki < lastNote.keys.length; ki++) {
+            const accForKi = lastNote.accidentals?.[ki] as Acc | undefined;
+            if (!accForKi) continue;
+            let tieKey = lastNote.keys[ki];
+            let tieAcc: Acc = accForKi;
+            if (useFlats && tieAcc === '#') {
+              const conv = enharmonicToFlat(tieKey, '#');
+              if (conv) { tieKey = conv.key; tieAcc = conv.acc; }
+            }
+            carry.set(tieKey, tieAcc);
           }
-          // Carry key is the FULL letter+octave (e.g., 'b/4') — modern
-          // convention says accidentals are octave-specific.
-          if (tieAcc) tieCarryAcc = new Map([[tieKey, tieAcc]]);
+          if (carry.size > 0) tieCarryAcc = carry;
         }
 
         for (let ni = 0; ni < vfNotes.length; ni++) {
-          allVfNotes.push({ mi: m, ni, vfNote: vfNotes[ni] });
+          const srcIdx = measureIdxOfVf[ni];
+          const srcNote = measure.notes[srcIdx];
+          // For rests vfNote uses ['b/4']; tie/slur drawing won't use rest keys.
+          const srcKeys = srcNote.duration.endsWith('r') ? ['b/4'] : srcNote.keys;
+          allVfNotes.push({ mi: m, ni, vfNote: vfNotes[ni], keys: srcKeys });
         }
 
         if (measure.chord) {
@@ -1546,9 +1606,11 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
             if (measure.notes[ti].grace) { ti++; continue; }
             const n = measure.notes[ti].tuplet;
             if (n && n >= 3) {
+              const startTi = ti; // capture first non-grace index of this tuplet group
               const group: StaveNote[] = [];
               // The first note of the tuplet group carries the bracket preference.
-              const bracketAttr = measure.notes[ti].tupletBracket;
+              const bracketAttr = measure.notes[startTi].tupletBracket;
+              const tupletNormalFromData = measure.notes[startTi].tupletNormal;
               while (ti < measure.notes.length && measure.notes[ti].tuplet === n && group.length < n) {
                 if (measure.notes[ti].grace) { ti++; continue; }
                 const vIdx = vfNoteIdxOf[ti];
@@ -1557,9 +1619,10 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
               }
               if (group.length >= 2) {
                 const stemDown = group[0].getStemDirection() === -1;
-                const notesOccupied = Math.pow(2, Math.floor(Math.log2(n - 1)));
-                // bracket=false → number only (idiomatic for beamed jazz tuplets).
-                // bracket=true → explicit horizontal bracket. Undefined → VexFlow default.
+                // Prefer XML-supplied normal-notes (handles unusual ratios
+                // like 7:6, 5:3). Fall back to power-of-2 heuristic when
+                // the data lacks the explicit denominator.
+                const notesOccupied = tupletNormalFromData ?? Math.pow(2, Math.floor(Math.log2(n - 1)));
                 const tupletOpts: { numNotes: number; notesOccupied: number; bracketed?: boolean } = {
                   numNotes: group.length, notesOccupied,
                 };
@@ -1588,9 +1651,34 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
         if (measure.notes[ni].tie) {
           const from = allVfNotes[flatIdx];
           const to = allVfNotes[flatIdx + 1];
-          if (from && to && measureLine.get(from.mi) === measureLine.get(to.mi)) {
-            const tie = new StaveTie({ firstNote: from.vfNote, lastNote: to.vfNote, firstIndexes: [0], lastIndexes: [0] });
-            tie.setContext(ctx).draw();
+          if (from && to) {
+            // Chord tie: pair every matching pitch (letter+octave) between
+            // the two notes. Tying [C/4, E/4, G/4] → [C/4, E/4, G/4] yields
+            // three ties simultaneously.
+            const firstIndexes: number[] = [];
+            const lastIndexes: number[] = [];
+            for (let i = 0; i < from.keys.length; i++) {
+              const j = to.keys.indexOf(from.keys[i]);
+              if (j >= 0) { firstIndexes.push(i); lastIndexes.push(j); }
+            }
+            if (firstIndexes.length === 0) { firstIndexes.push(0); lastIndexes.push(0); }
+
+            const sameLine = measureLine.get(from.mi) === measureLine.get(to.mi);
+            if (sameLine) {
+              const tie = new StaveTie({ firstNote: from.vfNote, lastNote: to.vfNote, firstIndexes, lastIndexes });
+              tie.setContext(ctx).draw();
+            } else {
+              // Cross-line tie: draw half-tie at end of from's line (tail off
+              // to the right) AND half-tie at start of to's line (lead-in from
+              // the left). StaveTie accepts undefined for one of firstNote/
+              // lastNote to render an open-ended half curve.
+              try {
+                const halfStart = new StaveTie({ firstNote: from.vfNote, lastNote: undefined, firstIndexes, lastIndexes });
+                halfStart.setContext(ctx).draw();
+                const halfEnd = new StaveTie({ firstNote: undefined, lastNote: to.vfNote, firstIndexes, lastIndexes });
+                halfEnd.setContext(ctx).draw();
+              } catch (e) { console.warn('cross-line tie draw failed', e); }
+            }
           }
         }
         flatIdx++;
@@ -1600,6 +1688,8 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
     // Draw slurs — slurs nest like parentheses: a stop pairs with the most
     // recently opened start (LIFO). Using `pop()` (not `shift()`) handles
     // nested slurs correctly (e.g. an inner phrase mark inside a longer slur).
+    // Cross-line slurs render as two half-curves (start → end-of-line,
+    // beginning-of-next-line → stop) via VexFlow's Curve(undefined, …) support.
     {
       const startStack: { flatIdx: number }[] = [];
       let flatIdxS = 0;
@@ -1610,13 +1700,19 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
           if (n.grace) continue;
           if (n.slurStart) startStack.push({ flatIdx: flatIdxS });
           if (n.slurStop && startStack.length > 0) {
-            const start = startStack.pop()!;     // LIFO ← nested slurs
+            const start = startStack.pop()!;
             const from = allVfNotes[start.flatIdx];
             const to = allVfNotes[flatIdxS];
-            if (from && to && measureLine.get(from.mi) === measureLine.get(to.mi)) {
+            if (from && to) {
+              const sameLine = measureLine.get(from.mi) === measureLine.get(to.mi);
               try {
-                const curve = new Curve(from.vfNote, to.vfNote, {});
-                curve.setContext(ctx).draw();
+                if (sameLine) {
+                  new Curve(from.vfNote, to.vfNote, {}).setContext(ctx).draw();
+                } else {
+                  // Half-curves on each line.
+                  new Curve(from.vfNote, undefined, {}).setContext(ctx).draw();
+                  new Curve(undefined, to.vfNote, {}).setContext(ctx).draw();
+                }
               } catch (e) { console.warn('slur draw failed', e); }
             }
           }
@@ -1655,6 +1751,37 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
             activeOttava = null;
           }
           flatIdxO++;
+        }
+      }
+    }
+
+    // Draw hairpins (crescendo < / decrescendo >).
+    {
+      let activeHairpin: { kind: 'cresc' | 'dim'; flatIdx: number } | null = null;
+      let flatIdxH = 0;
+      for (let mi = 0; mi < data.measures.length; mi++) {
+        const measure = data.measures[mi];
+        for (let ni = 0; ni < measure.notes.length; ni++) {
+          const n = measure.notes[ni];
+          if (n.grace) continue;
+          if (n.hairpinStart) {
+            activeHairpin = { kind: n.hairpinStart, flatIdx: flatIdxH };
+          }
+          if (n.hairpinStop && activeHairpin) {
+            const from = allVfNotes[activeHairpin.flatIdx];
+            const to = allVfNotes[flatIdxH];
+            if (from && to && measureLine.get(from.mi) === measureLine.get(to.mi)) {
+              try {
+                const type = activeHairpin.kind === 'cresc'
+                  ? StaveHairpin.type.CRESC
+                  : StaveHairpin.type.DECRESC;
+                const hp = new StaveHairpin({ firstNote: from.vfNote, lastNote: to.vfNote }, type);
+                hp.setContext(ctx).draw();
+              } catch (e) { console.warn('hairpin draw failed', e); }
+            }
+            activeHairpin = null;
+          }
+          flatIdxH++;
         }
       }
     }

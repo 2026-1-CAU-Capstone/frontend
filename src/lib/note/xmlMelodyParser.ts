@@ -31,10 +31,10 @@ const TYPE_TO_VF: Record<string, string> = {
 
 const BEAMABLE_XML_TYPES = new Set(['eighth', '16th', '32nd', '64th', '128th']);
 
-const ACC_MAP: Record<string, '#' | 'b' | 'n'> = {
+const ACC_MAP: Record<string, '#' | 'b' | 'n' | '##' | 'bb'> = {
   sharp: '#', flat: 'b', natural: 'n',
-  'double-sharp': '#', 'sharp-sharp': '#',
-  'double-flat': 'b', 'flat-flat': 'b',
+  'double-sharp': '##', 'sharp-sharp': '##',
+  'double-flat': 'bb', 'flat-flat': 'bb',
 };
 
 const KEY_NAMES = ['Cb','Gb','Db','Ab','Eb','Bb','F','C','G','D','A','E','B','F#','C#'];
@@ -101,7 +101,10 @@ interface ParserState {
   ottava?: '8va' | '8vb';
   /** Note index (within current measure) where ottava started, for end marker. */
   ottavaStartIdx?: number;
-  /** Last emitted measure index, used for navigation/repeat fallback. */
+  /** Pending hairpin start; flushes on next emitted note. */
+  pendingHairpinStart?: 'cresc' | 'dim';
+  /** Pending hairpin stop; flushes on next emitted note. */
+  pendingHairpinStop?: boolean;
 }
 
 function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
@@ -119,9 +122,18 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
   const timeSig  = `${beats}/${beatType}`;
   const initialKey = KEY_NAMES[initialFifths + 7] ?? 'C';
 
-  // Tempo from first <sound tempo="..."/>
+  // Tempo: prefer <sound tempo="N"/>; fall back to <metronome><per-minute>N</per-minute></metronome>.
+  // Many engravers include both for compat; <sound> is the playback hint while
+  // <metronome> is the printed marking. Either tells us "♩=N".
   const soundEl = doc.querySelector('sound[tempo]');
-  const tempo = soundEl ? Math.round(parseFloat(soundEl.getAttribute('tempo')!)) : undefined;
+  let tempo: number | undefined;
+  if (soundEl) {
+    tempo = Math.round(parseFloat(soundEl.getAttribute('tempo')!));
+  } else {
+    const metroPerMin = doc.querySelector('metronome per-minute');
+    const parsed = metroPerMin ? parseFloat(metroPerMin.textContent ?? '') : NaN;
+    if (Number.isFinite(parsed) && parsed > 0) tempo = Math.round(parsed);
+  }
 
   // Does this document engrave beam decisions anywhere? Well-engraved scores
   // (Parker Omnibook) carry <beam> elements throughout; a measure that omits
@@ -201,6 +213,19 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
         if (beatsTxt && beatTypeTxt && measureIdx > 0) {
           const ts = `${beatsTxt}/${beatTypeTxt}`;
           if (ts !== timeSig) measure.timeSignature = ts;
+        }
+        // Mid-piece clef change: <clef><sign>F</sign><line>4</line></clef>.
+        // Treble (G2), bass (F4), alto (C3), tenor (C4). Only set when changing.
+        const clefEl = child.querySelector('clef');
+        if (clefEl && measureIdx > 0) {
+          const sign = text(clefEl, 'sign');
+          const line = text(clefEl, 'line');
+          let newClef: 'treble' | 'bass' | 'alto' | 'tenor' | undefined;
+          if (sign === 'G' && (line === '2' || line === null)) newClef = 'treble';
+          else if (sign === 'F' && (line === '4' || line === null)) newClef = 'bass';
+          else if (sign === 'C' && line === '3') newClef = 'alto';
+          else if (sign === 'C' && line === '4') newClef = 'tenor';
+          if (newClef) measure.clef = newClef;
         }
         continue;
       }
@@ -287,13 +312,29 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
             }
           }
         }
-        // Mid-piece tempo change: <direction><sound tempo="N"/></direction>.
-        // Captured at the measure where the new tempo takes effect; only the
-        // FIRST tempo of measureIdx>0 is stored (most XMLs declare once per change).
-        const soundTempoEl = child.querySelector('sound[tempo]');
-        if (soundTempoEl && measureIdx > 0 && measure.tempo === undefined) {
-          const t = parseFloat(soundTempoEl.getAttribute('tempo') ?? '');
-          if (Number.isFinite(t) && t > 0) measure.tempo = Math.round(t);
+        // Hairpin (crescendo/diminuendo wedge). Attaches to NEXT/PREV note.
+        //   <wedge type="crescendo"/>  → start of <
+        //   <wedge type="diminuendo"/> → start of >
+        //   <wedge type="stop"/>       → end either
+        const wedgeEl = dirType.querySelector('wedge');
+        if (wedgeEl) {
+          const wt = wedgeEl.getAttribute('type');
+          if (wt === 'crescendo') state.pendingHairpinStart = 'cresc';
+          else if (wt === 'diminuendo') state.pendingHairpinStart = 'dim';
+          else if (wt === 'stop') state.pendingHairpinStop = true;
+        }
+        // Mid-piece tempo change: prefer <sound tempo="N"/>; fall back to
+        // <direction-type><metronome><per-minute>N</per-minute></metronome>.
+        if (measureIdx > 0 && measure.tempo === undefined) {
+          const soundTempoEl = child.querySelector('sound[tempo]');
+          if (soundTempoEl) {
+            const t = parseFloat(soundTempoEl.getAttribute('tempo') ?? '');
+            if (Number.isFinite(t) && t > 0) measure.tempo = Math.round(t);
+          } else {
+            const mpm = dirType.querySelector('metronome per-minute');
+            const t = mpm ? parseFloat(mpm.textContent ?? '') : NaN;
+            if (Number.isFinite(t) && t > 0) measure.tempo = Math.round(t);
+          }
         }
         continue;
       }
@@ -310,10 +351,36 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
         // a kind-keyed default — using '' for plain major triads (Omnibook
         // convention: just the root letter) and '°' for plain diminished.
         const kindText = kindEl?.getAttribute('text');
-        const suffix = (kindText !== null && kindText !== undefined)
+        const baseSuffix = (kindText !== null && kindText !== undefined)
           ? kindText
           : kindToSymbol(kind);
-        const sym = root + acc + suffix;
+
+        // <degree>: added/altered/subtracted tones (e.g. add9, b5, #11).
+        // Append to chord symbol so e.g. C7 + degree(#11) → "C7#11".
+        let degreeSuffix = '';
+        for (const dEl of Array.from(child.querySelectorAll('degree'))) {
+          const dVal = text(dEl, 'degree-value') ?? '';
+          const dAlt = text(dEl, 'degree-alter') ?? '0';
+          const dType = (text(dEl, 'degree-type') ?? 'add').toLowerCase();
+          const altSign = dAlt === '1' ? '#' : dAlt === '-1' ? 'b' : '';
+          if (dType === 'subtract' || dType === 'remove') {
+            degreeSuffix += `(no${dVal})`;
+          } else {
+            // 'add' / 'alter' → just append "altSign + value" (e.g. "#11", "b5").
+            degreeSuffix += `${altSign}${dVal}`;
+          }
+        }
+
+        // <bass>: slash chord — e.g. C/G.
+        const bassStep = text(child, 'bass-step');
+        const bassAlter = text(child, 'bass-alter');
+        let bassPart = '';
+        if (bassStep) {
+          const bAcc = bassAlter === '1' ? '#' : bassAlter === '-1' ? 'b' : '';
+          bassPart = `/${bassStep}${bAcc}`;
+        }
+
+        const sym = root + acc + baseSuffix + degreeSuffix + bassPart;
         if (sym && measureChords[measureChords.length - 1] !== sym) measureChords.push(sym);
         continue;
       }
@@ -388,7 +455,11 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
       // valid (they belong here).
       const isPureTieContinuation = tieStop && !tieStart;
 
-      const isRest = !!nEl.querySelector('rest');
+      const restEl = nEl.querySelector('rest');
+      const isRest = !!restEl;
+      // <rest measure="yes"/> = whole-measure rest, regardless of duration value
+      // or current time signature (modern convention: hanging from 4th line).
+      const isFullMeasureRest = restEl?.getAttribute('measure') === 'yes';
       const isGrace = !!nEl.querySelector('grace');
       const graceSlash = isGrace
         ? nEl.querySelector('grace')?.getAttribute('slash') === 'yes'
@@ -398,13 +469,18 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
       const vf = TYPE_TO_VF[typeStr] ?? 'q';
       const isDotted = !!nEl.querySelector('dot');
 
-      // Tuplet detection
+      // Tuplet detection — keep BOTH actual & normal (XML may use unusual
+      // ratios like 7:6, 5:3 that can't be inferred from 'actual' alone).
       const tmEl = nEl.querySelector('time-modification');
       let tuplet: number | undefined;
+      let tupletNormal: number | undefined;
       if (tmEl) {
         const actual = parseInt(text(tmEl, 'actual-notes') ?? '0', 10);
         const normal = parseInt(text(tmEl, 'normal-notes') ?? '0', 10);
-        if (actual > normal && actual > 1) tuplet = actual;
+        if (actual > normal && actual > 1) {
+          tuplet = actual;
+          tupletNormal = normal;
+        }
       }
       // Tuplet bracket — appears on <tuplet type="start"> inside <notations>.
       // bracket="no" means draw just the "3" / "5" / … without a horizontal
@@ -418,9 +494,13 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
       }
 
       if (isRest) {
-        const restNote: NoteInfo = { keys: ['b/4'], duration: vf + 'r' };
+        // <rest measure="yes"/> overrides the type-derived duration with
+        // a whole-rest glyph (standard for full-bar rests in any time sig).
+        const restDur = isFullMeasureRest ? 'wr' : (vf + 'r');
+        const restNote: NoteInfo = { keys: ['b/4'], duration: restDur };
         if (isDotted) restNote.dotted = true;
         if (tuplet) restNote.tuplet = tuplet;
+        if (tupletNormal) restNote.tupletNormal = tupletNormal;
         if (tupletBracketAttr !== undefined) restNote.tupletBracket = tupletBracketAttr;
         if (noteFermata) restNote.fermata = true;
         // If we're inside an open beam group (between <beam>begin</beam> and
@@ -445,6 +525,7 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
       };
       if (isDotted) ni.dotted = true;
       if (tuplet) ni.tuplet = tuplet;
+      if (tupletNormal) ni.tupletNormal = tupletNormal;
       if (tupletBracketAttr !== undefined) ni.tupletBracket = tupletBracketAttr;
       if (isGrace) {
         ni.grace = true;
@@ -464,13 +545,13 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
         // Engraver drew an explicit accidental — that IS the sounding pitch.
         ni.accidentals = { 0: ACC_MAP[accText] };
       } else if (alterVal === 1) {
-        // <alter>1</alter>: sharp pitch (key sig or not — the actual pitch is sharp).
         ni.accidentals = { 0: '#' };
       } else if (alterVal === -1) {
-        // <alter>-1</alter>: flat pitch — e.g. F-major's Bb encoded as
-        // <step>B<alter>-1 without <accidental> because the key sig handles
-        // the visual. Player MUST see the flat to sound the correct pitch.
         ni.accidentals = { 0: 'b' };
+      } else if (alterVal === 2) {
+        ni.accidentals = { 0: '##' };
+      } else if (alterVal === -2) {
+        ni.accidentals = { 0: 'bb' };
       } else if (alterVal === 0 && isInKeySig) {
         // <alter>0</alter> on a key-sig letter = explicit natural override.
         ni.accidentals = { 0: 'n' };
@@ -509,6 +590,15 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
       if (state.pendingDynamic) {
         ni.dynamics = state.pendingDynamic;
         state.pendingDynamic = undefined;
+      }
+      // Hairpin start/stop attaches to NEXT real note onset.
+      if (state.pendingHairpinStart) {
+        ni.hairpinStart = state.pendingHairpinStart;
+        state.pendingHairpinStart = undefined;
+      }
+      if (state.pendingHairpinStop) {
+        ni.hairpinStop = true;
+        state.pendingHairpinStop = undefined;
       }
 
       // Ottava — apply current running state.

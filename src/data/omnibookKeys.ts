@@ -17,7 +17,7 @@
 
 import type { OmnibookSource } from '../components/admin/OmnibookViewer';
 
-export const OMNIBOOK_KEY_OVERRIDES: Record<OmnibookSource, Record<string, string>> = {
+export const OMNIBOOK_KEY_OVERRIDES: Partial<Record<OmnibookSource, Record<string, string>>> = {
   parker: {
     // Example overrides — add tunes here when inference is wrong:
     // 'Anthropology.xml': 'Bb',
