@@ -97,3 +97,57 @@ const SNARE_PATTERNS: Array<Array<[number, number]>> = [
   [[3.0, 0.72]],                                             // downbeat of 4
   [[1.0 + SWING_OFFSET, 0.7], [3.0 + SWING_OFFSET, 0.82]],  // "and of 2" + "and of 4"
 ];
+
+/**
+ * Bossa Nova drum pattern.
+ *
+ * Closed hi-hat on every 8th note (straight, NOT swung) — the relentless
+ * "tick-tick-tick" that gives bossa its forward motion. Kick plays the
+ * surdo-style pattern (1, "and of 2", 3, "and of 4"), and the rim cross-
+ * stick plays a two-bar clave/comp pattern.
+ */
+export function bossaBar(opts: DrumBarOptions): DrumEvent[] {
+  const { secPerBeat, barStart, beatsInBar, barIndex } = opts;
+  if (beatsInBar !== 4) return [];
+
+  const events: DrumEvent[] = [];
+  const push = (beat: number, piece: DrumPiece, velocity: number) => {
+    events.push({
+      kind: "drum",
+      piece,
+      time: barStart + beat * secPerBeat,
+      velocity,
+      bar: barIndex,
+    });
+  };
+
+  // Closed hi-hat on every straight 8th
+  for (let i = 0; i < 8; i++) {
+    const beat = i * 0.5;
+    const onDownbeat = i % 2 === 0;
+    push(beat, "hihat-closed", onDownbeat ? 0.58 : 0.42);
+  }
+
+  // Kick: surdo-style — 1, "and of 2", 3, "and of 4"
+  push(0,   "kick", 0.78);
+  push(1.5, "kick", 0.62);
+  push(2,   "kick", 0.78);
+  push(3.5, "kick", 0.62);
+
+  // Rim cross-stick — two-bar clave-like comping. Bars alternate.
+  const evenBar = barIndex % 2 === 0;
+  if (evenBar) {
+    // Bar A: 1, "and of 2", "and of 3"
+    push(0,   "rim", 0.7);
+    push(1.5, "rim", 0.72);
+    push(2.5, "rim", 0.72);
+  } else {
+    // Bar B: 1, 2, "and of 3", 4
+    push(0,   "rim", 0.7);
+    push(1,   "rim", 0.68);
+    push(2.5, "rim", 0.72);
+    push(3,   "rim", 0.68);
+  }
+
+  return events;
+}

@@ -38,9 +38,11 @@ import {
   setPlayerSetting,
   subscribePlayerSettings,
   type BassMode,
+  type PlayStyle,
   type PlayerSettings,
 } from '../../lib/note/playerSettings';
 import { FullscreenButton, useFullscreen } from '../common/FullscreenButton';
+import { formatChordDisplay } from '../../lib/jazz-harmony';
 
 /* ─── constants ─────────────────────────────────────────────────────────── */
 
@@ -56,29 +58,9 @@ const CHORD_FONT = "'MuseJazz Text', 'DM Sans', sans-serif";
  *   o, dim            →  °
  * Tension accidentals (b9, #11, etc.) are spelled with ♭ / ♯.
  */
-function formatChord(raw: string): string {
-  return raw
-    // Major + digit (Maj7, maj7, Ma9, ma11, M13, j7, \u2026) \u2192 \u25B3 + digit kept.
-    // Match the prefix only; the digit is preserved by the lookahead.
-    .replace(/(?:Maj|maj|Ma|ma|M|j)(?=\d)/g, '\u25B3')
-    // Minor: "min" or "mi" \u2192 "-"
-    .replace(/m(?:in|i)/g, '-')
-    // Bare 'm' (not followed by a letter \u2014 to avoid maj/min typed by
-    // an engraver) \u2192 "-". The `(?<!di)` guard prevents matching the final
-    // 'm' inside "dim" / "Adim" (which would mangle it to "Adi-").
-    // E.g. "Dm7" \u2192 "D-7", "Cm" \u2192 "C-".
-    .replace(/(?<!di)m(?![a-zA-Z])/g, '-')
-    .replace(/(?<=[A-G])b(?=[^a-z]|$)/g, '\u266D')
-    .replace(/(\d)b/g, '$1\u266D')
-    .replace(/b(\d)/g, '\u266D$1')
-    .replace(/(\d)#/g, '$1\u266F')
-    .replace(/#(\d)/g, '\u266F$1')
-    .replace(/-7b5/g, '\u00F87')
-    .replace(/h7/g, '\u00F87')
-    .replace(/h(?!\d)/g, '\u00F8')
-    .replace(/o7/g, '\u00B07')
-    .replace(/o(?!\d)/g, '\u00B0');
-}
+/* formatChord moved to src/lib/jazz-harmony (formatChordDisplay) \u2014 single
+ * source of truth shared with LickCard / Lick12KeyPage. */
+const formatChord = formatChordDisplay;
 
 function splitChordParts(formatted: string): { base: string; ext: string; tension: string; bass?: string } {
   // Slash chord — the bass after '/' is rendered at full size (NOT tension).
@@ -195,11 +177,13 @@ const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.
 
 /** Pitch helpers for scheduling anacrusis pickup notes during the count-in. */
 const PITCH_SEMI: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
-function noteToMidi(key: string, acc?: '#' | 'b' | 'n'): number {
+function noteToMidi(key: string, acc?: '#' | 'b' | 'n' | '##' | 'bb'): number {
   const [n, o] = key.split('/');
   let s = PITCH_SEMI[n] ?? 0;
-  if (acc === '#') s += 1;
-  else if (acc === 'b') s -= 1;
+  if (acc === '#')  s += 1;
+  else if (acc === 'b')  s -= 1;
+  else if (acc === '##') s += 2;
+  else if (acc === 'bb') s -= 2;
   return (parseInt(o) + 1) * 12 + s;
 }
 
@@ -743,6 +727,7 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
   const metroVol = settings.metroVolume;
   const drumKit = settings.drumKit;
   const bassMode = settings.bassMode;
+  const playStyle = settings.style;
   const measureRectsRef = useRef<{ x: number; y: number; w: number }[]>([]);
   const noteElMapRef = useRef<Map<string, SVGElement>>(new Map());
   const prevNoteKeyRef = useRef<string | null>(null);
@@ -1207,14 +1192,12 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
           // lets you add another clef; the explicit one wins by order.)
           stave.addClef(measure.clef);
         }
-        // Tempo marking ("♩ = N") above measure:
-        //   - Initial tempo (data.tempo) on the very first stave only
-        //   - Mid-piece tempo (measure.tempo) wherever set
-        // Use Stave.setTempo (canonical API) instead of addModifier(new StaveTempo).
-        const tempoToDraw = measure.tempo ?? (m === 0 && data.tempo ? data.tempo : undefined);
-        if (tempoToDraw) {
+        // Tempo marking — only show for MID-PIECE tempo changes (rare).
+        // Initial tempo is intentionally omitted: it overlaps with the
+        // first-measure chord label and is already shown in the player bar.
+        if (measure.tempo) {
           try {
-            stave.setTempo({ duration: 'q', dots: 0, bpm: tempoToDraw }, -10);
+            stave.setTempo({ duration: 'q', dots: 0, bpm: measure.tempo }, -10);
           } catch (e) { console.warn('tempo marking failed', e); }
         }
         // Repeat / end barlines
@@ -1927,6 +1910,32 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
               </MixerSection>
 
               {/* Bass — volume + walking pattern */}
+              {/* Genre / feel selector — drives comp + drum + bass patterns
+               *  AND forces straight 8ths when 'bossa'. */}
+              <MixerSection $accent='#7ec4dd'>
+                <MixerSectionTitle>🎵 스타일</MixerSectionTitle>
+                <MixerRow>
+                  <MixerLabel>장르</MixerLabel>
+                  <KitGroup>
+                    {(
+                      [
+                        { id: 'swing', label: 'Swing' },
+                        { id: 'bossa', label: 'Bossa Nova' },
+                      ] as { id: PlayStyle; label: string }[]
+                    ).map(({ id, label }) => (
+                      <KitBtn
+                        key={id}
+                        type='button'
+                        $active={playStyle === id}
+                        onClick={() => setPlayerSetting('style', id)}
+                      >
+                        {label}
+                      </KitBtn>
+                    ))}
+                  </KitGroup>
+                </MixerRow>
+              </MixerSection>
+
               <MixerSection $accent='#b87edd'>
                 <MixerSectionTitle>🎸 베이스</MixerSectionTitle>
                 <MixerRow>

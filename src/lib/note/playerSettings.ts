@@ -18,6 +18,11 @@ export type BassMode =
   | 'two-feel'  // root on beat 1, fifth on beat 3 (every chord half)
   | 'four-feel'; // walking — one hit per beat (root/5 alternating)
 
+/** Overall feel/genre for the rhythm section. Switching this overrides
+ * swing, comping rhythms, drum patterns, and bass behavior wholesale so
+ * the whole rhythm section reads as that style. */
+export type PlayStyle = 'swing' | 'bossa';
+
 export interface PlayerSettings {
   melodyVolume: number;
   pianoVolume: number;
@@ -32,8 +37,11 @@ export interface PlayerSettings {
   metroVolume: number;
   /** 8th-note swing ratio. 0.5 = straight 8ths. 0.62 = classic medium swing.
    *  0.66 = strong swing (triplet feel). Applied uniformly across all melody
-   *  playback paths via lib/note/swing.ts. */
+   *  playback paths via lib/note/swing.ts. Forced to 0.5 when style='bossa'. */
   swingRatio: number;
+  /** Overall feel — swing (default) vs bossa nova. Switches comping / drum /
+   *  bass patterns AND forces straight 8ths when 'bossa'. */
+  style: PlayStyle;
 }
 
 const DEFAULTS: PlayerSettings = {
@@ -48,6 +56,7 @@ const DEFAULTS: PlayerSettings = {
   metroEnabled: false,
   metroVolume: 0.6,
   swingRatio: 0.62,
+  style: 'swing',
 };
 
 const LS_KEY = 'jazzify_player_settings_v1';

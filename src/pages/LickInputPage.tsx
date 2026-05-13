@@ -10,6 +10,7 @@ import { saveUserLick, computeLickFeatures, type LickEntry } from '../data/lickD
 import { NotePlayer } from '../lib/note/notePlayer';
 import { useCountInIntro } from '../hooks/useCountInIntro';
 import { PATTERN_SIMPLE } from '../lib/note/countInPatterns';
+import { normalizeChord } from '../lib/jazz-harmony';
 
 /* ─── helpers ──────────────────────────────────────────────────────────── */
 
@@ -912,46 +913,7 @@ const ChordCellInput = styled.input`
   outline: none;
 `;
 
-function normalizeSingleChord(raw: string): string {
-  if (!raw) return raw;
-  const m = raw.match(/^([A-Ga-g][b#]?)(.*)/);
-  if (!m) return raw;
-  const root = m[1].charAt(0).toUpperCase() + m[1].slice(1);
-  let q = m[2];
-
-  // half-diminished (must be before minor)
-  q = q.replace(/^(?:m7b5|min7b5|-7b5)$/i, 'ø7');
-  // diminished
-  q = q.replace(/^dim7$/i, '°7');
-  q = q.replace(/^dim$/i, '°');
-  // minor-major (must be before major and minor): -M7, mM7, minmaj7, -maj7
-  q = q.replace(/^(?:-|m|min)(?:M|maj)(\d.*)$/i, '-△$1');
-  // major
-  q = q.replace(/^maj(\d.*)$/i, '△$1');
-  q = q.replace(/^maj$/i, '△');
-  q = q.replace(/^M(\d.*)$/, '△$1');
-  q = q.replace(/^M$/, '△');
-  // minor (m, min → -)
-  q = q.replace(/^min(\d.*)$/i, '-$1');
-  q = q.replace(/^min$/i, '-');
-  q = q.replace(/^m(\d.*)$/, '-$1');
-  q = q.replace(/^m$/, '-');
-  // augmented
-  q = q.replace(/^aug(\d.*)$/i, '+$1');
-  q = q.replace(/^aug$/i, '+');
-
-  return root + q;
-}
-
-/* Normalize one cell value. A measure may carry multiple chords separated by
- * whitespace ("D-7 G7" or "D-7  G7"); the sheet renderer splits on ≥2 spaces,
- * so we always emit the 2-space separator here. */
-function normalizeChord(raw: string): string {
-  if (!raw) return raw;
-  const parts = raw.split(/\s+/).filter(Boolean);
-  if (parts.length <= 1) return normalizeSingleChord(raw.trim());
-  return parts.map(normalizeSingleChord).join('  ');
-}
+/* normalizeChord now imported from src/lib/jazz-harmony — see top of file. */
 
 function splitChord(chord: string): { base: string; ext: string; tensions: { acc: string; num: string }[] } {
   // Split into base (non-digit prefix) and the rest starting from first digit

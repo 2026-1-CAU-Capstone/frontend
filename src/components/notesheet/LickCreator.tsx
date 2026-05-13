@@ -142,11 +142,13 @@ function notesToMeasures(notes: NoteInfo[]): MeasureInfo[] {
 const SEMI_MAP: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
 const PC_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
 
-function vexToMidi(key: string, acc?: '#' | 'b' | 'n'): number {
+function vexToMidi(key: string, acc?: '#' | 'b' | 'n' | '##' | 'bb'): number {
   const [n, o] = key.split('/');
   let s = SEMI_MAP[n] ?? 0;
-  if (acc === '#') s += 1;
-  if (acc === 'b') s -= 1;
+  if (acc === '#')  s += 1;
+  else if (acc === 'b')  s -= 1;
+  else if (acc === '##') s += 2;
+  else if (acc === 'bb') s -= 2;
   return (parseInt(o) + 1) * 12 + s;
 }
 

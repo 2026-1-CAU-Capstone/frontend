@@ -95,6 +95,10 @@ function parseNavigationWords(raw: string): NavigationMarker | null {
 interface ParserState {
   fifths: number;
   keySigLetters: Set<string>;
+  /** Ticks per quarter note (MusicXML <divisions>). */
+  divisions: number;
+  /** Beats per measure (from current time signature numerator). */
+  beatsPerMeasure: number;
   /** Pending dynamic to attach to the next note. */
   pendingDynamic?: Dynamic;
   /** Pending ottava state — applied to subsequent notes until stopped. */
@@ -121,6 +125,10 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
   const beatType = text(firstAttr, 'beat-type') ?? '4';
   const timeSig  = `${beats}/${beatType}`;
   const initialKey = KEY_NAMES[initialFifths + 7] ?? 'C';
+  // <divisions>N</divisions> = ticks per quarter note. Needed for inferring
+  // a note's type (whole/half/quarter/…) when <type> is missing.
+  const initialDivisions = parseInt(text(firstAttr, 'divisions') ?? '1', 10) || 1;
+  const initialBeatsPerMeasure = parseInt(beats, 10) || 4;
 
   // Tempo: prefer <sound tempo="N"/>; fall back to <metronome><per-minute>N</per-minute></metronome>.
   // Many engravers include both for compat; <sound> is the playback hint while
@@ -148,6 +156,8 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
   const state: ParserState = {
     fifths: initialFifths,
     keySigLetters: keySigLettersFor(initialFifths),
+    divisions: initialDivisions,
+    beatsPerMeasure: initialBeatsPerMeasure,
   };
 
   // Slur tracking across the whole piece: map slur number → flat note index
@@ -210,9 +220,16 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
         }
         const beatsTxt = text(child, 'time > beats');
         const beatTypeTxt = text(child, 'time > beat-type');
-        if (beatsTxt && beatTypeTxt && measureIdx > 0) {
+        if (beatsTxt && beatTypeTxt) {
           const ts = `${beatsTxt}/${beatTypeTxt}`;
-          if (ts !== timeSig) measure.timeSignature = ts;
+          if (measureIdx > 0 && ts !== timeSig) measure.timeSignature = ts;
+          state.beatsPerMeasure = parseInt(beatsTxt, 10) || state.beatsPerMeasure;
+        }
+        // <divisions> can change mid-piece (rare but valid).
+        const divTxt = text(child, 'divisions');
+        if (divTxt) {
+          const d = parseInt(divTxt, 10);
+          if (Number.isFinite(d) && d > 0) state.divisions = d;
         }
         // Mid-piece clef change: <clef><sign>F</sign><line>4</line></clef>.
         // Treble (G2), bass (F4), alto (C3), tenor (C4). Only set when changing.
@@ -459,13 +476,41 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
       const isRest = !!restEl;
       // <rest measure="yes"/> = whole-measure rest, regardless of duration value
       // or current time signature (modern convention: hanging from 4th line).
-      const isFullMeasureRest = restEl?.getAttribute('measure') === 'yes';
+      // Also auto-detect: a rest with duration matching the measure's total
+      // and no <type> element is a full-measure rest (common XML simplification).
+      const isMeasureAttr = restEl?.getAttribute('measure') === 'yes';
+      const restDurationTicks = restEl ? parseInt(text(nEl, 'duration') ?? '0', 10) : 0;
+      const noTypeYet = !text(nEl, 'type');
+      const isFullMeasureRest = isMeasureAttr
+        || (restEl !== null && noTypeYet && state.divisions > 0
+            && Math.abs(restDurationTicks / state.divisions - state.beatsPerMeasure) < 0.01);
       const isGrace = !!nEl.querySelector('grace');
       const graceSlash = isGrace
         ? nEl.querySelector('grace')?.getAttribute('slash') === 'yes'
         : false;
 
-      const typeStr = text(nEl, 'type') ?? 'quarter';
+      // <type> may be omitted — particularly common for full-measure rests
+      // (e.g. <note><rest/><duration>48</duration></note> in a 4/4 piece
+      // with divisions=12). When missing, derive the type from <duration> /
+      // <divisions> so we don't fall through to the 'quarter' default.
+      let typeStr = text(nEl, 'type');
+      const durationTxt = text(nEl, 'duration');
+      const durationTicks = durationTxt ? parseInt(durationTxt, 10) : NaN;
+      if (!typeStr && Number.isFinite(durationTicks) && state.divisions > 0) {
+        // Beats this note occupies (relative to a quarter note).
+        const noteBeats = durationTicks / state.divisions;
+        // Whole-measure rest: duration matches the measure's total beat count.
+        if (Math.abs(noteBeats - state.beatsPerMeasure) < 0.01) {
+          typeStr = 'whole';
+        } else if (noteBeats >= 6) typeStr = 'whole';      // approximate
+        else if (noteBeats >= 3) typeStr = 'half';         // dotted half handled via <dot>
+        else if (noteBeats >= 1.5) typeStr = 'quarter';
+        else if (noteBeats >= 0.75) typeStr = 'eighth';
+        else if (noteBeats >= 0.375) typeStr = '16th';
+        else if (noteBeats >= 0.1875) typeStr = '32nd';
+        else typeStr = '64th';
+      }
+      typeStr = typeStr ?? 'quarter';
       const vf = TYPE_TO_VF[typeStr] ?? 'q';
       const isDotted = !!nEl.querySelector('dot');
 
@@ -533,10 +578,11 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
       }
 
       // Accidental — semantically the FLAT/SHARP/NATURAL on the actual sounding
-      // pitch (NotePlayer.vexToMidi maps letter+accidental→MIDI without consulting
-      // the key signature, so the parser MUST encode key-sig-implied alterations
-      // here too). The NoteSheet renderer suppresses drawing the symbol when it
-      // already matches the key signature / active accidental state.
+      // pitch. NotePlayer.vexToMidi falls back to the key signature when no
+      // explicit accidental is present, but we still encode key-sig-implied
+      // alterations here so playback doesn't hinge on data.key being right.
+      // The NoteSheet renderer suppresses drawing the symbol when it already
+      // matches the key signature / active accidental state.
       const isInKeySig = state.keySigLetters.has(step);
       const accText = text(nEl, 'accidental');
       const alterTxt = text(pitchEl, 'alter');

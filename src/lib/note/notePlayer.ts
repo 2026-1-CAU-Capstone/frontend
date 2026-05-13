@@ -19,17 +19,60 @@ import { swungBeats, SWING_RATIO } from './swing';
 
 const SEMI: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
 
-/* NoteInfo.keys 는 letter+accidental 이 곧 절대음정인 컨벤션 (LickInputPage 의
- * 피아노 입력, computeLickFeatures 모두 동일). 키 시그니처는 LickCard 의
- * ♮ 자동 표시에만 쓰이고, 재생 음높이는 letter+acc 만으로 결정한다. */
-function vexToMidi(key: string, acc?: '#' | 'b' | 'n' | '##' | 'bb'): number {
+/* 음정 결정 우선순위 (음악 표기 표준):
+ *   1) note.accidentals[ki] (있으면 그대로 사용 — `n`은 자연음 강제)
+ *   2) 없으면 keySig (Ab key 의 'a' → Ab 자동 적용)
+ *   3) 둘 다 없으면 그냥 자연음
+ *
+ * keySig 가 undefined 이면 옛 동작(letter+acc 만) 유지.
+ */
+function vexToMidi(
+  key: string,
+  acc?: '#' | 'b' | 'n' | '##' | 'bb',
+  keySig?: Map<string, 'b' | '#'>,
+): number {
   const [n, o] = key.split('/');
   let s = SEMI[n] ?? 0;
   if (acc === '#') s += 1;
   else if (acc === 'b') s -= 1;
   else if (acc === '##') s += 2;
   else if (acc === 'bb') s -= 2;
+  else if (acc === 'n') { /* explicit natural — no adjustment */ }
+  else if (keySig) {
+    const sigAcc = keySig.get(n);
+    if (sigAcc === '#') s += 1;
+    else if (sigAcc === 'b') s -= 1;
+  }
   return (parseInt(o) + 1) * 12 + s;
+}
+
+/* ─── key signature → letter-flat/sharp map ─────────────────────────── */
+
+const KS_FLAT_KEYS: Record<string, number> = {
+  F: 1, Bb: 2, Eb: 3, Ab: 4, Db: 5, Gb: 6, Cb: 7,
+  Dm: 1, Gm: 2, Cm: 3, Fm: 4, Bbm: 5, Ebm: 6, Abm: 7,
+};
+const KS_SHARP_KEYS: Record<string, number> = {
+  G: 1, D: 2, A: 3, E: 4, B: 5, 'F#': 6, 'C#': 7,
+  Em: 1, Bm: 2, 'F#m': 3, 'C#m': 4, 'G#m': 5, 'D#m': 6, 'A#m': 7,
+};
+const KS_FLAT_LETTERS  = ['b', 'e', 'a', 'd', 'g', 'c', 'f'];
+const KS_SHARP_LETTERS = ['f', 'c', 'g', 'd', 'a', 'e', 'b'];
+
+function buildKeySigMap(rawKey: string | undefined): Map<string, 'b' | '#'> {
+  const map = new Map<string, 'b' | '#'>();
+  if (!rawKey) return map;
+  // Accept formats: 'C', 'Eb', 'F#', 'Eb-maj', 'C-min', 'Cm'.
+  const k = rawKey.trim();
+  const [base] = k.split('-');               // strip '-maj'/'-min' suffix
+  const isMinor = /-(min|minor)/i.test(k) || /m$/.test(base);
+  const root = base.replace(/m$/i, '');
+  const vexKey = isMinor ? root + 'm' : root;
+  const nF = KS_FLAT_KEYS[vexKey];
+  if (nF) for (let i = 0; i < nF; i++) map.set(KS_FLAT_LETTERS[i], 'b');
+  const nS = KS_SHARP_KEYS[vexKey];
+  if (nS) for (let i = 0; i < nS; i++) map.set(KS_SHARP_LETTERS[i], '#');
+  return map;
 }
 
 /* ─── duration helpers ───────────────────────────────────────────────── */
@@ -171,6 +214,107 @@ interface SchedNote {
   measure: number;
   noteIndex: number; // index within measure (-1 for comp)
   track: 'melody' | 'comp' | 'bass';
+  /** Per-hit dynamic — only used by comp/bass currently. Melody uses a fixed
+   * gain from the instrument config. 0..1, scaled into instrument gain. */
+  velocity?: number;
+}
+
+/* ─── piano comping patterns (medium swing) ───────────────────────────── */
+
+const SWING_FACTOR = 2/3;  // swing offset for upbeat "and" hits (8th-note triplet feel)
+
+interface CompHit {
+  /** Position within the chord's slot, in beats. Values ≥ chord.beats are
+   * treated as "and of last beat" anticipation into the next chord. */
+  beat: number;
+  /** Sustain duration in beats. Undefined → default short stab (~0.6 beat). */
+  sustain?: number;
+  /** Base velocity 0..1 (humanized further per-hit at schedule time). */
+  vel?: number;
+}
+
+/* iReal Pro-style medium swing comping patterns. Each entry is a short
+ * rhythmic phrase used over a 1-bar chord. Multiple variants cycle bar-to-bar
+ * so the comping doesn't lock into a loop. Swing eighths approximated via
+ * SWING_FACTOR offset on the "and" of each beat. */
+const COMP_PATTERNS_4BEAT: CompHit[][] = [
+  // Pattern A — Charleston: 1 + (and of 2)
+  [
+    { beat: 0,                 sustain: 1.3, vel: 0.78 },
+    { beat: 1 + SWING_FACTOR,  sustain: 1.6, vel: 0.72 },
+  ],
+  // Pattern B — Comp on beat 2 + (and of 3)
+  [
+    { beat: 1,                 sustain: 1.0, vel: 0.68 },
+    { beat: 2 + SWING_FACTOR,  sustain: 1.2, vel: 0.78 },
+  ],
+  // Pattern C — Quarter on 1, (and of 2), then (and of 4) anticipation
+  [
+    { beat: 0,                 sustain: 0.7, vel: 0.75 },
+    { beat: 1 + SWING_FACTOR,  sustain: 0.9, vel: 0.7 },
+    { beat: 3 + SWING_FACTOR,  sustain: 0.6, vel: 0.82 },  // anticipation
+  ],
+  // Pattern D — Conservative 2 & 4 with a soft 1
+  [
+    { beat: 0,                 sustain: 0.4, vel: 0.55 },
+    { beat: 1 + SWING_FACTOR,  sustain: 0.9, vel: 0.7 },
+    { beat: 2 + SWING_FACTOR,  sustain: 1.2, vel: 0.78 },
+  ],
+];
+
+const COMP_PATTERN_2BEAT: CompHit[] = [
+  { beat: 0,                sustain: 0.7, vel: 0.78 },
+  { beat: SWING_FACTOR,     sustain: 0.9, vel: 0.7 },
+];
+
+const COMP_PATTERN_SHORT: CompHit[] = [
+  { beat: 0, sustain: 0.5, vel: 0.78 },
+];
+
+/* Bossa Nova comping patterns. Bossa uses STRAIGHT 8ths (no swing) and a
+ * characteristic syncopated rhythm — Jobim-style "samba clave" feel where
+ * hits land on the downbeat + "and of 2" + beat 4. The 2-bar alternation
+ * makes it sound idiomatic instead of a single repeated lick. */
+const COMP_PATTERNS_BOSSA_4BEAT: CompHit[][] = [
+  // Pattern A — classic Bossa: 1, "and of 2", 4 (let "and of 2" ring)
+  [
+    { beat: 0,   sustain: 1.0, vel: 0.72 },
+    { beat: 1.5, sustain: 1.3, vel: 0.78 },   // syncopated "and of 2"
+    { beat: 3.0, sustain: 1.0, vel: 0.7 },
+  ],
+  // Pattern B — partido alto variant: "and of 1", 3, "and of 4" anticipation
+  [
+    { beat: 0.5, sustain: 1.3, vel: 0.75 },   // "and of 1"
+    { beat: 2.0, sustain: 1.0, vel: 0.7 },
+    { beat: 3.5, sustain: 0.6, vel: 0.8 },    // "and of 4" anticipation
+  ],
+];
+
+const COMP_PATTERN_BOSSA_2BEAT: CompHit[] = [
+  { beat: 0,   sustain: 0.7, vel: 0.72 },
+  { beat: 0.5, sustain: 1.0, vel: 0.78 },
+];
+
+export type PlayStyleArg = 'swing' | 'bossa';
+
+function pickCompPattern(chordBeats: number, chordIdx: number, style: PlayStyleArg = 'swing'): CompHit[] {
+  if (style === 'bossa') {
+    if (chordBeats >= 3.5) {
+      return COMP_PATTERNS_BOSSA_4BEAT[chordIdx % COMP_PATTERNS_BOSSA_4BEAT.length];
+    }
+    if (chordBeats >= 1.5) {
+      return COMP_PATTERN_BOSSA_2BEAT;
+    }
+    return COMP_PATTERN_SHORT;
+  }
+  // swing (default)
+  if (chordBeats >= 3.5) {
+    return COMP_PATTERNS_4BEAT[chordIdx % COMP_PATTERNS_4BEAT.length];
+  }
+  if (chordBeats >= 1.5) {
+    return COMP_PATTERN_2BEAT;
+  }
+  return COMP_PATTERN_SHORT;
 }
 
 /* ─── expand measures (repeats, volta, brackets, navigation) ────────── */
@@ -331,6 +475,9 @@ export class NotePlayer {
    *  strong triplet swing, ~0.62 = medium swing). */
   swingEnabled = true;
   swingRatio = SWING_RATIO;
+  /** Overall genre feel — drives comp/drum/bass branching plus forces
+   *  straight 8ths when 'bossa'. Mirrors playerSettings.style. */
+  style: PlayStyleArg = 'swing';
 
   private unsubSettings: (() => void) | null = null;
   private readonly lickMode: boolean;
@@ -372,6 +519,7 @@ export class NotePlayer {
       this.setPianoReverb(s.pianoReverb);
     }
     this.swingRatio = s.swingRatio;
+    this.style = s.style;
 
     if (drumKitChanged) {
       // setDrumKit is async; fire-and-forget — playback transitions are handled internally.
@@ -720,6 +868,10 @@ export class NotePlayer {
     const bs = 60 / tempo; // seconds per beat
     const [tsNum] = (data.timeSignature || '4/4').split('/').map(Number);
     this.sched = [];
+    // Key signature → letter→accidental map. Used by vexToMidi to apply the
+    // key sig when a note has no explicit accidental (e.g. an 'a' line in Ab
+    // major sounds as Ab without the data needing an explicit flat).
+    const keySig = buildKeySigMap(data.key);
 
     // Expand repeats/volta/navigation from the very first measure
     const srcMeasures = data.measures;
@@ -755,13 +907,45 @@ export class NotePlayer {
     // First-occurrence start time per source measure — used by seekToMeasure.
     // swingRatio influences only the seconds projection; measureStartBeats is
     // pre-swing so it stays valid even if swing toggles.
-    const swingRatio = this.swingEnabled ? this.swingRatio : 0.5;
+    // Bossa nova uses straight 8ths regardless of swing setting — overriding
+    // here keeps the rest of the build() math intact while ensuring the
+    // resulting feel is correct for the genre.
+    const isBossa = this.style === 'bossa';
+    const swingRatio = isBossa ? 0.5 : (this.swingEnabled ? this.swingRatio : 0.5);
     const toSec = (beatPos: number) => swungBeats(beatPos, swingRatio) * bs;
+    /* Deterministic pseudo-random in [-1, 1] keyed by (bar, slot).  Used to
+     * humanize velocity / timing of comp + drum hits so the same lick renders
+     * the same way every time (no autoplay drift) but doesn't sound like a
+     * sequencer. Defined here so both the comp loop and the drum loop below
+     * share one definition. */
+    const jitter = (bar: number, slot: number) => {
+      const x = Math.sin(bar * 12.9898 + slot * 78.233) * 43758.5453;
+      return (x - Math.floor(x)) * 2 - 1;
+    };
     this.measureStartTimes = new Array(srcMeasures.length).fill(-1);
     for (let ei = 0; ei < expanded.length; ei++) {
       const oi = expanded[ei].origMi;
       if (this.measureStartTimes[oi] < 0) {
         this.measureStartTimes[oi] = toSec(measureStartBeats[ei]);
+      }
+    }
+
+    // Per-expanded-measure key signature. data.key is the initial key; any
+    // measure.key sets a new key starting at that measure and persisting until
+    // another override. This lets mid-piece modulations (e.g. last 8 bars in
+    // Eb after starting in C) actually change which letters get a flat/sharp
+    // applied when a note has no explicit accidental.
+    const measureKeySigs: Array<Map<string, 'b' | '#'>> = [];
+    {
+      let cur = keySig;
+      let curKey = data.key;
+      for (let ei = 0; ei < expanded.length; ei++) {
+        const mk = expanded[ei].m.key;
+        if (mk && mk !== curKey) {
+          curKey = mk;
+          cur = buildKeySigMap(mk);
+        }
+        measureKeySigs.push(cur);
       }
     }
 
@@ -830,13 +1014,15 @@ export class NotePlayer {
       // (fallback for hand-authored data without tieContinuation). The chain ends
       // on a rest, on a tie target that itself has tie=false AND no continuation
       // flag, or on a pitch mismatch when there's no continuation flag to override.
+      const ks = measureKeySigs[f.expandIdx] ?? keySig;
       if (!isRest && f.note.tie) {
-        const leadMidi = vexToMidi(f.note.keys[0], f.note.accidentals?.[0]);
+        const leadMidi = vexToMidi(f.note.keys[0], f.note.accidentals?.[0], ks);
         let look = fi + 1;
         while (look < flat.length) {
           const nxt = flat[look].note;
           if (nxt.duration.endsWith('r')) break;
-          const nxtMidi = vexToMidi(nxt.keys[0], nxt.accidentals?.[0]);
+          const ksNxt = measureKeySigs[flat[look].expandIdx] ?? keySig;
+          const nxtMidi = vexToMidi(nxt.keys[0], nxt.accidentals?.[0], ksNxt);
           const continuationFlag = !!nxt.tieContinuation;
           // Trust the explicit continuationFlag over pitch comparison — pitch
           // checks can drift on edge-case accidental encodings (the Omnibook bug).
@@ -851,7 +1037,7 @@ export class NotePlayer {
         const dur = toSec(mt + totalBeats) - onsetSec;
         for (let ki = 0; ki < f.note.keys.length; ki++) {
           const acc = f.note.accidentals?.[ki];
-          const midi = vexToMidi(f.note.keys[ki], acc);
+          const midi = vexToMidi(f.note.keys[ki], acc, ks);
           this.sched.push({ time: onsetSec, dur: Math.max(dur * 0.85, 0.04), midi, measure: f.origMi, noteIndex: f.ni, track: 'melody' });
         }
         mt += totalBeats;
@@ -864,7 +1050,7 @@ export class NotePlayer {
       if (!isRest) {
         for (let ki = 0; ki < f.note.keys.length; ki++) {
           const acc = f.note.accidentals?.[ki];
-          const midi = vexToMidi(f.note.keys[ki], acc);
+          const midi = vexToMidi(f.note.keys[ki], acc, ks);
           this.sched.push({ time: onsetSec, dur: Math.max(dur * 0.85, 0.04), midi, measure: f.origMi, noteIndex: f.ni, track: 'melody' });
         }
       }
@@ -966,7 +1152,10 @@ export class NotePlayer {
       return out;
     };
 
-    const bassMode = this.lickMode ? null : this.bassMode;
+    // Bossa: walking 4-feel sounds wrong; force 2-feel (root-fifth alternation).
+    const bassMode = this.lickMode
+      ? null
+      : (isBossa && this.bassMode === 'four-feel' ? 'two-feel' : this.bassMode);
     const compDurBeats = 0.45; // chord-stab length, in beats
     for (let i = 0; i < chordList.length; i++) {
       const c = chordList[i];
@@ -1011,14 +1200,49 @@ export class NotePlayer {
         }
       }
 
-      // ── Comp (piano voicing on the chord downbeat) ──
-      const compEndSec = toSec(c.startBeat + compDurBeats);
-      const compDur = compEndSec - startSec;
-      for (const midi of c.voicingMidis) {
-        this.sched.push({
-          time: startSec, dur: compDur, midi,
-          measure: c.measureIdx, noteIndex: -1, track: 'comp',
-        });
+      // ── Piano comping (iReal Pro-style medium-swing patterns) ──
+      // The previous build just dumped the whole voicing on the chord's
+      // downbeat for compDurBeats — totally flat, no swing pocket. Real
+      // jazz comping breathes: hits on the "and of 2" / "and of 3" with
+      // swing-eighth feel, occasional anticipation on the "and of 4" into
+      // the next chord, and small velocity/timing humanization so it
+      // doesn't sound like a sequencer. compDurBeats kept for reference
+      // but no longer drives the rhythm.
+      void compDurBeats;
+
+      const compHits = pickCompPattern(c.beats, i, this.style);
+      const isLastChord = i === chordList.length - 1;
+      for (const hit of compHits) {
+        // "And of 4" anticipation: if a hit's beat exceeds c.beats and a
+        // next chord exists, we'd want to use the NEXT chord's voicing.
+        // Simpler approach for now: clip anticipations so they land just
+        // before the next chord (and let voice-leading from same-chord
+        // voicing carry it through).
+        let beatOffset = hit.beat;
+        const isAnticipation = beatOffset >= c.beats - 0.01;
+        if (isAnticipation) {
+          // Skip anticipation on the very last chord (nothing to anticipate)
+          if (isLastChord) continue;
+          beatOffset = c.beats - 0.5 * (1 - SWING_FACTOR);  // "and of last beat"
+        }
+        const t = toSec(c.startBeat + beatOffset);
+        // Stab length: short for syncopated hits, longer for downbeats so
+        // sustained chords still breathe.
+        const stabBeats = hit.sustain ?? 0.6;
+        const dur = stabBeats * bs;
+        // Per-hit timing/velocity jitter — comping breathes between
+        // chord/measure cycles so it doesn't lock to the grid.
+        const tJit = jitter(c.measureIdx, Math.floor(beatOffset * 10)) * 0.008;
+        const vJit = jitter(c.measureIdx, Math.floor(beatOffset * 10) + 7) * 0.06;
+        const baseVel = hit.vel ?? 0.7;
+        const vel = Math.max(0.25, Math.min(1.0, baseVel + vJit));
+        for (const midi of c.voicingMidis) {
+          this.sched.push({
+            time: t + tJit, dur,
+            midi, measure: c.measureIdx, noteIndex: -1, track: 'comp',
+            velocity: vel,
+          });
+        }
       }
     }
 
@@ -1029,11 +1253,8 @@ export class NotePlayer {
     // Velocities are humanized per bar so the ride doesn't sound like a metronome.
     this.drumSched = [];
     const swingOffset = bs * 2 / 3; // triplet-feel "a"
-    // Deterministic pseudo-random in [-1, 1] per (bar, slot) so renders are stable.
-    const jitter = (bar: number, slot: number) => {
-      const x = Math.sin(bar * 12.9898 + slot * 78.233) * 43758.5453;
-      return (x - Math.floor(x)) * 2 - 1;
-    };
+    // jitter() is defined at the top of build() so the comp loop above and
+    // the drum loop below share one humanization source.
     const VEL_JITTER = 0.08;
     const pushHit = (time: number, piece: DrumPiece, baseVel: number, bar: number, slot: number) => {
       const v = baseVel + jitter(bar, slot) * VEL_JITTER;
@@ -1046,7 +1267,55 @@ export class NotePlayer {
     for (let ei = 0; ei < expanded.length; ei++) {
       const measStart = toSec(measureStartBeats[ei]);
       const measLen = measureBeats[ei];
-      if (tsNum === 4 && Math.abs(measLen - 4) < 0.001) {
+
+      if (isBossa) {
+        /* ── Bossa Nova drum pattern (straight 8ths) ──
+         * Closed hi-hat: steady 8ths on every "and" subdivision (slightly
+         *   softer on offbeats so the pulse breathes).
+         * Kick (bumbo): syncopated samba-clave-ish pattern — beat 1 + "and
+         *   of 2" + beat 3, alternating with bar 2 variant for the 2-bar
+         *   feel that's signature to Bossa.
+         * Snare-ghost: stands in for the cross-stick rim click — soft hits
+         *   on beat 3 (and bar 2: beat 2.5).
+         * NO ride cymbal, NO hihat-foot. */
+        if (tsNum === 4 && Math.abs(measLen - 4) < 0.001) {
+          // Closed hi-hat on every 8th (0, 0.5, 1, ..., 3.5)
+          for (let h = 0; h < 8; h++) {
+            const t = measStart + (h / 2) * bs;
+            const onBeat = h % 2 === 0;
+            pushHit(t, 'hihat-closed', onBeat ? 0.55 : 0.42, ei, 20 + h);
+          }
+          // 2-bar alternation: even bars vs odd bars get slightly different
+          // kick placement to imply the bossa clave.
+          const evenBar = (ei % 2) === 0;
+          if (evenBar) {
+            // Bar 1: kick on 1 + "and of 2" + 3
+            pushHit(measStart + 0 * bs,     'kick', 0.7, ei, 30);
+            pushHit(measStart + 1.5 * bs,   'kick', 0.62, ei, 31);
+            pushHit(measStart + 3 * bs,     'kick', 0.66, ei, 32);
+            // Cross-stick (snare-ghost) on beat 3 — gentle rim
+            pushHit(measStart + 2 * bs,     'rim', 0.6, ei, 33);
+          } else {
+            // Bar 2: kick on "and of 1" + 2.5 + "and of 4"
+            pushHit(measStart + 0.5 * bs,   'kick', 0.62, ei, 30);
+            pushHit(measStart + 2.5 * bs,   'kick', 0.7, ei, 31);
+            pushHit(measStart + 3.5 * bs,   'kick', 0.56, ei, 32);
+            // Cross-stick on beats 2 and 4
+            pushHit(measStart + 1 * bs,     'rim', 0.58, ei, 33);
+            pushHit(measStart + 3 * bs,     'rim', 0.6, ei, 34);
+          }
+        } else {
+          // Fallback for non-4/4 bars: steady closed hat + kick on each beat
+          const fullBeats = Math.floor(measLen + 0.001);
+          for (let beat = 0; beat < fullBeats; beat++) {
+            const t = measStart + beat * bs;
+            pushHit(t, 'hihat-closed', 0.55, ei, beat * 4);
+            pushHit(t + 0.5 * bs, 'hihat-closed', 0.42, ei, beat * 4 + 1);
+            if (beat === 0 || beat === 2) pushHit(t, 'kick', 0.65, ei, beat * 4 + 2);
+          }
+        }
+      } else if (tsNum === 4 && Math.abs(measLen - 4) < 0.001) {
+        // ── Medium swing (default) ──
         // Ride pattern — quarter notes on every beat, alternating accents.
         pushHit(measStart + 0 * bs, 'ride', 0.78, ei, 0);
         pushHit(measStart + 1 * bs, 'ride', 0.64, ei, 1);
@@ -1108,11 +1377,14 @@ export class NotePlayer {
           let vol = 2.5 * this.melodyVolume;
           if (n.track === 'comp') { inst = this.compInst; vol = 1.8 * this.pianoVolume; }
           else if (n.track === 'bass') { inst = this.bassInst; vol = 2.5 * this.bassVolume; }
-          
+
+          // Per-hit velocity (0..1) multiplies the track's base volume.
+          // Melody/bass currently don't set velocity → defaults to 1.
+          const velScale = n.velocity ?? 1;
           if (inst) {
             const node = inst.play(String(n.midi), this.origin + n.time, {
               duration: n.dur,
-              gain: vol,
+              gain: vol * velScale,
             }) as any;
             this.activeNodes.push(node);
           }

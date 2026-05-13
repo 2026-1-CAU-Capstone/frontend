@@ -22,6 +22,7 @@ import { YoutubeEmbed } from '../common/YoutubeEmbed';
 import { getLickVideo } from '../../data/lickVideos';
 import { useCountInIntro } from '../../hooks/useCountInIntro';
 import { PATTERN_SIMPLE } from '../../lib/note/countInPatterns';
+import { formatChordDisplay } from '../../lib/jazz-harmony';
 
 /* ─── layout constants ──────────────────────────────────────────────── */
 
@@ -43,40 +44,7 @@ const DECOR_OTHER = 35;
 const PX_PER_DUR: Record<string, number> = { w: 22, h: 22, q: 22, '8': 22, '16': 22 };
 const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25 };
 
-/**
- * Replace text chord tokens with proper music symbols.
- * Parses root+accidental first, then normalises quality tokens.
- */
-function formatChord(raw: string): string {
-  // Separate root (+ optional accidental) from quality
-  const m = raw.match(/^([A-G])([b#]?)(.*)/);
-  if (!m) return raw;
-
-  const root = m[1];
-  const acc = m[2] === 'b' ? '\u266D' : m[2] === '#' ? '\u266F' : '';
-  let q = m[3];
-
-  // Quality normalisations (order matters: specific before general)
-  q = q.replace(/^(-7b5|-7\(b5\)|m7b5|mi7b5|min7b5)/, '\u00F87');
-  // Major + digit (Maj9, M11, j7, \u2026) \u2192 \u25B3 + digit kept via lookahead.
-  q = q.replace(/^(?:Maj|maj|Ma|ma|M|j)(?=\d)/, '\u25B3');
-  // Bare 'm' (followed by digit/end, NOT another letter \u2014 to avoid maj/min).
-  q = q.replace(/^m(?![a-zA-Z])/, '-');   // half-dim → ø7
-  q = q.replace(/^(Maj7|maj7|Ma7|ma7|M7|j7)/,         '\u25B37');   // major-7 → △7
-  q = q.replace(/^(mi|min)/,                          '-');         // minor   → -
-  q = q.replace(/^h7/,                     '\u00F87');   // h7 → ø7
-  q = q.replace(/^h(?!\d)/,                '\u00F8');    // h  → ø
-  q = q.replace(/^o7/,                     '\u00B07');   // o7 → °7
-  q = q.replace(/^o(?!\d)/,                '\u00B0');    // o  → °
-
-  // Accidentals in tensions (b5, #9, etc.)
-  q = q.replace(/(\d)b/g,  '$1\u266D');
-  q = q.replace(/b(\d)/g,  '\u266D$1');
-  q = q.replace(/(\d)#/g,  '$1\u266F');
-  q = q.replace(/#(\d)/g,  '\u266F$1');
-
-  return root + acc + q;
-}
+const formatChord = formatChordDisplay;
 
 /** Normalize lick key to VexFlow key signature format. */
 function toVexKey(key: string): string {

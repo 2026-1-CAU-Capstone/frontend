@@ -12,6 +12,7 @@ import type { NoteInfo, MeasureInfo, NavigationMarker, NoteSheetData } from '../
 import Soundfont from 'soundfont-player';
 import { useCountInIntro } from '../hooks/useCountInIntro';
 import { swungBeats } from '../lib/note/swing';
+import { normalizeChord } from '../lib/jazz-harmony';
 
 const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25 };
 const SEMI_MAP: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
@@ -1216,30 +1217,7 @@ const ChordCellInput = styled.input`
   outline: none;
 `;
 
-function normalizeChord(raw: string): string {
-  if (!raw) return raw;
-  const m = raw.match(/^([A-Ga-g][b#]?)(.*)/);
-  if (!m) return raw;
-  const root = m[1].charAt(0).toUpperCase() + m[1].slice(1);
-  let q = m[2];
-
-  q = q.replace(/^(?:m7b5|min7b5|-7b5)$/i, 'ø7');
-  q = q.replace(/^dim7$/i, '°7');
-  q = q.replace(/^dim$/i, '°');
-  q = q.replace(/^(?:-|m|min)(?:M|maj)(\d.*)$/i, '-△$1');
-  q = q.replace(/^maj(\d.*)$/i, '△$1');
-  q = q.replace(/^maj$/i, '△');
-  q = q.replace(/^M(\d.*)$/, '△$1');
-  q = q.replace(/^M$/, '△');
-  q = q.replace(/^min(\d.*)$/i, '-$1');
-  q = q.replace(/^min$/i, '-');
-  q = q.replace(/^m(\d.*)$/, '-$1');
-  q = q.replace(/^m$/, '-');
-  q = q.replace(/^aug(\d.*)$/i, '+$1');
-  q = q.replace(/^aug$/i, '+');
-
-  return root + q;
-}
+/* normalizeChord now imported from src/lib/jazz-harmony. */
 
 function splitChord(chord: string): { base: string; ext: string; tensions: { acc: string; num: string }[] } {
   const m = chord.match(/^(\D*?)(\d.*)$/);
@@ -1804,7 +1782,10 @@ export default function SoloGeneratorPage() {
       setCurChord2(c2);
       setRepeatStart(last.repeatStart ?? false);
       setRepeatEnd(last.repeatEnd ?? false);
-      setVolta(last.volta ?? 0);
+      // last.volta is a generic number from MeasureInfo but the editor
+      // only tracks 0|1|2 — clamp anything else to 0.
+      const v = last.volta ?? 0;
+      setVolta(v === 1 || v === 2 ? v : 0);
       setNavigation(last.navigation ?? '');
       setBracket(last.bracket ?? false);
     }

@@ -377,12 +377,13 @@ export async function loadMidiMelody(
       const q = quantise(rawBeats);
 
       const { key: vk, accidental } = midiToVex(ev.midi, preferSharps);
-      // Convention: keys[0] + accidentals[0] together encode the absolute pitch
-      // (the player's vexToMidi ignores key signature). Always emit the
-      // accidental — the NoteSheet renderer dedupes it against the key sig so
-      // we don't get redundant glyphs. When a note's letter is altered by the
-      // key sig but the note is the natural, emit 'n' so player and renderer
-      // agree on the override.
+      // Convention: keys[0] + accidentals[0] together encode the absolute pitch.
+      // The player's vexToMidi does consult the key signature when no explicit
+      // accidental is given, but we still always emit an explicit accidental so
+      // playback doesn't depend on the key field being correct. The NoteSheet
+      // renderer dedupes it against the key sig so we don't get redundant
+      // glyphs. When a note's letter is altered by the key sig but the note is
+      // the natural, emit 'n' so player and renderer agree on the override.
       const ni: NoteInfo = { keys: [vk], duration: q.vf, dotted: q.dot || undefined };
       const letter = vk.split('/')[0];
       if (accidental) {

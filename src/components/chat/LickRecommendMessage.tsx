@@ -15,6 +15,7 @@ import { NotePlayer } from '../../lib/note/notePlayer';
 import { useCountInIntro } from '../../hooks/useCountInIntro';
 import { PATTERN_SIMPLE } from '../../lib/note/countInPatterns';
 import type { NoteInfo, MeasureInfo } from '../../data/sampleMelody';
+import { normalizeChordTypeset as normalizeChordLabel } from '../../lib/jazz-harmony';
 import { YoutubeEmbed } from '../common/YoutubeEmbed';
 import { getLickVideo } from '../../data/lickVideos';
 
@@ -145,26 +146,8 @@ const ScoreBox = styled.div`
   }
 `;
 
-/* ── chord label normalization ───────────────────────────────────────────── */
-
-function normalizeChordLabel(raw: string): string {
-  if (!raw) return raw;
-  let s = raw.trim();
-  // Root accidental: b → ♭, # → ♯ (only after a root letter A-G)
-  s = s.replace(/^([A-G])b/, '$1♭').replace(/^([A-G])#/, '$1♯');
-  // Quality: half-dim h → ø
-  s = s.replace(/h7/, 'ø7').replace(/h(?!\d)/, 'ø');
-  // maj / j
-  s = s.replace(/j7/, '△7').replace(/maj7/i, '△7').replace(/maj(?!7)/i, '△');
-  // dim
-  s = s.replace(/dim7/, '°7').replace(/dim(?!7)/, '°');
-  // -7b5 / m7b5 forms
-  s = s.replace(/-7b5|-7\(b5\)|m7b5|min7b5/, 'ø7');
-  // minor - (keep the dash, already looks right)
-  // Tension accidentals: b9 → ♭9 etc.
-  s = s.replace(/b(\d)/g, '♭$1').replace(/#(\d)/g, '♯$1');
-  return s;
-}
+/* normalizeChordLabel now imported as alias of normalizeChordTypeset from
+ * src/lib/jazz-harmony. See import at top of file. */
 
 /** Append a chord label in SVG at the given position (root larger, quality smaller) */
 function addChordLabel(svg: SVGElement, x: number, y: number, raw: string) {

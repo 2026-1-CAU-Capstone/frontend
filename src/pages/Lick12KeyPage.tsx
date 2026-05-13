@@ -12,6 +12,7 @@ import type { NoteInfo, MeasureInfo } from '../data/sampleMelody';
 import { loadUserLicks, type LickEntry } from '../data/lickData';
 import { getLickVideo, type LickVideo } from '../data/lickVideos';
 import { YoutubeEmbed } from '../components/common/YoutubeEmbed';
+import { formatChordDisplay } from '../lib/jazz-harmony';
 
 /* ─── transposition helpers ───────────────────────────────────────────── */
 
@@ -273,20 +274,7 @@ function buildVfNotes(measure: MeasureInfo, initialAcc?: Map<string, 'b' | '#' |
   });
 }
 
-function formatChord(raw: string): string {
-  return raw
-    .replace(/j7/g, '\u25B37')
-    .replace(/(?<=[A-G])b(?=[^a-z]|$)/g, '\u266D')
-    .replace(/(\d)b/g, '$1\u266D')
-    .replace(/b(\d)/g, '\u266D$1')
-    .replace(/(\d)#/g, '$1\u266F')
-    .replace(/#(\d)/g, '\u266F$1')
-    .replace(/-7b5/g, '\u00F87')
-    .replace(/h7/g, '\u00F87')
-    .replace(/h(?!\d)/g, '\u00F8')
-    .replace(/o7/g, '\u00B07')
-    .replace(/o(?!\d)/g, '\u00B0');
-}
+const formatChord = formatChordDisplay;
 
 function drawGlissLine(svgEl: SVGElement, fromNote: StaveNote, toNote: StaveNote) {
   const fromYs = fromNote.getYs();

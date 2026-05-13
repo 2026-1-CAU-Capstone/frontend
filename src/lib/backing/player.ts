@@ -35,8 +35,11 @@ function mixSettingsIntoConfig(
   base: BackingConfig,
 ): BackingConfig {
   const kitCfg = DRUM_KIT_PRESETS[s.drumKit].toConfig();
+  // PlayerSettings.style ('swing'|'bossa') → BackingConfig.style (StyleId).
+  const mappedStyle = s.style === "bossa" ? "bossa" : "medium-swing";
   return {
     ...kitCfg,                   // drumMode + drumLoop
+    style: mappedStyle,
     ...base,                     // caller overrides win
     volume: {
       piano: s.pianoVolume,
@@ -83,16 +86,16 @@ export function createBackingPlayer(
 
   /* ── audio context / instruments ─────────────────────────────────── */
 
-  function ensureCtx(): AudioContext {
+  async function ensureCtx(): Promise<AudioContext> {
     if (!ctx) ctx = new AudioContext();
-    if (ctx.state === "suspended") ctx.resume();
+    if (ctx.state === "suspended") await ctx.resume();
     return ctx;
   }
 
   function ensureInstruments(): Promise<void> {
     if (piano && bass && drums) return Promise.resolve();
     if (loading) return loading;
-    loading = loadInstruments(ensureCtx()).then((inst) => {
+    loading = ensureCtx().then(loadInstruments).then((inst) => {
       piano = inst.piano;
       bass = inst.bass;
       drums = inst.drums;
@@ -131,7 +134,7 @@ export function createBackingPlayer(
     drumLoopUrl = null;
     drumLoopLoading = (async () => {
       try {
-        const c = ensureCtx();
+        const c = await ensureCtx();
         const player = await loadDrumLoopPlayer(c, c.destination, cfg);
         // Config may have flipped during the fetch — drop a stale result.
         if (config.drumLoop?.url !== targetUrl) {
@@ -153,7 +156,7 @@ export function createBackingPlayer(
 
   function build() {
     const bpm = config.bpm ?? chart.bpm;
-    events = renderChart(chart, { bpm });
+    events = renderChart(chart, { bpm, style: config.style });
     const beatsPerBar = chart.timeSig[0];
     secPerBar = beatsPerBar * (60 / bpm);
     totalBars = chart.sections.reduce((s, sec) => s + sec.bars.length, 0);
@@ -245,14 +248,14 @@ export function createBackingPlayer(
    *  호출하지만 모두 idempotent (캐시) 라 카운트인과 병렬로 호출해두면 첫 재생
    *  지연이 사라진다. */
   async function preload(): Promise<void> {
-    ensureCtx();
+    await ensureCtx();
     await ensureInstruments();
     await ensureDrumLoop();
   }
 
   async function play(playOpts: { startAt?: number } = {}): Promise<void> {
     if (playing) return;
-    ensureCtx();
+    await ensureCtx();
     await ensureInstruments();
     await ensureDrumLoop();
     build();
@@ -318,19 +321,21 @@ export function createBackingPlayer(
     const prevMode = config.drumMode;
     const prevUrl = config.drumLoop?.url;
     const prevBpm = config.bpm;
+    const prevStyle = config.style;
     config = { ...config, ...next };
 
     // Apply pianoReverb immediately whether playing or not.
     applyPianoReverb();
 
     if (playing) {
-      // Mid-playback drum-kit / loop-URL / BPM changes all desync against
-      // events already scheduled at the old tempo (and require a re-time-
-      // stretch on loop kits). Fully stop so the user explicitly resumes.
+      // Mid-playback drum-kit / loop-URL / BPM / style changes all desync
+      // against events already scheduled under the old settings. Fully stop
+      // so the user explicitly resumes.
       const modeChanged = prevMode !== config.drumMode;
       const urlChanged = prevUrl !== config.drumLoop?.url;
       const bpmChanged = "bpm" in next && prevBpm !== config.bpm;
-      if (modeChanged || urlChanged || bpmChanged) {
+      const styleChanged = "style" in next && prevStyle !== config.style;
+      if (modeChanged || urlChanged || bpmChanged || styleChanged) {
         stop();
         callbacks.onDone?.();
         // Pre-fetch the new loop so the next play() doesn't wait on IO.
