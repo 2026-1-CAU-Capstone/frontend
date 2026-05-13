@@ -61,7 +61,7 @@ export interface MeasureInfo {
   chord?: string;
   repeatStart?: boolean;   // 𝄆 repeat begin barline
   repeatEnd?: boolean;     // 𝄇 repeat end barline
-  volta?: 1 | 2;           // volta bracket (1st / 2nd ending)
+  volta?: number;          // volta bracket ending number (1, 2, 3, ...)
   navigation?: NavigationMarker;  // D.C., D.S., Coda, Fine, etc.
   bracket?: boolean;              // intro bracket — skipped on loop, jumps to first chord measure
 
@@ -69,6 +69,7 @@ export interface MeasureInfo {
   timeSignature?: string;         // override at this measure (e.g. '3/4' switch)
   key?: string;                   // override key (display name like 'F' / 'Eb')
   anacrusis?: boolean;            // pickup measure — fewer beats than time sig
+  tempo?: number;                 // mid-piece tempo change (BPM, quarter=N)
 }
 
 export interface NoteSheetData {

@@ -892,11 +892,41 @@ export class NotePlayer {
       return n;
     };
 
+    /* Carry-forward rule:
+     *   - Empty chord cell  → repeat the LAST sounded chord (musical default).
+     *   - Explicit "N.C." / "NC" (No Chord) → silence; clear carry-forward.
+     *   - Otherwise        → play the cell and remember its trailing chord
+     *     token (last half-bar) as the carry-forward source.
+     * This matches how real lead-sheets read: an empty bar means "stay on the
+     * previous chord", a marked N.C. means "stop comping". */
+    const NC_RE = /^n\.?\s*c\.?$/i;
+    let lastCarryChord: string | null = null;
+
     const chordList: ChordHit[] = [];
     for (let ei = 0; ei < expanded.length; ei++) {
       const { m, origMi } = expanded[ei];
-      if (!m.chord) continue;
-      const chordTokens = m.chord.split(/\s{2,}/);
+      const rawChord = (m.chord ?? '').trim();
+
+      let effectiveChord: string | null = null;
+      if (rawChord) {
+        if (NC_RE.test(rawChord)) {
+          // Explicit no-chord — silence and stop carrying forward.
+          lastCarryChord = null;
+          continue;
+        }
+        effectiveChord = rawChord;
+        // Carry forward the TRAILING token (so "D-7  G7" → "G7" carries).
+        const allTokens = rawChord.split(/\s{2,}/);
+        lastCarryChord = allTokens[allTokens.length - 1];
+      } else if (lastCarryChord) {
+        // Empty cell — repeat the last sounded chord across the whole bar.
+        effectiveChord = lastCarryChord;
+      } else {
+        // No chord yet seen and nothing to carry — keep the bar silent.
+        continue;
+      }
+
+      const chordTokens = effectiveChord.split(/\s{2,}/);
       const measStartBeat = measureStartBeats[ei];
       const slotCount = Math.min(chordTokens.length, 2); // 1 or 2 chords per measure
       const slotBeats = measureBeats[ei] / slotCount;

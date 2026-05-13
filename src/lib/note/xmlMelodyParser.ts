@@ -146,7 +146,7 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
 
   // Volta tracking: an <ending number="1"> spans one or more measures
   // until <ending type="stop"/>. We mark each measure inside the span.
-  let currentVolta: 1 | 2 | undefined;
+  let currentVolta: number | undefined;
 
   const partMeasures = doc.querySelectorAll('part > measure');
 
@@ -218,7 +218,7 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
         if (endingEl) {
           const num = parseInt(endingEl.getAttribute('number') ?? '0', 10);
           const type = endingEl.getAttribute('type');
-          if (type === 'start' && (num === 1 || num === 2)) {
+          if (type === 'start' && num >= 1) {
             currentVolta = num;
             measure.volta = num;
           } else if ((type === 'stop' || type === 'discontinue') && location !== 'left') {
@@ -234,22 +234,27 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
       if (tag === 'direction') {
         const dirType = child.querySelector('direction-type');
         if (!dirType) continue;
-        // Segno / Coda symbols
-        if (dirType.querySelector('segno')) {
-          // Symbol placed at this measure — we don't differentiate D.S./segno;
-          // for now treat segno presence as a 'segno' marker if no nav set.
-          if (!measure.navigation) measure.navigation = 'segno' as NavigationMarker;
-        }
-        if (dirType.querySelector('coda')) {
-          if (!measure.navigation) measure.navigation = 'coda' as NavigationMarker;
-        }
-        // Text words (D.C./D.S./Fine/To Coda etc.)
-        const wordsList = dirType.querySelectorAll('words');
-        for (const w of wordsList) {
-          const nav = parseNavigationWords(w.textContent ?? '');
-          if (nav) {
-            measure.navigation = nav;
-            break;
+        // Navigation priority: destination markers (segno/coda) are anchors
+        // referenced by text triggers (D.S./D.C./To Coda). When both appear
+        // on the same measure, destination wins (we can only render one per
+        // stave). Symbols also outrank text from a prior <direction> sibling.
+        const segnoEl = dirType.querySelector('segno');
+        const codaEl  = dirType.querySelector('coda');
+        if (segnoEl) {
+          measure.navigation = 'segno' as NavigationMarker;
+        } else if (codaEl) {
+          measure.navigation = 'coda' as NavigationMarker;
+        } else {
+          // Only consider text words if NO symbol marker was set on this measure.
+          if (measure.navigation !== 'segno' && measure.navigation !== 'coda') {
+            const wordsList = dirType.querySelectorAll('words');
+            for (const w of wordsList) {
+              const nav = parseNavigationWords(w.textContent ?? '');
+              if (nav) {
+                measure.navigation = nav;
+                break;
+              }
+            }
           }
         }
         // Octave-shift (8va/8vb)
@@ -281,6 +286,14 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
               break;
             }
           }
+        }
+        // Mid-piece tempo change: <direction><sound tempo="N"/></direction>.
+        // Captured at the measure where the new tempo takes effect; only the
+        // FIRST tempo of measureIdx>0 is stored (most XMLs declare once per change).
+        const soundTempoEl = child.querySelector('sound[tempo]');
+        if (soundTempoEl && measureIdx > 0 && measure.tempo === undefined) {
+          const t = parseFloat(soundTempoEl.getAttribute('tempo') ?? '');
+          if (Number.isFinite(t) && t > 0) measure.tempo = Math.round(t);
         }
         continue;
       }

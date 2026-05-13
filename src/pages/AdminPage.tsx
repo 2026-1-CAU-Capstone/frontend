@@ -16,7 +16,7 @@ import { OmnibookViewer } from '../components/admin/OmnibookViewer';
  *                         chat's YouTube button picks them up.
  * ──────────────────────────────────────────────────────────────────────── */
 
-type Tab = 'youtube' | 'lickjson' | 'sjs' | 'omnibook' | 'miles';
+type Tab = 'youtube' | 'lickjson' | 'sjs' | 'solo';
 
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>('youtube');
@@ -38,11 +38,8 @@ export default function AdminPage() {
           <TabBtn $active={tab === 'sjs'} onClick={() => setTab('sjs')}>
             Symbolic Jazz Standards
           </TabBtn>
-          <TabBtn $active={tab === 'omnibook'} onClick={() => setTab('omnibook')}>
-            Charlie Parker Omnibook
-          </TabBtn>
-          <TabBtn $active={tab === 'miles'} onClick={() => setTab('miles')}>
-            Miles Davis Omnibook
+          <TabBtn $active={tab === 'solo'} onClick={() => setTab('solo')}>
+            Solo Dataset
           </TabBtn>
         </TabRow>
       </TopBar>
@@ -51,8 +48,7 @@ export default function AdminPage() {
         {tab === 'youtube' && <YoutubeOnsetParser />}
         {tab === 'lickjson' && <LickInputPage />}
         {tab === 'sjs' && <SymbolicJazzViewer />}
-        {tab === 'omnibook' && <OmnibookViewer source="parker" />}
-        {tab === 'miles' && <OmnibookViewer source="miles" />}
+        {tab === 'solo' && <OmnibookViewer source="solo" />}
       </Content>
     </Page>
   );

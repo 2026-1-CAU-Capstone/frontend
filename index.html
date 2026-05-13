@@ -10,13 +10,22 @@
     <title>Jazzify</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Preload the chord font at top priority so it's already downloaded by
+         the time React renders the lead-sheet — eliminates the brief flash of
+         DM Sans where chord symbols look broken. crossorigin matches the
+         @font-face request so the browser actually uses the preloaded copy. -->
+    <link rel="preload" as="font" type="font/otf" href="/MuseJazzText.otf" crossorigin>
     <style>
       @font-face {
         font-family: 'MuseJazz Text';
         src: url('/MuseJazzText.otf') format('opentype');
         font-weight: normal;
         font-style: normal;
-        font-display: swap;
+        /* `block` over `swap`: keeps chord text invisible for up to 3s so it
+           never paints with the wrong (DM Sans) glyphs in SVG, where browsers
+           don't always re-flow after a font swap. Combined with the preload
+           above, the wait is typically <100ms in practice. */
+        font-display: block;
       }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&family=Noto+Serif:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=Oswald:wght@600;700&display=swap" rel="stylesheet">

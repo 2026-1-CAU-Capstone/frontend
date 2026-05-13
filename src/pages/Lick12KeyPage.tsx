@@ -362,10 +362,21 @@ function appendChordSVG(
   txt.setAttribute('stroke', '#333');
   txt.setAttribute('stroke-width', '0.3');
 
-  const baseSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-  baseSpan.setAttribute('font-size', String(size));
-  baseSpan.textContent = base;
-  txt.appendChild(baseSpan);
+  if (base.includes('°')) {
+    const dimSize = Math.round(size * 1.4);
+    for (const seg of base.split(/(°)/g)) {
+      if (!seg) continue;
+      const sp = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+      sp.setAttribute('font-size', String(seg === '°' ? dimSize : size));
+      sp.textContent = seg;
+      txt.appendChild(sp);
+    }
+  } else {
+    const baseSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+    baseSpan.setAttribute('font-size', String(size));
+    baseSpan.textContent = base;
+    txt.appendChild(baseSpan);
+  }
 
   if (ext) {
     const extSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');

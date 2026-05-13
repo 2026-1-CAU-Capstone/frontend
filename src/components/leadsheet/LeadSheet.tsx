@@ -666,6 +666,20 @@ const TensionSpan = styled.span<{ $size?: ChordSize }>`
   font-family: ${CHORD_FONT};
 `;
 
+/* Diminished sign (°) is rendered ~40% larger than surrounding quality text
+ * so it's legible — the raw glyph is tiny in most fonts. Applied via inline
+ * em scaling so it rescales with whatever container size the chord uses. */
+const Dim = styled.span`
+  font-size: 1.4em;
+  line-height: 0;
+`;
+
+/** Split a chord quality/base string and wrap ° glyphs in <Dim> for bigger render. */
+function renderWithDim(s: string): React.ReactNode {
+  if (!s.includes('°')) return s;
+  return s.split(/(°)/g).map((p, i) => (p === '°' ? <Dim key={i}>°</Dim> : p));
+}
+
 const SlashBass = styled.span<{ $size?: ChordSize }>`
   position: absolute;
   left: 8px;
@@ -927,7 +941,7 @@ function ChordSymbol({
             </AccTopSlot>
             {hasQuality && (
               <Quality $size={size}>
-                {base}
+                {renderWithDim(base)}
                 {tensions && <TensionSpan $size={size}>{tensions}</TensionSpan>}
               </Quality>
             )}
@@ -2423,12 +2437,10 @@ export function LeadSheet({
 
           // Cross-row (consecutive): extend to grid width on open ends.
           // Last row (contains only I) keeps its tight left edge — start exactly
-          // at the I chord's bar — and we force its right edge just shy of the
-          // bar midpoint so the I chord's highlight reads as a clean half-bar
-          // block (matching iReal's visual rule for one-chord bars). The 0.46
-          // factor pulls the right edge in slightly so it doesn't visually
-          // crowd whatever sits in the second half of the bar.
-          const I_CHORD_END_FRACTION = 0.46;
+          // at the I chord's bar — and we force its right edge to the bar
+          // midpoint so the I chord's highlight reads as a clean half-bar
+          // block (matching iReal's visual rule for one-chord bars).
+          const I_CHORD_END_FRACTION = 0.5;
           if (isMultiRow && !isWrapAround) {
             if (r === 0) {
               hlRight = gridRect.right;

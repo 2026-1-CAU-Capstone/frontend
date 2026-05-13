@@ -1,11 +1,11 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import {
   Renderer, Stave, StaveNote, Voice, Formatter, Beam, Accidental, Dot, BarlineType, StaveTie, Tuplet, Repetition,
 } from 'vexflow';
 import { PianoKeyboard, playMidi, type PianoNote } from '../components/notesheet/PianoKeyboard';
-import type { NoteInfo, MeasureInfo, NavigationMarker } from '../data/sampleMelody';
+import type { NoteInfo, MeasureInfo, NavigationMarker, NoteSheetData } from '../data/sampleMelody';
 
 /* ─── helpers ──────────────────────────────────────────────────────────── */
 
@@ -1441,6 +1441,11 @@ const EmptyHint = styled.div`
 
 export default function SoloGeneratorPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  /* When this page is entered via "수정하기" from another admin viewer, the
+   * caller passes a NoteSheetData in route state. We pull it once on mount,
+   * skip the localStorage draft restore, and pre-populate the editor with it. */
+  const prefillSheet = (location.state as { prefillSheet?: NoteSheetData } | null)?.prefillSheet;
 
   const [measures, setMeasures] = useState<MeasureInfo[]>([]);
   const [curNotes, setCurNotes] = useState<NoteInfo[]>([]);
@@ -1513,6 +1518,34 @@ export default function SoloGeneratorPage() {
   useEffect(() => {
     if (draftLoadedRef.current) return;
     draftLoadedRef.current = true;
+
+    // ── prefillSheet (from Admin Tools "수정하기") wins over localStorage draft.
+    // Clears the existing draft so the imported state doesn't immediately get
+    // mashed up with stale autosave content.
+    if (prefillSheet) {
+      try {
+        const normalized = splitMeasuresByBeats(prefillSheet.measures, 4);
+        setMeasures(normalized);
+        setCurNotes([]);
+        setCurChord1('');
+        setCurChord2('');
+        if (prefillSheet.title) setSheetTitle(prefillSheet.title);
+        if (prefillSheet.composer) setComposer(prefillSheet.composer);
+        if (prefillSheet.key) setSheetKey(prefillSheet.key);
+        if (prefillSheet.tempo) {
+          setBpm(prefillSheet.tempo);
+          setBpmText(String(prefillSheet.tempo));
+          bpmManualRef.current = true;
+        }
+        // Replace history entry so a refresh doesn't re-prefill the same data,
+        // and so the back button doesn't loop through the same view.
+        navigate(location.pathname, { replace: true, state: null });
+      } catch (e) {
+        console.warn('Failed to apply prefillSheet', e);
+      }
+      return;
+    }
+
     try {
       const raw = localStorage.getItem(DRAFT_KEY);
       if (!raw) return;
@@ -1534,6 +1567,7 @@ export default function SoloGeneratorPage() {
     } catch (e) {
       console.warn('Failed to load lead-sheet draft', e);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* ── Autosave draft every 10s — survives reload/crash ────────────────── */

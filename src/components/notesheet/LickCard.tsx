@@ -115,10 +115,23 @@ function appendChordSVG(
   txt.setAttribute('stroke', '#333');
   txt.setAttribute('stroke-width', '0.3');
 
-  const baseSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-  baseSpan.setAttribute('font-size', String(size));
-  baseSpan.textContent = base;
-  txt.appendChild(baseSpan);
+  // Render base — split out the diminished sign (°) so it can be drawn at
+  // ~1.4x size (raw glyph is too small to read at chord-label sizes).
+  if (base.includes('°')) {
+    const dimSize = Math.round(size * 1.4);
+    for (const seg of base.split(/(°)/g)) {
+      if (!seg) continue;
+      const sp = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+      sp.setAttribute('font-size', String(seg === '°' ? dimSize : size));
+      sp.textContent = seg;
+      txt.appendChild(sp);
+    }
+  } else {
+    const baseSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+    baseSpan.setAttribute('font-size', String(size));
+    baseSpan.textContent = base;
+    txt.appendChild(baseSpan);
+  }
 
   if (ext) {
     const extSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
@@ -457,10 +470,14 @@ function buildVfNotes(measure: MeasureInfo, initialAcc?: Map<string, 'b' | '#' |
     if (n.dotted) Dot.buildAndAttach([note]);
 
     if (!isRest) {
+      // Modern engraving convention: accidentals apply only to the same
+      // letter AT THE SAME OCTAVE within a measure. Track by full vex key
+      // ('b/4') rather than just the letter ('b'). Key signature remains
+      // letter-based (applies to all octaves).
       const noteId = n.keys[0];
       const letter = noteId.split('/')[0];
       const realAcc = n.accidentals?.[0] as 'b' | '#' | undefined;
-      const current = activeAcc.get(letter);
+      const current = activeAcc.get(noteId);
       const keySigForLetter = keySigAcc?.get(letter);
 
       if (realAcc) {
@@ -468,12 +485,12 @@ function buildVfNotes(measure: MeasureInfo, initialAcc?: Map<string, 'b' | '#' |
         if (effective !== realAcc) {
           note.addModifier(new Accidental(realAcc), 0);
         }
-        activeAcc.set(letter, realAcc);
+        activeAcc.set(noteId, realAcc);
       } else {
         const effective = current ?? keySigForLetter;
         if (effective && effective !== 'n') {
           note.addModifier(new Accidental('n'), 0);
-          activeAcc.set(letter, 'n');
+          activeAcc.set(noteId, 'n');
         }
       }
     }
@@ -752,7 +769,8 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
         if (lastNote?.tie && !lastNote.duration.endsWith('r')) {
           const acc = lastNote.accidentals?.[0] as 'b' | '#' | undefined;
           if (acc) {
-            tieCarryAcc = new Map([[lastNote.keys[0].split('/')[0], acc]]);
+            // Carry by full letter+octave key (modern engraving convention).
+            tieCarryAcc = new Map([[lastNote.keys[0], acc]]);
           }
         }
 

@@ -23,6 +23,8 @@ import {
   Curve,
   TextBracket,
   TextBracketPosition,
+  Tremolo,
+  StaveTempo,
 } from 'vexflow';
 import type { NoteSheetData, MeasureInfo } from '../../data/sampleMelody';
 import { NotePlayer } from '../../lib/note/notePlayer';
@@ -83,10 +85,23 @@ function appendChordSVG(
   txt.setAttribute('font-weight', '200');
   txt.setAttribute('fill', '#000');
 
-  const baseSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-  baseSpan.setAttribute('font-size', String(size));
-  baseSpan.textContent = base;
-  txt.appendChild(baseSpan);
+  // Render base — split out the diminished sign (°) so it can be drawn at
+  // ~1.4x size (raw glyph is too small to read at chord-label sizes).
+  if (base.includes('°')) {
+    const dimSize = Math.round(size * 1.4);
+    for (const seg of base.split(/(°)/g)) {
+      if (!seg) continue;
+      const sp = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+      sp.setAttribute('font-size', String(seg === '°' ? dimSize : size));
+      sp.textContent = seg;
+      txt.appendChild(sp);
+    }
+  } else {
+    const baseSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+    baseSpan.setAttribute('font-size', String(size));
+    baseSpan.textContent = base;
+    txt.appendChild(baseSpan);
+  }
 
   if (ext) {
     const extSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
@@ -880,9 +895,16 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
     svg.querySelectorAll('.m-num').forEach((n) => n.remove());
     if (!showMeasureNumbers) return;
     const rects = measureRectsRef.current;
+    // Convention: anacrusis (pickup) is NOT numbered. Measure 1 begins on the
+    // first DOWNBEAT-aligned bar. Skip the anacrusis when assigning numbers.
+    let mNum = 0;
     for (let i = 0; i < rects.length; i++) {
       const r = rects[i];
       if (!r) continue;
+      const isPickup = !!data.measures[i]?.anacrusis;
+      if (!isPickup) mNum++;
+      const label = isPickup ? '' : String(mNum);
+      if (!label) continue;
       const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       txt.setAttribute('class', 'm-num');
       txt.setAttribute('x', String(r.x + 2));
@@ -891,7 +913,7 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
       txt.setAttribute('font-size', '11');
       txt.setAttribute('font-weight', '700');
       txt.setAttribute('fill', '#1565c0');
-      txt.textContent = String(i + 1);
+      txt.textContent = label;
       svg.appendChild(txt);
     }
   }, [data, width, showMeasureNumbers]);
@@ -1138,6 +1160,15 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
         if (measure.timeSignature) {
           stave.addTimeSignature(measure.timeSignature);
         }
+        // Mid-piece tempo marking — show "♩ = N" above this measure.
+        if (measure.tempo) {
+          try {
+            stave.addModifier(new StaveTempo(
+              { duration: 'q', dots: 0, bpm: measure.tempo },
+              0, -10,
+            ).setShiftX(0));
+          } catch (e) { console.warn('tempo marking failed', e); }
+        }
         // Repeat / end barlines
         if (measure.repeatStart) stave.setBegBarType(BarlineType.REPEAT_BEGIN);
         if (measure.repeatEnd) stave.setEndBarType(BarlineType.REPEAT_END);
@@ -1235,22 +1266,39 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
               accent: 'a>', tenuto: 'a-',
               marcato: 'a^', 'detached-legato': 'a-.',
             };
+            // Engraving convention: most articulations (staccato/tenuto/accent)
+            // go on the OPPOSITE side of the stem. Marcato by tradition usually
+            // sits above. Stem-down note → above (3), stem-up note → below (4).
+            // We resolve via the VexFlow note's own stem direction (works for
+            // both autoStem and forceAutoStem since StaveNote already decided).
             for (const a of n.articulations) {
               const code = ART_VF[a];
-              if (code) note.addModifier(new Articulation(code).setPosition(3), 0); // 3 = above
+              if (!code) continue;
+              const stemUp = note.getStemDirection() === 1;
+              // Marcato is conventionally placed above the staff regardless of stem.
+              const forceAbove = a === 'marcato';
+              const pos = (forceAbove || !stemUp) ? 3 : 4; // 3=above, 4=below
+              note.addModifier(new Articulation(code).setPosition(pos), 0);
             }
           }
           if (n.fermata) {
+            // Fermata is ALWAYS above (over the staff). Never affected by stem.
             note.addModifier(new Articulation('a@a').setPosition(3), 0);
           }
           if (n.ornaments) {
+            // Tremolo is a STEM marking (slashes across the stem), separate
+            // from melodic ornaments like trill/mordent/turn (text above note).
             const ORN_VF: Record<string, string> = {
               trill: 'tr', mordent: 'mordent',
               'inverted-mordent': 'mordent_inverted',
               turn: 'turn', 'inverted-turn': 'turn_inverted',
-              tremolo: 'tr',
             };
             for (const o of n.ornaments) {
+              if (o === 'tremolo') {
+                // 3 slashes = 32nd-note tremolo (common jazz/classical default).
+                note.addModifier(new Tremolo(3), 0);
+                continue;
+              }
               const code = ORN_VF[o];
               if (code) note.addModifier(new Ornament(code), 0);
             }
@@ -1266,25 +1314,36 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
           // skip parent notes that ARE grace (those become group members).
 
           if (!isRest) {
-            const noteId = keys[0];
-            const letter = noteId.split('/')[0];
-            const current = activeAcc.get(letter);
-            const keySigForLetter = keySigAcc.get(letter);
+            // Modern music engraving convention (Behind Bars, Read, Stone):
+            // accidentals apply ONLY to the SAME letter AT THE SAME OCTAVE
+            // within a measure. Tracking key is letter+octave; key signature
+            // remains letter-based (applies to all octaves).
+            //
+            // Multi-note chord support: iterate over EVERY pitch in `keys`,
+            // not just index 0 — engraver may set accidentals on inner chord
+            // tones (e.g. {keys: ['c/4','eb/4','g/4'], accidentals: {1:'b'}}).
+            for (let ki = 0; ki < keys.length; ki++) {
+              const noteId = keys[ki];
+              const letter = noteId.split('/')[0];
+              // Enharmonic conversion only applied to keys[0] above — but the
+              // accidentals map is keyed by ORIGINAL chord-tone index. Use the
+              // converted realAcc for ki=0 and the raw acc for other indices.
+              const acc = ki === 0 ? realAcc : (n.accidentals?.[ki] as 'b' | '#' | 'n' | undefined);
+              const current = activeAcc.get(noteId);
+              const keySigForLetter = keySigAcc.get(letter);
 
-            if (realAcc) {
-              const effective = current ?? keySigForLetter;
-              if (effective !== realAcc) note.addModifier(new Accidental(realAcc), 0);
-              activeAcc.set(letter, realAcc);
-            } else {
-              // No explicit accidental → note follows the key signature.
-              // Only need to restore if a previous in-measure accidental changed it.
-              if (current !== undefined && current !== keySigForLetter) {
+              if (acc) {
+                const effective = current ?? keySigForLetter;
+                if (effective !== acc) note.addModifier(new Accidental(acc), ki);
+                activeAcc.set(noteId, acc);
+              } else if (current !== undefined && current !== keySigForLetter) {
+                // Cancel back to key signature for this pitch only.
                 if (keySigForLetter) {
-                  note.addModifier(new Accidental(keySigForLetter), 0);
+                  note.addModifier(new Accidental(keySigForLetter), ki);
                 } else {
-                  note.addModifier(new Accidental('n'), 0);
+                  note.addModifier(new Accidental('n'), ki);
                 }
-                activeAcc.delete(letter);
+                activeAcc.delete(noteId);
               }
             }
           }
@@ -1313,7 +1372,9 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
             const conv = enharmonicToFlat(tieKey, '#');
             if (conv) { tieKey = conv.key; tieAcc = conv.acc; }
           }
-          if (tieAcc) tieCarryAcc = new Map([[tieKey.split('/')[0], tieAcc]]);
+          // Carry key is the FULL letter+octave (e.g., 'b/4') — modern
+          // convention says accidentals are octave-specific.
+          if (tieAcc) tieCarryAcc = new Map([[tieKey, tieAcc]]);
         }
 
         for (let ni = 0; ni < vfNotes.length; ni++) {
@@ -1536,7 +1597,9 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
       }
     }
 
-    // Draw slurs — pair slurStart with the next slurStop on same line.
+    // Draw slurs — slurs nest like parentheses: a stop pairs with the most
+    // recently opened start (LIFO). Using `pop()` (not `shift()`) handles
+    // nested slurs correctly (e.g. an inner phrase mark inside a longer slur).
     {
       const startStack: { flatIdx: number }[] = [];
       let flatIdxS = 0;
@@ -1547,7 +1610,7 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
           if (n.grace) continue;
           if (n.slurStart) startStack.push({ flatIdx: flatIdxS });
           if (n.slurStop && startStack.length > 0) {
-            const start = startStack.shift()!;
+            const start = startStack.pop()!;     // LIFO ← nested slurs
             const from = allVfNotes[start.flatIdx];
             const to = allVfNotes[flatIdxS];
             if (from && to && measureLine.get(from.mi) === measureLine.get(to.mi)) {
