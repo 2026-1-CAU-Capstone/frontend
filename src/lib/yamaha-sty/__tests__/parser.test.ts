@@ -79,11 +79,35 @@ let totalCtabs = 0;
 for (const sp of style.parts.values()) totalCtabs += sp.ctabByChannel.size;
 assert(totalCtabs >= 15, `at least 15 CTABs parsed (got ${totalCtabs})`);
 
-// Should not have populated note events yet (parser doesn't extract them
-// in this phase)
-let totalNotes = 0;
-for (const sp of style.parts.values()) totalNotes += sp.phraseByChannel.size;
-assert(totalNotes === 0, 'no note events extracted yet (CASM-only parser)');
+// Note events now extracted across all sections — confirm cross-section
+// totals match the Python pre-parse (which counted note-ons in the whole MTrk).
+// Expected totals from Python:
+//   ch 0:  443, ch 1:  336, ch 2: 114, ch 3: 114, ch 4: 88, ch 5: 498,
+//   ch 6:  373, ch 7:  185, ch 8: 185, ch 9: 239, ch10: 242, ch11: 101,
+//   ch12: 101, ch13: 86,  ch14: 92,  ch15: 711
+const expectedPerChannel: Record<number, number> = {
+  0: 443, 1: 336, 2: 114, 3: 114, 4: 88, 5: 498, 6: 373, 7: 185,
+  8: 185, 9: 239, 10: 242, 11: 101, 12: 101, 13: 86, 14: 92, 15: 711,
+};
+const actualPerChannel: Record<number, number> = {};
+for (const sp of style.parts.values()) {
+  for (const phrase of sp.phraseByChannel.values()) {
+    actualPerChannel[phrase.channel] = (actualPerChannel[phrase.channel] ?? 0) + phrase.notes.length;
+  }
+}
+for (const [ch, expected] of Object.entries(expectedPerChannel)) {
+  assert(
+    actualPerChannel[Number(ch)] === expected,
+    `ch ${ch} note count = ${expected} (got ${actualPerChannel[Number(ch)] ?? 0})`,
+  );
+}
+
+// Section sizes (sizeInBeats) populated for each Main section
+for (const sectionName of ['Main_A', 'Main_B', 'Main_C', 'Main_D'] as const) {
+  const sp = style.parts.get(sectionName);
+  assert(sp !== undefined && sp.sizeInBeats > 0,
+    `${sectionName} has sizeInBeats > 0 (got ${sp?.sizeInBeats})`);
+}
 
 console.log(`\n=== Parser test (psBase.sst) ===`);
 console.log(`${pass} pass / ${fail} fail`);
