@@ -2,6 +2,15 @@ import type { BackingEvent, Bar, Chart, Chord, MidiNote, StyleId } from "./types
 import { swingBar, bossaBar } from "./drums";
 import { walkChord } from "./bass";
 import { voiceChord } from "./voicing";
+import { PSBASE_CH0_PATTERN } from "./jazz-piano-pattern";
+import { fitChordPhraseToChord } from "../yamaha-sty/fit-phrase";
+import { chordTypeFromQuality } from "../yamaha-sty/quality-map";
+import { ChordSymbol } from "../jazz-harmony";
+
+// Pre-resolve the source ChordType once (cached) — PSBASE_CH0_PATTERN was
+// recorded against C Maj7 ("M7").
+const PSBASE_SRC_CHORD_TYPE = ChordSymbol.parse('C' + PSBASE_CH0_PATTERN.sourceChordTypeName).chordType;
+const PSBASE_PPQ = PSBASE_CH0_PATTERN.ticksPerQuarter;
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Engine — turns a Chart into a timed stream of BackingEvents.
@@ -130,7 +139,10 @@ export function renderChart(chart: Chart, opts: RenderOptions): BackingEvent[] {
   for (const sec of chart.sections) flatBars.push(...sec.bars);
 
   const events: BackingEvent[] = [];
-  let prevVoicing: MidiNote[] = [];
+  // Beat position into the psBase piano pattern (length = sizeInBeats).
+  // Advances by chord.beats per chord so the comping rhythm flows naturally
+  // across the song instead of restarting every bar.
+  let psBaseCycleBeats = 0;
 
   for (let bi = 0; bi < flatBars.length; bi++) {
     const bar = flatBars[bi];
@@ -173,52 +185,133 @@ export function renderChart(chart: Chart, opts: RenderOptions): BackingEvent[] {
         });
       }
 
-      // Piano comping — voice-led from prev voicing, clipped to 3 notes
-      // so chord hits stay punchy instead of turning into a wall of sound.
-      // Register rotates per phrase (every 4 bars) so the comping moves
-      // between a mid voicing and an upper voicing — a real pianist's
-      // stylistic trick to avoid staying in one register all night.
-      const fullVoicing = voiceChord(chord, prevVoicing);
-      const phrase = Math.floor(bi / 4) % 3;
-      const octaveShift = phrase === 0 ? 0 : phrase === 1 ? 12 : -12;
-      const voicing = fullVoicing.slice(0, 3).map((n) => n + octaveShift);
-      prevVoicing = fullVoicing;
-
-      if (voicing.length > 0) {
-        const pattern = selectCompingPattern(chord.beats, bi, ci, isBossa);
-        // 1-beat 코드는 단일 히트 → 한 박 내내 울리도록 길게 sustain.
-        // 다중 히트 패턴은 짧게 끊어 머디해지지 않게 유지.
-        const isSingleHit = pattern.length === 1;
-        for (const [offset, velBase] of pattern) {
-          if (offset >= chord.beats) continue;
-          const t = barStart + (beatCursor + offset) * secPerBeat;
-          // velocity jitter only — timing stays tight on the grid so
-          // piano, drums, and the visual bar highlight all align.
-          const vel = velBase + (rand(bi * 97 + ci * 11 + offset * 3) - 0.5) * 0.08;
-          const microTime = t;
-          const duration = isSingleHit
-            ? secPerBeat * chord.beats * 1.1   // 1박 코드: 한 박을 꽉 채워 잔향까지
-            : (isBossa ? secPerBeat * 1.1 : secPerBeat * 0.45); // bossa: 길게 울림 / swing: 짧은 펀치
-          for (const midi of voicing) {
-            events.push({
-              kind: "note",
-              instrument: "piano",
-              midi,
-              time: microTime,
-              duration,
-              velocity: Math.max(0.3, Math.min(0.78, vel)),
-              bar: bi,
-            });
-          }
-        }
+      // Piano comping — use the pre-recorded psBase ch 0 pattern instead
+      // of generating from scratch. The pattern is a Yamaha professional
+      // pianist's 8-bar comping recorded against CMaj7; we slice the
+      // current chord's beats out of it and re-fit to the chord via
+      // fitChordPhraseToChord. Bossa still uses the legacy voicing-based
+      // path because the psBase pattern is swing-specific.
+      if (isBossa) {
+        renderLegacyPianoComping(chord, beatCursor, bi, ci, barStart, secPerBeat, isBossa, events);
+      } else {
+        renderPsBasePianoComping(
+          chord, beatCursor, psBaseCycleBeats, bi, barStart, secPerBeat, events,
+        );
       }
 
+      psBaseCycleBeats = (psBaseCycleBeats + chord.beats) % PSBASE_CH0_PATTERN.sizeInBeats;
       beatCursor += chord.beats;
     }
   }
 
   events.sort((a, b) => a.time - b.time);
   return events;
+}
+
+/* ─── psBase pattern-driven piano comping ────────────────────────────── */
+
+/**
+ * Emit piano comping events for one chord by slicing the psBase piano
+ * pattern at the current cycle position and fitting it to the chord.
+ *
+ * Voice leading + register choice + rhythmic feel are all baked into the
+ * recorded pattern, so we just need to translate the source notes (CMaj7-
+ * relative) to the destination chord via fitChordPhraseToChord. That uses
+ * the same voicing-optimisation logic as the .sty engine.
+ */
+function renderPsBasePianoComping(
+  chord: Chord,
+  beatCursor: number,
+  cycleBeats: number,
+  bi: number,
+  barStart: number,
+  secPerBeat: number,
+  events: BackingEvent[],
+): void {
+  const sliceStartTick = cycleBeats * PSBASE_PPQ;
+  const sliceEndTick = (cycleBeats + chord.beats) * PSBASE_PPQ;
+  // Slice + clamp note durations to the slice (acts like Yamaha's STOP
+  // RetriggerRule — avoids notes bleeding into the next chord).
+  const sliced = PSBASE_CH0_PATTERN.notes
+    .filter((n) => n.tick >= sliceStartTick && n.tick < sliceEndTick)
+    .map((n) => {
+      const relTick = n.tick - sliceStartTick;
+      const maxDur = sliceEndTick - n.tick;
+      return {
+        channel: 0,
+        pitch: n.pitch,
+        velocity: n.velocity,
+        tick: relTick,
+        durationTicks: Math.max(1, Math.min(n.durationTicks, maxDur)),
+      };
+    });
+  if (sliced.length === 0) return;
+
+  const destType = chordTypeFromQuality(chord.quality);
+  const transformed = fitChordPhraseToChord(
+    { channel: 0, notes: sliced },
+    PSBASE_CH0_PATTERN.sourceChordRootRelPitch,
+    PSBASE_SRC_CHORD_TYPE,
+    chord.root,
+    destType,
+  );
+
+  for (const n of transformed) {
+    const offsetBeats = n.tick / PSBASE_PPQ;
+    const t = barStart + (beatCursor + offsetBeats) * secPerBeat;
+    const dur = Math.max(0.05, (n.durationTicks / PSBASE_PPQ) * secPerBeat);
+    events.push({
+      kind: "note",
+      instrument: "piano",
+      midi: n.pitch,
+      time: t,
+      duration: dur,
+      velocity: Math.max(0.3, Math.min(0.85, n.velocity / 127)),
+      bar: bi,
+    });
+  }
+}
+
+/**
+ * Legacy piano comping (used for Bossa where the psBase swing pattern
+ * doesn't fit). Verbatim re-extraction of the pre-rewrite logic. */
+function renderLegacyPianoComping(
+  chord: Chord,
+  beatCursor: number,
+  bi: number,
+  ci: number,
+  barStart: number,
+  secPerBeat: number,
+  isBossa: boolean,
+  events: BackingEvent[],
+): void {
+  const fullVoicing = voiceChord(chord, []);
+  const phrase = Math.floor(bi / 4) % 3;
+  const octaveShift = phrase === 0 ? 0 : phrase === 1 ? 12 : -12;
+  const voicing = fullVoicing.slice(0, 3).map((n: MidiNote) => n + octaveShift);
+  if (voicing.length === 0) return;
+
+  const pattern = selectCompingPattern(chord.beats, bi, ci, isBossa);
+  const isSingleHit = pattern.length === 1;
+  for (const [offset, velBase] of pattern) {
+    if (offset >= chord.beats) continue;
+    const t = barStart + (beatCursor + offset) * secPerBeat;
+    const vel = velBase + (rand(bi * 97 + ci * 11 + offset * 3) - 0.5) * 0.08;
+    const duration = isSingleHit
+      ? secPerBeat * chord.beats * 1.1
+      : (isBossa ? secPerBeat * 1.1 : secPerBeat * 0.45);
+    for (const midi of voicing) {
+      events.push({
+        kind: "note",
+        instrument: "piano",
+        midi,
+        time: t,
+        duration,
+        velocity: Math.max(0.3, Math.min(0.78, vel)),
+        bar: bi,
+      });
+    }
+  }
 }
 
 /* ─── helpers ────────────────────────────────────────────────────────── */
