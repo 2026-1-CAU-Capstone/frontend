@@ -235,6 +235,26 @@ export function createStyBackingPlayer(
       }
       const styleBarsPerCycle = Math.max(1, Math.round(mainStylePart.sizeInBeats / beatsPerBar));
       let cyclePos = 0;
+
+      // Yamaha .sty files often ship multiple "variations" of the same
+      // instrument across distinct source channels (e.g. psBase puts four
+      // CHORD1 / Piano patterns on ch 0-3, five CHORD2 / Jazz Guitar
+      // patterns on ch 4-8). On a real Yamaha keyboard the player picks
+      // *one* variation at a time. Playing all four piano channels
+      // simultaneously produces muddy comping with crossed voicings — what
+      // listeners hear as "broken".  We collapse to one channel per
+      // (program, accType) group, lowest source channel wins.
+      const activeChannels = new Set<number>();
+      const seenGroups = new Set<string>();
+      for (const ch of Array.from(mainStylePart.ctabByChannel.keys()).sort((a, b) => a - b)) {
+        const ctab = mainStylePart.ctabByChannel.get(ch);
+        if (!ctab) continue;
+        const program = style.channelInstruments.get(ch)?.program ?? -1;
+        const key = `${program}-${ctab.accType}`;
+        if (seenGroups.has(key)) continue;
+        seenGroups.add(key);
+        activeChannels.add(ch);
+      }
       for (let bIdx = 0; bIdx < section.bars.length; bIdx++) {
         const bar = section.bars[bIdx];
         const isLastBarOfSection = bIdx === section.bars.length - 1;
@@ -250,8 +270,23 @@ export function createStyBackingPlayer(
           const sliceEndTick = (cyclePos + 1) * beatsPerBar * ppq;
 
           for (const [ch, phrase] of mainA.phraseByChannel) {
+            if (!activeChannels.has(ch)) continue;
             const ctab = mainA.ctabByChannel.get(ch);
             if (!ctab) continue;
+
+            // Suppress mis-labelled "percussive" tracks where a melodic
+            // GM program (violin, flute, etc.) was assigned to a RHYTHM
+            // AccType and used to hit unusually low pitches. The sound
+            // is almost always wrong-octave artefacts in smplr, so we
+            // just silence them. This matches how many Yamaha keyboards
+            // ignore SUBRHYTHM lines on minimal-style files.
+            if ((ctab.accType === 'RHYTHM' || ctab.accType === 'SUBRHYTHM')) {
+              const lowSampled = phrase.notes.slice(0, 8).map((n) => n.pitch);
+              const avgPitch = lowSampled.length
+                ? lowSampled.reduce((a, b) => a + b, 0) / lowSampled.length
+                : 60;
+              if (avgPitch < 40) continue;
+            }
 
             // Slice the source phrase to the current bar's beat window and
             // re-base its ticks to 0. We also cap each note's duration so
