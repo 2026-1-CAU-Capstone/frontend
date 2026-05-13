@@ -149,7 +149,7 @@ export function formatChordDisplay(raw: string): string {
     // (kept as triad). Order: specific Maj/maj/Ma/ma/M/j before bare 'm' rule.
     .replace(/(?:Maj|maj|Ma|ma|M|j)(?=\d)/g, '△')
     // Half-diminished — specific patterns first
-    .replace(/(?:m7b5|min7b5|mi7b5|-7b5)/g, 'ø7')
+    .replace(/(?:m7b5|min7b5|mi7b5|-7b5|m7\(b5\)|-7\(b5\))/g, 'ø7')
     .replace(/h7/g, 'ø7')
     .replace(/h(?!\d)/g, 'ø')
     // Diminished

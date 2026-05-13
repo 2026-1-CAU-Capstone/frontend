@@ -26,6 +26,8 @@ const cases: Case[] = [
   ['Cmin7b5',   'Cø7'],
   ['Cmi7b5',    'Cø7'],
   ['C-7b5',     'Cø7'],
+  ['C-7(b5)',   'Cø7'],
+  ['Cm7(b5)',   'Cø7'],
   ['Ch7',       'Cø7'],
   ['Ch',        'Cø'],
   // Diminished

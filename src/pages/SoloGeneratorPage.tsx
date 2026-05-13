@@ -12,7 +12,7 @@ import type { NoteInfo, MeasureInfo, NavigationMarker, NoteSheetData } from '../
 import Soundfont from 'soundfont-player';
 import { useCountInIntro } from '../hooks/useCountInIntro';
 import { swungBeats } from '../lib/note/swing';
-import { normalizeChord } from '../lib/jazz-harmony';
+import { normalizeChord, formatChordDisplay } from '../lib/jazz-harmony';
 
 const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25 };
 const SEMI_MAP: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
@@ -1236,28 +1236,7 @@ function splitChord(chord: string): { base: string; ext: string; tensions: { acc
   return { base: m[1], ext, tensions };
 }
 
-function formatChordDisplay(raw: string): string {
-  const m = raw.match(/^([A-G])([b#]?)(.*)/);
-  if (!m) return raw;
-
-  const root = m[1];
-  const acc = m[2] === 'b' ? '\u266D' : m[2] === '#' ? '\u266F' : '';
-  let q = m[3];
-
-  q = q.replace(/^(-7b5|-7\(b5\)|m7b5)/,  '\u00F87');
-  q = q.replace(/^j7/,                     '\u25B37');
-  q = q.replace(/^h7/,                     '\u00F87');
-  q = q.replace(/^h(?!\d)/,                '\u00F8');
-  q = q.replace(/^o7/,                     '\u00B07');
-  q = q.replace(/^o(?!\d)/,                '\u00B0');
-
-  q = q.replace(/(\d)b/g,  '$1\u266D');
-  q = q.replace(/b(\d)/g,  '\u266D$1');
-  q = q.replace(/(\d)#/g,  '$1\u266F');
-  q = q.replace(/#(\d)/g,  '\u266F$1');
-
-  return root + acc + q;
-}
+/* formatChordDisplay imported from src/lib/jazz-harmony \u2014 see top of file. */
 
 function ChordCell({ value, onChange, style }: {
   value: string;
