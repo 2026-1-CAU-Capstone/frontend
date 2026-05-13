@@ -1658,9 +1658,33 @@ export default function SoloGeneratorPage() {
     const conv = convertAcc(pn, accMode === 'n' ? 'b' : accMode);
     playMidi(pn.midi);
 
+    // Diatonic respell: in keys whose signature already flats C (Gb/Cb majors
+    // + Ebm/Abm) the white B key is pitch-class 11, which spells Cb — not
+    // B natural — in those keys. Same idea for E↔Fb in Cb major / Abm.
+    // The respelled letter (C or F) is already flat via the key sig, so we
+    // drop the accidental entirely (otherwise accMode='n' would force a
+    // stray natural sign on the wrong letter).
+    let respelled = false;
+    if (sheetKey && !conv.acc) {
+      const sig = keySigAccidentals(sheetKey);
+      const [letter, octStr] = conv.vexKey.split('/');
+      const oct = parseInt(octStr);
+      if (letter === 'b' && sig.get('c') === 'b') {
+        conv.vexKey = `c/${oct + 1}`;
+        respelled = true;
+      } else if (letter === 'e' && sig.get('f') === 'b') {
+        conv.vexKey = `f/${oct}`;
+        respelled = true;
+      }
+    }
+
     // If a note is selected, replace its pitch instead of adding a new note
     if (selectedNote) {
-      const acc: Record<number, 'b' | '#' | 'n'> | undefined = accMode === 'n' ? { 0: 'n' as const } : conv.acc ? { 0: conv.acc } : undefined;
+      const acc: Record<number, 'b' | '#' | 'n'> | undefined =
+        respelled ? undefined
+        : accMode === 'n' ? { 0: 'n' as const }
+        : conv.acc ? { 0: conv.acc }
+        : undefined;
       updateNote(selectedNote.mi, selectedNote.ni, (n) => {
         const updated = { ...n, keys: [conv.vexKey] };
         if (acc) {
@@ -1675,7 +1699,7 @@ export default function SoloGeneratorPage() {
 
     pushEditUndo();
     const ni: NoteInfo = { keys: [conv.vexKey], duration, dotted: dotted || undefined };
-    if (accMode === 'n') {
+    if (!respelled && accMode === 'n') {
       ni.accidentals = { 0: 'n' };
     } else if (conv.acc) {
       ni.accidentals = { 0: conv.acc };

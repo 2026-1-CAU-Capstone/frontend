@@ -15,6 +15,7 @@ import type { ChordOverlay, TocEntry } from '../data/types';
 import { getSongIndex, getSong, type SongEntry } from '../lib/ireal/irealLoader';
 import { buildChordContext } from '../api/chordContext';
 import { createBackingPlayer, leadSheetToChart, type BackingPlayer } from '../lib/backing';
+import { getPlayerSettings, inferPlayStyle, setPlayerSetting } from '../lib/note/playerSettings';
 import { BackingPlayerBar } from '../components/backing/BackingPlayerBar';
 import { withLeadSheetSelectionIds } from '../lib/leadSheetSelection';
 import type { LeadSheetChordSelection } from '../components/leadsheet/LeadSheet';
@@ -499,6 +500,13 @@ export default function ChordPage() {
     const chart = leadSheetToChart(sheet);
     setTempo(chart.bpm);
     setActiveBar(-1);
+    // Auto-pick rhythm style from the chart — bossa charts default to bossa,
+    // everything else swing. chart.defaultStyle comes from the iReal style
+    // string (e.g. "Bossa Nova" → 'bossa', "Medium Swing" → 'medium-swing').
+    const inferred = inferPlayStyle(chart.defaultStyle ?? sheet.style);
+    if (inferred && inferred !== getPlayerSettings().style) {
+      setPlayerSetting('style', inferred);
+    }
     const player = createBackingPlayer(chart);
     player.on('onBar', (bar) => setActiveBar(bar));
     player.on('onDone', () => setIsPlaying(false));

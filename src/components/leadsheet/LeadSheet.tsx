@@ -23,9 +23,15 @@ import { mq } from '../../styles/theme';
 const BARLINE_PAD  = 18;  // px — left padding reserved for barline decoration
 const BAR_H        = 78;  // px — row height (snug around chord content)
 const BARLINE_GAP  = 6;   // px — vertical inset at top/bottom of each barline
-const ROW_GAP      = 64;  // px — space between rows (extra room for bigger labels)
-const SECTION_GAP  = 84;  // px — extra space before a new section (A, B, …)
-const LABEL_OFFSET = 90;  // px — how far the section label floats above the grid
+const ROW_GAP      = 44;  // px — space between rows (extra room for bigger labels)
+/* Section spacing — kept uniform so the A/B label always has roughly equal
+ * breathing room above and below. With ROW_GAP=44, SECTION_GAP=64, LABEL_OFFSET=66,
+ * label height ≈26px:
+ *   • gap below label (label → its chord row)  = LABEL_OFFSET − labelH ≈ 40px
+ *   • gap above label (prev row → label)       = ROW_GAP + SECTION_GAP − LABEL_OFFSET = 42px
+ * Bumping any of these in isolation breaks the symmetry — adjust as a triple. */
+const SECTION_GAP  = 64;  // px — extra space before a new section (A, B, …)
+const LABEL_OFFSET = 66;  // px — how far the section label floats above the grid
 const CHORD_FONT   = "'MuseJazz Text', 'Oswald', 'DM Sans', sans-serif";
 const LABEL_FONT   = "'DM Sans', 'Pretendard', sans-serif"; // gothic for A/B labels
 
@@ -202,10 +208,13 @@ const MetaRow = styled.div`
   font-size: clamp(1.0rem, 1.8cqi, 1.3rem);
   font-family: 'DM Sans', sans-serif;
   font-weight: 400;
-  margin-bottom: 48px;
+  /* Margin-bottom must clear the SectionLabel of the first row, which floats
+   * up by LABEL_OFFSET (66px). Set higher than SECTION_GAP+LABEL_OFFSET margin
+   * so the genre text never abuts the first A/B label. */
+  margin-bottom: 72px;
 
   @media (max-width: 960px) {
-    margin-bottom: 52px;
+    margin-bottom: 64px;
     font-size: 0.85rem;
   }
 `;
@@ -281,13 +290,21 @@ const KeyOption = styled.button<{ $active?: boolean }>`
 
 /* ─── system row ─────────────────────────────────────────────────────────── */
 
-const SystemRow = styled.div<{ $sectionStart?: boolean }>`
+const SystemRow = styled.div<{ $sectionStart?: boolean; $hasVolta?: boolean }>`
   display: flex;
   /* center (not stretch) so the larger TimeSig on row 1 doesn't inflate the
    * BarsGrid height — every row's chord grid stays at BAR_H regardless. */
   align-items: center;
   margin-bottom: ${ROW_GAP}px;
-  ${({ $sectionStart }) => $sectionStart && `margin-top: ${SECTION_GAP}px;`}
+  /* When a row has a volta bracket (which sits VOLTA_HEIGHT=56px above the
+   * grid) AND the previous row carries a ii-V bracket below (~14px), the
+   * default ROW_GAP=44 isn't enough. Force margin-top to 78px on volta rows
+   * so the two decorations can never collide vertically. $sectionStart wins
+   * via max() when both apply. */
+  ${({ $sectionStart, $hasVolta }) => {
+    const mt = Math.max($sectionStart ? SECTION_GAP : 0, $hasVolta ? 78 : 0);
+    return mt > 0 ? `margin-top: ${mt}px;` : '';
+  }}
   /* overflow visible so the section label can float above the grid */
   position: relative;
   overflow: visible;
@@ -359,11 +376,13 @@ const ArrowLayer = styled.svg`
 
 /* ─── section label ──────────────────────────────────────────────────────── */
 
-/* Floats above the top-left corner of the bars grid */
+/* Floats above the top-left corner of the bars grid. left=6px nudges it
+ * slightly off the page edge so it doesn't sit flush with the genre text
+ * in the meta row above. */
 const SectionLabel = styled.div`
   position: absolute;
   top: -${LABEL_OFFSET}px;
-  left: 0;
+  left: 6px;
   background: #000;
   color: #fff;
   font-family: ${LABEL_FONT};
@@ -409,7 +428,7 @@ const VoltaNumber = styled.span`
    display:flex + align-items:center keeps chord content vertically centred
    regardless of BAR_H — barlines are absolute so they always span the full
    cell, giving a uniform line length across every bar in the row.        */
-const BarCell = styled.div`
+const BarCell = styled.div<{ $endPad?: number }>`
   position: relative;
   min-width: 0;
   min-height: ${BAR_H}px;
@@ -417,11 +436,11 @@ const BarCell = styled.div`
   align-items: center;
   overflow: visible;
   box-sizing: border-box;
-  padding: 0 6px 0 ${BARLINE_PAD}px;
+  padding: 0 ${({ $endPad }) => $endPad ?? 6}px 0 ${BARLINE_PAD}px;
 
   @media (max-width: 960px) {
     min-height: 56px;
-    padding: 0 3px 0 12px;
+    padding: 0 ${({ $endPad }) => $endPad ?? 3}px 0 12px;
   }
 `;
 
@@ -535,21 +554,23 @@ function chordSpanInBar(chords: LeadSheetChord[], chordIndex: number): { start: 
 }
 
 /* Two equal columns, one per section */
-const BarSections = styled.div`
+const BarSections = styled.div<{ $compact?: boolean }>`
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: center;
   min-width: 0;
   width: 100%;
+  ${({ $compact }) => $compact && 'transform: scaleX(0.85); transform-origin: left center;'}
 `;
 
-const FourChordGrid = styled.div`
+const FourChordGrid = styled.div<{ $compact?: boolean }>`
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: center;
   min-width: 0;
   width: 100%;
-  transform: translateX(-8px);
+  transform: translateX(-8px)${({ $compact }) => $compact ? ' scaleX(0.85)' : ''};
+  transform-origin: left center;
 `;
 
 const FourChordSlot = styled.div`
@@ -564,12 +585,15 @@ const FourChordSlot = styled.div`
   }
 `;
 
-/* One section slot: when 2 chords share a half-bar, use grid to give
- * each chord exactly 50 % of the slot width. */
+/* One section slot. When 2 chords share a half-bar, the pair are rendered
+ * at the SAME 'full' size as solo-section chords (so the letters never
+ * shrink); the slot itself applies a strong horizontal scaleX to squeeze
+ * the pair into the available half-bar width. Letter heights are preserved
+ * — only the width is compressed. */
 const SectionSlot = styled.div<{ $squeeze?: boolean }>`
   display: ${({ $squeeze }) => $squeeze ? 'grid' : 'flex'};
   ${({ $squeeze }) => $squeeze
-    ? 'grid-template-columns: repeat(2, minmax(0, 1fr)); transform: scaleX(0.88); transform-origin: left center; & > :nth-child(2) { padding-left: 20px; }'
+    ? 'grid-template-columns: repeat(2, minmax(0, 1fr)); transform: scaleX(0.78); transform-origin: left center; & > :nth-child(2) { padding-left: 20px; }'
     : 'gap: 3px;'}
   align-items: flex-end;
   min-width: 0;
@@ -644,7 +668,16 @@ const Acc = styled.span<{ $size?: ChordSize }>`
   line-height: 1;
 `;
 
-const Quality = styled.span<{ $size?: ChordSize }>`
+/* When a tension exists AND there's no chord-level accidental, Quality
+ * becomes a 2-row stack (tension on top, ext on bottom). With an Acc the
+ * layout reverts to plain inline so we don't get a 3-row pileup
+ * (Acc / tension / base) — see the JSX site for the conditional.
+ *
+ * translateY pulls the quality glyph upward off the bottom edge of root so
+ * the "7" sits closer to the middle of the root letter — without this the
+ * AccQualStack's space-between pushed Quality flush against the root's
+ * baseline, which read as "F7 is too far down" beside the high-perched Acc. */
+const Quality = styled.span<{ $size?: ChordSize; $stacked?: boolean }>`
   font-size: ${({ $size }) =>
     $size === 'four'    ? 'clamp(0.88rem, 2.75cqi, 1.6rem)' :
     $size === 'compact' ? 'clamp(0.6rem,  1.8cqi, 1.1rem)' :
@@ -654,16 +687,30 @@ const Quality = styled.span<{ $size?: ChordSize }>`
   font-family: ${CHORD_FONT};
   line-height: 1;
   padding-bottom: 1px;
+  transform: translateY(-0.18em);
+  transform-origin: left bottom;
+  ${({ $stacked }) => $stacked && `
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 0.95;
+  `}
 `;
 
 const TensionSpan = styled.span<{ $size?: ChordSize }>`
+  /* Tensions ("#5", "b9", "alt", …) render as a superscript glyph stacked
+   * above the ext (e.g. "△7"). Sized at ~64 % of the quality glyph — small
+   * enough to subordinate to the base, big enough to remain legible.
+   * (Was bumped to 75 % when inline, but stacked superscripts look cleaner
+   * at a slightly smaller scale relative to the base.) */
   font-size: ${({ $size }) =>
-    $size === 'four'    ? 'clamp(0.48rem, 1.55cqi, 0.95rem)' :
-    $size === 'compact' ? 'clamp(0.35rem, 1.2cqi, 0.7rem)' :
-    $size === 'split'   ? 'clamp(0.38rem, 1.3cqi, 0.85rem)' :
-                          'clamp(0.45rem, 1.6cqi, 1.0rem)'};
+    $size === 'four'    ? 'clamp(0.55rem, 1.75cqi, 1.0rem)' :
+    $size === 'compact' ? 'clamp(0.4rem, 1.2cqi, 0.75rem)' :
+    $size === 'split'   ? 'clamp(0.5rem, 1.45cqi, 0.9rem)' :
+                          'clamp(0.58rem, 1.85cqi, 1.1rem)'};
   font-weight: 600;
   font-family: ${CHORD_FONT};
+  line-height: 1;
 `;
 
 /* Diminished sign (°) is rendered ~40% larger than surrounding quality text
@@ -674,10 +721,28 @@ const Dim = styled.span`
   line-height: 0;
 `;
 
-/** Split a chord quality/base string and wrap ° glyphs in <Dim> for bigger render. */
-function renderWithDim(s: string): React.ReactNode {
-  if (!s.includes('°')) return s;
-  return s.split(/(°)/g).map((p, i) => (p === '°' ? <Dim key={i}>°</Dim> : p));
+/* Half-diminished (ø) at 'full' size renders compressed in MuseJazz Text —
+ * the slashed-O glyph reads as a narrow squished circle next to the "7".
+ * Apply a slight horizontal stretch only at 'full' size; smaller sizes
+ * (split/compact/four) leave the glyph at its native width since narrower
+ * sizing would over-extend it. */
+const HalfDim = styled.span<{ $size?: ChordSize }>`
+  display: inline-block;
+  ${({ $size }) => $size === 'full' && `
+    transform: scaleX(1.18);
+    transform-origin: center;
+    margin: 0 0.05em;
+  `}
+`;
+
+/** Split a chord quality/base string and wrap glyphs that need custom sizing. */
+function renderWithDim(s: string, size?: ChordSize): React.ReactNode {
+  if (!s.includes('°') && !s.includes('ø')) return s;
+  return s.split(/([°ø])/g).map((p, i) => {
+    if (p === '°') return <Dim key={i}>°</Dim>;
+    if (p === 'ø') return <HalfDim key={i} $size={size}>ø</HalfDim>;
+    return p;
+  });
 }
 
 const SlashBass = styled.span<{ $size?: ChordSize }>`
@@ -940,9 +1005,25 @@ function ChordSymbol({
               {accChar && <Acc $size={size}>{accChar}</Acc>}
             </AccTopSlot>
             {hasQuality && (
-              <Quality $size={size}>
-                {renderWithDim(base)}
-                {tensions && <TensionSpan $size={size}>{tensions}</TensionSpan>}
+              /* Stack tension above base ONLY when there's no chord-level
+               * accidental. With an Acc already perched at the top of the
+               * root (e.g. F♯), adding a stacked tension creates a confusing
+               * 3-row vertical pileup (♯ / tension / base) — so for chords
+               * like F♯7♯9 we keep tension inline with the base. Chords
+               * without an Acc (E△7♯5 etc.) still benefit from the stack
+               * since it saves horizontal space against neighbouring chords.
+               *
+               * data-inline-tension marks the tension when it's rendered
+               * inline (after base). The V→I arrow placement code looks for
+               * it to anchor the arrow at the BASE glyph's right edge rather
+               * than the tension's, so the cadence arc doesn't shoot off
+               * from a high "#9" instead of the "7" trunk. */
+              <Quality $size={size} $stacked={!!tensions && !accChar}>
+                {tensions && !accChar && <TensionSpan $size={size}>{tensions}</TensionSpan>}
+                <span>{renderWithDim(base, size)}</span>
+                {tensions && accChar && (
+                  <TensionSpan $size={size} data-inline-tension="true">{tensions}</TensionSpan>
+                )}
               </Quality>
             )}
           </AccQualStack>
@@ -1087,7 +1168,18 @@ function SystemRowComponent({
   };
 
   return (
-    <SystemRow ref={(el) => registerSystemEl(systemIndex, el)} $sectionStart={!!system.sectionLabel}>
+    <SystemRow
+      ref={(el) => registerSystemEl(systemIndex, el)}
+      $sectionStart={!!system.sectionLabel}
+      $hasVolta={system.bars.some((b) => b.ending != null)}
+    >
+      {/* Section label — lifted to SystemRow level so its left edge sits in
+       *  the LeftMeta column, sharing the X position of the 4/4 time sig
+       *  rather than the chord grid. */}
+      {system.sectionLabel && (
+        <SectionLabel>{system.sectionLabel}</SectionLabel>
+      )}
+
       {/* ── left meta (time sig, first row only) ── */}
       <LeftMeta>
         {isFirst && (
@@ -1101,10 +1193,7 @@ function SystemRowComponent({
 
       {/* ── bars grid ── */}
       <BarsGrid ref={(el) => registerGridEl(systemIndex, el)}>
-        {/* Section label floated over the top-left corner */}
-        {system.sectionLabel && (
-          <SectionLabel>{system.sectionLabel}</SectionLabel>
-        )}
+
 
         {/* Volta ending brackets — rendered per-bar ending property */}
         {system.bars.map((bar, bi) => {
@@ -1138,14 +1227,14 @@ function SystemRowComponent({
           }
 
           const kind: LeftBarlineKind = i === 0 ? firstBarlineKind : 'normal';
-          const renderChordSymbol = (chord: LeadSheetChord, chordIndex: number) => {
+          const renderChordSymbol = (chord: LeadSheetChord, chordIndex: number, size?: ChordSize) => {
             const chordKey = `${systemIndex}-${i}-${chordIndex}`;
             const target = selectionTargetByKey?.get(chordKey);
             return (
               <ChordSymbol
                 key={chordIndex}
                 chord={chord}
-                size={bar.chords.length === 4 ? 'four' : 'full'}
+                size={size ?? (bar.chords.length === 4 ? 'four' : 'full')}
                 chordKey={chordKey}
                 selectionTarget={target}
                 systemIndex={systemIndex}
@@ -1164,8 +1253,15 @@ function SystemRowComponent({
             );
           };
 
+          // Reserve extra right padding when the end barline is wider than
+          // the default 6px gutter, so the rightmost chord doesn't overlap
+          // the close-repeat dots / final-barline thickness.
+          const endPad = endBarlineType === 'repeat-end' ? 22
+            : endBarlineType === 'final' ? 12
+            : undefined;
+
           return (
-            <BarCell key={i} data-bar-cell={`${systemIndex}-${i}`}>
+            <BarCell key={i} data-bar-cell={`${systemIndex}-${i}`} $endPad={endPad}>
               {/* Left barline — skip for empty trailing bars */}
               {!isEmpty && (
                 <BarlineArea>
@@ -1184,9 +1280,18 @@ function SystemRowComponent({
 
               {/* Chord content */}
               {(() => {
+                // When the bar carries a close-repeat barline, the
+                // ●● thin | thick decoration eats ~15px on the right; squash
+                // the chord layout horizontally so multi-chord bars don't
+                // crowd the dots. Only applied when a bar carries 3+ chords —
+                // 1- and 2-chord bars stay at their natural ('full') size and
+                // position regardless of barline type, so chord glyphs in
+                // every bar of the same row visually match.
+                const compact = endBarlineType === 'repeat-end' && bar.chords.length >= 3;
+
                 if (bar.chords.length === 4) {
                   return (
-                    <FourChordGrid>
+                    <FourChordGrid $compact={compact}>
                       {bar.chords.map((chord, j) => (
                         <FourChordSlot key={j}>
                           {renderChordSymbol(chord, j)}
@@ -1201,22 +1306,33 @@ function SystemRowComponent({
                 // 1 chord: full bar, full size
                 if (s2.length === 0) {
                   return s1.map((chord, j) => (
-                    renderChordSymbol(chord, j)
+                    renderChordSymbol(chord, j, 'full')
                   ));
                 }
-                // 2+ chords: two half-bar sections
-                // — slot has 1 chord → 'split' (half-bar sized)
-                // — slot has 2 chords → 'compact' (two per half)
+                // Size policy (per user direction):
+                //   • A half-bar section with 1 chord  → 'full'  (same as a
+                //     1-chord bar; chord glyphs read identically across bars).
+                //   • A half-bar section with 2 chords → still 'full', but the
+                //     containing SectionSlot applies a heavy scaleX so the
+                //     pair squeezes horizontally to fit while preserving the
+                //     letter height. This is the "keep existing size, only
+                //     squeeze width" rule.
+                // 4-chord bars are handled by the FourChordGrid branch above
+                // (uses the smaller 'four' size). Bars with 3 chords land
+                // here: typically s1 has 1 chord ('full') and s2 has 2
+                // chords ('full' + squeeze).
+                const s1Size: ChordSize = 'full';
+                const s2Size: ChordSize = 'full';
                 return (
-                  <BarSections>
+                  <BarSections $compact={compact}>
                     <SectionSlot $squeeze={s1.length > 1}>
                       {s1.map((chord, j) => (
-                        renderChordSymbol(chord, j)
+                        renderChordSymbol(chord, j, s1Size)
                       ))}
                     </SectionSlot>
                     <SectionSlot $squeeze={s2.length > 1}>
                       {s2.map((chord, j) => (
-                        renderChordSymbol(chord, mid + j)
+                        renderChordSymbol(chord, mid + j, s2Size)
                       ))}
                     </SectionSlot>
                   </BarSections>
@@ -2235,7 +2351,18 @@ export function LeadSheet({
 
         // Side-to-side: from right edge of source chord to left edge of target chord,
         // slightly above mid-height of the chord row, with a small gap before target.
-        const x1 = lx(sourceRect.right) + (isSameSystem ? 10 : 7);
+        //
+        // Source-side anchor: if the chord has an inline tension (e.g. F#7#9
+        // where "#9" sits to the right of "7"), the chord's bounding right
+        // edge is the tension glyph — using it would launch the cadence arc
+        // from "#9" instead of "7" and pull the bow up to the tension's
+        // height. Switch to the inline-tension's LEFT edge in that case so
+        // the arrow originates from the base/ext glyph as it should.
+        const inlineTensionEl = sourceEl.querySelector('[data-inline-tension]') as HTMLElement | null;
+        const sourceTrunkRight = inlineTensionEl
+          ? inlineTensionEl.getBoundingClientRect().left
+          : sourceRect.right;
+        const x1 = lx(sourceTrunkRight) + (isSameSystem ? 10 : 7);
         const y1 = ly(sourceRect.top + sourceRect.height * 0.5) - 4;
         const targetEndScreenX = isSameSystem && targetSlotStartX != null
           ? targetSlotStartX - 6 * scale
@@ -2247,12 +2374,29 @@ export function LeadSheet({
         const y2 = ly(targetRect.top + targetRect.height * 0.5) - 4;
 
         if (isSameSystem) {
+          const [, srcBiStr] = spec.sourceChordId.split('-');
+          const [, tgtBiStr] = spec.targetChordId.split('-');
+          const isSameBar = srcBiStr === tgtBiStr;
+
+          // Cross-bar arrows already span enough horizontal distance that
+          // anchoring the endpoints near the chord's mid-height with a
+          // tall 38px bow reads as a clean cadence arc above the row.
+          //
+          // Same-bar arrows only have ~20–40px to work with. Anchoring at
+          // mid-height there squashes the arc behind the chord text, so
+          // lift both endpoints just above the chord top and use a shorter
+          // bow proportional to the gap (so close pairs get a tight arc,
+          // wider pairs a slightly taller one) — clamped for legibility.
+          const arcY1 = isSameBar ? ly(sourceRect.top) - 3 : y1;
+          const arcY2 = isSameBar ? ly(targetRect.top) - 3 : y2;
           const cx = (x1 + x2) / 2;
-          // Pronounced upward bow above the chord row
-          const cy = Math.min(y1, y2) - 38;
+          const bowHeight = isSameBar
+            ? Math.min(22, Math.max(12, (x2 - x1) * 0.45))
+            : 38;
+          const cy = Math.min(arcY1, arcY2) - bowHeight;
           resolvedArrows.push({
             key: spec.key,
-            segments: [{ d: `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`, markerEnd: true }],
+            segments: [{ d: `M ${x1} ${arcY1} Q ${cx} ${cy} ${x2} ${arcY2}`, markerEnd: true }],
           });
           continue;
         }
@@ -2526,7 +2670,6 @@ export function LeadSheet({
       // exact same band/body layout — body height = canonicalRow - 2*GAP, band
       // sits ABOVE body separately with same offset.
       const MI_TAB_HEIGHT = 22;
-      const MI_LABEL_INSET_X = 3;
       const MI_BAR_INSET = 6;     // 마디 끝 barline 여백
       const MI_SIBLING_GAP = 8;   // 같은 마디 내 다음 코드와 간격
       const BARLINE_RIGHT_PAD = 6;
@@ -2537,7 +2680,7 @@ export function LeadSheet({
         if (!el) continue;
 
         const rect = el.getBoundingClientRect();
-        const chordX = lx(rect.left);
+        const chordCenterX = lx((rect.left + rect.right) / 2);
         const chordY = ly(rect.top);
 
         /* ── 우측만 확장: 같은 마디 내 다음 코드 직전 또는 마디 끝 안쪽까지 ── */
@@ -2580,8 +2723,14 @@ export function LeadSheet({
           bandY: hlY - MI_TAB_HEIGHT,
           bandWidth,
           bandHeight: MI_TAB_HEIGHT,
+          // Center the label over the chord's visual center rather than
+          // anchoring its left edge to the chord's left + inset. The label
+          // text width (~36px for "bVII") is wider than scaled chord
+          // symbols ($size='four' → scaleX(0.78), or compact bars), so a
+          // left-anchored label visually drifts off the chord. Centering
+          // keeps the label glued to the chord regardless of scaling.
           bandLabel: {
-            offsetX: chordX - bandX + MI_LABEL_INSET_X,
+            offsetX: chordCenterX - bandX,
             text,
           },
         });
@@ -2848,7 +2997,7 @@ export function LeadSheet({
                   position: 'absolute',
                   left: hl.bandLabel.offsetX,
                   top: '50%',
-                  transform: 'translateY(-50%)',
+                  transform: 'translate(-50%, -50%)',
                   color: '#111',
                   fontFamily: "'Noto Serif', 'Georgia', 'Times New Roman', serif",
                   fontWeight: 700,

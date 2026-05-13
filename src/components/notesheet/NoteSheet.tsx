@@ -35,6 +35,7 @@ import {
 } from '../../lib/backing/drumKitPresets';
 import {
   getPlayerSettings,
+  inferPlayStyle,
   setPlayerSetting,
   subscribePlayerSettings,
   type BassMode,
@@ -116,7 +117,9 @@ function appendChordSVG(
 
     if (tension) {
       const tensionSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-      tensionSpan.setAttribute('font-size', String(Math.round(size * 0.6)));
+      // 0.75 (was 0.6) — match LeadSheet's bumped TensionSpan so the
+      // subscript reads clearly without disappearing under the ext glyph.
+      tensionSpan.setAttribute('font-size', String(Math.round(size * 0.75)));
       tensionSpan.setAttribute('dx', '0');
       tensionSpan.setAttribute('dy', String(-size * 0.22));
       tensionSpan.textContent = tension;
@@ -519,53 +522,64 @@ const MixToggle = styled.button<{ $on?: boolean }>`
 `;
 
 /* ─── mixer popup (slides up from PlayerBar) ──────────────────────────── */
+/* Channel-strip list: each track is one row with name + filled slider + value,
+ * sub-options (pattern, kit, genre) stacked underneath as a pill group.
+ * Solid panel — no grid gaps so the score never bleeds through. */
 
 const MixerPopup = styled.div`
   position: absolute;
-  bottom: 100%;
+  bottom: calc(100% + 10px);
   left: 0;
-  right: 0;
-  margin-bottom: 8px;
-  background: #1e1e1e;
+  width: 340px;
+  background: linear-gradient(180deg, #1d1d1d 0%, #161616 100%);
+  border: 1px solid #2a2a2a;
   border-radius: 14px;
-  padding: 18px 22px;
-  box-shadow: 0 -6px 22px rgba(0,0,0,0.55);
-  max-width: 720px;
-  margin-left: auto;
-  margin-right: auto;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  padding: 14px 14px 12px;
+  box-shadow: 0 12px 38px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.02) inset;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 
   @media (max-width: 720px) {
-    grid-template-columns: 1fr;
-    max-width: 100%;
+    width: min(340px, calc(100vw - 32px));
   }
 `;
 
-/** A grouped channel strip — title bar on top, controls stacked below. */
-const MixerSection = styled.div<{ $accent?: string }>`
-  background: #262626;
-  border: 1px solid #333;
-  border-left: 3px solid ${({ $accent }) => $accent ?? '#666'};
-  border-radius: 10px;
-  padding: 10px 14px 12px;
+const MixerHeader = styled.div`
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid #262626;
+
+  & > span {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: #d4d4d4;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+  }
 `;
 
-const MixerSectionFull = styled(MixerSection)`
-  grid-column: 1 / -1;
+/** One track row — header + slider + (optional) pill group. */
+const MixerSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 4px 10px;
+  &:not(:last-child) { border-bottom: 1px solid #232323; }
 `;
+
+const MixerSectionFull = MixerSection;
 
 const MixerSectionTitle = styled.div`
   font-family: 'DM Sans', sans-serif;
   font-size: 0.78rem;
-  font-weight: 700;
-  color: #ddd;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
+  font-weight: 600;
+  color: #cfcfcf;
+  letter-spacing: 0.2px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -574,49 +588,58 @@ const MixerSectionTitle = styled.div`
 const MixerRow = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 `;
 
 const MixerLabel = styled.span`
   font-family: 'DM Sans', sans-serif;
-  font-size: 0.78rem;
-  color: #aaa;
-  width: 64px;
+  font-size: 0.7rem;
+  color: #888;
+  width: 36px;
   flex-shrink: 0;
   white-space: nowrap;
 `;
 
 const MixerValue = styled.span`
   font-family: 'JetBrains Mono', 'Menlo', monospace;
-  font-size: 0.72rem;
-  color: #888;
-  width: 38px;
+  font-size: 0.68rem;
+  color: #9a9a9a;
+  width: 30px;
   text-align: right;
   flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 `;
 
-const MixerSlider = styled.input`
+/* Slider with filled-track look — uses a background gradient driven by the
+ * --pct CSS var (set inline as style on each slider). */
+const MixerSlider = styled.input.attrs<{ $pct?: number }>(({ $pct }) => ({
+  style: { '--pct': `${$pct ?? 0}%` } as React.CSSProperties,
+}))<{ $pct?: number }>`
   -webkit-appearance: none;
   flex: 1;
   min-width: 0;
-  height: 4px;
-  border-radius: 2px;
-  background: #3a3a3a;
+  height: 5px;
+  border-radius: 3px;
+  background:
+    linear-gradient(90deg, #6aaa7e 0%, #6aaa7e var(--pct), #2c2c2c var(--pct), #2c2c2c 100%);
   outline: none;
+  cursor: pointer;
   &::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 14px;
-    height: 14px;
+    width: 13px;
+    height: 13px;
     border-radius: 50%;
-    background: #ddd;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.5);
     cursor: pointer;
   }
   &::-moz-range-thumb {
-    width: 14px;
-    height: 14px;
+    width: 13px;
+    height: 13px;
     border-radius: 50%;
-    background: #ddd;
+    background: #fff;
     border: none;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.5);
     cursor: pointer;
   }
 `;
@@ -625,30 +648,38 @@ const KitGroup = styled.div`
   display: flex;
   gap: 4px;
   flex: 1;
+  padding: 2px;
+  background: #161616;
+  border: 1px solid #262626;
+  border-radius: 999px;
 `;
 
 const KitBtn = styled.button<{ $active?: boolean }>`
   flex: 1;
-  background: ${({ $active }) => ($active ? '#4caf50' : '#3a3a3a')};
-  color: #fff;
-  border: 1px solid ${({ $active }) => ($active ? '#4caf50' : '#4a4a4a')};
-  border-radius: 5px;
-  padding: 5px 0;
+  background: ${({ $active }) => ($active ? '#2a6e3f' : 'transparent')};
+  color: ${({ $active }) => ($active ? '#fff' : '#9a9a9a')};
+  border: none;
+  border-radius: 999px;
+  padding: 5px 8px;
+  font-family: 'DM Sans', sans-serif;
   font-size: 10.5px;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
   &:hover {
-    background: ${({ $active }) => ($active ? '#45a049' : '#4a4a4a')};
+    background: ${({ $active }) => ($active ? '#2a6e3f' : '#1f1f1f')};
+    color: #fff;
   }
 `;
 
 const AttribLine = styled.div`
   font-size: 9px;
-  color: #888;
+  color: #6e6e6e;
   margin-top: 2px;
+  padding: 0 2px;
   text-align: right;
-  line-height: 1.1;
+  line-height: 1.2;
 `;
 
 const SvgContainer = styled.div<{ $seekable?: boolean }>`
@@ -716,6 +747,17 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
    * same store via setPlayerSetting, so the mixer is truly global. */
   const [settings, setSettingsState] = useState<PlayerSettings>(() => getPlayerSettings());
   useEffect(() => subscribePlayerSettings(setSettingsState), []);
+
+  // Auto-pick rhythm style from the chart's genre — bossa charts default to
+  // bossa, everything else to swing. Runs whenever the chart's genre changes
+  // (i.e. when a new piece is loaded), so the user never has to toggle the
+  // style themselves. The user can still override manually after this fires.
+  useEffect(() => {
+    const inferred = inferPlayStyle(data.genre);
+    if (inferred && inferred !== getPlayerSettings().style) {
+      setPlayerSetting('style', inferred);
+    }
+  }, [data.genre]);
   const [mixerOpen, setMixerOpen] = useState(false);
   const [drumKitError, setDrumKitError] = useState<string | null>(null);
   const metroOn = settings.metroEnabled;
@@ -1881,66 +1923,52 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
              players (LickCard, LickRecommend, etc.) pick up the change too. -- */}
           {mixerOpen && (
             <MixerPopup>
-              {/* Melody (sax/lead) — full-width channel */}
-              <MixerSectionFull $accent='#e8a838'>
+              <MixerHeader>
+                <span>Mixer</span>
+              </MixerHeader>
+
+              {/* Melody (sax/lead) */}
+              <MixerSection>
                 <MixerSectionTitle>🎵 멜로디</MixerSectionTitle>
                 <MixerRow>
                   <MixerLabel>볼륨</MixerLabel>
-                  <MixerSlider type='range' min='0' max='200' value={Math.round(melodyVol * 100)}
+                  <MixerSlider type='range' min='0' max='200'
+                    $pct={Math.min(100, melodyVol * 50)}
+                    value={Math.round(melodyVol * 100)}
                     onChange={(e) => setPlayerSetting('melodyVolume', Number(e.target.value) / 100)} />
                   <MixerValue>{Math.round(melodyVol * 100)}</MixerValue>
                 </MixerRow>
-              </MixerSectionFull>
+              </MixerSection>
 
               {/* Piano — volume + reverb */}
-              <MixerSection $accent='#7eb6e8'>
+              <MixerSection>
                 <MixerSectionTitle>🎹 피아노</MixerSectionTitle>
                 <MixerRow>
                   <MixerLabel>볼륨</MixerLabel>
-                  <MixerSlider type='range' min='0' max='200' value={Math.round(pianoVol * 100)}
+                  <MixerSlider type='range' min='0' max='200'
+                    $pct={Math.min(100, pianoVol * 50)}
+                    value={Math.round(pianoVol * 100)}
                     onChange={(e) => setPlayerSetting('pianoVolume', Number(e.target.value) / 100)} />
                   <MixerValue>{Math.round(pianoVol * 100)}</MixerValue>
                 </MixerRow>
                 <MixerRow>
                   <MixerLabel>잔향</MixerLabel>
-                  <MixerSlider type='range' min='0' max='100' value={Math.round(pianoReverb * 100)}
+                  <MixerSlider type='range' min='0' max='100'
+                    $pct={Math.round(pianoReverb * 100)}
+                    value={Math.round(pianoReverb * 100)}
                     onChange={(e) => setPlayerSetting('pianoReverb', Number(e.target.value) / 100)} />
                   <MixerValue>{Math.round(pianoReverb * 100)}</MixerValue>
                 </MixerRow>
               </MixerSection>
 
               {/* Bass — volume + walking pattern */}
-              {/* Genre / feel selector — drives comp + drum + bass patterns
-               *  AND forces straight 8ths when 'bossa'. */}
-              <MixerSection $accent='#7ec4dd'>
-                <MixerSectionTitle>🎵 스타일</MixerSectionTitle>
-                <MixerRow>
-                  <MixerLabel>장르</MixerLabel>
-                  <KitGroup>
-                    {(
-                      [
-                        { id: 'swing', label: 'Swing' },
-                        { id: 'bossa', label: 'Bossa Nova' },
-                      ] as { id: PlayStyle; label: string }[]
-                    ).map(({ id, label }) => (
-                      <KitBtn
-                        key={id}
-                        type='button'
-                        $active={playStyle === id}
-                        onClick={() => setPlayerSetting('style', id)}
-                      >
-                        {label}
-                      </KitBtn>
-                    ))}
-                  </KitGroup>
-                </MixerRow>
-              </MixerSection>
-
-              <MixerSection $accent='#b87edd'>
+              <MixerSection>
                 <MixerSectionTitle>🎸 베이스</MixerSectionTitle>
                 <MixerRow>
                   <MixerLabel>볼륨</MixerLabel>
-                  <MixerSlider type='range' min='0' max='200' value={Math.round(bassVol * 100)}
+                  <MixerSlider type='range' min='0' max='200'
+                    $pct={Math.min(100, bassVol * 50)}
+                    value={Math.round(bassVol * 100)}
                     onChange={(e) => setPlayerSetting('bassVolume', Number(e.target.value) / 100)} />
                   <MixerValue>{Math.round(bassVol * 100)}</MixerValue>
                 </MixerRow>
@@ -1967,12 +1995,14 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
                 </MixerRow>
               </MixerSection>
 
-              {/* Drums — kit + volume in the same section */}
-              <MixerSectionFull $accent='#dd7e7e'>
+              {/* Drums — kit + volume */}
+              <MixerSection>
                 <MixerSectionTitle>🥁 드럼</MixerSectionTitle>
                 <MixerRow>
                   <MixerLabel>볼륨</MixerLabel>
-                  <MixerSlider type='range' min='0' max='200' value={Math.round(drumVol * 100)}
+                  <MixerSlider type='range' min='0' max='200'
+                    $pct={Math.min(100, drumVol * 50)}
+                    value={Math.round(drumVol * 100)}
                     onChange={(e) => setPlayerSetting('drumVolume', Number(e.target.value) / 100)} />
                   <MixerValue>{Math.round(drumVol * 100)}</MixerValue>
                 </MixerRow>
@@ -1993,26 +2023,54 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
                 {drumKitError && (
                   <AttribLine style={{ color: '#ff8a8a' }}>{drumKitError}</AttribLine>
                 )}
-              </MixerSectionFull>
+              </MixerSection>
 
-              {/* Metronome — full-width footer row */}
-              <MixerSectionFull $accent='#888'>
+              {/* Style / genre — drives comp + drum + bass patterns
+               *  AND forces straight 8ths when 'bossa'. */}
+              <MixerSection>
+                <MixerSectionTitle>🎵 스타일</MixerSectionTitle>
+                <MixerRow>
+                  <MixerLabel>장르</MixerLabel>
+                  <KitGroup>
+                    {(
+                      [
+                        { id: 'swing', label: 'Swing' },
+                        { id: 'bossa', label: 'Bossa Nova' },
+                      ] as { id: PlayStyle; label: string }[]
+                    ).map(({ id, label }) => (
+                      <KitBtn
+                        key={id}
+                        type='button'
+                        $active={playStyle === id}
+                        onClick={() => setPlayerSetting('style', id)}
+                      >
+                        {label}
+                      </KitBtn>
+                    ))}
+                  </KitGroup>
+                </MixerRow>
+              </MixerSection>
+
+              {/* Metronome */}
+              <MixerSection>
                 <MixerSectionTitle>⏱ 메트로놈</MixerSectionTitle>
                 <MixerRow>
-                  <MixerLabel>{metroOn ? 'ON' : 'OFF'}</MixerLabel>
+                  <MixerLabel>전원</MixerLabel>
                   <MixToggle $on={metroOn}
                     onClick={() => setPlayerSetting('metroEnabled', !metroOn)}>
                     {metroOn ? 'ON' : 'OFF'}
                   </MixToggle>
                   {metroOn && (
                     <>
-                      <MixerSlider type='range' min='0' max='200' value={Math.round(metroVol * 100)}
+                      <MixerSlider type='range' min='0' max='200'
+                        $pct={Math.min(100, metroVol * 50)}
+                        value={Math.round(metroVol * 100)}
                         onChange={(e) => setPlayerSetting('metroVolume', Number(e.target.value) / 100)} />
                       <MixerValue>{Math.round(metroVol * 100)}</MixerValue>
                     </>
                   )}
                 </MixerRow>
-              </MixerSectionFull>
+              </MixerSection>
             </MixerPopup>
         )}
         {/* Transport */}

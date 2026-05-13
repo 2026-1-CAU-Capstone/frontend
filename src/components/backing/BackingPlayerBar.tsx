@@ -6,6 +6,7 @@ import {
   setPlayerSetting,
   subscribePlayerSettings,
   type BassMode,
+  type PlayStyle,
   type PlayerSettings,
 } from '../../lib/note/playerSettings';
 
@@ -56,6 +57,7 @@ export function BackingPlayerBar({
     melodyVolume, pianoVolume, pianoReverb,
     bassVolume, bassMode,
     drumVolume, drumKit,
+    style: playStyle,
     metroEnabled, metroVolume,
   } = settings;
 
@@ -143,6 +145,28 @@ export function BackingPlayerBar({
             {DRUM_KIT_PRESETS[drumKit].attribution && (
               <AttribLine>{DRUM_KIT_PRESETS[drumKit].attribution}</AttribLine>
             )}
+          </MixerSectionFull>
+
+          {/* Style / genre — drives comp + drum + bass patterns
+           *  AND forces straight 8ths when 'bossa'. */}
+          <MixerSectionFull $accent='#e8c878'>
+            <MixerSectionTitle>🎵 스타일</MixerSectionTitle>
+            <MixerRow>
+              <MixerLabel>장르</MixerLabel>
+              <KitGroup>
+                {(
+                  [
+                    { id: 'swing', label: 'Swing' },
+                    { id: 'bossa', label: 'Bossa Nova' },
+                  ] as { id: PlayStyle; label: string }[]
+                ).map(({ id, label }) => (
+                  <KitBtn key={id} type='button' $on={playStyle === id}
+                    onClick={() => setPlayerSetting('style', id)}>
+                    {label}
+                  </KitBtn>
+                ))}
+              </KitGroup>
+            </MixerRow>
           </MixerSectionFull>
 
           {/* Metronome */}

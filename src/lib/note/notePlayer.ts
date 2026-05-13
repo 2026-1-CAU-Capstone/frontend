@@ -493,6 +493,7 @@ export class NotePlayer {
     const drumKitChanged = this.drumKitId !== s.drumKit;
     const bassModeChanged = this.bassMode !== s.bassMode;
     const swingRatioChanged = this.swingRatio !== s.swingRatio;
+    const styleChanged = this.style !== s.style;
 
     if (this.lickMode) {
       // Lick audition: silence rhythm section, boost melody, max piano reverb.
@@ -525,9 +526,10 @@ export class NotePlayer {
       // setDrumKit is async; fire-and-forget — playback transitions are handled internally.
       this.setDrumKit(s.drumKit).catch(() => { /* logged in setDrumKit */ });
     }
-    // Bass pattern / swing ratio change mid-playback → rebuild schedule from
-    // current position so the new feel takes effect on the very next beat.
-    if ((bassModeChanged || swingRatioChanged) && this._playing && this.lastData && this.ctx) {
+    // Bass pattern / swing ratio / style change mid-playback → rebuild
+    // schedule from current position so the new feel takes effect on the
+    // very next beat.
+    if ((bassModeChanged || swingRatioChanged || styleChanged) && this._playing && this.lastData && this.ctx) {
       this.rebuildScheduleFromElapsed();
     }
   }

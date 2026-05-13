@@ -116,3 +116,23 @@ export function subscribePlayerSettings(fn: (s: PlayerSettings) => void): () => 
   listeners.add(fn);
   return () => { listeners.delete(fn); };
 }
+
+/* ─── style inference ────────────────────────────────────────────────── */
+
+/**
+ * Pick the rhythm-section style (swing|bossa) from a free-form genre / style
+ * string carried on a chart or note-sheet. Anything that smells latin → bossa,
+ * everything else → swing. Returns null when the input is empty so callers can
+ * leave the user's last-chosen style alone instead of clobbering it.
+ */
+export function inferPlayStyle(raw: string | undefined | null): PlayStyle | null {
+  if (!raw) return null;
+  const s = raw.toLowerCase();
+  if (
+    s.includes('bossa') ||
+    s.includes('samba') ||
+    s.includes('latin') ||
+    s.includes('afro')
+  ) return 'bossa';
+  return 'swing';
+}
