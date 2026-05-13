@@ -770,8 +770,18 @@ function splitQuality(normalized: string): [base: string, tensions: string] {
     /^(△7?|-7?|°7?|ø7?|-△7?|[0-9]+(?:sus[24]?)?|sus[24]?|add\d+)?(.*)/,
   );
   if (m) {
-    const base = m[1] ?? normalized;
-    const rest = (m[2] ?? '').replace(/[()]/g, ''); // strip optional parens
+    let base = m[1] ?? normalized;
+    let rest = (m[2] ?? '').replace(/[()]/g, ''); // strip optional parens
+    // "sus" can appear AFTER tensions in inputs like "7b9sus" or "7#9sus11".
+    // The leading regex only catches sus when it directly follows the digit.
+    // Pull a trailing sus[24]? off the rest and append it to the base, so
+    // tensions stack cleanly above a "7sus" base instead of getting hidden
+    // inside one long inline string (e.g. "G7b9sus" → base="7sus", tensions="b9").
+    const trailingSus = rest.match(/(sus[24]?)$/);
+    if (trailingSus) {
+      base = base + trailingSus[1];
+      rest = rest.slice(0, -trailingSus[1].length);
+    }
     if (rest && /^(?:[b#]\d+|alt)+$/.test(rest)) {
       return [base, rest];
     }
