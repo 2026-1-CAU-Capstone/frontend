@@ -49,3 +49,9 @@ export {
 } from './style';
 
 export { parseStyleFile } from './parser';
+
+export {
+  getClosestPitch, fitMelodyPhraseToChord, fitBassPhraseToChord, fitChordPhraseToChord,
+} from './fit-phrase';
+export { transformPhrase, type DestChord } from './transform';
+export { sourceUsedDegrees, destDegreesMelody } from './source-phrase-ops';

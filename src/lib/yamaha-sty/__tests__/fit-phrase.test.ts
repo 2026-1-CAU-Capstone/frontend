@@ -5,7 +5,9 @@
  * verify voice-leading (closest-octave snapping).
  */
 import { ChordSymbol } from '../../jazz-harmony';
-import { getClosestPitch, fitMelodyPhraseToChord, fitBassPhraseToChord } from '../fit-phrase';
+import {
+  getClosestPitch, fitMelodyPhraseToChord, fitBassPhraseToChord, fitChordPhraseToChord,
+} from '../fit-phrase';
 import type { SourcePhrase, SourceNoteEvent } from '../style-part';
 
 let pass = 0, fail = 0;
@@ -128,6 +130,56 @@ catch { pass++; }
   const out = fitBassPhraseToChord(src, 0, ctM, 5, ctM, 9, /*pedalBass=*/ true);
   const relPitches = pitches(out).map((p) => ((p % 12) + 12) % 12);
   assert(relPitches.every((p) => p === 9), `pedal bass: all notes → A (got ${relPitches})`);
+}
+
+/* ─── fitChordPhrase ─────────────────────────────────────────────────── */
+
+// Same-type transpose: CM7 [C, E, G, B] → DbM7
+{
+  const ctM7 = ChordSymbol.parse('CM7').chordType;
+  const src = phrase([60, 64, 67, 71]); // C4 E4 G4 B4
+  
+  const out = fitChordPhraseToChord(src, 0, ctM7, 1, ctM7); // root C → Db
+  const relPitches = pitches(out).map((p: number) => ((p % 12) + 12) % 12);
+  // All 4 src degrees should map to corresponding DbM7 degrees:
+  // C(ROOT) → Db(1), E(THIRD) → F(5), G(FIFTH) → Ab(8), B(SEVENTH) → C(0)
+  const set = new Set(relPitches);
+  assert(set.has(1) && set.has(5) && set.has(8) && set.has(0),
+    `DbM7 voicing pcs include {Db, F, Ab, C} (got ${relPitches})`);
+}
+
+// Major → minor: CM [C, E, G] → Am [A, C, E]
+// All 3 src degrees map: C(ROOT)→A(9), E(THIRD)→C(0), G(FIFTH)→E(4)
+{
+  const ctM = ChordSymbol.parse('CM').chordType;
+  const ctm = ChordSymbol.parse('Cm').chordType;
+  const src = phrase([60, 64, 67]); // C4 E4 G4
+  
+  const out = fitChordPhraseToChord(src, 0, ctM, 9, ctm); // root C → A, type M→m
+  const relPitches = pitches(out).map((p: number) => ((p % 12) + 12) % 12);
+  const set = new Set(relPitches);
+  assert(set.has(9) && set.has(0) && set.has(4),
+    `Am voicing pcs include {A, C, E} (got ${relPitches})`);
+}
+
+// Empty phrase → empty result
+{
+  const ctM = ChordSymbol.parse('CM').chordType;
+  
+  const out = fitChordPhraseToChord({ channel: 0, notes: [] }, 0, ctM, 0, ctM);
+  assert(out.length === 0, 'chord-mode empty → empty');
+}
+
+// Voice leading: notes stay near their original octave
+{
+  const ctM = ChordSymbol.parse('CM').chordType;
+  const src = phrase([60, 64, 67]); // C4 area
+  
+  const out = fitChordPhraseToChord(src, 0, ctM, 2, ctM); // → D major
+  const ps = pitches(out);
+  for (const p of ps) {
+    assert(Math.abs(p - 64) < 12, `note ${p} within 1 octave of source center 64`);
+  }
 }
 
 console.log(`\n=== fit-phrase test ===`);

@@ -11,6 +11,7 @@ import SoloGeneratorPage from './pages/SoloGeneratorPage';
 import InputPage from './pages/InputPage';
 import AdminPage from './pages/AdminPage';
 import StyPocPage from './pages/StyPocPage';
+import StyDemoPage from './pages/StyDemoPage';
 import { IntroScreen } from './components/common/IntroScreen';
 
 export default function App() {
@@ -32,6 +33,7 @@ export default function App() {
           <Route path="/my-licks" element={<MyLicksPage />} />
           <Route path="/lick-practice/:id" element={<Lick12KeyPage />} />
           <Route path="/sty-poc" element={<StyPocPage />} />
+          <Route path="/sty-demo" element={<StyDemoPage />} />
         </Routes>
       </HashRouter>
     </>
