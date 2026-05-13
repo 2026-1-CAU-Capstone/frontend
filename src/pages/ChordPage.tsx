@@ -15,7 +15,7 @@ import type { ChordOverlay, TocEntry } from '../data/types';
 import { getSongIndex, getSong, type SongEntry } from '../lib/ireal/irealLoader';
 import { buildChordContext } from '../api/chordContext';
 import { createBackingPlayer, leadSheetToChart, type BackingPlayer } from '../lib/backing';
-import { createStyBackingPlayer } from '../lib/yamaha-sty';
+import { createStyBackingPlayer, createHybridBackingPlayer } from '../lib/yamaha-sty';
 import { StyleSelector, BUILTIN_STYLE, type StyleSelectorChoice } from '../components/yamaha-sty/StyleSelector';
 import { getPlayerSettings, inferPlayStyle, setPlayerSetting } from '../lib/note/playerSettings';
 import { BackingPlayerBar } from '../components/backing/BackingPlayerBar';
@@ -433,9 +433,11 @@ export default function ChordPage() {
   const playerRef = useRef<BackingPlayer | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [tempo, setTempo] = useState(140);
-  const [engineBackend, setEngineBackend] = useState<'rule' | 'sty'>(() => {
+  const [engineBackend, setEngineBackend] = useState<'rule' | 'sty' | 'hybrid'>(() => {
     if (typeof window === 'undefined') return 'rule';
-    return window.localStorage.getItem('jazzify.engine') === 'sty' ? 'sty' : 'rule';
+    const stored = window.localStorage.getItem('jazzify.engine');
+    if (stored === 'sty' || stored === 'hybrid') return stored;
+    return 'rule';
   });
   const [styleChoice, setStyleChoice] = useState<StyleSelectorChoice>(BUILTIN_STYLE);
   const [activeBar, setActiveBar] = useState(-1);
@@ -514,12 +516,11 @@ export default function ChordPage() {
     if (inferred && inferred !== getPlayerSettings().style) {
       setPlayerSetting('style', inferred);
     }
-    const player = engineBackend === 'sty'
-      ? createStyBackingPlayer(chart, {}, {
-          styleUrl: styleChoice.url,
-          styleData: styleChoice.buffer,
-        })
-      : createBackingPlayer(chart);
+    const styOpts = { styleUrl: styleChoice.url, styleData: styleChoice.buffer };
+    const player =
+      engineBackend === 'sty' ? createStyBackingPlayer(chart, {}, styOpts) :
+      engineBackend === 'hybrid' ? createHybridBackingPlayer(chart, {}, styOpts) :
+      createBackingPlayer(chart);
     player.on('onBar', (bar) => setActiveBar(bar));
     player.on('onDone', () => setIsPlaying(false));
     playerRef.current = player;
@@ -971,7 +972,7 @@ export default function ChordPage() {
           window.localStorage.setItem('jazzify.engine', b);
         }}
       />
-      {engineBackend === 'sty' && (
+      {(engineBackend === 'sty' || engineBackend === 'hybrid') && (
         <StyleSelector currentName={styleChoice.name} onSelect={setStyleChoice} />
       )}
 
@@ -995,15 +996,25 @@ export default function ChordPage() {
   );
 }
 
-/** Floating toggle to swap the backing-track engine between the legacy
- *  rule-based generator and the new .sty / YamJJazz-port engine. Persists
- *  to localStorage so the choice survives a reload. */
+type EngineBackend = 'rule' | 'sty' | 'hybrid';
+
+const ENGINE_LABELS: Record<EngineBackend, string> = {
+  rule: 'Rule',
+  sty: 'Pure .sty',
+  hybrid: 'Hybrid',
+};
+
+/** Floating toggle to choose the backing-track engine:
+ *   - Rule: legacy rule-based generator (proven, includes drums + bass).
+ *   - Pure .sty: only the Yamaha .sty engine (richer comping, no drums on
+ *     drum-less styles like psBase).
+ *   - Hybrid: rule-engine bass + drums under .sty piano / guitar / etc. */
 function EngineToggle({
   backend,
   onChange,
 }: {
-  backend: 'rule' | 'sty';
-  onChange: (b: 'rule' | 'sty') => void;
+  backend: EngineBackend;
+  onChange: (b: EngineBackend) => void;
 }) {
   return (
     <div style={{
@@ -1020,7 +1031,7 @@ function EngineToggle({
       fontSize: 12,
       fontFamily: 'system-ui, sans-serif',
     }}>
-      {(['rule', 'sty'] as const).map((b) => (
+      {(['rule', 'hybrid', 'sty'] as const).map((b) => (
         <button
           key={b}
           onClick={() => onChange(b)}
@@ -1034,7 +1045,7 @@ function EngineToggle({
             fontWeight: backend === b ? 600 : 400,
           }}
         >
-          {b === 'rule' ? 'Rule engine' : '.sty (psBase)'}
+          {ENGINE_LABELS[b]}
         </button>
       ))}
     </div>

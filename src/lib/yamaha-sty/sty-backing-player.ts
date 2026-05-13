@@ -121,6 +121,10 @@ export interface StyBackingOptions {
   /** Pre-loaded .sty bytes (priority over `styleUrl`). Use when the file
    *  came from a user upload via IndexedDB. */
   styleData?: ArrayBuffer;
+  /** Skip BASS, RHYTHM and SUBRHYTHM channels — used by the hybrid
+   *  player, which lets the legacy rule engine cover those parts while
+   *  the .sty engine handles piano / guitar / horns / strings on top. */
+  skipBassAndDrums?: boolean;
 }
 
 export function createStyBackingPlayer(
@@ -273,6 +277,13 @@ export function createStyBackingPlayer(
             if (!activeChannels.has(ch)) continue;
             const ctab = mainA.ctabByChannel.get(ch);
             if (!ctab) continue;
+
+            // In hybrid mode, defer bass + drum parts to the rule engine.
+            if (options.skipBassAndDrums) {
+              if (ctab.accType === 'BASS' || ctab.accType === 'RHYTHM' || ctab.accType === 'SUBRHYTHM') {
+                continue;
+              }
+            }
 
             // Suppress mis-labelled "percussive" tracks where a melodic
             // GM program (violin, flute, etc.) was assigned to a RHYTHM
