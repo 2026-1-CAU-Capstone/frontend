@@ -1,0 +1,72 @@
+
+
+url : https://youtu.be/iNgtPSlhe6A?si=qHmHgOaB6UwmqLwV
+분석 대상 곡 (Analyzed Songs): Rhythm Changes, All The Things You Are, Wail, 52nd Street Theme
+
+강의 출처 (Source): Bruce Harris (Building your jazz language and vocabulary)
+
+레벨 1: 범용 개념 설명 (Level 1: General Concepts)
+1-1. 재즈 어휘와 언어의 중요성 (The Importance of Jazz Language and Vocabulary)
+instruction (KR): 재즈에서 스케일이나 코드보다 '언어와 어휘(Language & Vocabulary)'를 먼저 익히는 것이 왜 중요해?
+instruction (EN): Why is it so important to learn 'language and vocabulary' before just scales and chords in jazz?
+
+response (KR): 재즈는 추측하는 게임이 아니기 때문입니다. 인간이 말을 할 때 어휘를 알아야 명확하고 진정성 있게 의사소통할 수 있는 것과 같은 이치입니다. 실제로 스케일이나 코드를 전혀 모르더라도 마스터들의 솔로를 듣고 카피(Transcribe)하여 언어와 어휘를 익히면 훌륭한 소리를 낼 수 있습니다. 이후에 스케일과 코드를 배우고 이를 카피한 어휘와 결합하면 재즈라는 전체적인 퍼즐이 맞춰지게 됩니다.
+response (EN): Because jazz isn't a guessing game. Just as we need language and vocabulary to speak authentically and clearly as human beings, the same applies to this music. In fact, you can sound quite good without knowing any scales or chords, simply by knowing a lot of language and vocabulary from listening and transcribing solos. Once you learn your scales and chords and combine them with the transcribed vocabulary, the whole puzzle starts to come together.
+
+1-2. 느린 연습의 미학 (The Beauty of Slow Practice)
+instruction (KR): 빠르고 복잡한 비밥 라인을 왜 굳이 느리게 연습해야 해?
+instruction (EN): Why should we practice fast and complex bebop lines slowly?
+
+response (KR): 단지 연주 실력(Facility)을 기르기 위해서만이 아니라, 프레이즈가 가진 진짜 아름다움을 듣기 위해서입니다. 우리는 종종 마스터들이 중간 빠르기나 맹렬한 템포(Torrid tempos)로 연주하는 것에 현혹되곤 합니다. 하지만 템포를 늦춰보면 이 프레이즈들이 얼마나 선율적(Melodic)인지 진정으로 감상할 수 있습니다. 힙하게 연주하고 코드를 다 짚어내는 것도 좋지만, 멜로디가 최우선이어야 합니다.
+response (EN): You play it slowly not only for facility and being able to execute the line, but to really hear the beauty of the phrase. A lot of times we are dazzled by masters playing these solos at medium to torrid tempos. But when we slow it down, we really appreciate how melodic these phrases are. We want things to be hip and spell out the changes, but melody is so important.
+
+1-3. 음표보다 리듬 (Rhythm Before Notes)
+instruction (KR): 소니 롤린스와 디지 길레스피가 '음표보다 리듬을 먼저 생각하라'고 강조한 이유는 뭐야?
+instruction (EN): Why did Sonny Rollins and Dizzy Gillespie emphasize thinking about the rhythm before the notes?
+
+response (KR): 리듬이 본질적인 뼈대이기 때문입니다. 소니 롤린스(Sonny Rollins)와 디지 길레스피(Dizzy Gillespie)는 음표 이전에 리듬을 먼저 생각한다고 수없이 말했습니다. 훌륭하고 강렬한 리듬을 먼저 연주한 뒤 거기에 음표를 더하면, 십중팔구(9 times out of 10) 완벽한 결과물(Gold)이 탄생합니다.
+response (EN): Because rhythm is the fundamental foundation. Both Sonny Rollins and Dizzy Gillespie have said countless times that they think about the rhythm before the notes. If you play a good strong rhythm and then add the notes to it, nine times out of ten it's going to be gold.
+
+레벨 2: 곡별 분석 (Level 2: Song-Specific Analysis)
+2-1. 트라이톤 서브 라인의 효과 (The Effect of Tritone Sub Lines)
+instruction (KR): 팻스 나바로(Fats Navarro)의 연주에서 볼 수 있는 트라이톤 서브(Tritone Sub) 라인의 음악적 특징은 뭐야?
+instruction (EN): What are the musical characteristics of a tritone sub line, as seen in Fats Navarro's playing?
+
+response (KR): 팻스 나바로가 곡 'Wail'에서 보여준 2-5-1 프레이즈처럼, 트라이톤 서브 라인은 엄청난 '긴장과 이완(Tension and Release)'을 만들어냅니다. 멜로디적으로 트라이톤(증4도) 사운드뿐만 아니라 샵 나인(♯9)과 플랫 나인(♭9)의 긴장감을 명확히 들려줍니다. 이는 화성적으로나 선율적으로나 아주 아름답게 구성된 프레이즈의 표본입니다.
+response (EN): Like Fats Navarro's 2-5-1 phrase on the tune 'Wail', a tritone sub line creates a lot of tension and release. Melodically, you hear the tritone sound, as well as the sharp nine (♯9) and flat nine (♭9). It's a beautifully constructed phrase both harmonically and melodically.
+
+2-2. 찰리 파커의 All The Things You Are 브릿지 해석 (Charlie Parker's ATTYA Bridge)
+instruction (KR): 찰리 파커(Charlie Parker)는 'All The Things You Are'의 브릿지 구간을 어떻게 해석했어?
+instruction (EN): How did Charlie Parker approach the bridge section of 'All The Things You Are'?
+
+response (KR): 찰리 파커는 이 브릿지에서 굉장히 밝고 개방감(Openness) 있는 사운드를 만들어냅니다. 그는 7음부터 시작하여 밑으로 쭉 하행하며 G 메이저 7(G major 7) 코드를 명확하게 윤곽 지어줍니다(Outlining). 화성을 뚜렷하게 짚어주면서도 매우 선율적이고 아름답게 끝을 맺는 것이 특징입니다.
+response (EN): Charlie Parker creates a bright feeling and a sense of openness on this bridge. He starts the phrase by pretty much outlining a G major 7 chord, starting from the 7th and going all the way down. It spells out the harmony clearly while ending beautifully and very melodically.
+
+2-3. 멜로디에서 얻는 솔로 영감 (Solo Inspiration from Melodies)
+instruction (KR): 기존 곡의 멜로디가 솔로 라인에 어떻게 영감을 줄 수 있어?
+instruction (EN): How can the melody of an existing song provide inspiration for a solo line?
+
+response (KR): 마이너 2-5-1(Minor 2-5-1) 진행에서 연주할 라인을 고민할 때, 기존 스탠더드 곡의 멜로디를 차용할 수 있습니다. 예를 들어, '52nd Street Theme'의 브릿지 멜로디가 가진 특유의 흐름은 마이너 2-5-1 위에서 훌륭한 솔로 프레이즈로 탈바꿈할 수 있는 완벽한 영감의 원천이 됩니다.
+response (EN): When figuring out a line over a minor 2-5-1 progression, you can borrow from the melodies of existing standards. For example, the specific melodic flow on the bridge of '52nd Street Theme' serves as a perfect source of inspiration that can be transformed into a great solo phrase over a minor 2-5-1.
+
+레벨 3: 연주 판단 (Level 3: Performance Decisions)
+3-1. 라인을 춤추게 만드는 리듬 프레이징 (Making the Line Dance with Rhythmic Phrasing)
+instruction (KR): 마일스 데이비스(Miles Davis)처럼 선율을 '춤추게' 만들려면 어떻게 연주해야 해?
+instruction (EN): How do you make a melody "dance" like Miles Davis does?
+
+response (KR): 단순히 음표를 나열하는 것을 넘어, 리듬적인 바이브(Rhythmic vibe)를 더해야 합니다. 마일스 데이비스의 프레이즈를 보면, 특정 음표에 명확한 액센트(Accents)를 더하고 8분음표에 바운스(Bounce)를 가미합니다. 똑같이 아름다운 멜로디라도 이렇게 리듬적으로 프레이징을 하면 라인이 한 차원 더 높은 수준으로 올라가며 마치 춤을 추는 듯한 느낌을 줍니다.
+response (EN): Beyond just playing the notes, you need to add a rhythmic vibe. As seen in Miles Davis's phrasing, you have to add accents and add bounce to the eighth notes. Even with a beautifully melodic line, phrasing it rhythmically takes it to another level and really makes the line dance.
+
+3-2. 긴장과 이완의 음정 도약 활용 (Utilizing Intervals for Tension and Release)
+instruction (KR): 솔로를 할 때 긴장과 이완(Tension and Release)을 극대화하려면 어떤 음정(Interval) 도약을 활용할 수 있어?
+instruction (EN): What interval leaps can you utilize to maximize tension and release during a solo?
+
+response (KR): 1도(토닉) 코드에 도착했을 때 트라이톤(Tritone, 증4도) 음으로 강하게 착지하여 긴장을 유발하는 방법이 있습니다. 거기서 멈추지 않고 4도 위로 점프하고, 다시 한번 4도 위로 점프하는 식으로 라인을 전개해 보세요. 이러한 도약은 매우 아름답고 세련된 긴장과 이완 사운드를 만들어냅니다.
+response (EN): When you reach the one chord, you can land hard on the tritone (e.g., a concert A) to induce tension. From there, you can play a fourth away, and then play another fourth away. These interval leaps create a beautiful sense of tension and release.
+
+3-3. 백 포켓 프레이즈와 카오스 유발 (Back Pocket Phrases & Causing Chaos)
+instruction (KR): 짧은 메이저 프레이즈를 외워두거나 혼돈(Chaos)을 유발하는 릭을 갖추는 게 실전에 어떻게 도움 돼?
+instruction (EN): How does having memorized short major phrases or "chaos-inducing" licks help in actual performance?
+
+response (KR): 즉흥 연주라는 여정(Journey)에서는 빠른 판단이 필요합니다. 메이저 코드에 도달했을 때 번뜩이는 아이디어가 필요하다면 뒷주머니(Back pocket)에서 꺼내 쓸 수 있는 짧은 메이저 프레이즈를 장착해 두는 것이 아주 든든합니다. 또한 프레디 허버드(Freddie Hubbard)처럼 의도적으로 혼돈(Chaos)과 엄청난 긴장감을 유발하기 위해 가끔씩 꺼내 쓰는 폭발적인 릭을 무기로 가지고 있는 것도 매우 유용합니다.
+response (EN): Improvisation is a journey that requires quick thinking. When you get to a major chord and just need a quick idea, it's incredibly helpful to have a short major phrase ready in your back pocket. Also, like Freddie Hubbard, having an explosive lick to play from time to time just to cause chaos and immense tension is a great weapon to have in your arsenal.

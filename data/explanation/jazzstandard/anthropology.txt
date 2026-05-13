@@ -1,7 +1,7 @@
 
 ## 곡 정보
 
-- **곡명:** Rhythm Changes (I Got Rhythm 코드 진행)
+- **곡명:** Anthropology
 - **작곡:** George Gershwin (1930) 원곡 / 다양한 비밥 컨트라팩트 (Anthropology, Oleo 등)
 - **센터 키:** B♭ Major
 - **형식:** 32마디 AABA
