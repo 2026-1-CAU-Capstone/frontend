@@ -55,3 +55,5 @@ export {
 } from './fit-phrase';
 export { transformPhrase, type DestChord } from './transform';
 export { sourceUsedDegrees, destDegreesMelody } from './source-phrase-ops';
+export { chordTypeFromQuality } from './quality-map';
+export { createStyBackingPlayer, type StyBackingOptions } from './sty-backing-player';

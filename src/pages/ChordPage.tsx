@@ -15,6 +15,7 @@ import type { ChordOverlay, TocEntry } from '../data/types';
 import { getSongIndex, getSong, type SongEntry } from '../lib/ireal/irealLoader';
 import { buildChordContext } from '../api/chordContext';
 import { createBackingPlayer, leadSheetToChart, type BackingPlayer } from '../lib/backing';
+import { createStyBackingPlayer } from '../lib/yamaha-sty';
 import { getPlayerSettings, inferPlayStyle, setPlayerSetting } from '../lib/note/playerSettings';
 import { BackingPlayerBar } from '../components/backing/BackingPlayerBar';
 import { withLeadSheetSelectionIds } from '../lib/leadSheetSelection';
@@ -431,6 +432,10 @@ export default function ChordPage() {
   const playerRef = useRef<BackingPlayer | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [tempo, setTempo] = useState(140);
+  const [engineBackend, setEngineBackend] = useState<'rule' | 'sty'>(() => {
+    if (typeof window === 'undefined') return 'rule';
+    return window.localStorage.getItem('jazzify.engine') === 'sty' ? 'sty' : 'rule';
+  });
   const [activeBar, setActiveBar] = useState(-1);
   const [selectedChordIds, setSelectedChordIds] = useState<string[]>([]);
   const [selectedChordsData, setSelectedChordsData] = useState<ChordOverlay[]>([]);
@@ -507,7 +512,7 @@ export default function ChordPage() {
     if (inferred && inferred !== getPlayerSettings().style) {
       setPlayerSetting('style', inferred);
     }
-    const player = createBackingPlayer(chart);
+    const player = engineBackend === 'sty' ? createStyBackingPlayer(chart) : createBackingPlayer(chart);
     player.on('onBar', (bar) => setActiveBar(bar));
     player.on('onDone', () => setIsPlaying(false));
     playerRef.current = player;
@@ -517,7 +522,7 @@ export default function ChordPage() {
       setIsPlaying(false);
       setActiveBar(-1);
     };
-  }, [sheet]);
+  }, [sheet, engineBackend]);
 
   // Push tempo changes into the live player config (per-page state, not global)
   useEffect(() => {
@@ -952,6 +957,14 @@ export default function ChordPage() {
         </div>
       )}
 
+      <EngineToggle
+        backend={engineBackend}
+        onChange={(b) => {
+          setEngineBackend(b);
+          window.localStorage.setItem('jazzify.engine', b);
+        }}
+      />
+
       <BackingPlayerBar
         playing={isPlaying}
         tempo={tempo}
@@ -969,5 +982,51 @@ export default function ChordPage() {
         />
       )}
     </PageContainer>
+  );
+}
+
+/** Floating toggle to swap the backing-track engine between the legacy
+ *  rule-based generator and the new .sty / YamJJazz-port engine. Persists
+ *  to localStorage so the choice survives a reload. */
+function EngineToggle({
+  backend,
+  onChange,
+}: {
+  backend: 'rule' | 'sty';
+  onChange: (b: 'rule' | 'sty') => void;
+}) {
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 8,
+      right: 12,
+      zIndex: 1000,
+      background: 'rgba(20, 20, 20, 0.85)',
+      border: '1px solid #333',
+      borderRadius: 999,
+      padding: '4px',
+      display: 'flex',
+      gap: 0,
+      fontSize: 12,
+      fontFamily: 'system-ui, sans-serif',
+    }}>
+      {(['rule', 'sty'] as const).map((b) => (
+        <button
+          key={b}
+          onClick={() => onChange(b)}
+          style={{
+            padding: '6px 12px',
+            border: 'none',
+            borderRadius: 999,
+            cursor: 'pointer',
+            background: backend === b ? '#3a7' : 'transparent',
+            color: backend === b ? '#fff' : '#aaa',
+            fontWeight: backend === b ? 600 : 400,
+          }}
+        >
+          {b === 'rule' ? 'Rule engine' : '.sty (psBase)'}
+        </button>
+      ))}
+    </div>
   );
 }
