@@ -10,22 +10,50 @@ import { ChatChartCard } from './ChatChartCard';
 import { parseChatChart } from '../../lib/chatChartParser';
 import styled, { keyframes } from 'styled-components';
 
-/* Inline section label — black filled square with the letter, matches the
- * LeadSheet SectionLabel style so the chat reads like the same chart. */
+/* Inline section label — black filled SQUARE with the letter, matches the
+ * LeadSheet SectionLabel style. Uses a fixed square size (1.5em × 1.5em) so
+ * single-letter labels (A/B/C) read as a real square block, not a wide pill. */
 const InlineSectionTag = styled.span`
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5em;
+  height: 1.5em;
   background: #000;
   color: #fff;
   font-family: 'DM Sans', 'Pretendard', sans-serif;
-  font-size: 0.82em;
+  font-size: 0.95em;
   font-weight: 800;
   line-height: 1;
   letter-spacing: 0.02em;
-  padding: 4px 8px;
   border-radius: 2px;
-  margin: 0 2px;
-  vertical-align: baseline;
+  margin: 0 3px;
+  vertical-align: -0.2em;  /* tweak baseline so letter aligns with surrounding text */
 `;
+
+/* Pattern + helper used by the markdown component override below to inline
+ * [SEC:X] tags inside the same <p> as adjacent text — keeping them on the
+ * same line as opposed to forcing a paragraph break. */
+const SEC_TAG_RE = /\[SEC:([^\]]+)\]/g;
+
+function inlineSectionTags(text: string, keyPrefix = 'sec'): React.ReactNode[] {
+  if (!SEC_TAG_RE.test(text)) {
+    SEC_TAG_RE.lastIndex = 0;
+    return [text];
+  }
+  SEC_TAG_RE.lastIndex = 0;
+  const out: React.ReactNode[] = [];
+  let lastIdx = 0;
+  let m: RegExpExecArray | null;
+  let i = 0;
+  while ((m = SEC_TAG_RE.exec(text)) !== null) {
+    if (m.index > lastIdx) out.push(text.slice(lastIdx, m.index));
+    out.push(<InlineSectionTag key={`${keyPrefix}-${i++}`}>{m[1]}</InlineSectionTag>);
+    lastIdx = m.index + m[0].length;
+  }
+  if (lastIdx < text.length) out.push(text.slice(lastIdx));
+  return out;
+}
 
 const LICK_TAG_RE = /\[LICK:(\d+)\]/g;
 import {
@@ -55,14 +83,30 @@ interface ChatMessageProps {
   songTempo?: number;
 }
 
-/** Recursively walk React children and format chord symbols in text nodes */
-function formatChildChords(children: React.ReactNode): React.ReactNode {
-  return React.Children.map(children, (child) => {
+/** Format a single string: chord symbols → typography, [SEC:X] → square tag. */
+function formatStringNode(text: string, keyHint = 'k'): React.ReactNode {
+  // First inline any [SEC:X] tags, then format chord symbols inside the
+  // remaining text fragments. Section tags are kept as JSX as-is.
+  const parts = inlineSectionTags(text, keyHint);
+  return (
+    <>
+      {parts.map((p, i) =>
+        typeof p === 'string' ? <span key={`s-${keyHint}-${i}`}>{formatChordsInText(p)}</span> : p,
+      )}
+    </>
+  );
+}
+
+/** Recursively walk React children and format chord symbols + section tags
+ *  in text nodes. Block-level children are recursed-into; everything stays
+ *  inline within its enclosing element. */
+function formatChildChords(children: React.ReactNode, keyHint = 'r'): React.ReactNode {
+  return React.Children.map(children, (child, idx) => {
     if (typeof child === 'string') {
-      return <>{formatChordsInText(child)}</>;
+      return formatStringNode(child, `${keyHint}-${idx}`);
     }
     if (React.isValidElement<{ children?: React.ReactNode }>(child) && child.props.children) {
-      return React.cloneElement(child, {}, formatChildChords(child.props.children));
+      return React.cloneElement(child, {}, formatChildChords(child.props.children, `${keyHint}-${idx}`));
     }
     return child;
   });
@@ -222,15 +266,16 @@ export function ChatMessage({ message, suppressChart = false, songTempo }: ChatM
     );
 
     /* Helper: take a plain text segment and emit markdown + inlined
-     * [LICK:id] cards + [SEC:label] section tags. Used as a sub-pass
-     * after chart-block splitting. */
-    const INLINE_TAG_RE = /\[(LICK|SEC):([^\]]+)\]/g;
+     * [LICK:id] cards. [SEC:X] is NOT split here — the markdown component
+     * override (formatChildChords) replaces them inline so they stay in the
+     * same <p> as the surrounding text. */
+    const LICK_INLINE_RE = /\[LICK:([^\]]+)\]/g;
 
     const renderTextWithLicks = (text: string, keyPrefix: string): React.ReactNode[] => {
       const out: React.ReactNode[] = [];
       let textIdx = 0;
       let lm: RegExpExecArray | null;
-      INLINE_TAG_RE.lastIndex = 0;
+      LICK_INLINE_RE.lastIndex = 0;
 
       const flushMarkdown = (md: string, suffix: string) => {
         if (!md) return;
@@ -241,23 +286,13 @@ export function ChatMessage({ message, suppressChart = false, songTempo }: ChatM
         );
       };
 
-      while ((lm = INLINE_TAG_RE.exec(text)) !== null) {
+      while ((lm = LICK_INLINE_RE.exec(text)) !== null) {
         flushMarkdown(text.slice(textIdx, lm.index), String(textIdx));
-        const kind = lm[1]; // "LICK" | "SEC"
-        const value = lm[2];
-
-        if (kind === 'LICK') {
-          const id = parseInt(value, 10);
-          const match = lickById.get(id);
-          if (match) {
-            out.push(<LickRecommendMessage key={`${keyPrefix}-lick-${id}-${lm.index}`} match={match} tempoOverride={songTempo} />);
-          }
-        } else if (kind === 'SEC') {
-          out.push(
-            <InlineSectionTag key={`${keyPrefix}-sec-${lm.index}`}>{value}</InlineSectionTag>
-          );
+        const id = parseInt(lm[1], 10);
+        const match = lickById.get(id);
+        if (match) {
+          out.push(<LickRecommendMessage key={`${keyPrefix}-lick-${id}-${lm.index}`} match={match} tempoOverride={songTempo} />);
         }
-
         textIdx = lm.index + lm[0].length;
       }
       flushMarkdown(text.slice(textIdx), 'tail');

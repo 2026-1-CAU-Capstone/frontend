@@ -271,6 +271,67 @@ export interface LickMatch {
   originalKey?: string;     // 이조 전 원래 키 (tier 3일 때 표시용)
 }
 
+/* ── progression keyword → ChordType pattern ─────────────────────────────── */
+
+type ProgressionKey = 'ii-V-I' | 'ii-V' | 'minor-ii-V' | 'V-I' | 'turnaround' | 'iii-VI-ii-V';
+
+const PROGRESSION_PATTERNS: Record<ProgressionKey, ChordType[]> = {
+  'ii-V-I':       ['m7', 'dom7', 'maj7'],
+  'ii-V':         ['m7', 'dom7'],
+  'minor-ii-V':   ['m7b5', 'dom7'],
+  'V-I':          ['dom7', 'maj7'],
+  'turnaround':   ['maj7', 'dom7', 'm7', 'dom7'],
+  'iii-VI-ii-V':  ['m7', 'dom7', 'm7', 'dom7'],
+};
+
+/**
+ * 사용자가 코드 구간을 선택하지 않았을 때 — 진행 키워드(예: "2-5-1")만으로
+ * 릭을 찾아오는 폴백. 릭의 chord 진행에서 해당 패턴이 부분-매치되는 것을
+ * 모두 모아 임의로 N 개 샘플링.
+ */
+export function findLicksByProgression(
+  progression: ProgressionKey,
+  allLicks: LickEntry[],
+  maxResults = 5,
+): LickMatch[] {
+  const targetPat = PROGRESSION_PATTERNS[progression];
+  if (!targetPat) return [];
+  const matches: LickEntry[] = [];
+  for (const lick of allLicks) {
+    const lickPat = lickPattern(lick);
+    // sub-string match: 릭 진행 어딘가에 패턴이 그대로 등장하는지
+    for (let i = 0; i <= lickPat.length - targetPat.length; i++) {
+      if (targetPat.every((t, j) => lickPat[i + j] === t)) {
+        matches.push(lick);
+        break;
+      }
+    }
+  }
+  // Fisher-Yates partial shuffle — 같은 곡만 계속 추천되지 않도록
+  for (let i = matches.length - 1; i > 0 && i > matches.length - maxResults - 1; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [matches[i], matches[j]] = [matches[j], matches[i]];
+  }
+  return matches.slice(0, maxResults).map((lick) => ({ lick, tier: 3 as const }));
+}
+
+/** Map common Korean / English progression keywords → canonical key. */
+export function detectProgressionKeyword(text: string): ProgressionKey | null {
+  const lower = text.toLowerCase();
+  if (/2[-\s]*5[-\s]*1|ii[-\s]*v[-\s]*i|ⅱ[-\s]*ⅴ[-\s]*ⅰ/.test(lower)) {
+    if (/마이너|minor|단조|m7b5|마7b5/.test(lower)) return 'minor-ii-V';
+    return 'ii-V-I';
+  }
+  if (/2[-\s]*5|ii[-\s]*v(?![- ]*i)/.test(lower)) {
+    if (/마이너|minor|단조/.test(lower)) return 'minor-ii-V';
+    return 'ii-V';
+  }
+  if (/턴어라운드|turnaround|순환/.test(lower)) return 'turnaround';
+  if (/3[-\s]*6[-\s]*2[-\s]*5|iii[-\s]*vi[-\s]*ii[-\s]*v/.test(lower)) return 'iii-VI-ii-V';
+  if (/v[-\s]*i\b|5[-\s]*1/.test(lower)) return 'V-I';
+  return null;
+}
+
 export function findMatchingLicks(
   selected: ChordOverlay[],
   songTitle: string,

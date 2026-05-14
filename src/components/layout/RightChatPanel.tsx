@@ -5,7 +5,12 @@ import { ChatInput } from '../chat/ChatInput';
 import { type ClaudeMessage } from '../../api/claude';
 import { streamWithRAG, type RagDebugInfo } from '../../api/harmorag';
 import { RagDebugPanel } from '../chat/RagDebugPanel';
-import { findMatchingLicks, selectionProgressionLabel } from '../../lib/lickMatcher';
+import {
+  findMatchingLicks,
+  selectionProgressionLabel,
+  findLicksByProgression,
+  detectProgressionKeyword,
+} from '../../lib/lickMatcher';
 import { loadUserLicks, loadUserLicksSync } from '../../data/lickData';
 import type { LickEntry } from '../../data/lickData';
 import {
@@ -191,6 +196,16 @@ export function RightChatPanel({
       const songKey = (keyMatch ? keyMatch[1] : 'C').replace('♭', 'b');
       const chordsForMatch = selectedChords.length > 0 ? selectedChords : [];
       lickMatchesForMsg = findMatchingLicks(chordsForMatch, songTitle, songKey, allLicksRef.current, 5);
+
+      // 코드를 직접 선택하지 않고 "2-5-1 추천" / "ii-V-I lick" 같은 키워드만 던진
+      // 경우엔 findMatchingLicks 가 빈 배열을 반환. 진행 키워드를 감지해서 DB
+      // 전체에서 해당 진행을 포함하는 릭을 샘플링한다.
+      if (lickMatchesForMsg.length === 0) {
+        const prog = detectProgressionKeyword(text);
+        if (prog) {
+          lickMatchesForMsg = findLicksByProgression(prog, allLicksRef.current, 5);
+        }
+      }
 
       if (lickMatchesForMsg.length > 0) {
         const lickList = lickMatchesForMsg.map((m) => {
