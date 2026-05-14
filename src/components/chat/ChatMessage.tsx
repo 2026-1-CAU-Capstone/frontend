@@ -7,7 +7,7 @@ import type { LickMatch } from '../../lib/lickMatcher';
 import { formatChordsInText } from './chordFormat';
 import { LickRecommendMessage, LickRecommendList, jsonToLickEntry } from './LickRecommendMessage';
 import { ChatChartCard } from './ChatChartCard';
-import { parseChatChart } from '../../lib/chatChartParser';
+import { parseChatChart, splitChordTables } from '../../lib/chatChartParser';
 import styled, { keyframes } from 'styled-components';
 
 /* Inline section label — black filled SQUARE with the letter, matches the
@@ -279,11 +279,22 @@ export function ChatMessage({ message, suppressChart = false, songTempo }: ChatM
 
       const flushMarkdown = (md: string, suffix: string) => {
         if (!md) return;
-        out.push(
-          <MarkdownBody key={`${keyPrefix}-md-${suffix}`}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{md}</ReactMarkdown>
-          </MarkdownBody>
-        );
+        // Safety net: a markdown chord-progression table → clean lead-sheet
+        // card. Non-chord tables and prose stay as normal markdown. Skipped
+        // when suppressChart is on (ChordPage already shows the chart).
+        const segs = suppressChart ? [md] : splitChordTables(md);
+        segs.forEach((seg, k) => {
+          if (typeof seg === 'string') {
+            if (!seg.trim()) return;
+            out.push(
+              <MarkdownBody key={`${keyPrefix}-md-${suffix}-${k}`}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{seg}</ReactMarkdown>
+              </MarkdownBody>
+            );
+          } else {
+            out.push(<ChatChartCard key={`${keyPrefix}-tblchart-${suffix}-${k}`} chart={seg} />);
+          }
+        });
       };
 
       while ((lm = LICK_INLINE_RE.exec(text)) !== null) {

@@ -11,7 +11,7 @@ import {
   findLicksByProgression,
   detectProgressionKeyword,
 } from '../../lib/lickMatcher';
-import { loadUserLicks, loadUserLicksSync } from '../../data/lickData';
+import { loadLicks, loadUserLicksSync } from '../../data/lickData';
 import type { LickEntry } from '../../data/lickData';
 import {
   PanelContainer,
@@ -102,9 +102,16 @@ export function RightChatPanel({
   const historyRef = useRef<ClaudeMessage[]>([]);
   const allLicksRef = useRef<LickEntry[]>([]);
 
-  // seed + local 릭 마운트 시 로드
+  // 릭 추천 풀: 백엔드 릭 DB (jazzify.p-e.kr/api/v1/licks). 예전엔 프론트
+  // 정적 JSON(user_licks.json)을 봤지만, 릭이 백엔드로 이관되어 그쪽을 단일
+  // 소스로 사용. 실패 시 빈 배열 — 채팅은 LLM 답변으로 폴백된다.
   useEffect(() => {
-    loadUserLicks().then((licks) => { allLicksRef.current = licks; });
+    loadLicks()
+      .then((licks) => { allLicksRef.current = licks; })
+      .catch((err) => {
+        console.warn('[RightChatPanel] 릭 DB 로드 실패 — 릭 추천 비활성:', err);
+        allLicksRef.current = [];
+      });
   }, []);
 
   const handleScroll = useCallback(() => {
