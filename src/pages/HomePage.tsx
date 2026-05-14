@@ -1,21 +1,21 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import styled, { css, keyframes } from 'styled-components';
-import { streamWithRAG } from '../api/harmorag';
-import type { ClaudeMessage } from '../api/claude';
-import { ChatMessage } from '../components/chat/ChatMessage';
-import type { ChatMessage as ChatMessageType } from '../data/types';
+import styled, { keyframes } from 'styled-components';
 import { mq } from '../styles/theme';
+import { RightChatPanel } from '../components/layout/RightChatPanel';
 
-/* ── Types ────────────────────────────────────────────────────── */
-
-type Phase = 'idle' | 'chatting';
-
-interface Msg extends ChatMessageType {
-  id: string;
-}
-
-/* ── Animations ───────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────────────────
+ * HomePage (intro screen).
+ *
+ * The chat itself is the SAME component used on ChordPage / NotePage —
+ * `RightChatPanel`. Previously HomePage had its own bespoke chat loop which
+ * silently dropped the RAG debug panel, lick-card insertion, and lead-sheet
+ * chord-chart rendering. Embedding RightChatPanel guarantees the intro chat
+ * behaves identically: VexFlow lick cards, HarmoRAG similarity panel, and
+ * ```chart → lead-sheet rendering all come for free.
+ *
+ * HomePage just owns the surrounding chrome — desktop tool sidebar, mobile
+ * tool grid, brand strip, Admin shortcut.
+ * ──────────────────────────────────────────────────────────────────────── */
 
 const fadeIn = keyframes`from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); }`;
 
@@ -31,8 +31,6 @@ const Wrapper = styled.div`
   position: relative;
 `;
 
-/* Top-right Admin shortcut. Visible only in idle state for now —
- * remove or hide behind an env flag once the app ships publicly. */
 const AdminBtn = styled.button`
   position: absolute;
   top: max(16px, env(safe-area-inset-top, 0px));
@@ -92,7 +90,7 @@ const MobileBrandName = styled.span`
   letter-spacing: 0.02em;
 `;
 
-/* ── Sidebar ─────────────────────────────────────────────────── */
+/* ── Sidebar (desktop tool list) ─────────────────────────────── */
 
 const Sidebar = styled.aside`
   width: 280px;
@@ -132,59 +130,9 @@ const BrandName = styled.span`
   letter-spacing: 0.02em;
 `;
 
-const SidebarSection = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-`;
-
-const SectionLabel = styled.div`
-  font-size: 0.74rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: ${({ theme }) => theme.colors.textSecondary};
-  padding: 0 8px;
-  margin-bottom: 4px;
-`;
-
-const HistoryList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+const SidebarSpacer = styled.div`
   flex: 1;
-  overflow-y: auto;
   min-height: 0;
-
-  &::-webkit-scrollbar { width: 4px; }
-  &::-webkit-scrollbar-thumb { background: ${({ theme }) => theme.colors.border}; border-radius: 2px; }
-`;
-
-const HistoryItem = styled.button`
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 9px 10px;
-  border: none;
-  background: transparent;
-  font-family: ${({ theme }) => theme.fonts.ui};
-  font-size: 0.88rem;
-  color: ${({ theme }) => theme.colors.textPrimary};
-  cursor: pointer;
-  border-radius: 6px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: background 0.12s;
-
-  &:hover { background: ${({ theme }) => theme.colors.bgPrimary}; }
-`;
-
-const HistoryEmpty = styled.div`
-  font-size: 0.82rem;
-  color: ${({ theme }) => theme.colors.textSecondary};
-  padding: 8px 10px;
-  opacity: 0.7;
 `;
 
 const ToolList = styled.div`
@@ -235,79 +183,9 @@ const Main = styled.section`
   overflow: hidden;
 `;
 
-/* ── Intro section (idle only) ────────────────────────────────── */
+/* ── Mobile/tablet tool grid (replaces the hidden sidebar) ───── */
 
-const Intro = styled.div<{ $phase: Phase }>`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0 20px 22px;
-  transition: max-height 0.45s ease, opacity 0.3s ease, padding 0.35s ease;
-
-  ${({ $phase }) =>
-    $phase === 'idle'
-      ? css`
-          max-height: 480px;
-          opacity: 1;
-          pointer-events: auto;
-        `
-      : css`
-          max-height: 0;
-          opacity: 0;
-          pointer-events: none;
-          padding: 0;
-          overflow: hidden;
-        `}
-
-  ${mq.mobile} {
-    padding: ${({ $phase }) => ($phase === 'idle' ? '0 14px 12px' : '0')};
-  }
-`;
-
-const HeroLogo = styled.img`
-  width: 96px;
-  height: 96px;
-  border-radius: 22px;
-  margin-bottom: 22px;
-  box-shadow: 0 6px 24px rgba(0,0,0,0.08);
-  animation: ${fadeIn} 0.5s ease both;
-
-  ${mq.mobile} {
-    width: 72px;
-    height: 72px;
-    margin-bottom: 16px;
-  }
-`;
-
-const Greeting = styled.h1`
-  font-size: 2.4rem;
-  font-weight: 600;
-  color: ${({ theme }) => theme.colors.textPrimary};
-  margin: 0 0 14px;
-  text-align: center;
-  animation: ${fadeIn} 0.5s 0.05s ease both;
-
-  ${mq.mobile} {
-    font-size: 1.6rem;
-  }
-`;
-
-const Subtitle = styled.p`
-  font-size: 1.05rem;
-  color: ${({ theme }) => theme.colors.textSecondary};
-  margin: 0;
-  text-align: center;
-  animation: ${fadeIn} 0.5s 0.1s ease both;
-
-  ${mq.mobile} {
-    font-size: 0.92rem;
-  }
-`;
-
-/* ── Mobile/tablet tool grid (replaces the hidden sidebar) ────────────
- *  Desktop hides this — the sidebar still owns the tool list there.   */
-
-const ToolGrid = styled.div<{ $phase: Phase }>`
+const ToolGrid = styled.div`
   display: none;
 
   ${mq.mobile} {
@@ -316,15 +194,10 @@ const ToolGrid = styled.div<{ $phase: Phase }>`
     gap: 10px;
     width: 100%;
     max-width: 480px;
-    margin: 22px auto 0;
-    padding: 0 16px;
-    animation: ${fadeIn} 0.5s 0.15s ease both;
-
-    ${({ $phase }) =>
-      $phase === 'chatting' &&
-      css`
-        display: none;
-      `}
+    margin: 0 auto;
+    padding: 12px 16px 6px;
+    flex-shrink: 0;
+    animation: ${fadeIn} 0.5s 0.1s ease both;
   }
 `;
 
@@ -333,8 +206,8 @@ const ToolCard = styled.button`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 18px 6px 14px;
+  gap: 6px;
+  padding: 12px 6px 10px;
   border: 1.5px solid ${({ theme }) => theme.colors.border};
   border-radius: 14px;
   background: ${({ theme }) => theme.colors.bgSecondary};
@@ -350,13 +223,13 @@ const ToolCard = styled.button`
 `;
 
 const ToolCardIcon = styled.span`
-  font-size: 1.6rem;
+  font-size: 1.4rem;
   line-height: 1;
   color: ${({ theme }) => theme.colors.gold};
 `;
 
 const ToolCardLabel = styled.span`
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-weight: 600;
   letter-spacing: 0.01em;
   text-align: center;
@@ -364,122 +237,16 @@ const ToolCardLabel = styled.span`
   color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
-/* ── Messages area (chatting only) ───────────────────────────── */
-
-const MessagesArea = styled.div<{ $phase: Phase }>`
+/* ── Chat panel wrapper — RightChatPanel renders its own border-left;
+ *    cancel it here so it doesn't double up with the sidebar's border. */
+const ChatArea = styled.div`
   flex: 1;
-  overflow-y: auto;
-  padding: 24px 0 12px;
-  transition: opacity 0.3s ease;
-
-  ${({ $phase }) =>
-    $phase === 'idle'
-      ? css`opacity: 0; pointer-events: none; flex: 0;`
-      : css`opacity: 1; pointer-events: auto;`}
-
-  scroll-behavior: smooth;
-
-  &::-webkit-scrollbar { width: 4px; }
-  &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb { background: ${({ theme }) => theme.colors.border}; border-radius: 2px; }
-`;
-
-const MessagesInner = styled.div`
-  max-width: 760px;
-  margin: 0 auto;
-  padding: 0 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-
-  ${mq.mobile} {
-    padding: 0 12px;
-  }
-`;
-
-/* ── Bottom input area ───────────────────────────────────────── */
-
-const Bottom = styled.div<{ $phase: Phase }>`
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: ${({ $phase }) => ($phase === 'idle' ? '0 20px 28px' : '0 20px 22px')};
-  transition: padding 0.3s ease;
-
-  ${mq.mobile} {
-    padding: ${({ $phase }) =>
-      $phase === 'idle'
-        ? '14px 12px max(20px, env(safe-area-inset-bottom, 0px))'
-        : '0 12px max(14px, env(safe-area-inset-bottom, 0px))'};
-  }
-`;
-
-const InputBox = styled.div`
-  width: 100%;
-  max-width: 820px;
-  border: 1.5px solid ${({ theme }) => theme.colors.border};
-  border-radius: 22px;
-  background: ${({ theme }) => theme.colors.bgSecondary};
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-  transition: border-color 0.15s, box-shadow 0.15s;
-
-  &:focus-within {
-    border-color: ${({ theme }) => theme.colors.gold};
-    box-shadow: 0 2px 16px rgba(212,168,67,0.15);
-  }
-`;
-
-const InputRow = styled.div`
-  display: flex;
-  align-items: center;
-  padding: 14px 16px 14px 22px;
-  gap: 12px;
-`;
-
-const Textarea = styled.textarea`
-  flex: 1;
-  border: none;
-  outline: none;
-  background: transparent;
-  font-family: ${({ theme }) => theme.fonts.ui};
-  font-size: 1.05rem;
-  color: ${({ theme }) => theme.colors.textPrimary};
-  resize: none;
-  min-height: 28px;
-  max-height: 220px;
-  line-height: 1.5;
-  padding: 4px 0;
-
-  &::placeholder {
-    color: ${({ theme }) => theme.colors.textSecondary};
-  }
-`;
-
-const SendBtn = styled.button<{ $active: boolean }>`
-  flex-shrink: 0;
-  width: 42px;
-  height: 42px;
-  border-radius: 8px;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.2rem;
-  cursor: pointer;
-  transition: background 0.15s, opacity 0.15s;
-  background: ${({ $active, theme }) => $active ? theme.colors.gold : theme.colors.border};
-  color: ${({ $active }) => $active ? '#fff' : '#aaa'};
-  opacity: ${({ $active }) => $active ? 1 : 0.6};
-  align-self: center;
-`;
-
-/* ── Spacer (idle only, vertically centers the intro+input block) ── */
-
-const Spacer = styled.div<{ $phase: Phase }>`
-  flex: ${({ $phase }) => ($phase === 'idle' ? '1' : '0')};
-  transition: flex 0.4s ease;
   min-height: 0;
+  display: flex;
+
+  & > aside {
+    border-left: none;
+  }
 `;
 
 /* ── Component ────────────────────────────────────────────────── */
@@ -494,93 +261,6 @@ const TOOLS = [
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const [phase, setPhase] = useState<Phase>('idle');
-  const [msgs, setMsgs] = useState<Msg[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [input, setInput] = useState('');
-  const historyRef = useRef<ClaudeMessage[]>([]);
-  const endRef = useRef<HTMLDivElement>(null);
-  const isScrolledUpRef = useRef(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const messagesAreaRef = useRef<HTMLDivElement>(null);
-
-  /* Auto-scroll */
-  useEffect(() => {
-    if (!isScrolledUpRef.current) {
-      endRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [msgs]);
-
-  /* Textarea auto-resize */
-  const handleInput = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
-    const el = e.target;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
-  }, []);
-
-  const handleScroll = useCallback(() => {
-    const el = messagesAreaRef.current;
-    if (!el) return;
-    isScrolledUpRef.current = el.scrollHeight - el.scrollTop - el.clientHeight > 50;
-  }, []);
-
-  const handleSend = useCallback(async (text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed || loading) return;
-
-    if (phase === 'idle') setPhase('chatting');
-
-    setInput('');
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
-
-    const userMsg: Msg = { id: `u-${Date.now()}`, role: 'user', content: trimmed, timestamp: Date.now() };
-    const aiId = `a-${Date.now()}`;
-    const aiMsg: Msg = { id: aiId, role: 'assistant', content: '', timestamp: Date.now() };
-
-    setMsgs(prev => [...prev, userMsg, aiMsg]);
-    setLoading(true);
-    isScrolledUpRef.current = false;
-
-    const final = await streamWithRAG(
-      trimmed,
-      historyRef.current,
-      undefined,
-      'Jazzify',
-      (acc) => setMsgs(prev => prev.map(m => m.id === aiId ? { ...m, content: acc } : m)),
-    );
-
-    // Safety net: if streaming never updated content (early-return error),
-    // make sure the final string lands in the bubble so the UI doesn't
-    // get stuck on the "thinking" spinner.
-    setMsgs(prev => prev.map(m => (m.id === aiId && !m.content?.trim() ? { ...m, content: final } : m)));
-
-    historyRef.current = [
-      ...historyRef.current,
-      { role: 'user', content: trimmed },
-      { role: 'assistant', content: final },
-    ];
-
-    setLoading(false);
-  }, [loading, phase]);
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend(input);
-    }
-  }, [handleSend, input]);
-
-  /* Build a sidebar history list from the user's prompts in this session.
-   * Persistence across reloads is a future feature. */
-  const history = useMemo(() => msgs.filter((m) => m.role === 'user'), [msgs]);
-
-  const scrollToMessage = useCallback((id: string) => {
-    const el = document.getElementById(`msg-${id}`);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, []);
 
   return (
     <Wrapper>
@@ -590,32 +270,13 @@ export default function HomePage() {
       </MobileBrandBar>
       <AdminBtn onClick={() => navigate('/admin')}>Admin</AdminBtn>
 
-      {/* ── Sidebar ────────────────────────────────────────────── */}
+      {/* ── Desktop sidebar — tool list only ───────────────────── */}
       <Sidebar>
         <BrandRow>
           <BrandLogo src="/jazzifylogo.png" alt="Jazzify" />
           <BrandName>Jazzify</BrandName>
         </BrandRow>
-
-        <SidebarSection style={{ flex: 1, minHeight: 0 }}>
-          <SectionLabel>최근 대화</SectionLabel>
-          <HistoryList>
-            {history.length === 0 ? (
-              <HistoryEmpty>대화를 시작하면 여기에 표시됩니다</HistoryEmpty>
-            ) : (
-              history.map((m) => (
-                <HistoryItem
-                  key={m.id}
-                  title={m.content}
-                  onClick={() => scrollToMessage(m.id)}
-                >
-                  {m.content.length > 40 ? `${m.content.slice(0, 40)}…` : m.content}
-                </HistoryItem>
-              ))
-            )}
-          </HistoryList>
-        </SidebarSection>
-
+        <SidebarSpacer />
         <ToolList>
           {TOOLS.map((t) => (
             <ToolBtn key={t.path} onClick={() => navigate(t.path)}>
@@ -628,18 +289,8 @@ export default function HomePage() {
 
       {/* ── Main column ────────────────────────────────────────── */}
       <Main>
-        {/* Top spacer — idle only, vertically centers intro+input */}
-        <Spacer $phase={phase} />
-
-        {/* Intro */}
-        <Intro $phase={phase}>
-          <HeroLogo src="/jazzifylogo.png" alt="Jazzify" />
-          <Greeting>오늘은 무슨 이야기를 할까요?</Greeting>
-          <Subtitle>화성학, 재즈 이론, 코드 진행에 대해 물어보세요</Subtitle>
-        </Intro>
-
         {/* Mobile/tablet tool grid — desktop hides it (sidebar covers the role) */}
-        <ToolGrid $phase={phase}>
+        <ToolGrid>
           {TOOLS.map((t) => (
             <ToolCard key={t.path} onClick={() => navigate(t.path)}>
               <ToolCardIcon>{t.icon}</ToolCardIcon>
@@ -648,40 +299,14 @@ export default function HomePage() {
           ))}
         </ToolGrid>
 
-        {/* Chat messages */}
-        <MessagesArea $phase={phase} ref={messagesAreaRef} onScroll={handleScroll}>
-          <MessagesInner>
-            {msgs.map((msg) => (
-              <div key={msg.id} id={`msg-${msg.id}`}>
-                <ChatMessage message={msg} />
-              </div>
-            ))}
-            <div ref={endRef} />
-          </MessagesInner>
-        </MessagesArea>
-
-        {/* Input */}
-        <Bottom $phase={phase}>
-          <InputBox>
-            <InputRow>
-              <Textarea
-                ref={textareaRef}
-                rows={1}
-                value={input}
-                onChange={handleInput}
-                onKeyDown={handleKeyDown}
-                placeholder="무엇이든 물어보세요"
-                disabled={loading}
-              />
-              <SendBtn $active={input.trim().length > 0 && !loading} onClick={() => handleSend(input)}>
-                ↑
-              </SendBtn>
-            </InputRow>
-          </InputBox>
-        </Bottom>
-
-        {/* Bottom spacer — idle only */}
-        <Spacer $phase={phase} />
+        {/* The chat — IDENTICAL component/logic as ChordPage & NotePage. */}
+        <ChatArea>
+          <RightChatPanel
+            selectedChords={[]}
+            groupExplanation={null}
+            songTitle="Jazzify"
+          />
+        </ChatArea>
       </Main>
     </Wrapper>
   );
