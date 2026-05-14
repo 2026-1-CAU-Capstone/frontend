@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react';
 import type { ChatMessage as ChatMessageType, ChordOverlay } from '../../data/types';
 import { ChatMessage } from '../chat/ChatMessage';
 import { ChatInput } from '../chat/ChatInput';
@@ -37,6 +37,14 @@ interface RightChatPanelProps {
    *  level question (heuristic below). Casual "analyze this chord progression"
    *  queries don't include it, so they stay token-cheap. */
   notesContext?: string;
+  /** Optional override for the empty-state visual (shown when there are no
+   *  messages yet). HomePage uses this to keep its hero intro (big logo +
+   *  greeting + subtitle) while still funneling all chat logic through this
+   *  same component, so the chord/note pages and the intro stay identical. */
+  emptyState?: ReactNode;
+  /** Hide the panel header (e.g. on HomePage intro where the brand strip is
+   *  already on the page outside the panel). */
+  hideHeader?: boolean;
 }
 
 /** Keywords that signal the user wants to talk about the actual played notes
@@ -93,6 +101,8 @@ export function RightChatPanel({
   onClearSelectedChords,
   songTempo,
   notesContext,
+  emptyState,
+  hideHeader = false,
 }: RightChatPanelProps) {
   const [messages, setMessages] = useState<MessageWithDebug[]>([]);
   const [loading, setLoading] = useState(false);
@@ -353,34 +363,38 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
 
   return (
     <PanelContainer>
-      <PanelHeader>
-        🎵 {songTitle || 'Jazzify AI'}
-      </PanelHeader>
+      {!hideHeader && (
+        <PanelHeader>
+          🎵 {songTitle || 'Jazzify AI'}
+        </PanelHeader>
+      )}
 
       <MessagesArea ref={messagesAreaRef} onScroll={handleScroll}>
         {messages.length === 0 && (
-          <EmptyState>
-            <EmptyIcon src="/jazzifylogo.png" alt="Jazzify" />
-            악보에서 코드를 클릭하거나,
-            <br />
-            아래에서 질문을 입력해보세요.
-            <EmptyActionGroup>
-              <EmptyActionButton
-                type="button"
-                onClick={() => handleSend('전체 코드 진행 분석해줘')}
-                disabled={loading}
-              >
-                🎼 전체 코드 진행 분석해줘
-              </EmptyActionButton>
-              <EmptyActionButton
-                type="button"
-                onClick={() => handleSend('여기에서 쓸 수 있는 솔로 아이디어 줘')}
-                disabled={loading}
-              >
-                🎷 여기에서 쓸 수 있는 솔로 아이디어 줘
-              </EmptyActionButton>
-            </EmptyActionGroup>
-          </EmptyState>
+          emptyState ?? (
+            <EmptyState>
+              <EmptyIcon src="/jazzifylogo.png" alt="Jazzify" />
+              악보에서 코드를 클릭하거나,
+              <br />
+              아래에서 질문을 입력해보세요.
+              <EmptyActionGroup>
+                <EmptyActionButton
+                  type="button"
+                  onClick={() => handleSend('전체 코드 진행 분석해줘')}
+                  disabled={loading}
+                >
+                  🎼 전체 코드 진행 분석해줘
+                </EmptyActionButton>
+                <EmptyActionButton
+                  type="button"
+                  onClick={() => handleSend('여기에서 쓸 수 있는 솔로 아이디어 줘')}
+                  disabled={loading}
+                >
+                  🎷 여기에서 쓸 수 있는 솔로 아이디어 줘
+                </EmptyActionButton>
+              </EmptyActionGroup>
+            </EmptyState>
+          )
         )}
 
         {messages.map((msg) => (

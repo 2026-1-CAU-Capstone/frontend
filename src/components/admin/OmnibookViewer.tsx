@@ -17,6 +17,7 @@ import { loadXmlMelody } from '../../lib/note/xmlMelodyParser';
 import { useLickRegionPicker, LickRegionControls } from './lickRegionPicker';
 import { inferKeyFromMeasures } from '../../lib/note/keyInference';
 import { OMNIBOOK_KEY_OVERRIDES } from '../../data/omnibookKeys';
+import { loadAllSolos } from '../../data/soloData';
 
 const parkerModules = import.meta.glob('../../../data/omnibook/Omnibook xml/*.xml', {
   import: 'default',
@@ -35,7 +36,7 @@ const bartleyJsonModules = import.meta.glob('../../../data/patrick_bartley/*.jso
   import: 'default',
 }) as Record<string, NoteSheetData>;
 
-type ArtistId = 'parker' | 'miles' | 'bartley';
+type ArtistId = 'parker' | 'miles' | 'bartley' | 'backend';
 
 interface OmnibookEntry {
   id: string;            // unique key (artist-prefixed for merged mode)
@@ -163,6 +164,7 @@ const ARTIST_COLORS: Record<ArtistId, { bg: string; fg: string }> = {
   parker:  { bg: 'rgba(184, 134, 11, 0.18)', fg: '#8B6914' },
   miles:   { bg: 'rgba(40, 100, 160, 0.18)', fg: '#1a4f8a' },
   bartley: { bg: 'rgba(120, 50, 160, 0.18)', fg: '#5e2484' },
+  backend: { bg: 'rgba(46, 125, 50, 0.18)',  fg: '#2e7d32' },
 };
 
 const ArtistTag = styled.span<{ $artist: ArtistId }>`
@@ -183,6 +185,7 @@ const ARTIST_INFO: Record<ArtistId, { full: string }> = {
   parker:  { full: 'Charlie Parker' },
   miles:   { full: 'Miles Davis' },
   bartley: { full: 'Patrick Bartley' },
+  backend: { full: 'Backend (Saved)' },
 };
 
 const SearchInput = styled.input`
@@ -286,15 +289,16 @@ const Empty = styled.div`
 
 export function OmnibookViewer({ source = 'parker' }: { source?: OmnibookSource } = {}) {
   const navigate = useNavigate();
-  const { entries: omnibookEntries } = SOURCES[source];
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheet, setSheet] = useState<NoteSheetData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  // Artist filter — only meaningful in merged 'solo' source. For single-source
-  // viewers it stays at 'all' and the filter row is hidden.
   const [artistFilter, setArtistFilter] = useState<ArtistFilter>('all');
+  /** Solos saved to the backend (GET /v1/solos). Lazily fetched only when
+   *  this viewer is rendered with source='solo'. The static Patrick Bartley
+   *  JSON entries stay too — backend ones are appended. */
+  const [backendSolos, setBackendSolos] = useState<OmnibookEntry[]>([]);
 
   // Source 바뀌면 선택/상태 초기화
   useEffect(() => {
@@ -304,6 +308,38 @@ export function OmnibookViewer({ source = 'parker' }: { source?: OmnibookSource 
     setSearch('');
     setArtistFilter('all');
   }, [source]);
+
+  // Backend solos: fetch on mount for the merged 'solo' source.
+  useEffect(() => {
+    if (source !== 'solo') return;
+    let cancelled = false;
+    loadAllSolos(true)
+      .then((solos) => {
+        if (cancelled) return;
+        const entries: OmnibookEntry[] = solos.map((s) => ({
+          id: `backend/${s.publicId}`,
+          fileId: s.publicId,
+          title: s.title || '(untitled solo)',
+          artist: 'backend',
+          composer: s.performer || 'Saved Solo',
+          loadJson: () => s.sheetData,
+        }));
+        setBackendSolos(entries);
+      })
+      .catch((e) => {
+        console.warn('[OmnibookViewer] backend solos load failed:', e);
+        if (!cancelled) setBackendSolos([]);
+      });
+    return () => { cancelled = true; };
+  }, [source]);
+
+  /** Final entries list. For 'solo' source we merge backend solos in;
+   *  others keep their static set verbatim. */
+  const omnibookEntries = useMemo<OmnibookEntry[]>(() => {
+    const base = SOURCES[source].entries as OmnibookEntry[];
+    if (source !== 'solo' || backendSolos.length === 0) return base;
+    return [...base, ...backendSolos].sort((a, b) => a.title.localeCompare(b.title));
+  }, [source, backendSolos]);
 
   useEffect(() => {
     if (!selectedId) { setSheet(null); setError(null); return; }
@@ -404,6 +440,9 @@ export function OmnibookViewer({ source = 'parker' }: { source?: OmnibookSource 
               <option value="parker">{ARTIST_INFO.parker.full} ({PARKER_ENTRIES.length})</option>
               <option value="miles">{ARTIST_INFO.miles.full} ({MILES_ENTRIES.length})</option>
               <option value="bartley">{ARTIST_INFO.bartley.full} ({BARTLEY_ENTRIES.length})</option>
+              {backendSolos.length > 0 && (
+                <option value="backend">{ARTIST_INFO.backend.full} ({backendSolos.length})</option>
+              )}
             </ArtistSelect>
           </FilterRow>
         )}

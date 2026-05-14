@@ -43,6 +43,10 @@ export function removeSoloFromCache(publicId: string): void {
   if (cached) cached = cached.filter((s) => s.publicId !== publicId);
 }
 
+export function updateSoloInCache(s: SoloResponse): void {
+  if (cached) cached = cached.map((c) => (c.publicId === s.publicId ? s : c));
+}
+
 /* ── legacy localStorage migration ─────────────────────────────────────────── */
 
 interface LegacySoloEntry {

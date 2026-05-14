@@ -246,6 +246,10 @@ function keySigAccidentals(vexKey: string): Map<string, 'b' | '#'> {
 }
 
 function buildVfNotes(measure: MeasureInfo, initialAcc?: Map<string, 'b' | '#' | 'n'>, keySigAcc?: Map<string, 'b' | '#'>): StaveNote[] {
+  // Letter-scoped accidental memory: once a letter (e.g. 'b') has been
+  // altered in this measure, the next bare same-letter note — regardless of
+  // octave — prints with a cautionary ♮. This keeps Bb→B across octaves
+  // visible so the reader sees "this is now B, not Bb".
   const activeAcc = initialAcc ? new Map(initialAcc) : new Map<string, 'b' | '#' | 'n'>();
   return measure.notes.map((n) => {
     const isRest = n.duration.endsWith('r');
@@ -258,7 +262,6 @@ function buildVfNotes(measure: MeasureInfo, initialAcc?: Map<string, 'b' | '#' |
       const realAcc = n.accidentals?.[0] as 'b' | '#' | undefined;
       const current = activeAcc.get(letter);
       const keySigForLetter = keySigAcc?.get(letter);
-      // effective = what's currently "in force" (measure override > key sig default)
       const effective = current ?? keySigForLetter;
       if (realAcc) {
         if (effective !== realAcc) note.addModifier(new Accidental(realAcc), 0);
@@ -463,7 +466,8 @@ function renderMeasures(el: HTMLDivElement, measures: MeasureInfo[], minWidth: n
     const measure = measures[m];
     const vfNotes = buildVfNotes(measure, tieCarryAcc, keySigAcc);
 
-    // Build carry state for next measure: if last note has tie, pass its accidental
+    // Build carry state for next measure: if last note has tie, pass its
+    // accidental. Letter-scoped (matches buildVfNotes above).
     tieCarryAcc = undefined;
     const lastNote = measure.notes[measure.notes.length - 1];
     if (lastNote?.tie && !lastNote.duration.endsWith('r')) {

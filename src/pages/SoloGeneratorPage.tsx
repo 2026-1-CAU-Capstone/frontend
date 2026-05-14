@@ -13,8 +13,8 @@ import Soundfont from 'soundfont-player';
 import { useCountInIntro } from '../hooks/useCountInIntro';
 import { swungBeats } from '../lib/note/swing';
 import { normalizeChord, formatChordDisplay } from '../lib/jazz-harmony';
-import { createSolo } from '../api/solos';
-import { buildUserSoloDraft, invalidateSolosCache, pushSoloToCache } from '../data/soloData';
+import { createSolo, updateSolo } from '../api/solos';
+import { buildUserSoloDraft, invalidateSolosCache, loadAllSolos, pushSoloToCache, updateSoloInCache } from '../data/soloData';
 
 const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25 };
 const SEMI_MAP: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
@@ -514,6 +514,10 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         if (n.dotted) Dot.buildAndAttach([note]);
 
         if (!isRest) {
+          // Letter-scoped accidental memory: once a letter has been altered
+          // in this measure, the next bare same-letter note — regardless of
+          // octave — prints with a cautionary ♮ so the reader sees the
+          // Bb→B transition across octaves.
           const noteId = n.keys[0];
           const letter = noteId.split('/')[0];
           const realAcc = n.accidentals?.[0] as 'b' | '#' | undefined;
@@ -2292,11 +2296,6 @@ export default function SoloGeneratorPage() {
     }
   }, [measures.length]);
 
-  /* Save solo to backend (POST /v1/solos). The backend auto-derives chords/
-   * features from sheetData so we only need to send title/instrument/source
-   * + the editor state. On success: invalidate the solos cache + clear the
-   * autosave draft. On failure: surface error for 4s, keep draft so the user
-   * can retry. */
   const handleSaveSolo = useCallback(async () => {
     if (allMeasures.length === 0 || saving) return;
     setSaving(true);
@@ -2311,9 +2310,17 @@ export default function SoloGeneratorPage() {
         tempo: bpm,
         measures: allMeasures,
       });
-      const persisted = await createSolo(draft);
-      pushSoloToCache(persisted);
-      invalidateSolosCache();  // next listing reload will refetch
+      const titleLow = (sheetTitle || 'Untitled').toLowerCase();
+      const performerLow = (composer || 'Unknown').toLowerCase();
+      const existing = await loadAllSolos();
+      const found = existing.find(
+        (s) => s.title.toLowerCase() === titleLow && (s.performer ?? '').toLowerCase() === performerLow,
+      );
+      const persisted = found
+        ? await updateSolo(found.publicId, draft)
+        : await createSolo(draft);
+      found ? updateSoloInCache(persisted) : pushSoloToCache(persisted);
+      invalidateSolosCache();
       try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
       setSaved(true);
       setTimeout(() => setSaved(false), 1200);

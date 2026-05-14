@@ -225,6 +225,11 @@ function buildDur(dur: string, dotted?: boolean) {
 }
 
 function buildVfNotes(measure: MeasureInfo, kAcc: Map<string, 'b' | '#'>): StaveNote[] {
+  // Letter-scoped accidental memory: once a letter (e.g. 'b') has been
+  // altered in this measure, the next bare same-letter note — regardless of
+  // octave — prints with a cautionary ♮ so the reader sees "this Bb is now B".
+  // This keeps Bb→B across octaves visible the way jazz lead-sheet readers
+  // expect, instead of silently letting the second one revert to keysig.
   const active = new Map<string, 'b' | '#' | 'n'>();
   return measure.notes.map((n) => {
     const isRest = n.duration.endsWith('r');

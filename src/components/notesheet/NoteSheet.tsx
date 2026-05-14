@@ -213,7 +213,37 @@ const KEY_SIG_SHARPS = ['f', 'c', 'g', 'd', 'a', 'e', 'b'];
 const KS_FLAT_KEYS: Record<string, number> = { F: 1, Bb: 2, Eb: 3, Ab: 4, Db: 5, Gb: 6, Cb: 7, Dm: 1, Gm: 2, Cm: 3, Fm: 4, Bbm: 5, Ebm: 6, Abm: 7 };
 const KS_SHARP_KEYS: Record<string, number> = { G: 1, D: 2, A: 3, E: 4, B: 5, 'F#': 6, 'C#': 7, Em: 1, Bm: 2, 'F#m': 3, 'C#m': 4, 'G#m': 5, 'D#m': 6, 'A#m': 7 };
 
-function keySigAccidentals(vexKey: string): Map<string, 'b' | '#'> {
+/** Normalise a possibly jazz-style key string into the form VexFlow's
+ *  `addKeySignature` accepts. Examples:
+ *    'G-maj'   → 'G'
+ *    'Eb-maj' → 'Eb'
+ *    'G-min'  → 'Gm'
+ *    'F#-min' → 'F#m'
+ *    'Em'     → 'Em'   (already valid)
+ *    'C'      → 'C'    (already valid)
+ *  Unknown / bad input falls back to 'C' so VexFlow can't throw. */
+function normalizeVexKey(raw: string | undefined | null): string {
+  const k = (raw ?? '').trim();
+  if (!k) return 'C';
+  // Hyphenated jazz form like "G-maj" / "Eb-min".
+  const hy = k.match(/^([A-G][b#♭♯]?)-?(maj|min|major|minor)$/i);
+  if (hy) {
+    const root = hy[1].replace('♭', 'b').replace('♯', '#');
+    const isMin = /min/i.test(hy[2]);
+    const v = isMin ? root + 'm' : root;
+    return (v in KS_FLAT_KEYS || v in KS_SHARP_KEYS || v === 'C' || v === 'Am') ? v : 'C';
+  }
+  // Already-canonical (allow C / Am / G / Em / etc.).
+  const clean = k.replace('♭', 'b').replace('♯', '#');
+  if (clean in KS_FLAT_KEYS || clean in KS_SHARP_KEYS || clean === 'C' || clean === 'Am') return clean;
+  // Strip any trailing "-anything" then retry.
+  const stripped = clean.split('-')[0];
+  if (stripped in KS_FLAT_KEYS || stripped in KS_SHARP_KEYS || stripped === 'C' || stripped === 'Am') return stripped;
+  return 'C';
+}
+
+function keySigAccidentals(rawKey: string): Map<string, 'b' | '#'> {
+  const vexKey = normalizeVexKey(rawKey);
   const map = new Map<string, 'b' | '#'>();
   const nFlats = KS_FLAT_KEYS[vexKey];
   if (nFlats) { for (let i = 0; i < nFlats; i++) map.set(KEY_SIG_FLATS[i], 'b'); }
@@ -222,8 +252,8 @@ function keySigAccidentals(vexKey: string): Map<string, 'b' | '#'> {
   return map;
 }
 
-function isKeyFlat(vexKey: string): boolean {
-  return vexKey in KS_FLAT_KEYS;
+function isKeyFlat(rawKey: string): boolean {
+  return normalizeVexKey(rawKey) in KS_FLAT_KEYS;
 }
 
 /* Enharmonic: sharp → flat (e.g. f#/4 → g/4 with 'b') */
@@ -1211,12 +1241,15 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
         const stave = new Stave(x, y, w);
         if (firstInLine) {
           stave.addClef('treble');
-          if (data.key && data.key !== 'C') stave.addKeySignature(data.key);
+          // VexFlow only accepts plain keys ("G", "Em") — normalise jazz-style
+          // strings like "G-maj" / "Eb-min" first or it throws BadKeySignature.
+          const vexKey = normalizeVexKey(data.key);
+          if (vexKey !== 'C') stave.addKeySignature(vexKey);
           if (isFirstLine) stave.addTimeSignature(data.timeSignature);
         }
         // Mid-piece changes (MusicXML <attributes> emitted mid-stream).
         if (measure.key && !firstInLine) {
-          stave.addKeySignature(measure.key);
+          stave.addKeySignature(normalizeVexKey(measure.key));
         }
         if (measure.timeSignature) {
           stave.addTimeSignature(measure.timeSignature);
@@ -1398,19 +1431,26 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
             for (let ki = 0; ki < keys.length; ki++) {
               const noteId = keys[ki];
               const letter = noteId.split('/')[0];
-              // Enharmonic conversion only applied to keys[0] above — but the
-              // accidentals map is keyed by ORIGINAL chord-tone index. Use the
-              // converted realAcc for ki=0 and the raw acc for other indices.
               const acc = ki === 0 ? realAcc : (n.accidentals?.[ki] as Acc | undefined);
               const current = activeAcc.get(noteId);
               const keySigForLetter = keySigAcc.get(letter);
 
               if (acc) {
-                const effective = current ?? keySigForLetter;
-                if (effective !== acc) note.addModifier(new Accidental(acc), ki);
+                // An accidental on this note is in the source data (e.g.
+                // MusicXML <accidental>flat</accidental>, or <alter>±1</alter>).
+                // Treat that as the engraver's explicit intent: print it
+                // unless THIS exact (letter,octave) has already shown the
+                // same accidental earlier in this measure (true carry).
+                // Crucially we do NOT suppress when the accidental matches
+                // the key signature — the XML went to the trouble of marking
+                // it (often a courtesy accidental after a recent alteration
+                // in another octave / register), so we honour that.
+                if (current !== acc) note.addModifier(new Accidental(acc), ki);
                 activeAcc.set(noteId, acc);
               } else if (current !== undefined && current !== keySigForLetter) {
-                // Cancel back to key signature for this pitch only.
+                // No explicit accidental on this note, but a different one
+                // is in force for this exact pitch — cancel back to the
+                // key-signature default (♮ if keysig has nothing here).
                 if (keySigForLetter) {
                   note.addModifier(new Accidental(keySigForLetter), ki);
                 } else {

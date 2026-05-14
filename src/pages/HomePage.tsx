@@ -6,15 +6,13 @@ import { RightChatPanel } from '../components/layout/RightChatPanel';
 /* ─────────────────────────────────────────────────────────────────────────
  * HomePage (intro screen).
  *
- * The chat itself is the SAME component used on ChordPage / NotePage —
- * `RightChatPanel`. Previously HomePage had its own bespoke chat loop which
- * silently dropped the RAG debug panel, lick-card insertion, and lead-sheet
- * chord-chart rendering. Embedding RightChatPanel guarantees the intro chat
- * behaves identically: VexFlow lick cards, HarmoRAG similarity panel, and
- * ```chart → lead-sheet rendering all come for free.
- *
- * HomePage just owns the surrounding chrome — desktop tool sidebar, mobile
- * tool grid, brand strip, Admin shortcut.
+ * The chat behaviour is identical to ChordPage / NotePage — same
+ * `RightChatPanel` component, same RAG / lick-card / chord-chart logic.
+ * What's different here is the EMPTY-STATE visual: instead of the panel's
+ * default "click a chord / ask below" prompt, we show the classic Jazzify
+ * intro (big logo + greeting + subtitle + mobile tool grid). The moment a
+ * message is sent, the empty state disappears and the panel becomes a
+ * regular chat surface.
  * ──────────────────────────────────────────────────────────────────────── */
 
 const fadeIn = keyframes`from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); }`;
@@ -59,8 +57,6 @@ const AdminBtn = styled.button`
   }
 `;
 
-/* Compact-screen brand strip — replaces the desktop sidebar's BrandRow on
- * phones/tablets so the user still sees the Jazzify wordmark. */
 const MobileBrandBar = styled.div`
   display: none;
   ${mq.mobile} {
@@ -183,7 +179,66 @@ const Main = styled.section`
   overflow: hidden;
 `;
 
-/* ── Mobile/tablet tool grid (replaces the hidden sidebar) ───── */
+const ChatArea = styled.div`
+  flex: 1;
+  min-height: 0;
+  display: flex;
+
+  & > aside {
+    border-left: none;
+  }
+`;
+
+/* ── Intro empty-state visual (shown only when messages.length === 0) ──── */
+
+const IntroBlock = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 16px 24px;
+`;
+
+const HeroLogo = styled.img`
+  width: 96px;
+  height: 96px;
+  border-radius: 22px;
+  margin-bottom: 22px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.08);
+  animation: ${fadeIn} 0.5s ease both;
+
+  ${mq.mobile} {
+    width: 72px;
+    height: 72px;
+    margin-bottom: 16px;
+  }
+`;
+
+const Greeting = styled.h1`
+  font-size: 2.4rem;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.textPrimary};
+  margin: 0 0 14px;
+  text-align: center;
+  animation: ${fadeIn} 0.5s 0.05s ease both;
+
+  ${mq.mobile} {
+    font-size: 1.6rem;
+  }
+`;
+
+const Subtitle = styled.p`
+  font-size: 1.05rem;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  margin: 0;
+  text-align: center;
+  animation: ${fadeIn} 0.5s 0.1s ease both;
+
+  ${mq.mobile} {
+    font-size: 0.92rem;
+  }
+`;
 
 const ToolGrid = styled.div`
   display: none;
@@ -194,10 +249,9 @@ const ToolGrid = styled.div`
     gap: 10px;
     width: 100%;
     max-width: 480px;
-    margin: 0 auto;
-    padding: 12px 16px 6px;
-    flex-shrink: 0;
-    animation: ${fadeIn} 0.5s 0.1s ease both;
+    margin: 24px auto 0;
+    padding: 0 16px;
+    animation: ${fadeIn} 0.5s 0.15s ease both;
   }
 `;
 
@@ -206,8 +260,8 @@ const ToolCard = styled.button`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 12px 6px 10px;
+  gap: 8px;
+  padding: 18px 6px 14px;
   border: 1.5px solid ${({ theme }) => theme.colors.border};
   border-radius: 14px;
   background: ${({ theme }) => theme.colors.bgSecondary};
@@ -223,30 +277,18 @@ const ToolCard = styled.button`
 `;
 
 const ToolCardIcon = styled.span`
-  font-size: 1.4rem;
+  font-size: 1.6rem;
   line-height: 1;
   color: ${({ theme }) => theme.colors.gold};
 `;
 
 const ToolCardLabel = styled.span`
-  font-size: 0.74rem;
+  font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.01em;
   text-align: center;
   line-height: 1.2;
   color: ${({ theme }) => theme.colors.textPrimary};
-`;
-
-/* ── Chat panel wrapper — RightChatPanel renders its own border-left;
- *    cancel it here so it doesn't double up with the sidebar's border. */
-const ChatArea = styled.div`
-  flex: 1;
-  min-height: 0;
-  display: flex;
-
-  & > aside {
-    border-left: none;
-  }
 `;
 
 /* ── Component ────────────────────────────────────────────────── */
@@ -262,6 +304,22 @@ const TOOLS = [
 export default function HomePage() {
   const navigate = useNavigate();
 
+  const introEmptyState = (
+    <IntroBlock>
+      <HeroLogo src="/jazzifylogo.png" alt="Jazzify" />
+      <Greeting>오늘은 무슨 이야기를 할까요?</Greeting>
+      <Subtitle>화성학, 재즈 이론, 코드 진행에 대해 물어보세요</Subtitle>
+      <ToolGrid>
+        {TOOLS.map((t) => (
+          <ToolCard key={t.path} onClick={() => navigate(t.path)}>
+            <ToolCardIcon>{t.icon}</ToolCardIcon>
+            <ToolCardLabel>{t.label}</ToolCardLabel>
+          </ToolCard>
+        ))}
+      </ToolGrid>
+    </IntroBlock>
+  );
+
   return (
     <Wrapper>
       <MobileBrandBar>
@@ -270,7 +328,6 @@ export default function HomePage() {
       </MobileBrandBar>
       <AdminBtn onClick={() => navigate('/admin')}>Admin</AdminBtn>
 
-      {/* ── Desktop sidebar — tool list only ───────────────────── */}
       <Sidebar>
         <BrandRow>
           <BrandLogo src="/jazzifylogo.png" alt="Jazzify" />
@@ -287,24 +344,14 @@ export default function HomePage() {
         </ToolList>
       </Sidebar>
 
-      {/* ── Main column ────────────────────────────────────────── */}
       <Main>
-        {/* Mobile/tablet tool grid — desktop hides it (sidebar covers the role) */}
-        <ToolGrid>
-          {TOOLS.map((t) => (
-            <ToolCard key={t.path} onClick={() => navigate(t.path)}>
-              <ToolCardIcon>{t.icon}</ToolCardIcon>
-              <ToolCardLabel>{t.label}</ToolCardLabel>
-            </ToolCard>
-          ))}
-        </ToolGrid>
-
-        {/* The chat — IDENTICAL component/logic as ChordPage & NotePage. */}
         <ChatArea>
           <RightChatPanel
             selectedChords={[]}
             groupExplanation={null}
             songTitle="Jazzify"
+            hideHeader
+            emptyState={introEmptyState}
           />
         </ChatArea>
       </Main>

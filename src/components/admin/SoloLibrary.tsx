@@ -21,6 +21,7 @@ import { loadXmlMelody } from '../../lib/note/xmlMelodyParser';
 import {
   createSolo,
   deleteSolo,
+  updateSolo,
   type SoloDraft,
   type SoloResponse,
 } from '../../api/solos';
@@ -29,6 +30,7 @@ import {
   invalidateSolosCache,
   removeSoloFromCache,
   pushSoloToCache,
+  updateSoloInCache,
   migrateLegacySolos,
   readLegacyLocalSolos,
   isLegacyMigrationDone,
@@ -334,18 +336,29 @@ export function SoloLibrary() {
             composer: sheet.composer || cfg.performer,
           },
         };
-        const persisted = await createSolo(draft);
-        pushSoloToCache(persisted);
+        const titleLow = (draft.title ?? '').toLowerCase();
+        const performerLow = (draft.performer ?? '').toLowerCase();
+        const found = solos.find(
+          (s) => s.title.toLowerCase() === titleLow && (s.performer ?? '').toLowerCase() === performerLow,
+        );
+        if (found) {
+          const persisted = await updateSolo(found.publicId, draft);
+          updateSoloInCache(persisted);
+          appendLog(`  ↑ updated: ${draft.title}`);
+        } else {
+          const persisted = await createSolo(draft);
+          pushSoloToCache(persisted);
+        }
         ok++;
       } catch (e) {
         failed++;
         appendLog(`  ✗ ${entry.title}: ${e instanceof Error ? e.message : e}`);
       }
     }
-    appendLog(`✓ ${cfg.label}: ${ok} imported, ${failed} failed`);
+    appendLog(`✓ ${cfg.label}: ${ok} imported/updated, ${failed} failed`);
     setBusy(null);
     await refresh();
-  }, [busy, appendLog, refresh]);
+  }, [busy, appendLog, refresh, solos]);
 
   const filtered = solos.filter((s) => filter === 'all' || s.source === filter);
 
@@ -393,10 +406,6 @@ export function SoloLibrary() {
 
       <Card>
         <CardTitle>Migration / Bulk Import</CardTitle>
-        <SmallNote>
-          한 번씩만 누르세요 — 같은 곡 중복 업로드 시 백엔드가 400/409 일 수도 있고, 그냥
-          duplicate row 가 쌓일 수도 있어요. 결과는 아래 로그에서 확인.
-        </SmallNote>
 
         <ButtonStack style={{ marginBottom: 14 }}>
           <ActionBtn
