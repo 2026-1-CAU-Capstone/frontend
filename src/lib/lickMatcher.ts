@@ -196,27 +196,17 @@ type ChordType = 'maj7' | 'm7' | 'dom7' | 'm7b5' | 'dim7' | 'dim' | 'aug' | 'maj
 
 function classifyChordSymbol(sym: string): ChordType {
   const q = sym.trim().replace(/^[A-G][♭♯b#]?/, '').toLowerCase();
-  if (/^(maj7|△7|Δ7|\^7|M7|-?△7)/.test(q)) return 'maj7';
+  // `j7` = MuseJazz-font spelling of the major-7 triangle. Backend lick data
+  // mixes `△7` and `j7`, so both must classify as maj7. (`M7` is already
+  // lowercased to `m7` here — the original `M7` branch was dead code.)
+  if (/^(maj7|△7|Δ7|\^7|j7|-?△7)/.test(q)) return 'maj7';
   if (/^(-7b5|m7b5|ø7|h7|min7b5)/.test(q)) return 'm7b5';
   if (/^(dim7|°7|o7)/.test(q)) return 'dim7';
   if (/^(dim|°|o)(?!7)/.test(q)) return 'dim';
   if (/^(-7|m7|min7)/.test(q)) return 'm7';
   if (/^7/.test(q)) return 'dom7';
   if (/^(-|m|min)(?!a)/.test(q)) return 'm';
-  if (q === '' || /^(maj|△|Δ|\^)(?!7)/.test(q)) return 'maj';
-  return 'other';
-}
-
-function classifyLickChord(raw: string): ChordType {
-  if (!raw) return 'other';
-  const s = raw.replace(/^[A-G][b#]?/, '').toLowerCase();
-  if (/^j7/.test(s) || /^maj7/.test(s)) return 'maj7';
-  if (/^-7b5|^h7|^m7b5/.test(s)) return 'm7b5';
-  if (/^dim7|^o7/.test(s)) return 'dim7';
-  if (/^(dim|°|o)(?!7)/.test(s)) return 'dim';
-  if (/^-7|^m7|^min7/.test(s)) return 'm7';
-  if (/^7/.test(s)) return 'dom7';
-  if (/^-|^m/.test(s)) return 'm';
+  if (q === '' || /^(maj|△|Δ|\^|j)(?!7)/.test(q)) return 'maj';
   return 'other';
 }
 
@@ -224,19 +214,109 @@ function selectionPattern(chords: ChordOverlay[]): ChordType[] {
   return chords.map((c) => classifyChordSymbol(c.symbol));
 }
 
-function lickPattern(lick: LickEntry): ChordType[] {
-  return lick.chords.filter(Boolean).map(classifyLickChord);
+/* ── pattern scoring ─────────────────────────────────────────────────────────
+ * 예전 patternMatches 는 boolean(부분 매치 = 완전 매치) 이라 "쿼리 전체를 담은
+ * 릭" 과 "일부만 담은 릭" 을 구분 못 했다. 이제 0~1 점수로 매긴다:
+ *   effCoverage = Σ(코드별 quality 유사도) / 쿼리 길이   ← 완전 포함 > 부분 포함
+ *   rootAvg     = 루트 모션(반음 간격)이 일치한 비율      ← 트라이톤 섭 등 구분
+ *   score       = effCoverage * (0.70 + 0.30 * rootAvg)
+ * 완전·정확 매치 → 1.0, 2/3 부분 매치 → ~0.67 로 항상 완전 매치가 위로 온다. */
+
+interface PatChord {
+  type: ChordType;
+  /** 코드 루트의 pitch-class. progression 키워드처럼 절대 루트가 없으면 null. */
+  rootPc: number | null;
 }
 
-function patternMatches(selPat: ChordType[], lickPat: ChordType[]): boolean {
-  if (selPat.length === 0 || lickPat.length === 0) return false;
-  for (let i = 0; i <= lickPat.length - selPat.length; i++) {
-    if (selPat.every((t, j) => lickPat[i + j] === t)) return true;
+/** 근접 quality — maj7↔maj, m7↔m, dim 계열은 0.5 점 부분 인정. */
+const QUALITY_NEAR: Partial<Record<ChordType, ChordType[]>> = {
+  maj7: ['maj'], maj: ['maj7'],
+  m7: ['m'], m: ['m7'],
+  m7b5: ['dim'], dim: ['m7b5', 'dim7'], dim7: ['dim'],
+};
+
+function qualitySim(a: ChordType, b: ChordType): number {
+  // 'other' 는 분류 불가 — 매칭 점수에 기여시키지 않는다.
+  if (a === 'other' || b === 'other') return 0;
+  if (a === b) return 1;
+  if (QUALITY_NEAR[a]?.includes(b)) return 0.5;
+  return 0;
+}
+
+function selToPat(chords: ChordOverlay[]): PatChord[] {
+  return chords.map((c) => ({
+    type: classifyChordSymbol(c.symbol),
+    rootPc: rootPc(c.symbol),
+  }));
+}
+
+/* 백엔드 릭의 chords 는 마디당 1 엔트리이고 한 마디 2코드는 "D-7  G7" 처럼
+ * 2-space 로 합쳐져 온다. 각 코드를 개별 패턴 원소로 펼친다. */
+function lickToPat(lick: LickEntry): PatChord[] {
+  const out: PatChord[] = [];
+  for (const cell of lick.chords) {
+    if (!cell) continue;
+    for (const sym of cell.split(/\s{2,}/)) {
+      const s = sym.trim();
+      if (s) out.push({ type: classifyChordSymbol(s), rootPc: rootPc(s) });
+    }
   }
-  for (let i = 0; i <= selPat.length - lickPat.length; i++) {
-    if (lickPat.every((t, j) => selPat[i + j] === t)) return true;
+  return out;
+}
+
+/** progression 키워드(ii-V-I 등) → 절대 루트 없는 패턴. */
+function progToPat(types: ChordType[]): PatChord[] {
+  return types.map((t) => ({ type: t, rootPc: null }));
+}
+
+/**
+ * 쿼리 패턴이 릭 패턴 안에 (연속 정렬로) 얼마나 잘 들어맞는지 0~1 점수.
+ * 모든 정렬 오프셋을 슬라이드하며 최고 점수를 취한다.
+ */
+function patternScore(sel: PatChord[], lick: PatChord[]): number {
+  if (sel.length === 0 || lick.length === 0) return 0;
+  let best = 0;
+
+  // off = sel[0] 이 들어가는 릭 인덱스. 양끝 부분 겹침까지 커버.
+  for (let off = -(sel.length - 1); off <= lick.length - 1; off++) {
+    let qualSum = 0;       // Σ qualitySim (커버된 위치)
+    let rootHits = 0;
+    let rootPairs = 0;
+    let prevCovered = -1;  // 직전에 quality 매치된 sel 인덱스
+
+    for (let j = 0; j < sel.length; j++) {
+      const li = off + j;
+      if (li < 0 || li >= lick.length) { prevCovered = -1; continue; }
+
+      const q = qualitySim(sel[j].type, lick[li].type);
+      qualSum += q;
+
+      if (q > 0) {
+        // 루트 모션 비교: 직전 매치 위치와의 반음 간격이 같은지
+        const sPrev = sel[prevCovered]?.rootPc;
+        const lPrev = lick[off + prevCovered]?.rootPc;
+        if (prevCovered >= 0 && sel[j].rootPc != null && sPrev != null
+            && lick[li].rootPc != null && lPrev != null) {
+          rootPairs++;
+          const selIv = ((sel[j].rootPc! - sPrev) % 12 + 12) % 12;
+          const lickIv = ((lick[li].rootPc! - lPrev) % 12 + 12) % 12;
+          if (selIv === lickIv) rootHits++;
+        }
+        prevCovered = j;
+      } else {
+        prevCovered = -1;  // hard miss → 루트 모션 연속성 끊김
+      }
+    }
+
+    const effCoverage = qualSum / sel.length;
+    if (effCoverage === 0) continue;
+    // 루트 정보가 없으면(progression 키워드) 중립값 0.85.
+    const rootAvg = rootPairs > 0 ? rootHits / rootPairs : 0.85;
+    const score = effCoverage * (0.70 + 0.30 * rootAvg);
+    if (score > best) best = score;
   }
-  return false;
+
+  return best;
 }
 
 /* ── target tonic detection ──────────────────────────────────────────────── */
@@ -286,8 +366,8 @@ const PROGRESSION_PATTERNS: Record<ProgressionKey, ChordType[]> = {
 
 /**
  * 사용자가 코드 구간을 선택하지 않았을 때 — 진행 키워드(예: "2-5-1")만으로
- * 릭을 찾아오는 폴백. 릭의 chord 진행에서 해당 패턴이 부분-매치되는 것을
- * 모두 모아 임의로 N 개 샘플링.
+ * 릭을 찾아오는 폴백. patternScore 로 점수를 매겨 높은 순으로 정렬하고,
+ * 동점은 셔플해서 122개 릭이 골고루 나오게 한다.
  */
 export function findLicksByProgression(
   progression: ProgressionKey,
@@ -296,23 +376,22 @@ export function findLicksByProgression(
 ): LickMatch[] {
   const targetPat = PROGRESSION_PATTERNS[progression];
   if (!targetPat) return [];
-  const matches: LickEntry[] = [];
+  const selPat = progToPat(targetPat);
+
+  const scored: { lick: LickEntry; score: number }[] = [];
   for (const lick of allLicks) {
-    const lickPat = lickPattern(lick);
-    // sub-string match: 릭 진행 어딘가에 패턴이 그대로 등장하는지
-    for (let i = 0; i <= lickPat.length - targetPat.length; i++) {
-      if (targetPat.every((t, j) => lickPat[i + j] === t)) {
-        matches.push(lick);
-        break;
-      }
-    }
+    const score = patternScore(selPat, lickToPat(lick));
+    // 진행 키워드 매칭은 "그 진행을 실제로 담은" 릭만 — 0.55 이상.
+    if (score >= 0.55) scored.push({ lick, score });
   }
-  // Fisher-Yates partial shuffle — 같은 곡만 계속 추천되지 않도록
-  for (let i = matches.length - 1; i > 0 && i > matches.length - maxResults - 1; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [matches[i], matches[j]] = [matches[j], matches[i]];
-  }
-  return matches.slice(0, maxResults).map((lick) => ({ lick, tier: 3 as const }));
+
+  scored.sort((a, b) => {
+    const d = b.score - a.score;
+    if (Math.abs(d) > 0.001) return d;
+    return Math.random() - 0.5;  // 동점 → 다양성
+  });
+
+  return scored.slice(0, maxResults).map((s) => ({ lick: s.lick, tier: 3 as const }));
 }
 
 /** Map common Korean / English progression keywords → canonical key. */
@@ -332,6 +411,19 @@ export function detectProgressionKeyword(text: string): ProgressionKey | null {
   return null;
 }
 
+/**
+ * 선택된 코드 구간에 어울리는 릭을 찾는다.
+ *
+ * 예전 구현은 Tier 1/2/3(같은 곡 / 같은 키 / 아무 키) 으로 나눠 각 티어를
+ * 배열 순서대로 훑어 채우는 방식이라 (1) 부분 매치가 완전 매치를 이기고
+ * (2) 결과가 결정론적 — 122개를 만들어도 늘 같은 릭만 나왔다.
+ *
+ * 이제 티어를 랭킹에서 제거하고 patternScore 로 전부 점수화 → 점수순 정렬.
+ *   final = patternScore + keyBonus   (같은 곡 +0.15 / 같은 키 +0.05)
+ * keyBonus 는 동점-수준에서만 영향을 주는 작은 가산점이라, "완전 매치 > 부분
+ * 매치" 가 항상 우선한다. 동점은 셔플해 다양성 확보.
+ * tier 필드는 표시용으로 유지(같은 곡=1 / 같은 키=2 / 그 외=3) — 랭킹과 무관.
+ */
 export function findMatchingLicks(
   selected: ChordOverlay[],
   songTitle: string,
@@ -339,62 +431,56 @@ export function findMatchingLicks(
   allLicks: LickEntry[],
   maxResults = 4,
 ): LickMatch[] {
-  const selPat = selectionPattern(selected);
+  const selPat = selToPat(selected);
   if (selPat.length === 0) return [];
 
   const tonicPc = targetTonicPc(selected);
   const normalizedTitle = songTitle.toLowerCase().replace(/[^a-z0-9]/g, '');
   const songKeyRoot = extractKeyRoot(songKey);
 
-  const results: LickMatch[] = [];
+  interface Scored {
+    lick: LickEntry;
+    score: number;       // patternScore (0~1)
+    final: number;       // score + keyBonus
+    tier: 1 | 2 | 3;
+  }
 
-  const addIfNew = (lick: LickEntry, tier: 1 | 2 | 3) => {
-    if (results.some((r) => r.lick.id === lick.id)) return;
+  const scored: Scored[] = [];
+  for (const lick of allLicks) {
+    const score = patternScore(selPat, lickToPat(lick));
+    if (score < 0.25) continue;  // 노이즈 컷 — 의미 있는 겹침이 거의 없음
 
-    const lickKeyRootStr = extractKeyRoot(lick.key);
+    const lickTitle = lick.title.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const lickKeyRoot = extractKeyRoot(lick.key);
+    let tier: 1 | 2 | 3 = 3;
+    let keyBonus = 0;
+    if (normalizedTitle && lickTitle === normalizedTitle) { tier = 1; keyBonus = 0.15; }
+    else if (lickKeyRoot === songKeyRoot) { tier = 2; keyBonus = 0.05; }
+
+    scored.push({ lick, score, final: score + keyBonus, tier });
+  }
+
+  scored.sort((a, b) => {
+    const d = b.final - a.final;
+    if (Math.abs(d) > 0.001) return d;
+    return Math.random() - 0.5;  // 동점 → 셔플로 다양성
+  });
+
+  const out: LickMatch[] = [];
+  const seen = new Set<string | number>();
+  for (const s of scored) {
+    if (out.length >= maxResults) break;
+    if (seen.has(s.lick.id)) continue;
+    seen.add(s.lick.id);
+
+    const lickKeyRootStr = extractKeyRoot(s.lick.key);
     const lickTonicPc = rootPc(lickKeyRootStr);
     const semitones = (tonicPc - lickTonicPc + 12) % 12;
     const originalKey = semitones !== 0 ? lickKeyRootStr : undefined;
-    const transposed = transposeLick(lick, semitones);
 
-    results.push({ lick: transposed, tier, originalKey });
-  };
-
-  // Tier 1: Same song
-  for (const lick of allLicks) {
-    if (results.length >= maxResults) break;
-    const lickTitle = lick.title.toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (lickTitle === normalizedTitle && patternMatches(selPat, lickPattern(lick))) {
-      addIfNew(lick, 1);
-    }
+    out.push({ lick: transposeLick(s.lick, semitones), tier: s.tier, originalKey });
   }
-
-  // Tier 2: Same key, any song
-  for (const lick of allLicks) {
-    if (results.length >= maxResults) break;
-    if (results.some((r) => r.originalKey === undefined && r.lick.id !== lick.id)) {
-      // already added (non-transposed)
-    }
-    const lickKeyRoot = extractKeyRoot(lick.key);
-    if (lickKeyRoot === songKeyRoot && patternMatches(selPat, lickPattern(lick))) {
-      addIfNew(lick, 2);
-    }
-  }
-
-  // Tier 3: Any key
-  for (const lick of allLicks) {
-    if (results.length >= maxResults) break;
-    if (results.some(() => {
-      // compare original lick id (before transposition) — use title+chords as proxy
-      const orig = allLicks.find(l => l.id === lick.id);
-      return orig && results.some(res => res.lick.chords.join() === transposeLick(orig, 0).chords.join());
-    })) continue;
-    if (patternMatches(selPat, lickPattern(lick))) {
-      addIfNew(lick, 3);
-    }
-  }
-
-  return results.slice(0, maxResults);
+  return out;
 }
 
 export function selectionProgressionLabel(chords: ChordOverlay[]): string {

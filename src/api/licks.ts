@@ -254,5 +254,7 @@ export async function fetchAllLicks(): Promise<LickEntry[]> {
     page++;
   }
 
+  // 1-based human-facing number — the real id is a UUID. Order = createdAt desc.
+  all.forEach((e, i) => { e.displayNumber = i + 1; });
   return all;
 }

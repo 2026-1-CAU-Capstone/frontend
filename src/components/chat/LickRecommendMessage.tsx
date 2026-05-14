@@ -152,7 +152,9 @@ const ScoreBox = styled.div`
 /** Append a chord label in SVG at the given position (root larger, quality smaller) */
 function addChordLabel(svg: SVGElement, x: number, y: number, raw: string) {
   const label = normalizeChordLabel(raw);
-  const rootMatch = label.match(/^([A-G][♭♯]?)(.*)/);
+  // Accept ASCII b/# too — normalizeChordTypeset only converts tension
+  // accidentals to Unicode, the root flat ("Eb") stays ASCII.
+  const rootMatch = label.match(/^([A-G][b#♭♯]?)(.*)/);
   if (!rootMatch) return;
   const [, root, quality] = rootMatch;
 
@@ -457,8 +459,9 @@ export function LickRecommendMessage({ match, tempoOverride }: Props) {
             ? `${originalKey} → ${lick.key.split('-')[0]}`
             : lick.key.split('-')[0]}
         </TransposeBadge>
-        {/* DEV-ONLY: lick id — 추후 제거 요청 시 삭제 */}
-        <DevIdBadge title="Lick ID (dev)">#{lick.id}</DevIdBadge>
+        {/* 릭 번호 — UUID 대신 백엔드 목록상의 정렬 순번(displayNumber)을 표시.
+            displayNumber 가 없으면(레거시/AI생성 릭) raw id 로 폴백. */}
+        <DevIdBadge title="Lick #">#{lick.displayNumber ?? lick.id}</DevIdBadge>
         <CircleBtn
           $color={playing ? '#1b5e20' : '#2e7d32'}
           onClick={togglePlay}

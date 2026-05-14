@@ -24,10 +24,13 @@ const BUILTINS: Array<[string, string, Family, string, number, number, number, n
   ['+',  '',     MAJ, ':maj#5:maj+5:M#5:ma#5:ma+5:aug:', NP, 0, NP, 1, NP, NP],
   ['6',  '',     MAJ, ':maj6:MAJ6:Maj6:M6:', NP, 0, NP, 0, 0, NP],
   ['6',  '9',    MAJ, ':M69:ma69:maj69:MAJ69:Maj6(9):', 0, 0, NP, 0, 0, NP],
-  ['M7', '',     MAJ, ':7M:maj7:ma7:MAJ7:Maj7:', NP, 0, NP, 0, NP, 0],
+  // `j7`/`j9`/`j13` are the MuseJazz-font convention for the major-7 triangle
+  // (the `j` glyph IS the △). Some backend lick data is stored that way, so
+  // they're registered here as M7/M9/M13 aliases — parsing `Cj7` → C△7.
+  ['M7', '',     MAJ, ':7M:maj7:ma7:MAJ7:Maj7:j7:J7:', NP, 0, NP, 0, NP, 0],
   ['M7', '13',   MAJ, ':maj713:ma713:MAJ713:M7add13:', NP, 0, NP, 0, 0, 0],
-  ['M9', '',     MAJ, ':9M:maj79:maj9:ma79:MAJ79:Maj9:Maj(9):Maj7(9):Maj9(no3):', 0, 0, NP, 0, NP, 0],
-  ['M13','',     MAJ, ':ma13:maj13:MAJ13:13M:Maj13:', 0, 0, NP, 0, 0, 0],
+  ['M9', '',     MAJ, ':9M:maj79:maj9:ma79:MAJ79:Maj9:Maj(9):Maj7(9):Maj9(no3):j9:J9:', 0, 0, NP, 0, NP, 0],
+  ['M13','',     MAJ, ':ma13:maj13:MAJ13:13M:Maj13:j13:J13:', 0, 0, NP, 0, 0, 0],
   ['M7', 'b5',   MAJ, ':maj7b5:maj-5:Mb5:7M-5:7Mb5:ma7b5:ma-5:b5:Maj7b5:', NP, 0, NP, -1, NP, 0],
   ['M7', '#5',   MAJ, ':maj7#5:7M+5:7M#5:ma7#5:Maj7aug:Maj7#5:', NP, 0, NP, 1, NP, 0],
   ['M7', '#11',  MAJ, ':maj7#11:7M#11:Maj7#11:ma7#11:', NP, 0, 1, 0, NP, 0],

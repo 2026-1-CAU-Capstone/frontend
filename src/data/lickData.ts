@@ -37,6 +37,10 @@ interface RawLick {
 
 export interface LickEntry {
   id: number | string;
+  /** 1-based position in the backend list (createdAt desc). The real `id` is
+   *  a UUID which is meaningless to show users — this is the human-facing
+   *  number. Assigned in fetchAllLicks(); undefined for non-backend sources. */
+  displayNumber?: number;
   performer: string;
   title: string;
   album?: string;

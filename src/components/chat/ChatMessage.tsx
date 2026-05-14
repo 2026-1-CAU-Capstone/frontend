@@ -10,25 +10,33 @@ import { ChatChartCard } from './ChatChartCard';
 import { parseChatChart, splitChordTables } from '../../lib/chatChartParser';
 import styled, { keyframes } from 'styled-components';
 
-/* Inline section label — black filled SQUARE with the letter, matches the
- * LeadSheet SectionLabel style. Uses a fixed square size (1.5em × 1.5em) so
- * single-letter labels (A/B/C) read as a real square block, not a wide pill. */
+/* Inline section label — small black filled SQUARE sized to the surrounding
+ * text's cap-height so it reads as part of the sentence, not an oversized
+ * badge. Sizing math:
+ *   font-size 0.7em  → the inner letter
+ *   width/height 1.32em (of that 0.7em) ≈ 0.92em of the parent → ~cap height
+ *   vertical-align -0.16em drops the box so its centre sits on the text's
+ *   cap-region centre instead of floating above the baseline.
+ * The letter is optically centred with a hair of padding-bottom because
+ * uppercase glyphs sit slightly low in their line box. */
 const InlineSectionTag = styled.span`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.5em;
-  height: 1.5em;
+  width: 1.32em;
+  height: 1.32em;
+  box-sizing: border-box;
   background: #000;
   color: #fff;
   font-family: 'DM Sans', 'Pretendard', sans-serif;
-  font-size: 0.95em;
-  font-weight: 800;
+  font-size: 0.7em;
+  font-weight: 700;
   line-height: 1;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
   border-radius: 2px;
-  margin: 0 3px;
-  vertical-align: -0.2em;  /* tweak baseline so letter aligns with surrounding text */
+  margin: 0 0.28em;
+  padding-bottom: 0.04em;
+  vertical-align: -0.16em;
 `;
 
 /* Pattern + helper used by the markdown component override below to inline
@@ -55,7 +63,9 @@ function inlineSectionTags(text: string, keyPrefix = 'sec'): React.ReactNode[] {
   return out;
 }
 
-const LICK_TAG_RE = /\[LICK:(\d+)\]/g;
+// Lick ids can be numeric (legacy frontend JSON) OR UUID strings (backend
+// /v1/licks). Match anything that isn't a closing bracket so both work.
+const LICK_TAG_RE = /\[LICK:([^\]]+)\]/g;
 import {
   MessageRow,
   Bubble,
@@ -260,10 +270,14 @@ export function ChatMessage({ message, suppressChart = false, songTempo }: ChatM
     }
 
 
-    // [LICK:id] 태그를 파싱해 인라인 LickCard로 교체
-    const lickById = new Map<number | string, LickMatch>(
-      (message.lickMatches ?? []).map(m => [m.lick.id, m])
-    );
+    // [LICK:id] 태그를 파싱해 인라인 LickCard로 교체.
+    // id 는 숫자(레거시 프론트 JSON) 또는 UUID 문자열(백엔드 /v1/licks) 둘 다
+    // 가능하므로, 문자열 키와 숫자 키를 모두 등록해 두고 lookup 시 양쪽을 시도한다.
+    const lickById = new Map<number | string, LickMatch>();
+    for (const m of message.lickMatches ?? []) {
+      lickById.set(m.lick.id, m);
+      lickById.set(String(m.lick.id), m);
+    }
 
     /* Helper: take a plain text segment and emit markdown + inlined
      * [LICK:id] cards. [SEC:X] is NOT split here — the markdown component
@@ -299,10 +313,15 @@ export function ChatMessage({ message, suppressChart = false, songTempo }: ChatM
 
       while ((lm = LICK_INLINE_RE.exec(text)) !== null) {
         flushMarkdown(text.slice(textIdx, lm.index), String(textIdx));
-        const id = parseInt(lm[1], 10);
-        const match = lickById.get(id);
+        // id 는 UUID 문자열 또는 숫자. 문자열 그대로 먼저, 안 되면 숫자로 재시도.
+        const rawId = lm[1].trim();
+        let match = lickById.get(rawId);
+        if (!match) {
+          const numId = Number(rawId);
+          if (Number.isFinite(numId)) match = lickById.get(numId);
+        }
         if (match) {
-          out.push(<LickRecommendMessage key={`${keyPrefix}-lick-${id}-${lm.index}`} match={match} tempoOverride={songTempo} />);
+          out.push(<LickRecommendMessage key={`${keyPrefix}-lick-${rawId}-${lm.index}`} match={match} tempoOverride={songTempo} />);
         }
         textIdx = lm.index + lm[0].length;
       }
