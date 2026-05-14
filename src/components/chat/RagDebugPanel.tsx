@@ -3,17 +3,17 @@ import styled from 'styled-components';
 import type { RagDebugInfo, RagChunk } from '../../api/harmorag';
 
 /* ── 컨테이너 ── */
-const Panel = styled.div`
+const Panel = styled.div<{ $offline?: boolean }>`
   margin: 6px 12px;
-  border: 1px solid #c8b400;
+  border: 1px solid ${({ $offline }) => ($offline ? '#e57373' : '#c8b400')};
   border-radius: 8px;
-  background: #fffde7;
+  background: ${({ $offline }) => ($offline ? '#fdecea' : '#fffde7')};
   font-family: 'JetBrains Mono', 'Menlo', monospace;
   font-size: 11.5px;
   overflow: hidden;
 `;
 
-const Header = styled.button`
+const Header = styled.button<{ $offline?: boolean }>`
   width: 100%;
   display: flex;
   align-items: center;
@@ -25,7 +25,7 @@ const Header = styled.button`
   text-align: left;
   font-family: inherit;
   font-size: 11.5px;
-  color: #5a4800;
+  color: ${({ $offline }) => ($offline ? '#a02020' : '#5a4800')};
   font-weight: 600;
 
   &:hover { background: rgba(0,0,0,0.04); }
@@ -202,60 +202,78 @@ interface RagDebugPanelProps {
 }
 
 export function RagDebugPanel({ info }: RagDebugPanelProps) {
-  const [open, setOpen] = useState(true);
+  const offline = info.status === 'offline';
+  const [open, setOpen] = useState(!offline);  // offline은 접힌 채로 시작
 
   const topScore = info.chunks[0]?.score ?? 0;
   const badgeColor = topScore > 0.6 ? '#388e3c' : topScore > 0.35 ? '#f57c00' : '#9e9e9e';
 
   return (
-    <Panel>
-      <Header onClick={() => setOpen(v => !v)}>
-        <span>🔍 HarmoRAG</span>
-        <Badge $color={badgeColor}>
-          top {(topScore * 100).toFixed(0)}%
-        </Badge>
-        {info.fusion === 'rrf' && (
-          <Badge $color="#1976d2" title={`Reciprocal Rank Fusion (k=${info.rrf_k ?? 60})`}>
-            RRF
-          </Badge>
+    <Panel $offline={offline}>
+      <Header $offline={offline} onClick={() => setOpen(v => !v)}>
+        <span>{offline ? '⚠️ HarmoRAG' : '🔍 HarmoRAG'}</span>
+        {offline ? (
+          <Badge $color="#c62828">OFFLINE</Badge>
+        ) : (
+          <>
+            <Badge $color="#388e3c">CONNECTED</Badge>
+            <Badge $color={badgeColor}>top {(topScore * 100).toFixed(0)}%</Badge>
+            {info.fusion === 'rrf' && (
+              <Badge $color="#1976d2" title={`Reciprocal Rank Fusion (k=${info.rrf_k ?? 60})`}>
+                RRF
+              </Badge>
+            )}
+          </>
         )}
-        <span style={{ fontWeight: 400, color: '#888' }}>
-          {info.queries?.length ?? 0}개 쿼리 · {info.total_retrieved ?? 0}개 검색 · {info.chunks?.length ?? 0}개 사용
+        <span style={{ fontWeight: 400, color: offline ? '#a06060' : '#888' }}>
+          {offline
+            ? '직접 Claude 호출 (RAG 미적용)'
+            : `${info.queries?.length ?? 0}개 쿼리 · ${info.total_retrieved ?? 0}개 검색 · ${info.chunks?.length ?? 0}개 사용`}
         </span>
         <span style={{ marginLeft: 'auto', color: '#bbb', fontSize: 10 }}>{open ? '▲' : '▼'}</span>
       </Header>
 
       {open && (
         <Body>
-          {/* 에러 */}
+          {/* 에러 / 오프라인 안내 */}
           {info.error && (
-            <div style={{ color: '#c62828', padding: '4px 0' }}>❌ {info.error}</div>
+            <div style={{ color: '#c62828', padding: '4px 0', whiteSpace: 'pre-wrap' }}>
+              ❌ {info.error}
+            </div>
+          )}
+          {info.serverUrl && (
+            <div style={{ color: '#888', fontSize: 10, padding: '2px 0 4px' }}>
+              endpoint: {info.serverUrl}
+            </div>
           )}
 
-          {/* 쿼리 목록 */}
-          <Section>
-            <SectionTitle>생성된 쿼리</SectionTitle>
-            {info.queries?.map((q, i) => (
-              <QueryRow key={i}>
-                <span style={{ color: '#bbb', flexShrink: 0 }}>{i + 1}.</span>
-                <QueryText title={q.query}>{q.query}</QueryText>
-                <LvTag>
-                  {q.level != null ? `lv${q.level}` : 'all'}
-                  {q.tag ? ` · ${q.tag}` : ''}
-                </LvTag>
-              </QueryRow>
-            ))}
-          </Section>
+          {/* 쿼리 목록 — connected일 때만 */}
+          {!offline && (
+            <>
+              <Section>
+                <SectionTitle>생성된 쿼리</SectionTitle>
+                {info.queries?.map((q, i) => (
+                  <QueryRow key={i}>
+                    <span style={{ color: '#bbb', flexShrink: 0 }}>{i + 1}.</span>
+                    <QueryText title={q.query}>{q.query}</QueryText>
+                    <LvTag>
+                      {q.level != null ? `lv${q.level}` : 'all'}
+                      {q.tag ? ` · ${q.tag}` : ''}
+                    </LvTag>
+                  </QueryRow>
+                ))}
+              </Section>
 
-          {/* 검색된 청크 */}
-          <Section>
-            <SectionTitle>검색 결과 (top {info.top_k})</SectionTitle>
-            <ChunkList>
-              {info.chunks?.map((chunk) => (
-                <ChunkItem key={chunk.id} chunk={chunk} />
-              ))}
-            </ChunkList>
-          </Section>
+              <Section>
+                <SectionTitle>검색 결과 (top {info.top_k})</SectionTitle>
+                <ChunkList>
+                  {info.chunks?.map((chunk) => (
+                    <ChunkItem key={chunk.id} chunk={chunk} />
+                  ))}
+                </ChunkList>
+              </Section>
+            </>
+          )}
         </Body>
       )}
     </Panel>

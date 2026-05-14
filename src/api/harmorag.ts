@@ -47,6 +47,13 @@ export interface RagDebugInfo {
   rrf_k?: number;
   chunks: RagChunk[];
   error?: string;
+  /** Connection status — set by the client (not the server) so the debug
+   *  panel can render even when RAG is unreachable. 'connected' = RAG /chat
+   *  was used; 'offline' = server unreachable, fell back to direct Claude. */
+  status?: 'connected' | 'offline';
+  /** Which RAG endpoint the client tried — handy for diagnosing a build that
+   *  baked in the wrong VITE_RAG_BASE (e.g. localhost on a deployed site). */
+  serverUrl?: string;
 }
 
 let serverAlive: boolean | null = null;
@@ -85,6 +92,18 @@ export async function streamWithRAG(
 
   if (!alive) {
     console.info('[HarmoRAG] 서버 꺼짐 → 직접 Claude 호출');
+    // Demo mode: still surface a debug panel so the user can SEE that RAG is
+    // offline (instead of the panel silently never appearing). Tells them
+    // which URL was tried — useful for diagnosing a wrong baked-in build URL.
+    onDebug?.({
+      status: 'offline',
+      serverUrl: RAG_SERVER,
+      error: `RAG 서버에 연결할 수 없습니다 (${RAG_SERVER}) — 직접 Claude 호출로 폴백`,
+      queries: [],
+      total_retrieved: 0,
+      top_k: 0,
+      chunks: [],
+    });
     return streamClaudeMessage(message, history, chordContextText, onChunk);
   }
 
@@ -131,7 +150,7 @@ export async function streamWithRAG(
           const jsonStr = buffer.slice(openIdx + RAG_OPEN.length, closeIdx);
           try {
             const info = JSON.parse(jsonStr) as RagDebugInfo;
-            onDebug?.(info);
+            onDebug?.({ ...info, status: 'connected', serverUrl: RAG_SERVER });
           } catch { /* 무시 */ }
           // 디버그 블록 제거, 나머지만 남김
           buffer = buffer.slice(closeIdx + RAG_CLOSE.length);
@@ -158,6 +177,15 @@ export async function streamWithRAG(
   } catch (err) {
     console.warn('[HarmoRAG] 오류, 직접 Claude로 폴백:', err);
     serverAlive = false;
+    onDebug?.({
+      status: 'offline',
+      serverUrl: RAG_SERVER,
+      error: `RAG 호출 중 오류 — 직접 Claude 호출로 폴백 (${err instanceof Error ? err.message : String(err)})`,
+      queries: [],
+      total_retrieved: 0,
+      top_k: 0,
+      chunks: [],
+    });
     return streamClaudeMessage(message, history, chordContextText, onChunk);
   }
 }
