@@ -192,6 +192,8 @@ const ChatArea = styled.div`
 /* ── Intro empty-state visual (shown only when messages.length === 0) ──── */
 
 const IntroBlock = styled.div`
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -351,6 +353,7 @@ export default function HomePage() {
             groupExplanation={null}
             songTitle="Jazzify"
             hideHeader
+            hideSelectionQuickAction
             emptyState={introEmptyState}
           />
         </ChatArea>

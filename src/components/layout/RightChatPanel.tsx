@@ -45,6 +45,8 @@ interface RightChatPanelProps {
   /** Hide the panel header (e.g. on HomePage intro where the brand strip is
    *  already on the page outside the panel). */
   hideHeader?: boolean;
+  /** Hide the "select chord section" quick action for chat-only intro views. */
+  hideSelectionQuickAction?: boolean;
 }
 
 /** Keywords that signal the user wants to talk about the actual played notes
@@ -103,6 +105,7 @@ export function RightChatPanel({
   notesContext,
   emptyState,
   hideHeader = false,
+  hideSelectionQuickAction = false,
 }: RightChatPanelProps) {
   const [messages, setMessages] = useState<MessageWithDebug[]>([]);
   const [loading, setLoading] = useState(false);
@@ -415,6 +418,7 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
         selectedChords={selectedChords}
         onClearSelectedChords={onClearSelectedChords}
         onRequestLicks={handleRequestLicks}
+        hideSelectionQuickAction={hideSelectionQuickAction}
       />
     </PanelContainer>
   );

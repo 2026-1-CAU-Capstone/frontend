@@ -29,6 +29,7 @@ interface ChatInputProps {
   selectedChords?: ChordOverlay[];
   onClearSelectedChords?: () => void;
   onRequestLicks?: () => void;
+  hideSelectionQuickAction?: boolean;
 }
 
 export function ChatInput({
@@ -39,10 +40,13 @@ export function ChatInput({
   selectedChords = [],
   onClearSelectedChords,
   onRequestLicks,
+  hideSelectionQuickAction = false,
 }: ChatInputProps) {
   const [value, setValue] = useState('');
   const visibleChords = selectedChords.slice(0, 10);
   const hiddenChordCount = Math.max(selectedChords.length - visibleChords.length, 0);
+  const showSelectionQuickAction = !hideSelectionQuickAction;
+  const showLickQuickAction = selectedChords.length > 0 && !!onRequestLicks;
 
   const handleSend = () => {
     const trimmed = value.trim();
@@ -60,33 +64,37 @@ export function ChatInput({
 
   return (
     <InputWrapper>
-      <QuickActionRow>
-        <QuickActionButton
-          onClick={onToggleSelectionMode}
-          disabled={disabled}
-          style={{
-            background: isSelectionMode ? 'linear-gradient(135deg, #2D8F5E, #1F6A44)' : undefined,
-            color: isSelectionMode ? '#fff' : undefined,
-            borderColor: isSelectionMode ? 'transparent' : undefined,
-          }}
-        >
-          {isSelectionMode ? '✨ 구간 선택 활성화됨 (클릭하여 취소)' : '🎯 코드 구간 직접 선택하기'}
-        </QuickActionButton>
-        {selectedChords.length > 0 && onRequestLicks && (
-          <QuickActionButton
-            onClick={onRequestLicks}
-            disabled={disabled}
-            style={{
-              background: 'linear-gradient(135deg, #B8860B, #996600)',
-              color: '#fff',
-              borderColor: 'transparent',
-              fontWeight: 700,
-            }}
-          >
-            💡 릭 추천받기
-          </QuickActionButton>
-        )}
-      </QuickActionRow>
+      {(showSelectionQuickAction || showLickQuickAction) && (
+        <QuickActionRow>
+          {showSelectionQuickAction && (
+            <QuickActionButton
+              onClick={onToggleSelectionMode}
+              disabled={disabled}
+              style={{
+                background: isSelectionMode ? 'linear-gradient(135deg, #2D8F5E, #1F6A44)' : undefined,
+                color: isSelectionMode ? '#fff' : undefined,
+                borderColor: isSelectionMode ? 'transparent' : undefined,
+              }}
+            >
+              {isSelectionMode ? '✨ 구간 선택 활성화됨 (클릭하여 취소)' : '🎯 코드 구간 직접 선택하기'}
+            </QuickActionButton>
+          )}
+          {showLickQuickAction && (
+            <QuickActionButton
+              onClick={onRequestLicks}
+              disabled={disabled}
+              style={{
+                background: 'linear-gradient(135deg, #B8860B, #996600)',
+                color: '#fff',
+                borderColor: 'transparent',
+                fontWeight: 700,
+              }}
+            >
+              💡 릭 추천받기
+            </QuickActionButton>
+          )}
+        </QuickActionRow>
+      )}
       <InputContainer>
         <ComposerBox>
           {selectedChords.length > 0 && (
