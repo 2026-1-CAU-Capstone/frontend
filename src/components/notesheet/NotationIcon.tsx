@@ -47,11 +47,23 @@ function renderGlyphSvg(durBase: string, isRest: boolean): string {
 
     const svg = div.querySelector('svg') as SVGSVGElement | null;
     if (!svg) return '';
+    
+    // Instead of tightly cropping each note causing inconsistent scaling,
+    // we use a fixed viewBox aligned to the stave's b/4 line (centered).
+    // The notehead is roughly at x=20~40, y=60 (or around there).
+    // Let's measure X tightly to remove horizontal whitespace,
+    // but fix the height and vertical alignment so all notes scale equally!
     const bb = svg.getBBox();
     const pad = 2;
+    // Fix vertical extents (e.g., from y=10 to y=80 which is height 70)
+    // to ensure stems and rests fit, and the scale remains consistent.
+    const cy = 60; // Approximate y-coordinate of b/4 line
+    const fixedHeight = 84; 
+    const fixedY = 16;
+    
     svg.setAttribute(
       'viewBox',
-      `${bb.x - pad} ${bb.y - pad} ${bb.width + pad * 2} ${bb.height + pad * 2}`,
+      `${bb.x - pad} ${fixedY} ${bb.width + pad * 2} ${fixedHeight}`
     );
     svg.setAttribute('width', '100%');
     svg.setAttribute('height', '100%');

@@ -794,7 +794,7 @@ export default function NotePage() {
         <CenterColumn>
           <SongPickerBar>
             <span>Note</span>
-            <SoloGenBtn onClick={() => navigate('/note/sologenerator')}>Solo Generator</SoloGenBtn>
+            <SoloGenBtn onClick={() => navigate('/editor?mode=solo')}>Editor</SoloGenBtn>
             <SongSelect
               value={songGroup}
               onChange={(e) => {

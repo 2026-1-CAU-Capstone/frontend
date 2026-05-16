@@ -523,8 +523,8 @@ export function OmnibookViewer({ source = 'parker' }: { source?: OmnibookSource 
                 ))}
               </KeySelect>
               <EditBtn
-                onClick={() => navigate('/note/sologenerator', { state: { prefillSheet: transposedSheet ?? sheet } })}
-                title="이 악보를 Solo Generator에서 열어 수정"
+                onClick={() => navigate('/editor?mode=solo', { state: { prefillSheet: transposedSheet ?? sheet } })}
+                title="이 악보를 Editor에서 열어 수정"
               >
                 ✎ 수정하기
               </EditBtn>

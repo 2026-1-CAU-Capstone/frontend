@@ -4,6 +4,7 @@ import HomePage from './pages/HomePage';
 import ChordPage from './pages/ChordPage';
 import NotePage from './pages/NotePage';
 import LicksPage from './pages/LicksPage';
+import SolosPage from './pages/SolosPage';
 import LickInputPage from './pages/LickInputPage';
 import MyLicksPage from './pages/MyLicksPage';
 import Lick12KeyPage from './pages/Lick12KeyPage';
@@ -12,6 +13,7 @@ import InputPage from './pages/InputPage';
 import AdminPage from './pages/AdminPage';
 import StyPocPage from './pages/StyPocPage';
 import StyDemoPage from './pages/StyDemoPage';
+import EditorPage from './pages/EditorPage';
 import { IntroScreen } from './components/common/IntroScreen';
 
 export default function App() {
@@ -27,6 +29,7 @@ export default function App() {
           <Route path="/note" element={<NotePage />} />
           <Route path="/note/sologenerator" element={<SoloGeneratorPage />} />
           <Route path="/licks" element={<LicksPage />} />
+          <Route path="/solos" element={<SolosPage />} />
           <Route path="/input" element={<InputPage />} />
           <Route path="/lick-input" element={<LickInputPage />} />
           <Route path="/admin" element={<AdminPage />} />
@@ -34,6 +37,7 @@ export default function App() {
           <Route path="/lick-practice/:id" element={<Lick12KeyPage />} />
           <Route path="/sty-poc" element={<StyPocPage />} />
           <Route path="/sty-demo" element={<StyDemoPage />} />
+          <Route path="/editor" element={<EditorPage />} />
         </Routes>
       </HashRouter>
     </>

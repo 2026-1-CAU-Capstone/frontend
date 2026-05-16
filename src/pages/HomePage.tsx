@@ -299,7 +299,8 @@ const TOOLS = [
   { label: 'Chord Analysis', icon: '𝄢', path: '/chord' },
   { label: 'Note Analysis', icon: '♪', path: '/note' },
   { label: 'Lick Database', icon: '🎷', path: '/licks' },
-  { label: 'JSON Tool', icon: '{ }', path: '/lick-input' },
+  { label: 'Solo Database', icon: '🎺', path: '/solos' },
+  { label: 'Editor', icon: '✎', path: '/editor' },
   { label: 'OMR', icon: '📄', path: '/input' },
 ] as const;
 

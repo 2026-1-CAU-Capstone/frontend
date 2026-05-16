@@ -166,10 +166,10 @@ export default function MyLicksPage() {
     }
   }, [fetchLicks]);
 
-  /* edit (backend only) — JSON tool로 이동, editingLick state 전달.
+  /* edit (backend only) — 통합 Editor를 lick 모드로 열고 editingLick state 전달.
    * LicksPage의 handleEditLick과 동일 패턴. */
   const handleEdit = useCallback((lick: LickEntry) => {
-    navigate('/lick-input', { state: { editingLick: lick } });
+    navigate('/editor?mode=lick', { state: { editingLick: lick } });
   }, [navigate]);
 
   /* width tracking */
@@ -189,7 +189,7 @@ export default function MyLicksPage() {
   return (
     <Page>
       <Header>
-        <BackBtn onClick={() => navigate('/lick-input')}>&larr; Lick Tool</BackBtn>
+        <BackBtn onClick={() => navigate('/editor?mode=lick')}>&larr; Editor</BackBtn>
         <Title>My Licks</Title>
         <Count>{loading ? '...' : `${licks.length} lick${licks.length !== 1 ? 's' : ''}`}</Count>
       </Header>

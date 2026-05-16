@@ -367,9 +367,9 @@ export default function LicksPage() {
     }
   }, [lickSource]);
 
-  /* edit (backend only) — navigate to JSON tool with prefilled data + editingId */
+  /* edit (backend only) — open unified Editor in lick mode with prefilled data + editingId */
   const handleEditLick = useCallback((lick: LickEntry) => {
-    navigate('/lick-input', { state: { editingLick: lick } });
+    navigate('/editor?mode=lick', { state: { editingLick: lick } });
   }, [navigate]);
 
   /* delete (backend only) — DELETE /api/v1/licks/{publicId} */
@@ -533,7 +533,16 @@ export default function LicksPage() {
   }, [melodySearch]);
 
   /* toc */
-  const toc = useMemo<TocEntry[]>(() => [{ title: 'Lick Database', page: 1 }], []);
+  const toc = useMemo<TocEntry[]>(
+    () => [
+      { title: 'Lick Database', page: 1 },
+      { title: 'Solo Database', page: 2 },
+    ],
+    [],
+  );
+  const handleTocSelect = useCallback((page: number) => {
+    if (page === 2) navigate('/solos');
+  }, [navigate]);
 
   return (
     <PageContainer>
@@ -545,7 +554,7 @@ export default function LicksPage() {
           <LeftSidebar
             toc={toc}
             activePage={1}
-            onPageSelect={() => {}}
+            onPageSelect={handleTocSelect}
           />
 
         <CenterColumn>
