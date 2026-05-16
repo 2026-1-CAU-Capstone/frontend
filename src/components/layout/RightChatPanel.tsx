@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react'
 import type { ChatMessage as ChatMessageType, ChordOverlay } from '../../data/types';
 import { ChatMessage } from '../chat/ChatMessage';
 import { ChatInput } from '../chat/ChatInput';
+import { IntroChatInput } from '../chat/IntroChatInput';
 import { type ClaudeMessage } from '../../api/claude';
 import { streamWithRAG, type RagDebugInfo } from '../../api/harmorag';
 import { RagDebugPanel } from '../chat/RagDebugPanel';
@@ -21,6 +22,7 @@ import {
   EmptyIcon,
   EmptyActionGroup,
   EmptyActionButton,
+  IntroInputSlot,
 } from './RightChatPanel.styles';
 
 interface RightChatPanelProps {
@@ -47,6 +49,27 @@ interface RightChatPanelProps {
   hideHeader?: boolean;
   /** Hide the "select chord section" quick action for chat-only intro views. */
   hideSelectionQuickAction?: boolean;
+  /** Override the chat input placeholder. Defaults to a chord-page-flavored
+   *  prompt; HomePage intro overrides to something more general since the
+   *  intro isn't tied to a specific chord chart. */
+  inputPlaceholder?: string;
+  /** Focus the chat input on mount — HomePage native uses this to pop the
+   *  iOS keyboard automatically on app launch. */
+  autoFocusInput?: boolean;
+  /** When true, render the chat input at the top of the panel (above messages) */
+  inputAtTop?: boolean;
+  /** When true, in empty-state mode (no messages yet), render the chat input
+   *  RIGHT BELOW the empty-state content (centered as a group) instead of
+   *  pinned to the bottom of the panel. As soon as the first message is
+   *  sent, the input slides back to the bottom for the normal chat layout.
+   *  Mirrors the ChatGPT / Claude "centered input + hero" launch pattern. */
+  inputInIntro?: boolean;
+  /** Native intro variant: hero centered upper, input pinned at the bottom
+   *  (just above the iOS keyboard via the keyboardOffsetPx). */
+  nativeIntroLayout?: boolean;
+  /** Pixels of extra bottom padding to leave below the input — used on
+   *  native to lift the input above the iOS keyboard when it's shown. */
+  keyboardOffsetPx?: number;
 }
 
 /** Keywords that signal the user wants to talk about the actual played notes
@@ -106,6 +129,12 @@ export function RightChatPanel({
   emptyState,
   hideHeader = false,
   hideSelectionQuickAction = false,
+  inputPlaceholder,
+  autoFocusInput = false,
+  inputAtTop = false,
+  inputInIntro = false,
+  nativeIntroLayout = false,
+  keyboardOffsetPx = 0,
 }: RightChatPanelProps) {
   const [messages, setMessages] = useState<MessageWithDebug[]>([]);
   const [loading, setLoading] = useState(false);
@@ -372,7 +401,36 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
         </PanelHeader>
       )}
 
-      <MessagesArea ref={messagesAreaRef} onScroll={handleScroll}>
+      {inputAtTop && (
+        <ChatInput
+          onSend={handleSend}
+          disabled={loading}
+          isSelectionMode={isSelectionMode}
+          onToggleSelectionMode={onToggleSelectionMode}
+          selectedChords={selectedChords}
+          onClearSelectedChords={onClearSelectedChords}
+          onRequestLicks={handleRequestLicks}
+          hideSelectionQuickAction={hideSelectionQuickAction}
+          placeholder={inputPlaceholder}
+          autoFocus={autoFocusInput}
+        />
+      )}
+
+      <MessagesArea
+        ref={messagesAreaRef}
+        onScroll={handleScroll}
+        style={
+          messages.length === 0 && inputInIntro
+            ? nativeIntroLayout
+              /* Native: IntroBlock claims flex:1 + self-centers (see its
+               *  mobile @media in HomePage). Input is at the end of the
+               *  flex flow. PanelContainer translateY handles keyboard. */
+              ? { justifyContent: 'flex-start', padding: 0 }
+              /* Web: hero + input centered as a group. */
+              : { justifyContent: 'center' }
+            : undefined
+        }
+      >
         {messages.length === 0 && (
           emptyState ?? (
             <EmptyState>
@@ -400,6 +458,21 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
           )
         )}
 
+        {/* Web-only intro inline input (Claude desktop pattern). On native
+         *  the IntroChatInput is rendered as a sibling at the bottom of
+         *  PanelContainer (see below) so it sticks above the keyboard and
+         *  persists even after the first message. */}
+        {messages.length === 0 && inputInIntro && !inputAtTop && !nativeIntroLayout && (
+          <IntroInputSlot>
+            <IntroChatInput
+              onSend={handleSend}
+              disabled={loading}
+              placeholder={inputPlaceholder}
+              autoFocus={autoFocusInput}
+            />
+          </IntroInputSlot>
+        )}
+
         {messages.map((msg) => (
           <div key={msg.id}>
             {msg.ragDebug && <RagDebugPanel info={msg.ragDebug} />}
@@ -410,16 +483,48 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
         <div ref={messagesEndRef} />
       </MessagesArea>
 
-      <ChatInput
-        onSend={handleSend}
-        disabled={loading}
-        isSelectionMode={isSelectionMode}
-        onToggleSelectionMode={onToggleSelectionMode}
-        selectedChords={selectedChords}
-        onClearSelectedChords={onClearSelectedChords}
-        onRequestLicks={handleRequestLicks}
-        hideSelectionQuickAction={hideSelectionQuickAction}
-      />
+      {/* Native: IntroChatInput is permanent at the bottom of the panel
+       *  (flex flow). The whole PanelContainer translates up by the
+       *  keyboard height so the input rides above the keyboard and the
+       *  hero lifts in lockstep — single GPU transform, smooth. */}
+      {nativeIntroLayout && !inputAtTop && (
+        <IntroInputSlot
+          style={{
+            margin: 0,
+            paddingBottom: keyboardOffsetPx > 0 ? '8px' : 'max(12px, env(safe-area-inset-bottom, 0px))',
+            transform: keyboardOffsetPx
+              ? `translateY(${-keyboardOffsetPx}px)`
+              : 'translateY(0)',
+            transition: 'transform 0.25s cubic-bezier(0.32, 0.72, 0, 1)',
+            willChange: 'transform',
+          }}
+        >
+          <IntroChatInput
+            onSend={handleSend}
+            disabled={loading}
+            placeholder={
+              messages.length === 0 ? inputPlaceholder : 'Claude에게 응답하기'
+            }
+            autoFocus={messages.length === 0 ? autoFocusInput : false}
+          />
+        </IntroInputSlot>
+      )}
+
+      {/* Web non-intro case: regular ChatInput at the bottom. */}
+      {!nativeIntroLayout && !inputAtTop && !(messages.length === 0 && inputInIntro) && (
+        <ChatInput
+          onSend={handleSend}
+          disabled={loading}
+          isSelectionMode={isSelectionMode}
+          onToggleSelectionMode={onToggleSelectionMode}
+          selectedChords={selectedChords}
+          onClearSelectedChords={onClearSelectedChords}
+          onRequestLicks={handleRequestLicks}
+          hideSelectionQuickAction={hideSelectionQuickAction}
+          placeholder={inputPlaceholder}
+          autoFocus={autoFocusInput}
+        />
+      )}
     </PanelContainer>
   );
 }

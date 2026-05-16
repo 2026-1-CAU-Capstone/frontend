@@ -49,7 +49,7 @@ import { formatChordDisplay } from '../../lib/jazz-harmony';
 
 const LINE_HEIGHT = 170;
 const MARGIN = { top: 40, left: 10, right: 30, bottom: 40 };
-const CHORD_FONT = "'MuseJazz Text', 'DM Sans', sans-serif";
+const CHORD_FONT = "'MuseJazz Text', 'Pretendard', sans-serif";
 
 /**
  * Normalize chord-quality text to the jazz lead-sheet glyphs we expect downstream:
@@ -370,7 +370,7 @@ const Header = styled.div`
 `;
 
 const HeaderLeft = styled.span`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 1.05rem;
   color: #999;
 
@@ -390,7 +390,7 @@ const Title = styled.h1`
 `;
 
 const Composer = styled.span`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 1.05rem;
   color: #999;
 
@@ -509,13 +509,13 @@ const PlayerIconBtn = styled.button`
 `;
 
 const BpmLabel = styled.span`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
   color: #ccc;
 `;
 
 const BpmInput = styled.input`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.92rem;
   width: 50px;
   padding: 5px 5px;
@@ -538,7 +538,7 @@ const MixSep = styled.div`
 `;
 
 const MixToggle = styled.button<{ $on?: boolean }>`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.72rem;
   padding: 4px 8px;
   border: 1px solid ${({ $on }) => ($on ? '#6aaa7e' : '#555')};
@@ -584,7 +584,7 @@ const MixerHeader = styled.div`
   border-bottom: 1px solid #262626;
 
   & > span {
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Pretendard', sans-serif;
     font-size: 0.74rem;
     font-weight: 700;
     color: #d4d4d4;
@@ -603,7 +603,7 @@ const MixerSection = styled.div`
 `;
 
 const MixerSectionTitle = styled.div`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.78rem;
   font-weight: 600;
   color: #cfcfcf;
@@ -620,7 +620,7 @@ const MixerRow = styled.div`
 `;
 
 const MixerLabel = styled.span`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.7rem;
   color: #888;
   width: 36px;
@@ -689,7 +689,7 @@ const KitBtn = styled.button<{ $active?: boolean }>`
   border: none;
   border-radius: 999px;
   padding: 5px 8px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 10.5px;
   font-weight: 600;
   cursor: pointer;
@@ -997,7 +997,7 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
       txt.setAttribute('class', 'm-num');
       txt.setAttribute('x', String(r.x + 2));
       txt.setAttribute('y', String(r.y + 6));
-      txt.setAttribute('font-family', "'DM Sans', sans-serif");
+      txt.setAttribute('font-family', "'Pretendard', sans-serif");
       txt.setAttribute('font-size', '11');
       txt.setAttribute('font-weight', '700');
       txt.setAttribute('fill', '#1565c0');

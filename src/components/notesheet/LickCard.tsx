@@ -39,7 +39,7 @@ const LINE_HEIGHT = 140;
 const MARGIN = { top: 40, left: 10, right: 44, bottom: 10 };
 /* 코드 라벨의 최소 baseline y — SVG 상단 밖으로 텍스트가 나가지 않도록 클램프. */
 const CHORD_MIN_Y = 16;
-const CHORD_FONT = "'MuseJazz Text', 'DM Sans', sans-serif";
+const CHORD_FONT = "'MuseJazz Text', 'Pretendard', sans-serif";
 const MEASURE_HL_COLOR = 'rgba(100, 181, 246, 0.13)';
 const DECOR_OTHER = 35;
 /* Uniform per-note base width: every note contributes the same horizontal allotment regardless
@@ -193,21 +193,21 @@ const MetaRow = styled.div`
 `;
 
 const LickId = styled.span`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.72rem;
   color: ${({ theme }) => theme.colors.textSecondary};
   opacity: 0.6;
 `;
 
 const Performer = styled.span`
-  font-family: "MuseJazz Text", 'DM Sans', sans-serif;
+  font-family: "MuseJazz Text", 'Pretendard', sans-serif;
   font-size: 1rem;
   font-weight: 700;
   color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 const Title = styled.span`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.88rem;
   color: ${({ theme }) => theme.colors.textSecondary};
 `;
@@ -221,7 +221,7 @@ const TagRow = styled.div`
 `;
 
 const Badge = styled.span<{ $color?: string }>`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
   padding: 2px 8px;
   border-radius: 3px;
@@ -243,7 +243,7 @@ const PlayBtn = styled.button<{ $active?: boolean }>`
 `;
 
 const BpmInput = styled.input`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
   width: 44px;
   padding: 2px 4px;
@@ -266,7 +266,7 @@ const Placeholder = styled.div`
   align-items: center;
   justify-content: center;
   color: ${({ theme }) => theme.colors.textSecondary};
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.8rem;
   opacity: 0.4;
 `;

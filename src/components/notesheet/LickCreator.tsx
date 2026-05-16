@@ -323,21 +323,21 @@ const TopBar = styled.div`
 `;
 
 const SectionLabel = styled.span`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.72rem;
   color: ${({ theme }) => theme.colors.textSecondary};
   margin-right: 2px;
 `;
 
 const DurBtn = styled.button<{ $active?: boolean }>`
-  font-size: 1.15rem;
-  width: 34px;
-  height: 34px;
+  font-size: 1.35rem;
+  width: 42px;
+  height: 42px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: 1px solid ${({ $active, theme }) => ($active ? '#b8960a' : theme.colors.border)};
-  border-radius: 5px;
+  border-radius: 6px;
   background: ${({ $active }) => ($active ? '#f5ecd0' : 'transparent')};
   cursor: pointer;
   color: ${({ theme }) => theme.colors.textPrimary};
@@ -354,7 +354,7 @@ const Sep = styled.div`
 `;
 
 const ActionBtn = styled.button`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.8rem;
   padding: 5px 12px;
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -390,7 +390,7 @@ const Spacer = styled.div`
 `;
 
 const InfoText = styled.span`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.73rem;
   color: ${({ theme }) => theme.colors.textSecondary};
 `;
@@ -408,7 +408,7 @@ const EmptyHint = styled.div`
   justify-content: center;
   height: 120px;
   color: ${({ theme }) => theme.colors.textSecondary};
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.85rem;
   opacity: 0.5;
 `;
@@ -423,7 +423,7 @@ const PianoArea = styled.div`
 
 const KeyHint = styled.div`
   text-align: center;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.68rem;
   color: ${({ theme }) => theme.colors.textSecondary};
   opacity: 0.5;
@@ -447,7 +447,7 @@ const AnalysisRow = styled.div`
 const RowLabel = styled.span`
   width: 72px;
   flex-shrink: 0;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.64rem;
   color: ${({ theme }) => theme.colors.textSecondary};
   text-align: right;
@@ -464,7 +464,7 @@ const ACell = styled.span<{ $color?: string }>`
 `;
 
 const KeySelect = styled.select`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.8rem;
   padding: 4px 6px;
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -476,7 +476,7 @@ const KeySelect = styled.select`
 `;
 
 const ToggleBtn = styled.button<{ $active?: boolean; $color?: string }>`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.78rem;
   font-weight: 600;
   padding: 4px 10px;

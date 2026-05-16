@@ -32,8 +32,8 @@ const ROW_GAP      = 44;  // px — space between rows (extra room for bigger la
  * Bumping any of these in isolation breaks the symmetry — adjust as a triple. */
 const SECTION_GAP  = 64;  // px — extra space before a new section (A, B, …)
 const LABEL_OFFSET = 66;  // px — how far the section label floats above the grid
-const CHORD_FONT   = "'MuseJazz Text', 'Oswald', 'DM Sans', sans-serif";
-const LABEL_FONT   = "'DM Sans', 'Pretendard', sans-serif"; // gothic for A/B labels
+const CHORD_FONT   = "'MuseJazz Text', 'Oswald', 'Pretendard', sans-serif";
+const LABEL_FONT   = "'Pretendard', 'Pretendard', sans-serif"; // gothic for A/B labels
 
 /* ─── transposition ──────────────────────────────────────────────────────── */
 
@@ -206,7 +206,7 @@ const MetaRow = styled.div`
   display: flex;
   justify-content: space-between;
   font-size: clamp(1.0rem, 1.8cqi, 1.3rem);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-weight: 400;
   /* Margin-bottom must clear the SectionLabel of the first row, which floats
    * up by LABEL_OFFSET (66px). Set higher than SECTION_GAP+LABEL_OFFSET margin
@@ -3189,7 +3189,7 @@ export function LeadSheet({
             padding: '5px 14px',
             borderRadius: '6px',
             fontSize: '13px',
-            fontFamily: "'DM Sans', sans-serif",
+            fontFamily: "'Pretendard', sans-serif",
             fontWeight: 700,
             letterSpacing: '0.04em',
             pointerEvents: 'none',

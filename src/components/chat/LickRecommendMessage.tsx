@@ -162,7 +162,7 @@ function addChordLabel(svg: SVGElement, x: number, y: number, raw: string) {
   text.setAttribute('x', String(Math.round(x)));
   text.setAttribute('y', String(y));
   text.setAttribute('fill', '#333');
-  text.setAttribute('font-family', "'MuseJazz Text','Oswald','DM Sans',sans-serif");
+  text.setAttribute('font-family', "'MuseJazz Text','Oswald','Pretendard',sans-serif");
 
   // Root span
   const rootSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');

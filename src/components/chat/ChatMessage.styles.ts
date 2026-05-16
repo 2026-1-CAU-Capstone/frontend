@@ -113,14 +113,14 @@ export const UserSelectedChordStep = styled.span`
 export const UserSelectedChord = styled.span`
   display: inline-flex;
   align-items: center;
-  font-family: 'MuseJazz Text', 'Oswald', 'DM Sans', sans-serif;
+  font-family: 'MuseJazz Text', 'Oswald', 'Pretendard', sans-serif;
   font-size: 1rem;
   font-weight: 600;
   line-height: 1;
   color: #000;
 
   span {
-    font-family: 'MuseJazz Text', 'Oswald', 'DM Sans', sans-serif !important;
+    font-family: 'MuseJazz Text', 'Oswald', 'Pretendard', sans-serif !important;
     font-size: inherit !important;
     letter-spacing: 0 !important;
   }

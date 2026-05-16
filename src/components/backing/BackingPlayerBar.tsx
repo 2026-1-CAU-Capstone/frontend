@@ -262,14 +262,14 @@ const Row = styled.div`
 `;
 
 const BpmLabel = styled.span`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
   color: #ccc;
   letter-spacing: 0.5px;
 `;
 
 const BpmInput = styled.input`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.92rem;
   width: 50px;
   padding: 5px 5px;
@@ -310,7 +310,7 @@ const Sep = styled.div`
 `;
 
 const MixToggle = styled.button<{ $on?: boolean }>`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.72rem;
   padding: 4px 10px;
   border: 1px solid ${({ $on }) => ($on ? '#6aaa7e' : '#555')};
@@ -324,7 +324,7 @@ const MixToggle = styled.button<{ $on?: boolean }>`
 `;
 
 const MetroToggle = styled.button<{ $on?: boolean }>`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.7rem;
   padding: 3px 8px;
   border: 1px solid ${({ $on }) => ($on ? '#6aaa7e' : '#555')};
@@ -369,7 +369,7 @@ const MixerSectionFull = styled(MixerSection)`
 `;
 
 const MixerSectionTitle = styled.div`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.74rem;
   font-weight: 700;
   color: #ddd;
@@ -387,7 +387,7 @@ const MixerRow = styled.div`
 `;
 
 const MixerLabel = styled.span`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.74rem;
   color: #aaa;
   width: 56px;
@@ -438,7 +438,7 @@ const KitGroup = styled.div`
 
 const KitBtn = styled.button<{ $on?: boolean }>`
   flex: 1;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 10.5px;
   font-weight: 600;
   padding: 4px 0;
@@ -454,7 +454,7 @@ const KitBtn = styled.button<{ $on?: boolean }>`
 `;
 
 const AttribLine = styled.div`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 9px;
   color: #888;
   margin-top: 2px;

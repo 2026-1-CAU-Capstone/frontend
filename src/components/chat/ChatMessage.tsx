@@ -28,7 +28,7 @@ const InlineSectionTag = styled.span`
   box-sizing: border-box;
   background: #000;
   color: #fff;
-  font-family: 'DM Sans', 'Pretendard', sans-serif;
+  font-family: 'Pretendard', 'Pretendard', sans-serif;
   font-size: 0.7em;
   font-weight: 700;
   line-height: 1;

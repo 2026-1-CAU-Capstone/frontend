@@ -28,10 +28,6 @@ import {
   transposeNoteSheet,
 } from '../lib/note/transposeNoteSheet';
 
-/* Hardcoded performer dropdown — fetching the full /solos list to derive
- * performers was the source of the slowness this page is meant to avoid.
- * Add new performers here as datasets grow. */
-const KNOWN_PERFORMERS = ['Charlie Parker', 'Miles Davis', 'Patrick Bartley'] as const;
 
 const PAGE_SIZE = 20;
 
@@ -72,7 +68,7 @@ const ToolBar = styled.div`
   padding: 6px 16px;
   background: ${({ theme }) => theme.colors.bgSecondary};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
   flex-wrap: wrap;
 
@@ -83,7 +79,7 @@ const ToolBar = styled.div`
 `;
 
 const FilterSelect = styled.select`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.78rem;
   padding: 2px 4px;
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -98,7 +94,7 @@ const FilterLabel = styled.label`
 `;
 
 const SearchInput = styled.input`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
   padding: 3px 8px;
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -117,7 +113,7 @@ const CountText = styled.span`
 `;
 
 const RefreshBtn = styled.button`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.78rem;
   padding: 3px 10px;
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -167,7 +163,7 @@ const Row = styled.div<{ $active?: boolean }>`
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ $active, theme }) => ($active ? theme.colors.bgPrimary : 'transparent')};
   cursor: pointer;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   &:hover {
     background: ${({ theme }) => theme.colors.bgPrimary};
   }
@@ -201,7 +197,7 @@ const RowActions = styled.div`
 `;
 
 const RowBtn = styled.button<{ $color?: string }>`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.72rem;
   padding: 4px 8px;
   border: 1px solid ${({ $color }) => $color ?? '#bbb'};
@@ -234,7 +230,7 @@ const PreviewHeader = styled.div`
 `;
 
 const PreviewTitle = styled.div`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-weight: 700;
   font-size: 0.95rem;
   min-width: 0;
@@ -244,7 +240,7 @@ const PreviewTitle = styled.div`
 `;
 
 const PreviewMeta = styled.div`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.78rem;
   color: ${({ theme }) => theme.colors.textSecondary};
 `;
@@ -259,7 +255,7 @@ const PreviewBody = styled.div`
 const EmptyState = styled.div`
   padding: 28px 16px;
   text-align: center;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.85rem;
   color: ${({ theme }) => theme.colors.textSecondary};
 `;
@@ -275,7 +271,7 @@ const ErrorBanner = styled.div`
   border-radius: 6px;
   background: #fdecea;
   color: #a03022;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
 `;
 
@@ -286,9 +282,21 @@ export default function SolosPage() {
 
   /* selectedPerformer: '' = none chosen (nothing fetched). Picking from the
    * dropdown triggers the first page fetch. */
+  const [performers, setPerformers] = useState<string[]>([]);
   const [selectedPerformer, setSelectedPerformer] = useState('');
   const [filterInstrument, setFilterInstrument] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    listSolos({ size: 200, sort: 'performer,asc' })
+      .then((data) => {
+        const unique = [...new Set(
+          data.content.map((s) => s.performer).filter((p): p is string => !!p),
+        )].sort();
+        setPerformers(unique);
+      })
+      .catch(() => { /* 실패 시 빈 목록 유지 */ });
+  }, []);
 
   const [solos, setSolos] = useState<SoloResponse[]>([]);
   const [page, setPage] = useState(0);
@@ -512,7 +520,7 @@ export default function SolosPage() {
                 onChange={(e) => handlePerformerChange(e.target.value)}
               >
                 <option value="">— 선택 —</option>
-                {KNOWN_PERFORMERS.map((p) => <option key={p} value={p}>{p}</option>)}
+                {performers.map((p) => <option key={p} value={p}>{p}</option>)}
               </FilterSelect>
 
               <FilterLabel>Instrument</FilterLabel>

@@ -59,7 +59,7 @@ const CloseBtn = styled.button`
   gap: 4px;
   border: none;
   background: none;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.9rem;
   color: ${({ theme }) => theme.colors.textSecondary};
   cursor: pointer;

@@ -183,7 +183,7 @@ const BlackKeyEl = styled.div<{ $x: number; $pressed: boolean }>`
 `;
 
 const ShortcutLabel = styled.span<{ $black?: boolean }>`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.7rem;
   color: ${({ $black }) => ($black ? '#999' : '#bbb')};
   pointer-events: none;
@@ -191,7 +191,7 @@ const ShortcutLabel = styled.span<{ $black?: boolean }>`
 `;
 
 const NoteLabel = styled.span`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.72rem;
   color: #aaa;
   pointer-events: none;

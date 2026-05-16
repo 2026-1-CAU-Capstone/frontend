@@ -280,7 +280,7 @@ const SongPickerBar = styled.div`
   padding: 6px 16px;
   background: ${({ theme }) => theme.colors.bgSecondary};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
 
   ${mq.mobile} {
@@ -291,7 +291,7 @@ const SongPickerBar = styled.div`
 `;
 
 const SongSelect = styled.select`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
   padding: 3px 6px;
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -308,7 +308,7 @@ const SearchWrap = styled.div`
 `;
 
 const SearchInput = styled.input`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
   padding: 3px 8px 3px 24px;
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -357,7 +357,7 @@ const SearchItem = styled.button<{ $active?: boolean }>`
   border: none;
   background: ${({ $active, theme }) => $active ? theme.colors.bgSecondary : 'transparent'};
   color: ${({ theme }) => theme.colors.textPrimary};
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
   cursor: pointer;
   &:hover { background: ${({ theme }) => theme.colors.bgSecondary}; }
@@ -378,7 +378,7 @@ const CollectionTag = styled.span`
 `;
 
 const SoloGenBtn = styled.button`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
   padding: 4px 12px;
   border: 1px solid #b8960a;
@@ -405,7 +405,7 @@ const KeyButton = styled.button`
   border-radius: 5px;
   padding: 5px 14px;
   cursor: pointer;
-  font-family: 'MuseJazz Text', 'Oswald', 'DM Sans', sans-serif;
+  font-family: 'MuseJazz Text', 'Oswald', 'Pretendard', sans-serif;
   font-size: clamp(1.2rem, 2.8cqi, 1.8rem);
   font-weight: 600;
   line-height: 1.3;
@@ -441,7 +441,7 @@ const KeyOption = styled.button<{ $active?: boolean }>`
   border-radius: 4px;
   padding: 7px 12px;
   cursor: pointer;
-  font-family: 'MuseJazz Text', 'Oswald', 'DM Sans', sans-serif;
+  font-family: 'MuseJazz Text', 'Oswald', 'Pretendard', sans-serif;
   font-size: clamp(1.0rem, 1.8cqi, 1.3rem);
   font-weight: 600;
   text-align: center;
@@ -450,7 +450,7 @@ const KeyOption = styled.button<{ $active?: boolean }>`
 `;
 
 const ConvertBtn = styled.button`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
   padding: 4px 12px;
   border: 1px solid #7a8aad;
@@ -477,12 +477,12 @@ const ConvertPopover = styled.div`
   box-shadow: 0 4px 16px rgba(0,0,0,0.15);
   z-index: 200;
   white-space: nowrap;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.85rem;
 `;
 
 const ConvertSelect = styled.select`
-  font-family: 'MuseJazz Text', 'DM Sans', sans-serif;
+  font-family: 'MuseJazz Text', 'Pretendard', sans-serif;
   font-size: 0.95rem;
   font-weight: 600;
   padding: 4px 8px;
@@ -499,7 +499,7 @@ const ConvertArrow = styled.span`
 `;
 
 const ConvertApply = styled.button`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
   padding: 4px 10px;
   border: 1px solid #4a7c3d;
@@ -516,7 +516,7 @@ const LoadingState = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   color: ${({ theme }) => theme.colors.textSecondary};
   background: ${({ theme }) => theme.colors.bgSecondary};
 `;

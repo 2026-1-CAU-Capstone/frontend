@@ -38,14 +38,14 @@ const HeaderLeft = styled.div`
 `;
 
 const ChordName = styled.span`
-  font-family: 'MuseJazz Text', 'DM Sans', sans-serif;
+  font-family: 'MuseJazz Text', 'Pretendard', sans-serif;
   font-size: 1.4rem;
   font-weight: 700;
   color: #7B3FB0;
 `;
 
 const Tag = styled.span`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.7rem;
   background: rgba(123, 63, 176, 0.12);
   color: #7B3FB0;
@@ -72,7 +72,7 @@ const Body = styled.div`
 `;
 
 const SubLabel = styled.div`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.78rem;
   color: ${({ theme }) => theme.colors.textSecondary};
   margin-bottom: 8px;
@@ -81,7 +81,7 @@ const SubLabel = styled.div`
 `;
 
 const ShortDesc = styled.div`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.95rem;
   font-weight: 600;
   color: ${({ theme }) => theme.colors.textPrimary};
@@ -89,7 +89,7 @@ const ShortDesc = styled.div`
 `;
 
 const LongDesc = styled.div`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.88rem;
   line-height: 1.6;
   color: ${({ theme }) => theme.colors.textPrimary};

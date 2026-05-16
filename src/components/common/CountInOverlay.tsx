@@ -85,7 +85,7 @@ const Box = styled.div<{
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'DM Sans', 'MuseJazz Text', sans-serif;
+  font-family: 'Pretendard', 'MuseJazz Text', sans-serif;
   font-size: ${({ $scoped, $maxCells }) => boxFont($scoped, $maxCells)};
   font-weight: 800;
   transition:

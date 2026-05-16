@@ -250,7 +250,8 @@ const NAV_REPETITION: Record<NavigationMarker, number[]> = {
 
 const SHEET_SCALE = 1.35;
 const LINE_HEIGHT = 170;
-const MARGIN = { top: 30, left: 10, right: 10, bottom: 10 };
+/* MARGIN.top: chord 라벨(28px high) 이 stave 위에 충분한 여유를 두고 들어갈 공간. */
+const MARGIN = { top: 50, left: 10, right: 10, bottom: 10 };
 /** Soft cap on bars per line. The actual line break is driven by the
  *  per-measure intrinsic width (see `measureWidth`), so this only bites
  *  for very thin measures (lots of whole notes) that would otherwise
@@ -597,8 +598,12 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       const voice = new Voice({ numBeats: 4, beatValue: 4 });
       voice.setStrict(false);
       voice.addTickables(vfNotes);
-      const noteAreaW = w - (firstInLine ? decorW : 0) - 30;
-      new Formatter().joinVoices([voice]).format([voice], Math.max(noteAreaW, 40));
+      /* Use formatToStave so the formatter respects the stave's actual
+       * note-area boundaries (getNoteStartX() / getNoteEndX()). With the
+       * naïve format(voices, width) call the last notehead/flag can extend
+       * past the barline because `width` constrains note ANCHOR positions,
+       * not their right edges. */
+      new Formatter().joinVoices([voice]).formatToStave([voice], stave);
 
       const beams: Beam[] = [];
       let beamGroup: StaveNote[] = [];
@@ -923,14 +928,14 @@ const Page = styled.div`
   flex-direction: column;
   height: 100vh;
   background: ${({ theme }) => theme.colors.bgPrimary};
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
 `;
 
 const Header = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 20px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 20px 10px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ theme }) => theme.colors.bgSecondary};
 `;
@@ -953,7 +958,7 @@ const Title = styled.span`
 `;
 
 const MetaInput = styled.input`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
   padding: 3px 8px;
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -966,7 +971,7 @@ const MetaInput = styled.input`
 `;
 
 const KeySelect = styled.select`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
   font-weight: 600;
   padding: 3px 6px;
@@ -1001,9 +1006,9 @@ const DurCol = styled.div`
 `;
 
 const DurBtn = styled.button<{ $active?: boolean }>`
-  font-size: 1.35rem;
-  width: 42px;
-  height: 42px;
+  font-size: 1.45rem;
+  width: 54px;
+  height: 54px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1017,8 +1022,8 @@ const DurBtn = styled.button<{ $active?: boolean }>`
 
 const RestBtn = styled.button`
   font-size: 1.35rem;
-  width: 42px;
-  height: 34px;
+  width: 54px;
+  height: 54px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1056,7 +1061,7 @@ const Sep = styled.div`
 `;
 
 const NavSelect = styled.select`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.72rem;
   font-weight: 600;
   padding: 3px 4px;
@@ -1069,7 +1074,7 @@ const NavSelect = styled.select`
 `;
 
 const Btn = styled.button`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.9rem;
   padding: 7px 14px;
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -1136,7 +1141,7 @@ const PlayerIconBtn = styled.button`
 `;
 
 const BpmInput = styled.input`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.92rem;
   width: 50px;
   padding: 5px 5px;
@@ -1232,7 +1237,7 @@ const ChordCellDisplay = styled.span`
   align-items: baseline;
   padding: 0 5px;
   height: 28px;
-  font-family: 'MuseJazz Text', 'DM Sans', sans-serif;
+  font-family: 'MuseJazz Text', 'Pretendard', sans-serif;
   color: #222;
   white-space: nowrap;
   line-height: 28px;
@@ -1277,7 +1282,7 @@ const ChordTensionAcc = styled.span`
 const ChordCellInput = styled.input`
   width: 52px;
   height: 100%;
-  font-family: 'MuseJazz Text', 'DM Sans', sans-serif;
+  font-family: 'MuseJazz Text', 'Pretendard', sans-serif;
   font-size: 1.2rem;
   font-weight: 400;
   padding: 2px 4px;
@@ -1371,7 +1376,7 @@ const NoteEditLabel = styled.span`
 `;
 
 const NoteEditBtn = styled.button<{ $active?: boolean }>`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.9rem;
   padding: 5px 12px;
   border: 1px solid ${({ $active }) => ($active ? '#d32f2f' : '#ccc')};
@@ -1385,7 +1390,7 @@ const NoteEditBtn = styled.button<{ $active?: boolean }>`
 
 const NoteChordOverlayInput = styled.input`
   position: absolute;
-  font-family: 'MuseJazz Text', 'DM Sans', sans-serif;
+  font-family: 'MuseJazz Text', 'Pretendard', sans-serif;
   font-size: 1.2rem;
   font-weight: 400;
   width: 58px;
@@ -1427,7 +1432,7 @@ const ModalBox = styled.div`
 
 const ModalTitle = styled.h3`
   margin: 0;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 1.1rem;
   color: #333;
 `;
@@ -1453,7 +1458,7 @@ const ModalBtnRow = styled.div`
 const ModalError = styled.div`
   color: #d32f2f;
   font-size: 0.8rem;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
 `;
 
 const EmptyHint = styled.div`
@@ -2672,6 +2677,7 @@ export default function EditorPage() {
         <JsonBtn $bg="#7b1fa2" $hover="#6a1b9a" onClick={() => { setShowLoadModal(true); setLoadJsonText(''); setLoadJsonError(''); }}>
           Load JSON
         </JsonBtn>
+        {/* YouTube Onset button removed from Editor toolbar */}
         <JsonBtn $bg="#ef6c00" $hover="#e65100" onClick={handleSave} disabled={totalNotes === 0 || saving}>
           {saved ? '\u2713 Saved!' : saveError ? '\u26a0 Save failed' : 'Save Solo'}
         </JsonBtn>
@@ -2682,10 +2688,10 @@ export default function EditorPage() {
         {DUR_KEYS.map((d) => (
           <DurCol key={d.value}>
             <DurBtn $active={duration === d.value} onClick={() => { setDuration(d.value); setDotted(false); }} title={d.title}>
-              <NoteIcon type={d.value} />
+              <NoteIcon type={d.value} width={50} height={50} />
             </DurBtn>
             <RestBtn onClick={() => handleRest(d.value)} title={`${d.title} rest`}>
-              <RestIcon type={d.value} />
+              <RestIcon type={d.value} width={50} height={50} />
             </RestBtn>
           </DurCol>
         ))}
@@ -2783,7 +2789,7 @@ export default function EditorPage() {
           title="To Coda"
           style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '0.85rem', lineHeight: 1 }}
         >
-          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.7rem', fontWeight: 700, fontStyle: 'italic', marginRight: 1 }}>To</span>{'\uE048'}
+          <span style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '0.7rem', fontWeight: 700, fontStyle: 'italic', marginRight: 1 }}>To</span>{'\uE048'}
         </DurBtn>
         <NavSelect
           value={navigation && ['dc', 'dcAlCoda', 'dcAlFine', 'ds', 'dsAlCoda', 'dsAlFine'].includes(navigation) ? navigation : ''}
@@ -3012,7 +3018,7 @@ export default function EditorPage() {
               $active={selMeasure.navigation === 'toCoda'}
               onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: m.navigation === 'toCoda' ? undefined : 'toCoda' }))}
               style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '0.75rem' }}
-            ><span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.6rem', fontWeight: 700, fontStyle: 'italic', marginRight: 1 }}>To</span>{'\uE048'}</NoteEditBtn>
+            ><span style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '0.6rem', fontWeight: 700, fontStyle: 'italic', marginRight: 1 }}>To</span>{'\uE048'}</NoteEditBtn>
             <NavSelect
               value={selMeasure.navigation && ['dc', 'dcAlCoda', 'dcAlFine', 'ds', 'dsAlCoda', 'dsAlFine'].includes(selMeasure.navigation) ? selMeasure.navigation : ''}
               onChange={(e) => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: (e.target.value as NavigationMarker) || undefined }))}
@@ -3218,19 +3224,36 @@ export default function EditorPage() {
             const halfW = pos.w * SHEET_SCALE / 2;
             const hasBracket = !!allMeasures[pos.idx]?.bracket;
             const hasVolta = !!allMeasures[pos.idx]?.volta;
-            const chordLeft = hasVolta ? pos.chordX + 8 : hasBracket ? pos.chordX + 12 : pos.chordX;
-            const chordTop = hasVolta ? pos.y + 13 : hasBracket ? pos.y + 12 : pos.y + 6;
+            /* Place the first chord directly above the first NOTE of the
+             * measure (lead-sheet convention). Fall back to the bar's note
+             * area start when no notes exist yet. Volta/bracket marks above
+             * the stave still need their own horizontal offset to clear. */
+            const firstNote = notePositions
+              .filter((np) => np.mi === pos.idx)
+              .reduce<NotePos | null>((best, cur) => (best === null || cur.x < best.x ? cur : best), null);
+            const baseLeft = firstNote ? firstNote.x - 4 : pos.chordX;
+            const chordLeft = hasVolta ? baseLeft + 8 : hasBracket ? baseLeft + 12 : baseLeft;
+            /* Lift chord above the stave with a comfortable gap so ledger
+             * lines and high notes don't bleed into the chord label.
+             * MARGIN.top reserves the page-top space for this. */
+            const chordTop = hasVolta ? pos.y - 13 : hasBracket ? pos.y - 14 : pos.y - 20;
+            /* Clamp chord widths to their half so they never overflow into
+             * the next bar (or into the c2 slot). */
+            const measureRightPx = (pos.x + pos.w) * SHEET_SCALE;
+            const chordLeftPx = chordLeft * SHEET_SCALE;
+            const c1MaxWidth = Math.max(28, halfW - 4);
+            const c2MaxWidth = Math.max(28, measureRightPx - (chordLeftPx + halfW) - 2);
             return (
               <span key={pos.idx}>
                 <ChordCell
                   value={c1}
                   onChange={(v) => updateMeasureChordSlot(pos.idx, 0, v)}
-                  style={{ left: chordLeft * SHEET_SCALE, top: chordTop * SHEET_SCALE, ...(c1 ? {} : { width: 36 }) }}
+                  style={{ left: chordLeftPx, top: chordTop * SHEET_SCALE, maxWidth: c1MaxWidth, ...(c1 ? {} : { width: 36 }) }}
                 />
                 <ChordCell
                   value={c2}
                   onChange={(v) => updateMeasureChordSlot(pos.idx, 1, v)}
-                  style={{ left: chordLeft * SHEET_SCALE + halfW, top: chordTop * SHEET_SCALE, ...(c2 ? {} : { width: 36 }) }}
+                  style={{ left: chordLeftPx + halfW, top: chordTop * SHEET_SCALE, maxWidth: c2MaxWidth, ...(c2 ? {} : { width: 36 }) }}
                 />
               </span>
             );
@@ -3240,13 +3263,22 @@ export default function EditorPage() {
             if (!note?.chord) return null;
             if (noteChordEditing && selectedNote && selectedNote.mi === np.mi && selectedNote.ni === np.ni) return null;
             const mpos = measurePositions.find((p) => p.idx === np.mi);
-            const chordY = mpos ? mpos.y + 6 : np.y - 12;
+            const chordY = mpos ? mpos.y - 20 : np.y - 26;
+            // Clamp width to next note position or measure end so per-note
+            // chord labels never bleed into the next note or next bar.
+            const nextInBar = notePositions
+              .filter((p) => p.mi === np.mi && p.x > np.x)
+              .reduce<NotePos | null>((best, cur) => (best === null || cur.x < best.x ? cur : best), null);
+            const rightBoundary = nextInBar
+              ? nextInBar.x - 2
+              : (mpos ? mpos.x + mpos.w : np.x + 58);
+            const maxW = Math.max(28, (rightBoundary - (np.x - 4)) * SHEET_SCALE);
             return (
               <ChordCell
                 key={`nc-${np.mi}-${np.ni}`}
                 value={note.chord}
                 onChange={(v) => setChordAtNote(np.mi, np.ni, v)}
-                style={{ left: (np.x - 4) * SHEET_SCALE, top: chordY * SHEET_SCALE }}
+                style={{ left: (np.x - 4) * SHEET_SCALE, top: chordY * SHEET_SCALE, maxWidth: maxW }}
               />
             );
           })}
@@ -3254,7 +3286,7 @@ export default function EditorPage() {
             const np = notePositions.find((p) => p.mi === selectedNote.mi && p.ni === selectedNote.ni);
             if (!np) return null;
             const mpos = measurePositions.find((p) => p.idx === selectedNote.mi);
-            const chordY = mpos ? mpos.y + 6 : np.y - 12;
+            const chordY = mpos ? mpos.y - 20 : np.y - 26;
             return (
               <NoteChordOverlayInput
                 ref={noteChordInputRef}

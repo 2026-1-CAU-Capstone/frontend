@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import type { ChordOverlay } from '../../data/types';
 import { formatChordsInText } from './chordFormat';
@@ -30,6 +30,10 @@ interface ChatInputProps {
   onClearSelectedChords?: () => void;
   onRequestLicks?: () => void;
   hideSelectionQuickAction?: boolean;
+  placeholder?: string;
+  /** Focus the input on mount. Used by HomePage on native so the iOS
+   *  keyboard pops up as soon as the app opens (ChatGPT / Claude pattern). */
+  autoFocus?: boolean;
 }
 
 export function ChatInput({
@@ -41,8 +45,18 @@ export function ChatInput({
   onClearSelectedChords,
   onRequestLicks,
   hideSelectionQuickAction = false,
+  placeholder = '이 코드 진행에 대해 질문해보세요...',
+  autoFocus = false,
 }: ChatInputProps) {
   const [value, setValue] = useState('');
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (!autoFocus) return;
+    // Defer one tick so the DOM is fully painted before focus → keyboard
+    // request lands properly in iOS WKWebView.
+    const id = setTimeout(() => inputRef.current?.focus(), 50);
+    return () => clearTimeout(id);
+  }, [autoFocus]);
   const visibleChords = selectedChords.slice(0, 10);
   const hiddenChordCount = Math.max(selectedChords.length - visibleChords.length, 0);
   const showSelectionQuickAction = !hideSelectionQuickAction;
@@ -122,10 +136,11 @@ export function ChatInput({
           )}
           <ComposerInputRow>
             <Input
+              ref={inputRef}
               value={value}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="이 코드 진행에 대해 질문해보세요..."
+              placeholder={placeholder}
               disabled={disabled}
             />
             <SendButton onClick={handleSend} disabled={disabled || !value.trim()}>

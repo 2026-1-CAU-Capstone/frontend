@@ -37,7 +37,7 @@ export const theme = {
     textSecondary: '#888888',
   },
   fonts: {
-    ui: "'Pretendard', 'DM Sans', -apple-system, sans-serif",
+    ui: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif",
     chord: "'JetBrains Mono', 'SF Mono', 'Menlo', monospace",
   },
   shadows: {

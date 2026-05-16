@@ -11,7 +11,7 @@ const PageContainer = styled.div`
   height: 100vh;
   height: 100dvh;
   background: ${({ theme }) => theme.colors.bgPrimary};
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   padding: 40px 20px;
 
   ${mq.mobile} {
@@ -23,12 +23,12 @@ const PageContainer = styled.div`
 
 const BackBtn = styled.button`
   position: absolute;
-  top: 24px;
-  left: 24px;
+  top: calc(env(safe-area-inset-top, 0px) + 24px);
+  left: calc(env(safe-area-inset-left, 0px) + 24px);
   display: flex;
   align-items: center;
   gap: 6px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.85rem;
   padding: 8px 14px;
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -163,7 +163,7 @@ const RemoveBtn = styled.button`
 const AnalyzeBtn = styled.button`
   margin-top: 20px;
   padding: 12px 40px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 1rem;
   font-weight: 600;
   border: none;

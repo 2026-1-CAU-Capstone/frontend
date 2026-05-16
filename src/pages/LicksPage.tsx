@@ -51,7 +51,7 @@ const ToolBar = styled.div`
   padding: 6px 16px;
   background: ${({ theme }) => theme.colors.bgSecondary};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
   flex-wrap: wrap;
 
@@ -62,7 +62,7 @@ const ToolBar = styled.div`
 `;
 
 const FilterSelect = styled.select`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.78rem;
   padding: 2px 4px;
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -77,7 +77,7 @@ const FilterLabel = styled.label`
 `;
 
 const SearchInput = styled.input`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
   padding: 3px 8px;
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -96,7 +96,7 @@ const CountText = styled.span`
 `;
 
 const MelodyBtn = styled.button<{ $active?: boolean }>`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
   padding: 3px 12px;
   border: 1px solid ${({ $active }) => ($active ? '#3070a0' : '#bbb')};
@@ -121,7 +121,7 @@ const MelodyInfoRow = styled.div`
   display: flex;
   align-items: center;
   gap: 6px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.76rem;
   flex-wrap: wrap;
 `;
@@ -151,7 +151,7 @@ const IvBadge = styled.span<{ $pos: boolean }>`
 `;
 
 const SmallBtn = styled.button`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.78rem;
   padding: 4px 14px;
   border: 1px solid #bbb;
@@ -182,7 +182,7 @@ const PianoRow = styled.div`
 `;
 
 const ScoreBadge = styled.div`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.66rem;
   color: #2a7040;
   padding: 2px 10px 0;
@@ -202,7 +202,7 @@ const LoadingState = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   color: ${({ theme }) => theme.colors.textSecondary};
   background: ${({ theme }) => theme.colors.bgSecondary};
 `;
@@ -220,7 +220,7 @@ const SourceToggleWrap = styled.div`
 `;
 
 const SourceBtn = styled.button<{ $active?: boolean }>`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.78rem;
   padding: 2px 10px;
   border: none;

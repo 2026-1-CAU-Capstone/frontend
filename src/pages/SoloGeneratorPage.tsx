@@ -17,7 +17,6 @@ import { swungBeats } from '../lib/note/swing';
 import { normalizeChord, formatChordDisplay } from '../lib/jazz-harmony';
 import { createSolo, updateSolo } from '../api/solos';
 import { buildUserSoloDraft, invalidateSolosCache, loadAllSolos, pushSoloToCache, updateSoloInCache } from '../data/soloData';
-import { NoteIcon, RestIcon } from '../components/notesheet/NotationIcon';
 
 const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25 };
 const SEMI_MAP: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
@@ -596,8 +595,11 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       const voice = new Voice({ numBeats: 4, beatValue: 4 });
       voice.setStrict(false);
       voice.addTickables(vfNotes);
-      const noteAreaW = w - (firstInLine ? decorW : 0) - 30;
-      new Formatter().joinVoices([voice]).format([voice], Math.max(noteAreaW, 40));
+      /* formatToStave honors the stave's actual note-area boundaries so the
+       * last note's glyph never bleeds past the barline. format(voices, w)
+       * only constrains anchor positions, leaving the rightmost notehead
+       * to extend into the next bar. */
+      new Formatter().joinVoices([voice]).formatToStave([voice], stave);
 
       const beams: Beam[] = [];
       let beamGroup: StaveNote[] = [];
@@ -906,6 +908,40 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
 
 /* ─── SVG icons ────────────────────────────────────────────────────────── */
 
+function NoteIcon({ type }: { type: string }) {
+  const filled = type !== 'w' && type !== 'h';
+  const hasStem = type !== 'w';
+  const flags = type === '8' ? 1 : type === '16' ? 2 : 0;
+  const cx = hasStem ? 5.5 : 7;
+  const cy = hasStem ? 19 : 12;
+  return (
+    <svg width="14" height="24" viewBox="0 0 14 24" style={{ display: 'block' }}>
+      <ellipse cx={cx} cy={cy} rx="5" ry="3.5"
+        fill={filled ? 'currentColor' : 'none'}
+        stroke="currentColor" strokeWidth={filled ? 0 : 1.5}
+        transform={`rotate(-20 ${cx} ${cy})`} />
+      {hasStem && <line x1="10" y1="18" x2="10" y2="3" stroke="currentColor" strokeWidth="1.3" />}
+      {flags >= 1 && <path d="M10 3 C13.5 5.5 13.5 9 10 10.5" stroke="currentColor" strokeWidth="1.3" fill="none" />}
+      {flags >= 2 && <path d="M10 7 C13.5 9.5 13.5 13 10 14.5" stroke="currentColor" strokeWidth="1.3" fill="none" />}
+    </svg>
+  );
+}
+
+const REST_GLYPHS: Record<string, string> = {
+  w:    String.fromCharCode(0xE4E3),
+  h:    String.fromCharCode(0xE4E4),
+  q:    String.fromCharCode(0xE4E5),
+  '8':  String.fromCharCode(0xE4E6),
+  '16': String.fromCharCode(0xE4E7),
+};
+
+function RestIcon({ type }: { type: string }) {
+  return (
+    <span style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.4rem', lineHeight: 1 }}>
+      {REST_GLYPHS[type] ?? REST_GLYPHS['q']}
+    </span>
+  );
+}
 
 const DUR_KEYS = [
   { value: 'w', title: 'Whole (4 beats)' },
@@ -1000,9 +1036,9 @@ const DurCol = styled.div`
 `;
 
 const DurBtn = styled.button<{ $active?: boolean }>`
-  font-size: 1.35rem;
-  width: 42px;
-  height: 42px;
+  font-size: 1.45rem;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1016,8 +1052,8 @@ const DurBtn = styled.button<{ $active?: boolean }>`
 
 const RestBtn = styled.button`
   font-size: 1.35rem;
-  width: 42px;
-  height: 34px;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1668,13 +1704,27 @@ export default function SoloGeneratorPage() {
     const beats = notes.reduce((s, n) => s + getBeats(n.duration, n.dotted, n.tuplet), 0);
     if (notes.length > 0 && beats >= 4 - 0.001) {
       const chord = joinChords(curChord1Ref.current, curChord2Ref.current);
-      setMeasures((prev) => [...prev, { notes, chord: chord || undefined }]);
+      const m: MeasureInfo = { notes, chord: chord || undefined };
+      // Bake the per-measure flags carried in global state into the just-
+      // closed measure (otherwise repeat/volta/navigation/bracket markers
+      // shift forward to the next in-progress bar, or disappear entirely if
+      // no further notes are entered). Mirrors closeMeasure() behaviour.
+      if (repeatStart) m.repeatStart = true;
+      if (repeatEnd) m.repeatEnd = true;
+      if (volta) m.volta = volta;
+      if (navigation) m.navigation = navigation;
+      if (bracket) m.bracket = true;
+      setMeasures((prev) => [...prev, m]);
       setCurNotes([]);
       setCurChord1('');
       setCurChord2('');
+      setRepeatStart(false);
+      setRepeatEnd(false);
+      setNavigation('');
+      setBracket(false);
       setTimeout(() => chord1Ref.current?.focus(), 50);
     }
-  }, []);
+  }, [repeatStart, repeatEnd, volta, navigation, bracket]);
 
   /* ── 8va / 8vb toggle. Click once to arm the bracket (next note becomes
    *    its start). Click the same button again to close — last note in
@@ -3035,24 +3085,37 @@ export default function SoloGeneratorPage() {
           <Sep />
           {/* ── Note-level structural edits (post-input) ── */}
           <NoteEditBtn
-            $active={!!selNoteInfo.ottavaStart}
+            $active={selNoteInfo.ottavaStart === '8va'}
             onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
-              if (n.ottavaStart) {
+              if (n.ottavaStart === '8va') {
                 const next = { ...n };
                 delete next.ottavaStart;
                 return next;
               }
               return { ...n, ottavaStart: '8va' };
             })}
-            title="Toggle 8va start on this note"
+            title="Toggle 8va (octave up) start on this note"
             style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontSize: '0.72rem' }}
           >8va◜</NoteEditBtn>
           <NoteEditBtn
+            $active={selNoteInfo.ottavaStart === '8vb'}
+            onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+              if (n.ottavaStart === '8vb') {
+                const next = { ...n };
+                delete next.ottavaStart;
+                return next;
+              }
+              return { ...n, ottavaStart: '8vb' };
+            })}
+            title="Toggle 8vb (octave down) start on this note"
+            style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontSize: '0.72rem' }}
+          >8vb◜</NoteEditBtn>
+          <NoteEditBtn
             $active={!!selNoteInfo.ottavaEnd}
             onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, ottavaEnd: !n.ottavaEnd || undefined }))}
-            title="Toggle 8va end on this note"
+            title="Toggle 8va/8vb bracket end on this note"
             style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontSize: '0.72rem' }}
-          >◞8va</NoteEditBtn>
+          >◞end</NoteEditBtn>
 
           {/* ── Measure-level structural edits: insert before/after, delete ── */}
           {selectedNote && selectedNote.mi < measures.length && (<>

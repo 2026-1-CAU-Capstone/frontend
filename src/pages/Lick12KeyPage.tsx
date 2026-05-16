@@ -137,7 +137,7 @@ const MARGIN = { top: 24, left: 10, right: 10, bottom: 10 };
 const DECOR_FIRST = 70;
 const PX_PER_DUR: Record<string, number> = { w: 50, h: 35, q: 28, '8': 22, '16': 18 };
 const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25 };
-const CHORD_FONT = "'MuseJazz Text', 'DM Sans', sans-serif";
+const CHORD_FONT = "'MuseJazz Text', 'Pretendard', sans-serif";
 
 function measureMinWidth(m: MeasureInfo): number {
   let w = 18;
@@ -620,14 +620,14 @@ const Page = styled.div`
   flex-direction: column;
   height: 100vh;
   background: ${({ theme }) => theme.colors.bgPrimary};
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
 `;
 
 const Header = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 20px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 20px 10px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ theme }) => theme.colors.bgSecondary};
 `;
@@ -655,7 +655,7 @@ const SubText = styled.span`
 `;
 
 const BpmInput = styled.input`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
   width: 44px;
   padding: 3px 4px;
@@ -693,7 +693,7 @@ const KeyCol = styled.div`
 const KeyLabel = styled.div<{ $active?: boolean }>`
   min-width: 48px;
   text-align: center;
-  font-family: 'MuseJazz Text', 'DM Sans', sans-serif;
+  font-family: 'MuseJazz Text', 'Pretendard', sans-serif;
   font-size: 1.4rem;
   font-weight: 700;
   color: ${({ $active }) => ($active ? '#8B6914' : '#555')};
@@ -703,7 +703,7 @@ const KeyLabel = styled.div<{ $active?: boolean }>`
 const OriginalBadge = styled.span`
   display: block;
   font-size: 0.55rem;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-weight: 400;
   color: #b8960a;
   margin-top: -2px;

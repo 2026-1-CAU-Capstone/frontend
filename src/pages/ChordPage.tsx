@@ -127,7 +127,7 @@ const SongPickerBar = styled.div`
   padding: 6px 16px;
   background: ${({ theme }) => theme.colors.bgSecondary};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
 
   ${mq.mobile} {
@@ -138,7 +138,7 @@ const SongPickerBar = styled.div`
 `;
 
 const SongSelect = styled.select`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
   padding: 3px 6px;
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -156,7 +156,7 @@ const SearchWrap = styled.div`
 `;
 
 const SearchInput = styled.input`
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
   padding: 3px 8px 3px 24px;
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -205,7 +205,7 @@ const SearchItem = styled.button<{ $active?: boolean }>`
   border: none;
   background: ${({ $active, theme }) => $active ? theme.colors.bgSecondary : 'transparent'};
   color: ${({ theme }) => theme.colors.textPrimary};
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
   cursor: pointer;
   &:hover { background: ${({ theme }) => theme.colors.bgSecondary}; }
@@ -223,7 +223,7 @@ const LoadingState = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
   color: ${({ theme }) => theme.colors.textSecondary};
   background: ${({ theme }) => theme.colors.bgSecondary};
 `;
@@ -954,7 +954,7 @@ export default function ChordPage() {
             gap: '5px',
             fontSize: '11px',
             fontWeight: 700,
-            fontFamily: "'DM Sans', sans-serif",
+            fontFamily: "'Pretendard', sans-serif",
             cursor: 'pointer',
             userSelect: 'none',
             whiteSpace: 'nowrap',

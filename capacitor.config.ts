@@ -18,11 +18,23 @@ const config: CapacitorConfig = {
     /* 키보드가 떴을 때 입력창이 가려지지 않도록 WebView를 위로 스크롤 */
     scrollEnabled: true,
   },
+  plugins: {
+    Keyboard: {
+      /* 'none' = 키보드가 떠도 WebView 사이즈/스크롤 안 건드림. 그래야 인트로
+       *  레이아웃이 키보드 때문에 위로 밀려 올라가지 않고 화면 중앙에 그대로
+       *  머문다 (Claude / ChatGPT 패턴). 키보드 위에 가려지는 영역은 자체
+       *  CSS (env(keyboard-inset-height)) 로 보정 가능. */
+      resize: 'none',
+    },
+  },
   server: {
     /* iOS는 ATS 정책상 http://를 차단하므로 백엔드 호출은 모두 https.
-     * 개발 중에 로컬 dev 서버를 WebView에서 띄우고 싶으면 아래 주석 해제:
-     * url: 'http://192.168.x.x:5173',
-     * cleartext: true, */
+     * 개발 중에 로컬 dev 서버를 WebView에서 띄우고 싶으면 아래 url 설정:
+     * - 192.168.0.12 = Mac의 LAN IP (변경 시 다시 sync 필요)
+     * - cleartext: true 가 있어야 iOS WebView가 http:// 로드 허용
+     * 배포(앱스토어/TestFlight) 빌드 전엔 반드시 이 두 줄 다시 주석 처리 또는 삭제할 것. */
+    url: 'http://192.168.0.12:5173',
+    cleartext: true,
   },
 };
 

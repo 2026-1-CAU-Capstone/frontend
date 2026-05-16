@@ -14,19 +14,19 @@ const Page = styled.div`
   height: 100vh;
   height: 100dvh;
   background: ${({ theme }) => theme.colors.bgPrimary};
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Pretendard', sans-serif;
 `;
 
 const Header = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 20px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 20px 10px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ theme }) => theme.colors.bgSecondary};
 
   ${mq.mobile} {
-    padding: 8px 12px;
+    padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px;
     gap: 8px;
   }
 `;
@@ -199,7 +199,7 @@ export default function MyLicksPage() {
       <ListArea ref={listRef}>
         {loading && <LoadingMsg>Loading…</LoadingMsg>}
         {!loading && licks.length === 0 && !error && (
-          <EmptyMsg>아직 등록된 릭이 없습니다. Lick JSON Tool에서 추가해주세요.</EmptyMsg>
+          <EmptyMsg>아직 등록된 릭이 없습니다. Editor(lick 모드)에서 추가해주세요.</EmptyMsg>
         )}
         {licks.map((lick, i) => (
           <VisibleLickCard

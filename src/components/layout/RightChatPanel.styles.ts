@@ -34,6 +34,28 @@ export const MessagesArea = styled.div`
   gap: 4px;
 `;
 
+/* Wrapper for the chat input when it's rendered INSIDE the empty-state area
+ * (ChatGPT / Claude pattern — input sits right under the hero, both centered
+ * as a group, instead of input pinned to the bottom of the panel). Margin-top
+ * negative pulls it up snug against the empty state; max-width keeps it from
+ * stretching edge-to-edge on wide layouts. */
+/* Wrapper around the IntroChatInput in intro mode. Centers it horizontally
+ * and caps width so it stays Claude-proportioned on wide screens. */
+export const IntroInputSlot = styled.div`
+  width: 100%;
+  max-width: 1040px;
+  margin: 24px auto 0;
+  padding: 0 24px;
+  align-self: center;
+
+  /* Mobile/native: nearly edge-to-edge with a small breathing margin. */
+  @media (max-width: 768px) {
+    max-width: 100%;
+    padding: 0 14px;
+    margin-top: 12px;
+  }
+`;
+
 export const EmptyState = styled.div`
   flex: 1;
   display: flex;

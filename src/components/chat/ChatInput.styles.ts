@@ -1,8 +1,9 @@
 import styled from 'styled-components';
 import { ProgressionArrow } from './ProgressionArrow';
 
-export const InputWrapper = styled.div`
-  border-top: 1px solid ${({ theme }) => theme.colors.border};
+export const InputWrapper = styled.div<{ $top?: boolean }>`
+  border-top: ${({ $top, theme }) => ($top ? 'none' : `1px solid ${theme.colors.border}`)};
+  border-bottom: ${({ $top, theme }) => ($top ? `1px solid ${theme.colors.border}` : 'none')};
   background: ${({ theme }) => theme.colors.bgPrimary};
   min-width: 0;
 `;
@@ -136,13 +137,13 @@ export const SelectedChordChip = styled.span`
   border-radius: 0;
   font-size: 1.02rem;
   font-weight: 600;
-  font-family: 'MuseJazz Text', 'Oswald', 'DM Sans', sans-serif;
+  font-family: 'MuseJazz Text', 'Oswald', 'Pretendard', sans-serif;
   line-height: 1;
   background: transparent;
   color: ${({ theme }) => theme.colors.textPrimary};
 
   span {
-    font-family: 'MuseJazz Text', 'Oswald', 'DM Sans', sans-serif !important;
+    font-family: 'MuseJazz Text', 'Oswald', 'Pretendard', sans-serif !important;
     font-size: inherit !important;
     letter-spacing: 0 !important;
   }

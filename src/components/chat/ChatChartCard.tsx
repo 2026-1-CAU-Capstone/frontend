@@ -17,8 +17,8 @@ import { formatChordsInText } from './chordFormat';
  *   - chord symbols are already-formatted text, not LeadSheetChord objects
  * ──────────────────────────────────────────────────────────────────────── */
 
-const CHORD_FONT = "'MuseJazz Text', 'Oswald', 'DM Sans', sans-serif";
-const LABEL_FONT = "'DM Sans', 'Pretendard', sans-serif";
+const CHORD_FONT = "'MuseJazz Text', 'Oswald', 'Pretendard', sans-serif";
+const LABEL_FONT = "'Pretendard', 'Pretendard', sans-serif";
 
 const Card = styled.div`
   background: #fff;

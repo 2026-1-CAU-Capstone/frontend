@@ -91,7 +91,8 @@ function keySigAccidentals(vexKey: string): Map<string, 'b' | '#'> {
 
 const SHEET_SCALE = 1.35;
 const LINE_HEIGHT = 170;
-const MARGIN = { top: 6, left: 10, right: 10, bottom: 10 };
+/* MARGIN.top: chord 라벨(28px high) + 4px gap 이 stave 위에 들어갈 공간 확보. */
+const MARGIN = { top: 36, left: 10, right: 10, bottom: 10 };
 const MAX_PER_LINE = 4;
 const DECOR_FIRST = 70;
 const DECOR_OTHER = 35;
@@ -623,6 +624,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
   }
 }
 
+/* Using shared VexFlow-rendered icons from components/notesheet/NotationIcon */
 
 const DUR_KEYS = [
   { value: 'w', title: 'Whole (4 beats)' },
@@ -703,9 +705,9 @@ const DurCol = styled.div`
 `;
 
 const DurBtn = styled.button<{ $active?: boolean }>`
-  font-size: 1.35rem;
-  width: 42px;
-  height: 42px;
+  font-size: 1.6rem;
+  width: 64px;
+  height: 64px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -719,8 +721,8 @@ const DurBtn = styled.button<{ $active?: boolean }>`
 
 const RestBtn = styled.button`
   font-size: 1.35rem;
-  width: 42px;
-  height: 34px;
+  width: 64px;
+  height: 64px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2526,24 +2528,37 @@ export default function LickInputPage() {
           <Sep />
           {/* ── Ottava (8va/8vb) toggle on the selected note ── */}
           <NoteEditBtn
-            $active={!!selNoteInfo.ottavaStart}
+            $active={selNoteInfo.ottavaStart === '8va'}
             onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
-              if (n.ottavaStart) {
+              if (n.ottavaStart === '8va') {
                 const next = { ...n };
                 delete next.ottavaStart;
                 return next;
               }
               return { ...n, ottavaStart: '8va' };
             })}
-            title="Toggle 8va bracket start on this note"
+            title="Toggle 8va (octave up) start on this note"
             style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontSize: '0.72rem' }}
           >8va◜</NoteEditBtn>
           <NoteEditBtn
+            $active={selNoteInfo.ottavaStart === '8vb'}
+            onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+              if (n.ottavaStart === '8vb') {
+                const next = { ...n };
+                delete next.ottavaStart;
+                return next;
+              }
+              return { ...n, ottavaStart: '8vb' };
+            })}
+            title="Toggle 8vb (octave down) start on this note"
+            style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontSize: '0.72rem' }}
+          >8vb◜</NoteEditBtn>
+          <NoteEditBtn
             $active={!!selNoteInfo.ottavaEnd}
             onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, ottavaEnd: !n.ottavaEnd || undefined }))}
-            title="Toggle 8va bracket end on this note"
+            title="Toggle 8va/8vb bracket end on this note"
             style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontSize: '0.72rem' }}
-          >◞8va</NoteEditBtn>
+          >◞end</NoteEditBtn>
 
           {/* ── Measure-level edits (only valid when the selected note is in a
                 committed measure — the still-open current measure isn't yet a
@@ -2642,14 +2657,32 @@ export default function LickInputPage() {
         {totalNotes === 0 && <EmptyHint>Type chord &rarr; play notes &rarr; Enter or | to close measure</EmptyHint>}
         <div style={{ position: 'relative' }} onClick={handleSheetClick}>
           <div ref={svgRef} />
-          {measurePositions.map((pos) => (
-            <ChordCell
-              key={pos.idx}
-              value={allMeasures[pos.idx]?.chord ?? ''}
-              onChange={(v) => updateMeasureChord(pos.idx, v)}
-              style={{ left: pos.chordX * SHEET_SCALE, top: (pos.y - 2) * SHEET_SCALE, width: 58 * SHEET_SCALE }}
-            />
-          ))}
+          {measurePositions.map((pos) => {
+            /* Chord must sit above the FIRST note of the measure (lead-sheet
+             * convention). Fallback to the bar's note-area start if no notes
+             * exist yet. Width is clamped to the measure right edge so the
+             * chord label never bleeds into the next bar. The vertical
+             * position is raised so the chord clears the stave / ledger
+             * lines (MARGIN.top reserves the room). */
+            const firstNote = notePositions
+              .filter((np) => np.mi === pos.idx)
+              .reduce<NotePos | null>((best, cur) => (best === null || cur.x < best.x ? cur : best), null);
+            const leftX = firstNote ? firstNote.x - 4 : pos.chordX;
+            const measureRight = pos.x + pos.w;
+            const widthPx = Math.max(20, Math.min(58, measureRight - leftX));
+            return (
+              <ChordCell
+                key={pos.idx}
+                value={allMeasures[pos.idx]?.chord ?? ''}
+                onChange={(v) => updateMeasureChord(pos.idx, v)}
+                style={{
+                  left: leftX * SHEET_SCALE,
+                  top: (pos.y - 32) * SHEET_SCALE,
+                  width: widthPx * SHEET_SCALE,
+                }}
+              />
+            );
+          })}
           {/* Per-note chord labels — same style/size as measure chords */}
           {notePositions.map((np) => {
             const note = allMeasures[np.mi]?.notes[np.ni];
@@ -2659,12 +2692,24 @@ export default function LickInputPage() {
             // Use the measure's y so chord sits at the same row as measure chords
             const mpos = measurePositions.find((p) => p.idx === np.mi);
             const chordY = mpos ? mpos.y : np.y - 20;
+            // Clamp width: don't overflow into the next note OR the bar end.
+            const nextSameBar = notePositions
+              .filter((p) => p.mi === np.mi && p.x > np.x)
+              .reduce<NotePos | null>((best, cur) => (best === null || cur.x < best.x ? cur : best), null);
+            const rightBoundary = nextSameBar
+              ? nextSameBar.x - 2
+              : (mpos ? mpos.x + mpos.w : np.x + 58);
+            const widthPx = Math.max(20, Math.min(58, rightBoundary - (np.x - 4)));
             return (
               <ChordCell
                 key={`nc-${np.mi}-${np.ni}`}
                 value={note.chord}
                 onChange={(v) => setChordAtNote(np.mi, np.ni, v)}
-                style={{ left: (np.x - 4) * SHEET_SCALE, top: (chordY - 2) * SHEET_SCALE, width: 58 * SHEET_SCALE }}
+                style={{
+                  left: (np.x - 4) * SHEET_SCALE,
+                  top: (chordY - 32) * SHEET_SCALE,
+                  width: widthPx * SHEET_SCALE,
+                }}
               />
             );
           })}
@@ -2695,7 +2740,7 @@ export default function LickInputPage() {
                 }}
                 placeholder="e.g. Dm7"
                 autoFocus
-                style={{ left: (np.x - 4) * SHEET_SCALE, top: (chordY - 2) * SHEET_SCALE }}
+                style={{ left: (np.x - 4) * SHEET_SCALE, top: (chordY - 32) * SHEET_SCALE }}
               />
             );
           })()}
