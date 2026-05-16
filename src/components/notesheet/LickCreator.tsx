@@ -17,6 +17,7 @@ import { PianoKeyboard, type PianoNote } from './PianoKeyboard';
 import { NotePlayer } from '../../lib/note/notePlayer';
 import { useCountInIntro } from '../../hooks/useCountInIntro';
 import { PATTERN_SIMPLE } from '../../lib/note/countInPatterns';
+import { NoteIcon, RestIcon } from './NotationIcon';
 
 /* ─── key helpers ────────────────────────────────────────────────────── */
 
@@ -77,34 +78,6 @@ const DUR_KEYS = [
   { value: '8', title: 'Eighth (½ beat)' },
   { value: '16', title: '16th (¼ beat)' },
 ];
-
-/* SVG note icons — renders identically on all systems */
-function NoteIcon({ type }: { type: string }) {
-  const filled = type !== 'w' && type !== 'h';
-  const hasStem = type !== 'w';
-  const flags = type === '8' ? 1 : type === '16' ? 2 : 0;
-  const cx = hasStem ? 5.5 : 7;
-  const cy = hasStem ? 19 : 12;
-  return (
-    <svg width="14" height="24" viewBox="0 0 14 24" style={{ display: 'block' }}>
-      <ellipse cx={cx} cy={cy} rx="5" ry="3.5"
-        fill={filled ? 'currentColor' : 'none'}
-        stroke="currentColor" strokeWidth={filled ? 0 : 1.5}
-        transform={`rotate(-20 ${cx} ${cy})`} />
-      {hasStem && <line x1="10" y1="18" x2="10" y2="3" stroke="currentColor" strokeWidth="1.3" />}
-      {flags >= 1 && <path d="M10 3 C13.5 5.5 13.5 9 10 10.5" stroke="currentColor" strokeWidth="1.3" fill="none" />}
-      {flags >= 2 && <path d="M10 7 C13.5 9.5 13.5 13 10 14.5" stroke="currentColor" strokeWidth="1.3" fill="none" />}
-    </svg>
-  );
-}
-
-function RestIcon() {
-  return (
-    <svg width="10" height="20" viewBox="0 0 10 20" style={{ display: 'block' }}>
-      <path d="M7 2 L3 8 L7 12 L3 18" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
 function getBeats(dur: string, dotted?: boolean): number {
   const base = dur.replace(/r$/, '');
@@ -845,7 +818,7 @@ export function LickCreator({ width, onSave, onCancel }: LickCreatorProps) {
         <Sep />
 
         <DurBtn onClick={handleRest} title="Add rest">
-          <RestIcon />
+          <RestIcon type={duration} />
         </DurBtn>
         <ActionBtn onClick={handleUndo} title="Undo last note (Backspace)">
           Undo

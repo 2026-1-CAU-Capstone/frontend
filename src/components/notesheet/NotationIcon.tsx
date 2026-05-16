@@ -57,9 +57,8 @@ function renderGlyphSvg(durBase: string, isRest: boolean): string {
     const pad = 2;
     // Fix vertical extents (e.g., from y=10 to y=80 which is height 70)
     // to ensure stems and rests fit, and the scale remains consistent.
-    const cy = 60; // Approximate y-coordinate of b/4 line
-    const fixedHeight = 84; 
-    const fixedY = 16;
+    const fixedHeight = 70; 
+    const fixedY = 15;
     
     svg.setAttribute(
       'viewBox',

@@ -232,16 +232,20 @@ interface SoloPage {
   number: number;
 }
 
-/** Fetch a single page. Use fetchAllSolos() for full pagination. */
+/** Fetch a single page. Use fetchAllSolos() for full pagination.
+ *  `performer` is best-effort: passed as a query param; backend filters when
+ *  supported, otherwise ignored (caller should also filter client-side). */
 export async function listSolos(opts: {
   page?: number;
   size?: number;
   sort?: string;
+  performer?: string;
 } = {}): Promise<SoloPage> {
   const params = new URLSearchParams();
   params.set('page', String(opts.page ?? 0));
   params.set('size', String(opts.size ?? 50));
   params.set('sort', opts.sort ?? 'createdAt,desc');
+  if (opts.performer) params.set('performer', opts.performer);
   const res = await fetch(`${API_BASE}/v1/solos?${params.toString()}`);
   if (!res.ok) throw new Error(`solos list ${res.status}`);
   const json: { data: SoloPage } = await res.json();
