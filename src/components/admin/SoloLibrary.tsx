@@ -37,6 +37,14 @@ import {
   markLegacyMigrationDone,
 } from '../../data/soloData';
 import type { NoteSheetData } from '../../data/sampleMelody';
+import { NoteSheet } from '../notesheet/NoteSheet';
+import {
+  ALL_KEYS_MAJOR,
+  ALL_KEYS_MINOR,
+  normalizeNoteKeyDisplay,
+  noteKeyIsMinor,
+  transposeNoteSheet,
+} from '../../lib/note/transposeNoteSheet';
 
 /* ─── dataset globs (mirror OmnibookViewer) ──────────────────────────────── */
 
@@ -132,7 +140,7 @@ const DATASETS: DatasetConfig[] = [
 const Wrap = styled.div`
   padding: 18px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-columns: 420px minmax(0, 1fr) 360px;
   gap: 16px;
   height: 100%;
   box-sizing: border-box;
@@ -165,7 +173,7 @@ const SoloTable = styled.div`
 
 const Row = styled.div`
   display: grid;
-  grid-template-columns: 1fr auto auto auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto auto auto;
   gap: 10px;
   align-items: center;
   padding: 7px 10px;
@@ -201,6 +209,17 @@ const DangerBtn = styled.button`
   cursor: pointer;
   &:hover { background: #fad7d2; }
   &:disabled { opacity: 0.5; cursor: not-allowed; }
+`;
+
+const ViewBtn = styled.button<{ $active?: boolean }>`
+  font-size: 12px;
+  padding: 4px 10px;
+  border: 1px solid ${({ $active }) => ($active ? '#1976d2' : '#bbb')};
+  background: ${({ $active }) => ($active ? '#e3f2fd' : '#f6f6f6')};
+  color: ${({ $active }) => ($active ? '#125ca1' : '#333')};
+  border-radius: 5px;
+  cursor: pointer;
+  &:hover { background: #e9f3ff; }
 `;
 
 const ActionBtn = styled.button<{ $bg?: string; $fg?: string }>`
@@ -251,6 +270,61 @@ const EmptyState = styled.div`
   font-size: 13px;
 `;
 
+const PreviewHeader = styled.div`
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+`;
+
+const PreviewTitle = styled.div`
+  min-width: 0;
+  flex: 1;
+`;
+
+const PreviewTitleRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+`;
+
+const PreviewName = styled.div`
+  font-size: 1rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const PreviewMeta = styled.div`
+  margin-top: 2px;
+  font-size: 12px;
+  color: ${({ theme }) => theme.colors.textSecondary};
+`;
+
+const KeySelect = styled.select`
+  flex: 0 0 auto;
+  height: 28px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 6px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  color: ${({ theme }) => theme.colors.textPrimary};
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0 8px;
+`;
+
+const PreviewBody = styled.div`
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 6px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+`;
+
 /* ─── component ────────────────────────────────────────────────────────── */
 
 export function SoloLibrary() {
@@ -260,6 +334,8 @@ export function SoloLibrary() {
   const [filter, setFilter] = useState<'all' | 'user' | 'curated'>('all');
   const [log, setLog] = useState<string[]>([]);
   const [busy, setBusy] = useState<string | null>(null);  // 'migrate' | 'parker' | ...
+  const [selectedSoloId, setSelectedSoloId] = useState<string | null>(null);
+  const [selectedKey, setSelectedKey] = useState('C');
 
   const legacyCount = useMemo(() => readLegacyLocalSolos().length, []);
   const legacyDone = isLegacyMigrationDone();
@@ -290,11 +366,12 @@ export function SoloLibrary() {
       await deleteSolo(s.publicId);
       removeSoloFromCache(s.publicId);
       setSolos((prev) => prev.filter((x) => x.publicId !== s.publicId));
+      if (selectedSoloId === s.publicId) setSelectedSoloId(null);
       appendLog(`✓ deleted ${s.title}`);
     } catch (e) {
       appendLog(`✗ delete failed: ${e instanceof Error ? e.message : e}`);
     }
-  }, [appendLog]);
+  }, [appendLog, selectedSoloId]);
 
   const handleMigrateLegacy = useCallback(async () => {
     if (busy) return;
@@ -361,6 +438,33 @@ export function SoloLibrary() {
   }, [busy, appendLog, refresh, solos]);
 
   const filtered = solos.filter((s) => filter === 'all' || s.source === filter);
+  const selectedSolo = selectedSoloId
+    ? solos.find((s) => s.publicId === selectedSoloId) ?? null
+    : null;
+  const originalKey = normalizeNoteKeyDisplay(selectedSolo?.sheetData.key ?? selectedSolo?.key ?? 'C');
+  const allKeys = noteKeyIsMinor(originalKey) ? ALL_KEYS_MINOR : ALL_KEYS_MAJOR;
+  const previewSheet = useMemo(() => {
+    if (!selectedSolo) return null;
+    const sheet = {
+      ...selectedSolo.sheetData,
+      title: selectedSolo.sheetData.title || selectedSolo.title,
+      composer: selectedSolo.sheetData.composer || selectedSolo.performer || '',
+      key: normalizeNoteKeyDisplay(selectedSolo.sheetData.key ?? selectedSolo.key ?? 'C'),
+      tempo: selectedSolo.sheetData.tempo ?? selectedSolo.tempo ?? undefined,
+      timeSignature: selectedSolo.sheetData.timeSignature ?? selectedSolo.timeSignature ?? '4/4',
+    };
+    return selectedKey === sheet.key ? sheet : transposeNoteSheet(sheet, selectedKey);
+  }, [selectedSolo, selectedKey]);
+
+  useEffect(() => {
+    if (!selectedSolo && filtered.length > 0) {
+      setSelectedSoloId(filtered[0].publicId);
+    }
+  }, [filtered, selectedSolo]);
+
+  useEffect(() => {
+    setSelectedKey(originalKey);
+  }, [selectedSolo?.publicId, originalKey]);
 
   return (
     <Wrap>
@@ -397,11 +501,55 @@ export function SoloLibrary() {
                 <Pill>{s.performer ?? '—'}</Pill>
                 <Pill>{s.instrument}</Pill>
                 <Pill>{s.source}</Pill>
+                <ViewBtn
+                  $active={s.publicId === selectedSoloId}
+                  onClick={() => setSelectedSoloId(s.publicId)}
+                >
+                  View
+                </ViewBtn>
                 <DangerBtn onClick={() => handleDelete(s)}>Delete</DangerBtn>
               </Row>
             ))
           )}
         </SoloTable>
+      </Card>
+
+      <Card>
+        <PreviewHeader>
+          <PreviewTitle>
+            <PreviewTitleRow>
+              <PreviewName title={selectedSolo?.title}>
+                {selectedSolo ? selectedSolo.title : 'Solo Preview'}
+              </PreviewName>
+              {selectedSolo && (
+                <KeySelect value={selectedKey} onChange={(e) => setSelectedKey(e.target.value)}>
+                  {allKeys.map((k) => (
+                    <option key={k} value={k}>{k}</option>
+                  ))}
+                </KeySelect>
+              )}
+            </PreviewTitleRow>
+            <PreviewMeta>
+              {selectedSolo
+                ? `${selectedSolo.performer ?? '—'} · ${selectedSolo.instrument} · original ${originalKey} · ${selectedSolo.sheetData.measures.length} bars`
+                : '왼쪽에서 solo를 선택하면 12키로 전조해 보고 들을 수 있습니다.'}
+            </PreviewMeta>
+          </PreviewTitle>
+        </PreviewHeader>
+        <PreviewBody>
+          {previewSheet ? (
+            <NoteSheet
+              data={previewSheet}
+              selectedKey={selectedKey}
+              allKeys={allKeys}
+              onKeyChange={setSelectedKey}
+              showMeasureNumbers
+              forceAutoStem
+            />
+          ) : (
+            <EmptyState>선택된 솔로가 없습니다.</EmptyState>
+          )}
+        </PreviewBody>
       </Card>
 
       <Card>

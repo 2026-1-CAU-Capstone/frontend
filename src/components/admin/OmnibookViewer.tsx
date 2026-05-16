@@ -18,6 +18,13 @@ import { useLickRegionPicker, LickRegionControls } from './lickRegionPicker';
 import { inferKeyFromMeasures } from '../../lib/note/keyInference';
 import { OMNIBOOK_KEY_OVERRIDES } from '../../data/omnibookKeys';
 import { loadAllSolos } from '../../data/soloData';
+import {
+  ALL_KEYS_MAJOR,
+  ALL_KEYS_MINOR,
+  normalizeNoteKeyDisplay,
+  noteKeyIsMinor,
+  transposeNoteSheet,
+} from '../../lib/note/transposeNoteSheet';
 
 const parkerModules = import.meta.glob('../../../data/omnibook/Omnibook xml/*.xml', {
   import: 'default',
@@ -259,6 +266,24 @@ const HeadingRow = styled.div`
   flex-wrap: wrap;
 `;
 
+const KeySelect = styled.select`
+  height: 34px;
+  padding: 0 34px 0 12px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 6px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  color: ${({ theme }) => theme.colors.textPrimary};
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:focus {
+    outline: none;
+    border-color: ${({ theme }) => theme.colors.gold};
+  }
+`;
+
 const EditBtn = styled.button`
   padding: 5px 12px;
   font-family: 'DM Sans', sans-serif;
@@ -295,6 +320,7 @@ export function OmnibookViewer({ source = 'parker' }: { source?: OmnibookSource 
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [artistFilter, setArtistFilter] = useState<ArtistFilter>('all');
+  const [selectedKey, setSelectedKey] = useState('C');
   /** Solos saved to the backend (GET /v1/solos). Lazily fetched only when
    *  this viewer is rendered with source='solo'. The static Patrick Bartley
    *  JSON entries stay too — backend ones are appended. */
@@ -307,6 +333,7 @@ export function OmnibookViewer({ source = 'parker' }: { source?: OmnibookSource 
     setError(null);
     setSearch('');
     setArtistFilter('all');
+    setSelectedKey('C');
   }, [source]);
 
   // Backend solos: fetch on mount for the merged 'solo' source.
@@ -395,6 +422,11 @@ export function OmnibookViewer({ source = 'parker' }: { source?: OmnibookSource 
       });
   }, [selectedId, omnibookEntries]);
 
+  useEffect(() => {
+    if (!sheet) return;
+    setSelectedKey(normalizeNoteKeyDisplay(sheet.key));
+  }, [sheet]);
+
   const filtered = useMemo(() => {
     let list = omnibookEntries;
     if (artistFilter !== 'all') {
@@ -410,13 +442,20 @@ export function OmnibookViewer({ source = 'parker' }: { source?: OmnibookSource 
     () => ({ title: '', composer: '', key: 'C', timeSignature: '4/4', measures: [] }),
     [],
   );
+  const originalKey = normalizeNoteKeyDisplay(sheet?.key);
+  const keyOptions = noteKeyIsMinor(originalKey) ? ALL_KEYS_MINOR : ALL_KEYS_MAJOR;
+  const transposedSheet = useMemo(() => {
+    if (!sheet) return null;
+    const normalizedSheet = { ...sheet, key: originalKey };
+    return transposeNoteSheet(normalizedSheet, selectedKey);
+  }, [sheet, originalKey, selectedKey]);
   const selectedEntry = selectedId ? omnibookEntries.find((e) => e.id === selectedId) : null;
   const performer = selectedEntry?.composer
     ?? (source === 'parker' ? 'Charlie Parker' : source === 'miles' ? 'Miles Davis' : 'Solo');
   const picker = useLickRegionPicker({
-    sheetData: sheet ?? emptySheet,
+    sheetData: transposedSheet ?? emptySheet,
     performer,
-    title: sheet?.title ?? '',
+    title: transposedSheet?.title ?? '',
     tag: source === 'solo'
       ? (selectedEntry?.artist === 'miles' ? 'omnibook-miles-region' : 'omnibook-parker-region')
       : (source === 'parker' ? 'omnibook-parker-region' : 'omnibook-miles-region'),
@@ -473,24 +512,33 @@ export function OmnibookViewer({ source = 'parker' }: { source?: OmnibookSource 
         {sheet && (
           <>
             <HeadingRow>
-              <Heading>{sheet.title}</Heading>
+              <Heading>{transposedSheet?.title ?? sheet.title}</Heading>
+              <KeySelect
+                aria-label="전조 키 선택"
+                value={selectedKey}
+                onChange={(e) => setSelectedKey(e.target.value)}
+              >
+                {keyOptions.map((key) => (
+                  <option key={key} value={key}>{key}</option>
+                ))}
+              </KeySelect>
               <EditBtn
-                onClick={() => navigate('/note/sologenerator', { state: { prefillSheet: sheet } })}
+                onClick={() => navigate('/note/sologenerator', { state: { prefillSheet: transposedSheet ?? sheet } })}
                 title="이 악보를 Solo Generator에서 열어 수정"
               >
                 ✎ 수정하기
               </EditBtn>
             </HeadingRow>
             <MetaRow>
-              <span>composer: {sheet.composer}</span>
-              <span>key: {sheet.key}</span>
-              <span>time: {sheet.timeSignature}</span>
-              {sheet.tempo && <span>tempo: {sheet.tempo}</span>}
-              <span>{sheet.measures.length} measures</span>
+              <span>composer: {transposedSheet?.composer ?? sheet.composer}</span>
+              <span>key: {selectedKey}{selectedKey !== originalKey ? ` (orig ${originalKey})` : ''}</span>
+              <span>time: {transposedSheet?.timeSignature ?? sheet.timeSignature}</span>
+              {transposedSheet?.tempo && <span>tempo: {transposedSheet.tempo}</span>}
+              <span>{(transposedSheet ?? sheet).measures.length} measures</span>
             </MetaRow>
             <Section>
               <NoteSheet
-                data={sheet}
+                data={transposedSheet ?? sheet}
                 selectable={picker.selectMode}
                 selectedRanges={picker.selectedRanges}
                 onSelectionChange={picker.setSelectedRanges}

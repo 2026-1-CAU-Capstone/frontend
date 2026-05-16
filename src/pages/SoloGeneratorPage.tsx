@@ -711,7 +711,8 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
     for (const idx of lines[li]) measureLine.set(idx, li);
   }
 
-  // Draw ties (skip if notes are on different lines)
+  // Draw ties. Cross-line ties need two open-ended half ties; drawing one
+  // StaveTie across different systems either disappears or spans the page.
   let flatIdx = 0;
   for (let mi = 0; mi < measures.length; mi++) {
     const measure = measures[mi];
@@ -719,9 +720,19 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       if (measure.notes[ni].tie) {
         const from = allVfNotes[flatIdx];
         const to = allVfNotes[flatIdx + 1];
-        if (from && to && measureLine.get(from.mi) === measureLine.get(to.mi)) {
-          const tie = new StaveTie({ firstNote: from.vfNote, lastNote: to.vfNote, firstIndexes: [0], lastIndexes: [0] });
-          tie.setContext(ctx).draw();
+        if (from && to) {
+          const sameLine = measureLine.get(from.mi) === measureLine.get(to.mi);
+          if (sameLine) {
+            const tie = new StaveTie({ firstNote: from.vfNote, lastNote: to.vfNote, firstIndexes: [0], lastIndexes: [0] });
+            tie.setContext(ctx).draw();
+          } else {
+            try {
+              const halfStart = new StaveTie({ firstNote: from.vfNote, lastNote: undefined, firstIndexes: [0], lastIndexes: [0] });
+              halfStart.setContext(ctx).draw();
+              const halfEnd = new StaveTie({ firstNote: undefined, lastNote: to.vfNote, firstIndexes: [0], lastIndexes: [0] });
+              halfEnd.setContext(ctx).draw();
+            } catch (e) { console.warn('cross-line tie draw failed', e); }
+          }
         }
       }
       flatIdx++;
