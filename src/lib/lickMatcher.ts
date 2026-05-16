@@ -140,28 +140,60 @@ function shiftMeasuresOctave(measures: MeasureInfo[], octaves: number): MeasureI
 }
 
 /**
- * 이조로 음표가 너무 높거나 낮아진 경우 한 옥타브 단위로 보정.
- * - 최고음이 OCTAVE_HIGH(A5) 초과 → 한 옥타브 낮춤
- * - 최저음이 OCTAVE_LOW(G3) 미만 → 한 옥타브 높임
- * 양쪽 모두 위반하면(릭의 음역이 보정 가능 범위보다 넓음) 보정 생략.
+ * 이조 후 음역이 표 위/아래로 멀리 벗어났을 때, 화면 표기를 stave 가까이로
+ * 끌어내리되 SOUNDING PITCH는 **8va / 8vb 브래킷**으로 보존한다. 옛 동작은
+ * 옥타브를 통째로 내려서 사운드 자체가 바뀌었지만, 이제는 표기만 옥타브
+ * 안쪽으로 옮기고 ottava 마커가 sound 차이를 보전한다.
+ *
+ * Returns measures (representational octave shifted to fit) with the first
+ * and last note inside the shifted span marked with `ottavaStart` /
+ * `ottavaEnd`. The note player adds back +12 / -12 semitones for notes
+ * inside an ottava bracket so playback stays at the original sounding pitch.
  */
 function fitOctaveRange(measures: MeasureInfo[]): MeasureInfo[] {
   const all: number[] = [];
   for (const m of measures) for (const n of m.notes) all.push(...noteMidis(n));
   if (all.length === 0) return measures;
 
-  let max = Math.max(...all);
-  let min = Math.min(...all);
+  const max = Math.max(...all);
+  const min = Math.min(...all);
+
+  // Decide a single global shift (one octave step) — same heuristic as before.
   let shift = 0;
+  if (max > OCTAVE_HIGH && (min - 12) >= OCTAVE_LOW - 12) shift = -1;
+  else if (min < OCTAVE_LOW && (max + 12) <= OCTAVE_HIGH + 12) shift = 1;
+  if (shift === 0) return measures;
 
-  while (max > OCTAVE_HIGH && (min - 12) >= OCTAVE_LOW) {
-    max -= 12; min -= 12; shift -= 1;
-  }
-  while (min < OCTAVE_LOW && (max + 12) <= OCTAVE_HIGH) {
-    max += 12; min += 12; shift += 1;
-  }
+  const shifted = shiftMeasuresOctave(measures, shift);
+  // `shift === -1` ⇒ notation moved DOWN one octave ⇒ play "as if up an
+  // octave" ⇒ 8va. Symmetric for 8vb.
+  const ottavaLabel: '8va' | '8vb' = shift === -1 ? '8va' : '8vb';
 
-  return shiftMeasuresOctave(measures, shift);
+  // Find first & last non-rest note (the ones the bracket attaches to). We
+  // wrap the entire span — the simplest, safest layout for transposed licks.
+  let firstMi = -1, firstNi = -1, lastMi = -1, lastNi = -1;
+  for (let mi = 0; mi < shifted.length; mi++) {
+    const m = shifted[mi];
+    for (let ni = 0; ni < m.notes.length; ni++) {
+      if (m.notes[ni].duration.endsWith('r')) continue;
+      if (firstMi < 0) { firstMi = mi; firstNi = ni; }
+      lastMi = mi; lastNi = ni;
+    }
+  }
+  if (firstMi < 0) return shifted;
+
+  return shifted.map((m, mi) => {
+    if (mi !== firstMi && mi !== lastMi) return m;
+    const notes = m.notes.map((n, ni) => {
+      if (mi === firstMi && ni === firstNi && mi === lastMi && ni === lastNi) {
+        return { ...n, ottavaStart: ottavaLabel, ottavaEnd: true };
+      }
+      if (mi === firstMi && ni === firstNi) return { ...n, ottavaStart: ottavaLabel };
+      if (mi === lastMi && ni === lastNi)   return { ...n, ottavaEnd: true };
+      return n;
+    });
+    return { ...m, notes };
+  });
 }
 
 /** Return a new LickEntry transposed by `semitones`. If 0, returns original. */

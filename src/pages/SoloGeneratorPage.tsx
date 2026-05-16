@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import {
   Renderer, Stave, StaveNote, Voice, Formatter, Beam, Accidental, Dot, BarlineType, StaveTie, Tuplet, Repetition,
+  TextBracket, TextBracketPosition, Articulation, Annotation, AnnotationVerticalJustify,
+  Ornament, Tremolo, Curve,
 } from 'vexflow';
 import { PianoKeyboard, playMidi, type PianoNote } from '../components/notesheet/PianoKeyboard';
 import type { NoteInfo, MeasureInfo, NavigationMarker, NoteSheetData } from '../data/sampleMelody';
@@ -15,6 +17,7 @@ import { swungBeats } from '../lib/note/swing';
 import { normalizeChord, formatChordDisplay } from '../lib/jazz-harmony';
 import { createSolo, updateSolo } from '../api/solos';
 import { buildUserSoloDraft, invalidateSolosCache, loadAllSolos, pushSoloToCache, updateSoloInCache } from '../data/soloData';
+import { NoteIcon, RestIcon } from '../components/notesheet/NotationIcon';
 
 const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25 };
 const SEMI_MAP: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
@@ -539,6 +542,46 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
           }
         }
 
+        // ── Articulations / fermata / dynamics ─────────────────────────
+        // Same rendering rules as NoteSheet (the master reference). Position
+        // 3 = above, 4 = below. Articulations flip to the stem's OPPOSITE
+        // side; marcato is conventionally always above; fermata always above.
+        if (n.articulations) {
+          const ART_VF: Record<string, string> = {
+            staccato: 'a.', staccatissimo: 'av',
+            accent: 'a>', tenuto: 'a-',
+            marcato: 'a^', 'detached-legato': 'a-.',
+          };
+          for (const a of n.articulations) {
+            const code = ART_VF[a];
+            if (!code) continue;
+            const stemUp = note.getStemDirection() === 1;
+            const forceAbove = a === 'marcato';
+            const pos = (forceAbove || !stemUp) ? 3 : 4;
+            note.addModifier(new Articulation(code).setPosition(pos), 0);
+          }
+        }
+        if (n.fermata) {
+          note.addModifier(new Articulation('a@a').setPosition(3), 0);
+        }
+        if (n.dynamics) {
+          const ann = new Annotation(n.dynamics);
+          ann.setVerticalJustification(AnnotationVerticalJustify.BOTTOM);
+          note.addModifier(ann, 0);
+        }
+        if (n.ornaments) {
+          const ORN_VF: Record<string, string> = {
+            trill: 'tr', mordent: 'mordent',
+            'inverted-mordent': 'mordent_inverted',
+            turn: 'turn', 'inverted-turn': 'turn_inverted',
+          };
+          for (const o of n.ornaments) {
+            if (o === 'tremolo') { note.addModifier(new Tremolo(3), 0); continue; }
+            const code = ORN_VF[o];
+            if (code) note.addModifier(new Ornament(code), 0);
+          }
+        }
+
         return note;
       });
 
@@ -703,6 +746,65 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
     }
   }
 
+  // Draw 8va / 8vb brackets (ottava). The printed pitch is at-stave; the
+  // bracket signals "sounds an octave up / down". NotePlayer applies the
+  // matching ±12 semitones at scheduling time so playback stays correct.
+  {
+    let active: { kind: '8va' | '8vb'; idx: number } | null = null;
+    let oIdx = 0;
+    for (let mi = 0; mi < measures.length; mi++) {
+      const measure = measures[mi];
+      for (let ni = 0; ni < measure.notes.length; ni++) {
+        const n = measure.notes[ni];
+        if (n.ottavaStart && !active) active = { kind: n.ottavaStart, idx: oIdx };
+        if (n.ottavaEnd && active) {
+          const from = allVfNotes[active.idx];
+          const to = allVfNotes[oIdx];
+          if (from && to) {
+            try {
+              const tb = new TextBracket({
+                start: from.vfNote,
+                stop: to.vfNote,
+                text: '8',
+                superscript: active.kind === '8va' ? 'va' : 'vb',
+                position: active.kind === '8va' ? TextBracketPosition.TOP : TextBracketPosition.BOTTOM,
+              });
+              tb.setContext(ctx).draw();
+            } catch (e) { console.warn('ottava draw failed', e); }
+          }
+          active = null;
+        }
+        oIdx++;
+      }
+    }
+  }
+
+  // Draw slurs (이음줄). Stack-based so nested slurs work, and graceful
+  // fallback if a stop has no matching start (or vice versa) — that's not a
+  // crash, just a silently-skipped curve.
+  {
+    const startStack: number[] = [];
+    let sIdx = 0;
+    for (let mi = 0; mi < measures.length; mi++) {
+      const measure = measures[mi];
+      for (let ni = 0; ni < measure.notes.length; ni++) {
+        const n = measure.notes[ni];
+        if (n.slurStart) startStack.push(sIdx);
+        if (n.slurStop && startStack.length > 0) {
+          const startIdx = startStack.pop()!;
+          const from = allVfNotes[startIdx];
+          const to = allVfNotes[sIdx];
+          if (from && to) {
+            try {
+              new Curve(from.vfNote, to.vfNote, {}).setContext(ctx).draw();
+            } catch (e) { console.warn('slur draw failed', e); }
+          }
+        }
+        sIdx++;
+      }
+    }
+  }
+
   // Draw intro brackets — small parentheses inside bracketed measures
   if (svgEl) {
     const drawBracketArc = (cx: number, top: number, bot: number, openSide: boolean) => {
@@ -793,40 +895,6 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
 
 /* ─── SVG icons ────────────────────────────────────────────────────────── */
 
-function NoteIcon({ type }: { type: string }) {
-  const filled = type !== 'w' && type !== 'h';
-  const hasStem = type !== 'w';
-  const flags = type === '8' ? 1 : type === '16' ? 2 : 0;
-  const cx = hasStem ? 5.5 : 7;
-  const cy = hasStem ? 19 : 12;
-  return (
-    <svg width="14" height="24" viewBox="0 0 14 24" style={{ display: 'block' }}>
-      <ellipse cx={cx} cy={cy} rx="5" ry="3.5"
-        fill={filled ? 'currentColor' : 'none'}
-        stroke="currentColor" strokeWidth={filled ? 0 : 1.5}
-        transform={`rotate(-20 ${cx} ${cy})`} />
-      {hasStem && <line x1="10" y1="18" x2="10" y2="3" stroke="currentColor" strokeWidth="1.3" />}
-      {flags >= 1 && <path d="M10 3 C13.5 5.5 13.5 9 10 10.5" stroke="currentColor" strokeWidth="1.3" fill="none" />}
-      {flags >= 2 && <path d="M10 7 C13.5 9.5 13.5 13 10 14.5" stroke="currentColor" strokeWidth="1.3" fill="none" />}
-    </svg>
-  );
-}
-
-const REST_GLYPHS: Record<string, string> = {
-  w:  '\uE4E3',
-  h:  '\uE4E4',
-  q:  '\uE4E5',
-  '8':  '\uE4E6',
-  '16': '\uE4E7',
-};
-
-function RestIcon({ type }: { type: string }) {
-  return (
-    <span style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.4rem', lineHeight: 1 }}>
-      {REST_GLYPHS[type] ?? REST_GLYPHS['q']}
-    </span>
-  );
-}
 
 const DUR_KEYS = [
   { value: 'w', title: 'Whole (4 beats)' },
@@ -1427,6 +1495,11 @@ export default function SoloGeneratorPage() {
   const [tieNext, setTieNext] = useState(false);
   const [tripletMode, setTripletMode] = useState(false);
   const tripletCountRef = useRef(0);
+  /* ── 8va / 8vb bracket toggle. Activate before entering notes, then call
+   *    handleOttavaToggle(same kind) on the last note to close. Same UX as
+   *    LickCreator. */
+  const [ottavaMode, setOttavaMode] = useState<'8va' | '8vb' | null>(null);
+  const ottavaOpenRef = useRef(false);
   const [repeatStart, setRepeatStart] = useState(false);
   const [repeatEnd, setRepeatEnd] = useState(false);
   const [volta, setVolta] = useState<0 | 1 | 2>(0); // 0=none, 1=1st ending, 2=2nd ending
@@ -1592,6 +1665,42 @@ export default function SoloGeneratorPage() {
     }
   }, []);
 
+  /* ── 8va / 8vb toggle. Click once to arm the bracket (next note becomes
+   *    its start). Click the same button again to close — last note in
+   *    curNotes (or last note of last measure if curNotes is empty) gets
+   *    ottavaEnd. */
+  const handleOttavaToggle = useCallback((kind: '8va' | '8vb') => {
+    if (ottavaMode === kind && ottavaOpenRef.current) {
+      // Close — stamp ottavaEnd on the last entered note.
+      pushEditUndo();
+      if (curNotes.length > 0) {
+        setCurNotes((prev) => {
+          if (prev.length === 0) return prev;
+          const last = { ...prev[prev.length - 1], ottavaEnd: true };
+          return [...prev.slice(0, -1), last];
+        });
+      } else if (measures.length > 0) {
+        setMeasures((prev) => {
+          const updated = [...prev];
+          const lastM = { ...updated[updated.length - 1] };
+          const lastNotes = [...lastM.notes];
+          if (lastNotes.length > 0) {
+            lastNotes[lastNotes.length - 1] = { ...lastNotes[lastNotes.length - 1], ottavaEnd: true };
+            lastM.notes = lastNotes;
+            updated[updated.length - 1] = lastM;
+          }
+          return updated;
+        });
+      }
+      ottavaOpenRef.current = false;
+      setOttavaMode(null);
+    } else {
+      setOttavaMode(kind);
+      ottavaOpenRef.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ottavaMode, curNotes, measures]);
+
   const closeMeasure = useCallback(() => {
     if (curNotes.length === 0) return;
     pushEditUndo();
@@ -1646,6 +1755,58 @@ export default function SoloGeneratorPage() {
     }
   }, [measures.length, pushEditUndo]);
 
+  /** Insert a fresh empty measure BEFORE the given measure index. If `mi`
+   *  is >= measures.length the new measure is appended at the end. */
+  const insertMeasureBefore = useCallback((mi: number) => {
+    pushEditUndo();
+    setMeasures((prev) => {
+      const idx = Math.max(0, Math.min(mi, prev.length));
+      const fresh: MeasureInfo = { notes: [], chord: undefined };
+      const next = [...prev];
+      next.splice(idx, 0, fresh);
+      return next;
+    });
+    setSelectedNote(null);
+  }, [pushEditUndo]);
+
+  /** Insert a fresh empty measure AFTER the given measure index. */
+  const insertMeasureAfter = useCallback((mi: number) => {
+    pushEditUndo();
+    setMeasures((prev) => {
+      const idx = Math.max(0, Math.min(mi + 1, prev.length));
+      const fresh: MeasureInfo = { notes: [], chord: undefined };
+      const next = [...prev];
+      next.splice(idx, 0, fresh);
+      return next;
+    });
+    setSelectedNote(null);
+  }, [pushEditUndo]);
+
+  /** Remove the measure at `mi`. Selection is cleared if it pointed at the
+   *  removed bar (or anything past it). */
+  const deleteMeasure = useCallback((mi: number) => {
+    pushEditUndo();
+    setMeasures((prev) => prev.filter((_, i) => i !== mi));
+    setSelectedNote(null);
+  }, [pushEditUndo]);
+
+  /* Tie toggling is already wired into the existing note edit panel via
+   * updateNote(...) — see the 'Tie' button row in the selected-note UI. */
+
+  /** Delete a single note at (mi, ni). */
+  const deleteNote = useCallback((mi: number, ni: number) => {
+    pushEditUndo();
+    if (mi < measures.length) {
+      setMeasures((prev) => prev.map((m, i) => {
+        if (i !== mi) return m;
+        return { ...m, notes: m.notes.filter((_, j) => j !== ni) };
+      }));
+    } else {
+      setCurNotes((prev) => prev.filter((_, j) => j !== ni));
+    }
+    setSelectedNote(null);
+  }, [measures.length, pushEditUndo]);
+
   const handleNotePress = useCallback((pn: PianoNote) => {
     const conv = convertAcc(pn, accMode === 'n' ? 'b' : accMode);
     playMidi(pn.midi);
@@ -1697,6 +1858,13 @@ export default function SoloGeneratorPage() {
       ni.accidentals = { 0: conv.acc };
     }
     if (tripletMode) ni.tuplet = 3;
+    // 8va / 8vb bracket: first note inside the active bracket gets the
+    // ottavaStart marker. ottavaEnd is stamped by handleOttavaToggle when
+    // the user toggles the same bracket off again.
+    if (ottavaMode && !ottavaOpenRef.current) {
+      ni.ottavaStart = ottavaMode;
+      ottavaOpenRef.current = true;
+    }
 
     let newNotes: NoteInfo[];
     if (tieNext) {
@@ -2409,6 +2577,22 @@ export default function SoloGeneratorPage() {
         >
           3
         </DurBtn>
+        <DurBtn
+          $active={ottavaMode === '8va'}
+          onClick={() => handleOttavaToggle('8va')}
+          title="8va bracket (octave up) — click to start, click again on last note to close"
+          style={{ fontSize: '0.78rem', fontWeight: 700, fontStyle: 'italic', fontFamily: "'Times New Roman', serif" }}
+        >
+          8va
+        </DurBtn>
+        <DurBtn
+          $active={ottavaMode === '8vb'}
+          onClick={() => handleOttavaToggle('8vb')}
+          title="8vb bracket (octave down) — click to start, click again on last note to close"
+          style={{ fontSize: '0.78rem', fontWeight: 700, fontStyle: 'italic', fontFamily: "'Times New Roman', serif" }}
+        >
+          8vb
+        </DurBtn>
         <BarlineBtn onClick={closeMeasure} disabled={curNotes.length === 0} title="Close measure (Enter)">|</BarlineBtn>
         <DurBtn
           $active={repeatStart}
@@ -2717,6 +2901,176 @@ export default function SoloGeneratorPage() {
               style={{ fontSize: '0.85rem', fontWeight: 300, fontFamily: 'serif' }}
             >(&thinsp;)</NoteEditBtn>
           </>)}
+
+          <Sep />
+          {/* ── Music symbols: articulations / fermata / dynamics ── */}
+          {!selNoteInfo.duration.endsWith('r') && (<>
+            <NoteEditBtn
+              $active={!!selNoteInfo.articulations?.includes('staccato')}
+              onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                const cur = n.articulations ?? [];
+                const next = cur.includes('staccato') ? cur.filter((a) => a !== 'staccato') : [...cur, 'staccato' as const];
+                return { ...n, articulations: next.length ? next : undefined };
+              })}
+              title="Staccato (.)"
+              style={{ fontSize: '0.95rem', fontWeight: 700 }}
+            >·</NoteEditBtn>
+            <NoteEditBtn
+              $active={!!selNoteInfo.articulations?.includes('accent')}
+              onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                const cur = n.articulations ?? [];
+                const next = cur.includes('accent') ? cur.filter((a) => a !== 'accent') : [...cur, 'accent' as const];
+                return { ...n, articulations: next.length ? next : undefined };
+              })}
+              title="Accent (>)"
+              style={{ fontSize: '0.95rem', fontWeight: 700 }}
+            >&gt;</NoteEditBtn>
+            <NoteEditBtn
+              $active={!!selNoteInfo.articulations?.includes('tenuto')}
+              onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                const cur = n.articulations ?? [];
+                const next = cur.includes('tenuto') ? cur.filter((a) => a !== 'tenuto') : [...cur, 'tenuto' as const];
+                return { ...n, articulations: next.length ? next : undefined };
+              })}
+              title="Tenuto (—)"
+              style={{ fontSize: '0.95rem', fontWeight: 700 }}
+            >—</NoteEditBtn>
+            <NoteEditBtn
+              $active={!!selNoteInfo.articulations?.includes('marcato')}
+              onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                const cur = n.articulations ?? [];
+                const next = cur.includes('marcato') ? cur.filter((a) => a !== 'marcato') : [...cur, 'marcato' as const];
+                return { ...n, articulations: next.length ? next : undefined };
+              })}
+              title="Marcato (^)"
+              style={{ fontSize: '0.95rem', fontWeight: 700 }}
+            >^</NoteEditBtn>
+            <NoteEditBtn
+              $active={!!selNoteInfo.fermata}
+              onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, fermata: !n.fermata || undefined }))}
+              title="Fermata (𝄐)"
+              style={{ fontSize: '1.0rem', fontFamily: 'serif' }}
+            >𝄐</NoteEditBtn>
+            <select
+              value={selNoteInfo.dynamics ?? ''}
+              onChange={(e) => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                const v = e.target.value;
+                return { ...n, dynamics: (v || undefined) as typeof n.dynamics };
+              })}
+              title="Dynamics"
+              style={{ fontSize: '0.65rem', padding: '3px 4px', border: '1px solid #ccc', borderRadius: 4, fontStyle: 'italic' }}
+            >
+              <option value="">dyn</option>
+              <option value="pp">pp</option>
+              <option value="p">p</option>
+              <option value="mp">mp</option>
+              <option value="mf">mf</option>
+              <option value="f">f</option>
+              <option value="ff">ff</option>
+              <option value="fff">fff</option>
+              <option value="sfz">sfz</option>
+              <option value="fp">fp</option>
+            </select>
+            {/* ── Ornaments + slur + grace ── */}
+            <NoteEditBtn
+              $active={!!selNoteInfo.ornaments?.includes('trill')}
+              onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                const cur = n.ornaments ?? [];
+                const next = cur.includes('trill') ? cur.filter((o) => o !== 'trill') : [...cur, 'trill' as const];
+                return { ...n, ornaments: next.length ? next : undefined };
+              })}
+              title="Trill"
+              style={{ fontStyle: 'italic', fontFamily: 'serif', fontSize: '0.85rem' }}
+            >tr</NoteEditBtn>
+            <select
+              value={(selNoteInfo.ornaments ?? []).find((o) => o !== 'trill') ?? ''}
+              onChange={(e) => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                const v = e.target.value as '' | 'mordent' | 'inverted-mordent' | 'turn' | 'inverted-turn' | 'tremolo';
+                const keepTrill = n.ornaments?.includes('trill') ? ['trill' as const] : [];
+                const rest = v ? [v] : [];
+                const next = [...keepTrill, ...rest];
+                return { ...n, ornaments: next.length ? next : undefined };
+              })}
+              title="Ornament"
+              style={{ fontSize: '0.65rem', padding: '3px 4px', border: '1px solid #ccc', borderRadius: 4 }}
+            >
+              <option value="">orn</option>
+              <option value="mordent">𝆗 mordent</option>
+              <option value="inverted-mordent">𝆘 inv-mor</option>
+              <option value="turn">𝆗 turn</option>
+              <option value="inverted-turn">inv-turn</option>
+              <option value="tremolo">/// trem</option>
+            </select>
+            <NoteEditBtn
+              $active={!!selNoteInfo.slurStart}
+              onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, slurStart: !n.slurStart || undefined }))}
+              title="Slur start (이음줄 시작)"
+              style={{ fontSize: '0.78rem' }}
+            >⌒◜</NoteEditBtn>
+            <NoteEditBtn
+              $active={!!selNoteInfo.slurStop}
+              onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, slurStop: !n.slurStop || undefined }))}
+              title="Slur stop (이음줄 끝)"
+              style={{ fontSize: '0.78rem' }}
+            >◞⌒</NoteEditBtn>
+            <NoteEditBtn
+              $active={!!selNoteInfo.grace}
+              onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, grace: !n.grace || undefined }))}
+              title="Grace note (꾸밈음)"
+              style={{ fontSize: '0.7rem', fontWeight: 700 }}
+            >gr</NoteEditBtn>
+          </>)}
+
+          <Sep />
+          {/* ── Note-level structural edits (post-input) ── */}
+          <NoteEditBtn
+            $active={!!selNoteInfo.ottavaStart}
+            onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+              if (n.ottavaStart) {
+                const next = { ...n };
+                delete next.ottavaStart;
+                return next;
+              }
+              return { ...n, ottavaStart: '8va' };
+            })}
+            title="Toggle 8va start on this note"
+            style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontSize: '0.72rem' }}
+          >8va◜</NoteEditBtn>
+          <NoteEditBtn
+            $active={!!selNoteInfo.ottavaEnd}
+            onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, ottavaEnd: !n.ottavaEnd || undefined }))}
+            title="Toggle 8va end on this note"
+            style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontSize: '0.72rem' }}
+          >◞8va</NoteEditBtn>
+
+          {/* ── Measure-level structural edits: insert before/after, delete ── */}
+          {selectedNote && selectedNote.mi < measures.length && (<>
+            <Sep />
+            <NoteEditBtn
+              onClick={() => insertMeasureBefore(selectedNote.mi)}
+              title="Insert a fresh empty measure BEFORE this one"
+              style={{ fontSize: '0.72rem' }}
+            >＋ ◀ Bar</NoteEditBtn>
+            <NoteEditBtn
+              onClick={() => insertMeasureAfter(selectedNote.mi)}
+              title="Insert a fresh empty measure AFTER this one"
+              style={{ fontSize: '0.72rem' }}
+            >Bar ▶ ＋</NoteEditBtn>
+            <NoteEditBtn
+              onClick={() => {
+                if (confirm(`Delete measure ${selectedNote.mi + 1}? This cannot be undone except by Undo (Backspace).`)) {
+                  deleteMeasure(selectedNote.mi);
+                }
+              }}
+              title="Delete this entire measure"
+              style={{ fontSize: '0.72rem', color: '#c0392b' }}
+            >🗑 Bar</NoteEditBtn>
+          </>)}
+          <NoteEditBtn
+            onClick={() => deleteNote(selectedNote.mi, selectedNote.ni)}
+            title="Delete just this note"
+            style={{ fontSize: '0.72rem', color: '#c0392b' }}
+          >🗑 Note</NoteEditBtn>
 
           <Sep />
           <NoteEditBtn onClick={() => setSelectedNote(null)}>× Deselect</NoteEditBtn>

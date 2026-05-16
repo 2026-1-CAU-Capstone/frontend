@@ -951,13 +951,19 @@ export class NotePlayer {
       }
     }
 
-    // Flatten all notes with expanded measure index and timing info
-    interface FlatNote { origMi: number; ni: number; note: typeof data.measures[0]['notes'][0]; beats: number; expandIdx: number }
+    // Flatten all notes with expanded measure index and timing info.
+    // `ottavaSemis` tracks whether this note sits inside an 8va / 8vb bracket
+    // — the score draws those notes at the printed octave, but they SOUND a
+    // full octave above (8va = +12) or below (8vb = -12). The walker below
+    // toggles state on `ottavaStart`, flips it back on `ottavaEnd`.
+    interface FlatNote { origMi: number; ni: number; note: typeof data.measures[0]['notes'][0]; beats: number; expandIdx: number; ottavaSemis: number }
     const flat: FlatNote[] = [];
+    let ottavaSemis = 0;
     for (let ei = 0; ei < expanded.length; ei++) {
       const { m, origMi } = expanded[ei];
       for (let ni = 0; ni < m.notes.length; ni++) {
         const n = m.notes[ni];
+        if (n.ottavaStart) ottavaSemis = n.ottavaStart === '8va' ? 12 : -12;
         const base = n.duration.replace(/[dr]/g, '');
         let beats = DUR_BEATS[base] ?? 1;
         if (n.dotted) beats *= 1.5;
@@ -967,7 +973,10 @@ export class NotePlayer {
           const normal = n.tupletNormal ?? Math.pow(2, Math.floor(Math.log2(n.tuplet - 1)));
           beats *= normal / n.tuplet;
         }
-        flat.push({ origMi: origMi + miOffset, ni, note: n, beats, expandIdx: ei });
+        flat.push({ origMi: origMi + miOffset, ni, note: n, beats, expandIdx: ei, ottavaSemis });
+        // ottavaEnd closes the bracket AFTER this note still sounds at the
+        // bracket pitch (the marker is "this is the last bracketed note").
+        if (n.ottavaEnd) ottavaSemis = 0;
       }
     }
 
@@ -1017,14 +1026,17 @@ export class NotePlayer {
       // on a rest, on a tie target that itself has tie=false AND no continuation
       // flag, or on a pitch mismatch when there's no continuation flag to override.
       const ks = measureKeySigs[f.expandIdx] ?? keySig;
+      // ottava bracket: printed pitch sounds an octave higher (8va, +12) or
+      // lower (8vb, -12). Apply uniformly to all chord tones on this note.
+      const oct = f.ottavaSemis;
       if (!isRest && f.note.tie) {
-        const leadMidi = vexToMidi(f.note.keys[0], f.note.accidentals?.[0], ks);
+        const leadMidi = vexToMidi(f.note.keys[0], f.note.accidentals?.[0], ks) + oct;
         let look = fi + 1;
         while (look < flat.length) {
           const nxt = flat[look].note;
           if (nxt.duration.endsWith('r')) break;
           const ksNxt = measureKeySigs[flat[look].expandIdx] ?? keySig;
-          const nxtMidi = vexToMidi(nxt.keys[0], nxt.accidentals?.[0], ksNxt);
+          const nxtMidi = vexToMidi(nxt.keys[0], nxt.accidentals?.[0], ksNxt) + flat[look].ottavaSemis;
           const continuationFlag = !!nxt.tieContinuation;
           // Trust the explicit continuationFlag over pitch comparison — pitch
           // checks can drift on edge-case accidental encodings (the Omnibook bug).
@@ -1039,7 +1051,7 @@ export class NotePlayer {
         const dur = toSec(mt + totalBeats) - onsetSec;
         for (let ki = 0; ki < f.note.keys.length; ki++) {
           const acc = f.note.accidentals?.[ki];
-          const midi = vexToMidi(f.note.keys[ki], acc, ks);
+          const midi = vexToMidi(f.note.keys[ki], acc, ks) + oct;
           this.sched.push({ time: onsetSec, dur: Math.max(dur * 0.85, 0.04), midi, measure: f.origMi, noteIndex: f.ni, track: 'melody' });
         }
         mt += totalBeats;
@@ -1052,7 +1064,7 @@ export class NotePlayer {
       if (!isRest) {
         for (let ki = 0; ki < f.note.keys.length; ki++) {
           const acc = f.note.accidentals?.[ki];
-          const midi = vexToMidi(f.note.keys[ki], acc, ks);
+          const midi = vexToMidi(f.note.keys[ki], acc, ks) + oct;
           this.sched.push({ time: onsetSec, dur: Math.max(dur * 0.85, 0.04), midi, measure: f.origMi, noteIndex: f.ni, track: 'melody' });
         }
       }

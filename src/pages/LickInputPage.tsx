@@ -3,14 +3,16 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import {
   Renderer, Stave, StaveNote, Voice, Formatter, Beam, Accidental, Dot, BarlineType, StaveTie, Tuplet, VoltaType, Repetition,
+  Articulation, Annotation, AnnotationVerticalJustify, Ornament, Tremolo, Curve,
 } from 'vexflow';
 import { PianoKeyboard, playMidi, type PianoNote } from '../components/notesheet/PianoKeyboard';
-import type { NoteInfo, MeasureInfo } from '../data/sampleMelody';
+import type { NoteInfo, MeasureInfo, NavigationMarker } from '../data/sampleMelody';
 import { saveUserLick, computeLickFeatures, type LickEntry } from '../data/lickData';
 import { NotePlayer } from '../lib/note/notePlayer';
 import { useCountInIntro } from '../hooks/useCountInIntro';
 import { PATTERN_SIMPLE } from '../lib/note/countInPatterns';
 import { normalizeChord, formatChordDisplay } from '../lib/jazz-harmony';
+import { NoteIcon, RestIcon } from '../components/notesheet/NotationIcon';
 
 /* ─── helpers ──────────────────────────────────────────────────────────── */
 
@@ -328,6 +330,43 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
           }
         }
 
+        // ── Articulations / fermata / dynamics (matches NoteSheet) ─────
+        if (n.articulations) {
+          const ART_VF: Record<string, string> = {
+            staccato: 'a.', staccatissimo: 'av',
+            accent: 'a>', tenuto: 'a-',
+            marcato: 'a^', 'detached-legato': 'a-.',
+          };
+          for (const a of n.articulations) {
+            const code = ART_VF[a];
+            if (!code) continue;
+            const stemUp = note.getStemDirection() === 1;
+            const forceAbove = a === 'marcato';
+            const pos = (forceAbove || !stemUp) ? 3 : 4;
+            note.addModifier(new Articulation(code).setPosition(pos), 0);
+          }
+        }
+        if (n.fermata) {
+          note.addModifier(new Articulation('a@a').setPosition(3), 0);
+        }
+        if (n.dynamics) {
+          const ann = new Annotation(n.dynamics);
+          ann.setVerticalJustification(AnnotationVerticalJustify.BOTTOM);
+          note.addModifier(ann, 0);
+        }
+        if (n.ornaments) {
+          const ORN_VF: Record<string, string> = {
+            trill: 'tr', mordent: 'mordent',
+            'inverted-mordent': 'mordent_inverted',
+            turn: 'turn', 'inverted-turn': 'turn_inverted',
+          };
+          for (const o of n.ornaments) {
+            if (o === 'tremolo') { note.addModifier(new Tremolo(3), 0); continue; }
+            const code = ORN_VF[o];
+            if (code) note.addModifier(new Ornament(code), 0);
+          }
+        }
+
         return note;
       });
 
@@ -501,6 +540,29 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
     }
   }
 
+  // Draw slurs (이음줄)
+  {
+    const startStack: number[] = [];
+    let sIdx = 0;
+    for (let mi = 0; mi < measures.length; mi++) {
+      const measure = measures[mi];
+      for (let ni = 0; ni < measure.notes.length; ni++) {
+        const n = measure.notes[ni];
+        if (n.slurStart) startStack.push(sIdx);
+        if (n.slurStop && startStack.length > 0) {
+          const startIdx = startStack.pop()!;
+          const from = allVfNotes[startIdx];
+          const to = allVfNotes[sIdx];
+          if (from && to) {
+            try { new Curve(from.vfNote, to.vfNote, {}).setContext(ctx).draw(); }
+            catch (e) { console.warn('slur draw failed', e); }
+          }
+        }
+        sIdx++;
+      }
+    }
+  }
+
   // Collect note bounding boxes for click detection & highlight selected note
   if (svgEl) {
     for (const entry of allVfNotes) {
@@ -550,42 +612,6 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
   }
 }
 
-/* ─── SVG icons ────────────────────────────────────────────────────────── */
-
-function NoteIcon({ type }: { type: string }) {
-  const filled = type !== 'w' && type !== 'h';
-  const hasStem = type !== 'w';
-  const flags = type === '8' ? 1 : type === '16' ? 2 : 0;
-  const cx = hasStem ? 5.5 : 7;
-  const cy = hasStem ? 19 : 12;
-  return (
-    <svg width="14" height="24" viewBox="0 0 14 24" style={{ display: 'block' }}>
-      <ellipse cx={cx} cy={cy} rx="5" ry="3.5"
-        fill={filled ? 'currentColor' : 'none'}
-        stroke="currentColor" strokeWidth={filled ? 0 : 1.5}
-        transform={`rotate(-20 ${cx} ${cy})`} />
-      {hasStem && <line x1="10" y1="18" x2="10" y2="3" stroke="currentColor" strokeWidth="1.3" />}
-      {flags >= 1 && <path d="M10 3 C13.5 5.5 13.5 9 10 10.5" stroke="currentColor" strokeWidth="1.3" fill="none" />}
-      {flags >= 2 && <path d="M10 7 C13.5 9.5 13.5 13 10 14.5" stroke="currentColor" strokeWidth="1.3" fill="none" />}
-    </svg>
-  );
-}
-
-const REST_GLYPHS: Record<string, string> = {
-  w:  '\uE4E3',  // SMuFL whole rest
-  h:  '\uE4E4',  // SMuFL half rest
-  q:  '\uE4E5',  // SMuFL quarter rest
-  '8':  '\uE4E6',  // SMuFL 8th rest
-  '16': '\uE4E7',  // SMuFL 16th rest
-};
-
-function RestIcon({ type }: { type: string }) {
-  return (
-    <span style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.4rem', lineHeight: 1 }}>
-      {REST_GLYPHS[type] ?? REST_GLYPHS['q']}
-    </span>
-  );
-}
 
 const DUR_KEYS = [
   { value: 'w', title: 'Whole (4 beats)' },
@@ -1177,6 +1203,11 @@ export default function LickInputPage() {
   const [tieNext, setTieNext] = useState(false);
   const [tripletMode, setTripletMode] = useState(false);
   const tripletCountRef = useRef(0);
+  /** 8va / 8vb bracket state. Same UX as SoloGenerator and LickCreator:
+   *  click toggle once to arm, next entered note becomes the bracket start;
+   *  click the same toggle again to close — the previous note gets ottavaEnd. */
+  const [ottavaMode, setOttavaMode] = useState<'8va' | '8vb' | null>(null);
+  const ottavaOpenRef = useRef(false);
   /* N-tuplet (4+, 5+, ...) mode — counts notes/rests added while active and
    * keeps re-assigning their `tuplet` value to the current count so the group
    * "grows" with each new entry. Reset on toggle / measure close.
@@ -1367,6 +1398,91 @@ export default function LickInputPage() {
     }
   }, [measures.length, pushEditUndo]);
 
+  /** Apply an updater to a measure at index `mi` (committed measures only). */
+  const updateMeasure = useCallback((mi: number, updater: (m: MeasureInfo) => MeasureInfo) => {
+    pushEditUndo();
+    if (mi < measures.length) {
+      setMeasures((prev) => prev.map((m, i) => i === mi ? updater(m) : m));
+    }
+  }, [measures.length, pushEditUndo]);
+
+  /** Insert a fresh empty measure before `mi`. Clears selection. */
+  const insertMeasureBefore = useCallback((mi: number) => {
+    pushEditUndo();
+    setMeasures((prev) => {
+      const idx = Math.max(0, Math.min(mi, prev.length));
+      const next = [...prev];
+      next.splice(idx, 0, { notes: [], chord: undefined });
+      return next;
+    });
+    setSelectedNote(null);
+  }, [pushEditUndo]);
+
+  /** Insert a fresh empty measure after `mi`. */
+  const insertMeasureAfter = useCallback((mi: number) => {
+    pushEditUndo();
+    setMeasures((prev) => {
+      const idx = Math.max(0, Math.min(mi + 1, prev.length));
+      const next = [...prev];
+      next.splice(idx, 0, { notes: [], chord: undefined });
+      return next;
+    });
+    setSelectedNote(null);
+  }, [pushEditUndo]);
+
+  /** Delete the measure at `mi`. */
+  const deleteMeasure = useCallback((mi: number) => {
+    pushEditUndo();
+    setMeasures((prev) => prev.filter((_, i) => i !== mi));
+    setSelectedNote(null);
+  }, [pushEditUndo]);
+
+  /** Delete a single note at (mi, ni). Works for both committed measures
+   *  and the still-open current-measure buffer. */
+  const deleteNote = useCallback((mi: number, ni: number) => {
+    pushEditUndo();
+    if (mi < measures.length) {
+      setMeasures((prev) => prev.map((m, i) =>
+        i === mi ? { ...m, notes: m.notes.filter((_, j) => j !== ni) } : m,
+      ));
+    } else {
+      setCurNotes((prev) => prev.filter((_, j) => j !== ni));
+    }
+    setSelectedNote(null);
+  }, [measures.length, pushEditUndo]);
+
+  /** 8va / 8vb toggle. Mirrors SoloGenerator / LickCreator. */
+  const handleOttavaToggle = useCallback((kind: '8va' | '8vb') => {
+    if (ottavaMode === kind && ottavaOpenRef.current) {
+      pushEditUndo();
+      if (curNotes.length > 0) {
+        setCurNotes((prev) => {
+          if (prev.length === 0) return prev;
+          const last = { ...prev[prev.length - 1], ottavaEnd: true };
+          return [...prev.slice(0, -1), last];
+        });
+      } else if (measures.length > 0) {
+        setMeasures((prev) => {
+          const updated = [...prev];
+          const lastM = { ...updated[updated.length - 1] };
+          const lastNotes = [...lastM.notes];
+          if (lastNotes.length > 0) {
+            lastNotes[lastNotes.length - 1] = { ...lastNotes[lastNotes.length - 1], ottavaEnd: true };
+            lastM.notes = lastNotes;
+            updated[updated.length - 1] = lastM;
+          }
+          return updated;
+        });
+      }
+      ottavaOpenRef.current = false;
+      setOttavaMode(null);
+    } else {
+      setOttavaMode(kind);
+      ottavaOpenRef.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ottavaMode, curNotes, measures]);
+
   /* Insert a rest slot BEFORE the currently selected note. Uses the duration
    * currently chosen in the top toolbar. After insertion the new slot becomes
    * the selected note, so the user can immediately:
@@ -1473,6 +1589,11 @@ export default function LickInputPage() {
       ni.accidentals = { 0: conv.acc };
     }
     if (tripletMode) ni.tuplet = 3;
+    // 8va / 8vb: first note inside an active bracket gets ottavaStart.
+    if (ottavaMode && !ottavaOpenRef.current) {
+      ni.ottavaStart = ottavaMode;
+      ottavaOpenRef.current = true;
+    }
 
     let newNotes: NoteInfo[];
     if (tieNext) {
@@ -2018,6 +2139,22 @@ export default function LickInputPage() {
           3
         </DurBtn>
         <DurBtn
+          $active={ottavaMode === '8va'}
+          onClick={() => handleOttavaToggle('8va')}
+          title="8va bracket (octave up) — click to start, click again on last note to close"
+          style={{ fontSize: '0.78rem', fontWeight: 700, fontStyle: 'italic', fontFamily: "'Times New Roman', serif" }}
+        >
+          8va
+        </DurBtn>
+        <DurBtn
+          $active={ottavaMode === '8vb'}
+          onClick={() => handleOttavaToggle('8vb')}
+          title="8vb bracket (octave down) — click to start, click again on last note to close"
+          style={{ fontSize: '0.78rem', fontWeight: 700, fontStyle: 'italic', fontFamily: "'Times New Roman', serif" }}
+        >
+          8vb
+        </DurBtn>
+        <DurBtn
           $active={nTupletMode}
           onClick={() => {
             // Toggle n-tuplet mode. Turning ON resets count; turning OFF keeps
@@ -2256,6 +2393,234 @@ export default function LickInputPage() {
           >
             Chord{selNoteInfo?.chord ? `: ${selNoteInfo.chord}` : ''}
           </NoteEditBtn>
+
+          <Sep />
+          {/* ── Music symbols: articulations / fermata / dynamics ── */}
+          {!selNoteInfo.duration.endsWith('r') && (<>
+            <NoteEditBtn
+              $active={!!selNoteInfo.articulations?.includes('staccato')}
+              onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                const cur = n.articulations ?? [];
+                const next = cur.includes('staccato') ? cur.filter((a) => a !== 'staccato') : [...cur, 'staccato' as const];
+                return { ...n, articulations: next.length ? next : undefined };
+              })}
+              title="Staccato"
+              style={{ fontSize: '0.95rem', fontWeight: 700 }}
+            >·</NoteEditBtn>
+            <NoteEditBtn
+              $active={!!selNoteInfo.articulations?.includes('accent')}
+              onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                const cur = n.articulations ?? [];
+                const next = cur.includes('accent') ? cur.filter((a) => a !== 'accent') : [...cur, 'accent' as const];
+                return { ...n, articulations: next.length ? next : undefined };
+              })}
+              title="Accent"
+              style={{ fontSize: '0.95rem', fontWeight: 700 }}
+            >&gt;</NoteEditBtn>
+            <NoteEditBtn
+              $active={!!selNoteInfo.articulations?.includes('tenuto')}
+              onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                const cur = n.articulations ?? [];
+                const next = cur.includes('tenuto') ? cur.filter((a) => a !== 'tenuto') : [...cur, 'tenuto' as const];
+                return { ...n, articulations: next.length ? next : undefined };
+              })}
+              title="Tenuto"
+              style={{ fontSize: '0.95rem', fontWeight: 700 }}
+            >—</NoteEditBtn>
+            <NoteEditBtn
+              $active={!!selNoteInfo.articulations?.includes('marcato')}
+              onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                const cur = n.articulations ?? [];
+                const next = cur.includes('marcato') ? cur.filter((a) => a !== 'marcato') : [...cur, 'marcato' as const];
+                return { ...n, articulations: next.length ? next : undefined };
+              })}
+              title="Marcato"
+              style={{ fontSize: '0.95rem', fontWeight: 700 }}
+            >^</NoteEditBtn>
+            <NoteEditBtn
+              $active={!!selNoteInfo.fermata}
+              onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, fermata: !n.fermata || undefined }))}
+              title="Fermata"
+              style={{ fontSize: '1.0rem', fontFamily: 'serif' }}
+            >𝄐</NoteEditBtn>
+            <select
+              value={selNoteInfo.dynamics ?? ''}
+              onChange={(e) => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                const v = e.target.value;
+                return { ...n, dynamics: (v || undefined) as typeof n.dynamics };
+              })}
+              title="Dynamics"
+              style={{ fontSize: '0.65rem', padding: '3px 4px', border: '1px solid #ccc', borderRadius: 4, fontStyle: 'italic' }}
+            >
+              <option value="">dyn</option>
+              <option value="pp">pp</option>
+              <option value="p">p</option>
+              <option value="mp">mp</option>
+              <option value="mf">mf</option>
+              <option value="f">f</option>
+              <option value="ff">ff</option>
+              <option value="fff">fff</option>
+              <option value="sfz">sfz</option>
+              <option value="fp">fp</option>
+            </select>
+            <NoteEditBtn
+              $active={!!selNoteInfo.ornaments?.includes('trill')}
+              onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                const cur = n.ornaments ?? [];
+                const next = cur.includes('trill') ? cur.filter((o) => o !== 'trill') : [...cur, 'trill' as const];
+                return { ...n, ornaments: next.length ? next : undefined };
+              })}
+              title="Trill"
+              style={{ fontStyle: 'italic', fontFamily: 'serif', fontSize: '0.85rem' }}
+            >tr</NoteEditBtn>
+            <select
+              value={(selNoteInfo.ornaments ?? []).find((o) => o !== 'trill') ?? ''}
+              onChange={(e) => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                const v = e.target.value as '' | 'mordent' | 'inverted-mordent' | 'turn' | 'inverted-turn' | 'tremolo';
+                const keepTrill = n.ornaments?.includes('trill') ? ['trill' as const] : [];
+                const rest = v ? [v] : [];
+                const next = [...keepTrill, ...rest];
+                return { ...n, ornaments: next.length ? next : undefined };
+              })}
+              title="Ornament"
+              style={{ fontSize: '0.65rem', padding: '3px 4px', border: '1px solid #ccc', borderRadius: 4 }}
+            >
+              <option value="">orn</option>
+              <option value="mordent">𝆗 mordent</option>
+              <option value="inverted-mordent">𝆘 inv-mor</option>
+              <option value="turn">𝆗 turn</option>
+              <option value="inverted-turn">inv-turn</option>
+              <option value="tremolo">/// trem</option>
+            </select>
+            <NoteEditBtn
+              $active={!!selNoteInfo.slurStart}
+              onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, slurStart: !n.slurStart || undefined }))}
+              title="Slur start"
+              style={{ fontSize: '0.78rem' }}
+            >⌒◜</NoteEditBtn>
+            <NoteEditBtn
+              $active={!!selNoteInfo.slurStop}
+              onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, slurStop: !n.slurStop || undefined }))}
+              title="Slur stop"
+              style={{ fontSize: '0.78rem' }}
+            >◞⌒</NoteEditBtn>
+            <NoteEditBtn
+              $active={!!selNoteInfo.grace}
+              onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, grace: !n.grace || undefined }))}
+              title="Grace note"
+              style={{ fontSize: '0.7rem', fontWeight: 700 }}
+            >gr</NoteEditBtn>
+          </>)}
+
+          <Sep />
+          {/* ── Ottava (8va/8vb) toggle on the selected note ── */}
+          <NoteEditBtn
+            $active={!!selNoteInfo.ottavaStart}
+            onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+              if (n.ottavaStart) {
+                const next = { ...n };
+                delete next.ottavaStart;
+                return next;
+              }
+              return { ...n, ottavaStart: '8va' };
+            })}
+            title="Toggle 8va bracket start on this note"
+            style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontSize: '0.72rem' }}
+          >8va◜</NoteEditBtn>
+          <NoteEditBtn
+            $active={!!selNoteInfo.ottavaEnd}
+            onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, ottavaEnd: !n.ottavaEnd || undefined }))}
+            title="Toggle 8va bracket end on this note"
+            style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontSize: '0.72rem' }}
+          >◞8va</NoteEditBtn>
+
+          {/* ── Measure-level edits (only valid when the selected note is in a
+                committed measure — the still-open current measure isn't yet a
+                measure index we can structurally manipulate). ── */}
+          {selectedNote && selectedNote.mi < measures.length && (<>
+            <Sep />
+            {/* Repeat / volta / navigation (D.S./Coda/D.C./Fine) toggles */}
+            <NoteEditBtn
+              $active={!!measures[selectedNote.mi]?.repeatStart}
+              onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, repeatStart: !m.repeatStart || undefined }))}
+              title="Repeat start"
+            >
+              <svg width="14" height="18" viewBox="0 0 16 22" style={{ display: 'inline-block', verticalAlign: 'middle' }}><line x1="2" y1="1" x2="2" y2="21" stroke="currentColor" strokeWidth="2.5"/><line x1="5.5" y1="1" x2="5.5" y2="21" stroke="currentColor" strokeWidth="1"/><circle cx="10" cy="8" r="1.7" fill="currentColor"/><circle cx="10" cy="14" r="1.7" fill="currentColor"/></svg>
+            </NoteEditBtn>
+            <NoteEditBtn
+              $active={!!measures[selectedNote.mi]?.repeatEnd}
+              onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, repeatEnd: !m.repeatEnd || undefined }))}
+              title="Repeat end"
+            >
+              <svg width="14" height="18" viewBox="0 0 16 22" style={{ display: 'inline-block', verticalAlign: 'middle' }}><circle cx="6" cy="8" r="1.7" fill="currentColor"/><circle cx="6" cy="14" r="1.7" fill="currentColor"/><line x1="10.5" y1="1" x2="10.5" y2="21" stroke="currentColor" strokeWidth="1"/><line x1="14" y1="1" x2="14" y2="21" stroke="currentColor" strokeWidth="2.5"/></svg>
+            </NoteEditBtn>
+            <NoteEditBtn
+              $active={measures[selectedNote.mi]?.navigation === 'segno'}
+              onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: m.navigation === 'segno' ? undefined : 'segno' }))}
+              title="Segno (𝄋)"
+              style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.1rem' }}
+            >{''}</NoteEditBtn>
+            <NoteEditBtn
+              $active={measures[selectedNote.mi]?.navigation === 'coda'}
+              onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: m.navigation === 'coda' ? undefined : 'coda' }))}
+              title="Coda (𝄌)"
+              style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.1rem' }}
+            >{''}</NoteEditBtn>
+            <NoteEditBtn
+              $active={measures[selectedNote.mi]?.navigation === 'fine'}
+              onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: m.navigation === 'fine' ? undefined : 'fine' }))}
+              title="Fine"
+              style={{ fontSize: '0.65rem', fontWeight: 700, fontStyle: 'italic' }}
+            >Fine</NoteEditBtn>
+            <NoteEditBtn
+              $active={measures[selectedNote.mi]?.navigation === 'toCoda'}
+              onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: m.navigation === 'toCoda' ? undefined : 'toCoda' }))}
+              title="To Coda"
+              style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '0.75rem' }}
+            ><span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.6rem', fontWeight: 700, fontStyle: 'italic', marginRight: 1 }}>To</span>{''}</NoteEditBtn>
+            <select
+              value={(() => {
+                const n = measures[selectedNote.mi]?.navigation;
+                return n && ['dc', 'dcAlCoda', 'dcAlFine', 'ds', 'dsAlCoda', 'dsAlFine'].includes(n) ? n : '';
+              })()}
+              onChange={(e) => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: (e.target.value as NavigationMarker) || undefined }))}
+              style={{ fontSize: '0.65rem', padding: '3px 4px', border: '1px solid #ccc', borderRadius: 4 }}
+            >
+              <option value="">D.C./D.S.</option>
+              <option value="dc">D.C.</option>
+              <option value="dcAlCoda">D.C. al Coda</option>
+              <option value="dcAlFine">D.C. al Fine</option>
+              <option value="ds">D.S.</option>
+              <option value="dsAlCoda">D.S. al Coda</option>
+              <option value="dsAlFine">D.S. al Fine</option>
+            </select>
+
+            <Sep />
+            <NoteEditBtn
+              onClick={() => insertMeasureBefore(selectedNote.mi)}
+              title="Insert a fresh empty measure BEFORE this one"
+              style={{ fontSize: '0.72rem' }}
+            >＋ ◀ Bar</NoteEditBtn>
+            <NoteEditBtn
+              onClick={() => insertMeasureAfter(selectedNote.mi)}
+              title="Insert a fresh empty measure AFTER this one"
+              style={{ fontSize: '0.72rem' }}
+            >Bar ▶ ＋</NoteEditBtn>
+            <NoteEditBtn
+              onClick={() => {
+                if (confirm(`Delete measure ${selectedNote.mi + 1}? (undo with Backspace)`)) {
+                  deleteMeasure(selectedNote.mi);
+                }
+              }}
+              title="Delete this entire measure"
+              style={{ fontSize: '0.72rem', color: '#c0392b' }}
+            >🗑 Bar</NoteEditBtn>
+          </>)}
+          <NoteEditBtn
+            onClick={() => deleteNote(selectedNote.mi, selectedNote.ni)}
+            title="Delete just this note"
+            style={{ fontSize: '0.72rem', color: '#c0392b' }}
+          >🗑 Note</NoteEditBtn>
 
           <Sep />
           <NoteEditBtn onClick={() => setSelectedNote(null)}>✕ Deselect</NoteEditBtn>

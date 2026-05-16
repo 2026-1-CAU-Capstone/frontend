@@ -14,6 +14,12 @@ import {
   StaveTie,
   Tuplet,
   Repetition,
+  Articulation,
+  Annotation,
+  AnnotationVerticalJustify,
+  Ornament,
+  Tremolo,
+  Curve,
 } from 'vexflow';
 import type { NoteInfo, MeasureInfo } from '../../data/sampleMelody';
 import type { LickEntry } from '../../data/lickData';
@@ -468,6 +474,50 @@ function buildVfNotes(measure: MeasureInfo, initialAcc?: Map<string, LickAcc>, k
       }
     }
 
+    // ── Articulations (staccato/accent/tenuto/marcato) ──
+    if (n.articulations && n.articulations.length > 0) {
+      const stemDown = note.getStemDirection() === -1;
+      const pos = stemDown ? Articulation.Position.BELOW : Articulation.Position.ABOVE;
+      for (const a of n.articulations) {
+        const code = a === 'staccato' ? 'a.'
+          : a === 'accent' ? 'a>'
+          : a === 'tenuto' ? 'a-'
+          : a === 'marcato' ? 'a^'
+          : '';
+        if (code) note.addModifier(new Articulation(code).setPosition(pos), 0);
+      }
+    }
+
+    // ── Fermata ──
+    if (n.fermata) {
+      note.addModifier(new Articulation('a@a').setPosition(Articulation.Position.ABOVE), 0);
+    }
+
+    // ── Ornaments (trill/mordent/turn/tremolo) ──
+    if (n.ornaments && n.ornaments.length > 0) {
+      for (const o of n.ornaments) {
+        if (o === 'tremolo') {
+          note.addModifier(new Tremolo(3), 0);
+        } else {
+          const oName = o === 'trill' ? 'tr'
+            : o === 'mordent' ? 'mordent'
+            : o === 'inverted-mordent' ? 'mordent_inverted'
+            : o === 'turn' ? 'turn'
+            : o === 'inverted-turn' ? 'turn_inverted'
+            : '';
+          if (oName) note.addModifier(new Ornament(oName), 0);
+        }
+      }
+    }
+
+    // ── Dynamics (p/mp/mf/f/ff etc.) ──
+    if (n.dynamics) {
+      const ann = new Annotation(n.dynamics);
+      ann.setVerticalJustification(AnnotationVerticalJustify.BOTTOM);
+      ann.setFont('Times New Roman', 12, 'bold italic');
+      note.addModifier(ann, 0);
+    }
+
     return note;
   });
 }
@@ -847,6 +897,29 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
           }
         }
         flatIdx++;
+      }
+    }
+
+    // Draw slurs — stack-based start/stop tracking across the flat note list.
+    {
+      const slurStack: number[] = [];
+      let fi2 = 0;
+      for (const measure of data.measures) {
+        for (let ni = 0; ni < measure.notes.length; ni++) {
+          const n = measure.notes[ni];
+          if (n.slurStart) slurStack.push(fi2);
+          if (n.slurStop && slurStack.length > 0) {
+            const fromIdx = slurStack.pop()!;
+            const fromN = allVfNotes[fromIdx];
+            const toN = allVfNotes[fi2];
+            const fromLine = measureLine.get(noteMi[fromIdx]);
+            const toLine = measureLine.get(noteMi[fi2]);
+            if (fromN && toN && fromLine === toLine) {
+              new Curve(fromN, toN, {} as never).setContext(ctx).draw();
+            }
+          }
+          fi2++;
+        }
       }
     }
 
