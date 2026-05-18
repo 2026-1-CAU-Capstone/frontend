@@ -71,12 +71,7 @@ const MobileBrandBar = styled.div`
   }
 `;
 
-const MobileBrandLogo = styled.img`
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  object-fit: cover;
-`;
+/* MobileBrandLogo removed — wordmark stands alone now. */
 
 /* ── Sidebar (desktop tool list) ─────────────────────────────── */
 
@@ -103,12 +98,7 @@ const BrandRow = styled.div`
   padding: 0 6px;
 `;
 
-const BrandLogo = styled.img`
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  object-fit: cover;
-`;
+/* BrandLogo removed — wordmark stands alone now. */
 
 const SidebarSpacer = styled.div`
   flex: 1;
@@ -373,14 +363,14 @@ const HeroLogo = styled.img`
 `;
 
 const Greeting = styled.h1`
-  font-size: 3.2rem;
+  font-size: 2.6rem;
   font-weight: 600;
   color: ${({ theme }) => theme.colors.textPrimary};
   margin: 0;
   text-align: left;
   letter-spacing: -0.015em;
   line-height: 1.1;
-  ${mq.mobile} { font-size: 1.45rem; }
+  ${mq.mobile} { font-size: 1.35rem; }
 `;
 
 const Subtitle = styled.p`
@@ -490,12 +480,7 @@ const DrawerHeader = styled.div`
   padding: calc(max(16px, env(safe-area-inset-top, 0px)) + 6px) 16px 14px;
 `;
 
-const DrawerBrandLogo = styled.img`
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  object-fit: cover;
-`;
+/* DrawerBrandLogo removed — wordmark stands alone now. */
 
 const DrawerHeaderRight = styled.div`
   display: flex;
@@ -936,7 +921,6 @@ export default function HomePage() {
     <Wrapper $native={native}>
       {!native && (
         <MobileBrandBar>
-          <MobileBrandLogo src="/jazzifylogo.png" alt="Jazzify" />
           <BrandLogoImage height={48} onClick={() => navigate('/')} />
         </MobileBrandBar>
       )}
@@ -945,7 +929,6 @@ export default function HomePage() {
       {!native && (
         <Sidebar>
           <BrandRow>
-            <BrandLogo src="/jazzifylogo.png" alt="Jazzify" />
             <BrandLogoImage height={60} onClick={() => navigate('/')} />
           </BrandRow>
 
@@ -1006,7 +989,6 @@ export default function HomePage() {
             onTouchEnd={handleDrawerTouchEnd}
           >
             <DrawerHeader>
-              <DrawerBrandLogo src="/jazzifylogo.png" alt="Jazzify" />
               <BrandLogoImage height={48} />
               <DrawerHeaderRight>
                 {isLoggedIn && (

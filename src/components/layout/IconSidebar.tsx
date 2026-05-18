@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../../styles/theme';
-import { Logo } from '../common/Logo';
 import { BrandLogoImage } from '../common/BrandLogoImage';
 import { getCachedUser, onAuthChange, type AuthUser } from '../../api/auth';
 import { LoginModal } from '../auth/LoginModal';
@@ -99,80 +98,9 @@ const PanelToggleIcon = () => (
   </svg>
 );
 
-/* Collapsed-state top slot — Jazzify logo by default, swaps to the panel
- * toggle button on hover. A small "사이드바 열기" pill tooltip slides in to
- * the right so the affordance is obvious. */
-const TopSlot = styled.div`
-  position: relative;
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
-`;
-
-const SlotLogo = styled.div`
-  position: absolute;
-  inset: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: opacity 0.15s ease;
-
-  ${TopSlot}:hover & {
-    opacity: 0;
-    pointer-events: none;
-  }
-`;
-
-const SlotToggle = styled.button`
-  position: absolute;
-  inset: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: ${({ theme }) => theme.colors.textSecondary};
-  cursor: pointer;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease, background 0.15s, color 0.15s;
-
-  ${TopSlot}:hover & {
-    opacity: 1;
-    pointer-events: auto;
-  }
-  &:hover {
-    background: rgba(0, 0, 0, 0.06);
-    color: ${({ theme }) => theme.colors.textPrimary};
-  }
-`;
-
-const SlotTooltip = styled.span`
-  position: absolute;
-  left: calc(100% + 12px);
-  top: 50%;
-  transform: translateY(-50%) translateX(-4px);
-  white-space: nowrap;
-  background: #1a1a1a;
-  color: #fff;
-  font-family: ${({ theme }) => theme.fonts.ui};
-  font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  padding: 7px 12px;
-  border-radius: 999px;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.15s ease, transform 0.15s ease;
-  z-index: 120;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
-
-  ${TopSlot}:hover & {
-    opacity: 1;
-    transform: translateY(-50%) translateX(0);
-  }
-`;
+/* (TopSlot / SlotLogo / SlotToggle / SlotTooltip removed — the collapsed
+ *  rail now shows the toggle button directly instead of swapping a logo on
+ *  hover, matching the Claude/ChatGPT side-rail pattern.) */
 
 /* Spacer that pushes the avatar block to the very bottom of the rail. */
 const RailSpacer = styled.div`
@@ -547,26 +475,19 @@ export function IconSidebar({ hideAuthPromo = false }: IconSidebarProps = {}) {
         {expanded ? (
           <>
             <BrandRow>
-              <Logo />
-              <BrandLogoImage height={48} onClick={() => navigate('/')} />
+              <BrandLogoImage height={42} onClick={() => navigate('/')} />
             </BrandRow>
             <ToggleBtn onClick={toggleExpanded} title="사이드바 접기" aria-label="사이드바 접기">
               <PanelToggleIcon />
             </ToggleBtn>
           </>
         ) : (
-          <TopSlot>
-            <SlotLogo>
-              <Logo />
-            </SlotLogo>
-            <SlotToggle
-              onClick={toggleExpanded}
-              aria-label="사이드바 열기"
-            >
-              <PanelToggleIcon />
-            </SlotToggle>
-            <SlotTooltip>사이드바 열기</SlotTooltip>
-          </TopSlot>
+          /* Collapsed: just the toggle button — no logo, matches the
+           * Claude/ChatGPT side-rail pattern where the brand mark vanishes
+           * once the rail itself is doing all the work. */
+          <ToggleBtn onClick={toggleExpanded} title="사이드바 열기" aria-label="사이드바 열기">
+            <PanelToggleIcon />
+          </ToggleBtn>
         )}
       </TopRow>
 
