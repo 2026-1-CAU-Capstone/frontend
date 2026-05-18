@@ -1060,7 +1060,7 @@ export default function HomePage() {
           {sidebarExpanded ? (
             <>
               <BrandRow>
-                <BrandLogoImage height={56} scaleX={1.1} onClick={() => navigate('/')} />
+                <BrandLogoImage height={38} scaleX={1.05} onClick={() => navigate('/')} />
                 <SidebarToggleBtn onClick={toggleSidebar} aria-label="사이드바 접기">
                   <PanelToggleIcon />
                   <SidebarToggleTooltip>사이드바 접기</SidebarToggleTooltip>
