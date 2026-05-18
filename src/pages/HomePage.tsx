@@ -77,14 +77,14 @@ const MobileBrandBar = styled.div`
 /* ── Sidebar (desktop tool list) ─────────────────────────────── */
 
 const Sidebar = styled.aside<{ $collapsed?: boolean }>`
-  width: ${({ $collapsed }) => ($collapsed ? '56px' : '280px')};
+  width: ${({ $collapsed }) => ($collapsed ? '48px' : '280px')};
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: ${({ $collapsed }) => ($collapsed ? 'center' : 'stretch')};
   background: ${({ theme }) => theme.colors.bgSecondary};
   border-right: 1px solid ${({ theme }) => theme.colors.border};
-  padding: ${({ $collapsed }) => ($collapsed ? '0 0 22px' : '0 4px 22px 14px')};
+  padding: ${({ $collapsed }) => ($collapsed ? '12px 0 22px' : '0 4px 22px 14px')};
   gap: ${({ $collapsed }) => ($collapsed ? '4px' : '14px')};
   overflow: visible;
   transition: width 0.22s ease, padding 0.22s ease;
@@ -1059,7 +1059,7 @@ export default function HomePage() {
           {sidebarExpanded ? (
             <>
               <BrandRow>
-                <BrandLogoImage height={56} scaleX={1.05} onClick={() => navigate('/')} />
+                <BrandLogoImage height={45} scaleX={1.10} onClick={() => navigate('/')} />
                 <SidebarToggleBtn onClick={toggleSidebar} aria-label="사이드바 접기">
                   <PanelToggleIcon />
                   <SidebarToggleTooltip>사이드바 접기</SidebarToggleTooltip>
