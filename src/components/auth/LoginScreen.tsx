@@ -87,7 +87,7 @@ export function LoginScreen({ onLogin, onClose }: Props) {
       </TopBar>
 
       <Content>
-        <BrandLogoImage height={110} />
+        <BrandLogoImage height={110} onClick={onClose} />
 
         {step === 'form' ? (
           <>

@@ -73,8 +73,8 @@ const BrandRow = styled.div`
 /* Square panel-toggle icon button (matches the side-panel-toggle iconography
  * used by ChatGPT / Claude). */
 const ToggleBtn = styled.button`
-  width: 50px;
-  height: 50px;
+  width: 46px;
+  height: 46px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -480,7 +480,7 @@ export function IconSidebar({ hideAuthPromo = false }: IconSidebarProps = {}) {
         {expanded ? (
           <>
             <BrandRow>
-              <BrandLogoImage height={32} scaleX={1.05} onClick={() => navigate('/')} />
+              <BrandLogoImage height={28} scaleX={1.05} onClick={() => navigate('/')} />
             </BrandRow>
             <ToggleBtn onClick={toggleExpanded} title="사이드바 접기" aria-label="사이드바 접기">
               <PanelToggleIcon />
