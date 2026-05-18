@@ -76,16 +76,18 @@ const MobileBrandBar = styled.div`
 
 /* ── Sidebar (desktop tool list) ─────────────────────────────── */
 
-const Sidebar = styled.aside`
-  width: 280px;
+const Sidebar = styled.aside<{ $collapsed?: boolean }>`
+  width: ${({ $collapsed }) => ($collapsed ? '56px' : '280px')};
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
+  align-items: ${({ $collapsed }) => ($collapsed ? 'center' : 'stretch')};
   background: ${({ theme }) => theme.colors.bgSecondary};
   border-right: 1px solid ${({ theme }) => theme.colors.border};
-  padding: 0 4px 22px 14px;
-  gap: 14px;
+  padding: ${({ $collapsed }) => ($collapsed ? '0 0 22px' : '0 4px 22px 14px')};
+  gap: ${({ $collapsed }) => ($collapsed ? '4px' : '14px')};
   overflow: hidden;
+  transition: width 0.22s ease, padding 0.22s ease;
 
   ${mq.mobile} {
     display: none;
@@ -105,8 +107,11 @@ const BrandRow = styled.div`
 `;
 
 /** Same shape + hover behaviour as IconSidebar's ToggleBtn — kept inline so
- *  the two sidebars don't have to share a styled-component module. */
+ *  the two sidebars don't have to share a styled-component module.
+ *  position:relative is set so the absolute-positioned tooltip child anchors
+ *  to this button. */
 const SidebarToggleBtn = styled.button`
+  position: relative;
   width: 42px;
   height: 42px;
   display: inline-flex;
@@ -126,32 +131,82 @@ const SidebarToggleBtn = styled.button`
   }
 `;
 
-/** Floating toggle pinned to the top-left when the sidebar is collapsed.
- *  Clicking it re-expands the sidebar. */
-const FloatingOpenBtn = styled.button`
-  position: absolute;
-  top: max(10px, env(safe-area-inset-top, 0px));
-  left: max(10px, env(safe-area-inset-left, 0px));
-  z-index: 60;
-  width: 36px;
-  height: 36px;
+/** Top toggle inside the collapsed narrow rail — same look as
+ *  SidebarToggleBtn but full width of the 56px rail. */
+const NarrowToggleBtn = styled.button`
+  position: relative;
+  width: 42px;
+  height: 42px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 10px;
-  background: ${({ theme }) => theme.colors.bgPrimary};
+  border: none;
+  border-radius: 8px;
+  background: transparent;
   color: ${({ theme }) => theme.colors.textSecondary};
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  transition: background 0.15s, color 0.15s;
+  margin-top: 4px;
+  margin-bottom: 8px;
 
   &:hover {
-    background: rgba(0, 0, 0, 0.04);
+    background: rgba(0, 0, 0, 0.05);
     color: ${({ theme }) => theme.colors.textPrimary};
   }
+`;
 
-  ${mq.mobile} { display: none; }
+/** Per-icon button used in the narrow rail (collapsed state). Renders the
+ *  icon centered and reveals a tooltip on hover. */
+const NarrowIconBtn = styled.button`
+  position: relative;
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, opacity 0.15s;
+
+  &:hover:not(:disabled) {
+    background: rgba(0, 0, 0, 0.05);
+    color: ${({ theme }) => theme.colors.textPrimary};
+  }
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+`;
+
+/** Pill-style tooltip that slides in from the right of any button it's
+ *  nested inside. Triggered on parent :hover. Matches the look used in
+ *  IconSidebar for its hidden NAV labels. */
+const SidebarToggleTooltip = styled.span`
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-4px);
+  white-space: nowrap;
+  background: #1a1a1a;
+  color: #fff;
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  padding: 6px 10px;
+  border-radius: 999px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 120;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+
+  button:hover > & {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
 `;
 
 /* BrandLogo removed — wordmark stands alone now. */
@@ -997,69 +1052,101 @@ export default function HomePage() {
       )}
 
       {/* Desktop / web sidebar — hidden on native (replaced by drawer).
-       *  Collapses to nothing via the top-right toggle, matching the
-       *  Claude-style affordance used by IconSidebar. */}
-      {!native && sidebarExpanded && (
-        <Sidebar>
-          <BrandRow>
-            <BrandLogoImage height={80} scaleX={1.1} onClick={() => navigate('/')} />
-            <SidebarToggleBtn onClick={toggleSidebar} title="사이드바 접기" aria-label="사이드바 접기">
-              <PanelToggleIcon />
-            </SidebarToggleBtn>
-          </BrandRow>
+       *  Expanded = full panel with wordmark + quick nav + tools + promo.
+       *  Collapsed = 56px narrow rail with icons only, matching
+       *  IconSidebar's Claude-style affordance. */}
+      {!native && (
+        <Sidebar $collapsed={!sidebarExpanded}>
+          {sidebarExpanded ? (
+            <>
+              <BrandRow>
+                <BrandLogoImage height={56} scaleX={1.1} onClick={() => navigate('/')} />
+                <SidebarToggleBtn onClick={toggleSidebar} aria-label="사이드바 접기">
+                  <PanelToggleIcon />
+                  <SidebarToggleTooltip>사이드바 접기</SidebarToggleTooltip>
+                </SidebarToggleBtn>
+              </BrandRow>
 
-          {/* Quick nav — ChatGPT-style "+ 새 채팅 / 검색 / 채팅" right under
-           *  the logo. Handlers are placeholders; wire them once chat history
-           *  + search backends exist. */}
-          <QuickNavList>
-            <QuickNavBtn onClick={handleNewChatClick}>
-              <QuickNavIcon><NewChatIcon /></QuickNavIcon>
-              <span>새 채팅</span>
-            </QuickNavBtn>
-            <QuickNavBtn onClick={() => { /* TODO: open chat-search overlay */ }}>
-              <QuickNavIcon><SearchIcon /></QuickNavIcon>
-              <span>검색</span>
-            </QuickNavBtn>
-            <QuickNavBtn
-              onClick={openChatHistory}
-              disabled={!isLoggedIn}
-              title={isLoggedIn ? '대화 기록' : '로그인 후 사용할 수 있어요'}
-            >
-              <QuickNavIcon><ChatIcon /></QuickNavIcon>
-              <span>채팅</span>
-            </QuickNavBtn>
-          </QuickNavList>
+              <QuickNavList>
+                <QuickNavBtn onClick={handleNewChatClick}>
+                  <QuickNavIcon><NewChatIcon /></QuickNavIcon>
+                  <span>새 채팅</span>
+                </QuickNavBtn>
+                <QuickNavBtn onClick={() => { /* TODO: open chat-search overlay */ }}>
+                  <QuickNavIcon><SearchIcon /></QuickNavIcon>
+                  <span>검색</span>
+                </QuickNavBtn>
+                <QuickNavBtn
+                  onClick={openChatHistory}
+                  disabled={!isLoggedIn}
+                  title={isLoggedIn ? '대화 기록' : '로그인 후 사용할 수 있어요'}
+                >
+                  <QuickNavIcon><ChatIcon /></QuickNavIcon>
+                  <span>채팅</span>
+                </QuickNavBtn>
+              </QuickNavList>
 
-          <SidebarSpacer />
-          <ToolList>
-            {TOOLS.map((t) => (
-              <ToolBtn key={t.path} onClick={() => goTo(t.path)}>
-                <span>{t.icon}</span>
-                {t.label}
-              </ToolBtn>
-            ))}
-          </ToolList>
-          {isLoggedIn && authUser ? (
-            <UserMenu user={authUser} />
+              <SidebarSpacer />
+              <ToolList>
+                {TOOLS.map((t) => (
+                  <ToolBtn key={t.path} onClick={() => goTo(t.path)}>
+                    <span>{t.icon}</span>
+                    {t.label}
+                  </ToolBtn>
+                ))}
+              </ToolList>
+              {isLoggedIn && authUser ? (
+                <UserMenu user={authUser} />
+              ) : (
+                <SidebarPromo>
+                  <SidebarPromoTitle>나만의 재즈 라이브러리를 시작하세요</SidebarPromoTitle>
+                  <SidebarPromoText>로그인하면 릭·솔로를 저장하고, 개인화된 코드 분석과 추천을 받을 수 있어요.</SidebarPromoText>
+                  <SidebarPromoBtn onClick={() => setLoginOpen(true)}>로그인</SidebarPromoBtn>
+                </SidebarPromo>
+              )}
+            </>
           ) : (
-            <SidebarPromo>
-              <SidebarPromoTitle>나만의 재즈 라이브러리를 시작하세요</SidebarPromoTitle>
-              <SidebarPromoText>로그인하면 릭·솔로를 저장하고, 개인화된 코드 분석과 추천을 받을 수 있어요.</SidebarPromoText>
-              <SidebarPromoBtn onClick={() => setLoginOpen(true)}>로그인</SidebarPromoBtn>
-            </SidebarPromo>
+            <>
+              <NarrowToggleBtn onClick={toggleSidebar} aria-label="사이드바 열기">
+                <PanelToggleIcon />
+                <SidebarToggleTooltip>사이드바 열기</SidebarToggleTooltip>
+              </NarrowToggleBtn>
+
+              <NarrowIconBtn onClick={handleNewChatClick} aria-label="새 채팅">
+                <NewChatIcon />
+                <SidebarToggleTooltip>새 채팅</SidebarToggleTooltip>
+              </NarrowIconBtn>
+              <NarrowIconBtn aria-label="검색">
+                <SearchIcon />
+                <SidebarToggleTooltip>검색</SidebarToggleTooltip>
+              </NarrowIconBtn>
+              <NarrowIconBtn
+                onClick={openChatHistory}
+                disabled={!isLoggedIn}
+                aria-label="채팅"
+              >
+                <ChatIcon />
+                <SidebarToggleTooltip>{isLoggedIn ? '채팅' : '로그인 필요'}</SidebarToggleTooltip>
+              </NarrowIconBtn>
+
+              <SidebarSpacer />
+
+              {TOOLS.map((t) => (
+                <NarrowIconBtn
+                  key={t.path}
+                  onClick={() => goTo(t.path)}
+                  aria-label={t.label}
+                >
+                  <span style={{ fontSize: '1.1em' }}>{t.icon}</span>
+                  <SidebarToggleTooltip>{t.label}</SidebarToggleTooltip>
+                </NarrowIconBtn>
+              ))}
+            </>
           )}
         </Sidebar>
       )}
 
       {!native && <AuthTopBar onLoginClick={() => setLoginOpen(true)} />}
-
-      {/* When the sidebar is collapsed, surface a small floating toggle so
-       *  the user can bring it back. */}
-      {!native && !sidebarExpanded && (
-        <FloatingOpenBtn onClick={toggleSidebar} title="사이드바 열기" aria-label="사이드바 열기">
-          <PanelToggleIcon />
-        </FloatingOpenBtn>
-      )}
 
       {/* Native hamburger + full-screen drawer. */}
       {native && (
