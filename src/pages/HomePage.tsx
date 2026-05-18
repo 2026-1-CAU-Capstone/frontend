@@ -64,8 +64,8 @@ const MobileBrandBar = styled.div`
     align-items: center;
     gap: 8px;
     position: absolute;
-    top: max(14px, env(safe-area-inset-top, 0px));
-    left: max(16px, env(safe-area-inset-left, 0px));
+    top: max(4px, env(safe-area-inset-top, 0px));
+    left: max(12px, env(safe-area-inset-left, 0px));
     z-index: 40;
     pointer-events: none;
   }
@@ -82,8 +82,8 @@ const Sidebar = styled.aside`
   flex-direction: column;
   background: ${({ theme }) => theme.colors.bgSecondary};
   border-right: 1px solid ${({ theme }) => theme.colors.border};
-  padding: 22px 16px;
-  gap: 22px;
+  padding: 8px 16px 22px;
+  gap: 18px;
   overflow: hidden;
 
   ${mq.mobile} {
@@ -921,7 +921,7 @@ export default function HomePage() {
     <Wrapper $native={native}>
       {!native && (
         <MobileBrandBar>
-          <BrandLogoImage height={48} onClick={() => navigate('/')} />
+          <BrandLogoImage height={62} onClick={() => navigate('/')} />
         </MobileBrandBar>
       )}
 
@@ -929,7 +929,7 @@ export default function HomePage() {
       {!native && (
         <Sidebar>
           <BrandRow>
-            <BrandLogoImage height={60} onClick={() => navigate('/')} />
+            <BrandLogoImage height={78} onClick={() => navigate('/')} />
           </BrandRow>
 
           {/* Quick nav — ChatGPT-style "+ 새 채팅 / 검색 / 채팅" right under
@@ -989,7 +989,7 @@ export default function HomePage() {
             onTouchEnd={handleDrawerTouchEnd}
           >
             <DrawerHeader>
-              <BrandLogoImage height={48} />
+              <BrandLogoImage height={62} />
               <DrawerHeaderRight>
                 {isLoggedIn && (
                   <DrawerAvatarBtn onClick={() => setAccountOpen(true)} aria-label="계정">

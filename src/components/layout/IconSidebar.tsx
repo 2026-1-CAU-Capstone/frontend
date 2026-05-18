@@ -29,7 +29,7 @@ const Rail = styled.nav<{ $expanded: boolean }>`
   display: flex;
   flex-direction: column;
   align-items: ${({ $expanded }) => ($expanded ? 'stretch' : 'center')};
-  padding: 12px ${({ $expanded }) => ($expanded ? '10px' : '0')};
+  padding: 4px ${({ $expanded }) => ($expanded ? '10px' : '0')};
   gap: 4px;
   background: transparent;
   /* Solid right border so the rail visually separates from the chat area. */
@@ -37,7 +37,7 @@ const Rail = styled.nav<{ $expanded: boolean }>`
   transition: width 0.22s ease, padding 0.22s ease, align-items 0.22s ease;
 
   /* iPhone notch / iPad gesture area */
-  padding-top: max(12px, env(safe-area-inset-top, 0px));
+  padding-top: max(4px, env(safe-area-inset-top, 0px));
   padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
 
   ${mq.mobile} {
@@ -57,7 +57,7 @@ const TopRow = styled.div<{ $expanded: boolean }>`
   align-items: center;
   justify-content: ${({ $expanded }) => ($expanded ? 'space-between' : 'center')};
   width: 100%;
-  padding: ${({ $expanded }) => ($expanded ? '4px 6px 0' : '0')};
+  padding: ${({ $expanded }) => ($expanded ? '0 6px' : '0')};
   gap: 8px;
 `;
 
@@ -475,7 +475,7 @@ export function IconSidebar({ hideAuthPromo = false }: IconSidebarProps = {}) {
         {expanded ? (
           <>
             <BrandRow>
-              <BrandLogoImage height={42} onClick={() => navigate('/')} />
+              <BrandLogoImage height={60} onClick={() => navigate('/')} />
             </BrandRow>
             <ToggleBtn onClick={toggleExpanded} title="사이드바 접기" aria-label="사이드바 접기">
               <PanelToggleIcon />
