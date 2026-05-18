@@ -98,9 +98,9 @@ const BrandRow = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 60px;
-  padding: 0;
-  margin-top: 0;
+  gap: 6px;
+  padding: 8px;
+  margin-top: 10px;
   margin-bottom: 0;
 `;
 
@@ -110,8 +110,8 @@ const BrandRow = styled.div`
  *  to this button. */
 const SidebarToggleBtn = styled.button`
   position: relative;
-  width: 42px;
-  height: 42px;
+  width: 50px;
+  height: 50px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -133,8 +133,8 @@ const SidebarToggleBtn = styled.button`
  *  SidebarToggleBtn but full width of the 56px rail. */
 const NarrowToggleBtn = styled.button`
   position: relative;
-  width: 42px;
-  height: 42px;
+  width: 50px;
+  height: 50px;
   display: inline-flex;
   align-items: center;
   justify-content: center;

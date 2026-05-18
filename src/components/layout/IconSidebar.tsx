@@ -73,8 +73,8 @@ const BrandRow = styled.div`
 /* Square panel-toggle icon button (matches the side-panel-toggle iconography
  * used by ChatGPT / Claude). */
 const ToggleBtn = styled.button`
-  width: 42px;
-  height: 42px;
+  width: 50px;
+  height: 50px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
