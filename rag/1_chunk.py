@@ -111,11 +111,32 @@ def build_chunk(
     response: str,
     topic_tags: list[str],
 ) -> dict:
-    embed_text = (
+    # Prefix every chunk's embed_text with a short song-context header so that
+    # song name / key keywords get matched on retrieval. Without this, embeddings
+    # only see {title, instruction, response} and song-specific queries like
+    # "All of Me 도미넌트 체인" miss the connection.
+    #   standards: "[<곡명> · <키>]"
+    #   lessons:   "[강의: <source>] (분석: <analyzed_songs>)" — falls back to
+    #              source/analyzed_songs since a lesson can cover many songs.
+    if source_type == "standard":
+        song = meta.get("song", "").strip()
+        key = meta.get("key", "").strip()
+        header_parts = [p for p in (song, key) if p]
+        header = f"[{' · '.join(header_parts)}]" if header_parts else ""
+    else:
+        src = meta.get("source", "").strip()
+        songs = meta.get("analyzed_songs", "").strip()
+        bits = []
+        if src: bits.append(f"강의: {src}")
+        if songs: bits.append(f"분석: {songs}")
+        header = f"[{' / '.join(bits)}]" if bits else ""
+
+    body = (
         f"{title}\n질문: {instruction}\n답변: {response}"
         if instruction
         else f"{title}\n{response}"
     )
+    embed_text = f"{header}\n{body}" if header else body
     return {
         "id":           f"{source_type}__{file_base}__{section_id}",
         "source_type":  source_type,

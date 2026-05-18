@@ -8,6 +8,11 @@ import {
 } from '../../data/lickVideos';
 import { loadLicks, invalidateLicksCache } from '../../data/lickData';
 import { updateLickVideo, updateLick } from '../../api/licks';
+import {
+  fetchOnsetSuggestions,
+  type OnsetCandidate,
+  type OnsetSuggestion,
+} from '../../api/onsetSuggest';
 
 /* ─────────────────────────────────────────────────────────────────────────
  * YouTube Onset Parser — admin-only tool for tagging lick start/end times.
@@ -96,6 +101,9 @@ export function YoutubeOnsetParser() {
   const [overrides, setOverrides] = useState<Record<string, LickVideo>>(() =>
     loadLickVideoOverrides(),
   );
+  const [suggestions, setSuggestions] = useState<OnsetSuggestion | null>(null);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [appliedRank, setAppliedRank] = useState<number | null>(null);
 
   const playerRef = useRef<YTPlayer | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -207,8 +215,46 @@ export function YoutubeOnsetParser() {
     setVideoId(id);
     setStartSec(null);
     setEndSec(null);
+    setSuggestions(null);
+    setAppliedRank(null);
     setStatus(`로드됨: ${id}`);
   }, [urlInput]);
+
+  const handleFetchSuggestions = useCallback(async () => {
+    if (!videoId) {
+      setStatus('영상이 먼저 로드되어야 합니다', 'err');
+      return;
+    }
+    setSuggestionsLoading(true);
+    setSuggestions(null);
+    setAppliedRank(null);
+    try {
+      const res = await fetchOnsetSuggestions(videoId);
+      if (!res) {
+        setStatus('이 영상에 대한 AI 추천 데이터가 없습니다 (mock)', 'err');
+      } else {
+        setSuggestions(res);
+        setStatus(`AI: ${res.candidates.length}개 후보 (정답 ${formatTime(res.gtStartSec)} · ${res.nEvents}음)`);
+      }
+    } catch (err) {
+      console.error(err);
+      setStatus('AI 추천 호출 실패', 'err');
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  }, [videoId]);
+
+  const handleApplyCandidate = (c: OnsetCandidate, rank: number) => {
+    const p = playerRef.current;
+    if (p) {
+      p.seekTo(c.startSec, true);
+      p.playVideo();
+    }
+    setStartSec(c.startSec);
+    setEndSec(c.endSec);
+    setAppliedRank(rank);
+    setStatus(`#${rank} 적용 — ${formatTime(c.startSec)} → ${formatTime(c.endSec)}. ←/→로 미세조정 후 전송.`);
+  };
 
   const handleRecordStart = () => {
     setStartSec(currentTime);
@@ -336,6 +382,43 @@ export function YoutubeOnsetParser() {
         <Big>{formatTime(currentTime)}</Big>
         <Sub>/ {formatTime(duration)}</Sub>
       </TimeRow>
+
+      {videoId && (
+        <SuggestSection>
+          <SuggestHeader>
+            <SectionTitle style={{ margin: 0 }}>AI 추천 후보</SectionTitle>
+            <Btn onClick={handleFetchSuggestions} disabled={suggestionsLoading}>
+              {suggestionsLoading ? '계산 중…' : '🪄 후보 가져오기'}
+            </Btn>
+            <SuggestNote>(현재 mock — 6개 영상만 데이터 있음)</SuggestNote>
+          </SuggestHeader>
+          {suggestions && (
+            <>
+              <SuggestMeta>
+                {suggestions.label} · 정답 <Mono>{formatTime(suggestions.gtStartSec)}</Mono> · {suggestions.nEvents}음
+              </SuggestMeta>
+              <CardGrid>
+                {suggestions.candidates.map((c, i) => {
+                  const rank = i + 1;
+                  const errSec = Math.abs(c.startSec - suggestions.gtStartSec);
+                  return (
+                    <Card
+                      key={i}
+                      $applied={appliedRank === rank}
+                      onClick={() => handleApplyCandidate(c, rank)}
+                      title={`정답과 오차: ${errSec.toFixed(2)}s`}
+                    >
+                      <CardRank>#{rank}</CardRank>
+                      <CardStart>{formatTime(c.startSec)}</CardStart>
+                      <CardScore>cost {c.score.toFixed(3)}</CardScore>
+                    </Card>
+                  );
+                })}
+              </CardGrid>
+            </>
+          )}
+        </SuggestSection>
+      )}
 
       <Row>
         <Btn onClick={handleRecordStart}>
@@ -561,4 +644,75 @@ const Table = styled.table`
     font-weight: 600;
     color: ${({ theme }) => theme.colors.textSecondary};
   }
+`;
+
+const SuggestSection = styled.div`
+  border: 1px dashed ${({ theme }) => theme.colors.border};
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: ${({ theme }) => theme.colors.bgSecondary};
+`;
+
+const SuggestHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+`;
+
+const SuggestNote = styled.span`
+  font-size: 0.78rem;
+  color: ${({ theme }) => theme.colors.textSecondary};
+`;
+
+const SuggestMeta = styled.div`
+  font-size: 0.85rem;
+  color: ${({ theme }) => theme.colors.textSecondary};
+`;
+
+const CardGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+`;
+
+const Card = styled.button<{ $applied?: boolean }>`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1.5px solid ${({ $applied, theme }) => ($applied ? theme.colors.gold : theme.colors.border)};
+  background: ${({ $applied, theme }) => ($applied ? theme.colors.gold + '22' : theme.colors.bgPrimary)};
+  color: ${({ theme }) => theme.colors.textPrimary};
+  cursor: pointer;
+  text-align: left;
+  font-family: ${({ theme }) => theme.fonts.ui};
+  transition: border-color 120ms ease;
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.gold};
+  }
+`;
+
+const CardRank = styled.div`
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.textSecondary};
+`;
+
+const CardStart = styled.div`
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.textPrimary};
+`;
+
+const CardScore = styled.div`
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.72rem;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;

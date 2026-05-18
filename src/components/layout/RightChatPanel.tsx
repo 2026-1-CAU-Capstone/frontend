@@ -493,7 +493,10 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
          *  PanelContainer (see below) so it sticks above the keyboard and
          *  persists even after the first message. */}
         {messages.length === 0 && inputInIntro && !inputAtTop && !nativeIntroLayout && (
-          <IntroInputSlot>
+          /* Empty-state input is wider than the post-chat one to match the
+           * roomier hero column. Inline maxWidth overrides the styled
+           * IntroInputSlot's default 760 cap. */
+          <IntroInputSlot style={{ maxWidth: '950px' }}>
             <IntroChatInput
               onSend={handleSend}
               disabled={loading}

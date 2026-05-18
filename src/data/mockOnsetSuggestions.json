@@ -1,0 +1,350 @@
+{
+  "MV8wWjVqCng": {
+    "label": "id=2 Art Pepper — Anthropology (cl)",
+    "gtStartSec": 137.0,
+    "gtEndSec": null,
+    "nEvents": 5,
+    "candidates": [
+      {
+        "startSec": 129.697,
+        "endSec": 130.452,
+        "score": 0.8143
+      },
+      {
+        "startSec": 161.158,
+        "endSec": 162.005,
+        "score": 0.8417
+      },
+      {
+        "startSec": 142.453,
+        "endSec": 143.139,
+        "score": 0.8983
+      },
+      {
+        "startSec": 40.289,
+        "endSec": 40.777,
+        "score": 1.0399
+      },
+      {
+        "startSec": 12.221,
+        "endSec": 12.779,
+        "score": 1.0858
+      },
+      {
+        "startSec": 183.126,
+        "endSec": 183.962,
+        "score": 1.0884
+      },
+      {
+        "startSec": 193.175,
+        "endSec": 193.698,
+        "score": 1.1019
+      },
+      {
+        "startSec": 179.234,
+        "endSec": 179.954,
+        "score": 1.1079
+      },
+      {
+        "startSec": 83.087,
+        "endSec": 83.797,
+        "score": 1.1605
+      },
+      {
+        "startSec": 148.505,
+        "endSec": 149.192,
+        "score": 1.1744
+      }
+    ]
+  },
+  "g3tETxZY7Vo": {
+    "label": "id=63 Art Pepper — Desafinado (as)",
+    "gtStartSec": 50.604,
+    "gtEndSec": 55.108,
+    "nEvents": 11,
+    "candidates": [
+      {
+        "startSec": 60.306,
+        "endSec": 62.281,
+        "score": 1.195
+      },
+      {
+        "startSec": 63.687,
+        "endSec": 67.009,
+        "score": 1.2487
+      },
+      {
+        "startSec": 35.757,
+        "endSec": 40.022,
+        "score": 1.2496
+      },
+      {
+        "startSec": 133.647,
+        "endSec": 136.505,
+        "score": 1.348
+      },
+      {
+        "startSec": 102.64,
+        "endSec": 104.568,
+        "score": 1.424
+      },
+      {
+        "startSec": 51.139,
+        "endSec": 53.59,
+        "score": 1.5605
+      },
+      {
+        "startSec": 18.03,
+        "endSec": 21.84,
+        "score": 1.5731
+      },
+      {
+        "startSec": 8.759,
+        "endSec": 10.049,
+        "score": 1.6413
+      },
+      {
+        "startSec": 119.648,
+        "endSec": 121.437,
+        "score": 1.6552
+      },
+      {
+        "startSec": 23.478,
+        "endSec": 25.79,
+        "score": 1.6684
+      }
+    ]
+  },
+  "HSeiIvBdAis": {
+    "label": "id=64 Art Pepper — Desafinado (as)",
+    "gtStartSec": 52.319,
+    "gtEndSec": 55.522,
+    "nEvents": 5,
+    "candidates": [
+      {
+        "startSec": 77.5,
+        "endSec": 78.336,
+        "score": 0.6414
+      },
+      {
+        "startSec": 11.071,
+        "endSec": 11.931,
+        "score": 0.6533
+      },
+      {
+        "startSec": 47.468,
+        "endSec": 48.085,
+        "score": 0.6623
+      },
+      {
+        "startSec": 157.301,
+        "endSec": 158.055,
+        "score": 0.7086
+      },
+      {
+        "startSec": 31.099,
+        "endSec": 31.61,
+        "score": 0.7493
+      },
+      {
+        "startSec": 116.302,
+        "endSec": 116.813,
+        "score": 0.7822
+      },
+      {
+        "startSec": 93.648,
+        "endSec": 94.264,
+        "score": 0.8052
+      },
+      {
+        "startSec": 107.182,
+        "endSec": 107.601,
+        "score": 0.8581
+      },
+      {
+        "startSec": 40.022,
+        "endSec": 40.672,
+        "score": 0.8949
+      },
+      {
+        "startSec": 48.537,
+        "endSec": 49.141,
+        "score": 0.9235
+      }
+    ]
+  },
+  "nJ-i3i2B9O0": {
+    "label": "backend Hank Mobley — This I Dig Of You (ts)",
+    "gtStartSec": 181.297,
+    "gtEndSec": 185.781,
+    "nEvents": 32,
+    "candidates": [
+      {
+        "startSec": 122.738,
+        "endSec": 124.492,
+        "score": 1.0035
+      },
+      {
+        "startSec": 51.592,
+        "endSec": 56.646,
+        "score": 1.0166
+      },
+      {
+        "startSec": 98.353,
+        "endSec": 101.059,
+        "score": 1.0521
+      },
+      {
+        "startSec": 39.475,
+        "endSec": 42.392,
+        "score": 1.1496
+      },
+      {
+        "startSec": 205.327,
+        "endSec": 206.942,
+        "score": 1.156
+      },
+      {
+        "startSec": 116.604,
+        "endSec": 119.567,
+        "score": 1.1611
+      },
+      {
+        "startSec": 59.457,
+        "endSec": 62.049,
+        "score": 1.1934
+      },
+      {
+        "startSec": 149.192,
+        "endSec": 153.351,
+        "score": 1.2016
+      },
+      {
+        "startSec": 194.883,
+        "endSec": 196.625,
+        "score": 1.2179
+      },
+      {
+        "startSec": 181.418,
+        "endSec": 183.37,
+        "score": 1.2589
+      }
+    ]
+  },
+  "G7USMqAH8qk": {
+    "label": "backend Charlie Parker — Blues For Alice (as)",
+    "gtStartSec": 68.712,
+    "gtEndSec": 72.824,
+    "nEvents": 33,
+    "candidates": [
+      {
+        "startSec": 40.823,
+        "endSec": 43.564,
+        "score": 1.0566
+      },
+      {
+        "startSec": 63.5,
+        "endSec": 67.38,
+        "score": 1.3358
+      },
+      {
+        "startSec": 24.129,
+        "endSec": 26.534,
+        "score": 1.3875
+      },
+      {
+        "startSec": 117.453,
+        "endSec": 120.821,
+        "score": 1.4067
+      },
+      {
+        "startSec": 9.374,
+        "endSec": 11.14,
+        "score": 1.4139
+      },
+      {
+        "startSec": 144.474,
+        "endSec": 145.393,
+        "score": 1.6923
+      },
+      {
+        "startSec": 136.516,
+        "endSec": 138.723,
+        "score": 1.6972
+      },
+      {
+        "startSec": 53.789,
+        "endSec": 55.625,
+        "score": 1.7197
+      },
+      {
+        "startSec": 69.274,
+        "endSec": 72.005,
+        "score": 1.7217
+      },
+      {
+        "startSec": 34.527,
+        "endSec": 35.363,
+        "score": 1.7232
+      }
+    ]
+  },
+  "HSeiIvBdAis#backend Charlie Parker — Scrapple From The Apple (as)": {
+    "label": "backend Charlie Parker — Scrapple From The Apple (as)",
+    "gtStartSec": 52.319,
+    "gtEndSec": 55.522,
+    "nEvents": 23,
+    "candidates": [
+      {
+        "startSec": 82.785,
+        "endSec": 85.714,
+        "score": 1.1803
+      },
+      {
+        "startSec": 38.21,
+        "endSec": 40.533,
+        "score": 1.2141
+      },
+      {
+        "startSec": 47.468,
+        "endSec": 50.582,
+        "score": 1.2206
+      },
+      {
+        "startSec": 85.725,
+        "endSec": 87.747,
+        "score": 1.248
+      },
+      {
+        "startSec": 69.867,
+        "endSec": 72.562,
+        "score": 1.3444
+      },
+      {
+        "startSec": 93.648,
+        "endSec": 96.262,
+        "score": 1.3452
+      },
+      {
+        "startSec": 52.371,
+        "endSec": 55.623,
+        "score": 1.4027
+      },
+      {
+        "startSec": 60.445,
+        "endSec": 62.2,
+        "score": 1.4138
+      },
+      {
+        "startSec": 88.617,
+        "endSec": 90.639,
+        "score": 1.4162
+      },
+      {
+        "startSec": 31.099,
+        "endSec": 32.319,
+        "score": 1.4522
+      }
+    ]
+  }
+}

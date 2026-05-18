@@ -21,6 +21,7 @@ import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 LICKS_JSON = REPO_ROOT / "public" / "data" / "licks" / "licks.json"
+BACKEND_LICKS = Path(__file__).resolve().parent / "backend_licks.json"
 CACHE_DIR = Path(__file__).resolve().parent / "cache"
 AUDIO_DIR = CACHE_DIR / "audio"
 STEM_DIR = CACHE_DIR / "stems"
@@ -28,14 +29,43 @@ TRANSCRIPT_DIR = CACHE_DIR / "transcripts"
 
 USE_DEMUCS = True  # set False to skip source separation
 
-# Ground truth — hardcoded from src/data/lickVideos.ts
-GOLDEN = [
-    {"id": 2,  "videoId": "MV8wWjVqCng", "startSec": 137.0,  "endSec": None},
-    {"id": 63, "videoId": "g3tETxZY7Vo", "startSec": 50.604, "endSec": 55.108},
-    {"id": 64, "videoId": "HSeiIvBdAis", "startSec": 52.319, "endSec": 55.522},
-]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sheet_to_onsets import sheet_to_onsets  # noqa: E402
 
-HIT_TOLERANCE_S = 2.0  # how close to ground truth counts as a hit
+HIT_TOLERANCES = [2.0, 5.0, 10.0]  # multiple buckets — report each
+
+
+def build_golden() -> list[dict]:
+    """Assemble eval set: 3 hand-coded LICK_VIDEOS + matching backend licks."""
+    golden = [
+        {"label": "id=2 Art Pepper — Anthropology (cl)",
+         "raw_id": 2, "videoId": "MV8wWjVqCng", "startSec": 137.0, "endSec": None, "source": "LICK_VIDEOS"},
+        {"label": "id=63 Art Pepper — Desafinado (as)",
+         "raw_id": 63, "videoId": "g3tETxZY7Vo", "startSec": 50.604, "endSec": 55.108, "source": "LICK_VIDEOS"},
+        {"label": "id=64 Art Pepper — Desafinado (as)",
+         "raw_id": 64, "videoId": "HSeiIvBdAis", "startSec": 52.319, "endSec": 55.522, "source": "LICK_VIDEOS"},
+    ]
+    if BACKEND_LICKS.exists():
+        with open(BACKEND_LICKS) as f:
+            backend = json.load(f)
+        for b in backend:
+            v = b.get("video") or {}
+            if not v.get("videoId") or v.get("startSec") is None:
+                continue
+            sd = b.get("sheetData") or {}
+            sheet_pitches, onsets, durs = sheet_to_onsets(sd)
+            bp = b.get("pitches") or []
+            # only include licks where sheet timing aligns 1:1 with backend pitch count
+            if len(sheet_pitches) != len(bp):
+                continue
+            golden.append({
+                "label": f"backend {b.get('performer')} — {b.get('title')} ({b.get('instrument','?')})",
+                "videoId": v["videoId"], "startSec": v["startSec"], "endSec": v.get("endSec"),
+                "source": "backend",
+                "pitches": bp, "onsets": onsets, "durations": durs,
+                "nEvents": len(bp),
+            })
+    return golden
 
 
 def load_lick(lick_id: int) -> dict:
@@ -224,43 +254,73 @@ def match_lick(lick_pitch, lick_onset, transcript_notes, top_k=10):
     ]
 
 
+def _lick_features_for(g: dict) -> tuple[list[int], list[float], int]:
+    """Returns (pitch, onset, nEvents) for a golden entry, loading raw json if needed."""
+    if "pitches" in g:
+        return g["pitches"], g["onsets"], g["nEvents"]
+    raw = load_lick(g["raw_id"])
+    return raw["pitch"], raw["onset"], raw.get("n_events", len(raw["pitch"]))
+
+
 def main():
-    print(f"PoC: matching {len(GOLDEN)} golden licks against full audio\n")
+    golden = build_golden()
+    print(f"PoC: matching {len(golden)} golden licks against full audio\n")
     rows = []
-    for g in GOLDEN:
-        print(f"=== lick id={g['id']}  videoId={g['videoId']}  ground_truth_start={g['startSec']}s ===")
-        lick = load_lick(g["id"])
-        print(f"    {lick.get('performer')} — {lick.get('title')}  ({lick.get('instrument')}, n_events={lick.get('n_events')})")
+    for g in golden:
+        print(f"=== {g['label']}  video={g['videoId']}  gt_start={g['startSec']}s ===")
+        lick_pitch, lick_onset, n_events = _lick_features_for(g)
+        print(f"    nEvents={n_events}  source={g['source']}")
         audio = fetch_audio(g["videoId"])
         if USE_DEMUCS:
             audio = separate_solo_stem(audio)
         notes = transcribe(audio)
         if notes:
             print(f"    transcript: {len(notes)} notes over {notes[-1]['onset']:.1f}s")
-        cands = match_lick(lick["pitch"], lick["onset"], notes, top_k=10)
-        gt_rank = None
+        cands = match_lick(lick_pitch, lick_onset, notes, top_k=10)
+        # best rank per tolerance bucket
+        best_ranks = {tol: None for tol in HIT_TOLERANCES}
         for j, c in enumerate(cands, 1):
             err = abs(c["startSec"] - g["startSec"])
-            mark = "HIT" if err < HIT_TOLERANCE_S else "   "
-            if err < HIT_TOLERANCE_S and gt_rank is None:
-                gt_rank = j
-            print(f"    {mark} #{j:2d}  start={c['startSec']:7.2f}s  score={c['score']:.3f}  err={err:6.2f}s")
-        top3_hit = gt_rank is not None and gt_rank <= 3
-        top10_hit = gt_rank is not None
+            for tol in HIT_TOLERANCES:
+                if err < tol and best_ranks[tol] is None:
+                    best_ranks[tol] = j
+            tag = "  "
+            for tol in HIT_TOLERANCES:
+                if err < tol:
+                    tag = f"<{int(tol)}s"
+                    break
+            print(f"    {tag} #{j:2d}  start={c['startSec']:7.2f}s  score={c['score']:.3f}  err={err:6.2f}s")
         top1_err = abs(cands[0]["startSec"] - g["startSec"]) if cands else None
-        rows.append({"id": g["id"], "top3_hit": top3_hit, "top10_hit": top10_hit, "gt_rank": gt_rank, "top1_err": top1_err})
+        rows.append({"label": g["label"], "nEvents": n_events, "best_ranks": best_ranks, "top1_err": top1_err})
         print()
 
-    print("=" * 60)
-    print("SUMMARY")
-    h3 = sum(1 for r in rows if r["top3_hit"])
-    h10 = sum(1 for r in rows if r["top10_hit"])
-    print(f"  Top-3  hit rate (within {HIT_TOLERANCE_S}s): {h3}/{len(rows)}")
-    print(f"  Top-10 hit rate (within {HIT_TOLERANCE_S}s): {h10}/{len(rows)}")
+    print("=" * 70)
+    print("SUMMARY  (best rank within tolerance — lower is better, miss = beyond top-10)")
+    header = f"  {'nE':>3}  {'top1_err':>9}  " + "  ".join(f"<{int(t)}s_rank" for t in HIT_TOLERANCES) + "  label"
+    print(header)
     for r in rows:
-        err_str = f"{r['top1_err']:.2f}s" if r["top1_err"] is not None else "n/a"
-        rank_str = f"#{r['gt_rank']}" if r["gt_rank"] is not None else "miss"
-        print(f"  id={r['id']:<3}  gt_rank={rank_str:<5}  top1_err={err_str}")
+        err_str = f"{r['top1_err']:6.2f}s" if r["top1_err"] is not None else "  n/a  "
+        rank_cells = []
+        for tol in HIT_TOLERANCES:
+            br = r["best_ranks"][tol]
+            rank_cells.append(f"   {('#'+str(br)) if br else 'miss':>4}  ")
+        print(f"  {r['nEvents']:>3}  {err_str:>9}  " + " ".join(rank_cells) + f"  {r['label']}")
+
+    print()
+    print("HIT RATES")
+    for k in (3, 10):
+        for tol in HIT_TOLERANCES:
+            hits = sum(1 for r in rows if r["best_ranks"][tol] is not None and r["best_ranks"][tol] <= k)
+            print(f"  top-{k:<2} within {int(tol)}s: {hits}/{len(rows)} ({100*hits/len(rows):.0f}%)")
+
+    print()
+    print("BY LICK LENGTH (top-10 within 10s)")
+    buckets = [("short(≤7)", lambda r: r["nEvents"] <= 7), ("medium(8-15)", lambda r: 8 <= r["nEvents"] <= 15), ("long(16+)", lambda r: r["nEvents"] >= 16)]
+    for name, pred in buckets:
+        sub = [r for r in rows if pred(r)]
+        if not sub: continue
+        hits = sum(1 for r in sub if r["best_ranks"][10.0] is not None)
+        print(f"  {name:<14} ({len(sub)} licks): {hits}/{len(sub)} ({100*hits/len(sub):.0f}%)")
 
 
 if __name__ == "__main__":

@@ -105,8 +105,11 @@ export function UserMenu({ user }: Props) {
         <Avatar>{initial}</Avatar>
         <Texts>
           <Name>{displayName}</Name>
-          <Sub>무료 플랜</Sub>
+          <Sub>맥스 플랜</Sub>
         </Texts>
+        <DownloadBox aria-hidden>
+          <DownloadIcon />
+        </DownloadBox>
         <UpDownIcon />
       </Trigger>
       <SettingsModal
@@ -230,7 +233,7 @@ const Avatar = styled.span`
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: #6b6b6b;
+  background: #1a1a1a;
   color: #fff;
   font-family: inherit;
   font-size: 15px;
@@ -273,6 +276,19 @@ const ChevronWrap = styled.span`
   display: inline-flex;
   align-items: center;
   justify-content: center;
+`;
+
+const DownloadBox = styled.span`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  background: transparent;
+  color: rgba(0, 0, 0, 0.55);
+  flex-shrink: 0;
 `;
 
 const Menu = styled.div`

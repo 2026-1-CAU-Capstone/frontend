@@ -184,6 +184,39 @@ const ThinkingWrap = styled.div`
   animation: ${fadeInOut} 2s ease-in-out infinite;
 `;
 
+/* Six pre-split frames at /public/dynamic/sax-{0..5}.png. We cycle through
+ * them via setInterval (see SaxFrame component below) instead of moving a
+ * sprite background — that way each frame is shown in-place and only the
+ * image src changes, exactly as a flipbook would. */
+const SAX_FRAME_COUNT = 6;
+const SAX_FRAME_MS = 140;     // ~7fps cycle; tweak for faster/slower swing
+
+const SaxFrameImg = styled.img`
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: block;
+  object-fit: contain;
+`;
+
+function SaxFrame() {
+  const [frame, setFrame] = useState(0);
+  useEffect(() => {
+    const t = setInterval(
+      () => setFrame((f) => (f + 1) % SAX_FRAME_COUNT),
+      SAX_FRAME_MS,
+    );
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <SaxFrameImg
+      src={`/dynamic/sax-${frame}.png`}
+      alt="Jazzify 생각중"
+      draggable={false}
+    />
+  );
+}
+
 const GeneratingWrap = styled.div`
   display: flex;
   align-items: center;
@@ -215,11 +248,7 @@ function ThinkingMessage() {
   }, []);
   return (
     <ThinkingWrap>
-      <img
-        src="/jazzifylogo.png"
-        alt="Jazzify"
-        style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover', display: 'block' }}
-      />
+      <SaxFrame />
       <span>{THINKING_MESSAGES[idx]}...</span>
     </ThinkingWrap>
   );

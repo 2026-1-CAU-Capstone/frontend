@@ -5,6 +5,7 @@ import { mq } from '../../styles/theme';
 import { BrandLogoImage } from '../common/BrandLogoImage';
 import { getCachedUser, onAuthChange, type AuthUser } from '../../api/auth';
 import { LoginModal } from '../auth/LoginModal';
+import { UserMenu } from '../auth/UserMenu';
 
 /* ─────────────────────────────────────────────────────────────────────────
  * IconSidebar — shared left rail for Chord / Note / Licks / Solos pages.
@@ -472,7 +473,6 @@ export function IconSidebar({ hideAuthPromo = false }: IconSidebarProps = {}) {
   const loggedIn = authUser !== null;
   const initial = userInitial(authUser);
   const displayName = authUser?.name || authUser?.username || '';
-  const subText = authUser?.username && authUser.name ? authUser.username : '';
 
   return (
     <Rail $expanded={expanded}>
@@ -513,13 +513,19 @@ export function IconSidebar({ hideAuthPromo = false }: IconSidebarProps = {}) {
 
       <RailSpacer />
 
-      {expanded && !loggedIn && !hideAuthPromo ? (
+      {expanded && loggedIn && authUser ? (
+        // HomePage-style dropup menu (settings / logout / etc.) so the rail
+        // and the home sidebar look and behave the same when signed in.
+        <UserMenu user={authUser} />
+      ) : expanded && !loggedIn && !hideAuthPromo ? (
         <PromoCard>
           <PromoTitle>나만의 재즈 라이브러리를 시작하세요</PromoTitle>
           <PromoText>로그인하면 릭·솔로를 저장하고, 개인화된 코드 분석과 추천을 받을 수 있어요.</PromoText>
           <PromoLoginBtn onClick={() => setLoginOpen(true)}>로그인</PromoLoginBtn>
         </PromoCard>
       ) : (
+        // Collapsed rail (any auth state) OR expanded + signed-out +
+        // hideAuthPromo: fall back to the compact single-line row.
         <UserRow
           $expanded={expanded}
           onClick={() => (loggedIn ? navigate('/') : setLoginOpen(true))}
@@ -533,7 +539,7 @@ export function IconSidebar({ hideAuthPromo = false }: IconSidebarProps = {}) {
             <>
               <UserText>
                 <UserName>{loggedIn ? displayName : '로그인'}</UserName>
-                <UserSub>{loggedIn ? (subText || '무료 플랜') : '시작하기'}</UserSub>
+                <UserSub>{loggedIn ? '맥스 플랜' : '시작하기'}</UserSub>
               </UserText>
               <TrailingIconBtn aria-hidden>
                 <DownloadIcon />
