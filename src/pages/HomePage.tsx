@@ -98,6 +98,10 @@ const BrandRow = styled.div`
   justify-content: space-between;
   gap: 6px;
   padding: 0;
+  /* Pull the row above the nominal top edge — the wordmark PNG has some
+   * intrinsic optical padding even after -trim. */
+  margin-top: -10px;
+  margin-bottom: -4px;
 `;
 
 /** Same shape + hover behaviour as IconSidebar's ToggleBtn — kept inline so
