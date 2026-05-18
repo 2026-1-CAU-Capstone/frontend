@@ -38,6 +38,9 @@ rag/*.sqlite
 rag/*.sqlite3
 rag/*.duckdb
 rag/*.bin
+# PoC artifacts — downloaded YouTube audio, Demucs stems, basic-pitch
+# transcripts. Regenerable from rag/scratch/lick_match_poc.py, never source.
+rag/scratch/cache/
 
 # Editor directories and files
 .vscode/*
