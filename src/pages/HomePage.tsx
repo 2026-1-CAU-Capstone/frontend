@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, type ReactNode, type TouchEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import styled, { keyframes } from 'styled-components';
+import styled, { css, keyframes } from 'styled-components';
 import { Keyboard } from '@capacitor/keyboard';
 import { mq } from '../styles/theme';
 import { RightChatPanel } from '../components/layout/RightChatPanel';
@@ -76,20 +76,42 @@ const MobileBrandBar = styled.div`
 
 /* ── Sidebar (desktop tool list) ─────────────────────────────── */
 
-const Sidebar = styled.aside<{ $collapsed?: boolean }>`
-  width: ${({ $collapsed }) => ($collapsed ? '56px' : '280px')};
+const Sidebar = styled.aside<{ $collapsed?: boolean; $hoverExpand?: boolean }>`
+  /* When hover-expanded, take the *collapsed* width in the page flow but
+   * render the full 280px panel as an absolute overlay so the chart area
+   * doesn't shift around. When click-expanded (sticky), behave as a normal
+   * 280px flex item. */
+  width: ${({ $collapsed, $hoverExpand }) => {
+    if ($hoverExpand) return '56px';            // flow width stays collapsed
+    return $collapsed ? '56px' : '280px';
+  }};
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  align-items: ${({ $collapsed }) => ($collapsed ? 'center' : 'stretch')};
+  align-items: ${({ $collapsed, $hoverExpand }) =>
+    ($collapsed && !$hoverExpand ? 'center' : 'stretch')};
   background: ${({ theme }) => theme.colors.bgSecondary};
   border-right: 1px solid ${({ theme }) => theme.colors.border};
-  padding: ${({ $collapsed }) => ($collapsed ? '0 0 22px' : '0 4px 22px 14px')};
-  gap: ${({ $collapsed }) => ($collapsed ? '4px' : '14px')};
-  /* overflow: visible — tooltips need to escape the sidebar's right edge
-   * to show next to the buttons. Wrapper still clips the page viewport. */
+  padding: ${({ $collapsed, $hoverExpand }) =>
+    ($collapsed && !$hoverExpand) ? '0 0 22px' : '0 4px 22px 14px'};
+  gap: ${({ $collapsed, $hoverExpand }) =>
+    ($collapsed && !$hoverExpand) ? '4px' : '14px'};
   overflow: visible;
   transition: width 0.22s ease, padding 0.22s ease;
+  position: relative;
+
+  /* Hover-overlay mode: the rendered panel grows to 280px but floats above
+   * the chart instead of pushing it. */
+  ${({ $hoverExpand, theme }) => $hoverExpand && css`
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 280px;
+    z-index: 60;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.10);
+    background: ${theme.colors.bgSecondary};
+  `}
 
   ${mq.mobile} {
     display: none;
@@ -890,6 +912,11 @@ export default function HomePage() {
     try { return window.localStorage.getItem(SIDEBAR_STORAGE_KEY) !== '0'; }
     catch { return true; }
   });
+  /* When the user hovers the collapsed rail, we temporarily render the full
+   * sidebar (Claude-style). Click-toggle still controls the persisted
+   * preference; this is a hover-only visual override. */
+  const [sidebarHovered, setSidebarHovered] = useState(false);
+  const sidebarVisuallyExpanded = sidebarExpanded || sidebarHovered;
   const toggleSidebar = () => {
     setSidebarExpanded((prev) => {
       const next = !prev;
@@ -897,6 +924,7 @@ export default function HomePage() {
       catch { /* storage unavailable */ }
       return next;
     });
+    setSidebarHovered(false);
   };
   /* Real auth state — driven by Jazzify backend (/v1/auth/*). The cached
    * access token + user info in localStorage seed the initial state so
@@ -1056,8 +1084,13 @@ export default function HomePage() {
        *  Collapsed = 56px narrow rail with icons only, matching
        *  IconSidebar's Claude-style affordance. */}
       {!native && (
-        <Sidebar $collapsed={!sidebarExpanded}>
-          {sidebarExpanded ? (
+        <Sidebar
+          $collapsed={!sidebarVisuallyExpanded}
+          $hoverExpand={!sidebarExpanded && sidebarHovered}
+          onMouseEnter={() => { if (!sidebarExpanded) setSidebarHovered(true); }}
+          onMouseLeave={() => setSidebarHovered(false)}
+        >
+          {sidebarVisuallyExpanded ? (
             <>
               <BrandRow>
                 <BrandLogoImage height={45} scaleX={1.10} onClick={() => navigate('/')} />
