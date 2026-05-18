@@ -85,7 +85,7 @@ const Sidebar = styled.aside<{ $collapsed?: boolean }>`
   background: ${({ theme }) => theme.colors.bgSecondary};
   border-right: 1px solid ${({ theme }) => theme.colors.border};
   padding: ${({ $collapsed }) => ($collapsed ? '12px 4px 22px' : '0 4px 22px 14px')};
-  gap: ${({ $collapsed }) => ($collapsed ? '4px' : '14px')};
+  gap: ${({ $collapsed }) => ($collapsed ? '6px' : '14px')};
   overflow: visible;
   transition: width 0.22s ease, padding 0.22s ease;
   position: relative;
@@ -145,7 +145,7 @@ const NarrowToggleBtn = styled.button`
   color: ${({ theme }) => theme.colors.textSecondary};
   cursor: pointer;
   margin-top: 0px;
-  margin-bottom: 0px;
+  margin-bottom: 8px;
 
   &:hover {
     background: rgba(0, 0, 0, 0.05);
