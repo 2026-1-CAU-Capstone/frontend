@@ -83,7 +83,7 @@ const Sidebar = styled.aside`
   flex-direction: column;
   background: ${({ theme }) => theme.colors.bgSecondary};
   border-right: 1px solid ${({ theme }) => theme.colors.border};
-  padding: 0 10px 22px;
+  padding: 0 4px 22px 14px;
   gap: 14px;
   overflow: hidden;
 
@@ -107,8 +107,8 @@ const BrandRow = styled.div`
 /** Same shape + hover behaviour as IconSidebar's ToggleBtn — kept inline so
  *  the two sidebars don't have to share a styled-component module. */
 const SidebarToggleBtn = styled.button`
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1002,7 +1002,7 @@ export default function HomePage() {
       {!native && sidebarExpanded && (
         <Sidebar>
           <BrandRow>
-            <BrandLogoImage height={88} scaleX={1.15} onClick={() => navigate('/')} />
+            <BrandLogoImage height={80} scaleX={1.1} onClick={() => navigate('/')} />
             <SidebarToggleBtn onClick={toggleSidebar} title="사이드바 접기" aria-label="사이드바 접기">
               <PanelToggleIcon />
             </SidebarToggleBtn>
