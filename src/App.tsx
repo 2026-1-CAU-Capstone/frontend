@@ -13,6 +13,7 @@ import StyDemoPage from './pages/StyDemoPage';
 import EditorPage from './pages/EditorPage';
 import YoutubeOnsetPage from './pages/YoutubeOnsetPage';
 import { IntroScreen } from './components/common/IntroScreen';
+import LoginPage from './pages/LoginPage';
 
 /* Per-tab session key — the splash plays on the FIRST page load of a browser
  * session (or app cold start) and then stays out of the way on every refresh
@@ -55,6 +56,7 @@ export default function App() {
           <Route path="/sty-poc" element={<StyPocPage />} />
           <Route path="/sty-demo" element={<StyDemoPage />} />
           <Route path="/editor" element={<EditorPage />} />
+          <Route path="/login" element={<LoginPage />} />
           {/* Legacy routes — SoloGeneratorPage & LickInputPage merged into
               the unified EditorPage (mode=solo|lick). Keep redirects so old
               bookmarks / external links still land in the right place. */}

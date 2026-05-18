@@ -12,9 +12,11 @@ import { SettingsModal } from './SettingsModal';
 
 interface Props {
   user: AuthUser;
+  /** 축소된 사이드바용 — 아바타만 보여주는 작은 트리거. */
+  compact?: boolean;
 }
 
-export function UserMenu({ user }: Props) {
+export function UserMenu({ user, compact = false }: Props) {
   const [open, setOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -45,9 +47,9 @@ export function UserMenu({ user }: Props) {
   const displayName = (user.name?.trim() || user.username || '').trim();
 
   return (
-    <Root ref={rootRef}>
+    <Root ref={rootRef} $compact={compact}>
       {open && (
-        <Menu role="menu">
+        <Menu role="menu" $compact={compact}>
           <MenuHeader>@{user.username}</MenuHeader>
           <MenuDivider />
           <MenuItem
@@ -98,19 +100,25 @@ export function UserMenu({ user }: Props) {
 
       <Trigger
         type="button"
+        $compact={compact}
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
+        title={compact ? displayName : undefined}
       >
         <Avatar>{initial}</Avatar>
-        <Texts>
-          <Name>{displayName}</Name>
-          <Sub>맥스 플랜</Sub>
-        </Texts>
-        <DownloadBox aria-hidden>
-          <DownloadIcon />
-        </DownloadBox>
-        <UpDownIcon />
+        {!compact && (
+          <>
+            <Texts>
+              <Name>{displayName}</Name>
+              <Sub>맥스 플랜</Sub>
+            </Texts>
+            <DownloadBox aria-hidden>
+              <DownloadIcon />
+            </DownloadBox>
+            <UpDownIcon />
+          </>
+        )}
       </Trigger>
       <SettingsModal
         open={settingsOpen}
@@ -205,27 +213,40 @@ const UpDownIcon = () => (
 
 /* ── styles ──────────────────────────────────────────────── */
 
-const Root = styled.div`
+const Root = styled.div<{ $compact?: boolean }>`
   position: relative;
-  width: 100%;
-  margin-top: 4px;
-  padding-top: 8px;
-  border-top: 1px solid ${({ theme }) => theme.colors.border};
+  width: ${({ $compact }) => ($compact ? 'auto' : '100%')};
+  margin-top: ${({ $compact }) => ($compact ? '0' : '4px')};
+  padding-top: ${({ $compact }) => ($compact ? '0' : '8px')};
+  border-top: ${({ $compact, theme }) => ($compact ? 'none' : `1px solid ${theme.colors.border}`)};
 `;
 
-const Trigger = styled.button`
+const Trigger = styled.button<{ $compact?: boolean }>`
   display: flex;
   align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 8px 8px;
   background: transparent;
   border: none;
-  border-radius: 10px;
   cursor: pointer;
   text-align: left;
   font-family: ${({ theme }) => theme.fonts.ui};
   transition: background 0.12s;
+
+  ${({ $compact }) => $compact
+    ? `
+      gap: 0;
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      justify-content: center;
+      border-radius: 50%;
+    `
+    : `
+      gap: 10px;
+      width: 100%;
+      padding: 8px 8px;
+      border-radius: 10px;
+    `}
+
   &:hover { background: rgba(0, 0, 0, 0.04); }
 `;
 
@@ -291,11 +312,9 @@ const DownloadBox = styled.span`
   flex-shrink: 0;
 `;
 
-const Menu = styled.div`
+const Menu = styled.div<{ $compact?: boolean }>`
   position: absolute;
   bottom: calc(100% + 8px);
-  left: 0;
-  right: 0;
   background: #ffffff;
   border-radius: 14px;
   border: 1px solid rgba(0, 0, 0, 0.08);
@@ -303,6 +322,16 @@ const Menu = styled.div`
   padding: 6px 0;
   font-family: ${({ theme }) => theme.fonts.ui};
   z-index: 100;
+
+  ${({ $compact }) => $compact
+    ? `
+      left: 0;
+      width: 280px;
+    `
+    : `
+      left: 0;
+      right: 0;
+    `}
 `;
 
 const MenuHeader = styled.div`

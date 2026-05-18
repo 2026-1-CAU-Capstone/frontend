@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../styles/theme';
-import { MainSidebar } from '../components/layout/MainSidebar';
+import { IconSidebar } from '../components/layout/IconSidebar';
 import { TopToolbar } from '../components/layout/TopToolbar';
 import { RightChatPanel } from '../components/layout/RightChatPanel';
 import { MobileChatFab } from '../components/layout/MobileChatFab';
@@ -405,6 +405,7 @@ const ResizeDivider = styled.div`
 `;
 
 export default function ChordPage() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { filters, effective, toggleFilter } = useAnalysisFilters();
   const leadSheetAnalysisFilters = useMemo(() => ({
@@ -719,7 +720,7 @@ export default function ChordPage() {
   return (
     <PageContainer onClick={() => setSelectionBubblePos(null)}>
       {countIn.overlay}
-      <MainSidebar />
+      <IconSidebar />
       <RightSection>
         <TopToolbar
           title={sheet?.title ?? `iRealPro ${songIndex.length || '...'}`}

@@ -219,6 +219,52 @@ export async function updateLickVideo(publicId: string, video: LickVideoPayload)
   }
 }
 
+/* ── OMR — sheet image → Lick ─────────────────────────────────────────────── */
+
+export interface OMRMetadata {
+  title?: string;
+  performer?: string;
+  album?: string;
+  source?: 'user' | 'weimar' | 'curated';
+  instrument?: string;
+  style?: string;
+  tempo?: number;
+  key?: string;
+  rhythmFeel?: 'SWING' | 'STRAIGHT' | 'BOSSA' | 'LATIN';
+  userId?: string;
+}
+
+/** POST /v1/licks/omr — upload a sheet PNG/JPG/JPEG. Backend runs OMR,
+ *  parses MusicXML, joins chord assignments, persists, returns the saved
+ *  Lick. Metadata fields are optional (extracted from MusicXML when
+ *  omitted). Errors surface as Error with the backend `detail` / `message`. */
+export async function createLickViaOMR(file: File, metadata: OMRMetadata = {}): Promise<LickEntry> {
+  const form = new FormData();
+  form.append('file', file);
+  // Backend expects metadata as a single JSON-encoded part named "metadata".
+  // Empty object is fine; backend treats every field as optional.
+  const metaBlob = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
+  form.append('metadata', metaBlob);
+
+  const res = await fetch(`${API_BASE}/v1/licks/omr`, {
+    method: 'POST',
+    body: form,
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    let detail = '';
+    let code = '';
+    try {
+      const j = await res.json() as { message?: string; detail?: string; code?: string };
+      detail = j.detail || j.message || '';
+      code = j.code || '';
+    } catch { /* ignore */ }
+    throw new Error(`OMR 실패 (${res.status}${code ? ' · ' + code : ''}) ${detail}`.trim());
+  }
+  const json: { data: LickResponse } = await res.json();
+  return toEntry(json.data);
+}
+
 /* ── Delete ───────────────────────────────────────────────────────────────── */
 
 export async function deleteLick(publicId: string): Promise<void> {

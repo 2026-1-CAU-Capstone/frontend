@@ -1,30 +1,43 @@
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { YoutubeOnsetParser } from '../components/common/YoutubeOnsetParser';
+import { IconSidebar } from '../components/layout/IconSidebar';
 
 export default function YoutubeOnsetPage() {
   const navigate = useNavigate();
   return (
     <Page>
-      <TopBar>
-        <BackBtn onClick={() => navigate(-1)}>← Back</BackBtn>
-        <Title>YouTube Onset Parser</Title>
-      </TopBar>
-      <Content>
-        <YoutubeOnsetParser />
-      </Content>
+      <IconSidebar />
+      <PageBody>
+        <TopBar>
+          <BackBtn onClick={() => navigate(-1)}>← Back</BackBtn>
+          <Title>YouTube Onset Parser</Title>
+        </TopBar>
+        <Content>
+          <YoutubeOnsetParser />
+        </Content>
+      </PageBody>
     </Page>
   );
 }
 
 const Page = styled.div`
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   height: 100vh;
   height: 100dvh;
+  width: 100%;
   background: ${({ theme }) => theme.colors.bgPrimary};
   font-family: ${({ theme }) => theme.fonts.ui};
   overflow: hidden;
+`;
+
+const PageBody = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
 `;
 
 const TopBar = styled.div`

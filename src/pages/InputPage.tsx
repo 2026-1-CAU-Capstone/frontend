@@ -2,15 +2,25 @@ import { useCallback, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../styles/theme';
+import { IconSidebar } from '../components/layout/IconSidebar';
+
+const AppShell = styled.div`
+  display: flex;
+  flex-direction: row;
+  height: 100vh;
+  height: 100dvh;
+  width: 100%;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+`;
 
 const PageContainer = styled.div`
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100vh;
-  height: 100dvh;
-  background: ${({ theme }) => theme.colors.bgPrimary};
+  flex: 1;
+  min-width: 0;
   font-family: 'Pretendard', sans-serif;
   padding: 40px 20px;
 
@@ -254,7 +264,9 @@ export default function InputPage() {
   );
 
   return (
-    <PageContainer>
+    <AppShell>
+      <IconSidebar />
+      <PageContainer>
       <BackBtn onClick={() => navigate('/')}>
         <svg
           width="14"
@@ -318,6 +330,7 @@ export default function InputPage() {
       )}
 
       <AnalyzeBtn className={file ? 'active' : ''}>분석 시작</AnalyzeBtn>
-    </PageContainer>
+      </PageContainer>
+    </AppShell>
   );
 }

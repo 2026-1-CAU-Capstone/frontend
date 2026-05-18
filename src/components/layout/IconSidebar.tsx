@@ -4,11 +4,10 @@ import styled from 'styled-components';
 import { mq } from '../../styles/theme';
 import { BrandLogoImage } from '../common/BrandLogoImage';
 import { getCachedUser, onAuthChange, type AuthUser } from '../../api/auth';
-import { LoginModal } from '../auth/LoginModal';
 import { UserMenu } from '../auth/UserMenu';
 
 /* ─────────────────────────────────────────────────────────────────────────
- * IconSidebar — shared left rail for Chord / Note / Licks / Solos pages.
+ * IconSidebar — universal left rail for all pages.
  *
  * Two modes (toggled by the top "panel" button, persisted to localStorage):
  *
@@ -17,12 +16,7 @@ import { UserMenu } from '../auth/UserMenu';
  *   expanded:            260px-wide panel with "Jazzify" brand + textual
  *                        NAV labels + user name on the avatar row. Matches
  *                        the side-panel pattern from popular AI chat UIs.
- *
- * Native (Capacitor) and the existing mobile drawer pattern are untouched —
- * those flows still use the compact icon rail.
  * ──────────────────────────────────────────────────────────────────────── */
-
-// SIDEBAR_STORAGE_KEY is exported (line ~100) so HomePage stays in sync.
 
 const Rail = styled.nav<{ $expanded: boolean }>`
   width: ${({ $expanded }) => ($expanded ? '260px' : '56px')};
@@ -55,32 +49,57 @@ const Rail = styled.nav<{ $expanded: boolean }>`
  *          collapsed: toggle button stacked, brand logo just below. */
 const TopRow = styled.div<{ $expanded: boolean }>`
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: ${({ $expanded }) => ($expanded ? 'space-between' : 'center')};
   width: 100%;
   padding: 0;
   gap: 4px;
 `;
 
-/* BrandText replaced by the combined <BrandLogoImage>. */
-
 const BrandRow = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
   min-width: 0;
+  padding-top: 15px;
+  margin-left: 8px;
+`;
+
+/* Pill-style tooltip that appears to the right of the toggle on hover. Lives
+ * here (not down near NavTooltip) so ToggleBtn can reference it. */
+const ToggleTooltip = styled.span`
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-4px);
+  white-space: nowrap;
+  background: #1a1a1a;
+  color: #fff;
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  padding: 6px 10px;
+  border-radius: 999px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 1000;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 `;
 
 /* Square panel-toggle icon button (matches the side-panel-toggle iconography
- * used by ChatGPT / Claude). */
-const ToggleBtn = styled.button`
-  width: 46px;
-  height: 46px;
+ * used by ChatGPT / Claude). Vertically aligned with the Jazzify logo. */
+const ToggleBtn = styled.button<{ $expanded?: boolean }>`
+  position: relative;
+  width: 52px;
+  height: 52px;
+  margin-top: 10px;
+  margin-right: ${({ $expanded }) => ($expanded ? '8px' : '0')};
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   background: transparent;
   color: ${({ theme }) => theme.colors.textSecondary};
   cursor: pointer;
@@ -90,23 +109,23 @@ const ToggleBtn = styled.button`
     background: rgba(0, 0, 0, 0.05);
     color: ${({ theme }) => theme.colors.textPrimary};
   }
+
+  &:hover ${ToggleTooltip} {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
 `;
 
-/* Exported so HomePage's own sidebar can render the identical toggle glyph. */
+/* Exported so other components can render the identical toggle glyph. */
 export const PanelToggleIcon = () => (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <rect x="3" y="4" width="18" height="16" rx="2" />
     <line x1="9" y1="4" x2="9" y2="20" />
   </svg>
 );
 
-/** localStorage key the IconSidebar uses for its expanded state. Reused by
- *  HomePage so the two sidebars stay in sync across the app. */
+/** localStorage key the IconSidebar uses for its expanded state. */
 export const SIDEBAR_STORAGE_KEY = 'iconSidebar.expanded';
-
-/* (TopSlot / SlotLogo / SlotToggle / SlotTooltip removed — the collapsed
- *  rail now shows the toggle button directly instead of swapping a logo on
- *  hover, matching the Claude/ChatGPT side-rail pattern.) */
 
 /* Spacer that pushes the avatar block to the very bottom of the rail. */
 const RailSpacer = styled.div`
@@ -114,7 +133,7 @@ const RailSpacer = styled.div`
   min-height: 12px;
 `;
 
-const NavBtn = styled.button<{ $active?: boolean; $expanded?: boolean }>`
+const NavBtn = styled.button<{ $active?: boolean; $expanded?: boolean; disabled?: boolean }>`
   ${({ $expanded }) => ($expanded
     ? `
       width: 100%;
@@ -136,18 +155,25 @@ const NavBtn = styled.button<{ $active?: boolean; $expanded?: boolean }>`
   align-items: center;
   border: none;
   background: ${({ $active }) => ($active ? 'rgba(0, 0, 0, 0.06)' : 'transparent')};
-  color: ${({ $active, theme }) => ($active ? theme.colors.textPrimary : theme.colors.textSecondary)};
+  /* 사이드바 라벨은 거의 검정에 준하는 진한 회색으로 통일 — 가독성 우선.
+   *  활성 상태는 배경 하이라이트로 구분되므로 색은 동일하게 둠. */
+  color: ${({ $active }) => ($active ? '#1a1a1a' : '#2a2a2a')};
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, opacity 0.15s;
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 14px;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: rgba(0, 0, 0, 0.05);
-    color: ${({ theme }) => theme.colors.textPrimary};
+    color: #1a1a1a;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 
   ${mq.mobile} {
@@ -160,6 +186,54 @@ const NavBtn = styled.button<{ $active?: boolean; $expanded?: boolean }>`
     gap: 2px;
     svg { width: 18px; height: 18px; }
   }
+`;
+
+/* Tooltip shown on collapsed-rail buttons — slides in from the right. */
+const NavTooltip = styled.span`
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-4px);
+  white-space: nowrap;
+  background: #1a1a1a;
+  color: #fff;
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  padding: 6px 10px;
+  border-radius: 999px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 1000;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+`;
+
+/* Wrapper needed so NavTooltip can use position:absolute relative to the
+ * collapsed NavBtn. Hover on the wrapper reveals the sibling tooltip. */
+const NavBtnWrap = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover ${NavTooltip} {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+`;
+
+/* Chat quick-nav cluster — sits between the brand row and the divider.
+ * margin-top creates a deliberate vertical gap between Jazzify/toggle and
+ * the first chat button. */
+const ChatNavBlock = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: inherit;
+  gap: 4px;
+  margin-top: 40px;
+  width: 100%;
 `;
 
 const NavLabel = styled.span<{ $expanded?: boolean }>`
@@ -189,12 +263,7 @@ const Divider = styled.div<{ $expanded?: boolean }>`
 
 /* Bottom user row — ChatGPT-style "account bar".
  *   collapsed: avatar circle only
- *   expanded:  avatar + name/plan + download icon + chevron, all on one row
- *              with rounded hover background.
- * The whole row is a single button (clicking the avatar area / name) for
- * primary "open account" action. The download and chevron are visual only
- * here — both forward to the same handler, kept distinct to mirror the
- * reference design exactly. */
+ *   expanded:  avatar + name/plan + download icon + chevron, all on one row */
 const UserRow = styled.button<{ $expanded?: boolean }>`
   ${({ $expanded }) => ($expanded
     ? `
@@ -271,8 +340,6 @@ const UserSub = styled.span`
   margin-top: 2px;
 `;
 
-/* Small square button rendered to the right of the user text — matches the
- * "app download" affordance from the ChatGPT sidebar. */
 const TrailingIconBtn = styled.span`
   display: inline-flex;
   align-items: center;
@@ -287,7 +354,6 @@ const TrailingIconBtn = styled.span`
   transition: background 0.15s, color 0.15s;
 `;
 
-/* Small chevron icon at the very end of the row. */
 const ChevronWrap = styled.span`
   display: inline-flex;
   align-items: center;
@@ -312,9 +378,7 @@ const ChevronUpDownIcon = () => (
   </svg>
 );
 
-/* Logged-out promo block shown at the very bottom of the EXPANDED sidebar.
- * Collapsed rail keeps using the small person icon. Mirrors the ChatGPT
- * "내게 맞춘 응답을 받으세요" card so users have a contextual call to log in. */
+/* Logged-out promo block shown at the very bottom of the EXPANDED sidebar. */
 const PromoCard = styled.div`
   width: 100%;
   display: flex;
@@ -364,20 +428,42 @@ const PersonIcon = () => (
   </svg>
 );
 
-/** Pick the first character of the user's display name. Defaults to '?' when
- *  the cached user object hasn't filled in a name yet (e.g. right after
- *  signup before the next /me call). Korean names render fine since we just
- *  slice the first code point — no uppercasing is applied to non-Latin. */
-function userInitial(user: AuthUser | null): string {
-  if (!user) return '';
-  const source = user.name?.trim() || user.username?.trim() || '';
-  if (!source) return '?';
-  const first = Array.from(source)[0] ?? '?';
-  return /[a-z]/.test(first) ? first.toUpperCase() : first;
+/* ── Chat quick-nav icons ─────────────────────────────────────────────── */
+
+function NewChatIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="1.7" />
+      <line x1="12" y1="8" x2="12" y2="16" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      <line x1="8" y1="12" x2="16" y2="12" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
 }
 
-/* Inline SVG icons — kept matching the HomePage drawer set so the desktop
- * rail and the mobile drawer feel like the same product. */
+function SearchIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.7" />
+      <line x1="16.2" y1="16.2" x2="21" y2="21" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ChatIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4 11 a6 6 0 0 1 6-6 h2 a6 6 0 0 1 6 6 v2 a6 6 0 0 1-6 6 H7 l-3 2 v-4 a6 6 0 0 1 0-6z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/* ── Tool nav icons ───────────────────────────────────────────────────── */
+
 const ChordIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M9 18V5l12-2v13" />
@@ -439,12 +525,22 @@ const NAV = [
 ] as const;
 
 interface IconSidebarProps {
-  /** Suppress the "로그인하세요" promo card. Used on chord/note pages where
-   *  login will be required up-front, making the in-rail CTA redundant. */
+  /** Suppress the "로그인하세요" promo card. */
   hideAuthPromo?: boolean;
+  /** Called when "새 채팅" is clicked. Defaults to `navigate('/')`. */
+  onNewChat?: () => void;
+  /** Called when "채팅" (history) is clicked. Defaults to `navigate('/')`. */
+  onOpenChatHistory?: () => void;
+  /** Override for whether the chat-history button is enabled (defaults to local auth state). */
+  isLoggedInUser?: boolean;
 }
 
-export function IconSidebar({ hideAuthPromo = false }: IconSidebarProps = {}) {
+export function IconSidebar({
+  hideAuthPromo = false,
+  onNewChat,
+  onOpenChatHistory,
+  isLoggedInUser,
+}: IconSidebarProps = {}) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [authUser, setAuthUser] = useState<AuthUser | null>(() => getCachedUser());
@@ -452,12 +548,10 @@ export function IconSidebar({ hideAuthPromo = false }: IconSidebarProps = {}) {
     try { return localStorage.getItem(SIDEBAR_STORAGE_KEY) === '1'; }
     catch { return false; }
   });
-  const [loginOpen, setLoginOpen] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthChange((loggedIn, user) => {
       setAuthUser(loggedIn ? user : null);
-      if (loggedIn) setLoginOpen(false);
     });
     return unsub;
   }, []);
@@ -471,8 +565,12 @@ export function IconSidebar({ hideAuthPromo = false }: IconSidebarProps = {}) {
   };
 
   const loggedIn = authUser !== null;
-  const initial = userInitial(authUser);
-  const displayName = authUser?.name || authUser?.username || '';
+
+  /* Chat nav defaults: navigate to '/' so tool pages get a "back to chat"
+   * affordance, while HomePage can pass its own handlers for in-page actions. */
+  const handleNewChat = onNewChat ?? (() => navigate('/'));
+  const handleOpenChatHistory = onOpenChatHistory ?? (() => navigate('/'));
+  const chatEnabled = isLoggedInUser !== undefined ? isLoggedInUser : loggedIn;
 
   return (
     <Rail $expanded={expanded}>
@@ -482,19 +580,70 @@ export function IconSidebar({ hideAuthPromo = false }: IconSidebarProps = {}) {
             <BrandRow>
               <BrandLogoImage height={44} scaleX={1.05} onClick={() => navigate('/')} />
             </BrandRow>
-            <ToggleBtn onClick={toggleExpanded} title="사이드바 접기" aria-label="사이드바 접기">
+            <ToggleBtn $expanded onClick={toggleExpanded} aria-label="사이드바 접기">
               <PanelToggleIcon />
+              <ToggleTooltip>사이드바 접기</ToggleTooltip>
             </ToggleBtn>
           </>
         ) : (
-          /* Collapsed: just the toggle button — no logo, matches the
-           * Claude/ChatGPT side-rail pattern where the brand mark vanishes
-           * once the rail itself is doing all the work. */
-          <ToggleBtn onClick={toggleExpanded} title="사이드바 열기" aria-label="사이드바 열기">
+          <ToggleBtn onClick={toggleExpanded} aria-label="사이드바 열기">
             <PanelToggleIcon />
+            <ToggleTooltip>사이드바 열기</ToggleTooltip>
           </ToggleBtn>
         )}
       </TopRow>
+
+      {/* Chat quick-nav — expanded layout */}
+      {expanded && (
+        <ChatNavBlock>
+          <NavBtn $expanded={true} onClick={handleNewChat}>
+            <NewChatIcon />
+            <NavLabel $expanded={true}>새 채팅</NavLabel>
+          </NavBtn>
+          <NavBtn $expanded={true} onClick={() => { /* TODO: open search overlay */ }}>
+            <SearchIcon />
+            <NavLabel $expanded={true}>검색</NavLabel>
+          </NavBtn>
+          <NavBtn
+            $expanded={true}
+            onClick={handleOpenChatHistory}
+            disabled={!chatEnabled}
+            title={chatEnabled ? '대화 기록' : '로그인 필요'}
+          >
+            <ChatIcon />
+            <NavLabel $expanded={true}>채팅</NavLabel>
+          </NavBtn>
+        </ChatNavBlock>
+      )}
+
+      {/* Chat quick-nav — collapsed layout */}
+      {!expanded && (
+        <ChatNavBlock>
+          <NavBtnWrap>
+            <NavBtn $expanded={false} onClick={handleNewChat} title="새 채팅">
+              <NewChatIcon />
+            </NavBtn>
+            <NavTooltip>새 채팅</NavTooltip>
+          </NavBtnWrap>
+          <NavBtnWrap>
+            <NavBtn $expanded={false} title="검색">
+              <SearchIcon />
+            </NavBtn>
+            <NavTooltip>검색</NavTooltip>
+          </NavBtnWrap>
+          <NavBtnWrap>
+            <NavBtn
+              $expanded={false}
+              onClick={handleOpenChatHistory}
+              disabled={!chatEnabled}
+              title={chatEnabled ? '채팅' : '로그인 필요'}
+            >
+              <ChatIcon />
+            </NavBtn>
+            <NavTooltip>{chatEnabled ? '채팅' : '로그인 필요'}</NavTooltip>
+          </NavBtnWrap>
+        </ChatNavBlock>
+      )}
 
       <Divider $expanded={expanded} />
 
@@ -513,33 +662,29 @@ export function IconSidebar({ hideAuthPromo = false }: IconSidebarProps = {}) {
 
       <RailSpacer />
 
-      {expanded && loggedIn && authUser ? (
-        // HomePage-style dropup menu (settings / logout / etc.) so the rail
-        // and the home sidebar look and behave the same when signed in.
-        <UserMenu user={authUser} />
-      ) : expanded && !loggedIn && !hideAuthPromo ? (
+      {loggedIn && authUser ? (
+        <UserMenu user={authUser} compact={!expanded} />
+      ) : expanded && !hideAuthPromo ? (
         <PromoCard>
           <PromoTitle>나만의 재즈 라이브러리를 시작하세요</PromoTitle>
           <PromoText>로그인하면 릭·솔로를 저장하고, 개인화된 코드 분석과 추천을 받을 수 있어요.</PromoText>
-          <PromoLoginBtn onClick={() => setLoginOpen(true)}>로그인</PromoLoginBtn>
+          <PromoLoginBtn onClick={() => navigate('/login')}>로그인</PromoLoginBtn>
         </PromoCard>
       ) : (
-        // Collapsed rail (any auth state) OR expanded + signed-out +
-        // hideAuthPromo: fall back to the compact single-line row.
         <UserRow
           $expanded={expanded}
-          onClick={() => (loggedIn ? navigate('/') : setLoginOpen(true))}
-          title={loggedIn ? `계정 — ${displayName}` : '로그인'}
-          aria-label={loggedIn ? `계정 — ${displayName}` : '로그인'}
+          onClick={() => navigate('/login')}
+          title="로그인"
+          aria-label="로그인"
         >
-          <AvatarCircle $logged={loggedIn}>
-            {loggedIn ? initial : <PersonIcon />}
+          <AvatarCircle $logged={false}>
+            <PersonIcon />
           </AvatarCircle>
           {expanded && (
             <>
               <UserText>
-                <UserName>{loggedIn ? displayName : '로그인'}</UserName>
-                <UserSub>{loggedIn ? '맥스 플랜' : '시작하기'}</UserSub>
+                <UserName>로그인</UserName>
+                <UserSub>시작하기</UserSub>
               </UserText>
               <TrailingIconBtn aria-hidden>
                 <DownloadIcon />
@@ -550,13 +695,6 @@ export function IconSidebar({ hideAuthPromo = false }: IconSidebarProps = {}) {
             </>
           )}
         </UserRow>
-      )}
-
-      {loginOpen && (
-        <LoginModal
-          onLogin={() => setLoginOpen(false)}
-          onClose={() => setLoginOpen(false)}
-        />
       )}
     </Rail>
   );

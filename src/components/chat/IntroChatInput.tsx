@@ -1,4 +1,4 @@
-import { Fragment, useState, useRef, useEffect, type KeyboardEvent, type ReactNode } from 'react';
+import { Fragment, useState, useRef, useEffect, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
 import styled from 'styled-components';
 import { isNativeApp } from '../../lib/platform';
 import { IntroPlusSheet } from './IntroPlusSheet';
@@ -50,10 +50,39 @@ export function IntroChatInput({ onSend, disabled, placeholder, autoFocus, compa
   const [menuOpen, setMenuOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [loggedIn, setLoggedIn] = useState(() => getCachedUser() !== null);
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
   const ref = useRef<HTMLTextAreaElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const plusBtnRef = useRef<HTMLButtonElement>(null);
   const native = isNativeApp();
+
+  /* Drag & drop — accept any files dropped onto the input box. Stored in
+   * local state as attachments and shown as thumbnail chips above the
+   * textarea. (Sending is currently text-only; the chip persists as a
+   * visual hint for the upcoming file-attachment backend work.) */
+  const onDragOver = (e: DragEvent<HTMLDivElement>) => {
+    if (!e.dataTransfer?.types?.includes('Files')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    if (!isDragOver) setIsDragOver(true);
+  };
+  const onDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    /* Guard against leaving for child elements (dragleave fires when the
+     * pointer crosses any sub-element). Only clear when truly outside. */
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setIsDragOver(false);
+  };
+  const onDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const dropped = Array.from(e.dataTransfer.files ?? []);
+    if (dropped.length === 0) return;
+    setAttachments((prev) => [...prev, ...dropped]);
+  };
+  const removeAttachment = (idx: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== idx));
+  };
 
   useEffect(() => onAuthChange((isLoggedIn) => setLoggedIn(isLoggedIn)), []);
 
@@ -92,7 +121,30 @@ export function IntroChatInput({ onSend, disabled, placeholder, autoFocus, compa
 
   return (
     <>
-    <Box $compact={compact}>
+    <Box
+      $compact={compact}
+      onDragOver={onDragOver}
+      onDragEnter={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
+      {isDragOver && (
+        <DragOverlay>
+          <DragOverlayIcon>📥</DragOverlayIcon>
+          <DragOverlayText>여기에 파일 놓기</DragOverlayText>
+        </DragOverlay>
+      )}
+      {attachments.length > 0 && (
+        <AttachRow>
+          {attachments.map((f, i) => (
+            <AttachChip key={`${f.name}-${i}`} title={f.name}>
+              <AttachKindIcon>{/\.(png|jpe?g|gif|webp)$/i.test(f.name) ? '🖼' : '📄'}</AttachKindIcon>
+              <AttachName>{f.name}</AttachName>
+              <AttachRemoveBtn onClick={() => removeAttachment(i)} aria-label="제거">×</AttachRemoveBtn>
+            </AttachChip>
+          ))}
+        </AttachRow>
+      )}
       <TA
         ref={ref}
         $compact={compact}
@@ -321,6 +373,7 @@ const Box = styled.div<{ $compact?: boolean }>`
   flex-direction: column;
   padding: ${({ $compact }) => ($compact ? '8px 14px 8px' : '32px 32px 20px')};
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  position: relative;
 
   &:focus-within {
     border-color: rgba(0, 0, 0, 0.18);
@@ -342,6 +395,76 @@ const Box = styled.div<{ $compact?: boolean }>`
       box-shadow: none;
     }
   }
+`;
+
+/* ── Drag-over overlay + attachment chip styles ──────────── */
+
+const DragOverlay = styled.div`
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(57, 120, 247, 0.08);
+  border: 2px dashed #3978f7;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #1a4f8a;
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-weight: 600;
+  pointer-events: none;
+  z-index: 10;
+`;
+const DragOverlayIcon = styled.div`
+  font-size: 28px;
+`;
+const DragOverlayText = styled.div`
+  font-size: 14px;
+`;
+
+const AttachRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+`;
+const AttachChip = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  padding: 4px 6px 4px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.05);
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: 12px;
+  color: #1a1a1a;
+`;
+const AttachKindIcon = styled.span`
+  font-size: 14px;
+  line-height: 1;
+`;
+const AttachName = styled.span`
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+`;
+const AttachRemoveBtn = styled.button`
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.18);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  &:hover { background: rgba(0, 0, 0, 0.28); }
 `;
 
 const TA = styled.textarea<{ $compact?: boolean }>`

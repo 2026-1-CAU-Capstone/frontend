@@ -9,6 +9,7 @@ import { PianoKeyboard, type PianoNote } from '../components/notesheet/PianoKeyb
 import { MelodyPreview } from '../components/notesheet/MelodyPreview';
 import { loadLicks, loadFrontendLicks, loadUserLicks, invalidateLicksCache, type LickEntry } from '../data/lickData';
 import { transposeLick, normalizeKeyInput, formatKeyDisplay } from '../lib/transpose';
+import { LickOMRModal } from '../components/lick/LickOMRModal';
 
 const PAGE_SIZE = 30;
 
@@ -91,6 +92,24 @@ const CountText = styled.span`
   color: ${({ theme }) => theme.colors.textSecondary};
   margin-left: auto;
   font-size: 0.78rem;
+`;
+
+const OMRBtn = styled.button`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  border: 1px solid #1a1a1a;
+  border-radius: 999px;
+  background: #1a1a1a;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: opacity 0.12s, transform 0.1s;
+  &:hover { opacity: 0.85; }
+  &:active { transform: scale(0.97); }
 `;
 
 const MelodyBtn = styled.button<{ $active?: boolean }>`
@@ -365,6 +384,18 @@ export default function LicksPage() {
     }
   }, [lickSource]);
 
+  /* OMR modal state — click "OMR로 생성하기" → opens LickOMRModal. On
+   * successful upload the modal returns the persisted LickEntry; we drop
+   * the cached list (to refetch on next visit), then jump straight into
+   * the unified Editor (lick mode) pre-loaded with the OMR result so the
+   * user can review/edit immediately. */
+  const [omrOpen, setOmrOpen] = useState(false);
+  const handleOMRCreated = useCallback((lick: LickEntry) => {
+    invalidateLicksCache();
+    setOmrOpen(false);
+    navigate('/editor?mode=lick', { state: { editingLick: lick } });
+  }, [navigate]);
+
   /* edit (backend only) — open unified Editor in lick mode with prefilled data + editingId */
   const handleEditLick = useCallback((lick: LickEntry) => {
     navigate('/editor?mode=lick', { state: { editingLick: lick } });
@@ -544,6 +575,10 @@ export default function LicksPage() {
                   <SourceBtn $active={lickSource === 'frontend'} onClick={() => setLickSource('frontend')}>Frontend</SourceBtn>
                 </SourceToggleWrap>
 
+                <OMRBtn onClick={() => setOmrOpen(true)} title="악보 이미지를 업로드해 OMR로 릭 생성">
+                  📄 OMR로 생성하기
+                </OMRBtn>
+
                 <MelodyBtn
                   $active={melodySearch}
                   onClick={() => { setMelodySearch((v) => !v); if (melodySearch) setSearchMidis([]); }}
@@ -672,6 +707,12 @@ export default function LicksPage() {
         </CenterColumn>
         </MainArea>
       </RightSection>
+
+      <LickOMRModal
+        open={omrOpen}
+        onClose={() => setOmrOpen(false)}
+        onCreated={handleOMRCreated}
+      />
     </PageContainer>
   );
 }

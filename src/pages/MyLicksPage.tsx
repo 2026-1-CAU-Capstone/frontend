@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../styles/theme';
+import { IconSidebar } from '../components/layout/IconSidebar';
 import { LickCard } from '../components/notesheet/LickCard';
 import { loadLicks, invalidateLicksCache, type LickEntry } from '../data/lickData';
 import { deleteLick } from '../api/licks';
@@ -10,11 +11,20 @@ import { deleteLick } from '../api/licks';
 
 const Page = styled.div`
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   height: 100vh;
   height: 100dvh;
+  width: 100%;
   background: ${({ theme }) => theme.colors.bgPrimary};
   font-family: 'Pretendard', sans-serif;
+`;
+
+const PageBody = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
 `;
 
 const Header = styled.div`
@@ -188,6 +198,8 @@ export default function MyLicksPage() {
 
   return (
     <Page>
+      <IconSidebar />
+      <PageBody>
       <Header>
         <BackBtn onClick={() => navigate('/editor?mode=lick')}>&larr; Editor</BackBtn>
         <Title>My Licks</Title>
@@ -215,6 +227,7 @@ export default function MyLicksPage() {
           />
         ))}
       </ListArea>
+      </PageBody>
     </Page>
   );
 }

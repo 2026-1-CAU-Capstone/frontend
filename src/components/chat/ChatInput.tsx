@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import type { KeyboardEvent } from 'react';
+import type { DragEvent, KeyboardEvent } from 'react';
+import styled from 'styled-components';
 import type { ChordOverlay } from '../../data/types';
 import { formatChordsInText } from './chordFormat';
 import {
@@ -63,6 +64,8 @@ export function ChatInput({
   autoFocus = false,
 }: ChatInputProps) {
   const [value, setValue] = useState('');
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     if (!autoFocus) return;
@@ -71,6 +74,27 @@ export function ChatInput({
     const id = setTimeout(() => inputRef.current?.focus(), 50);
     return () => clearTimeout(id);
   }, [autoFocus]);
+
+  /* Drag & drop file support — visual overlay + attachment chips. */
+  const onDragOver = (e: DragEvent<HTMLDivElement>) => {
+    if (!e.dataTransfer?.types?.includes('Files')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    if (!isDragOver) setIsDragOver(true);
+  };
+  const onDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setIsDragOver(false);
+  };
+  const onDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const dropped = Array.from(e.dataTransfer.files ?? []);
+    if (dropped.length === 0) return;
+    setAttachments((prev) => [...prev, ...dropped]);
+  };
+  const removeAttachment = (idx: number) =>
+    setAttachments((prev) => prev.filter((_, i) => i !== idx));
   const visibleChords = selectedChords.slice(0, 10);
   const hiddenChordCount = Math.max(selectedChords.length - visibleChords.length, 0);
   const showSelectionQuickAction = !hideSelectionQuickAction;
@@ -91,7 +115,30 @@ export function ChatInput({
   };
 
   return (
-    <InputWrapper>
+    <InputWrapper
+      onDragOver={onDragOver}
+      onDragEnter={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      style={{ position: 'relative' }}
+    >
+      {isDragOver && (
+        <DragOverlay>
+          <DragOverlayIcon>📥</DragOverlayIcon>
+          <DragOverlayText>여기에 파일 놓기</DragOverlayText>
+        </DragOverlay>
+      )}
+      {attachments.length > 0 && (
+        <AttachRow>
+          {attachments.map((f, i) => (
+            <AttachChip key={`${f.name}-${i}`} title={f.name}>
+              <AttachKindIcon>{/\.(png|jpe?g|gif|webp)$/i.test(f.name) ? '🖼' : '📄'}</AttachKindIcon>
+              <AttachName>{f.name}</AttachName>
+              <AttachRemoveBtn onClick={() => removeAttachment(i)} aria-label="제거">×</AttachRemoveBtn>
+            </AttachChip>
+          ))}
+        </AttachRow>
+      )}
       {(showSelectionQuickAction || showLickQuickAction) && (
         <QuickActionRow>
           {showSelectionQuickAction && (
@@ -166,3 +213,73 @@ export function ChatInput({
     </InputWrapper>
   );
 }
+
+/* ── Drag-drop overlay + attachment chip styles (local to ChatInput). ─ */
+
+const DragOverlay = styled.div`
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  background: rgba(57, 120, 247, 0.08);
+  border: 2px dashed #3978f7;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #1a4f8a;
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-weight: 600;
+  pointer-events: none;
+  z-index: 10;
+`;
+const DragOverlayIcon = styled.div`
+  font-size: 24px;
+`;
+const DragOverlayText = styled.div`
+  font-size: 13px;
+`;
+
+const AttachRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px 0;
+`;
+const AttachChip = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  padding: 4px 6px 4px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.05);
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: 12px;
+  color: #1a1a1a;
+`;
+const AttachKindIcon = styled.span`
+  font-size: 14px;
+  line-height: 1;
+`;
+const AttachName = styled.span`
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+`;
+const AttachRemoveBtn = styled.button`
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.18);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  &:hover { background: rgba(0, 0, 0, 0.28); }
+`;

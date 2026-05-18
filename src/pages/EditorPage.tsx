@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import styled from 'styled-components';
+import { IconSidebar } from '../components/layout/IconSidebar';
 import {
   Renderer, Stave, StaveNote, Voice, Formatter, Beam, Accidental, Dot, BarlineType, StaveTie, Tuplet, Repetition,
   TextBracket, TextBracketPosition, Articulation, Annotation, AnnotationVerticalJustify,
@@ -925,10 +926,21 @@ const DUR_KEYS = [
 
 const Page = styled.div`
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   height: 100vh;
+  height: 100dvh;
+  width: 100%;
+  overflow: hidden;
   background: ${({ theme }) => theme.colors.bgPrimary};
   font-family: 'Pretendard', sans-serif;
+`;
+
+const PageBody = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
 `;
 
 const Header = styled.div`
@@ -2689,6 +2701,8 @@ export default function EditorPage() {
   return (
     <Page>
       {countIn.overlay}
+      <IconSidebar />
+      <PageBody>
       <Header>
         <BackBtn onClick={() => navigate('/')}>&#8592; Home</BackBtn>
         <Title>Editor</Title>
@@ -3441,6 +3455,7 @@ export default function EditorPage() {
           </PlayerIconBtn>
         )}
       </PlayerBar>
+      </PageBody>
     </Page>
   );
 }
