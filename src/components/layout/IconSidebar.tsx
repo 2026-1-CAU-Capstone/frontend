@@ -29,7 +29,7 @@ const Rail = styled.nav<{ $expanded: boolean }>`
   display: flex;
   flex-direction: column;
   align-items: ${({ $expanded }) => ($expanded ? 'stretch' : 'center')};
-  padding: 4px ${({ $expanded }) => ($expanded ? '10px' : '0')};
+  padding: 2px ${({ $expanded }) => ($expanded ? '4px' : '0')};
   gap: 4px;
   background: transparent;
   /* Solid right border so the rail visually separates from the chat area. */
@@ -37,7 +37,7 @@ const Rail = styled.nav<{ $expanded: boolean }>`
   transition: width 0.22s ease, padding 0.22s ease, align-items 0.22s ease;
 
   /* iPhone notch / iPad gesture area */
-  padding-top: max(4px, env(safe-area-inset-top, 0px));
+  padding-top: max(2px, env(safe-area-inset-top, 0px));
   padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
 
   ${mq.mobile} {
@@ -57,8 +57,8 @@ const TopRow = styled.div<{ $expanded: boolean }>`
   align-items: center;
   justify-content: ${({ $expanded }) => ($expanded ? 'space-between' : 'center')};
   width: 100%;
-  padding: ${({ $expanded }) => ($expanded ? '0 6px' : '0')};
-  gap: 8px;
+  padding: 0;
+  gap: 4px;
 `;
 
 /* BrandText replaced by the combined <BrandLogoImage>. */
@@ -73,8 +73,8 @@ const BrandRow = styled.div`
 /* Square panel-toggle icon button (matches the side-panel-toggle iconography
  * used by ChatGPT / Claude). */
 const ToggleBtn = styled.button`
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -480,7 +480,7 @@ export function IconSidebar({ hideAuthPromo = false }: IconSidebarProps = {}) {
         {expanded ? (
           <>
             <BrandRow>
-              <BrandLogoImage height={60} onClick={() => navigate('/')} />
+              <BrandLogoImage height={68} onClick={() => navigate('/')} />
             </BrandRow>
             <ToggleBtn onClick={toggleExpanded} title="사이드바 접기" aria-label="사이드바 접기">
               <PanelToggleIcon />
