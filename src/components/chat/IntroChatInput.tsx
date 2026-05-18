@@ -151,7 +151,7 @@ export function IntroChatInput({ onSend, disabled, placeholder, autoFocus, compa
             )}
           </PlusWrap>
           <ModelPill type="button" aria-label="Model">
-            Opus 4.7
+            Sonnet 4.6
             <ChevronDown />
           </ModelPill>
         </LeftCluster>

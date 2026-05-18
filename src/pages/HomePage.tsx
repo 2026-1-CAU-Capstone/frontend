@@ -71,7 +71,12 @@ const MobileBrandBar = styled.div`
   }
 `;
 
-/* MobileBrandLogo + MobileBrandName replaced by <BrandLogoImage>. */
+const MobileBrandLogo = styled.img`
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: cover;
+`;
 
 /* ── Sidebar (desktop tool list) ─────────────────────────────── */
 
@@ -98,7 +103,12 @@ const BrandRow = styled.div`
   padding: 0 6px;
 `;
 
-/* BrandLogo + BrandName replaced by <BrandLogoImage>. */
+const BrandLogo = styled.img`
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: cover;
+`;
 
 const SidebarSpacer = styled.div`
   flex: 1;
@@ -284,7 +294,7 @@ const Main = styled.section`
   overflow: hidden;
 `;
 
-const ChatArea = styled.div<{ $native?: boolean }>`
+const ChatArea = styled.div<{ $native?: boolean; $started?: boolean }>`
   flex: 1;
   min-height: 0;
   display: flex;
@@ -293,9 +303,13 @@ const ChatArea = styled.div<{ $native?: boolean }>`
   & > aside {
     border-left: none;
     background: transparent;
-    ${({ $native }) => !$native && `
+    /* Empty state (chat hasn't started yet) keeps the original wider column
+     * so the centered hero looks roomy. Once messages start flowing, narrow
+     * the column down so bubbles read at chat-comfortable width. */
+    ${({ $native, $started }) => !$native && `
       width: 100%;
-      max-width: 780px;
+      max-width: ${$started ? '780px' : '1040px'};
+      transition: max-width 0.25s ease;
     `}
   }
 `;
@@ -474,7 +488,12 @@ const DrawerHeader = styled.div`
   padding: calc(max(16px, env(safe-area-inset-top, 0px)) + 6px) 16px 14px;
 `;
 
-/* DrawerTitle replaced by <BrandLogoImage>. */
+const DrawerBrandLogo = styled.img`
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: cover;
+`;
 
 const DrawerHeaderRight = styled.div`
   display: flex;
@@ -915,7 +934,8 @@ export default function HomePage() {
     <Wrapper $native={native}>
       {!native && (
         <MobileBrandBar>
-          <BrandLogoImage height={28} onClick={() => navigate('/')} />
+          <MobileBrandLogo src="/jazzifylogo.png" alt="Jazzify" />
+          <BrandLogoImage height={36} onClick={() => navigate('/')} />
         </MobileBrandBar>
       )}
 
@@ -923,7 +943,8 @@ export default function HomePage() {
       {!native && (
         <Sidebar>
           <BrandRow>
-            <BrandLogoImage height={34} onClick={() => navigate('/')} />
+            <BrandLogo src="/jazzifylogo.png" alt="Jazzify" />
+            <BrandLogoImage height={44} onClick={() => navigate('/')} />
           </BrandRow>
 
           {/* Quick nav — ChatGPT-style "+ 새 채팅 / 검색 / 채팅" right under
@@ -983,7 +1004,8 @@ export default function HomePage() {
             onTouchEnd={handleDrawerTouchEnd}
           >
             <DrawerHeader>
-              <BrandLogoImage height={28} />
+              <DrawerBrandLogo src="/jazzifylogo.png" alt="Jazzify" />
+              <BrandLogoImage height={36} />
               <DrawerHeaderRight>
                 {isLoggedIn && (
                   <DrawerAvatarBtn onClick={() => setAccountOpen(true)} aria-label="계정">
@@ -1069,7 +1091,7 @@ export default function HomePage() {
       )}
 
       <Main>
-        <ChatArea $native={native}>
+        <ChatArea $native={native} $started={chatMessageCount > 0}>
           <RightChatPanel
             key={chatKey}
             selectedChords={[]}

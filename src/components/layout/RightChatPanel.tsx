@@ -23,6 +23,7 @@ import {
   EmptyActionGroup,
   EmptyActionButton,
   IntroInputSlot,
+  ScrollToBottomBtn,
 } from './RightChatPanel.styles';
 
 interface RightChatPanelProps {
@@ -154,6 +155,7 @@ export function RightChatPanel({
     onMessagesChange?.(messages.length);
   }, [messages.length, onMessagesChange]);
   const [loading, setLoading] = useState(false);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesAreaRef = useRef<HTMLDivElement>(null);
   const isScrolledUpRef = useRef(false);
@@ -175,8 +177,16 @@ export function RightChatPanel({
   const handleScroll = useCallback(() => {
     if (!messagesAreaRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = messagesAreaRef.current;
-    // 50px 이상 위로 올렸으면 자동스크롤 중지
-    isScrolledUpRef.current = scrollHeight - scrollTop - clientHeight > 50;
+    // 50px 이상 위로 올렸으면 자동스크롤 중지 + scroll-to-bottom 버튼 표시
+    const isUp = scrollHeight - scrollTop - clientHeight > 50;
+    isScrolledUpRef.current = isUp;
+    setShowScrollBtn(isUp);
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    isScrolledUpRef.current = false;
+    setShowScrollBtn(false);
   }, []);
 
   useEffect(() => {
@@ -308,8 +318,12 @@ ${lickList}
       }
     }
 
-    // AI 릭 생성 요청: glick JSON 코드 블록 출력 지시
-    if (isGenQuery) {
+    // AI 릭 생성 요청: glick JSON 코드 블록 출력 지시.
+    // ALSO fallback for lick queries (e.g. "2-5-1 릭 추천") whose DB lookup
+    // returned nothing — without this prompt, the LLM would just emit a plain
+    // markdown ASCII tab and never produce a renderable VexFlow score.
+    const useGlickGen = isGenQuery || (isLickQuery && lickMatchesForMsg.length === 0);
+    if (useGlickGen) {
       const keyMatch = chordContext?.match(/Key:\s*([A-G][b#♭]?)/);
       const songKey = keyMatch ? keyMatch[1].replace('♭', 'b') : 'C';
       const isFlat = ['F','Bb','Eb','Ab','Db','Gb'].includes(songKey);
@@ -578,6 +592,19 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
           placeholder={inputPlaceholder}
           autoFocus={autoFocusInput}
         />
+      )}
+
+      {showScrollBtn && (
+        <ScrollToBottomBtn
+          onClick={scrollToBottom}
+          aria-label="맨 아래로"
+          title="맨 아래로"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M12 5v14" />
+            <path d="M5 12l7 7 7-7" />
+          </svg>
+        </ScrollToBottomBtn>
       )}
     </PanelContainer>
   );

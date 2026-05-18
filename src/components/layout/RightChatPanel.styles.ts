@@ -10,6 +10,34 @@ export const PanelContainer = styled.aside`
   background: ${({ theme }) => theme.colors.bgPrimary};
   border-left: 1px solid ${({ theme }) => theme.colors.border};
   overflow: hidden;
+  position: relative;
+`;
+
+/* Floating "scroll to bottom" arrow — visible only when the user has scrolled
+ * up from the latest message. Anchored just above the chat input (input height
+ * roughly 70-150px, so 'bottom: 130px' clears most inputs without overlapping
+ * the bubble area). */
+export const ScrollToBottomBtn = styled.button`
+  position: absolute;
+  left: 50%;
+  bottom: 130px;
+  transform: translateX(-50%);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: #fff;
+  color: #1a1a1a;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  z-index: 5;
+  transition: transform 0.12s, background 0.15s;
+
+  &:hover { background: rgba(0, 0, 0, 0.04); }
+  &:active { transform: translateX(-50%) scale(0.95); }
 `;
 
 export const PanelHeader = styled.div`
@@ -28,7 +56,9 @@ export const MessagesArea = styled.div`
   flex: 1;
   min-width: 0;
   overflow-y: auto;
-  padding: 16px 20px;
+  /* padding-bottom 을 늘려서 마지막 메시지와 IntroInputSlot 사이에 숨 쉴
+   *  공간을 둠. 너무 빡빡하면 답변이 입력창에 붙어보여 어색. */
+  padding: 16px 20px 28px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -42,7 +72,7 @@ export const MessagesArea = styled.div`
   }
 
   @media (max-width: 768px) {
-    padding: 12px 14px;
+    padding: 12px 14px 20px;
     > * { max-width: 100%; }
   }
 `;
@@ -56,16 +86,37 @@ export const MessagesArea = styled.div`
  * and caps width so it stays Claude-proportioned on wide screens. */
 export const IntroInputSlot = styled.div`
   width: 100%;
-  max-width: 1040px;
-  margin: 24px auto 0;
-  padding: 0 24px;
+  /* 메시지(max 760) 와 정확히 같은 가로 폭으로 통일. 둘 다 가운데 정렬
+   *  이므로 viewport 중앙 기준 같은 컬럼에 정렬된다. */
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0;
   align-self: center;
+  position: relative;
+
+  /* 메시지 영역 끝과 입력창 사이 fade — 마지막 답변이 입력창에 가까워질
+   *  때 자연스럽게 사라지는 듯한 시각 효과. IntroInputSlot 의 위쪽 바깥
+   *  공간에 그라데이션 띠를 띄움. */
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -28px;
+    height: 28px;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      ${({ theme }) => theme.colors.bgPrimary}
+    );
+    pointer-events: none;
+  }
 
   /* Mobile/native: nearly edge-to-edge with a small breathing margin. */
   @media (max-width: 768px) {
     max-width: 100%;
     padding: 0 14px;
-    margin-top: 12px;
+    &::before { display: none; }
   }
 `;
 

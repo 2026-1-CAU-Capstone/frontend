@@ -547,7 +547,8 @@ export function IconSidebar({ hideAuthPromo = false }: IconSidebarProps = {}) {
         {expanded ? (
           <>
             <BrandRow>
-              <BrandLogoImage height={32} onClick={() => navigate('/')} />
+              <Logo />
+              <BrandLogoImage height={36} onClick={() => navigate('/')} />
             </BrandRow>
             <ToggleBtn onClick={toggleExpanded} title="사이드바 접기" aria-label="사이드바 접기">
               <PanelToggleIcon />

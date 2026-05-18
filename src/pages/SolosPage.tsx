@@ -439,116 +439,57 @@ export default function SolosPage() {
     }
   }, [selectedId]);
 
-  /* PDF 다운로드.
+  /* PDF 다운로드 — 브라우저의 native print → "PDF 로 저장" 우회.
    *
-   * NoteSheet 는 VexFlow 가 SVG 한 장으로 그려준다. 처음엔 html2canvas 로
-   * 캡쳐했는데, VexFlow 5 가 음악 글리프를 <use>/외부 폰트 reference 로
-   * 그려서 html2canvas 가 그걸 못 따라가 음표가 모두 .notdef 박스로 깨졌다.
-   * 그래서 SVG 를 그대로 Blob URL 로 만들고 → <img> 에 로드 → canvas 에
-   * drawImage → PNG 로 변환한다. 브라우저의 SVG 렌더러가 폰트 / use 를
-   * 정확히 그리므로 깨짐 없음. 코드 라벨에 쓰는 MuseJazz Text 폰트는
-   * fetch 해서 base64 로 SVG 안에 인라인 — 외부 폰트 fallback 차단. */
+   * html2canvas / SVG→Image→canvas 두 방식 모두 VexFlow 의 <use>/외부 폰트
+   * reference 를 정확히 캡쳐 못 해서 음표가 깨지거나 빈 이미지가 나옴.
+   * 대신 window.print() 는 브라우저 자체 렌더러가 화면 그대로를 PDF 로
+   * 떨궈주므로 결과 100% 정확. UX 상 사용자가 인쇄 대화상자에서
+   * "PDF 로 저장"을 선택해야 한다는 추가 단계는 있음.
+   *
+   * 동작:
+   *   1) 해당 솔로 select → NoteSheet 렌더 대기
+   *   2) document.fonts.ready 대기
+   *   3) PreviewBody 에 .pdf-print-target 클래스 토글
+   *   4) document.title 을 파일명으로 임시 변경 → 인쇄 다이얼로그 기본 파일명에 반영
+   *   5) window.print() → afterprint 에서 원복 */
   const handlePdfDownload = useCallback(async (solo: SoloResponse) => {
     setPdfBusy(solo.publicId);
     try {
       if (selectedId !== solo.publicId) {
         setSelectedId(solo.publicId);
         await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
-        await new Promise((r) => setTimeout(r, 250));
+        await new Promise((r) => setTimeout(r, 300));
       }
-      /* 폰트가 아직 안 그려졌으면 더 기다림 — 캡쳐 안정성 확보. */
       if (typeof document !== 'undefined' && document.fonts?.ready) {
         await document.fonts.ready;
       }
 
       const target = previewBodyRef.current;
       if (!target) throw new Error('미리보기가 준비되지 않았습니다.');
-      const svgEl = target.querySelector('svg');
-      if (!svgEl) throw new Error('악보 SVG를 찾을 수 없습니다.');
-
-      /* MuseJazz Text 폰트 base64 인라인 — fetch 실패해도 음표 캡쳐는 진행. */
-      let fontDataUrl: string | null = null;
-      try {
-        const res = await fetch('/MuseJazzText.otf');
-        if (res.ok) {
-          const blob = await res.blob();
-          fontDataUrl = await new Promise<string>((resolve, reject) => {
-            const fr = new FileReader();
-            fr.onloadend = () => resolve(fr.result as string);
-            fr.onerror = () => reject(new Error('font read failed'));
-            fr.readAsDataURL(blob);
-          });
-        }
-      } catch { /* noop */ }
-
-      /* SVG clone + 인라인 폰트 + 절대 사이즈로 설정. */
-      const cloned = svgEl.cloneNode(true) as SVGElement;
-      const bbox = svgEl.getBoundingClientRect();
-      const w = Math.ceil(bbox.width);
-      const h = Math.ceil(bbox.height);
-      cloned.setAttribute('width', String(w));
-      cloned.setAttribute('height', String(h));
-      if (!cloned.getAttribute('xmlns')) cloned.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-      /* 화면에 적용된 CSS scale 제거 → 원본 픽셀 그대로 캡쳐 (선명함). */
-      cloned.removeAttribute('style');
-      if (fontDataUrl) {
-        const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
-        styleEl.textContent =
-          `@font-face{font-family:'MuseJazz Text';src:url('${fontDataUrl}') format('opentype');}`;
-        cloned.insertBefore(styleEl, cloned.firstChild);
-      }
-
-      const svgStr = new XMLSerializer().serializeToString(cloned);
-      const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
-      const svgUrl = URL.createObjectURL(svgBlob);
-
-      const scale = 2;
-      let pngDataUrl: string;
-      let canvasW: number;
-      let canvasH: number;
-      try {
-        const img = new Image();
-        await new Promise<void>((resolve, reject) => {
-          img.onload = () => resolve();
-          img.onerror = () => reject(new Error('SVG → Image 로드 실패'));
-          img.src = svgUrl;
-        });
-        const canvas = document.createElement('canvas');
-        canvas.width = w * scale;
-        canvas.height = h * scale;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) throw new Error('canvas 2d context 생성 실패');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        pngDataUrl = canvas.toDataURL('image/png');
-        canvasW = canvas.width;
-        canvasH = canvas.height;
-      } finally {
-        URL.revokeObjectURL(svgUrl);
-      }
-
-      const { jsPDF } = await import('jspdf');
-      const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-      const imgW = pageW;
-      const imgH = (canvasH * imgW) / canvasW;
-
-      let heightLeft = imgH;
-      let position = 0;
-      pdf.addImage(pngDataUrl, 'PNG', 0, position, imgW, imgH);
-      heightLeft -= pageH;
-      while (heightLeft > 0) {
-        position -= pageH;
-        pdf.addPage();
-        pdf.addImage(pngDataUrl, 'PNG', 0, position, imgW, imgH);
-        heightLeft -= pageH;
-      }
 
       const safe = (s: string) => s.replace(/[/\\?%*:|"<>]/g, '-').trim();
-      const filename = `${safe(solo.performer ?? 'Unknown')} - ${safe(solo.title)}.pdf`;
-      pdf.save(filename);
+      const filename = `${safe(solo.performer ?? 'Unknown')} - ${safe(solo.title)}`;
+      const originalTitle = document.title;
+
+      target.classList.add('pdf-print-target');
+      document.title = filename;
+
+      let done = false;
+      const cleanup = () => {
+        if (done) return;
+        done = true;
+        target.classList.remove('pdf-print-target');
+        document.title = originalTitle;
+        window.removeEventListener('afterprint', cleanup);
+      };
+      window.addEventListener('afterprint', cleanup);
+
+      /* trigger native print dialog */
+      window.print();
+
+      /* Fallback — 일부 브라우저(특히 Safari)는 afterprint 가 늦거나 안 뜸 */
+      setTimeout(cleanup, 1500);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'PDF 생성 실패';
       setError(msg);
