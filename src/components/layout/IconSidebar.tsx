@@ -68,10 +68,6 @@ const BrandRow = styled.div`
   align-items: center;
   gap: 8px;
   min-width: 0;
-  /* Pull the row above the nominal top edge — the wordmark PNG has some
-   * intrinsic optical padding even after -trim. */
-  margin-top: -8px;
-  margin-bottom: -4px;
 `;
 
 /* Square panel-toggle icon button (matches the side-panel-toggle iconography

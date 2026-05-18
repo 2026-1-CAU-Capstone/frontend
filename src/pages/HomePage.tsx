@@ -98,12 +98,10 @@ const BrandRow = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: 60px;
   padding: 0;
-  /* Pull the row above the nominal top edge — the wordmark PNG has some
-   * intrinsic optical padding even after -trim. */
-  margin-top: -10px;
-  margin-bottom: -4px;
+  margin-top: 0;
+  margin-bottom: 0;
 `;
 
 /** Same shape + hover behaviour as IconSidebar's ToggleBtn — kept inline so
@@ -1060,7 +1058,7 @@ export default function HomePage() {
           {sidebarExpanded ? (
             <>
               <BrandRow>
-                <BrandLogoImage height={38} scaleX={1.05} onClick={() => navigate('/')} />
+                <BrandLogoImage height={45} scaleX={1.10} onClick={() => navigate('/')} />
                 <SidebarToggleBtn onClick={toggleSidebar} aria-label="사이드바 접기">
                   <PanelToggleIcon />
                   <SidebarToggleTooltip>사이드바 접기</SidebarToggleTooltip>
