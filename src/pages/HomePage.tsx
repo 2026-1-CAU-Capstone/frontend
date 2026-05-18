@@ -5,6 +5,7 @@ import { Keyboard } from '@capacitor/keyboard';
 import { mq } from '../styles/theme';
 import { RightChatPanel } from '../components/layout/RightChatPanel';
 import { BrandLogoImage } from '../components/common/BrandLogoImage';
+import { PanelToggleIcon, SIDEBAR_STORAGE_KEY } from '../components/layout/IconSidebar';
 import { AuthTopBar } from '../components/layout/AuthTopBar';
 import { AccountModal } from '../components/chat/AccountModal';
 import { LoginModal } from '../components/auth/LoginModal';
@@ -94,8 +95,59 @@ const Sidebar = styled.aside`
 const BrandRow = styled.div`
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
   padding: 0 6px;
+`;
+
+/** Same shape + hover behaviour as IconSidebar's ToggleBtn — kept inline so
+ *  the two sidebars don't have to share a styled-component module. */
+const SidebarToggleBtn = styled.button`
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: ${({ theme }) => theme.colors.textPrimary};
+  }
+`;
+
+/** Floating toggle pinned to the top-left when the sidebar is collapsed.
+ *  Clicking it re-expands the sidebar. */
+const FloatingOpenBtn = styled.button`
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top, 0px));
+  left: max(10px, env(safe-area-inset-left, 0px));
+  z-index: 60;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 10px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  color: ${({ theme }) => theme.colors.textSecondary};
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: background 0.15s, color 0.15s;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.04);
+    color: ${({ theme }) => theme.colors.textPrimary};
+  }
+
+  ${mq.mobile} { display: none; }
 `;
 
 /* BrandLogo removed — wordmark stands alone now. */
@@ -772,6 +824,21 @@ export default function HomePage() {
   const native = isNativeApp();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  /* Collapse state for the desktop sidebar — mirrors IconSidebar so the two
+   * pages share the same expanded/collapsed preference. */
+  const [sidebarExpanded, setSidebarExpanded] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    try { return window.localStorage.getItem(SIDEBAR_STORAGE_KEY) !== '0'; }
+    catch { return true; }
+  });
+  const toggleSidebar = () => {
+    setSidebarExpanded((prev) => {
+      const next = !prev;
+      try { window.localStorage.setItem(SIDEBAR_STORAGE_KEY, next ? '1' : '0'); }
+      catch { /* storage unavailable */ }
+      return next;
+    });
+  };
   /* Real auth state — driven by Jazzify backend (/v1/auth/*). The cached
    * access token + user info in localStorage seed the initial state so
    * there's no logged-out flash on app launch; in parallel we call
@@ -925,11 +992,16 @@ export default function HomePage() {
         </MobileBrandBar>
       )}
 
-      {/* Desktop / web sidebar — hidden on native (replaced by drawer). */}
-      {!native && (
+      {/* Desktop / web sidebar — hidden on native (replaced by drawer).
+       *  Collapses to nothing via the top-right toggle, matching the
+       *  Claude-style affordance used by IconSidebar. */}
+      {!native && sidebarExpanded && (
         <Sidebar>
           <BrandRow>
             <BrandLogoImage height={78} onClick={() => navigate('/')} />
+            <SidebarToggleBtn onClick={toggleSidebar} title="사이드바 접기" aria-label="사이드바 접기">
+              <PanelToggleIcon />
+            </SidebarToggleBtn>
           </BrandRow>
 
           {/* Quick nav — ChatGPT-style "+ 새 채팅 / 검색 / 채팅" right under
@@ -976,6 +1048,14 @@ export default function HomePage() {
       )}
 
       {!native && <AuthTopBar onLoginClick={() => setLoginOpen(true)} />}
+
+      {/* When the sidebar is collapsed, surface a small floating toggle so
+       *  the user can bring it back. */}
+      {!native && !sidebarExpanded && (
+        <FloatingOpenBtn onClick={toggleSidebar} title="사이드바 열기" aria-label="사이드바 열기">
+          <PanelToggleIcon />
+        </FloatingOpenBtn>
+      )}
 
       {/* Native hamburger + full-screen drawer. */}
       {native && (

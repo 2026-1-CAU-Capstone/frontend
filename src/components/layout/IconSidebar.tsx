@@ -21,7 +21,7 @@ import { LoginModal } from '../auth/LoginModal';
  * those flows still use the compact icon rail.
  * ──────────────────────────────────────────────────────────────────────── */
 
-const STORAGE_KEY = 'iconSidebar.expanded';
+// SIDEBAR_STORAGE_KEY is exported (line ~100) so HomePage stays in sync.
 
 const Rail = styled.nav<{ $expanded: boolean }>`
   width: ${({ $expanded }) => ($expanded ? '260px' : '56px')};
@@ -91,12 +91,17 @@ const ToggleBtn = styled.button`
   }
 `;
 
-const PanelToggleIcon = () => (
+/* Exported so HomePage's own sidebar can render the identical toggle glyph. */
+export const PanelToggleIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="3" y="4" width="18" height="16" rx="2" />
     <line x1="9" y1="4" x2="9" y2="20" />
   </svg>
 );
+
+/** localStorage key the IconSidebar uses for its expanded state. Reused by
+ *  HomePage so the two sidebars stay in sync across the app. */
+export const SIDEBAR_STORAGE_KEY = 'iconSidebar.expanded';
 
 /* (TopSlot / SlotLogo / SlotToggle / SlotTooltip removed — the collapsed
  *  rail now shows the toggle button directly instead of swapping a logo on
@@ -443,7 +448,7 @@ export function IconSidebar({ hideAuthPromo = false }: IconSidebarProps = {}) {
   const { pathname } = useLocation();
   const [authUser, setAuthUser] = useState<AuthUser | null>(() => getCachedUser());
   const [expanded, setExpanded] = useState<boolean>(() => {
-    try { return localStorage.getItem(STORAGE_KEY) === '1'; }
+    try { return localStorage.getItem(SIDEBAR_STORAGE_KEY) === '1'; }
     catch { return false; }
   });
   const [loginOpen, setLoginOpen] = useState(false);
@@ -459,7 +464,7 @@ export function IconSidebar({ hideAuthPromo = false }: IconSidebarProps = {}) {
   const toggleExpanded = () => {
     setExpanded((prev) => {
       const next = !prev;
-      try { localStorage.setItem(STORAGE_KEY, next ? '1' : '0'); } catch { /* storage unavailable */ }
+      try { localStorage.setItem(SIDEBAR_STORAGE_KEY, next ? '1' : '0'); } catch { /* storage unavailable */ }
       return next;
     });
   };
