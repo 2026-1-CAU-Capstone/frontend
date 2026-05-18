@@ -29,15 +29,15 @@ const Rail = styled.nav<{ $expanded: boolean }>`
   display: flex;
   flex-direction: column;
   align-items: ${({ $expanded }) => ($expanded ? 'stretch' : 'center')};
-  padding: 2px ${({ $expanded }) => ($expanded ? '4px' : '0')};
+  padding: 0 ${({ $expanded }) => ($expanded ? '4px' : '0')};
   gap: 4px;
   background: transparent;
   /* Solid right border so the rail visually separates from the chat area. */
   border-right: 1px solid rgba(0, 0, 0, 0.12);
   transition: width 0.22s ease, padding 0.22s ease, align-items 0.22s ease;
 
-  /* iPhone notch / iPad gesture area */
-  padding-top: max(2px, env(safe-area-inset-top, 0px));
+  /* iPhone notch / iPad gesture area — desktop uses 0. */
+  padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
 
   ${mq.mobile} {

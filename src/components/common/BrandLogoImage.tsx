@@ -24,7 +24,10 @@ interface Props {
 }
 
 const Img = styled.img<{ $clickable: boolean }>`
-  display: inline-block;
+  /* display:block kills the inline-baseline gap (~4px) that <img> normally
+   * adds underneath itself when sitting in a flex/inline row. Without this
+   * the wordmark cannot hug the top edge. */
+  display: block;
   width: auto;
   user-select: none;
   -webkit-user-drag: none;

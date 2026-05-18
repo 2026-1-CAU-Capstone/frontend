@@ -83,8 +83,8 @@ const Sidebar = styled.aside`
   flex-direction: column;
   background: ${({ theme }) => theme.colors.bgSecondary};
   border-right: 1px solid ${({ theme }) => theme.colors.border};
-  padding: 2px 6px 22px;
-  gap: 16px;
+  padding: 0 6px 22px;
+  gap: 14px;
   overflow: hidden;
 
   ${mq.mobile} {
