@@ -29,7 +29,7 @@ const Rail = styled.nav<{ $expanded: boolean }>`
   display: flex;
   flex-direction: column;
   align-items: ${({ $expanded }) => ($expanded ? 'stretch' : 'center')};
-  padding: 0 ${({ $expanded }) => ($expanded ? '4px' : '0')};
+  padding: 0 ${({ $expanded }) => ($expanded ? '8px' : '0')};
   gap: 4px;
   background: transparent;
   /* Solid right border so the rail visually separates from the chat area. */
@@ -484,7 +484,7 @@ export function IconSidebar({ hideAuthPromo = false }: IconSidebarProps = {}) {
         {expanded ? (
           <>
             <BrandRow>
-              <BrandLogoImage height={68} onClick={() => navigate('/')} />
+              <BrandLogoImage height={68} scaleX={1.15} onClick={() => navigate('/')} />
             </BrandRow>
             <ToggleBtn onClick={toggleExpanded} title="사이드바 접기" aria-label="사이드바 접기">
               <PanelToggleIcon />

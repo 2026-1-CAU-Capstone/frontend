@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import styled from 'styled-components';
 
 /**
@@ -16,6 +17,9 @@ import styled from 'styled-components';
 interface Props {
   /** Rendered height in px. Default 28 — close to a 1.15rem text baseline. */
   height?: number;
+  /** Optional horizontal stretch factor (1 = natural aspect). Anchored at
+   *  the left edge so left alignment stays pinned when stretching. */
+  scaleX?: number;
   /** Click handler — usually navigate('/'). When set, cursor + role applied. */
   onClick?: () => void;
   /** Optional aria-label override. */
@@ -34,12 +38,23 @@ const Img = styled.img<{ $clickable: boolean }>`
   ${({ $clickable }) => ($clickable ? 'cursor: pointer;' : '')}
 `;
 
-export function BrandLogoImage({ height = 28, onClick, alt = 'Jazzify', className }: Props) {
+export function BrandLogoImage({
+  height = 28,
+  scaleX = 1,
+  onClick,
+  alt = 'Jazzify',
+  className,
+}: Props) {
+  const style: CSSProperties = { height };
+  if (scaleX !== 1) {
+    style.transform = `scaleX(${scaleX})`;
+    style.transformOrigin = 'left center';
+  }
   return (
     <Img
       src="/Jazzify-trimmed.png"
       alt={alt}
-      style={{ height }}
+      style={style}
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       $clickable={!!onClick}

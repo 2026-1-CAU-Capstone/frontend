@@ -83,7 +83,7 @@ const Sidebar = styled.aside`
   flex-direction: column;
   background: ${({ theme }) => theme.colors.bgSecondary};
   border-right: 1px solid ${({ theme }) => theme.colors.border};
-  padding: 0 6px 22px;
+  padding: 0 10px 22px;
   gap: 14px;
   overflow: hidden;
 
@@ -1002,7 +1002,7 @@ export default function HomePage() {
       {!native && sidebarExpanded && (
         <Sidebar>
           <BrandRow>
-            <BrandLogoImage height={88} onClick={() => navigate('/')} />
+            <BrandLogoImage height={88} scaleX={1.15} onClick={() => navigate('/')} />
             <SidebarToggleBtn onClick={toggleSidebar} title="사이드바 접기" aria-label="사이드바 접기">
               <PanelToggleIcon />
             </SidebarToggleBtn>
