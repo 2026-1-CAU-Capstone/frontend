@@ -84,7 +84,7 @@ const Sidebar = styled.aside<{ $collapsed?: boolean }>`
   align-items: ${({ $collapsed }) => ($collapsed ? 'center' : 'stretch')};
   background: ${({ theme }) => theme.colors.bgSecondary};
   border-right: 1px solid ${({ theme }) => theme.colors.border};
-  padding: ${({ $collapsed }) => ($collapsed ? '12px 0 22px' : '0 4px 22px 14px')};
+  padding: ${({ $collapsed }) => ($collapsed ? '12px 4px 22px' : '0 4px 22px 14px')};
   gap: ${({ $collapsed }) => ($collapsed ? '4px' : '14px')};
   overflow: visible;
   transition: width 0.22s ease, padding 0.22s ease;
@@ -134,7 +134,7 @@ const SidebarToggleBtn = styled.button`
  *  SidebarToggleBtn but full width of the 56px rail. */
 const NarrowToggleBtn = styled.button`
   position: relative;
-  width: 40px;
+  width: 100%;
   height: 40px;
   display: inline-flex;
   align-items: center;
@@ -157,8 +157,8 @@ const NarrowToggleBtn = styled.button`
  *  icon centered and reveals a tooltip on hover. */
 const NarrowIconBtn = styled.button`
   position: relative;
-  width: 42px;
-  height: 42px;
+  width: 100%;
+  height: 40px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
