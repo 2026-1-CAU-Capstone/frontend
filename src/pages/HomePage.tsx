@@ -86,7 +86,9 @@ const Sidebar = styled.aside<{ $collapsed?: boolean }>`
   border-right: 1px solid ${({ theme }) => theme.colors.border};
   padding: ${({ $collapsed }) => ($collapsed ? '0 0 22px' : '0 4px 22px 14px')};
   gap: ${({ $collapsed }) => ($collapsed ? '4px' : '14px')};
-  overflow: hidden;
+  /* overflow: visible — tooltips need to escape the sidebar's right edge
+   * to show next to the buttons. Wrapper still clips the page viewport. */
+  overflow: visible;
   transition: width 0.22s ease, padding 0.22s ease;
 
   ${mq.mobile} {
@@ -133,8 +135,8 @@ const SidebarToggleBtn = styled.button`
  *  SidebarToggleBtn but full width of the 56px rail. */
 const NarrowToggleBtn = styled.button`
   position: relative;
-  width: 50px;
-  height: 50px;
+  width: 80px;
+  height: 80px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -143,8 +145,8 @@ const NarrowToggleBtn = styled.button`
   background: transparent;
   color: ${({ theme }) => theme.colors.textSecondary};
   cursor: pointer;
-  margin-top: 4px;
-  margin-bottom: 8px;
+  margin-top: 0px;
+  margin-bottom: 0px;
 
   &:hover {
     background: rgba(0, 0, 0, 0.05);
@@ -198,7 +200,7 @@ const SidebarToggleTooltip = styled.span`
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.15s ease, transform 0.15s ease;
-  z-index: 120;
+  z-index: 1000;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 
   button:hover > & {
