@@ -134,8 +134,8 @@ const SidebarToggleBtn = styled.button`
  *  SidebarToggleBtn but full width of the 56px rail. */
 const NarrowToggleBtn = styled.button`
   position: relative;
-  width: 80px;
-  height: 80px;
+  width: 40px;
+  height: 40px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1059,7 +1059,7 @@ export default function HomePage() {
           {sidebarExpanded ? (
             <>
               <BrandRow>
-                <BrandLogoImage height={38} scaleX={1.05} onClick={() => navigate('/')} />
+                <BrandLogoImage height={56} scaleX={1.05} onClick={() => navigate('/')} />
                 <SidebarToggleBtn onClick={toggleSidebar} aria-label="사이드바 접기">
                   <PanelToggleIcon />
                   <SidebarToggleTooltip>사이드바 접기</SidebarToggleTooltip>
