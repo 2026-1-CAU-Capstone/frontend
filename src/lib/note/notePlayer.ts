@@ -627,16 +627,18 @@ export class NotePlayer {
     this.build(data, tempo);
     this._playing = true;
     // Lead the audio origin a little into the future to keep t=0 strictly in
-    // the future (some soundfont libs drop / clip past-time events). With a
-    // caller-supplied `startAt` (count-in's exact downbeat) we trust the audio
-    // clock and use a tight 5 ms margin so the first note lands essentially
-    // ON the beat. Without it we keep the wider 50 ms margin that covers
-    // post-count-in setTimeout slop.
+    // the future (some soundfont libs drop / clip past-time events). Two cases:
+    //   - startAt is comfortably in the future → trust the count-in's audio
+    //     clock and use a tight 5 ms margin so the first note lands ON the beat.
+    //   - startAt is missing OR already in the past (instrument load ran
+    //     longer than the count-in) → fall back to a 50 ms margin so the first
+    //     notes get scheduled with enough lead-time to sound.
     const now = this.ctx!.currentTime;
-    const SCHED_LEAD = opts.startAt != null ? 0.005 : 0.05;
-    const desiredOrigin = opts.startAt != null
-      ? Math.max(opts.startAt, now + SCHED_LEAD)
-      : now + SCHED_LEAD;
+    const TIGHT_LEAD = 0.005;
+    const SAFE_LEAD = 0.05;
+    const desiredOrigin = opts.startAt != null && opts.startAt > now + TIGHT_LEAD
+      ? opts.startAt
+      : now + SAFE_LEAD;
     this.origin = desiredOrigin - this.elapsed;
 
     // Start the drum loop in sync with playback if a loop kit is selected.

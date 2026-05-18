@@ -4,9 +4,7 @@ import styled from 'styled-components';
 import { mq } from '../styles/theme';
 import { IconSidebar } from '../components/layout/IconSidebar';
 import { TopToolbar } from '../components/layout/TopToolbar';
-import { LeftSidebar } from '../components/layout/LeftSidebar';
 import { NoteSheet } from '../components/notesheet/NoteSheet';
-import type { TocEntry } from '../data/types';
 import {
   deleteSolo,
   listSolos,
@@ -29,7 +27,11 @@ import {
 } from '../lib/note/transposeNoteSheet';
 
 
-const PAGE_SIZE = 20;
+/* Large page size because the backend currently ignores the `performer`
+ * query filter — we have to receive every solo and filter client-side, so
+ * smaller pages would leave the target performer's rows on later pages
+ * and show "no results" by accident. Safe while the catalog is small. */
+const PAGE_SIZE = 500;
 
 /* ─── styled ─────────────────────────────────────────────────────────── */
 
@@ -279,7 +281,6 @@ const ErrorBanner = styled.div`
 
 export default function SolosPage() {
   const navigate = useNavigate();
-
   /* selectedPerformer: '' = none chosen (nothing fetched). Picking from the
    * dropdown triggers the first page fetch. */
   const [performers, setPerformers] = useState<string[]>([]);
@@ -308,6 +309,8 @@ export default function SolosPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [previewKey, setPreviewKey] = useState('C');
   const [busy, setBusy] = useState<string | null>(null);
+  const [pdfBusy, setPdfBusy] = useState<string | null>(null);
+  const previewBodyRef = useRef<HTMLDivElement>(null);
 
   /* token so concurrent fetches (e.g. fast performer-switching) can be
    * discarded when stale. */
@@ -436,6 +439,125 @@ export default function SolosPage() {
     }
   }, [selectedId]);
 
+  /* PDF 다운로드.
+   *
+   * NoteSheet 는 VexFlow 가 SVG 한 장으로 그려준다. 처음엔 html2canvas 로
+   * 캡쳐했는데, VexFlow 5 가 음악 글리프를 <use>/외부 폰트 reference 로
+   * 그려서 html2canvas 가 그걸 못 따라가 음표가 모두 .notdef 박스로 깨졌다.
+   * 그래서 SVG 를 그대로 Blob URL 로 만들고 → <img> 에 로드 → canvas 에
+   * drawImage → PNG 로 변환한다. 브라우저의 SVG 렌더러가 폰트 / use 를
+   * 정확히 그리므로 깨짐 없음. 코드 라벨에 쓰는 MuseJazz Text 폰트는
+   * fetch 해서 base64 로 SVG 안에 인라인 — 외부 폰트 fallback 차단. */
+  const handlePdfDownload = useCallback(async (solo: SoloResponse) => {
+    setPdfBusy(solo.publicId);
+    try {
+      if (selectedId !== solo.publicId) {
+        setSelectedId(solo.publicId);
+        await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      /* 폰트가 아직 안 그려졌으면 더 기다림 — 캡쳐 안정성 확보. */
+      if (typeof document !== 'undefined' && document.fonts?.ready) {
+        await document.fonts.ready;
+      }
+
+      const target = previewBodyRef.current;
+      if (!target) throw new Error('미리보기가 준비되지 않았습니다.');
+      const svgEl = target.querySelector('svg');
+      if (!svgEl) throw new Error('악보 SVG를 찾을 수 없습니다.');
+
+      /* MuseJazz Text 폰트 base64 인라인 — fetch 실패해도 음표 캡쳐는 진행. */
+      let fontDataUrl: string | null = null;
+      try {
+        const res = await fetch('/MuseJazzText.otf');
+        if (res.ok) {
+          const blob = await res.blob();
+          fontDataUrl = await new Promise<string>((resolve, reject) => {
+            const fr = new FileReader();
+            fr.onloadend = () => resolve(fr.result as string);
+            fr.onerror = () => reject(new Error('font read failed'));
+            fr.readAsDataURL(blob);
+          });
+        }
+      } catch { /* noop */ }
+
+      /* SVG clone + 인라인 폰트 + 절대 사이즈로 설정. */
+      const cloned = svgEl.cloneNode(true) as SVGElement;
+      const bbox = svgEl.getBoundingClientRect();
+      const w = Math.ceil(bbox.width);
+      const h = Math.ceil(bbox.height);
+      cloned.setAttribute('width', String(w));
+      cloned.setAttribute('height', String(h));
+      if (!cloned.getAttribute('xmlns')) cloned.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      /* 화면에 적용된 CSS scale 제거 → 원본 픽셀 그대로 캡쳐 (선명함). */
+      cloned.removeAttribute('style');
+      if (fontDataUrl) {
+        const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+        styleEl.textContent =
+          `@font-face{font-family:'MuseJazz Text';src:url('${fontDataUrl}') format('opentype');}`;
+        cloned.insertBefore(styleEl, cloned.firstChild);
+      }
+
+      const svgStr = new XMLSerializer().serializeToString(cloned);
+      const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+      const svgUrl = URL.createObjectURL(svgBlob);
+
+      const scale = 2;
+      let pngDataUrl: string;
+      let canvasW: number;
+      let canvasH: number;
+      try {
+        const img = new Image();
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = () => reject(new Error('SVG → Image 로드 실패'));
+          img.src = svgUrl;
+        });
+        const canvas = document.createElement('canvas');
+        canvas.width = w * scale;
+        canvas.height = h * scale;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('canvas 2d context 생성 실패');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        pngDataUrl = canvas.toDataURL('image/png');
+        canvasW = canvas.width;
+        canvasH = canvas.height;
+      } finally {
+        URL.revokeObjectURL(svgUrl);
+      }
+
+      const { jsPDF } = await import('jspdf');
+      const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const imgW = pageW;
+      const imgH = (canvasH * imgW) / canvasW;
+
+      let heightLeft = imgH;
+      let position = 0;
+      pdf.addImage(pngDataUrl, 'PNG', 0, position, imgW, imgH);
+      heightLeft -= pageH;
+      while (heightLeft > 0) {
+        position -= pageH;
+        pdf.addPage();
+        pdf.addImage(pngDataUrl, 'PNG', 0, position, imgW, imgH);
+        heightLeft -= pageH;
+      }
+
+      const safe = (s: string) => s.replace(/[/\\?%*:|"<>]/g, '-').trim();
+      const filename = `${safe(solo.performer ?? 'Unknown')} - ${safe(solo.title)}.pdf`;
+      pdf.save(filename);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'PDF 생성 실패';
+      setError(msg);
+      setTimeout(() => setError(null), 4000);
+    } finally {
+      setPdfBusy(null);
+    }
+  }, [selectedId]);
+
   const handleTranspose = useCallback(async (solo: SoloResponse) => {
     const fromWeimar = toWeimarKey(solo.key ?? solo.sheetData.key ?? 'C') ?? 'C-maj';
     const currentDisplay = formatKeyDisplay(fromWeimar);
@@ -491,18 +613,6 @@ export default function SolosPage() {
     }
   }, []);
 
-  const toc = useMemo<TocEntry[]>(
-    () => [
-      { title: 'Lick Database', page: 1 },
-      { title: 'Solo Database', page: 2 },
-    ],
-    [],
-  );
-
-  const handleTocSelect = useCallback((page: number) => {
-    if (page === 1) navigate('/licks');
-  }, [navigate]);
-
   return (
     <PageContainer>
       <IconSidebar />
@@ -510,8 +620,6 @@ export default function SolosPage() {
         <TopToolbar />
 
         <MainArea>
-          <LeftSidebar toc={toc} activePage={2} onPageSelect={handleTocSelect} />
-
           <CenterColumn>
             <ToolBar>
               <FilterLabel>Performer</FilterLabel>
@@ -582,6 +690,43 @@ export default function SolosPage() {
                           </RowMain>
                           <RowActions>
                             <RowBtn
+                              $color="#1976d2"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                /* Hand the solo's NoteSheetData to EditorPage
+                                 * via location.state.prefillSheet.
+                                 *
+                                 * IMPORTANT: backend stores `performer` at the
+                                 * solo's top level, but its `sheetData.composer`
+                                 * may be null. EditorPage.handleSave matches
+                                 * existing solos by (sheetTitle + composer);
+                                 * if composer ends up empty the save creates a
+                                 * fresh "Unknown" copy instead of updating
+                                 * this row. Override composer with performer
+                                 * so re-save updates the SAME solo. */
+                                const prefill = {
+                                  ...s.sheetData,
+                                  composer: s.performer ?? s.sheetData.composer ?? '',
+                                  tempo: s.tempo ?? s.sheetData.tempo,
+                                  key: s.sheetData.key,
+                                };
+                                navigate('/editor?mode=solo', {
+                                  state: { prefillSheet: prefill },
+                                });
+                              }}
+                              title="Open this solo in the Editor"
+                            >
+                              ✏ Edit
+                            </RowBtn>
+                            <RowBtn
+                              $color="#388e3c"
+                              disabled={pdfBusy === s.publicId}
+                              onClick={(e) => { e.stopPropagation(); handlePdfDownload(s); }}
+                              title="Download this solo as PDF"
+                            >
+                              {pdfBusy === s.publicId ? '⏳' : '📄 PDF'}
+                            </RowBtn>
+                            <RowBtn
                               $color="#7b1fa2"
                               disabled={busy === s.publicId}
                               onClick={(e) => { e.stopPropagation(); handleTranspose(s); }}
@@ -616,7 +761,7 @@ export default function SolosPage() {
                         {(selected.performer ?? '—')} · {selected.instrument} · original {originalDisplayKey} · {selected.sheetData.measures.length} bars
                       </PreviewMeta>
                     </PreviewHeader>
-                    <PreviewBody>
+                    <PreviewBody ref={previewBodyRef}>
                       {previewSheet && (
                         <NoteSheet
                           data={previewSheet}

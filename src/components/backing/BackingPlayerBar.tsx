@@ -9,6 +9,15 @@ import {
   type PlayStyle,
   type PlayerSettings,
 } from '../../lib/note/playerSettings';
+import { StyleSelector, type StyleSelectorChoice } from '../yamaha-sty/StyleSelector';
+
+export type EngineBackend = 'rule' | 'sty' | 'hybrid';
+
+const ENGINE_OPTIONS: { id: EngineBackend; label: string; hint: string }[] = [
+  { id: 'rule', label: 'Rule', hint: '룰 기반 — 안정적인 swing/bossa 백킹' },
+  { id: 'hybrid', label: 'Hybrid', hint: '.sty 피아노/기타 + 룰 베이스·드럼' },
+  { id: 'sty', label: 'Pure .sty', hint: 'Yamaha .sty 단독 (실험적)' },
+];
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Fixed bottom-left transport bar for the backing-track / chord player.
@@ -19,12 +28,22 @@ import {
  * backing chord player) picks them up automatically.
  * ──────────────────────────────────────────────────────────────────────── */
 
+export interface BackingEngineControls {
+  backend: EngineBackend;
+  onBackendChange: (b: EngineBackend) => void;
+  styleChoice: StyleSelectorChoice;
+  onStyleChange: (c: StyleSelectorChoice) => void;
+}
+
 export interface BackingPlayerBarProps {
   playing: boolean;
   tempo: number;
   onTempoChange: (bpm: number) => void;
   onPlayPause: () => void;
   disabled?: boolean;
+  /** When supplied, an Engine section (Rule / Hybrid / Pure .sty + style
+   *  picker) is rendered at the top of the mixer popup. */
+  engine?: BackingEngineControls;
 }
 
 export function BackingPlayerBar({
@@ -33,6 +52,7 @@ export function BackingPlayerBar({
   onTempoChange,
   onPlayPause,
   disabled = false,
+  engine,
 }: BackingPlayerBarProps) {
   const [tempoText, setTempoText] = useState(String(tempo));
   const [mixerOpen, setMixerOpen] = useState(false);
@@ -59,12 +79,50 @@ export function BackingPlayerBar({
     drumVolume, drumKit,
     style: playStyle,
     metroEnabled, metroVolume,
+    loop,
   } = settings;
 
   return (
     <Bar>
       {mixerOpen && (
         <MixerPopup>
+          {/* Engine — pick between the rule generator, .sty playback, and
+           *  the hybrid blend. Only rendered when the host page passes
+           *  `engine` controls (ChordPage does; lick/solo previews don't
+           *  need an engine choice). */}
+          {engine && (
+            <MixerSectionFull $accent='#6aaa7e'>
+              <MixerSectionTitle>⚙ 엔진</MixerSectionTitle>
+              <MixerRow>
+                <MixerLabel>방식</MixerLabel>
+                <KitGroup>
+                  {ENGINE_OPTIONS.map(({ id, label, hint }) => (
+                    <KitBtn
+                      key={id}
+                      type='button'
+                      $on={engine.backend === id}
+                      title={hint}
+                      onClick={() => engine.onBackendChange(id)}
+                    >
+                      {label}
+                    </KitBtn>
+                  ))}
+                </KitGroup>
+              </MixerRow>
+              {(engine.backend === 'sty' || engine.backend === 'hybrid') && (
+                <MixerRow>
+                  <MixerLabel>.sty</MixerLabel>
+                  <StyleSelectorWrap>
+                    <StyleSelector
+                      currentName={engine.styleChoice.name}
+                      onSelect={engine.onStyleChange}
+                    />
+                  </StyleSelectorWrap>
+                </MixerRow>
+              )}
+            </MixerSectionFull>
+          )}
+
           {/* Melody — present even though backing track has no melody, kept
               so settings stay symmetric with the note-sheet mixer. */}
           <MixerSectionFull $accent='#e8a838'>
@@ -187,6 +245,19 @@ export function BackingPlayerBar({
               )}
             </MixerRow>
           </MixerSectionFull>
+
+          {/* Loop — chorus repeat toggle */}
+          <MixerSectionFull $accent='#7a9ea0'>
+            <MixerSectionTitle>🔁 루프</MixerSectionTitle>
+            <MixerRow>
+              <MixerLabel>{loop ? 'ON' : 'OFF'}</MixerLabel>
+              <MetroToggle $on={loop}
+                title='코러스 한 번 끝나면 자동으로 처음부터 반복'
+                onClick={() => setPlayerSetting('loop', !loop)}>
+                {loop ? 'ON' : 'OFF'}
+              </MetroToggle>
+            </MixerRow>
+          </MixerSectionFull>
         </MixerPopup>
       )}
 
@@ -240,10 +311,12 @@ export function BackingPlayerBar({
 
 /* ─── styled bits ────────────────────────────────────────────────────── */
 
+/* Anchored just past the 56px IconSidebar rail so the bottom-of-rail
+ * profile avatar stays clickable. Mobile rail is 58px so 80px clears both. */
 const Bar = styled.div`
   position: fixed;
   bottom: 24px;
-  left: 24px;
+  left: 80px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -434,6 +507,14 @@ const KitGroup = styled.div`
   display: flex;
   gap: 4px;
   flex: 1;
+`;
+
+/* Wrapper for the embedded StyleSelector — keeps it from breaking the mixer's
+ * column rhythm and gives it the same dark-on-dark styling vibe. */
+const StyleSelectorWrap = styled.div`
+  flex: 1;
+  min-width: 0;
+  & > * { width: 100%; }
 `;
 
 const KitBtn = styled.button<{ $on?: boolean }>`

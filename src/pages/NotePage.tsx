@@ -4,7 +4,6 @@ import styled from 'styled-components';
 import { mq } from '../styles/theme';
 import { IconSidebar } from '../components/layout/IconSidebar';
 import { TopToolbar } from '../components/layout/TopToolbar';
-import { LeftSidebar } from '../components/layout/LeftSidebar';
 import { RightChatPanel } from '../components/layout/RightChatPanel';
 import { MobileChatFab } from '../components/layout/MobileChatFab';
 import { NoteSheet } from '../components/notesheet/NoteSheet';
@@ -13,7 +12,7 @@ import { ToolbarButton } from '../components/layout/TopToolbar.styles';
 import { useAutoHighlight } from '../hooks/useAutoHighlight';
 import { sampleMelody } from '../data/sampleMelody';
 import type { NoteSheetData, MeasureInfo, NoteInfo } from '../data/sampleMelody';
-import type { ChordOverlay, TocEntry } from '../data/types';
+import type { ChordOverlay } from '../data/types';
 import { noteSongs, externalSongs, manualSongs } from '../data/noteSongs';
 import type { SongGroup } from '../data/noteSongs';
 import { loadMidiMelody } from '../lib/note/midiMelodyParser';
@@ -746,14 +745,8 @@ export default function NotePage() {
     return () => document.removeEventListener('mousedown', handler);
   }, [searchOpen]);
 
-  /* toc */
-  const toc = useMemo<TocEntry[]>(() => {
-    if (!sheet) return [];
-    return [{ title: sheet.title, page: 1 }];
-  }, [sheet]);
-
   /* resizable right panel */
-  const [rightPanelWidth, setRightPanelWidth] = useState(360);
+  const [rightPanelWidth, setRightPanelWidth] = useState(300);
   const dividerRef = useRef<HTMLDivElement>(null);
 
   const onDividerMouseDown = useCallback((e: React.MouseEvent) => {
@@ -777,7 +770,7 @@ export default function NotePage() {
 
   return (
     <PageContainer>
-      <IconSidebar />
+      <IconSidebar hideAuthPromo />
       <RightSection>
         <TopToolbar
           title={sheet?.title ?? 'Note'}
@@ -785,12 +778,6 @@ export default function NotePage() {
         />
 
         <MainArea>
-          <LeftSidebar
-            toc={toc}
-            activePage={1}
-            onPageSelect={() => {}}
-          />
-
         <CenterColumn>
           <SongPickerBar>
             <span>Note</span>
@@ -935,6 +922,7 @@ export default function NotePage() {
             onToggleSelectionMode={toggleNoteSelectionMode}
             onClearSelectedChords={clearNoteSelection}
             notesContext={noteSelectionData.notesContext}
+            centerInputWhenEmpty
           />
         </RightPanelWrapper>
         </MainArea>

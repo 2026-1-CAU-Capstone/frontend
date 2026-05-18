@@ -42,6 +42,9 @@ export interface PlayerSettings {
   /** Overall feel — swing (default) vs bossa nova. Switches comping / drum /
    *  bass patterns AND forces straight 8ths when 'bossa'. */
   style: PlayStyle;
+  /** Loop chorus continuously. Backing tracks default to looping for
+   *  practice; flip off for a single-chorus playthrough. */
+  loop: boolean;
 }
 
 const DEFAULTS: PlayerSettings = {
@@ -57,6 +60,7 @@ const DEFAULTS: PlayerSettings = {
   metroVolume: 0.6,
   swingRatio: 0.62,
   style: 'swing',
+  loop: true,
 };
 
 const LS_KEY = 'jazzify_player_settings_v1';

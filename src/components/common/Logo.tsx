@@ -3,11 +3,16 @@ import styled from 'styled-components';
 import { mq } from '../../styles/theme';
 
 const LogoIcon = styled.img`
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
   object-fit: cover;
   cursor: pointer;
+  transition: opacity 0.15s;
+
+  &:hover {
+    opacity: 0.82;
+  }
 
   ${mq.mobile} {
     width: 24px;

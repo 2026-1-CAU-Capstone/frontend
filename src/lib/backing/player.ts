@@ -40,6 +40,7 @@ function mixSettingsIntoConfig(
   return {
     ...kitCfg,                   // drumMode + drumLoop
     style: mappedStyle,
+    loop: s.loop,
     ...base,                     // caller overrides win
     volume: {
       piano: s.pianoVolume,
@@ -190,13 +191,26 @@ export function createBackingPlayer(
       callbacks.onBar?.(currentBar);
     }
 
-    // Done?
+    // Done? — wrap if looping, otherwise stop.
     if (nextIdx >= events.length) {
       const last = events[events.length - 1];
       if (last && now > last.time + 0.5) {
-        stop();
-        callbacks.onDone?.();
-        return;
+        const loop = config.loop ?? true;
+        if (loop && totalBars > 0 && secPerBar > 0) {
+          // Advance origin by one song length so song-time goes back to 0,
+          // and rewind nextIdx to the first event. Events keep firing
+          // continuously on the AudioContext clock with no gap.
+          const songLength = totalBars * secPerBar;
+          origin += songLength;
+          nextIdx = 0;
+          lastBarFired = -2;
+          // drumLoop already loops internally (it's an audio-buffer loop),
+          // so no need to restart it here.
+        } else {
+          stop();
+          callbacks.onDone?.();
+          return;
+        }
       }
     }
 
@@ -261,16 +275,23 @@ export function createBackingPlayer(
     build();
     playing = true;
     lastBarFired = -2;
-    // Lead the origin slightly so the first event (time=0) is strictly in the
-    // future. With a caller-supplied `startAt` (count-in's exact downbeat) we
-    // trust the audio clock and use a tight 5 ms margin so the first event
-    // lands essentially ON the beat. Without it we use the wider 50 ms margin
-    // that covers post-count-in setTimeout slop.
-    const SCHED_LEAD = playOpts.startAt != null ? 0.005 : 0.05;
+    // Lead the origin slightly so the first event (time=0) is strictly in
+    // the future. Two cases:
+    //   - startAt is comfortably in the future → trust the count-in's audio
+    //     clock and use a tight 5 ms margin so the first event lands on the
+    //     beat.
+    //   - startAt is missing OR already in the past (instrument load took
+    //     longer than the count-in — common on FIRST play with smplr's
+    //     SplendidGrandPiano) → fall back to a 50 ms margin so the first
+    //     events get scheduled with enough lead-time to actually sound.
+    //     Without this, the first play silently dropped notes that the synth
+    //     received in the past.
+    const TIGHT_LEAD = 0.005;
+    const SAFE_LEAD = 0.05;
     const now = ctx!.currentTime;
-    const desiredOrigin = playOpts.startAt != null
-      ? Math.max(playOpts.startAt, now + SCHED_LEAD)
-      : now + SCHED_LEAD;
+    const desiredOrigin = playOpts.startAt != null && playOpts.startAt > now + TIGHT_LEAD
+      ? playOpts.startAt
+      : now + SAFE_LEAD;
     origin = desiredOrigin - elapsed;
 
     // Fast-forward nextIdx on resume

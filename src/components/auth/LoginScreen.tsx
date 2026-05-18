@@ -2,8 +2,15 @@ import { useState, type FormEvent } from 'react';
 import styled from 'styled-components';
 import { login, signup } from '../../api/auth';
 
-/* Real auth — calls Jazzify backend /v1/auth/{login,signup}. On success
- * onLogin() is called so the parent can swap to the logged-in UI. */
+/* Two-step auth flow:
+ *   step='form' — username + password (and name for signup)
+ *   step='code' — "받은 편지함을 확인하세요" verification screen mirroring the
+ *                 OpenAI/ChatGPT magic-code pattern. The actual backend call
+ *                 happens on this step's submit (Jazzify backend doesn't have
+ *                 a real OTP endpoint yet, so the code field is UI-only and
+ *                 any non-empty value advances).
+ *
+ * On final success onLogin() fires so the parent swaps to the logged-in UI. */
 
 interface Props {
   onLogin: () => void;
@@ -11,21 +18,35 @@ interface Props {
 }
 
 type Mode = 'login' | 'signup';
+type Step = 'form' | 'code';
 
 export function LoginScreen({ onLogin, onClose }: Props) {
   const [mode, setMode] = useState<Mode>('login');
+  const [step, setStep] = useState<Step>('form');
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const canSubmit = !submitting && username.trim().length > 0 && password.length > 0
     && (mode === 'login' || name.trim().length > 0);
 
-  const submit = async (e: FormEvent) => {
+  const canVerify = !submitting && code.trim().length > 0;
+
+  const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
+    setError(null);
+    // Move to the verification step — backend call happens after the code
+    // is "confirmed" so the flow visually matches the inbox-check pattern.
+    setStep('code');
+  };
+
+  const verify = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!canVerify) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -36,18 +57,27 @@ export function LoginScreen({ onLogin, onClose }: Props) {
       }
       onLogin();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '로그인에 실패했습니다.';
+      const msg = err instanceof Error ? err.message : '인증에 실패했습니다.';
       setError(msg);
     } finally {
       setSubmitting(false);
     }
   };
 
+  const goBackToForm = () => {
+    setStep('form');
+    setCode('');
+    setError(null);
+  };
+
   return (
     <Wrapper>
       <TopBar>
-        <CircleBtn aria-label="닫기" onClick={onClose}>
-          <CloseIcon />
+        <CircleBtn
+          aria-label={step === 'code' ? '뒤로' : '닫기'}
+          onClick={step === 'code' ? goBackToForm : onClose}
+        >
+          {step === 'code' ? <BackIcon /> : <CloseIcon />}
         </CircleBtn>
         <UrlText>jazzify.app</UrlText>
         <CircleBtn aria-label="reader">
@@ -57,60 +87,95 @@ export function LoginScreen({ onLogin, onClose }: Props) {
 
       <Content>
         <Brand>Jazzify</Brand>
-        <Heading>{mode === 'login' ? '로그인' : '회원 가입'}</Heading>
-        <Subhead>
-          개인화된 코드 분석, 릭 추천, 솔로 생성 등<br />Jazzify의 모든 기능을 이용할 수 있습니다.
-        </Subhead>
 
-        <Form onSubmit={submit}>
-          {mode === 'signup' && (
-            <FloatField>
-              <FieldLabel>이름</FieldLabel>
-              <FieldInput
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                autoComplete="name"
-                disabled={submitting}
-              />
-            </FloatField>
-          )}
-          <FloatField>
-            <FieldLabel>아이디 (username)</FieldLabel>
-            <FieldInput
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              autoComplete="username"
-              autoCapitalize="none"
-              disabled={submitting}
-            />
-          </FloatField>
-          <FloatField>
-            <FieldLabel>비밀번호</FieldLabel>
-            <FieldInput
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              disabled={submitting}
-            />
-          </FloatField>
-          {error && <ErrorMsg>{error}</ErrorMsg>}
-          <PrimaryBtn type="submit" disabled={!canSubmit}>
-            {submitting ? '잠시만요…' : mode === 'login' ? '로그인' : '계속'}
-          </PrimaryBtn>
-        </Form>
+        {step === 'form' ? (
+          <>
+            <Heading>{mode === 'login' ? '로그인' : '회원 가입'}</Heading>
+            <Subhead>
+              개인화된 코드 분석, 릭 추천, 솔로 생성 등<br />Jazzify의 모든 기능을 이용할 수 있습니다.
+            </Subhead>
 
-        <DividerRow>
-          <DividerLine />
-          <DividerText>또는</DividerText>
-          <DividerLine />
-        </DividerRow>
+            <Form onSubmit={submit}>
+              {mode === 'signup' && (
+                <FloatField>
+                  <FieldLabel>이름</FieldLabel>
+                  <FieldInput
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    autoComplete="name"
+                    disabled={submitting}
+                  />
+                </FloatField>
+              )}
+              <FloatField>
+                <FieldLabel>아이디 (username)</FieldLabel>
+                <FieldInput
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  disabled={submitting}
+                />
+              </FloatField>
+              <FloatField>
+                <FieldLabel>비밀번호</FieldLabel>
+                <FieldInput
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                  disabled={submitting}
+                />
+              </FloatField>
+              {error && <ErrorMsg>{error}</ErrorMsg>}
+              <PrimaryBtn type="submit" disabled={!canSubmit}>
+                {mode === 'login' ? '로그인' : '계속'}
+              </PrimaryBtn>
+            </Form>
 
-        <SocialBtn type="button" onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}>
-          {mode === 'login' ? '계정이 없으신가요? 회원 가입' : '이미 계정이 있으신가요? 로그인'}
-        </SocialBtn>
+            <DividerRow>
+              <DividerLine />
+              <DividerText>또는</DividerText>
+              <DividerLine />
+            </DividerRow>
+
+            <SocialBtn type="button" onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}>
+              {mode === 'login' ? '계정이 없으신가요? 회원 가입' : '이미 계정이 있으신가요? 로그인'}
+            </SocialBtn>
+          </>
+        ) : (
+          <>
+            <Heading>받은 편지함을 확인하세요</Heading>
+            <Subhead>
+              {username} 주소로 받은<br />인증 코드를 입력하세요
+            </Subhead>
+
+            <Form onSubmit={verify}>
+              <FloatField>
+                <FieldLabel>코드</FieldLabel>
+                <FieldInput
+                  type="text"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  autoComplete="one-time-code"
+                  inputMode="numeric"
+                  autoFocus
+                  disabled={submitting}
+                />
+              </FloatField>
+              {error && <ErrorMsg>{error}</ErrorMsg>}
+              <PrimaryBtn type="submit" disabled={!canVerify}>
+                {submitting ? '확인 중…' : '계속'}
+              </PrimaryBtn>
+            </Form>
+
+            <ResendBtn type="button" onClick={() => { /* no-op until backend OTP exists */ }}>
+              이메일 다시 보내기
+            </ResendBtn>
+          </>
+        )}
 
         <Footer>
           <a href="#terms">이용약관</a>
@@ -128,6 +193,12 @@ const CloseIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
     <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
     <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+  </svg>
+);
+
+const BackIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
+    <path d="M15 5 L8 12 L15 19" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 const ReaderIcon = () => (
@@ -286,6 +357,21 @@ const DividerLine = styled.hr`
 const DividerText = styled.div`
   font-size: 14px;
   color: rgba(0, 0, 0, 0.5);
+`;
+
+const ResendBtn = styled.button`
+  align-self: center;
+  margin-top: 20px;
+  background: transparent;
+  border: none;
+  color: #1a1a1a;
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 8px 12px;
+  transition: opacity 0.15s;
+  &:hover { opacity: 0.7; }
 `;
 
 const SocialBtn = styled.button`

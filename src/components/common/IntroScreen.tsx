@@ -50,32 +50,9 @@ const Screen = styled.div<{ $exiting: boolean }>`
 `;
 
 const Logo = styled.img`
-  width: 116px;
-  height: 116px;
-  border-radius: 28px;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.14);
+  width: min(70vw, 280px);
+  height: auto;
   animation: ${fadeUp} 0.55s ease both;
-`;
-
-const Title = styled.h1`
-  margin: 0;
-  font-family: ${({ theme }) => theme.fonts.ui};
-  font-size: 2.4rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: ${({ theme }) => theme.colors.textPrimary};
-  animation: ${fadeUp} 0.55s 0.12s ease both;
-`;
-
-const Tagline = styled.p`
-  margin: 0;
-  font-family: ${({ theme }) => theme.fonts.ui};
-  font-size: 0.86rem;
-  font-weight: 500;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: ${({ theme }) => theme.colors.textSecondary};
-  animation: ${fadeUp} 0.55s 0.24s ease both;
 `;
 
 interface IntroScreenProps {
@@ -105,9 +82,7 @@ export function IntroScreen({ onDone, durationMs = 1700 }: IntroScreenProps) {
 
   return (
     <Screen $exiting={exiting} onClick={() => setExiting(true)}>
-      <Logo src="/jazzifylogo.png" alt="Jazzify" />
-      <Title>Jazzify</Title>
-      <Tagline>Jazz · Licks · Analysis</Tagline>
+      <Logo src="/intro.png" alt="Jazzify" />
     </Screen>
   );
 }

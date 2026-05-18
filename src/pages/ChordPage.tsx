@@ -4,21 +4,20 @@ import styled from 'styled-components';
 import { mq } from '../styles/theme';
 import { IconSidebar } from '../components/layout/IconSidebar';
 import { TopToolbar } from '../components/layout/TopToolbar';
-import { LeftSidebar } from '../components/layout/LeftSidebar';
 import { RightChatPanel } from '../components/layout/RightChatPanel';
 import { MobileChatFab } from '../components/layout/MobileChatFab';
 import { LeadSheet } from '../components/leadsheet/LeadSheet';
 import { useAnalysisFilters } from '../hooks/useAnalysisFilters';
 import { allOfMe } from '../data/allOfMe';
 import type { LeadSheetData } from '../data/leadSheetTypes';
-import type { ChordOverlay, TocEntry } from '../data/types';
+import type { ChordOverlay } from '../data/types';
 import { getSongIndex, getSong, type SongEntry } from '../lib/ireal/irealLoader';
 import { buildChordContext } from '../api/chordContext';
 import { createBackingPlayer, leadSheetToChart, type BackingPlayer } from '../lib/backing';
 import { createStyBackingPlayer, createHybridBackingPlayer } from '../lib/yamaha-sty';
-import { StyleSelector, BUILTIN_STYLE, type StyleSelectorChoice } from '../components/yamaha-sty/StyleSelector';
+import { BUILTIN_STYLE, type StyleSelectorChoice } from '../components/yamaha-sty/StyleSelector';
 import { getPlayerSettings, inferPlayStyle, setPlayerSetting } from '../lib/note/playerSettings';
-import { BackingPlayerBar } from '../components/backing/BackingPlayerBar';
+import { BackingPlayerBar, type EngineBackend } from '../components/backing/BackingPlayerBar';
 import { withLeadSheetSelectionIds } from '../lib/leadSheetSelection';
 import type { LeadSheetChordSelection } from '../components/leadsheet/LeadSheet';
 import { loadUserLicksSync } from '../data/lickData';
@@ -433,7 +432,7 @@ export default function ChordPage() {
   const playerRef = useRef<BackingPlayer | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [tempo, setTempo] = useState(140);
-  const [engineBackend, setEngineBackend] = useState<'rule' | 'sty' | 'hybrid'>(() => {
+  const [engineBackend, setEngineBackend] = useState<EngineBackend>(() => {
     if (typeof window === 'undefined') return 'rule';
     const stored = window.localStorage.getItem('jazzify.engine');
     if (stored === 'sty' || stored === 'hybrid') return stored;
@@ -629,11 +628,6 @@ export default function ChordPage() {
     return () => document.removeEventListener('mousedown', handler);
   }, [analysisMenuOpen]);
 
-  const toc = useMemo<TocEntry[]>(() => {
-    if (!sheet) return [];
-    return [{ title: sheet.title, page: 1 }];
-  }, [sheet]);
-
   const chordContext = useMemo(() => {
     if (sheet) return buildChordContext(sheet);
     return undefined;
@@ -700,7 +694,7 @@ export default function ChordPage() {
     return () => window.removeEventListener('jazzify:lickSaved', handler);
   }, [refreshSavedLickBars]);
 
-  const [rightPanelWidth, setRightPanelWidth] = useState(620);
+  const [rightPanelWidth, setRightPanelWidth] = useState(515);
   const dividerRef = useRef<HTMLDivElement>(null);
 
   const onDividerMouseDown = useCallback((e: React.MouseEvent) => {
@@ -725,7 +719,7 @@ export default function ChordPage() {
   return (
     <PageContainer onClick={() => setSelectionBubblePos(null)}>
       {countIn.overlay}
-      <IconSidebar />
+      <IconSidebar hideAuthPromo />
       <RightSection>
         <TopToolbar
           title={sheet?.title ?? `iRealPro ${songIndex.length || '...'}`}
@@ -733,12 +727,6 @@ export default function ChordPage() {
         />
 
         <MainArea>
-          <LeftSidebar
-            toc={toc}
-            activePage={1}
-            onPageSelect={() => {}}
-          />
-
         <CenterColumn>
           <SongPickerBar>
             <span>iRealPro {songIndex.length || '...'}</span>
@@ -912,6 +900,7 @@ export default function ChordPage() {
             onToggleSelectionMode={toggleSelectionMode}
             onClearSelectedChords={clearSelectedChords}
             songTempo={tempo}
+            centerInputWhenEmpty
           />
         </RightPanelWrapper>
         </MainArea>
@@ -965,23 +954,21 @@ export default function ChordPage() {
         </div>
       )}
 
-      <EngineToggle
-        backend={engineBackend}
-        onChange={(b) => {
-          setEngineBackend(b);
-          window.localStorage.setItem('jazzify.engine', b);
-        }}
-      />
-      {(engineBackend === 'sty' || engineBackend === 'hybrid') && (
-        <StyleSelector currentName={styleChoice.name} onSelect={setStyleChoice} />
-      )}
-
       <BackingPlayerBar
         playing={isPlaying}
         tempo={tempo}
         onTempoChange={setTempo}
         onPlayPause={handlePlayPause}
         disabled={!sheet || loading}
+        engine={{
+          backend: engineBackend,
+          onBackendChange: (b) => {
+            setEngineBackend(b);
+            window.localStorage.setItem('jazzify.engine', b);
+          },
+          styleChoice,
+          onStyleChange: setStyleChoice,
+        }}
       />
 
       {savedLicksModal && (
@@ -996,58 +983,3 @@ export default function ChordPage() {
   );
 }
 
-type EngineBackend = 'rule' | 'sty' | 'hybrid';
-
-const ENGINE_LABELS: Record<EngineBackend, string> = {
-  rule: 'Rule',
-  sty: 'Pure .sty',
-  hybrid: 'Hybrid',
-};
-
-/** Floating toggle to choose the backing-track engine:
- *   - Rule: legacy rule-based generator (proven, includes drums + bass).
- *   - Pure .sty: only the Yamaha .sty engine (richer comping, no drums on
- *     drum-less styles like psBase).
- *   - Hybrid: rule-engine bass + drums under .sty piano / guitar / etc. */
-function EngineToggle({
-  backend,
-  onChange,
-}: {
-  backend: EngineBackend;
-  onChange: (b: EngineBackend) => void;
-}) {
-  return (
-    <div style={{
-      position: 'fixed',
-      top: 8,
-      right: 12,
-      zIndex: 1000,
-      background: 'rgba(20, 20, 20, 0.85)',
-      border: '1px solid #333',
-      borderRadius: 999,
-      padding: '4px',
-      display: 'flex',
-      gap: 0,
-      fontSize: 12,
-      fontFamily: 'system-ui, sans-serif',
-    }}>
-      {(['rule', 'hybrid', 'sty'] as const).map((b) => (
-        <button
-          key={b}
-          onClick={() => onChange(b)}
-          style={{
-            padding: '6px 12px',
-            border: 'none',
-            borderRadius: 999,
-            cursor: 'pointer',
-            background: backend === b ? '#3a7' : 'transparent',
-            color: backend === b ? '#fff' : '#aaa',
-            fontWeight: backend === b ? 600 : 400,
-          }}
-        >
-          {ENGINE_LABELS[b]}
-        </button>
-      ))}
-    </div>
-  );
-}

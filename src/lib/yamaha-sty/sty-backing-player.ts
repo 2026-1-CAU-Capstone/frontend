@@ -31,6 +31,7 @@ import { chordTypeFromQuality } from './quality-map';
 import type { Style } from './style';
 import type { SourceNoteEvent, StylePart } from './style-part';
 import type { StylePartType } from './style-part-type';
+import { getPlayerSettings, subscribePlayerSettings } from '../note/playerSettings';
 
 /**
  * Decide which StylePart to use for a given Chart section.
@@ -134,7 +135,12 @@ export function createStyBackingPlayer(
 ): BackingPlayer {
   const styleUrl = options.styleUrl ?? '/styles/psBase.sst';
   const callbacks: BackingPlayerCallbacks = {};
-  let config: BackingConfig = { ...initialConfig };
+  // Hydrate `loop` (and any future shared field) from the global mixer store
+  // so the .sty engine respects the same toggle as the rule engine.
+  let config: BackingConfig = { loop: getPlayerSettings().loop, ...initialConfig };
+  const unsubSettings = subscribePlayerSettings((next) => {
+    config = { ...config, loop: next.loop };
+  });
 
   let ctx: AudioContext | null = null;
   let style: Style | null = null;
@@ -384,9 +390,18 @@ export function createStyBackingPlayer(
       }
     }
 
-    // onDone after the last bar finishes
+    // After the last bar — loop seamlessly or finish.
     const totalDelay = Math.max(0, (absoluteTime - ctx.currentTime) * 1000);
+    const loop = config.loop ?? true;
+    const wrapAt = absoluteTime;  // capture the exact end-of-song audio time
     barTimers.push(setTimeout(() => {
+      if (!playing) return;          // user paused mid-chorus
+      if (loop) {
+        // Re-schedule the same chart, starting precisely at wrapAt so the
+        // next chorus is sample-accurate continuous with this one.
+        void play({ startAt: wrapAt });
+        return;
+      }
       playing = false;
       callbacks.onDone?.();
     }, totalDelay));
@@ -404,6 +419,7 @@ export function createStyBackingPlayer(
 
   function dispose() {
     pause();
+    unsubSettings();
     instByChannel.clear();
     drumMachine = null;
     if (ctx && ctx.state !== 'closed') {

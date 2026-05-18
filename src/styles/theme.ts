@@ -32,6 +32,8 @@ export const theme = {
     // UI
     bgPrimary: '#FFFFFF',
     bgSecondary: '#FAFAFA',
+    /** Warm soft gray used as the chat surface across HomePage / Chord / Note. */
+    bgChat: '#F1F0EC',
     border: '#EEEEEE',
     textPrimary: '#1A1A1A',
     textSecondary: '#888888',

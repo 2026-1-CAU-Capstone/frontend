@@ -111,14 +111,23 @@ const ChunkHeader = styled.button`
   &:hover { background: #fff9c4; }
 `;
 
-const ScoreBar = styled.div<{ $pct: number }>`
-  width: ${({ $pct }) => Math.round($pct * 60)}px;
-  min-width: 2px;
+/* Fixed-width track so the row's gap stays consistent across scores. The
+ * inner fill renders the actual pct — no trailing whitespace at low scores. */
+const ScoreBar = styled.div`
+  width: 60px;
   height: 6px;
+  background: rgba(0, 0, 0, 0.07);
+  border-radius: 3px;
+  flex-shrink: 0;
+  overflow: hidden;
+`;
+
+const ScoreBarFill = styled.div<{ $pct: number }>`
+  width: ${({ $pct }) => Math.max(0, Math.min(1, $pct)) * 100}%;
+  height: 100%;
   background: ${({ $pct }) =>
     $pct > 0.6 ? '#43a047' : $pct > 0.35 ? '#fb8c00' : '#bdbdbd'};
   border-radius: 3px;
-  flex-shrink: 0;
 `;
 
 const ScoreNum = styled.span<{ $pct: number }>`
@@ -148,7 +157,9 @@ function ChunkItem({ chunk }: { chunk: RagChunk }) {
   return (
     <ChunkCard>
       <ChunkHeader onClick={() => setOpen(v => !v)}>
-        <ScoreBar $pct={pct} />
+        <ScoreBar>
+          <ScoreBarFill $pct={pct} />
+        </ScoreBar>
         <ScoreNum $pct={pct}>{pct.toFixed(3)}</ScoreNum>
         {chunk.rrf_score != null && (
           <span

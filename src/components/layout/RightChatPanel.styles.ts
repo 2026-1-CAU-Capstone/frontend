@@ -31,7 +31,20 @@ export const MessagesArea = styled.div`
   padding: 16px 20px;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 4px;
+
+  /* Cap conversation column width (Claude/ChatGPT pattern). Children stay
+   *  full-width inside the cap so user-bubble right-align still works. */
+  > * {
+    width: 100%;
+    max-width: 760px;
+  }
+
+  @media (max-width: 768px) {
+    padding: 12px 14px;
+    > * { max-width: 100%; }
+  }
 `;
 
 /* Wrapper for the chat input when it's rendered INSIDE the empty-state area

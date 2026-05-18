@@ -282,6 +282,10 @@ export interface BackingConfig {
   /** Piano reverb send level, 0..1. Drives the same wet bus loadInstruments
    * sets up. Default ~0.22 (matches the soundfont module's static value). */
   pianoReverb?: number;
+  /** When true, playback wraps back to bar 0 after the last bar finishes
+   *  (continuous chorus loop). When false, `onDone` fires and the player
+   *  stops. Default true — backing tracks are practice loops. */
+  loop?: boolean;
 }
 
 /* ─── Player lifecycle callbacks ─────────────────────────────────────── */

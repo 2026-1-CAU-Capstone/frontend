@@ -4,11 +4,9 @@ import styled from 'styled-components';
 import { mq } from '../styles/theme';
 import { IconSidebar } from '../components/layout/IconSidebar';
 import { TopToolbar } from '../components/layout/TopToolbar';
-import { LeftSidebar } from '../components/layout/LeftSidebar';
 import { LickCard } from '../components/notesheet/LickCard';
 import { PianoKeyboard, type PianoNote } from '../components/notesheet/PianoKeyboard';
 import { MelodyPreview } from '../components/notesheet/MelodyPreview';
-import type { TocEntry } from '../data/types';
 import { loadLicks, loadFrontendLicks, loadUserLicks, invalidateLicksCache, type LickEntry } from '../data/lickData';
 import { transposeLick, normalizeKeyInput, formatKeyDisplay } from '../lib/transpose';
 
@@ -532,18 +530,6 @@ export default function LicksPage() {
     return () => window.removeEventListener('keydown', handler);
   }, [melodySearch]);
 
-  /* toc */
-  const toc = useMemo<TocEntry[]>(
-    () => [
-      { title: 'Lick Database', page: 1 },
-      { title: 'Solo Database', page: 2 },
-    ],
-    [],
-  );
-  const handleTocSelect = useCallback((page: number) => {
-    if (page === 2) navigate('/solos');
-  }, [navigate]);
-
   return (
     <PageContainer>
       <IconSidebar />
@@ -551,12 +537,6 @@ export default function LicksPage() {
         <TopToolbar />
 
         <MainArea>
-          <LeftSidebar
-            toc={toc}
-            activePage={1}
-            onPageSelect={handleTocSelect}
-          />
-
         <CenterColumn>
               <ToolBar>
                 <SourceToggleWrap>

@@ -14,12 +14,33 @@ import EditorPage from './pages/EditorPage';
 import YoutubeOnsetPage from './pages/YoutubeOnsetPage';
 import { IntroScreen } from './components/common/IntroScreen';
 
+/* Per-tab session key — the splash plays on the FIRST page load of a browser
+ * session (or app cold start) and then stays out of the way on every refresh
+ * until the tab/app is closed. Use localStorage instead if you want it to
+ * fire only on the very first ever visit, never again. */
+const SPLASH_SHOWN_KEY = 'jazzify.splashShown';
+
+function readSplashShown(): boolean {
+  try { return window.sessionStorage.getItem(SPLASH_SHOWN_KEY) === '1'; }
+  catch { return false; }
+}
+
+function markSplashShown(): void {
+  try { window.sessionStorage.setItem(SPLASH_SHOWN_KEY, '1'); }
+  catch { /* private mode */ }
+}
+
 export default function App() {
-  const [showIntro, setShowIntro] = useState(true);
+  const [showIntro, setShowIntro] = useState(() => !readSplashShown());
+
+  const handleIntroDone = () => {
+    markSplashShown();
+    setShowIntro(false);
+  };
 
   return (
     <>
-      {showIntro && <IntroScreen onDone={() => setShowIntro(false)} />}
+      {showIntro && <IntroScreen onDone={handleIntroDone} />}
       <HashRouter>
         <Routes>
           <Route path="/" element={<HomePage />} />

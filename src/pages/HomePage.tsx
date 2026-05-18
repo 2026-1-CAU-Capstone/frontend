@@ -4,8 +4,12 @@ import styled, { keyframes } from 'styled-components';
 import { Keyboard } from '@capacitor/keyboard';
 import { mq } from '../styles/theme';
 import { RightChatPanel } from '../components/layout/RightChatPanel';
+import { AuthTopBar } from '../components/layout/AuthTopBar';
 import { AccountModal } from '../components/chat/AccountModal';
-import { LoginScreen } from '../components/auth/LoginScreen';
+import { LoginModal } from '../components/auth/LoginModal';
+import { ChatHistoryModal, type ChatConversation } from '../components/chat/ChatHistoryModal';
+import { ConfirmNewChatModal } from '../components/chat/ConfirmNewChatModal';
+import { UserMenu } from '../components/auth/UserMenu';
 import { isNativeApp } from '../lib/platform';
 import {
   bootstrapAuth,
@@ -126,6 +130,83 @@ const SidebarSpacer = styled.div`
   min-height: 0;
 `;
 
+/* Quick nav under the logo — new chat / search / chats. Mirrors the
+ * ChatGPT/Claude side-rail look: tight rows, icon + text, subtle hover. */
+const QuickNavList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 0;
+`;
+
+const QuickNavBtn = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 9px 10px;
+  border: none;
+  background: transparent;
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: ${({ theme }) => theme.colors.textPrimary};
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.12s, opacity 0.12s;
+
+  &:hover:not(:disabled) { background: rgba(0, 0, 0, 0.04); }
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+`;
+
+const QuickNavIcon = styled.span`
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  flex-shrink: 0;
+`;
+
+/* "+" inside a rounded square — the new-chat affordance. */
+function NewChatIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="1.7" />
+      <line x1="12" y1="8" x2="12" y2="16" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      <line x1="8" y1="12" x2="16" y2="12" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.7" />
+      <line x1="16.2" y1="16.2" x2="21" y2="21" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/* Two overlapping speech bubbles — matches the screenshot's "채팅" glyph. */
+function ChatIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4 11 a6 6 0 0 1 6-6 h2 a6 6 0 0 1 6 6 v2 a6 6 0 0 1-6 6 H7 l-3 2 v-4 a6 6 0 0 1 0-6z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 const ToolList = styled.div`
   display: flex;
   flex-direction: column;
@@ -134,17 +215,20 @@ const ToolList = styled.div`
   padding-top: 16px;
 `;
 
+/* Matches QuickNavBtn (above) for visual continuity — same padding, font,
+ * gap, and 22px icon slot. Hover & icon-color accent kept from the prior
+ * design so the tool list still feels like the "active" CTA cluster. */
 const ToolBtn = styled.button`
   display: flex;
   align-items: center;
   gap: 12px;
   width: 100%;
   text-align: left;
-  padding: 11px 14px;
+  padding: 9px 10px;
   border: none;
   background: transparent;
   font-family: ${({ theme }) => theme.fonts.ui};
-  font-size: 0.98rem;
+  font-size: 0.92rem;
   font-weight: 500;
   color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
@@ -152,16 +236,67 @@ const ToolBtn = styled.button`
   transition: background 0.12s, color 0.12s;
 
   > span:first-child {
-    font-size: 1.2em;
-    width: 24px;
-    text-align: center;
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.05em;
     color: ${({ theme }) => theme.colors.textSecondary};
+    flex-shrink: 0;
   }
 
   &:hover {
-    background: ${({ theme }) => theme.colors.bgPrimary};
+    background: rgba(0, 0, 0, 0.04);
     > span:first-child { color: ${({ theme }) => theme.colors.gold}; }
   }
+`;
+
+/* Logged-out promo card at the very bottom of the HomePage sidebar — mirrors
+ * the ChatGPT-style "내게 맞춘 응답을 받으세요" prompt so users have a
+ * contextual nudge to sign in. Hidden once authed. */
+const SidebarPromo = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 6px 4px;
+  border-top: 1px solid ${({ theme }) => theme.colors.border};
+  margin-top: 4px;
+`;
+
+const SidebarPromoTitle = styled.span`
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: 13px;
+  font-weight: 700;
+  color: ${({ theme }) => theme.colors.textPrimary};
+  letter-spacing: -0.01em;
+`;
+
+const SidebarPromoText = styled.span`
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: ${({ theme }) => theme.colors.textSecondary};
+`;
+
+const SidebarPromoBtn = styled.button`
+  margin-top: 6px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  background: #ffffff;
+  color: #1a1a1a;
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.12s;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.04);
+    border-color: rgba(0, 0, 0, 0.28);
+  }
+  &:active { transform: scale(0.98); }
 `;
 
 /* ── Main column ─────────────────────────────────────────────── */
@@ -178,10 +313,15 @@ const ChatArea = styled.div<{ $native?: boolean }>`
   flex: 1;
   min-height: 0;
   display: flex;
+  justify-content: center;
 
   & > aside {
     border-left: none;
-    ${({ $native }) => $native && 'background: transparent;'}
+    background: transparent;
+    ${({ $native }) => !$native && `
+      width: 100%;
+      max-width: 1040px;
+    `}
   }
 `;
 
@@ -761,6 +901,47 @@ export default function HomePage() {
    * drawer. The main HomePage stays usable in a logged-out state. */
   const [loginOpen, setLoginOpen] = useState(false);
 
+  /* Chat history modal — gated by login. Conversations array is empty for
+   *  now (no persistent chat backend yet); once wired, swap the empty
+   *  array for the real list. */
+  const [chatHistoryOpen, setChatHistoryOpen] = useState(false);
+  const chatConversations: ChatConversation[] = [];
+
+  const openChatHistory = () => {
+    if (!isLoggedIn) return;
+    setChatHistoryOpen(true);
+  };
+
+  /* New-chat flow. `chatKey` is bumped to remount RightChatPanel so its
+   *  internal `messages` state resets cleanly. `chatMessageCount` mirrors
+   *  the panel's message count so we can decide whether to prompt before
+   *  discarding work — logged-out users get a confirm modal; logged-in
+   *  users will eventually have their chat auto-saved server-side and skip
+   *  the prompt. */
+  const [chatKey, setChatKey] = useState(0);
+  const [chatMessageCount, setChatMessageCount] = useState(0);
+  const [confirmNewChatOpen, setConfirmNewChatOpen] = useState(false);
+
+  const resetChat = () => {
+    setChatKey((k) => k + 1);
+    setChatMessageCount(0);
+  };
+
+  const handleNewChatClick = () => {
+    if (chatMessageCount === 0) {
+      /* Nothing to lose — silent reset is fine. */
+      resetChat();
+      return;
+    }
+    if (!isLoggedIn) {
+      setConfirmNewChatOpen(true);
+      return;
+    }
+    /* Logged in + has messages: assume backend autosaves (TODO when wired)
+     *  and just start fresh. */
+    resetChat();
+  };
+
   return (
     <Wrapper $native={native}>
       {!native && (
@@ -777,6 +958,29 @@ export default function HomePage() {
             <BrandLogo src="/jazzifylogo.png" alt="Jazzify" />
             <BrandName>Jazzify</BrandName>
           </BrandRow>
+
+          {/* Quick nav — ChatGPT-style "+ 새 채팅 / 검색 / 채팅" right under
+           *  the logo. Handlers are placeholders; wire them once chat history
+           *  + search backends exist. */}
+          <QuickNavList>
+            <QuickNavBtn onClick={handleNewChatClick}>
+              <QuickNavIcon><NewChatIcon /></QuickNavIcon>
+              <span>새 채팅</span>
+            </QuickNavBtn>
+            <QuickNavBtn onClick={() => { /* TODO: open chat-search overlay */ }}>
+              <QuickNavIcon><SearchIcon /></QuickNavIcon>
+              <span>검색</span>
+            </QuickNavBtn>
+            <QuickNavBtn
+              onClick={openChatHistory}
+              disabled={!isLoggedIn}
+              title={isLoggedIn ? '대화 기록' : '로그인 후 사용할 수 있어요'}
+            >
+              <QuickNavIcon><ChatIcon /></QuickNavIcon>
+              <span>채팅</span>
+            </QuickNavBtn>
+          </QuickNavList>
+
           <SidebarSpacer />
           <ToolList>
             {TOOLS.map((t) => (
@@ -786,8 +990,19 @@ export default function HomePage() {
               </ToolBtn>
             ))}
           </ToolList>
+          {isLoggedIn && authUser ? (
+            <UserMenu user={authUser} />
+          ) : (
+            <SidebarPromo>
+              <SidebarPromoTitle>나만의 재즈 라이브러리를 시작하세요</SidebarPromoTitle>
+              <SidebarPromoText>로그인하면 릭·솔로를 저장하고, 개인화된 코드 분석과 추천을 받을 수 있어요.</SidebarPromoText>
+              <SidebarPromoBtn onClick={() => setLoginOpen(true)}>로그인</SidebarPromoBtn>
+            </SidebarPromo>
+          )}
         </Sidebar>
       )}
+
+      {!native && <AuthTopBar onLoginClick={() => setLoginOpen(true)} />}
 
       {/* Native hamburger + full-screen drawer. */}
       {native && (
@@ -889,6 +1104,7 @@ export default function HomePage() {
       <Main>
         <ChatArea $native={native}>
           <RightChatPanel
+            key={chatKey}
             selectedChords={[]}
             groupExplanation={null}
             songTitle="Jazzify"
@@ -900,6 +1116,7 @@ export default function HomePage() {
             inputInIntro
             nativeIntroLayout={native}
             keyboardOffsetPx={native ? kbHeight : 0}
+            onMessagesChange={setChatMessageCount}
           />
         </ChatArea>
       </Main>
@@ -918,9 +1135,11 @@ export default function HomePage() {
         />
       )}
 
-      {/* Native sign-up/login overlay — opens from drawer button. */}
-      {native && loginOpen && (
-        <LoginScreen
+      {/* Sign-up / login overlay — opens from the native drawer button OR
+       *  from the desktop top-right pills / sidebar promo. Shared modal so
+       *  there's only one auth UI in the tree regardless of entry point. */}
+      {loginOpen && (
+        <LoginModal
           onLogin={() => {
             setLoginOpen(false);
             setDrawerOpen(false);
@@ -929,6 +1148,23 @@ export default function HomePage() {
           onClose={() => setLoginOpen(false)}
         />
       )}
+
+      {/* Past-chat history modal — gated by login on the trigger side.
+       *  Conversations array is empty until persistence is wired. */}
+      <ChatHistoryModal
+        open={chatHistoryOpen}
+        conversations={chatConversations}
+        onClose={() => setChatHistoryOpen(false)}
+        onSelect={() => { /* TODO: load conversation into RightChatPanel */ }}
+        onNewChat={handleNewChatClick}
+      />
+
+      <ConfirmNewChatModal
+        open={confirmNewChatOpen}
+        onClose={() => setConfirmNewChatOpen(false)}
+        onConfirm={resetChat}
+        onLogin={() => { setConfirmNewChatOpen(false); setLoginOpen(true); }}
+      />
     </Wrapper>
   );
 }

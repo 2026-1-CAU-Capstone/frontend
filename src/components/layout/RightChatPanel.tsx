@@ -70,6 +70,16 @@ interface RightChatPanelProps {
   /** Pixels of extra bottom padding to leave below the input — used on
    *  native to lift the input above the iOS keyboard when it's shown. */
   keyboardOffsetPx?: number;
+  /** Chord / Note variant of the intro layout: empty-state hero + ChatInput
+   *  rendered TOGETHER, vertically centered. Once the first message lands the
+   *  ChatInput slides back to its normal pinned-bottom position. Unlike
+   *  `inputInIntro`, this keeps the full-featured ChatInput (chord selection,
+   *  lick suggestions, etc.) instead of swapping to IntroChatInput. */
+  centerInputWhenEmpty?: boolean;
+  /** Fires whenever the message count changes. HomePage uses this to decide
+   *  whether the "새 채팅" button should prompt a confirm modal (when there's
+   *  an in-progress conversation to discard). */
+  onMessagesChange?: (count: number) => void;
 }
 
 /** Keywords that signal the user wants to talk about the actual played notes
@@ -135,8 +145,14 @@ export function RightChatPanel({
   inputInIntro = false,
   nativeIntroLayout = false,
   keyboardOffsetPx = 0,
+  centerInputWhenEmpty = false,
+  onMessagesChange,
 }: RightChatPanelProps) {
   const [messages, setMessages] = useState<MessageWithDebug[]>([]);
+
+  useEffect(() => {
+    onMessagesChange?.(messages.length);
+  }, [messages.length, onMessagesChange]);
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesAreaRef = useRef<HTMLDivElement>(null);
@@ -420,7 +436,7 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
         ref={messagesAreaRef}
         onScroll={handleScroll}
         style={
-          messages.length === 0 && inputInIntro
+          messages.length === 0 && (inputInIntro || centerInputWhenEmpty)
             ? nativeIntroLayout
               /* Native: IntroBlock claims flex:1 + self-centers (see its
                *  mobile @media in HomePage). Input is at the end of the
@@ -473,6 +489,27 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
           </IntroInputSlot>
         )}
 
+        {/* Chord / Note empty-state: full-featured ChatInput rendered right
+         *  below the empty-state hero so the input is part of the centered
+         *  group. After the first message lands, it slides back to the
+         *  pinned-bottom slot below. */}
+        {messages.length === 0 && centerInputWhenEmpty && !inputInIntro && !inputAtTop && !nativeIntroLayout && (
+          <IntroInputSlot style={{ marginTop: 4, padding: '0 4px' }}>
+            <ChatInput
+              onSend={handleSend}
+              disabled={loading}
+              isSelectionMode={isSelectionMode}
+              onToggleSelectionMode={onToggleSelectionMode}
+              selectedChords={selectedChords}
+              onClearSelectedChords={onClearSelectedChords}
+              onRequestLicks={handleRequestLicks}
+              hideSelectionQuickAction={hideSelectionQuickAction}
+              placeholder={inputPlaceholder}
+              autoFocus={autoFocusInput}
+            />
+          </IntroInputSlot>
+        )}
+
         {messages.map((msg) => (
           <div key={msg.id}>
             {msg.ragDebug && <RagDebugPanel info={msg.ragDebug} />}
@@ -510,8 +547,25 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
         </IntroInputSlot>
       )}
 
-      {/* Web non-intro case: regular ChatInput at the bottom. */}
-      {!nativeIntroLayout && !inputAtTop && !(messages.length === 0 && inputInIntro) && (
+      {/* Web intro, mid-conversation: keep the IntroChatInput pinned at the
+       *  bottom so the design stays continuous with the empty-state hero.
+       *  (Native handles this via the nativeIntroLayout branch above.) */}
+      {inputInIntro && !nativeIntroLayout && !inputAtTop && messages.length > 0 && (
+        <IntroInputSlot style={{ marginTop: 0, marginBottom: 16 }}>
+          <IntroChatInput
+            onSend={handleSend}
+            disabled={loading}
+            placeholder={inputPlaceholder}
+            compact
+          />
+        </IntroInputSlot>
+      )}
+
+      {/* Web non-intro case: regular ChatInput at the bottom (chord / note pages).
+       *  When centerInputWhenEmpty is set, skip this in the empty state — the
+       *  ChatInput is rendered inside MessagesArea (centered) instead. */}
+      {!nativeIntroLayout && !inputAtTop && !inputInIntro
+        && !(messages.length === 0 && centerInputWhenEmpty) && (
         <ChatInput
           onSend={handleSend}
           disabled={loading}

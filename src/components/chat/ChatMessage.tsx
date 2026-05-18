@@ -79,8 +79,47 @@ import {
   UserSelectedChord,
   UserSelectedArrow,
   UserQuestionText,
-  CopyButton,
+  MessageActions,
+  ActionBtn,
 } from './ChatMessage.styles';
+
+const ICON_STROKE = 1.7;
+
+const CopyIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={ICON_STROKE} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <rect x="9" y="9" width="13" height="13" rx="2" />
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </svg>
+);
+
+const ThumbUpIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={ICON_STROKE} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M7 10v12" />
+    <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H7a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L15 0a3 3 0 0 1 3 3z" />
+  </svg>
+);
+
+const ThumbDownIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={ICON_STROKE} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M17 14V2" />
+    <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H17a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L9 24a3 3 0 0 1-3-3z" />
+  </svg>
+);
+
+const RegenerateIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={ICON_STROKE} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+    <path d="M21 3v5h-5" />
+    <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+    <path d="M3 21v-5h5" />
+  </svg>
+);
+
+const CheckIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M5 12l5 5L20 7" />
+  </svg>
+);
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -414,7 +453,7 @@ export function ChatMessage({ message, suppressChart = false, songTempo }: ChatM
               <img
                 src="/jazzifylogo.png"
                 alt="Jazzify"
-                style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px', display: 'block' }}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
               />
             </AssistantIcon>
           </AssistantHeader>
@@ -437,9 +476,25 @@ export function ChatMessage({ message, suppressChart = false, songTempo }: ChatM
             <UserQuestionText>{message.content}</UserQuestionText>
           </>
         )}
-        <CopyButton onClick={handleCopy} title="Copy">
-          {copied ? '✓' : '⎘'}
-        </CopyButton>
+        {/* Assistant-only action row sits below the message body — copy /
+         *  thumbs up/down / regenerate, transparent icon buttons (ChatGPT style).
+         *  Thumbs and regenerate are visual-only for now; copy works. */}
+        {message.role === 'assistant' && !isThinking && (
+          <MessageActions>
+            <ActionBtn onClick={handleCopy} title={copied ? '복사됨' : '복사'} aria-label="복사">
+              {copied ? <CheckIcon /> : <CopyIcon />}
+            </ActionBtn>
+            <ActionBtn title="좋아요" aria-label="좋아요">
+              <ThumbUpIcon />
+            </ActionBtn>
+            <ActionBtn title="별로예요" aria-label="별로예요">
+              <ThumbDownIcon />
+            </ActionBtn>
+            <ActionBtn title="다시 생성" aria-label="다시 생성">
+              <RegenerateIcon />
+            </ActionBtn>
+          </MessageActions>
+        )}
       </Bubble>
     </MessageRow>
   );

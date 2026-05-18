@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect, type KeyboardEvent } from 'react';
+import { Fragment, useState, useRef, useEffect, type KeyboardEvent, type ReactNode } from 'react';
 import styled from 'styled-components';
 import { isNativeApp } from '../../lib/platform';
 import { IntroPlusSheet } from './IntroPlusSheet';
+import { getCachedUser, onAuthChange } from '../../api/auth';
 
 /* Intro-mode chat input — pixel-matched to the Claude apps:
  *   - Desktop (web): tall white box, soft border, large textarea, floating
@@ -16,23 +17,45 @@ interface Props {
   disabled?: boolean;
   placeholder?: string;
   autoFocus?: boolean;
+  /** Compact variant used when this input is pinned at the bottom of an
+   *  active conversation (mid-chat). Shrinks the padding, border-radius and
+   *  textarea height so the input doesn't dominate the chat area. */
+  compact?: boolean;
 }
 
-const PLUS_MENU: { icon: string; label: string; shortcut?: string }[] = [
-  { icon: '📎', label: '파일 또는 사진 추가', shortcut: '⌘U' },
-  { icon: '🎵', label: 'MIDI 가져오기' },
-  { icon: '📄', label: '악보 (PDF / MusicXML)' },
-  { icon: '📷', label: '악보 사진 촬영' },
+interface MenuEntry {
+  id: string;
+  /** Function so the icon JSX is created lazily — avoids TDZ when defined
+   *  at module top alongside arrays. */
+  renderIcon: () => ReactNode;
+  label: string;
+}
+
+/* Always-available actions — work whether or not the user is signed in. */
+const ALWAYS_ITEMS: MenuEntry[] = [
+  { id: 'photo', renderIcon: () => <PaperclipIcon />, label: '사진 추가' },
+  { id: 'web',   renderIcon: () => <GlobeIcon />,     label: '웹 검색' },
 ];
 
-export function IntroChatInput({ onSend, disabled, placeholder, autoFocus }: Props) {
+/* Actions gated by login — rendered greyed-out with a "로그인해 써 보세요…"
+ *  label above them when the user isn't authed. */
+const LOGIN_GATED_ITEMS: MenuEntry[] = [
+  { id: 'file',  renderIcon: () => <ClipPlusIcon />,  label: '파일 추가' },
+  { id: 'think', renderIcon: () => <LightbulbIcon />, label: '더 오래 생각하기' },
+  { id: 'gpt5',  renderIcon: () => <AtomIcon />,      label: 'GPT-5' },
+];
+
+export function IntroChatInput({ onSend, disabled, placeholder, autoFocus, compact }: Props) {
   const [value, setValue] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(() => getCachedUser() !== null);
   const ref = useRef<HTMLTextAreaElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const plusBtnRef = useRef<HTMLButtonElement>(null);
   const native = isNativeApp();
+
+  useEffect(() => onAuthChange((isLoggedIn) => setLoggedIn(isLoggedIn)), []);
 
   useEffect(() => {
     if (!autoFocus) return;
@@ -69,9 +92,10 @@ export function IntroChatInput({ onSend, disabled, placeholder, autoFocus }: Pro
 
   return (
     <>
-    <Box>
+    <Box $compact={compact}>
       <TA
         ref={ref}
+        $compact={compact}
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={onKey}
@@ -95,11 +119,32 @@ export function IntroChatInput({ onSend, disabled, placeholder, autoFocus }: Pro
             </PlusBtn>
             {menuOpen && !native && (
               <Menu ref={menuRef} role="menu">
-                {PLUS_MENU.map((item) => (
-                  <MenuItem key={item.label} role="menuitem" onClick={() => setMenuOpen(false)}>
-                    <MenuIcon>{item.icon}</MenuIcon>
+                {/* Top group — each item followed by a divider so the menu
+                 *  reads as a list of distinct actions (matches reference). */}
+                {ALWAYS_ITEMS.map((item, i) => (
+                  <Fragment key={item.id}>
+                    <MenuItem
+                      role="menuitem"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <MenuIcon>{item.renderIcon()}</MenuIcon>
+                      <MenuLabel>{item.label}</MenuLabel>
+                    </MenuItem>
+                    {i < ALWAYS_ITEMS.length - 1 && <MenuDivider />}
+                  </Fragment>
+                ))}
+                <MenuDivider />
+                {!loggedIn && <MenuHint>로그인해 써 보세요…</MenuHint>}
+                {LOGIN_GATED_ITEMS.map((item) => (
+                  <MenuItem
+                    key={item.id}
+                    role="menuitem"
+                    disabled={!loggedIn}
+                    aria-disabled={!loggedIn}
+                    onClick={loggedIn ? () => setMenuOpen(false) : undefined}
+                  >
+                    <MenuIcon>{item.renderIcon()}</MenuIcon>
                     <MenuLabel>{item.label}</MenuLabel>
-                    {item.shortcut && <MenuShortcut>{item.shortcut}</MenuShortcut>}
                   </MenuItem>
                 ))}
               </Menu>
@@ -128,6 +173,7 @@ export function IntroChatInput({ onSend, disabled, placeholder, autoFocus }: Pro
         </RightCluster>
       </BottomRow>
     </Box>
+    <Disclaimer>Jazzify는 AI이며 실수할 수 있습니다.</Disclaimer>
     {native && <IntroPlusSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />}
     </>
   );
@@ -141,6 +187,80 @@ const PlusIcon = () => (
     <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
   </svg>
 );
+
+/* ── + menu icons (line style, matches the screenshot) ────────── */
+
+const ICON_STROKE = 1.6;
+
+function PaperclipIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M21 11.5 12.5 20a5 5 0 0 1-7-7L14 4.5a3.5 3.5 0 1 1 5 5L10.5 18a2 2 0 0 1-3-3l7.5-7.5"
+        stroke="currentColor"
+        strokeWidth={ICON_STROKE}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function GlobeIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth={ICON_STROKE} />
+      <path d="M3 12h18" stroke="currentColor" strokeWidth={ICON_STROKE} />
+      <path
+        d="M12 3c2.8 3 4.2 6 4.2 9s-1.4 6-4.2 9c-2.8-3-4.2-6-4.2-9s1.4-6 4.2-9z"
+        stroke="currentColor"
+        strokeWidth={ICON_STROKE}
+        fill="none"
+      />
+    </svg>
+  );
+}
+
+function ClipPlusIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M14.5 4.5a3.5 3.5 0 0 1 5 5L11 18a2 2 0 0 1-3-3l7-7"
+        stroke="currentColor"
+        strokeWidth={ICON_STROKE}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="6" cy="18" r="3.5" stroke="currentColor" strokeWidth={ICON_STROKE} fill="none" />
+      <path d="M6 16.5v3M4.5 18h3" stroke="currentColor" strokeWidth={ICON_STROKE} strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function LightbulbIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.7.5 1 1.2 1 2v1h5v-1c0-.8.3-1.5 1-2A6 6 0 0 0 12 3z"
+        stroke="currentColor"
+        strokeWidth={ICON_STROKE}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function AtomIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+      <ellipse cx="12" cy="12" rx="9" ry="3.5" stroke="currentColor" strokeWidth={ICON_STROKE} />
+      <ellipse cx="12" cy="12" rx="9" ry="3.5" stroke="currentColor" strokeWidth={ICON_STROKE} transform="rotate(60 12 12)" />
+      <ellipse cx="12" cy="12" rx="9" ry="3.5" stroke="currentColor" strokeWidth={ICON_STROKE} transform="rotate(120 12 12)" />
+    </svg>
+  );
+}
 
 const ChevronDown = () => (
   <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
@@ -191,22 +311,22 @@ const ArrowUpIcon = () => (
 
 /* ── styles ──────────────────────────────────────────────── */
 
-const Box = styled.div`
+const Box = styled.div<{ $compact?: boolean }>`
   width: 100%;
   background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.16);
-  border-radius: 28px;
-  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.06);
+  border-radius: ${({ $compact }) => ($compact ? '22px' : '28px')};
+  box-shadow: ${({ $compact }) => ($compact ? '0 2px 8px rgba(0, 0, 0, 0.04)' : '0 10px 36px rgba(0, 0, 0, 0.06)')};
   display: flex;
   flex-direction: column;
-  padding: 32px 32px 20px;
+  padding: ${({ $compact }) => ($compact ? '8px 14px 8px' : '32px 32px 20px')};
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 
   &:focus-within {
     border-color: rgba(0, 0, 0, 0.18);
-    box-shadow:
-      0 2px 6px rgba(0, 0, 0, 0.04),
-      0 22px 50px -12px rgba(0, 0, 0, 0.18);
+    box-shadow: ${({ $compact }) => ($compact
+      ? '0 4px 16px rgba(0, 0, 0, 0.08)'
+      : '0 2px 6px rgba(0, 0, 0, 0.04), 0 22px 50px -12px rgba(0, 0, 0, 0.18)')};
   }
 
   /* ── Mobile (native Claude-iOS look) — white pill, no border ─ */
@@ -224,19 +344,19 @@ const Box = styled.div`
   }
 `;
 
-const TA = styled.textarea`
+const TA = styled.textarea<{ $compact?: boolean }>`
   width: 100%;
-  min-height: 130px;
-  max-height: 360px;
+  min-height: ${({ $compact }) => ($compact ? '36px' : '130px')};
+  max-height: ${({ $compact }) => ($compact ? '180px' : '360px')};
   resize: none;
   border: none;
   outline: none;
   background: transparent;
   color: #1a1a1a;
   font-family: ${({ theme }) => theme.fonts.ui};
-  font-size: 20px;
-  line-height: 1.55;
-  padding: 0;
+  font-size: ${({ $compact }) => ($compact ? '15px' : '20px')};
+  line-height: ${({ $compact }) => ($compact ? '1.45' : '1.55')};
+  padding: ${({ $compact }) => ($compact ? '6px 2px 0' : '0')};
 
   &::placeholder {
     color: rgba(0, 0, 0, 0.35);
@@ -387,16 +507,32 @@ const DarkCircle = styled.button`
 
 /* ── + dropdown menu ─────────────────────────────────────── */
 
+/* Small caption beneath the input — soft reminder that AI output is fallible.
+ *  Centered, muted, tiny. */
+const Disclaimer = styled.p`
+  margin: 14px 0 0;
+  text-align: center;
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: 11.5px;
+  color: rgba(0, 0, 0, 0.4);
+  line-height: 1.3;
+
+  @media (max-width: 768px) {
+    font-size: 10.5px;
+    margin-top: 11px;
+  }
+`;
+
 const Menu = styled.div`
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
-  min-width: 280px;
+  min-width: 256px;
   background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 14px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12);
-  padding: 6px;
+  border-radius: 16px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+  padding: 6px 4px;
   z-index: 100;
   animation: menuIn 0.12s ease both;
 
@@ -409,7 +545,7 @@ const Menu = styled.div`
 const MenuItem = styled.button`
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   width: 100%;
   padding: 10px 12px;
   border: none;
@@ -420,19 +556,28 @@ const MenuItem = styled.button`
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 15px;
   color: #1a1a1a;
-  transition: background 0.1s;
+  transition: background 0.1s, color 0.1s;
 
-  &:hover, &:focus-visible {
+  &:hover:not(:disabled),
+  &:focus-visible:not(:disabled) {
     background: rgba(0, 0, 0, 0.04);
     outline: none;
+  }
+
+  &:disabled {
+    color: rgba(0, 0, 0, 0.32);
+    cursor: default;
   }
 `;
 
 const MenuIcon = styled.span`
-  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 22px;
-  text-align: center;
+  height: 22px;
   flex-shrink: 0;
+  color: currentColor;
 `;
 
 const MenuLabel = styled.span`
@@ -440,9 +585,17 @@ const MenuLabel = styled.span`
   font-weight: 500;
 `;
 
-const MenuShortcut = styled.span`
-  font-size: 13px;
-  color: rgba(0, 0, 0, 0.4);
-  margin-left: 8px;
-  flex-shrink: 0;
+const MenuDivider = styled.div`
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+  margin: 6px 4px;
+`;
+
+/* Small dim caption above the login-gated group. Mirrors the screenshot's
+ *  "로그인해 써 보세요…" hint. */
+const MenuHint = styled.div`
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: 13.5px;
+  color: rgba(0, 0, 0, 0.42);
+  padding: 6px 12px 4px;
 `;

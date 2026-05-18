@@ -11,14 +11,17 @@ export const MessageRow = styled.div<{ $role: 'user' | 'assistant' }>`
 export const Bubble = styled.div<{ $role: 'user' | 'assistant' }>`
   position: relative;
 
-  ${({ $role, theme }) =>
+  ${({ $role }) =>
     $role === 'user'
       ? `
-    max-width: 85%;
-    padding: 10px 14px;
-    border-radius: 16px;
-    background: ${theme.colors.highlightIiVI};
+    max-width: 78%;
+    padding: 14px 18px;
+    border-radius: 18px;
+    /* Neutral gray bubble — clearly distinct from the warm bgChat canvas. */
+    background: rgba(0, 0, 0, 0.06);
     border: none;
+    font-size: 15.5px;
+    line-height: 1.55;
   `
       : `
     width: 100%;
@@ -26,36 +29,48 @@ export const Bubble = styled.div<{ $role: 'user' | 'assistant' }>`
     border-radius: 0;
     background: transparent;
     border: none;
+    font-size: 14px;
+    line-height: 1.5;
   `}
 
-  font-size: 14px;
-  line-height: 1.5;
   color: ${({ theme }) => theme.colors.textPrimary};
-
-  &:hover > button {
-    opacity: 1;
-  }
 `;
 
-export const CopyButton = styled.button`
-  position: absolute;
-  top: 0;
-  right: 0;
-  opacity: 0;
-  background: ${({ theme }) => theme.colors.bgSecondary};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 4px;
-  padding: 2px 6px;
-  cursor: pointer;
-  font-size: 14px;
+/* Assistant message action row — sits BELOW the message body as a transparent
+ * strip of small icon buttons (copy / thumbs / regenerate), mirroring the
+ * ChatGPT/Claude pattern. Replaces the old absolute-positioned hover-only
+ * copy button. */
+export const MessageActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding-left: 2px;
+`;
+
+export const ActionBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
   color: ${({ theme }) => theme.colors.textSecondary};
-  transition: opacity 0.15s, background 0.15s;
-  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  padding: 0;
 
   &:hover {
-    background: ${({ theme }) => theme.colors.border};
+    background: rgba(0, 0, 0, 0.05);
+    color: ${({ theme }) => theme.colors.textPrimary};
   }
 `;
+
+/* Legacy export retained so any other place that still imports CopyButton
+ * keeps compiling. New code should use ActionBtn inside MessageActions. */
+export const CopyButton = ActionBtn;
 
 export const AssistantHeader = styled.div`
   display: flex;
@@ -65,9 +80,9 @@ export const AssistantHeader = styled.div`
 `;
 
 export const AssistantIcon = styled.div`
-  width: 22px;
-  height: 22px;
-  border-radius: 5px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   overflow: hidden;
   flex-shrink: 0;
   display: block;

@@ -30,10 +30,10 @@ const config: CapacitorConfig = {
   server: {
     /* iOS는 ATS 정책상 http://를 차단하므로 백엔드 호출은 모두 https.
      * 개발 중에 로컬 dev 서버를 WebView에서 띄우고 싶으면 아래 url 설정:
-     * - 192.168.0.12 = Mac의 LAN IP (변경 시 다시 sync 필요)
+     * - 100.84.132.36 = Mac의 Tailscale IP (아이폰도 Tailscale 켜져 있어야 함)
      * - cleartext: true 가 있어야 iOS WebView가 http:// 로드 허용
      * 배포(앱스토어/TestFlight) 빌드 전엔 반드시 이 두 줄 다시 주석 처리 또는 삭제할 것. */
-    url: 'http://192.168.0.12:5173',
+    url: 'http://100.84.132.36:5173',
     cleartext: true,
   },
 };

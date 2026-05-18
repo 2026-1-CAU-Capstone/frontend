@@ -2105,10 +2105,39 @@ export default function EditorPage() {
       if (e.key === '4') { e.preventDefault(); setDuration('q'); setDotted(false); }
       if (e.key === '8') { e.preventDefault(); setDuration('8'); setDotted(false); }
       if (e.key === '6') { e.preventDefault(); setDuration('16'); setDotted(false); }
+
+      // Note navigation — < / > (or ArrowLeft/Right) cycles selection through
+      // every note/rest in the score in order.
+      const isPrev = e.key === ',' || e.key === '<' || e.key === 'ArrowLeft';
+      const isNext = e.key === '.' || e.key === '>' || e.key === 'ArrowRight';
+      if (isPrev || isNext) {
+        e.preventDefault();
+        const flat: Array<{ mi: number; ni: number }> = [];
+        allMeasures.forEach((m, mi) => {
+          m.notes.forEach((_, ni) => flat.push({ mi, ni }));
+        });
+        if (flat.length === 0) return;
+        let nextIdx: number;
+        if (!selectedNote) {
+          nextIdx = isPrev ? flat.length - 1 : 0;
+        } else {
+          const idx = flat.findIndex(
+            (f) => f.mi === selectedNote.mi && f.ni === selectedNote.ni,
+          );
+          if (idx < 0) {
+            nextIdx = isPrev ? flat.length - 1 : 0;
+          } else {
+            nextIdx = isPrev
+              ? Math.max(0, idx - 1)
+              : Math.min(flat.length - 1, idx + 1);
+          }
+        }
+        setSelectedNote(flat[nextIdx]);
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [handleUndo, closeMeasure]);
+  }, [handleUndo, closeMeasure, allMeasures, selectedNote]);
 
   useEffect(() => {
     const el = svgRef.current;
@@ -2633,6 +2662,30 @@ export default function EditorPage() {
     setTimeout(() => setCopied(false), 1500);
   }, [jsonOutput]);
 
+  /* Shift every pitched note in the score by `delta` octaves. Rests are left
+   * alone. Vex keys look like "c#/4" — we only touch the octave number after
+   * the slash. Pushes onto the undo stack so Backspace can revert it. */
+  const handleShiftOctave = useCallback((delta: number) => {
+    pushEditUndo();
+    const shift = (notes: NoteInfo[]): NoteInfo[] =>
+      notes.map((n) => {
+        if (n.duration.endsWith('r')) return n;
+        return {
+          ...n,
+          keys: n.keys.map((k) => {
+            const slash = k.lastIndexOf('/');
+            if (slash < 0) return k;
+            const note = k.slice(0, slash);
+            const oct = parseInt(k.slice(slash + 1), 10);
+            if (Number.isNaN(oct)) return k;
+            return `${note}/${oct + delta}`;
+          }),
+        };
+      });
+    setMeasures((prev) => prev.map((m) => ({ ...m, notes: shift(m.notes) })));
+    setCurNotes((prev) => shift(prev));
+  }, [pushEditUndo]);
+
   return (
     <Page>
       {countIn.overlay}
@@ -2670,6 +2723,24 @@ export default function EditorPage() {
             ))}
           </optgroup>
         </KeySelect>
+        <JsonBtn
+          $bg="#546e7a"
+          $hover="#455a64"
+          onClick={() => handleShiftOctave(-1)}
+          disabled={totalNotes === 0}
+          title="모든 음표 옥타브 -1"
+        >
+          Oct −1
+        </JsonBtn>
+        <JsonBtn
+          $bg="#546e7a"
+          $hover="#455a64"
+          onClick={() => handleShiftOctave(1)}
+          disabled={totalNotes === 0}
+          title="모든 음표 옥타브 +1"
+        >
+          Oct +1
+        </JsonBtn>
         <Spacer />
         <JsonBtn $bg="#26a69a" $hover="#00897b" onClick={handleCopy} disabled={totalNotes === 0}>
           {copied ? '\u2713 Copied!' : 'Copy JSON'}

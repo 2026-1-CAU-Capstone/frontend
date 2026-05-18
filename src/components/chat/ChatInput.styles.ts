@@ -4,7 +4,9 @@ import { ProgressionArrow } from './ProgressionArrow';
 export const InputWrapper = styled.div<{ $top?: boolean }>`
   border-top: ${({ $top, theme }) => ($top ? 'none' : `1px solid ${theme.colors.border}`)};
   border-bottom: ${({ $top, theme }) => ($top ? `1px solid ${theme.colors.border}` : 'none')};
-  background: ${({ theme }) => theme.colors.bgPrimary};
+  /* Transparent so the surrounding chat panel's warm gray shows through —
+   * keeps the input area visually continuous with the messages above. */
+  background: transparent;
   min-width: 0;
 `;
 
@@ -48,23 +50,28 @@ export const InputContainer = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px 12px;
+  padding: 6px 8px 10px;
   min-width: 0;
 `;
 
+/* Single-line capsule composer — matches the ChatGPT-style pill input.
+ * The textarea grows up to max-height when the user types multi-line, so the
+ * pill stretches downward but its top edge stays anchored. */
 export const ComposerBox = styled.div`
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 20px;
-  background: ${({ theme }) => theme.colors.bgSecondary};
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 28px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   overflow: hidden;
-  transition: border-color 0.15s;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
 
   &:focus-within {
-    border-color: ${({ theme }) => theme.colors.gold};
+    border-color: rgba(0, 0, 0, 0.18);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
   }
 `;
 
@@ -171,20 +178,22 @@ export const SelectedMoreChip = styled.span`
 
 export const ComposerInputRow = styled.div`
   display: flex;
-  align-items: flex-end;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
 `;
 
 export const Input = styled.textarea`
   flex: 1;
   min-width: 0;
-  padding: 12px 14px;
-  min-height: 56px;
-  max-height: 150px;
-  resize: vertical;
+  padding: 14px 18px;
+  min-height: 0;
+  max-height: 200px;
+  height: 48px;
+  resize: none;
   border: none;
-  font-size: 14px;
+  font-size: 15px;
+  line-height: 1.4;
   font-family: ${({ theme }) => theme.fonts.ui};
   color: ${({ theme }) => theme.colors.textPrimary};
   background: transparent;
@@ -192,33 +201,29 @@ export const Input = styled.textarea`
   box-sizing: border-box;
 
   &::placeholder {
-    color: ${({ theme }) => theme.colors.textSecondary};
+    color: rgba(0, 0, 0, 0.38);
   }
-
 `;
 
+/* Matches IntroChatInput.DarkCircle — dark round send button used on the
+ * HomePage intro composer. Vertically centered inside the capsule via the
+ * row's align-items: center (no manual margin alignment needed). */
 export const SendButton = styled.button`
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: 50%;
   border: none;
-  background: linear-gradient(135deg, ${({ theme }) => theme.colors.gold}, ${({ theme }) => theme.colors.goldDark});
-  color: white;
+  background: #1a1a1a;
+  color: #ffffff;
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
   flex-shrink: 0;
-  margin: 0 10px 10px 0;
-  transition: opacity 0.15s;
+  margin: 0 6px 0 0;
+  transition: opacity 0.15s, transform 0.1s;
 
-  &:hover {
-    opacity: 0.85;
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
+  &:hover { opacity: 0.85; }
+  &:active { transform: scale(0.95); }
+  &:disabled { opacity: 0.4; cursor: default; }
 `;

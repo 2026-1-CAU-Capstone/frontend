@@ -56,9 +56,10 @@ export const PATTERN_FAST: Pattern = {
   ],
 };
 
-export function selectPattern(bpm: number): Pattern {
-  if (bpm >= 250) return PATTERN_FAST;
-  if (bpm >= 100) return PATTERN_MEDIUM;
+export function selectPattern(_bpm: number): Pattern {
+  // Always use the simple "1 2 3 4" count-off regardless of tempo.
+  // (Previously fast tempos used an extra swing-feel "1 _ 2 _" row, but the
+  // user preferred a single straight four-count at every tempo.)
   return PATTERN_SIMPLE;
 }
 
