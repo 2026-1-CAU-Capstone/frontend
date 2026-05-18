@@ -4,6 +4,7 @@ import styled, { keyframes } from 'styled-components';
 import { Keyboard } from '@capacitor/keyboard';
 import { mq } from '../styles/theme';
 import { RightChatPanel } from '../components/layout/RightChatPanel';
+import { BrandLogoImage } from '../components/common/BrandLogoImage';
 import { AuthTopBar } from '../components/layout/AuthTopBar';
 import { AccountModal } from '../components/chat/AccountModal';
 import { LoginModal } from '../components/auth/LoginModal';
@@ -70,20 +71,7 @@ const MobileBrandBar = styled.div`
   }
 `;
 
-const MobileBrandLogo = styled.img`
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  object-fit: cover;
-`;
-
-const MobileBrandName = styled.span`
-  font-family: ${({ theme }) => theme.fonts.ui};
-  font-size: 0.98rem;
-  font-weight: 700;
-  color: ${({ theme }) => theme.colors.textPrimary};
-  letter-spacing: 0.02em;
-`;
+/* MobileBrandLogo + MobileBrandName replaced by <BrandLogoImage>. */
 
 /* ── Sidebar (desktop tool list) ─────────────────────────────── */
 
@@ -110,20 +98,7 @@ const BrandRow = styled.div`
   padding: 0 6px;
 `;
 
-const BrandLogo = styled.img`
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  object-fit: cover;
-`;
-
-const BrandName = styled.span`
-  font-family: ${({ theme }) => theme.fonts.ui};
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: ${({ theme }) => theme.colors.textPrimary};
-  letter-spacing: 0.02em;
-`;
+/* BrandLogo + BrandName replaced by <BrandLogoImage>. */
 
 const SidebarSpacer = styled.div`
   flex: 1;
@@ -320,7 +295,7 @@ const ChatArea = styled.div<{ $native?: boolean }>`
     background: transparent;
     ${({ $native }) => !$native && `
       width: 100%;
-      max-width: 1040px;
+      max-width: 780px;
     `}
   }
 `;
@@ -499,13 +474,7 @@ const DrawerHeader = styled.div`
   padding: calc(max(16px, env(safe-area-inset-top, 0px)) + 6px) 16px 14px;
 `;
 
-const DrawerTitle = styled.h1`
-  font-family: ${({ theme }) => theme.fonts.ui};
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: #111;
-  margin: 0;
-`;
+/* DrawerTitle replaced by <BrandLogoImage>. */
 
 const DrawerHeaderRight = styled.div`
   display: flex;
@@ -946,8 +915,7 @@ export default function HomePage() {
     <Wrapper $native={native}>
       {!native && (
         <MobileBrandBar>
-          <MobileBrandLogo src="/jazzifylogo.png" alt="Jazzify" />
-          <MobileBrandName>Jazzify</MobileBrandName>
+          <BrandLogoImage height={28} onClick={() => navigate('/')} />
         </MobileBrandBar>
       )}
 
@@ -955,8 +923,7 @@ export default function HomePage() {
       {!native && (
         <Sidebar>
           <BrandRow>
-            <BrandLogo src="/jazzifylogo.png" alt="Jazzify" />
-            <BrandName>Jazzify</BrandName>
+            <BrandLogoImage height={34} onClick={() => navigate('/')} />
           </BrandRow>
 
           {/* Quick nav — ChatGPT-style "+ 새 채팅 / 검색 / 채팅" right under
@@ -1016,7 +983,7 @@ export default function HomePage() {
             onTouchEnd={handleDrawerTouchEnd}
           >
             <DrawerHeader>
-              <DrawerTitle>Jazzify</DrawerTitle>
+              <BrandLogoImage height={28} />
               <DrawerHeaderRight>
                 {isLoggedIn && (
                   <DrawerAvatarBtn onClick={() => setAccountOpen(true)} aria-label="계정">

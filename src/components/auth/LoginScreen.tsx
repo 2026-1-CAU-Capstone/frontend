@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import styled from 'styled-components';
 import { login, signup } from '../../api/auth';
+import { BrandLogoImage } from '../common/BrandLogoImage';
 
 /* Two-step auth flow:
  *   step='form' — username + password (and name for signup)
@@ -86,7 +87,7 @@ export function LoginScreen({ onLogin, onClose }: Props) {
       </TopBar>
 
       <Content>
-        <Brand>Jazzify</Brand>
+        <BrandLogoImage height={56} />
 
         {step === 'form' ? (
           <>
@@ -257,13 +258,8 @@ const Content = styled.div`
   flex-direction: column;
 `;
 
-const Brand = styled.div`
-  text-align: center;
-  font-size: 22px;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin-bottom: 14px;
-`;
+/* Brand text replaced by <BrandLogoImage> — kept as a comment so the styled
+ * import block remains a clean diff. */
 
 const Heading = styled.h1`
   text-align: center;

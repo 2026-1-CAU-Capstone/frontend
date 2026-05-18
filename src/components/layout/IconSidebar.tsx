@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../../styles/theme';
 import { Logo } from '../common/Logo';
+import { BrandLogoImage } from '../common/BrandLogoImage';
 import { getCachedUser, onAuthChange, type AuthUser } from '../../api/auth';
 import { LoginModal } from '../auth/LoginModal';
 
@@ -32,6 +33,8 @@ const Rail = styled.nav<{ $expanded: boolean }>`
   padding: 12px ${({ $expanded }) => ($expanded ? '10px' : '0')};
   gap: 4px;
   background: transparent;
+  /* Solid right border so the rail visually separates from the chat area. */
+  border-right: 1px solid rgba(0, 0, 0, 0.12);
   transition: width 0.22s ease, padding 0.22s ease, align-items 0.22s ease;
 
   /* iPhone notch / iPad gesture area */
@@ -59,14 +62,7 @@ const TopRow = styled.div<{ $expanded: boolean }>`
   gap: 8px;
 `;
 
-const BrandText = styled.span`
-  font-family: ${({ theme }) => theme.fonts.ui};
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: ${({ theme }) => theme.colors.textPrimary};
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-`;
+/* BrandText replaced by the combined <BrandLogoImage>. */
 
 const BrandRow = styled.div`
   display: flex;
@@ -551,8 +547,7 @@ export function IconSidebar({ hideAuthPromo = false }: IconSidebarProps = {}) {
         {expanded ? (
           <>
             <BrandRow>
-              <Logo />
-              <BrandText>Jazzify</BrandText>
+              <BrandLogoImage height={32} onClick={() => navigate('/')} />
             </BrandRow>
             <ToggleBtn onClick={toggleExpanded} title="사이드바 접기" aria-label="사이드바 접기">
               <PanelToggleIcon />
