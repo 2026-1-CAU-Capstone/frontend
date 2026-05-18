@@ -303,12 +303,14 @@ const ChatArea = styled.div<{ $native?: boolean; $started?: boolean }>`
   & > aside {
     border-left: none;
     background: transparent;
-    /* Empty state (chat hasn't started yet) keeps the original wider column
-     * so the centered hero looks roomy. Once messages start flowing, narrow
-     * the column down so bubbles read at chat-comfortable width. */
+    /* Empty state (chat hasn't started yet) keeps a wider column so the
+     * centered hero and large IntroChatInput look roomy. Once messages
+     * start flowing, narrow the column down to 760px to match the message
+     * bubble width (MessagesArea > * { max-width: 760px }) — input and
+     * replies then line up at identical widths. */
     ${({ $native, $started }) => !$native && `
       width: 100%;
-      max-width: ${$started ? '780px' : '1040px'};
+      max-width: ${$started ? '760px' : '1200px'};
       transition: max-width 0.25s ease;
     `}
   }
@@ -935,7 +937,7 @@ export default function HomePage() {
       {!native && (
         <MobileBrandBar>
           <MobileBrandLogo src="/jazzifylogo.png" alt="Jazzify" />
-          <BrandLogoImage height={36} onClick={() => navigate('/')} />
+          <BrandLogoImage height={48} onClick={() => navigate('/')} />
         </MobileBrandBar>
       )}
 
@@ -944,7 +946,7 @@ export default function HomePage() {
         <Sidebar>
           <BrandRow>
             <BrandLogo src="/jazzifylogo.png" alt="Jazzify" />
-            <BrandLogoImage height={44} onClick={() => navigate('/')} />
+            <BrandLogoImage height={60} onClick={() => navigate('/')} />
           </BrandRow>
 
           {/* Quick nav — ChatGPT-style "+ 새 채팅 / 검색 / 채팅" right under
@@ -1005,7 +1007,7 @@ export default function HomePage() {
           >
             <DrawerHeader>
               <DrawerBrandLogo src="/jazzifylogo.png" alt="Jazzify" />
-              <BrandLogoImage height={36} />
+              <BrandLogoImage height={48} />
               <DrawerHeaderRight>
                 {isLoggedIn && (
                   <DrawerAvatarBtn onClick={() => setAccountOpen(true)} aria-label="계정">
