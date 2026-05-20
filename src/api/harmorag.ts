@@ -11,7 +11,7 @@
  * 사용하세요.
  */
 
-import { streamClaudeMessage, type ClaudeMessage } from './claude';
+import { streamClaudeMessage, type ClaudeMessage, type ClaudeImage } from './claude';
 import { isNativeApp } from '../lib/platform';
 
 const RAG_SERVER =
@@ -87,7 +87,14 @@ export async function streamWithRAG(
   songTitle: string,
   onChunk: (accumulated: string) => void,
   onDebug?: (info: RagDebugInfo) => void,
+  images?: ClaudeImage[],
 ): Promise<string> {
+  // Image attachments → skip RAG (text retrieval is meaningless for an image)
+  // and go straight to Claude's vision call so it can read the picture/score.
+  if (images && images.length > 0) {
+    return streamClaudeMessage(message, history, chordContextText, onChunk, undefined, images);
+  }
+
   const alive = await checkServer();
 
   if (!alive) {

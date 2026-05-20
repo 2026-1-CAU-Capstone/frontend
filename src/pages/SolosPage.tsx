@@ -2,15 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../styles/theme';
+import { exportScoreSvgToPdf } from '../lib/note/scoreToPdf';
 import { IconSidebar } from '../components/layout/IconSidebar';
 import { TopToolbar } from '../components/layout/TopToolbar';
 import { NoteSheet } from '../components/notesheet/NoteSheet';
 import {
   deleteSolo,
   listSolos,
+  listSoloPerformers,
   updateSolo,
   toWeimarKey,
   type SoloDraft,
+  type SoloFacet,
   type SoloResponse,
 } from '../api/solos';
 import {
@@ -127,9 +130,9 @@ const RefreshBtn = styled.button`
   &:disabled { opacity: 0.5; cursor: not-allowed; }
 `;
 
-const SplitArea = styled.div`
+const SplitArea = styled.div<{ $single?: boolean }>`
   display: grid;
-  grid-template-columns: 380px minmax(0, 1fr);
+  grid-template-columns: ${({ $single }) => ($single ? '1fr' : '380px minmax(0, 1fr)')};
   gap: 12px;
   padding: 12px 16px;
   flex: 1;
@@ -212,6 +215,65 @@ const RowBtn = styled.button<{ $color?: string }>`
   &:disabled { opacity: 0.5; cursor: not-allowed; }
 `;
 
+/* Performer directory (shown before a performer is picked). */
+const PerformerRow = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 11px 14px;
+  border: none;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  background: transparent;
+  cursor: pointer;
+  font-family: 'Pretendard', sans-serif;
+  color: ${({ theme }) => theme.colors.textPrimary};
+  transition: background 0.12s;
+  &:hover { background: ${({ theme }) => theme.colors.bgPrimary}; }
+  &:last-child { border-bottom: 0; }
+`;
+
+const PerformerName = styled.span`
+  font-weight: 600;
+  font-size: 0.92rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const CountBadge = styled.span`
+  flex-shrink: 0;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 999px;
+  padding: 2px 9px;
+`;
+
+const BackBtn = styled.button`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 4px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  color: ${({ theme }) => theme.colors.textPrimary};
+  cursor: pointer;
+  white-space: nowrap;
+  &:hover { border-color: ${({ theme }) => theme.colors.gold}; }
+`;
+
+const CurrentPerformer = styled.span`
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: ${({ theme }) => theme.colors.textPrimary};
+`;
+
 const PreviewCard = styled.div`
   display: flex;
   flex-direction: column;
@@ -281,23 +343,31 @@ const ErrorBanner = styled.div`
 
 export default function SolosPage() {
   const navigate = useNavigate();
-  /* selectedPerformer: '' = none chosen (nothing fetched). Picking from the
-   * dropdown triggers the first page fetch. */
-  const [performers, setPerformers] = useState<string[]>([]);
+  /* selectedPerformer: '' = none chosen → show the performer directory.
+   * Clicking a performer fetches that performer's solos. */
+  const [performers, setPerformers] = useState<SoloFacet[]>([]);
+  const [performersLoading, setPerformersLoading] = useState(true);
+  const [performerQuery, setPerformerQuery] = useState('');
   const [selectedPerformer, setSelectedPerformer] = useState('');
   const [filterInstrument, setFilterInstrument] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    listSolos({ size: 200, sort: 'performer,asc' })
-      .then((data) => {
-        const unique = [...new Set(
-          data.content.map((s) => s.performer).filter((p): p is string => !!p),
-        )].sort();
-        setPerformers(unique);
+    setPerformersLoading(true);
+    listSoloPerformers()
+      .then((facets) => {
+        // backend already counts; sort by count desc then name for a stable directory
+        const sorted = [...facets].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+        setPerformers(sorted);
       })
-      .catch(() => { /* 실패 시 빈 목록 유지 */ });
+      .catch(() => { /* 실패 시 빈 목록 유지 */ })
+      .finally(() => setPerformersLoading(false));
   }, []);
+
+  const visiblePerformers = useMemo(() => {
+    const q = performerQuery.trim().toLowerCase();
+    return q ? performers.filter((p) => p.name.toLowerCase().includes(q)) : performers;
+  }, [performers, performerQuery]);
 
   const [solos, setSolos] = useState<SoloResponse[]>([]);
   const [page, setPage] = useState(0);
@@ -332,10 +402,20 @@ export default function SolosPage() {
       /* Defensive client-side filter — the backend may ignore `performer`,
        * in which case we still want only the picked performer's rows. */
       const filtered = data.content.filter((s) => s.performer === performer);
+      // If the backend honored `performer`, filtered === content and we trust
+      // its last/totalElements. If it ignored the filter (other performers
+      // mixed in), fetching more pages would just repeat the situation — so
+      // stop infinite scroll and count only what we actually kept, otherwise
+      // the sentinel keeps pulling empty pages forever.
+      const backendFiltered = filtered.length === data.content.length;
       setSolos((prev) => (nextPage === 0 ? filtered : [...prev, ...filtered]));
       setPage(nextPage + 1);
-      setIsLast(data.last);
-      setTotalElements(data.totalElements);
+      setIsLast(data.last || !backendFiltered);
+      setTotalElements((prev) =>
+        backendFiltered
+          ? data.totalElements
+          : nextPage === 0 ? filtered.length : prev + filtered.length,
+      );
     } catch (e) {
       if (myToken !== fetchTokenRef.current) return;
       setError(e instanceof Error ? e.message : String(e));
@@ -439,57 +519,40 @@ export default function SolosPage() {
     }
   }, [selectedId]);
 
-  /* PDF 다운로드 — 브라우저의 native print → "PDF 로 저장" 우회.
-   *
-   * html2canvas / SVG→Image→canvas 두 방식 모두 VexFlow 의 <use>/외부 폰트
-   * reference 를 정확히 캡쳐 못 해서 음표가 깨지거나 빈 이미지가 나옴.
-   * 대신 window.print() 는 브라우저 자체 렌더러가 화면 그대로를 PDF 로
-   * 떨궈주므로 결과 100% 정확. UX 상 사용자가 인쇄 대화상자에서
-   * "PDF 로 저장"을 선택해야 한다는 추가 단계는 있음.
-   *
-   * 동작:
-   *   1) 해당 솔로 select → NoteSheet 렌더 대기
-   *   2) document.fonts.ready 대기
-   *   3) PreviewBody 에 .pdf-print-target 클래스 토글
-   *   4) document.title 을 파일명으로 임시 변경 → 인쇄 다이얼로그 기본 파일명에 반영
-   *   5) window.print() → afterprint 에서 원복 */
+  /* PDF 다운로드 — 화면에 렌더된 악보 SVG 를 고해상도 canvas 로 raster 한 뒤
+   * jsPDF 페이지에 staff 단위로 배치해서 자동 다운로드한다 (scoreToPdf.ts).
+   * 브라우저 렌더러가 음표/코드 폰트를 정확히 그리므로 깨지지 않고, 머리글·
+   * 바닥글이 없으며, 빈 페이지 없이 1페이지부터 시작하고, 페이지 경계는 빈
+   * 행에서 끊겨 staff 가 반토막 나지 않는다. */
   const handlePdfDownload = useCallback(async (solo: SoloResponse) => {
     setPdfBusy(solo.publicId);
     try {
       if (selectedId !== solo.publicId) {
         setSelectedId(solo.publicId);
         await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
-        await new Promise((r) => setTimeout(r, 300));
+        await new Promise((r) => setTimeout(r, 350));
       }
       if (typeof document !== 'undefined' && document.fonts?.ready) {
         await document.fonts.ready;
       }
 
-      const target = previewBodyRef.current;
-      if (!target) throw new Error('미리보기가 준비되지 않았습니다.');
+      // The score is the LARGEST <svg> in the preview (others are icons/glyphs).
+      const allSvgs = Array.from(
+        previewBodyRef.current?.querySelectorAll('svg') ?? [],
+      ) as SVGSVGElement[];
+      if (allSvgs.length === 0) throw new Error('악보가 준비되지 않았습니다.');
+      const scoreSvg = allSvgs.reduce((best, s) => {
+        const r = s.getBoundingClientRect();
+        const b = best.getBoundingClientRect();
+        return r.width * r.height > b.width * b.height ? s : best;
+      });
 
       const safe = (s: string) => s.replace(/[/\\?%*:|"<>]/g, '-').trim();
       const filename = `${safe(solo.performer ?? 'Unknown')} - ${safe(solo.title)}`;
-      const originalTitle = document.title;
-
-      target.classList.add('pdf-print-target');
-      document.title = filename;
-
-      let done = false;
-      const cleanup = () => {
-        if (done) return;
-        done = true;
-        target.classList.remove('pdf-print-target');
-        document.title = originalTitle;
-        window.removeEventListener('afterprint', cleanup);
-      };
-      window.addEventListener('afterprint', cleanup);
-
-      /* trigger native print dialog */
-      window.print();
-
-      /* Fallback — 일부 브라우저(특히 Safari)는 afterprint 가 늦거나 안 뜸 */
-      setTimeout(cleanup, 1500);
+      await exportScoreSvgToPdf(scoreSvg, filename, {
+        title: solo.title,
+        artist: solo.performer ?? undefined,
+      });
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'PDF 생성 실패';
       setError(msg);
@@ -563,54 +626,74 @@ export default function SolosPage() {
         <MainArea>
           <CenterColumn>
             <ToolBar>
-              <FilterLabel>Performer</FilterLabel>
-              <FilterSelect
-                value={selectedPerformer}
-                onChange={(e) => handlePerformerChange(e.target.value)}
-              >
-                <option value="">— 선택 —</option>
-                {performers.map((p) => <option key={p} value={p}>{p}</option>)}
-              </FilterSelect>
+              {!selectedPerformer ? (
+                <>
+                  <FilterLabel>연주자</FilterLabel>
+                  <SearchInput
+                    style={{ width: 220 }}
+                    placeholder="연주자 검색..."
+                    value={performerQuery}
+                    onChange={(e) => setPerformerQuery(e.target.value)}
+                  />
+                  <CountText>
+                    {performersLoading
+                      ? '연주자 불러오는 중…'
+                      : `${visiblePerformers.length.toLocaleString()} / ${performers.length.toLocaleString()} 연주자`}
+                  </CountText>
+                </>
+              ) : (
+                <>
+                  <BackBtn onClick={() => handlePerformerChange('')}>← 전체 연주자</BackBtn>
+                  <CurrentPerformer>{selectedPerformer}</CurrentPerformer>
 
-              <FilterLabel>Instrument</FilterLabel>
-              <FilterSelect
-                value={filterInstrument}
-                onChange={(e) => setFilterInstrument(e.target.value)}
-                disabled={!selectedPerformer}
-              >
-                <option value="">All ({instruments.length})</option>
-                {instruments.map((i) => <option key={i} value={i}>{i}</option>)}
-              </FilterSelect>
+                  <FilterLabel>Instrument</FilterLabel>
+                  <FilterSelect
+                    value={filterInstrument}
+                    onChange={(e) => setFilterInstrument(e.target.value)}
+                  >
+                    <option value="">All ({instruments.length})</option>
+                    {instruments.map((i) => <option key={i} value={i}>{i}</option>)}
+                  </FilterSelect>
 
-              <SearchInput
-                style={{ width: 220 }}
-                placeholder="제목 / 연주자 / 앨범 검색..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                disabled={!selectedPerformer}
-              />
+                  <SearchInput
+                    style={{ width: 220 }}
+                    placeholder="제목 / 앨범 검색..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
 
-              <RefreshBtn
-                onClick={() => selectedPerformer && loadPage(selectedPerformer, 0)}
-                disabled={loading || !selectedPerformer}
-              >
-                {loading ? '불러오는 중…' : '새로고침'}
-              </RefreshBtn>
+                  <RefreshBtn
+                    onClick={() => loadPage(selectedPerformer, 0)}
+                    disabled={loading}
+                  >
+                    {loading ? '불러오는 중…' : '새로고침'}
+                  </RefreshBtn>
 
-              <CountText>
-                {!selectedPerformer
-                  ? '연주자를 선택하세요'
-                  : `${visibleList.length.toLocaleString()} / ${totalElements.toLocaleString()} solos${isLast ? '' : ' (스크롤로 더 불러오기)'}`}
-              </CountText>
+                  <CountText>
+                    {`${visibleList.length.toLocaleString()} / ${totalElements.toLocaleString()} solos${isLast ? '' : ' (스크롤로 더 불러오기)'}`}
+                  </CountText>
+                </>
+              )}
             </ToolBar>
 
             {error && <ErrorBanner>{error}</ErrorBanner>}
 
-            <SplitArea>
+            <SplitArea $single={!selectedPerformer}>
               <ListCard>
                 <ListBody ref={listBodyRef}>
                   {!selectedPerformer ? (
-                    <EmptyState>위에서 연주자를 선택해주세요.</EmptyState>
+                    performersLoading ? (
+                      <EmptyState>연주자 목록 불러오는 중…</EmptyState>
+                    ) : visiblePerformers.length === 0 ? (
+                      <EmptyState>연주자가 없습니다.</EmptyState>
+                    ) : (
+                      visiblePerformers.map((p) => (
+                        <PerformerRow key={p.name} onClick={() => handlePerformerChange(p.name)}>
+                          <PerformerName title={p.name}>{p.name}</PerformerName>
+                          <CountBadge>{p.count.toLocaleString()} solos</CountBadge>
+                        </PerformerRow>
+                      ))
+                    )
                   ) : visibleList.length === 0 && loading ? (
                     <EmptyState>불러오는 중…</EmptyState>
                   ) : visibleList.length === 0 ? (
@@ -693,6 +776,7 @@ export default function SolosPage() {
                 </ListBody>
               </ListCard>
 
+              {selectedPerformer && (
               <PreviewCard>
                 {selected ? (
                   <>
@@ -719,6 +803,7 @@ export default function SolosPage() {
                   <EmptyState>왼쪽에서 솔로를 선택해주세요.</EmptyState>
                 )}
               </PreviewCard>
+              )}
             </SplitArea>
           </CenterColumn>
         </MainArea>

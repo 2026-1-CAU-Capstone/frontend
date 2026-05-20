@@ -1,3 +1,4 @@
+import { type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import {
@@ -22,9 +23,13 @@ const SubtitleText = styled.span`
 interface TopToolbarProps {
   title?: string;
   subtitle?: string;
+  /** Rendered right after the back button (e.g. a song picker). */
+  leftExtra?: ReactNode;
+  /** Rendered just before the share button (e.g. a search box). */
+  rightExtra?: ReactNode;
 }
 
-export function TopToolbar({ title, subtitle }: TopToolbarProps) {
+export function TopToolbar({ title, subtitle, leftExtra, rightExtra }: TopToolbarProps) {
   const navigate = useNavigate();
 
   return (
@@ -36,6 +41,7 @@ export function TopToolbar({ title, subtitle }: TopToolbarProps) {
           </svg>
           돌아가기
         </BackButton>
+        {leftExtra}
       </ToolbarLeft>
 
       <ToolbarCenter>
@@ -44,6 +50,7 @@ export function TopToolbar({ title, subtitle }: TopToolbarProps) {
       </ToolbarCenter>
 
       <ToolbarRight>
+        {rightExtra}
         <ShareButton>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="18" cy="5" r="3" />

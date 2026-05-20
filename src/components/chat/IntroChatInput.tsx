@@ -31,7 +31,7 @@ const MAX_VISIBLE_CHIPS = 6;
  *     into the send-arrow when the user has typed. */
 
 interface Props {
-  onSend: (message: string) => void;
+  onSend: (message: string, files?: File[]) => void;
   disabled?: boolean;
   placeholder?: string;
   autoFocus?: boolean;
@@ -46,6 +46,9 @@ interface Props {
   onToggleSelectionMode?: () => void;
   onRequestLicks?: () => void;
   hideSelectionQuickAction?: boolean;
+  /** Open the "+" menu upward (drop-up) instead of down. Used by the bottom-
+   *  pinned chord/note inputs so the menu stays on-screen without scrolling. */
+  dropUpMenu?: boolean;
 }
 
 interface MenuEntry {
@@ -78,6 +81,7 @@ export function IntroChatInput({
   onToggleSelectionMode,
   onRequestLicks,
   hideSelectionQuickAction,
+  dropUpMenu,
 }: Props) {
   const [value, setValue] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -151,9 +155,12 @@ export function IntroChatInput({
 
   const send = () => {
     const t = value.trim();
-    if (!t) return;
-    onSend(t);
+    if (!t && attachments.length === 0) return;
+    // 이미지만 첨부하고 텍스트가 없으면 기본 분석 요청 문구를 채워 보낸다.
+    const msg = t || '첨부한 이미지를 분석해줘';
+    onSend(msg, attachments.length > 0 ? attachments : undefined);
     setValue('');
+    setAttachments([]);
   };
 
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -209,25 +216,26 @@ export function IntroChatInput({
         style={{ display: 'none' }}
         onChange={(e) => { onFilesPicked(e.target.files); e.target.value = ''; }}
       />
-      {/* Selected-chord chips stay INSIDE the box, above the textarea. */}
+      {/* Selected-chord chips stay INSIDE the box, above the textarea.
+       * Negative margins cancel the Box's own padding so the chord panel
+       * reaches close to the rounded edges (minimal inset) instead of
+       * floating with a wide gap. */}
       {selectedChords.length > 0 && (
-        <div style={{ padding: '0 0 8px' }}>
-          <SelectedContext>
-            {onClearSelectedChords && (
-              <SelectedContextClose type="button" aria-label="선택한 코드 구간 지우기" onClick={onClearSelectedChords}>X</SelectedContextClose>
-            )}
-            <SelectedContextLabel>선택한 코드 구간 · {selectedChords.length}개</SelectedContextLabel>
-            <SelectedChordRow>
-              {visibleChords.map((chord, i) => (
-                <SelectedChordStep key={chord.id}>
-                  {i > 0 && <SelectedChordArrow />}
-                  <SelectedChordChip>{formatChordsInText(chord.symbol)}</SelectedChordChip>
-                </SelectedChordStep>
-              ))}
-              {hiddenChordCount > 0 && <SelectedMoreChip>+{hiddenChordCount}</SelectedMoreChip>}
-            </SelectedChordRow>
-          </SelectedContext>
-        </div>
+        <ChordPanel $compact={compact}>
+          {onClearSelectedChords && (
+            <SelectedContextClose type="button" aria-label="선택한 코드 구간 지우기" onClick={onClearSelectedChords}>X</SelectedContextClose>
+          )}
+          <SelectedContextLabel>선택한 코드 구간 · {selectedChords.length}개</SelectedContextLabel>
+          <SelectedChordRow>
+            {visibleChords.map((chord, i) => (
+              <SelectedChordStep key={chord.id}>
+                {i > 0 && <SelectedChordArrow />}
+                <SelectedChordChip>{formatChordsInText(chord.symbol)}</SelectedChordChip>
+              </SelectedChordStep>
+            ))}
+            {hiddenChordCount > 0 && <SelectedMoreChip>+{hiddenChordCount}</SelectedMoreChip>}
+          </SelectedChordRow>
+        </ChordPanel>
       )}
       {isDragOver && (
         <DragOverlay>
@@ -271,7 +279,7 @@ export function IntroChatInput({
               <PlusIcon />
             </PlusBtn>
             {menuOpen && !native && (
-              <Menu ref={menuRef} role="menu">
+              <Menu ref={menuRef} role="menu" $up={dropUpMenu}>
                 {/* Top group — each item followed by a divider so the menu
                  *  reads as a list of distinct actions (matches reference). */}
                 {ALWAYS_ITEMS.map((item, i) => (
@@ -499,6 +507,14 @@ const Box = styled.div<{ $compact?: boolean }>`
       box-shadow: none;
     }
   }
+`;
+
+/* Selected-chord panel pinned inside the Box. Negative margins cancel the
+ * Box's padding (compact 8/14, full 32/32) so the panel sits a few px from
+ * the rounded edge with only minimal inset, instead of floating centered. */
+const ChordPanel = styled(SelectedContext)<{ $compact?: boolean }>`
+  margin: ${({ $compact }) => ($compact ? '-3px -9px 8px' : '-26px -27px 14px')};
+  border-radius: ${({ $compact }) => ($compact ? '16px' : '20px')};
 `;
 
 /* ── Drag-over overlay + attachment chip styles ──────────── */
@@ -750,9 +766,9 @@ const Disclaimer = styled.p`
   }
 `;
 
-const Menu = styled.div`
+const Menu = styled.div<{ $up?: boolean }>`
   position: absolute;
-  top: calc(100% + 8px);
+  ${({ $up }) => ($up ? 'bottom: calc(100% + 8px);' : 'top: calc(100% + 8px);')}
   left: 0;
   min-width: 256px;
   background: #fff;
@@ -761,10 +777,14 @@ const Menu = styled.div`
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
   padding: 6px 4px;
   z-index: 100;
-  animation: menuIn 0.12s ease both;
+  animation: ${({ $up }) => ($up ? 'menuInUp' : 'menuIn')} 0.12s ease both;
 
   @keyframes menuIn {
     from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes menuInUp {
+    from { opacity: 0; transform: translateY(4px) scale(0.98); }
     to   { opacity: 1; transform: translateY(0) scale(1); }
   }
 `;

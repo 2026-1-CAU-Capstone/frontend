@@ -4,7 +4,7 @@ import styled from 'styled-components';
 /* ─── expand / collapse SVG icons ───────────────────────────────────────── */
 
 const ExpandIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="6 1 1 1 1 6" />
     <polyline points="12 1 17 1 17 6" />
     <polyline points="6 17 1 17 1 12" />
@@ -13,7 +13,7 @@ const ExpandIcon = () => (
 );
 
 const CollapseIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="1 6 6 6 6 1" />
     <polyline points="12 1 12 6 17 6" />
     <polyline points="1 12 6 12 6 17" />
@@ -31,8 +31,8 @@ const Btn = styled.button`
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border: none;
   border-radius: 6px;
   background: rgba(0, 0, 0, 0.15);

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react'
 import type { ChatMessage as ChatMessageType, ChordOverlay } from '../../data/types';
 import { ChatMessage } from '../chat/ChatMessage';
 import { IntroChatInput } from '../chat/IntroChatInput';
-import { type ClaudeMessage } from '../../api/claude';
+import { type ClaudeMessage, type ClaudeImage } from '../../api/claude';
 import { streamWithRAG, type RagDebugInfo } from '../../api/harmorag';
 import { RagDebugPanel } from '../chat/RagDebugPanel';
 import {
@@ -24,6 +24,19 @@ import {
   IntroInputSlot,
   ScrollToBottomBtn,
 } from './RightChatPanel.styles';
+
+/** Read an attached image File into a Claude vision block (base64, no prefix).
+ *  Non-image files (e.g. PDFs) return null and are skipped. */
+async function fileToClaudeImage(file: File): Promise<ClaudeImage | null> {
+  if (!file.type.startsWith('image/')) return null;
+  const data = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+  return { mediaType: file.type, data };
+}
 
 interface RightChatPanelProps {
   selectedChords: ChordOverlay[];
@@ -70,12 +83,6 @@ interface RightChatPanelProps {
   /** Pixels of extra bottom padding to leave below the input — used on
    *  native to lift the input above the iOS keyboard when it's shown. */
   keyboardOffsetPx?: number;
-  /** Chord / Note variant of the intro layout: empty-state hero + ChatInput
-   *  rendered TOGETHER, vertically centered. Once the first message lands the
-   *  ChatInput slides back to its normal pinned-bottom position. Unlike
-   *  `inputInIntro`, this keeps the full-featured ChatInput (chord selection,
-   *  lick suggestions, etc.) instead of swapping to IntroChatInput. */
-  centerInputWhenEmpty?: boolean;
   /** Fires whenever the message count changes. HomePage uses this to decide
    *  whether the "새 채팅" button should prompt a confirm modal (when there's
    *  an in-progress conversation to discard). */
@@ -145,7 +152,6 @@ export function RightChatPanel({
   inputInIntro = false,
   nativeIntroLayout = false,
   keyboardOffsetPx = 0,
-  centerInputWhenEmpty = false,
   onMessagesChange,
 }: RightChatPanelProps) {
   const [messages, setMessages] = useState<MessageWithDebug[]>([]);
@@ -242,8 +248,13 @@ export function RightChatPanel({
     return () => window.removeEventListener('jazzify:requestLicks', handler);
   }, [handleRequestLicks]);
 
-  const handleSend = useCallback(async (text: string) => {
+  const handleSend = useCallback(async (text: string, files?: File[]) => {
     isScrolledUpRef.current = false;
+
+    // 첨부 이미지 → Claude 비전 블록(base64). 비이미지(PDF 등)는 건너뜀.
+    const images: ClaudeImage[] = files && files.length > 0
+      ? (await Promise.all(files.map(fileToClaudeImage))).filter((x): x is ClaudeImage => x !== null)
+      : [];
 
     const userMsg: MessageWithDebug = {
       id: `user-${Date.now()}`,
@@ -409,6 +420,7 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
           prev.map((m) => (m.id === aiMsgId ? { ...m, ragDebug: debugInfo } : m)),
         );
       },
+      images,
     );
 
     historyRef.current.push(
@@ -452,7 +464,7 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
         ref={messagesAreaRef}
         onScroll={handleScroll}
         style={
-          messages.length === 0 && (inputInIntro || centerInputWhenEmpty)
+          messages.length === 0 && inputInIntro
             ? nativeIntroLayout
               /* Native: IntroBlock claims flex:1 + self-centers (see its
                *  mobile @media in HomePage). Input is at the end of the
@@ -460,6 +472,9 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
               ? { justifyContent: 'flex-start', padding: 0 }
               /* Web: hero + input centered as a group. */
               : { justifyContent: 'center' }
+            /* chord/note pages: default top alignment — EmptyState sits up
+             *  top while the bottom-pinned input keeps the disclaimer at the
+             *  very bottom of the panel. */
             : undefined
         }
       >
@@ -504,28 +519,6 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
               disabled={loading}
               placeholder={inputPlaceholder}
               autoFocus={autoFocusInput}
-            />
-          </IntroInputSlot>
-        )}
-
-        {/* Chord / Note empty-state: use the SAME big IntroChatInput as the
-         *  main (HomePage) intro so the input design is identical. Width is
-         *  fluid — `width: 100%` lets it fill the chord panel column rather
-         *  than the fixed 950px the HomePage hero uses. */}
-        {messages.length === 0 && centerInputWhenEmpty && !inputInIntro && !inputAtTop && !nativeIntroLayout && (
-          <IntroInputSlot style={{ marginTop: 4, padding: '0 4px', maxWidth: '100%', width: '100%' }}>
-            <IntroChatInput
-              onSend={handleSend}
-              disabled={loading}
-              compact
-              placeholder={inputPlaceholder}
-              autoFocus={autoFocusInput}
-              isSelectionMode={isSelectionMode}
-              onToggleSelectionMode={onToggleSelectionMode}
-              selectedChords={selectedChords}
-              onClearSelectedChords={onClearSelectedChords}
-              onRequestLicks={handleRequestLicks}
-              hideSelectionQuickAction={hideSelectionQuickAction}
             />
           </IntroInputSlot>
         )}
@@ -584,11 +577,11 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
       {/* Web non-intro case: bottom-pinned input (chord / note pages).
        *  Uses the same IntroChatInput as the main page (compact) so the
        *  design is identical everywhere. Chord-selection chips render above
-       *  the box. When centerInputWhenEmpty is set, skip this in the empty
-       *  state — the input is rendered inside MessagesArea (centered). */}
-      {!nativeIntroLayout && !inputAtTop && !inputInIntro
-        && !(messages.length === 0 && centerInputWhenEmpty) && (
-        <IntroInputSlot style={{ marginTop: 0, marginBottom: 16 }}>
+       *  the box. This stays pinned to the panel bottom in BOTH the empty
+       *  state and mid-conversation, so the disclaimer always sits at the
+       *  very bottom of the panel. */}
+      {!nativeIntroLayout && !inputAtTop && !inputInIntro && (
+        <IntroInputSlot style={{ marginTop: 0, marginBottom: 16, paddingLeft: 16, paddingRight: 16 }}>
           <IntroChatInput
             onSend={handleSend}
             disabled={loading}
@@ -599,6 +592,7 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
             onClearSelectedChords={onClearSelectedChords}
             onRequestLicks={handleRequestLicks}
             hideSelectionQuickAction={hideSelectionQuickAction}
+            dropUpMenu
             placeholder={inputPlaceholder}
             autoFocus={autoFocusInput}
           />

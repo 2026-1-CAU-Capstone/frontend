@@ -8,6 +8,7 @@ import { RightChatPanel } from '../components/layout/RightChatPanel';
 import { MobileChatFab } from '../components/layout/MobileChatFab';
 import { NoteSheet } from '../components/notesheet/NoteSheet';
 import { Toggle } from '../components/common/Toggle';
+import { SettingsGearButton } from '../components/auth/SettingsGearButton';
 import { ToolbarButton } from '../components/layout/TopToolbar.styles';
 import { useAutoHighlight } from '../hooks/useAutoHighlight';
 import { sampleMelody } from '../data/sampleMelody';
@@ -18,6 +19,7 @@ import type { SongGroup } from '../data/noteSongs';
 import { loadMidiMelody } from '../lib/note/midiMelodyParser';
 import { loadXmlMelody, loadMxlMelody } from '../lib/note/xmlMelodyParser';
 import { injectChordsFromLeadSheet } from '../lib/note/jazz1460ChordInject';
+import { getPlayerSettings, subscribePlayerSettings, TRANSPOSING_INSTRUMENT_OFFSET } from '../lib/note/playerSettings';
 import { getSong } from '../lib/ireal/irealLoader';
 
 const SAMPLE_ID = '__sample__';
@@ -49,6 +51,15 @@ function keyToPc(key: string): number {
   const root = clean[0].toUpperCase();
   const acc = clean.length > 1 ? clean[1] : '';
   return ((NOTE_TO_PC[root] ?? 0) + (acc === '#' ? 1 : acc === 'b' ? -1 : 0) + 12) % 12;
+}
+
+/** Shift a key name up by `semitones`, preserving major/minor and using the
+ *  canonical note-key spelling. Folds the transposing-instrument offset into
+ *  the displayed key. */
+function shiftNoteKey(key: string, semitones: number): string {
+  if (semitones === 0) return key;
+  const newPc = (keyToPc(key) + semitones + 12) % 12;
+  return /m$/i.test(key) ? ALL_KEYS_MINOR[newPc] : ALL_KEYS_MAJOR[newPc];
 }
 
 function transposeNoteKey(vexKey: string, accidental: '#' | 'b' | 'n' | undefined, semitones: number, useFlats: boolean): { key: string; acc?: '#' | 'b' | 'n' } {
@@ -287,6 +298,11 @@ const SongPickerBar = styled.div`
     gap: 6px;
     padding: 6px 10px;
   }
+`;
+
+/* Settings gear pinned to the far-right edge of the toolbar. */
+const FarRightGear = styled(SettingsGearButton)`
+  margin-left: auto;
 `;
 
 const SongSelect = styled.select`
@@ -559,6 +575,10 @@ const ResizeDivider = styled.div`
 export default function NotePage() {
   const navigate = useNavigate();
   const { autoHighlight, toggleAutoHighlight } = useAutoHighlight(true);
+  /* Mirror the toolbar's 분석 보기 toggle into the settings 디스플레이 tab. */
+  const displaySettings = useMemo(() => [
+    { id: 'autoHighlight', label: '분석 보기', active: autoHighlight, onToggle: toggleAutoHighlight },
+  ], [autoHighlight, toggleAutoHighlight]);
 
   /* song state */
   const [songGroup, setSongGroup] = useState<SongGroup | '__sample__'>('__sample__');
@@ -579,6 +599,23 @@ export default function NotePage() {
   const [selectedKey, setSelectedKey] = useState(originalKey);
   const [keyMenuOpen, setKeyMenuOpen] = useState(false);
   const keyMenuRef = useRef<HTMLDivElement>(null);
+
+  /* Transposing instrument (global '악보/연주' setting) — shifts only the
+   * DISPLAYED key by a fixed interval; selectedKey stays the concert source of
+   * truth. Dropdowns edit in WRITTEN terms, so convert picks back to concert. */
+  const [instrumentOffset, setInstrumentOffset] = useState(
+    () => TRANSPOSING_INSTRUMENT_OFFSET[getPlayerSettings().transposingInstrument],
+  );
+  useEffect(
+    () => subscribePlayerSettings((s) =>
+      setInstrumentOffset(TRANSPOSING_INSTRUMENT_OFFSET[s.transposingInstrument])),
+    [],
+  );
+  const writtenKey = shiftNoteKey(selectedKey, instrumentOffset);
+  const setWrittenKey = useCallback(
+    (k: string) => setSelectedKey(shiftNoteKey(k, -instrumentOffset)),
+    [instrumentOffset],
+  );
 
   // Reset key when song changes
   useEffect(() => { setSelectedKey(sheet?.key ?? 'C'); }, [sheet]);
@@ -622,9 +659,9 @@ export default function NotePage() {
   // Transposed sheet data
   const transposedSheet = useMemo(() => {
     if (!sheet) return null;
-    if (selectedKey === sheet.key) return sheet;
-    return transposeNoteData(sheet, selectedKey);
-  }, [sheet, selectedKey]);
+    if (writtenKey === sheet.key) return sheet;
+    return transposeNoteData(sheet, writtenKey);
+  }, [sheet, writtenKey]);
 
   /* Selection-derived data fed into the chat panel. ChordOverlay[] keeps the
    * existing chord-progression UI/serialisation; notesContext is a separate
@@ -810,15 +847,15 @@ export default function NotePage() {
             {sheet && !loading && (
               <KeyDropdownWrap ref={keyMenuRef}>
                 <KeyButton onClick={() => setKeyMenuOpen((v) => !v)}>
-                  {selectedKey}
+                  {writtenKey}
                 </KeyButton>
                 {keyMenuOpen && (
                   <KeyMenu>
                     {allKeys.map((k) => (
                       <KeyOption
                         key={k}
-                        $active={k === selectedKey}
-                        onClick={() => { setSelectedKey(k); setKeyMenuOpen(false); }}
+                        $active={k === writtenKey}
+                        onClick={() => { setWrittenKey(k); setKeyMenuOpen(false); }}
                       >
                         {k}
                       </KeyOption>
@@ -887,14 +924,15 @@ export default function NotePage() {
             />
 
             <ToolbarButton>자동 번역</ToolbarButton>
+            <FarRightGear displaySettings={displaySettings} />
           </SongPickerBar>
 
           {transposedSheet && !loading ? (
             <NoteSheet
               data={transposedSheet}
-              selectedKey={selectedKey}
+              selectedKey={writtenKey}
               allKeys={allKeys}
-              onKeyChange={(k) => setSelectedKey(k)}
+              onKeyChange={setWrittenKey}
               forceAutoStem
               selectable={isNoteSelectionMode}
               selectedRanges={noteSelectedRanges}
@@ -911,6 +949,7 @@ export default function NotePage() {
 
         <RightPanelWrapper $width={rightPanelWidth}>
           <RightChatPanel
+            hideHeader
             selectedChords={noteSelectionData.selectedChords}
             groupExplanation={
               noteSelectionData.selectedChords.length > 0
@@ -922,7 +961,6 @@ export default function NotePage() {
             onToggleSelectionMode={toggleNoteSelectionMode}
             onClearSelectedChords={clearNoteSelection}
             notesContext={noteSelectionData.notesContext}
-            centerInputWhenEmpty
           />
         </RightPanelWrapper>
         </MainArea>

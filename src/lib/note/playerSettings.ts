@@ -23,6 +23,17 @@ export type BassMode =
  * the whole rhythm section reads as that style. */
 export type PlayStyle = 'swing' | 'bossa';
 
+/** Transposing instrument for the chord-chart display. 'C' is concert pitch;
+ * the others shift the written chart up by a fixed interval so a player reading
+ * that instrument sees the correct fingering key (iReal-Pro "이조 악기"). */
+export type TransposingInstrument = 'C' | 'Bb' | 'Eb' | 'F' | 'G';
+
+/** Semitones to ADD to concert pitch to get the WRITTEN pitch for each
+ * instrument. Bb +2 (M2), Eb +9 (M6), F +7 (P5), G +5 (P4). */
+export const TRANSPOSING_INSTRUMENT_OFFSET: Record<TransposingInstrument, number> = {
+  C: 0, Bb: 2, Eb: 9, F: 7, G: 5,
+};
+
 export interface PlayerSettings {
   melodyVolume: number;
   pianoVolume: number;
@@ -45,6 +56,9 @@ export interface PlayerSettings {
   /** Loop chorus continuously. Backing tracks default to looping for
    *  practice; flip off for a single-chorus playthrough. */
   loop: boolean;
+  /** Chord-chart transposing instrument (display only — shifts the written
+   *  chart by a fixed interval). 'C' = concert pitch. */
+  transposingInstrument: TransposingInstrument;
 }
 
 const DEFAULTS: PlayerSettings = {
@@ -61,6 +75,7 @@ const DEFAULTS: PlayerSettings = {
   swingRatio: 0.62,
   style: 'swing',
   loop: true,
+  transposingInstrument: 'C',
 };
 
 const LS_KEY = 'jazzify_player_settings_v1';

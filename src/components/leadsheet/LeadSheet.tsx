@@ -1,15 +1,16 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import styled from 'styled-components';
 import type {
   LeadSheetData,
   LeadSheetSystem,
   LeadSheetChord,
 } from '../../data/leadSheetTypes';
-import { FullscreenButton, useFullscreen } from '../common/FullscreenButton';
+import { FullscreenButton } from '../common/FullscreenButton';
 import { ZoomControls, useZoom } from '../common/ZoomControls';
 import { analyzeHarmony, formatKeyDisplay } from '../../lib/harmonyAnalyzer';
 import type { AnalysisFilters } from '../../hooks/useAnalysisFilters';
 import { useCompactLayout } from '../../hooks/useCompactLayout';
+import { chordToInputString } from '../../lib/leadSheetChordEdit';
 import { getModalInterchangeTemplate } from '../../lib/modalInterchangeTemplates';
 import { ModalInterchangePopup } from './ModalInterchangePopup';
 import { SubVPopup } from './SubVPopup';
@@ -24,21 +25,21 @@ const BARLINE_PAD  = 18;  // px — left padding reserved for barline decoration
 const BAR_H        = 78;  // px — row height (snug around chord content)
 const BARLINE_GAP  = 6;   // px — vertical inset at top/bottom of each barline
 const ROW_GAP      = 44;  // px — space between rows (extra room for bigger labels)
-/* Section spacing — kept uniform so the A/B label always has roughly equal
- * breathing room above and below. With ROW_GAP=44, SECTION_GAP=64, LABEL_OFFSET=66,
- * label height ≈26px:
- *   • gap below label (label → its chord row)  = LABEL_OFFSET − labelH ≈ 40px
- *   • gap above label (prev row → label)       = ROW_GAP + SECTION_GAP − LABEL_OFFSET = 42px
- * Bumping any of these in isolation breaks the symmetry — adjust as a triple. */
+/* Section spacing. The A/B label floats above its own chord row by
+ * LABEL_OFFSET; lowering it pulls the label closer to its section's first row
+ * (intentional slight asymmetry — sits nearer the part it labels).
+ * With ROW_GAP=44, SECTION_GAP=64, LABEL_OFFSET=52, label height ≈26px:
+ *   • gap below label (label → its chord row)  = LABEL_OFFSET − labelH ≈ 26px
+ *   • gap above label (prev row → label)       = ROW_GAP + SECTION_GAP − LABEL_OFFSET = 56px */
 const SECTION_GAP  = 64;  // px — extra space before a new section (A, B, …)
-const LABEL_OFFSET = 66;  // px — how far the section label floats above the grid
+const LABEL_OFFSET = 52;  // px — how far the section label floats above the grid
 const CHORD_FONT   = "'MuseJazz Text', 'Oswald', 'Pretendard', sans-serif";
 const LABEL_FONT   = "'Pretendard', 'Pretendard', sans-serif"; // gothic for A/B labels
 
 /* ─── transposition ──────────────────────────────────────────────────────── */
 
-const ALL_MAJOR_KEYS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'] as const;
-const ALL_MINOR_KEYS = ['Cm', 'C#m', 'Dm', 'Ebm', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Am', 'Bbm', 'Bm'] as const;
+export const ALL_MAJOR_KEYS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'] as const;
+export const ALL_MINOR_KEYS = ['Cm', 'C#m', 'Dm', 'Ebm', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Am', 'Bbm', 'Bm'] as const;
 
 const NOTE_TO_PC: Record<string, number> = {
   C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11,
@@ -66,8 +67,17 @@ function keyToPc(key: string): number {
   return ((NOTE_TO_PC[root] ?? 0) + (acc === '#' ? 1 : acc === 'b' ? -1 : 0) + 12) % 12;
 }
 
-function isMinorKey(key: string): boolean {
+export function isMinorKey(key: string): boolean {
   return key.endsWith('-') || key.endsWith('m');
+}
+
+/** Shift a key string up by `semitones`, preserving major/minor and using the
+ *  canonical spelling from ALL_MAJOR_KEYS / ALL_MINOR_KEYS. Used to fold the
+ *  transposing-instrument offset into the chart's target key. */
+export function shiftKey(key: string, semitones: number): string {
+  if (semitones === 0) return key;
+  const newPc = (keyToPc(key) + semitones + 12) % 12;
+  return isMinorKey(key) ? ALL_MINOR_KEYS[newPc] : ALL_MAJOR_KEYS[newPc];
 }
 
 function transposeChord(chord: LeadSheetChord, semitones: number, useFlats: boolean): LeadSheetChord {
@@ -123,7 +133,7 @@ function transposeData(data: LeadSheetData, targetKey: string): LeadSheetData {
 
 /* ─── page ───────────────────────────────────────────────────────────────── */
 
-const ViewerOuter = styled.div`
+const ViewerOuter = styled.div<{ $fs?: boolean }>`
   position: relative;
   flex: 1;
   overflow: auto;
@@ -140,11 +150,6 @@ const ViewerOuter = styled.div`
     opacity: 1;
   }
 
-  &:fullscreen {
-    overflow: hidden;
-    padding: 0;
-  }
-
   ${mq.compactLayout} {
     justify-content: stretch;
     padding: 0;
@@ -154,6 +159,21 @@ const ViewerOuter = styled.div`
   ${mq.mobile} {
     padding: 0;
   }
+
+  /* In-app "fullscreen": fill the viewport BELOW the top toolbar (58px) so the
+   * app's top bar stays visible, instead of the browser's native fullscreen
+   * (which covers the whole screen). */
+  ${({ $fs }) => $fs && `
+    position: fixed;
+    top: calc(58px + env(safe-area-inset-top, 0px));
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 900;
+    flex: none;
+    overflow: hidden;
+    padding: 0;
+  `}
 `;
 
 const Page = styled.div`
@@ -162,7 +182,7 @@ const Page = styled.div`
   width: 100%;
   box-shadow: ${({ theme }) => theme.shadows.xl};
   border-radius: 4px;
-  padding: 36px 32px 48px;
+  padding: 50px 32px 48px;
   font-family: ${CHORD_FONT};
   color: #000;
 
@@ -170,11 +190,11 @@ const Page = styled.div`
     min-height: 100%;
     box-shadow: none;
     border-radius: 0;
-    padding: 24px 18px 34px;
+    padding: 40px 18px 34px;
   }
 
   ${mq.mobile} {
-    padding: 20px 10px 28px;
+    padding: 36px 10px 28px;
   }
 `;
 
@@ -211,40 +231,50 @@ const MetaRow = styled.div`
   /* Margin-bottom must clear the SectionLabel of the first row, which floats
    * up by LABEL_OFFSET (66px). Set higher than SECTION_GAP+LABEL_OFFSET margin
    * so the genre text never abuts the first A/B label. */
-  margin-bottom: 72px;
+  margin-bottom: 88px;
 
   @media (max-width: 960px) {
-    margin-bottom: 64px;
+    margin-bottom: 78px;
     font-size: 0.85rem;
   }
+`;
+
+/* Original genre/style — left of the meta row. Font size + family + color all
+ * match the composer on the right (both inherit MetaRow's Pretendard + text
+ * color). */
+const MetaStyle = styled.span`
+  align-self: center;
+  font-size: inherit;
+  color: inherit;
 `;
 
 const TitleRow = styled.div`
   position: relative;
   display: flex;
   align-items: center;
-  margin-bottom: 6px;
+  margin-bottom: 36px;
 `;
 
 const KeyDropdownWrap = styled.div`
   position: relative;
   display: inline-block;
-  margin-top: -8px;
 `;
 
 const KeyButton = styled.button`
+  height: 32px;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   background: #fff;
   border: 1.5px solid #ccc;
-  border-radius: 5px;
-  padding: 5px 14px;
+  border-radius: 6px;
+  padding: 0 12px;
   cursor: pointer;
   font-family: ${CHORD_FONT};
-  font-size: clamp(1.2rem, 2.8cqi, 1.8rem);
+  font-size: 1.12rem;
   font-weight: 600;
-  line-height: 1.3;
+  line-height: 1;
   color: #222;
   &:hover { border-color: #888; }
 
@@ -253,6 +283,12 @@ const KeyButton = styled.button`
     font-size: 0.7em;
     color: #999;
   }
+`;
+
+/* "장조/단조" — smaller than the key root, snug to it. */
+const KeyQual = styled.span`
+  font-size: 0.6em;
+  margin-left: 1px;
 `;
 
 const KeyMenu = styled.div`
@@ -557,7 +593,7 @@ function chordSpanInBar(chords: LeadSheetChord[], chordIndex: number): { start: 
 const BarSections = styled.div<{ $compact?: boolean }>`
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: center;
+  align-items: end;   /* bottom-align so chords w/ accidentals (Bb6) share a baseline */
   min-width: 0;
   width: 100%;
   ${({ $compact }) => $compact && 'transform: scaleX(0.85); transform-origin: left center;'}
@@ -566,7 +602,7 @@ const BarSections = styled.div<{ $compact?: boolean }>`
 const FourChordGrid = styled.div<{ $compact?: boolean }>`
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  align-items: center;
+  align-items: end;   /* bottom-align so chords w/ accidentals (Bb6) share a baseline */
   min-width: 0;
   width: 100%;
   transform: translateX(-8px)${({ $compact }) => $compact ? ' scaleX(0.85)' : ''};
@@ -851,6 +887,27 @@ const ChordColumn = styled.div<{ $selected?: boolean; $selectable?: boolean }>`
   user-select: none;
 `;
 
+/* Edit mode — each chord becomes a bordered text input. */
+const ChordEditInput = styled.input<{ $size?: ChordSize }>`
+  width: ${({ $size }) => ($size === 'four' ? '3.4em' : '4.4em')};
+  max-width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+  font-family: ${CHORD_FONT};
+  font-size: ${({ $size }) => ($size === 'four' ? '0.95rem' : '1.2rem')};
+  font-weight: 600;
+  color: #1a1a1a;
+  background: #fff;
+  border: 1.5px solid #4285f4;
+  border-radius: 5px;
+  padding: 1px 2px;
+  outline: none;
+  &:focus {
+    border-color: #1a73e8;
+    box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.22);
+  }
+`;
+
 /* ── SubV (tritone substitution) decoration: green highlight + label band ── */
 const SubVHighlight = styled.div`
   position: absolute;
@@ -927,6 +984,8 @@ interface ChordSymbolProps {
   selected?: boolean;
   selectionMode?: boolean;
   iiviHovered?: boolean;
+  editMode?: boolean;
+  onEdit?: (value: string) => void;
 }
 
 function ChordSymbol({
@@ -946,7 +1005,24 @@ function ChordSymbol({
   selected,
   selectionMode = false,
   iiviHovered = false,
+  editMode = false,
+  onEdit,
 }: ChordSymbolProps) {
+  if (editMode) {
+    return (
+      <ChordColumn>
+        <ChordEditInput
+          $size={size}
+          defaultValue={chordToInputString(chord)}
+          spellCheck={false}
+          aria-label="코드 수정"
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => onEdit?.(e.target.value)}
+        />
+      </ChordColumn>
+    );
+  }
+
   const isNonDiatonic = showColors && chord.isDiatonic === false;
   const isModal = showColors && !!chord.analysis?.modalInterchange;
   // SubV (tritone substitution) highlighting is disabled for now —
@@ -1140,6 +1216,8 @@ interface SystemRowProps {
   selectionTargetByKey?: Map<string, LeadSheetChordSelection>;
   selectionMode?: boolean;
   hoveredIiviChordKeys?: Set<string>;
+  editMode?: boolean;
+  onChordEdit?: (systemIndex: number, barIndex: number, chordIndex: number, value: string) => void;
 }
 
 function SystemRowComponent({
@@ -1163,6 +1241,8 @@ function SystemRowComponent({
   selectionTargetByKey,
   selectionMode = false,
   hoveredIiviChordKeys,
+  editMode = false,
+  onChordEdit,
 }: SystemRowProps) {
   const [top, bot] = timeSignature.split('/');
 
@@ -1259,6 +1339,8 @@ function SystemRowComponent({
                 selected={isChordSelected(target, chord)}
                 selectionMode={selectionMode}
                 iiviHovered={hoveredIiviChordKeys?.has(chordKey)}
+                editMode={editMode}
+                onEdit={(value) => onChordEdit?.(systemIndex, i, chordIndex, value)}
               />
             );
           };
@@ -1383,6 +1465,16 @@ interface LeadSheetProps {
   /** 저장된 릭이 있는 ii-V-I 시작 마디 번호 세트 */
   savedLickBarNums?: Set<number>;
   onSavedLickBadgeClick?: (bar: number, spanLabel: string) => void;
+  /** Controlled transpose key. When provided the host owns the key — e.g.
+   *  ChordPage renders the transpose control in the player transport.
+   *  Omit for the standalone uncontrolled (original-key) display. */
+  selectedKey?: string;
+  /** Replaces the style text at the left of the meta row (e.g. genre dropdown). */
+  styleSlot?: ReactNode;
+  /** Chord-chart edit mode: every chord renders as a bordered text input. */
+  editMode?: boolean;
+  /** Fired on each keystroke while editing a chord, with its source indices. */
+  onChordEdit?: (systemIndex: number, barIndex: number, chordIndex: number, value: string) => void;
 }
 
 interface ActiveBarRect {
@@ -1438,7 +1530,7 @@ interface HighlightRect {
   /** Roman-numeral labels rendered inside the dark amber tab. Each entry
    *  is positioned at offsetX (px from band's left); vertical centering
    *  is handled in CSS so we don't have to fudge pixel offsets. */
-  bandLabels: { offsetX: number; role: string }[];
+  bandLabels: { offsetX: number; role: string; roleBottom?: string }[];
 }
 
 interface ModalHighlightRect {
@@ -1571,7 +1663,6 @@ function detectIIVBrackets(data: LeadSheetData): BracketSpec[] {
 
     for (let bi = 0; bi < system.bars.length; bi++) {
       const bar = system.bars[bi];
-      if (bar.chords.length > 2) continue;
       for (let ci = 0; ci < bar.chords.length; ci++) {
         items.push({ chord: bar.chords[ci], key: `${si}-${bi}-${ci}`, volta: voltas[bi] });
       }
@@ -1616,7 +1707,6 @@ function detectIIVI(data: LeadSheetData): IIVISpan[] {
     const voltas = getActiveVoltas(data.systems[si]);
     for (let bi = 0; bi < data.systems[si].bars.length; bi++) {
       const bar = data.systems[si].bars[bi];
-      if (bar.chords.length > 2) continue;
       for (let ci = 0; ci < bar.chords.length; ci++) {
         all.push({ chord: bar.chords[ci], chordKey: `${si}-${bi}-${ci}`, volta: voltas[bi] });
       }
@@ -1804,7 +1894,6 @@ function detectSecDomArrows(data: LeadSheetData): ArrowSpec[] {
     const voltas = getActiveVoltas(data.systems[si]);
     for (let bi = 0; bi < data.systems[si].bars.length; bi++) {
       const bar = data.systems[si].bars[bi];
-      if (bar.chords.length > 2) continue;
       for (let ci = 0; ci < bar.chords.length; ci++) {
         all.push({ chord: bar.chords[ci], key: `${si}-${bi}-${ci}`, volta: voltas[bi] });
       }
@@ -1835,6 +1924,52 @@ function detectSecDomArrows(data: LeadSheetData): ArrowSpec[] {
   return specs;
 }
 
+/* Standalone transpose-key dropdown — used by ChordPage's transport bar above
+ * the sheet. Reuses the in-sheet KeyButton/KeyMenu look (MuseJazz, 장조/단조). */
+export function KeyControl({
+  selectedKey,
+  onChange,
+  isMinor,
+}: {
+  selectedKey: string;
+  onChange: (key: string) => void;
+  isMinor: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+  const keys = isMinor ? ALL_MINOR_KEYS : ALL_MAJOR_KEYS;
+  return (
+    <KeyDropdownWrap ref={ref}>
+      <KeyButton onClick={() => setOpen((v) => !v)}>
+        {formatKeyDisplay(selectedKey).replace(/m$/, '')}<KeyQual>{isMinor ? '단조' : '장조'}</KeyQual>
+      </KeyButton>
+      {open && (
+        <KeyMenu>
+          <KeyGrid>
+            {keys.map((k) => (
+              <KeyOption
+                key={k}
+                $active={k === selectedKey || k === selectedKey.replace('-', 'm')}
+                onClick={() => { onChange(k); setOpen(false); }}
+              >
+                {k}
+              </KeyOption>
+            ))}
+          </KeyGrid>
+        </KeyMenu>
+      )}
+    </KeyDropdownWrap>
+  );
+}
+
 export function LeadSheet({
   data,
   analysisFilters,
@@ -1845,6 +1980,10 @@ export function LeadSheet({
   selectedChordIds,
   selectionMode = false,
   onSavedLickBadgeClick,
+  selectedKey: selectedKeyProp,
+  styleSlot,
+  editMode = false,
+  onChordEdit,
 }: LeadSheetProps) {
   // Resolve filters: prefer analysisFilters, fall back to legacy showAnalysis prop
   const af = analysisFilters ?? (showAnalysis === false
@@ -1852,7 +1991,20 @@ export function LeadSheet({
     : DEFAULT_ANALYSIS_FILTERS
   );
   const outerRef = useRef<HTMLDivElement>(null);
-  const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(outerRef);
+  // In-app fullscreen (CSS overlay below the top bar) instead of the browser's
+  // native fullscreen, so the app's top toolbar stays visible.
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const toggleFullscreen = () => setIsFullscreen((v) => !v);
+  // Mirror to a ref so observer callbacks see the live value without re-binding.
+  const isFullscreenRef = useRef(false);
+  useEffect(() => { isFullscreenRef.current = isFullscreen; }, [isFullscreen]);
+  // Esc exits fullscreen (native fullscreen handled this for us before).
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsFullscreen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isFullscreen]);
   const { zoom, zoomIn, zoomOut, setZoomLevel } = useZoom(100);
   const isCompactLayout = useCompactLayout();
 
@@ -1865,11 +2017,13 @@ export function LeadSheet({
   const analyzedData = useMemo(() => analyzeHarmony(data), [data]);
 
   const originalKey = analyzedData.key ?? 'C';
-  const originalIsMinor = isMinorKey(originalKey);
-  const [selectedKey, setSelectedKey] = useState(originalKey);
+  // Controlled (host-owned) when selectedKeyProp is supplied; else internal.
+  const [internalKey, setInternalKey] = useState(originalKey);
+  const selectedKey = selectedKeyProp ?? internalKey;
 
-  // Reset key when song changes
-  useEffect(() => { setSelectedKey(originalKey); }, [originalKey]);
+  // Reset the uncontrolled key when the song changes. (Controlled hosts reset
+  // their own state.)
+  useEffect(() => { setInternalKey(originalKey); }, [originalKey]);
 
   const [keyMenuOpen, setKeyMenuOpen] = useState(false);
   const keyMenuRef = useRef<HTMLDivElement>(null);
@@ -1906,7 +2060,7 @@ export function LeadSheet({
     if (!el) return;
     const ro = new ResizeObserver(() => {
       // Only capture natural size when not in fullscreen (fullscreen applies its own scale)
-      if (!document.fullscreenElement) {
+      if (!isFullscreenRef.current) {
         setPageNaturalSize({ w: el.offsetWidth, h: el.offsetHeight });
       }
     });
@@ -1915,7 +2069,8 @@ export function LeadSheet({
   }, [resolvedData]);
 
   // Compute fit-to-screen scale for fullscreen
-  const FS_PAD = 32; // padding inside fullscreen viewport
+  const FS_PAD = 32;      // padding inside fullscreen viewport
+  const FS_TOPBAR = 58;   // top toolbar height the overlay sits below
   const [viewportSize, setViewportSize] = useState({ vw: window.innerWidth, vh: window.innerHeight });
 
   useEffect(() => {
@@ -1930,7 +2085,7 @@ export function LeadSheet({
   const fitScale = useMemo(() => {
     if (!isFullscreen || pageNaturalSize.w === 0 || pageNaturalSize.h === 0) return 1;
     const availW = viewportSize.vw - FS_PAD * 2;
-    const availH = viewportSize.vh - FS_PAD * 2;
+    const availH = viewportSize.vh - FS_TOPBAR - FS_PAD * 2;
     return Math.min(availW / pageNaturalSize.w, availH / pageNaturalSize.h) * 1.08;
   }, [isFullscreen, pageNaturalSize, viewportSize]);
 
@@ -2510,6 +2665,28 @@ export function LeadSheet({
         ? measuredHeights[Math.floor(measuredHeights.length / 2)]
         : BAR_H;
 
+      // ── Pivot chords ──────────────────────────────────────────────────
+      // A chord that is the I (resolution) of one 2-5-1 AND simultaneously the
+      // ii of the next 2-5-1 (classical common-chord). We label it with both
+      // numerals stacked ("I" over "ii") on the band that owns it as I, and
+      // suppress the duplicate label on the band that uses it as ii — so the
+      // two abutting bands don't print numerals on top of each other.
+      const roleAt = (s: IIVISpan, idx: number) =>
+        s.chordRoles[idx]
+          ?? (s.kind === 'minor' ? ['ii°', 'V', 'i'][idx] : ['ii', 'V', 'I'][idx])
+          ?? '';
+      const iKeys = new Set<string>();
+      const iiRoleByKey = new Map<string, string>();
+      for (const s of iiviSpans) {
+        const last = s.chordKeys.length - 1;
+        iKeys.add(s.chordKeys[last]);
+        iiRoleByKey.set(s.chordKeys[0], roleAt(s, 0));
+      }
+      const pivotByKey = new Map<string, { iiRole: string }>();
+      for (const [key, iiRole] of iiRoleByKey) {
+        if (iKeys.has(key)) pivotByKey.set(key, { iiRole });
+      }
+
       for (let spanIdx = 0; spanIdx < iiviSpans.length; spanIdx++) {
         const span = iiviSpans[spanIdx];
 
@@ -2636,11 +2813,17 @@ export function LeadSheet({
           // span. The X offset is measured from the band's left edge
           // so vertical centering can be handled with pure CSS.
           const finalHlX = lx(hlLeft);
-          const bandLabels: { offsetX: number; role: string }[] = [];
+          const bandLabels: { offsetX: number; role: string; roleBottom?: string }[] = [];
           for (let kIdx = 0; kIdx < span.chordKeys.length; kIdx++) {
             const ck = span.chordKeys[kIdx];
             const [siStr] = ck.split('-');
             if (Number(siStr) !== si) continue;
+            // Pivot: render the stacked "I/ii" only on the span that owns this
+            // chord as its I (last role); skip it on the span that uses it as
+            // ii (first role) so the label isn't drawn twice on the seam.
+            const pivot = pivotByKey.get(ck);
+            const isPivotI = !!pivot && kIdx === span.chordKeys.length - 1;
+            if (pivot && kIdx === 0) continue;
             const role = span.chordRoles[kIdx]
               ?? (span.kind === 'minor' ? ['ii°', 'V', 'i'][kIdx] : ['ii', 'V', 'I'][kIdx])
               ?? '';
@@ -2650,7 +2833,11 @@ export function LeadSheet({
             // X position of chord glyph in page coords (matches the
             // chord's left edge), then converted to band-local offset.
             const chordX = lx(elRect.left);
-            bandLabels.push({ offsetX: chordX - finalHlX + 4, role });
+            bandLabels.push({
+              offsetX: chordX - finalHlX + 4,
+              role,
+              roleBottom: isPivotI ? pivot!.iiRole : undefined,
+            });
           }
 
           resolvedHighlights.push({
@@ -2871,7 +3058,7 @@ export function LeadSheet({
   }, [effectiveScale, isFullscreen, isCompactLayout, pageNaturalSize.w]);
 
   return (
-    <ViewerOuter ref={outerRef}>
+    <ViewerOuter ref={outerRef} $fs={isFullscreen}>
       <FullscreenButton isFullscreen={isFullscreen} onClick={toggleFullscreen} />
       {!isFullscreen && !isCompactLayout && <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onSetZoom={setZoomLevel} />}
       <PageShell style={wrapperStyle}>
@@ -2957,13 +3144,25 @@ export function LeadSheet({
                       color: '#111',
                       fontFamily: "'Noto Serif', 'Georgia', 'Times New Roman', serif",
                       fontWeight: 700,
-                      fontSize: '0.95rem',
+                      // Pivot stacks two numerals in the 22px tab → shrink.
+                      fontSize: lab.roleBottom ? '0.6rem' : '0.95rem',
                       letterSpacing: '0.04em',
                       lineHeight: 1,
                       whiteSpace: 'nowrap',
+                      ...(lab.roleBottom && {
+                        display: 'flex',
+                        flexDirection: 'column' as const,
+                        alignItems: 'center',
+                      }),
                     }}
                   >
-                    {lab.role}
+                    {lab.roleBottom ? (
+                      <>
+                        <span>{lab.role}</span>
+                        <span style={{ width: '1.3em', height: 1, background: 'rgba(0,0,0,0.4)', margin: '1.5px 0' }} />
+                        <span>{lab.roleBottom}</span>
+                      </>
+                    ) : lab.role}
                   </span>
                 ))}
               </div>
@@ -3075,30 +3274,10 @@ export function LeadSheet({
         ))}
 
         <TitleRow>
-          <KeyDropdownWrap ref={keyMenuRef}>
-            <KeyButton onClick={() => setKeyMenuOpen((v) => !v)}>
-              {formatKeyDisplay(selectedKey)}
-            </KeyButton>
-            {keyMenuOpen && (
-              <KeyMenu>
-                <KeyGrid>
-                  {(originalIsMinor ? ALL_MINOR_KEYS : ALL_MAJOR_KEYS).map((k) => (
-                    <KeyOption
-                      key={k}
-                      $active={k === selectedKey || k === selectedKey.replace('-', 'm')}
-                      onClick={() => { setSelectedKey(k); setKeyMenuOpen(false); }}
-                    >
-                      {k}
-                    </KeyOption>
-                  ))}
-                </KeyGrid>
-              </KeyMenu>
-            )}
-          </KeyDropdownWrap>
           <SheetTitle>{resolvedData.title}</SheetTitle>
         </TitleRow>
         <MetaRow>
-          <span>{resolvedData.style}</span>
+          {styleSlot ?? <MetaStyle>{resolvedData.style}</MetaStyle>}
           <span>{resolvedData.composer}</span>
         </MetaRow>
 
@@ -3125,6 +3304,8 @@ export function LeadSheet({
             selectionTargetByKey={selectionTargetByKey}
             selectionMode={selectionMode}
             hoveredIiviChordKeys={hoveredIiviChordKeys}
+            editMode={editMode}
+            onChordEdit={onChordEdit}
           />
         ))}
 

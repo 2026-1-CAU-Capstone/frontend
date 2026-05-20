@@ -2,9 +2,23 @@ const ANTHROPIC_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY as string;
 const MODEL = 'claude-sonnet-4-20250514';
 const API_URL = 'https://api.anthropic.com/v1/messages';
 
+/** An image attachment to send to Claude's vision input. */
+export interface ClaudeImage {
+  /** MIME type, e.g. "image/png", "image/jpeg", "image/webp", "image/gif". */
+  mediaType: string;
+  /** Base64-encoded image bytes (WITHOUT the "data:...;base64," prefix). */
+  data: string;
+}
+
+interface TextBlock { type: 'text'; text: string; }
+interface ImageBlock { type: 'image'; source: { type: 'base64'; media_type: string; data: string }; }
+type ContentBlock = TextBlock | ImageBlock;
+
 export interface ClaudeMessage {
   role: 'user' | 'assistant';
-  content: string;
+  /** Plain text, or — for a user turn with image attachments — an array of
+   *  content blocks (text + image) per the Anthropic messages API. */
+  content: string | ContentBlock[];
 }
 
 const BASE_SYSTEM = `You are Jazzify AI, a jazz harmony expert and educator.
@@ -148,6 +162,7 @@ export async function streamClaudeMessage(
   chordContext: string | undefined,
   onChunk: (accumulated: string) => void,
   category?: AnalysisCategory,
+  images?: ClaudeImage[],
 ): Promise<string> {
   if (!ANTHROPIC_API_KEY) {
     const msg = '[Error] VITE_ANTHROPIC_API_KEY not set in .env';
@@ -160,9 +175,21 @@ export async function streamClaudeMessage(
     fullUserMessage = `[Chord Analysis Context]\n${chordContext}\n\n[User Question]\n${userMessage}`;
   }
 
+  // With image attachments the final user turn becomes a content-block array
+  // (text + one image block per attachment) so Claude can actually see them.
+  const userContent: string | ContentBlock[] = images && images.length > 0
+    ? [
+        { type: 'text', text: fullUserMessage },
+        ...images.map((im): ImageBlock => ({
+          type: 'image',
+          source: { type: 'base64', media_type: im.mediaType, data: im.data },
+        })),
+      ]
+    : fullUserMessage;
+
   const messages: ClaudeMessage[] = [
     ...history,
-    { role: 'user', content: fullUserMessage },
+    { role: 'user', content: userContent },
   ];
 
   // When the user has a chord chart already on screen (chordContext given),

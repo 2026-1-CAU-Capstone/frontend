@@ -28,7 +28,7 @@ const PlusIcon = () => (
 const Wrapper = styled.div`
   position: absolute;
   top: 8px;
-  right: 48px;
+  right: 44px;
   z-index: 50;
   display: flex;
   align-items: center;
@@ -39,8 +39,8 @@ const ZoomBtn = styled.button`
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 32px;
+  width: 26px;
+  height: 30px;
   border: none;
   background: rgba(0, 0, 0, 0.15);
   color: #fff;
@@ -73,8 +73,8 @@ const PercentBtn = styled.button`
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 52px;
-  height: 32px;
+  min-width: 48px;
+  height: 30px;
   border: none;
   background: rgba(0, 0, 0, 0.15);
   color: #fff;

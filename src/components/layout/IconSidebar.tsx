@@ -5,7 +5,6 @@ import { mq } from '../../styles/theme';
 import { BrandLogoImage } from '../common/BrandLogoImage';
 import { getCachedUser, onAuthChange, type AuthUser } from '../../api/auth';
 import { UserMenu } from '../auth/UserMenu';
-import { FeedbackModal } from '../common/FeedbackModal';
 
 /* ─────────────────────────────────────────────────────────────────────────
  * IconSidebar — universal left rail for all pages.
@@ -94,7 +93,7 @@ const ToggleBtn = styled.button<{ $expanded?: boolean }>`
   position: relative;
   width: 52px;
   height: 52px;
-  margin-top: 10px;
+  margin-top: 6px;
   margin-right: ${({ $expanded }) => ($expanded ? '8px' : '0')};
   display: inline-flex;
   align-items: center;
@@ -133,50 +132,6 @@ const RailSpacer = styled.div`
   flex: 1;
   min-height: 12px;
 `;
-
-/* "피드백 남기기" button — sits just above the user/account row. Black pill
- * when expanded, icon-only circle when collapsed (tooltip on hover). */
-const FeedbackBtn = styled.button<{ $expanded?: boolean }>`
-  ${({ $expanded }) => ($expanded
-    ? `
-      width: 100%;
-      height: 46px;
-      padding: 0 16px;
-      gap: 10px;
-      justify-content: center;
-      border-radius: 12px;
-    `
-    : `
-      width: 40px;
-      height: 40px;
-      justify-content: center;
-      border-radius: 50%;
-      gap: 0;
-    `)}
-  display: flex;
-  align-items: center;
-  border: none;
-  background: #1a1a1a;
-  color: #fff;
-  cursor: pointer;
-  font-family: ${({ theme }) => theme.fonts.ui};
-  font-size: 14px;
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  margin-bottom: 8px;
-  transition: background 0.15s, transform 0.1s;
-
-  &:hover { background: #000; }
-  &:active { transform: scale(0.98); }
-`;
-
-const FeedbackIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="22" y1="2" x2="11" y2="13" />
-    <polygon points="22 2 15 22 11 13 2 9 22 2" />
-  </svg>
-);
 
 const NavBtn = styled.button<{ $active?: boolean; $expanded?: boolean; disabled?: boolean }>`
   ${({ $expanded }) => ($expanded
@@ -593,7 +548,6 @@ export function IconSidebar({
     try { return localStorage.getItem(SIDEBAR_STORAGE_KEY) === '1'; }
     catch { return false; }
   });
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthChange((loggedIn, user) => {
@@ -709,20 +663,6 @@ export function IconSidebar({
 
       <RailSpacer />
 
-      {expanded ? (
-        <FeedbackBtn $expanded onClick={() => setFeedbackOpen(true)}>
-          <FeedbackIcon />
-          피드백 남기기
-        </FeedbackBtn>
-      ) : (
-        <NavBtnWrap>
-          <FeedbackBtn onClick={() => setFeedbackOpen(true)} title="피드백 남기기" aria-label="피드백 남기기">
-            <FeedbackIcon />
-          </FeedbackBtn>
-          <NavTooltip>피드백 남기기</NavTooltip>
-        </NavBtnWrap>
-      )}
-
       {loggedIn && authUser ? (
         <UserMenu user={authUser} compact={!expanded} />
       ) : expanded && !hideAuthPromo ? (
@@ -758,8 +698,6 @@ export function IconSidebar({
         </UserRow>
       )}
       </Rail>
-
-      <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
     </>
   );
 }

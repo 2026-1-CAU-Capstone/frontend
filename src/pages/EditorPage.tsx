@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 import { IconSidebar } from '../components/layout/IconSidebar';
 import {
   Renderer, Stave, StaveNote, Voice, Formatter, Beam, Accidental, Dot, BarlineType, StaveTie, Tuplet, Repetition,
@@ -1483,6 +1483,46 @@ const EmptyHint = styled.div`
   opacity: 0.5;
 `;
 
+/* Saving overlay — shown while the create/update POST is in flight. The
+ * backend save can take several seconds, so we block interaction and make
+ * the wait explicit, then auto-navigate away once it's persisted. */
+const spin = keyframes`
+  to { transform: rotate(360deg); }
+`;
+
+const SavingBox = styled.div`
+  background: #fff;
+  border-radius: 14px;
+  padding: 28px 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+`;
+
+const Spinner = styled.div`
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 3px solid rgba(0, 0, 0, 0.12);
+  border-top-color: #ef6c00;
+  animation: ${spin} 0.8s linear infinite;
+`;
+
+const SavingText = styled.div`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #333;
+`;
+
+const SavingSub = styled.div`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.82rem;
+  color: #888;
+`;
+
 /* ─── component ────────────────────────────────────────────────────────── */
 
 export default function EditorPage() {
@@ -1521,7 +1561,13 @@ export default function EditorPage() {
   /* When entered to edit a Lick (mode=lick), the caller passes the full
    * LickEntry. We populate from that on mount. */
   const editingLick = (location.state as { editingLick?: LickEntry } | null)?.editingLick;
-  const editingLickId = editingLick ? String(editingLick.id) : null;
+  // Capture the edit-target id ONCE. The mount effect clears location.state
+  // (state: null) so deriving editingLickId every render would yield null by
+  // save time → createLick instead of updateLick (duplicate lick). Holding it
+  // in state survives the history replace.
+  const [editingLickId] = useState<string | null>(
+    () => (editingLick ? String(editingLick.id) : null),
+  );
 
   const [measures, setMeasures] = useState<MeasureInfo[]>([]);
   const [curNotes, setCurNotes] = useState<NoteInfo[]>([]);
@@ -1571,7 +1617,6 @@ export default function EditorPage() {
   const [bpm, setBpm] = useState(200);
   const [bpmText, setBpmText] = useState('200');
   const bpmManualRef = useRef(false);
-  const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -2251,6 +2296,11 @@ export default function EditorPage() {
 
   const countIn = useCountInIntro();
 
+  /* Stop playback if the editor unmounts mid-play (save→navigate, sidebar
+   * nav, etc.). Aborting trips the play loop's catch → sax.stop()/piano.stop(),
+   * so sound stops and we don't keep scheduling notes after leaving. */
+  useEffect(() => () => { playAbortRef.current?.abort(); }, []);
+
   const handlePlay = useCallback(async () => {
     if (playing || countIn.active) {
       playAbortRef.current?.abort();
@@ -2592,6 +2642,9 @@ export default function EditorPage() {
     if (allMeasures.length === 0 || saving) return;
     setSaving(true);
     setSaveError(null);
+    // On success we navigate away; keep the saving overlay up through the
+    // route change instead of flashing it off in `finally`.
+    let navigated = false;
     try {
       if (mode === 'solo') {
         const draft = buildUserSoloDraft({
@@ -2605,18 +2658,25 @@ export default function EditorPage() {
         });
         const titleLow = (sheetTitle || 'Untitled').toLowerCase();
         const performerLow = (composer || 'Unknown').toLowerCase();
-        const existing = await loadAllSolos();
-        const found = existing.find(
-          (s) => s.title.toLowerCase() === titleLow && (s.performer ?? '').toLowerCase() === performerLow,
-        );
+        // Only treat this as an UPDATE of an existing solo when the user
+        // actually typed a title AND performer. Otherwise the 'Untitled'/
+        // 'Unknown' defaults would make every untitled save overwrite the
+        // previous untitled one (data loss). Blank → always create new.
+        const canMatch = sheetTitle.trim() !== '' && composer.trim() !== '';
+        const existing = canMatch ? await loadAllSolos() : [];
+        const found = canMatch
+          ? existing.find(
+              (s) => s.title.toLowerCase() === titleLow && (s.performer ?? '').toLowerCase() === performerLow,
+            )
+          : undefined;
         const persisted = found
           ? await updateSolo(found.publicId, draft)
           : await createSolo(draft);
         found ? updateSoloInCache(persisted) : pushSoloToCache(persisted);
         invalidateSolosCache();
         try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
-        setSaved(true);
-        setTimeout(() => setSaved(false), 1200);
+        navigated = true;
+        navigate('/solos');
       } else {
         // Lick mode — save via the lick API.
         const totalN = allMeasures.reduce((s, m) => s + m.notes.filter((n) => !n.duration.endsWith('r')).length, 0);
@@ -2652,18 +2712,16 @@ export default function EditorPage() {
         invalidateLicksCache();
         saveUserLick(persisted);
         try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
-        setSaved(true);
-        setTimeout(() => {
-          setSaved(false);
-          if (editingLickId) navigate('/licks');
-        }, 1200);
+        navigated = true;
+        navigate('/licks');
       }
     } catch (err) {
       console.error(`${mode} save failed`, err);
       setSaveError(err instanceof Error ? err.message : 'Save failed');
       setTimeout(() => setSaveError(null), 4000);
     } finally {
-      setSaving(false);
+      // Leave the overlay up if we're navigating; only restore on failure.
+      if (!navigated) setSaving(false);
     }
   }, [mode, allMeasures, sheetTitle, composer, genre, sheetKey, bpm, saving, editingLickId, navigate]);
 
@@ -2764,7 +2822,7 @@ export default function EditorPage() {
         </JsonBtn>
         {/* YouTube Onset button removed from Editor toolbar */}
         <JsonBtn $bg="#ef6c00" $hover="#e65100" onClick={handleSave} disabled={totalNotes === 0 || saving}>
-          {saved ? '\u2713 Saved!' : saveError ? '\u26a0 Save failed' : 'Save Solo'}
+          {saving ? '\u2026 \uc800\uc7a5 \uc911' : saveError ? '\u26a0 Save failed' : 'Save Solo'}
         </JsonBtn>
       </Header>
 
@@ -3418,6 +3476,16 @@ export default function EditorPage() {
               </SaveBtn>
             </ModalBtnRow>
           </ModalBox>
+        </ModalOverlay>
+      )}
+
+      {saving && (
+        <ModalOverlay>
+          <SavingBox>
+            <Spinner />
+            <SavingText>저장하는 중입니다…</SavingText>
+            <SavingSub>완료되면 자동으로 이동합니다.</SavingSub>
+          </SavingBox>
         </ModalOverlay>
       )}
 

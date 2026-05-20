@@ -6,7 +6,8 @@ import { IconSidebar } from '../components/layout/IconSidebar';
 import { TopToolbar } from '../components/layout/TopToolbar';
 import { RightChatPanel } from '../components/layout/RightChatPanel';
 import { MobileChatFab } from '../components/layout/MobileChatFab';
-import { LeadSheet } from '../components/leadsheet/LeadSheet';
+import { LeadSheet, KeyControl, isMinorKey, shiftKey } from '../components/leadsheet/LeadSheet';
+import { SessionPicker, type SessionInstrument } from '../components/chord/SessionPicker';
 import { useAnalysisFilters } from '../hooks/useAnalysisFilters';
 import { allOfMe } from '../data/allOfMe';
 import type { LeadSheetData } from '../data/leadSheetTypes';
@@ -16,16 +17,22 @@ import { buildChordContext } from '../api/chordContext';
 import { createBackingPlayer, leadSheetToChart, type BackingPlayer } from '../lib/backing';
 import { createStyBackingPlayer, createHybridBackingPlayer } from '../lib/yamaha-sty';
 import { BUILTIN_STYLE, type StyleSelectorChoice } from '../components/yamaha-sty/StyleSelector';
-import { getPlayerSettings, inferPlayStyle, setPlayerSetting } from '../lib/note/playerSettings';
-import { BackingPlayerBar, type EngineBackend } from '../components/backing/BackingPlayerBar';
+import { getPlayerSettings, inferPlayStyle, setPlayerSetting, subscribePlayerSettings, TRANSPOSING_INSTRUMENT_OFFSET } from '../lib/note/playerSettings';
+import { GenreSelect, MetronomeToggle, BpmControl, RepeatControl, TransportButtons, BackingMixer, type EngineBackend } from '../components/backing/BackingPlayerBar';
 import { withLeadSheetSelectionIds } from '../lib/leadSheetSelection';
 import type { LeadSheetChordSelection } from '../components/leadsheet/LeadSheet';
 import { loadUserLicksSync } from '../data/lickData';
 import { findMatchingLicks, type LickMatch } from '../lib/lickMatcher';
 import { SavedLicksModal } from '../components/leadsheet/SavedLicksModal';
 import { useCountInIntro } from '../hooks/useCountInIntro';
+import { parseChordInput, loadChartEdit, saveChartEdit } from '../lib/leadSheetChordEdit';
 
 const ANALYZED_SONG_ID = '__analyzed_all-of-me__';
+
+/* Rule-based analysis is forced off while editing the chart. */
+const ANALYSIS_OFF = {
+  showAnalysis: false, showDegree: false, showIIVI: false, showArrows: false, showColors: false,
+} as const;
 
 const SELECTION_QUALITY_PREFIXES: [RegExp, string][] = [
   [/^(-7b5|-7\(b5\)|m7b5|m7♭5)/, 'ø7'],
@@ -120,41 +127,252 @@ const CenterColumn = styled.div`
   flex: 1;
   min-width: 0;
   flex-direction: column;
+  /* Positioning context for the BackingPlayerBar dock so it spans only the
+   * score column (not the chat panel on the right). */
+  position: relative;
 `;
 
-const SongPickerBar = styled.div`
+/* White transport bar above the lead sheet (BPM/repeat/transport on the left,
+ * key dropdown centered). Zoom & fullscreen stay inside the sheet. */
+const TransportBar = styled.div`
+  position: relative;
+  /* Lift the bar (and therefore its dropdowns) above the lead sheet, which is
+   * a later sibling and would otherwise paint over the open menus. */
+  z-index: 60;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 16px;
-  background: ${({ theme }) => theme.colors.bgSecondary};
+  padding: 5px 14px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  flex-shrink: 0;
+`;
+
+/* Second toolbar row shown only in edit mode — the chord "modify tool".
+ * For now it just holds the Save button. */
+const EditBar = styled.div`
+  position: relative;
+  z-index: 59;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 14px;
+  background: #fff7e6;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  flex-shrink: 0;
+`;
+
+const EditBarLabel = styled.span`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #9a6b00;
+`;
+
+const EditSaveBtn = styled.button`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #fff;
+  background: #1f9a52;
+  border: none;
+  border-radius: 7px;
+  padding: 7px 18px;
+  cursor: pointer;
+  transition: background 0.15s;
+  &:hover { background: #18803f; }
+`;
+
+const BarLeft = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+`;
+
+const BarCenter = styled.div`
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+`;
+
+/* Right-aligned tool icons (share / edit / analysis / settings). */
+const BarRight = styled.div`
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+`;
+
+const ToolBtn = styled.button<{ $lit?: boolean }>`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: ${({ $lit }) => ($lit ? '#e8a838' : '#5b5b5b')};
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  ${({ $lit }) => $lit && 'filter: drop-shadow(0 0 4px rgba(232, 168, 56, 0.55));'}
+
+  &:hover { background: rgba(0, 0, 0, 0.06); }
+`;
+
+/* Lightbulb popover — analysis master toggle + sub-filters. */
+const ToolWrap = styled.div`
+  position: relative;
+  display: inline-flex;
+`;
+
+const AnalysisDrop = styled.div`
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 90;
+  width: 248px;
+  background: #fff;
+  border: 1px solid #e6e6e6;
+  border-radius: 14px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.2);
+  padding: 6px 16px 12px;
+  font-family: 'Pretendard', sans-serif;
+`;
+
+/* ─── tool icons (Lucide, 24×24 stroke) ───────────────────────────────── */
+const ShareIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="18" cy="5" r="3" />
+    <circle cx="6" cy="12" r="3" />
+    <circle cx="18" cy="19" r="3" />
+    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+  </svg>
+);
+
+const PencilIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+  </svg>
+);
+
+const LightbulbIcon = ({ lit }: { lit: boolean }) => (
+  <svg width="27" height="27" viewBox="0 0 24 24" fill={lit ? 'rgba(232, 168, 56, 0.22)' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 18h6" />
+    <path d="M10 22h4" />
+    <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" />
+  </svg>
+);
+
+const GearIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+  </svg>
+);
+
+/* ─── settings modal (analysis sub-filters) ───────────────────────────── */
+const ModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.42);
+`;
+
+const ModalCard = styled.div`
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
+  padding: 22px 24px 24px;
+  font-family: 'Pretendard', sans-serif;
+`;
+
+const ModalTitle = styled.h3`
+  margin: 0 0 4px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1a1a1a;
+`;
+
+const ModalSub = styled.p`
+  margin: 0 0 16px;
+  font-size: 0.82rem;
+  color: #888;
+`;
+
+const ToggleRow = styled.label<{ $disabled?: boolean }>`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 2px;
+  border-top: 1px solid #f0f0f0;
+  cursor: ${({ $disabled }) => ($disabled ? 'default' : 'pointer')};
+  opacity: ${({ $disabled }) => ($disabled ? 0.4 : 1)};
+
+  &:first-of-type { border-top: none; }
+`;
+
+const ToggleLabel = styled.span`
+  font-size: 0.95rem;
+  color: #2a2a2a;
+`;
+
+const Switch = styled.span<{ $on?: boolean }>`
+  position: relative;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: ${({ $on }) => ($on ? '#3b82f6' : '#d4d4d8')};
+  transition: background 0.18s;
+  flex-shrink: 0;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: ${({ $on }) => ($on ? '20px' : '2px')};
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    transition: left 0.18s;
+  }
+`;
+
+/* "iRealPro 1460" label — now lives in the toolbar's leftExtra slot. */
+const SongPickerLabel = styled.span`
   font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
-
-  ${mq.mobile} {
-    flex-wrap: wrap;
-    gap: 6px;
-    padding: 6px 10px;
-  }
+  color: ${({ theme }) => theme.colors.textSecondary};
+  white-space: nowrap;
 `;
 
 const SongSelect = styled.select`
   font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
-  padding: 3px 6px;
+  padding: 4px 8px;
   border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 4px;
+  border-radius: 6px;
   background: ${({ theme }) => theme.colors.bgPrimary};
   color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
-  max-width: 420px;
+  max-width: 320px;
 `;
 
 
 const SearchWrap = styled.div`
   position: relative;
-  margin-left: auto;
 `;
 
 const SearchInput = styled.input`
@@ -242,147 +460,30 @@ const RightPanelWrapper = styled.div<{ $width: number }>`
   }
 `;
 
-const FilterBar = styled.div`
+/* Tab strip splitting the right panel into 믹서 / AI 채팅. Sits right under
+ * the always-visible BackingTransport. */
+const PanelTabs = styled.div`
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  background: ${({ theme }) => theme.colors.bgPrimary};
-  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  border-left: 1px solid ${({ theme }) => theme.colors.border};
-`;
-
-const AnalysisControl = styled.div`
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-`;
-
-const AnalysisDropdownTrigger = styled.button<{ $open: boolean }>`
-  height: 32px;
-  min-width: 112px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 0 11px 0 13px;
-  border-radius: 10px;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  background: ${({ $open, theme }) => ($open ? theme.colors.bgSecondary : theme.colors.bgPrimary)};
-  color: ${({ theme }) => theme.colors.textPrimary};
-  font-family: ${({ theme }) => theme.fonts.ui};
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1;
-  cursor: pointer;
-  box-shadow: ${({ $open }) => ($open ? '0 2px 8px rgba(0, 0, 0, 0.08)' : 'none')};
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
-
-  &:hover {
-    background: ${({ theme }) => theme.colors.bgSecondary};
-    border-color: ${({ theme }) => theme.colors.textSecondary};
-  }
-`;
-
-const AnalysisChevron = styled.span<{ $open: boolean }>`
-  width: 7px;
-  height: 7px;
-  border-right: 1.7px solid ${({ theme }) => theme.colors.textSecondary};
-  border-bottom: 1.7px solid ${({ theme }) => theme.colors.textSecondary};
-  transform: rotate(${({ $open }) => ($open ? '225deg' : '45deg')});
-  margin-top: ${({ $open }) => ($open ? '4px' : '-3px')};
-  transition: transform 0.15s, margin-top 0.15s;
-`;
-
-const AnalysisMasterSwitch = styled.button<{ $active: boolean }>`
-  position: relative;
-  width: 48px;
-  height: 28px;
-  border: none;
-  border-radius: 999px;
-  background: ${({ $active, theme }) => ($active ? '#2D8F5E' : theme.colors.border)};
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
-  cursor: pointer;
-  transition: background 0.18s;
+  background: #fff;
+  border-bottom: 1px solid #e6e6e6;
   flex-shrink: 0;
-
-  &::after {
-    content: '';
-    position: absolute;
-    top: 3px;
-    left: ${({ $active }) => ($active ? '23px' : '3px')};
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: #fff;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
-    transition: left 0.18s;
-  }
 `;
 
-const AnalysisDropdownMenu = styled.div`
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 250;
-  width: 184px;
-  padding: 6px;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 12px;
-  background: ${({ theme }) => theme.colors.bgPrimary};
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
-`;
-
-const AnalysisDropdownTitle = styled.div`
-  padding: 5px 8px 7px;
-  font-family: ${({ theme }) => theme.fonts.ui};
-  font-size: 11px;
-  font-weight: 700;
-  color: ${({ theme }) => theme.colors.textSecondary};
-`;
-
-const AnalysisOption = styled.button`
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 8px;
+const PanelTab = styled.button<{ $on?: boolean }>`
+  flex: 1;
+  padding: 9px 0;
   border: none;
-  border-radius: 8px;
   background: transparent;
-  color: ${({ theme }) => theme.colors.textPrimary};
-  font-family: ${({ theme }) => theme.fonts.ui};
-  font-size: 13px;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: ${({ $on }) => ($on ? '#2b8aef' : '#888')};
+  border-bottom: 2px solid ${({ $on }) => ($on ? '#2b8aef' : 'transparent')};
   cursor: pointer;
-
-  &:hover {
-    background: ${({ theme }) => theme.colors.bgSecondary};
-  }
+  transition: color 0.15s, border-color 0.15s;
+  &:hover { color: ${({ $on }) => ($on ? '#2b8aef' : '#555')}; }
 `;
 
-const AnalysisOptionSwitch = styled.span<{ $active: boolean; $color: string }>`
-  position: relative;
-  width: 28px;
-  height: 16px;
-  border-radius: 999px;
-  background: ${({ $active, $color, theme }) => ($active ? $color : theme.colors.border)};
-  transition: background 0.15s;
-  flex-shrink: 0;
-
-  &::after {
-    content: '';
-    position: absolute;
-    top: 3px;
-    left: ${({ $active }) => ($active ? '15px' : '3px')};
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: #fff;
-    transition: left 0.15s;
-  }
-`;
 
 const ResizeDivider = styled.div`
   width: 5px;
@@ -410,10 +511,6 @@ const ResizeDivider = styled.div`
 export default function ChordPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { filters, effective, toggleFilter } = useAnalysisFilters();
-  const leadSheetAnalysisFilters = useMemo(() => ({
-    ...effective,
-    showDegree: effective.showAnalysis,
-  }), [effective]);
   const [songIndex, setSongIndex] = useState<SongEntry[]>([]);
   const [songId, setSongIdRaw] = useState(() => searchParams.get('song') ?? ANALYZED_SONG_ID);
 
@@ -432,8 +529,15 @@ export default function ChordPage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
+  /* Chord-chart edit mode (frontend-only; no per-user backend yet). Edits are
+   * collected by source index ("system-bar-chord") and applied on save. */
+  const [editMode, setEditMode] = useState(false);
+  const editValuesRef = useRef<Map<string, string>>(new Map());
+
   const playerRef = useRef<BackingPlayer | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  /* How many times Play repeats the chart before stopping (default 3). */
+  const [repeatCount, setRepeatCount] = useState(3);
   const [tempo, setTempo] = useState(140);
   const [engineBackend, setEngineBackend] = useState<EngineBackend>(() => {
     if (typeof window === 'undefined') return 'rule';
@@ -447,10 +551,12 @@ export default function ChordPage() {
   const [selectedChordsData, setSelectedChordsData] = useState<ChordOverlay[]>([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [analysisMenuOpen, setAnalysisMenuOpen] = useState(false);
+  const [lightMenuOpen, setLightMenuOpen] = useState(false);
   // ★ 저장된 릭 있는 마디 번호 세트
   const [savedLickBarNums, setSavedLickBarNums] = useState<Set<number>>(new Set());
   const [savedLicksModal, setSavedLicksModal] = useState<{ label: string; matches: LickMatch[] } | null>(null);
   const analysisMenuRef = useRef<HTMLDivElement>(null);
+  const lightMenuRef = useRef<HTMLDivElement>(null);
 
   const handleChordClick = (_chord: any, _measureNumber: number, target?: LeadSheetChordSelection) => {
     if (!isSelectionMode) return;
@@ -526,6 +632,13 @@ export default function ChordPage() {
     player.on('onBar', (bar) => setActiveBar(bar));
     player.on('onDone', () => setIsPlaying(false));
     playerRef.current = player;
+    // Warm up the audio context + instrument/drum samples in the background
+    // the moment the player exists, so the FIRST Play doesn't stall after the
+    // count-in waiting on the (network + decode) load. preload is idempotent
+    // (ensure-cached / preloadPromise), so the play-time preload() resolves
+    // instantly once this finishes — fixing the "1234 … long pause … sound"
+    // first-play delay. Later plays already hit cache.
+    void player.preload().catch(() => { /* will retry at play time */ });
     return () => {
       player.dispose();
       playerRef.current = null;
@@ -552,6 +665,7 @@ export default function ChordPage() {
     }
     setIsPlaying(true);
     // 카운트인과 병렬로 instruments + drum 자원 로드 — 첫 재생 지연 제거.
+    player.setConfig({ repeatCount });
     const preload = player.preload();
     const cin = await countIn.run({ bpm: tempo });
     if (!cin.ok) { setIsPlaying(false); return; }
@@ -562,12 +676,19 @@ export default function ChordPage() {
       console.error('[backing] play failed:', err);
       setIsPlaying(false);
     }
-  }, [isPlaying, tempo, countIn]);
+  }, [isPlaying, tempo, countIn, repeatCount]);
+
+  const handleStop = useCallback(() => {
+    playerRef.current?.stop();
+    countIn.cancel();
+    setIsPlaying(false);
+    setActiveBar(-1);
+  }, [countIn]);
 
   // Load selected song
   useEffect(() => {
     if (songId === ANALYZED_SONG_ID) {
-      setSheet(withLeadSheetSelectionIds(allOfMe, ANALYZED_SONG_ID));
+      setSheet(loadChartEdit(songId) ?? withLeadSheetSelectionIds(allOfMe, ANALYZED_SONG_ID));
       setLoading(false);
       setError(null);
       return;
@@ -583,7 +704,7 @@ export default function ChordPage() {
     getSong(idx).then((data) => {
       if (cancelled) return;
       if (data) {
-        setSheet(data);
+        setSheet(loadChartEdit(songId) ?? data);
       } else {
         setError('Song not found.');
         setSheet(null);
@@ -630,6 +751,17 @@ export default function ChordPage() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [analysisMenuOpen]);
+
+  useEffect(() => {
+    if (!lightMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (lightMenuRef.current && !lightMenuRef.current.contains(e.target as Node)) {
+        setLightMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [lightMenuOpen]);
 
   const chordContext = useMemo(() => {
     if (sheet) return buildChordContext(sheet);
@@ -698,6 +830,64 @@ export default function ChordPage() {
   }, [refreshSavedLickBars]);
 
   const [rightPanelWidth, setRightPanelWidth] = useState(515);
+  /* Right panel view: mixer (player controls) vs AI chat. */
+  const [panelTab, setPanelTab] = useState<'mixer' | 'chat'>('chat');
+  /* Transpose key, lifted out of LeadSheet so the player transport owns it. */
+  const chartOriginalKey = sheet?.key ?? 'C';
+  const [chartKey, setChartKey] = useState(chartOriginalKey);
+  useEffect(() => { setChartKey(sheet?.key ?? 'C'); }, [sheet?.key]);
+
+  /* Transposing instrument (global '악보/연주' setting) — shifts only the
+   * DISPLAYED chart/key by a fixed interval; chartKey stays the concert source
+   * of truth so backing playback is unaffected. The key dropdown/transport edit
+   * in WRITTEN terms, so convert picks back to concert. */
+  const [instrumentOffset, setInstrumentOffset] = useState(
+    () => TRANSPOSING_INSTRUMENT_OFFSET[getPlayerSettings().transposingInstrument],
+  );
+  useEffect(
+    () => subscribePlayerSettings((s) =>
+      setInstrumentOffset(TRANSPOSING_INSTRUMENT_OFFSET[s.transposingInstrument])),
+    [],
+  );
+  const writtenKey = shiftKey(chartKey, instrumentOffset);
+  const setWrittenKey = useCallback(
+    (k: string) => setChartKey(shiftKey(k, -instrumentOffset)),
+    [instrumentOffset],
+  );
+
+  /* Enter/leave chord-chart edit mode. Entering clears any pending edits;
+   * leaving via the pencil discards them (Save is the only commit path). */
+  const toggleEditMode = useCallback(() => {
+    editValuesRef.current.clear();
+    setEditMode((on) => !on);
+  }, []);
+
+  const handleChordEdit = useCallback(
+    (systemIndex: number, barIndex: number, chordIndex: number, value: string) => {
+      editValuesRef.current.set(`${systemIndex}-${barIndex}-${chordIndex}`, value);
+    },
+    [],
+  );
+
+  const handleSaveEdit = useCallback(() => {
+    if (!sheet) return;
+    const next: LeadSheetData = structuredClone(sheet);
+    editValuesRef.current.forEach((value, key) => {
+      const [s, b, c] = key.split('-').map(Number);
+      const chord = next.systems[s]?.bars[b]?.chords[c];
+      if (!chord) return;
+      next.systems[s].bars[b].chords[c] = { ...parseChordInput(value), id: chord.id };
+    });
+    setSheet(next);
+    saveChartEdit(songId, next);
+    editValuesRef.current.clear();
+    setEditMode(false);
+  }, [sheet, songId]);
+
+  /* Which instrument the player is using this chart with. Display-only for now;
+   * instrument-specific behaviours (vocal lyrics, sax transpose, drum sections)
+   * come later. */
+  const [session, setSession] = useState<SessionInstrument>('piano');
   const dividerRef = useRef<HTMLDivElement>(null);
 
   const onDividerMouseDown = useCallback((e: React.MouseEvent) => {
@@ -727,20 +917,20 @@ export default function ChordPage() {
         <TopToolbar
           title={sheet?.title ?? `iRealPro ${songIndex.length || '...'}`}
           subtitle={sheet ? `${(sheet.key ?? '?').replace(/-$/, 'm')} | ${sheet.timeSignature}` : undefined}
-        />
-
-        <MainArea>
-        <CenterColumn>
-          <SongPickerBar>
-            <span>iRealPro {songIndex.length || '...'}</span>
-            <SongSelect value={songId} onChange={(e) => setSongId(e.target.value)}>
-              <option value={ANALYZED_SONG_ID}>All of Me (Analyzed)</option>
-              {songIndex.map((song) => (
-                <option key={song.index} value={String(song.index)}>
-                  {song.title} -- {song.composer}
-                </option>
-              ))}
-            </SongSelect>
+          leftExtra={
+            <>
+              <SongPickerLabel>iRealPro {songIndex.length || '...'}</SongPickerLabel>
+              <SongSelect value={songId} onChange={(e) => setSongId(e.target.value)}>
+                <option value={ANALYZED_SONG_ID}>All of Me (Analyzed)</option>
+                {songIndex.map((song) => (
+                  <option key={song.index} value={String(song.index)}>
+                    {song.title} -- {song.composer}
+                  </option>
+                ))}
+              </SongSelect>
+            </>
+          }
+          rightExtra={
             <SearchWrap ref={searchRef}>
               <SearchIcon>&#128269;</SearchIcon>
               <SearchInput
@@ -771,17 +961,95 @@ export default function ChordPage() {
                 </SearchResults>
               )}
             </SearchWrap>
-          </SongPickerBar>
+          }
+        />
+
+        <MainArea>
+        <CenterColumn>
+          {/* White transport bar above the sheet (zoom/fullscreen stay inside
+           *  the sheet at top-right). */}
+          <TransportBar>
+            <BarLeft>
+              <GenreSelect />
+              <KeyControl selectedKey={writtenKey} onChange={setWrittenKey} isMinor={isMinorKey(writtenKey)} />
+              <SessionPicker value={session} onChange={setSession} />
+            </BarLeft>
+            <BarCenter>
+              <MetronomeToggle />
+              <BpmControl tempo={tempo} onTempoChange={setTempo} disabled={!sheet || loading} />
+              <RepeatControl repeatCount={repeatCount} onRepeatChange={setRepeatCount} disabled={!sheet || loading} />
+              <TransportButtons playing={isPlaying} onPlayPause={handlePlayPause} onStop={handleStop} disabled={!sheet || loading} />
+            </BarCenter>
+            <BarRight>
+              <ToolBtn type="button" title="공유" onClick={() => {/* TODO: 공유 기능 */}}>
+                <ShareIcon />
+              </ToolBtn>
+              <ToolBtn
+                type="button"
+                title={editMode ? '수정 종료' : '직접 수정'}
+                $lit={editMode}
+                onClick={toggleEditMode}
+              >
+                <PencilIcon />
+              </ToolBtn>
+              <ToolWrap ref={lightMenuRef}>
+                <ToolBtn
+                  type="button"
+                  title="분석 보기"
+                  $lit={filters.showAnalysis}
+                  onClick={() => setLightMenuOpen((v) => !v)}
+                >
+                  <LightbulbIcon lit={filters.showAnalysis} />
+                </ToolBtn>
+                {lightMenuOpen && (
+                  <AnalysisDrop>
+                    <ToggleRow onClick={() => toggleFilter('showAnalysis')}>
+                      <ToggleLabel style={{ fontWeight: 700 }}>분석 보기</ToggleLabel>
+                      <Switch $on={filters.showAnalysis} />
+                    </ToggleRow>
+                    {([
+                      { key: 'showDegree', label: '도수 표시' },
+                      { key: 'showIIVI', label: '2-5-1 하이라이트' },
+                      { key: 'showArrows', label: '해결 화살표' },
+                      { key: 'showColors', label: '비화성음 · 모달 색상' },
+                    ] as const).map(({ key, label }) => (
+                      <ToggleRow
+                        key={key}
+                        $disabled={!filters.showAnalysis}
+                        onClick={() => filters.showAnalysis && toggleFilter(key)}
+                      >
+                        <ToggleLabel>{label}</ToggleLabel>
+                        <Switch $on={filters.showAnalysis && filters[key]} />
+                      </ToggleRow>
+                    ))}
+                  </AnalysisDrop>
+                )}
+              </ToolWrap>
+              <ToolBtn type="button" title="분석 설정" onClick={() => setAnalysisMenuOpen(true)}>
+                <GearIcon />
+              </ToolBtn>
+            </BarRight>
+          </TransportBar>
+
+          {editMode && (
+            <EditBar>
+              <EditBarLabel>코드 수정 모드 — 코드를 클릭해 직접 수정하세요</EditBarLabel>
+              <EditSaveBtn type="button" onClick={handleSaveEdit}>저장</EditSaveBtn>
+            </EditBar>
+          )}
 
           {sheet && !loading ? (
             <LeadSheet
               data={sheet}
-              analysisFilters={leadSheetAnalysisFilters}
+              analysisFilters={editMode ? ANALYSIS_OFF : effective}
+              selectedKey={editMode ? chartOriginalKey : writtenKey}
+              editMode={editMode}
+              onChordEdit={handleChordEdit}
               activeBar={activeBar}
               onChordClick={handleChordClick}
               onChordRangeSelect={handleChordRangeSelect}
               selectedChordIds={selectedChordIds}
-              selectionMode={isSelectionMode}
+              selectionMode={!editMode && isSelectionMode}
               savedLickBarNums={savedLickBarNums.size > 0 ? savedLickBarNums : undefined}
               onSavedLickBadgeClick={(barNum, spanLabel) => {
                 const saved = loadUserLicksSync();
@@ -848,53 +1116,25 @@ export default function ChordPage() {
         <ResizeDivider ref={dividerRef} onMouseDown={onDividerMouseDown} />
 
         <RightPanelWrapper $width={rightPanelWidth}>
-          <FilterBar>
-            <AnalysisControl ref={analysisMenuRef}>
-              <AnalysisDropdownTrigger
-                type="button"
-                $open={analysisMenuOpen}
-                aria-label="분석 세부 옵션"
-                aria-expanded={analysisMenuOpen}
-                onClick={() => setAnalysisMenuOpen((open) => !open)}
-              >
-                분석 보기
-                <AnalysisChevron $open={analysisMenuOpen} />
-              </AnalysisDropdownTrigger>
-              {analysisMenuOpen && (
-                <AnalysisDropdownMenu>
-                  <AnalysisDropdownTitle>세부 표시</AnalysisDropdownTitle>
-                  <AnalysisOption
-                    type="button"
-                    onClick={() => toggleFilter('showIIVI')}
-                  >
-                    <span>2-5-1</span>
-                    <AnalysisOptionSwitch $active={filters.showIIVI} $color="#B8860B" />
-                  </AnalysisOption>
-                  <AnalysisOption
-                    type="button"
-                    onClick={() => toggleFilter('showArrows')}
-                  >
-                    <span>화살표</span>
-                    <AnalysisOptionSwitch $active={filters.showArrows} $color="#C45C5C" />
-                  </AnalysisOption>
-                  <AnalysisOption
-                    type="button"
-                    onClick={() => toggleFilter('showColors')}
-                  >
-                    <span>색상</span>
-                    <AnalysisOptionSwitch $active={filters.showColors} $color="#7B5EA7" />
-                  </AnalysisOption>
-                </AnalysisDropdownMenu>
-              )}
-            </AnalysisControl>
-            <AnalysisMasterSwitch
-              type="button"
-              $active={filters.showAnalysis}
-              aria-label={filters.showAnalysis ? '분석 보기 끄기' : '분석 보기 켜기'}
-              onClick={() => toggleFilter('showAnalysis')}
+          <PanelTabs>
+            <PanelTab type="button" $on={panelTab === 'mixer'} onClick={() => setPanelTab('mixer')}>믹서</PanelTab>
+            <PanelTab type="button" $on={panelTab === 'chat'} onClick={() => setPanelTab('chat')}>AI 채팅</PanelTab>
+          </PanelTabs>
+          {panelTab === 'mixer' ? (
+            <BackingMixer
+              engine={{
+                backend: engineBackend,
+                onBackendChange: (b) => {
+                  setEngineBackend(b);
+                  window.localStorage.setItem('jazzify.engine', b);
+                },
+                styleChoice,
+                onStyleChange: setStyleChoice,
+              }}
             />
-          </FilterBar>
-          <RightChatPanel
+          ) : (
+            <RightChatPanel
+            hideHeader
             selectedChords={selectedChordsData}
             groupExplanation={selectedChordsData.length > 0 ? "이 구간이 다음 질문의 분석 대상으로 포함됩니다." : null}
             songTitle={sheet?.title ?? 'Jazzify AI'}
@@ -903,27 +1143,10 @@ export default function ChordPage() {
             onToggleSelectionMode={toggleSelectionMode}
             onClearSelectedChords={clearSelectedChords}
             songTempo={tempo}
-            centerInputWhenEmpty
           />
+          )}
         </RightPanelWrapper>
         </MainArea>
-
-        <BackingPlayerBar
-          playing={isPlaying}
-          tempo={tempo}
-          onTempoChange={setTempo}
-          onPlayPause={handlePlayPause}
-          disabled={!sheet || loading}
-          engine={{
-            backend: engineBackend,
-            onBackendChange: (b) => {
-              setEngineBackend(b);
-              window.localStorage.setItem('jazzify.engine', b);
-            },
-            styleChoice,
-            onStyleChange: setStyleChoice,
-          }}
-        />
       </RightSection>
 
       <MobileChatFab
@@ -981,6 +1204,30 @@ export default function ChordPage() {
           onClose={() => setSavedLicksModal(null)}
           songTempo={tempo}
         />
+      )}
+
+      {analysisMenuOpen && (
+        <ModalOverlay>
+          <ModalCard ref={analysisMenuRef}>
+            <ModalTitle>분석 설정</ModalTitle>
+            <ModalSub>룰 기반 분석에 표시할 항목을 선택하세요.</ModalSub>
+            {([
+              { key: 'showDegree', label: '도수 표시' },
+              { key: 'showIIVI', label: '2-5-1 하이라이트' },
+              { key: 'showArrows', label: '해결 화살표' },
+              { key: 'showColors', label: '비화성음 · 모달 색상' },
+            ] as const).map(({ key, label }) => (
+              <ToggleRow
+                key={key}
+                $disabled={!filters.showAnalysis}
+                onClick={() => filters.showAnalysis && toggleFilter(key)}
+              >
+                <ToggleLabel>{label}</ToggleLabel>
+                <Switch $on={filters.showAnalysis && filters[key]} />
+              </ToggleRow>
+            ))}
+          </ModalCard>
+        </ModalOverlay>
       )}
     </PageContainer>
   );

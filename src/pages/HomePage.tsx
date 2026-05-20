@@ -10,7 +10,6 @@ import { AuthTopBar } from '../components/layout/AuthTopBar';
 import { AccountModal } from '../components/chat/AccountModal';
 import { ChatHistoryModal, type ChatConversation } from '../components/chat/ChatHistoryModal';
 import { ConfirmNewChatModal } from '../components/chat/ConfirmNewChatModal';
-import { UserMenu } from '../components/auth/UserMenu';
 import { isNativeApp } from '../lib/platform';
 import {
   bootstrapAuth,
@@ -579,10 +578,6 @@ export default function HomePage() {
    * session is still valid (logs user out if it isn't). */
   const [authUser, setAuthUser] = useState<AuthUser | null>(() => getCachedUser());
   const isLoggedIn = authUser !== null;
-  const setIsLoggedIn = (val: boolean) => {
-    if (val) setAuthUser((prev) => prev ?? getCachedUser());
-    else setAuthUser(null);
-  };
 
   useEffect(() => {
     /* Subscribe to global auth changes (login/logout/refresh failure). */

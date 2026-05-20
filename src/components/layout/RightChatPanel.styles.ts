@@ -8,7 +8,6 @@ export const PanelContainer = styled.aside`
   display: flex;
   flex-direction: column;
   background: ${({ theme }) => theme.colors.bgPrimary};
-  border-left: 1px solid ${({ theme }) => theme.colors.border};
   overflow: hidden;
   position: relative;
 `;

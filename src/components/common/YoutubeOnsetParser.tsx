@@ -293,6 +293,20 @@ export function YoutubeOnsetParser() {
         throw new Error(`#${num}의 백엔드 publicId를 찾지 못함`);
       }
 
+      // 이 번호는 "전체 카탈로그(createdAt desc) 기준"이다. LicksPage에서
+      // 필터/멜로디검색을 건 상태의 화면 번호와는 다를 수 있으므로, 잘못된
+      // 릭에 영상을 영구 저장하는 사고를 막기 위해 대상을 확인받는다.
+      const ok = window.confirm(
+        `#${num} → ${target.performer ?? '—'} — ${target.title ?? '(제목 없음)'}\n\n` +
+        `이 릭에 영상(${formatTime(startSec)} → ${formatTime(endSec)})을 저장할까요?\n` +
+        `※ 번호는 필터를 끈 전체 목록 기준입니다.`,
+      );
+      if (!ok) {
+        setSubmitting(false);
+        setStatus('취소됨');
+        return;
+      }
+
       const video = {
         videoId,
         startSec: Number(startSec.toFixed(3)),

@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import type { AuthUser } from '../../api/auth';
+import {
+  getPlayerSettings,
+  setPlayerSetting,
+  subscribePlayerSettings,
+  type TransposingInstrument,
+} from '../../lib/note/playerSettings';
 
 /* 풀스크린 설정 모달 — Claude 데스크탑 설정 페이지 패턴.
  *
@@ -8,14 +14,28 @@ import type { AuthUser } from '../../api/auth';
  * 나머지는 placeholder ("준비 중"). 모든 입력은 visual mock — 저장 / 적용
  * 안 됨. 이름 / 아바타 등 user-derived 표시는 로그인 정보에서 read-only. */
 
+/** A single on/off display preference shown in the 디스플레이 tab. The page
+ *  that opens the modal owns the state; the modal just renders + toggles. */
+export interface DisplaySetting {
+  id: string;
+  label: string;
+  active: boolean;
+  onToggle: () => void;
+}
+
 interface Props {
   open: boolean;
   user: AuthUser;
   onClose: () => void;
+  /** Page-specific display toggles (e.g. chord-analysis sub-options). When
+   *  non-empty, a "디스플레이" tab appears listing them. */
+  displaySettings?: DisplaySetting[];
 }
 
 type TabId =
   | 'general'
+  | 'performance'
+  | 'display'
   | 'account'
   | 'privacy'
   | 'billing'
@@ -27,6 +47,8 @@ type TabId =
 
 const TABS: ReadonlyArray<{ id: TabId; label: string; badge?: string }> = [
   { id: 'general', label: '일반' },
+  { id: 'performance', label: '악보/연주' },
+  { id: 'display', label: '디스플레이' },
   { id: 'account', label: '계정' },
   { id: 'privacy', label: '개인정보보호' },
   { id: 'billing', label: '결제' },
@@ -37,8 +59,13 @@ const TABS: ReadonlyArray<{ id: TabId; label: string; badge?: string }> = [
   { id: 'chrome', label: 'Chrome용 Jazzify', badge: '베타' },
 ];
 
-export function SettingsModal({ open, user, onClose }: Props) {
+export function SettingsModal({ open, user, onClose, displaySettings }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>('general');
+
+  /* Hide the 디스플레이 tab when the opener has no page-specific toggles
+   *  (e.g. the global account menu). */
+  const hasDisplay = !!displaySettings && displaySettings.length > 0;
+  const tabs = hasDisplay ? TABS : TABS.filter((t) => t.id !== 'display');
 
   /* Esc 로 닫기 + 모달 열린 동안 body 스크롤 잠금. */
   useEffect(() => {
@@ -68,7 +95,7 @@ export function SettingsModal({ open, user, onClose }: Props) {
           <Sidebar>
             <SidebarTitle>설정</SidebarTitle>
             <TabList>
-              {TABS.map((tab) => (
+              {tabs.map((tab) => (
                 <TabBtn
                   key={tab.id}
                   $active={activeTab === tab.id}
@@ -84,6 +111,10 @@ export function SettingsModal({ open, user, onClose }: Props) {
           <Content>
             {activeTab === 'general' ? (
               <GeneralPanel user={user} />
+            ) : activeTab === 'performance' ? (
+              <PerformancePanel />
+            ) : activeTab === 'display' ? (
+              <DisplayPanel settings={displaySettings ?? []} />
             ) : (
               <Placeholder>준비 중</Placeholder>
             )}
@@ -187,6 +218,79 @@ function GeneralPanel({ user }: { user: AuthUser }) {
   );
 }
 
+/* ── 디스플레이 탭 본문 ─────────────────────────────────────────────── */
+
+function DisplayPanel({ settings }: { settings: DisplaySetting[] }) {
+  if (settings.length === 0) return <Placeholder>준비 중</Placeholder>;
+
+  return (
+    <PanelInner>
+      <SectionTitle>분석 표시</SectionTitle>
+      {settings.map((s) => (
+        <FieldRow key={s.id}>
+          <FieldLabel as="span">{s.label}</FieldLabel>
+          <FieldControl>
+            <Switch
+              type="button"
+              role="switch"
+              aria-checked={s.active}
+              aria-label={s.label}
+              $on={s.active}
+              onClick={s.onToggle}
+            />
+          </FieldControl>
+        </FieldRow>
+      ))}
+    </PanelInner>
+  );
+}
+
+/* ── 악보/연주 탭 본문 ──────────────────────────────────────────────── */
+
+const TRANSPOSING_INSTRUMENTS: { id: TransposingInstrument; label: string; examples: string }[] = [
+  { id: 'C',  label: 'C',  examples: '피아노, 기타, 베이스, 보컬…' },
+  { id: 'Bb', label: 'B♭', examples: '테너 색소폰, 트럼펫…' },
+  { id: 'Eb', label: 'E♭', examples: '알토 색소폰…' },
+  { id: 'F',  label: 'F',  examples: '잉글리시 호른…' },
+  { id: 'G',  label: 'G',  examples: '알토 플루트…' },
+];
+
+function PerformancePanel() {
+  const [instrument, setInstrument] = useState<TransposingInstrument>(
+    () => getPlayerSettings().transposingInstrument,
+  );
+  useEffect(
+    () => subscribePlayerSettings((s) => setInstrument(s.transposingInstrument)),
+    [],
+  );
+
+  return (
+    <PanelInner>
+      <SectionTitle>이조 악기</SectionTitle>
+      <FieldHelper>
+        선택한 관악기에 맞춰 코드 차트의 조를 옮겨 표시합니다. (C = 콘서트 조)
+      </FieldHelper>
+      <InstrumentList>
+        {TRANSPOSING_INSTRUMENTS.map(({ id, label, examples }) => {
+          const active = instrument === id;
+          return (
+            <InstrumentRow
+              key={id}
+              type="button"
+              $active={active}
+              onClick={() => setPlayerSetting('transposingInstrument', id)}
+            >
+              <InstrumentKey $active={active}>{label}</InstrumentKey>
+              <InstrumentExamples>({examples})</InstrumentExamples>
+              {active && <InstrumentCheck><CheckIcon /></InstrumentCheck>}
+            </InstrumentRow>
+          );
+        })}
+      </InstrumentList>
+    </PanelInner>
+  );
+}
+
 function pickInitial(user: AuthUser): string {
   const src = (user.name?.trim() || user.username?.trim() || '?');
   const first = Array.from(src)[0] ?? '?';
@@ -227,6 +331,12 @@ const SunIcon = () => (
 const MoonIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
     <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+  </svg>
+);
+
+const CheckIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <polyline points="20 6 9 17 4 12" />
   </svg>
 );
 
@@ -484,6 +594,30 @@ const TextArea = styled.textarea`
   &:focus { border-color: rgba(0, 0, 0, 0.4); }
 `;
 
+const Switch = styled.button<{ $on?: boolean }>`
+  position: relative;
+  width: 40px;
+  height: 24px;
+  border: none;
+  border-radius: 999px;
+  background: ${({ $on }) => ($on ? '#1a1a1a' : 'rgba(0, 0, 0, 0.18)')};
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: ${({ $on }) => ($on ? '19px' : '3px')};
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    transition: left 0.15s;
+  }
+`;
+
 const ThemeToggle = styled.div`
   display: inline-flex;
   gap: 4px;
@@ -506,5 +640,55 @@ const ThemeBtn = styled.button<{ $active?: boolean }>`
   justify-content: center;
   transition: background 0.1s;
   &:hover { background: rgba(0, 0, 0, 0.06); color: #1a1a1a; }
+`;
+
+/* ── 이조 악기 목록 ─────────────────────────────────────────────────── */
+
+const InstrumentList = styled.div`
+  margin-top: 8px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 14px;
+  overflow: hidden;
+`;
+
+const InstrumentRow = styled.button<{ $active?: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 16px 20px;
+  border: none;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.1s;
+  &:last-child { border-bottom: none; }
+  &:hover { background: rgba(0, 0, 0, 0.03); }
+`;
+
+const InstrumentKey = styled.span<{ $active?: boolean }>`
+  font-size: 19px;
+  font-weight: 600;
+  color: ${({ $active }) => ($active ? '#2f6df0' : '#1a1a1a')};
+  min-width: 28px;
+`;
+
+const InstrumentExamples = styled.span`
+  flex: 1;
+  font-size: 17px;
+  color: #1a1a1a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const InstrumentCheck = styled.span`
+  color: #2f6df0;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
 `;
 

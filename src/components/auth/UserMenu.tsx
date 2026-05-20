@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { logout as apiLogout, type AuthUser } from '../../api/auth';
 import { SettingsModal } from './SettingsModal';
+import { FeedbackModal } from '../common/FeedbackModal';
 
 /* 사이드바 하단의 로그인된 사용자 영역.
  *
@@ -19,6 +20,7 @@ interface Props {
 export function UserMenu({ user, compact = false }: Props) {
   const [open, setOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -71,6 +73,16 @@ export function UserMenu({ user, compact = false }: Props) {
           <MenuItem type="button" $highlight>
             <MenuIcon><HelpIcon /></MenuIcon>
             <MenuLabel>도움 받기</MenuLabel>
+          </MenuItem>
+          <MenuItem
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              setFeedbackOpen(true);
+            }}
+          >
+            <MenuIcon><FeedbackIcon /></MenuIcon>
+            <MenuLabel>피드백 남기기</MenuLabel>
           </MenuItem>
           <MenuDivider />
           <MenuItem type="button">
@@ -125,6 +137,7 @@ export function UserMenu({ user, compact = false }: Props) {
         user={user}
         onClose={() => setSettingsOpen(false)}
       />
+      <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
     </Root>
   );
 }
@@ -191,6 +204,13 @@ const InfoIcon = () => (
     <circle cx="12" cy="12" r="10" />
     <line x1="12" y1="16" x2="12" y2="12" />
     <line x1="12" y1="8" x2="12.01" y2="8" />
+  </svg>
+);
+
+const FeedbackIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <line x1="22" y1="2" x2="11" y2="13" />
+    <polygon points="22 2 15 22 11 13 2 9 22 2" />
   </svg>
 );
 

@@ -252,6 +252,37 @@ export async function listSolos(opts: {
   return json.data;
 }
 
+/** A performer/composer facet: name + how many solos belong to it. */
+export interface SoloFacet {
+  name: string;
+  count: number;
+}
+
+/** Distinct performers with solo counts. Optionally narrowed to one composer.
+ *  Backed by GET /v1/solos/performers — accurate across the whole catalog
+ *  (unlike deriving from a single listSolos page). */
+export async function listSoloPerformers(composer?: string): Promise<SoloFacet[]> {
+  const params = new URLSearchParams();
+  if (composer) params.set('composer', composer);
+  const qs = params.toString();
+  const res = await fetch(`${API_BASE}/v1/solos/performers${qs ? `?${qs}` : ''}`);
+  if (!res.ok) throw new Error(`solo performers ${res.status}`);
+  const json: { data: SoloFacet[] } = await res.json();
+  return json.data ?? [];
+}
+
+/** Distinct composers with solo counts. Optionally narrowed to one performer.
+ *  Backed by GET /v1/solos/composers. */
+export async function listSoloComposers(performer?: string): Promise<SoloFacet[]> {
+  const params = new URLSearchParams();
+  if (performer) params.set('performer', performer);
+  const qs = params.toString();
+  const res = await fetch(`${API_BASE}/v1/solos/composers${qs ? `?${qs}` : ''}`);
+  if (!res.ok) throw new Error(`solo composers ${res.status}`);
+  const json: { data: SoloFacet[] } = await res.json();
+  return json.data ?? [];
+}
+
 export async function fetchAllSolos(): Promise<SoloResponse[]> {
   const PAGE_SIZE = 200;
   const all: SoloResponse[] = [];

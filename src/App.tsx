@@ -12,6 +12,7 @@ import StyPocPage from './pages/StyPocPage';
 import StyDemoPage from './pages/StyDemoPage';
 import EditorPage from './pages/EditorPage';
 import YoutubeOnsetPage from './pages/YoutubeOnsetPage';
+import IntroPage from './pages/IntroPage';
 import { IntroScreen } from './components/common/IntroScreen';
 import LoginPage from './pages/LoginPage';
 
@@ -32,7 +33,10 @@ function markSplashShown(): void {
 }
 
 export default function App() {
-  const [showIntro, setShowIntro] = useState(() => !readSplashShown());
+  /* The standalone /intro marketing page is its own self-contained landing —
+     skip the saxophone splash there so it loads clean for first-time visitors. */
+  const isIntroRoute = window.location.hash.startsWith('#/intro');
+  const [showIntro, setShowIntro] = useState(() => !readSplashShown() && !isIntroRoute);
 
   const handleIntroDone = () => {
     markSplashShown();
@@ -57,6 +61,9 @@ export default function App() {
           <Route path="/sty-demo" element={<StyDemoPage />} />
           <Route path="/editor" element={<EditorPage />} />
           <Route path="/login" element={<LoginPage />} />
+          {/* Standalone public marketing page — not linked from any in-app
+              navigation. Reachable only via the direct URL (#/intro). */}
+          <Route path="/intro" element={<IntroPage />} />
           {/* Legacy routes — SoloGeneratorPage & LickInputPage merged into
               the unified EditorPage (mode=solo|lick). Keep redirects so old
               bookmarks / external links still land in the right place. */}

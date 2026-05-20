@@ -286,6 +286,10 @@ export interface BackingConfig {
    *  (continuous chorus loop). When false, `onDone` fires and the player
    *  stops. Default true — backing tracks are practice loops. */
   loop?: boolean;
+  /** Number of times the chart plays before stopping. When set (>=1) it takes
+   *  precedence over `loop`: the song plays exactly this many times then fires
+   *  `onDone`. Undefined → fall back to `loop` (infinite). */
+  repeatCount?: number;
 }
 
 /* ─── Player lifecycle callbacks ─────────────────────────────────────── */

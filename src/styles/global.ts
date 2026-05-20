@@ -56,6 +56,21 @@ export const GlobalStyle = createGlobalStyle`
       overflow: visible;
       background: #ffffff;
     }
+    /* Scale the score SVG down to the printable page width while keeping its
+     *  aspect ratio (the SVG carries a viewBox). Without this the native-px
+     *  score overflows A4 and prints oversized / clipped. transform:none
+     *  drops any on-screen fit-scale so the print math is clean. */
+    .pdf-print-target svg {
+      transform: none !important;
+      width: 100% !important;
+      height: auto !important;
+      max-width: 100% !important;
+    }
+    .pdf-print-target > div {
+      width: 100% !important;
+      height: auto !important;
+      overflow: visible !important;
+    }
     @page { margin: 12mm; }
   }
 `;

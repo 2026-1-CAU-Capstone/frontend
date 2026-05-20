@@ -82,6 +82,7 @@ export function createBackingPlayer(
   let rafHandle = 0;
   let playing = false;
   let lastBarFired = -2;
+  let loopCount = 0;  // completed song passes this play() session (for repeatCount)
   let secPerBar = 0;
   let totalBars = 0;
 
@@ -195,8 +196,13 @@ export function createBackingPlayer(
     if (nextIdx >= events.length) {
       const last = events[events.length - 1];
       if (last && now > last.time + 0.5) {
-        const loop = config.loop ?? true;
-        if (loop && totalBars > 0 && secPerBar > 0) {
+        // repeatCount (>=1) wins over `loop`: play exactly N times. Otherwise
+        // fall back to the boolean loop (infinite).
+        const reps = config.repeatCount;
+        const wantMore = reps != null && reps >= 1
+          ? loopCount + 1 < reps
+          : (config.loop ?? true);
+        if (wantMore && totalBars > 0 && secPerBar > 0) {
           // Advance origin by one song length so song-time goes back to 0,
           // and rewind nextIdx to the first event. Events keep firing
           // continuously on the AudioContext clock with no gap.
@@ -204,6 +210,7 @@ export function createBackingPlayer(
           origin += songLength;
           nextIdx = 0;
           lastBarFired = -2;
+          loopCount += 1;
           // drumLoop already loops internally (it's an audio-buffer loop),
           // so no need to restart it here.
         } else {
@@ -275,6 +282,7 @@ export function createBackingPlayer(
     build();
     playing = true;
     lastBarFired = -2;
+    loopCount = 0;
     // Lead the origin slightly so the first event (time=0) is strictly in
     // the future. Two cases:
     //   - startAt is comfortably in the future → trust the count-in's audio
