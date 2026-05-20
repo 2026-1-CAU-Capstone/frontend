@@ -52,7 +52,7 @@ export function BrandLogoImage({
   }
   return (
     <Img
-      src="/jazzifyblack-trimmed.png"
+      src="/Jazzify-trimmed.png"
       alt={alt}
       style={style}
       onClick={onClick}
