@@ -180,7 +180,6 @@ export async function exportScoreSvgToPdf(
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
     const usableW = PAGE_W - MARGIN * 2;
-    const usableH = PAGE_H - MARGIN * 2;
     const mmPerPx = usableW / canvas.width;            // canvas px → mm
 
     // Pull the whole bitmap once for fast blank-row scanning.
