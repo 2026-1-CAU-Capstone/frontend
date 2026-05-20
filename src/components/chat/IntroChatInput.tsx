@@ -3,6 +3,24 @@ import styled from 'styled-components';
 import { isNativeApp } from '../../lib/platform';
 import { IntroPlusSheet } from './IntroPlusSheet';
 import { getCachedUser, onAuthChange } from '../../api/auth';
+import type { ChordOverlay } from '../../data/types';
+import { formatChordsInText } from './chordFormat';
+import {
+  SelectedContext,
+  SelectedContextClose,
+  SelectedContextLabel,
+  SelectedChordRow,
+  SelectedChordStep,
+  SelectedChordChip,
+  SelectedChordArrow,
+  SelectedMoreChip,
+  QuickActionRow,
+  QuickActionButton,
+} from './ChatInput.styles';
+
+/** Files we accept as attachments: images + PDF (악보/사진). */
+const ATTACH_ACCEPT = 'image/*,application/pdf,.pdf';
+const MAX_VISIBLE_CHIPS = 6;
 
 /* Intro-mode chat input — pixel-matched to the Claude apps:
  *   - Desktop (web): tall white box, soft border, large textarea, floating
@@ -21,6 +39,13 @@ interface Props {
    *  active conversation (mid-chat). Shrinks the padding, border-radius and
    *  textarea height so the input doesn't dominate the chat area. */
   compact?: boolean;
+  /* ── chord-selection (chord/note pages only) ───────────────────────── */
+  selectedChords?: ChordOverlay[];
+  onClearSelectedChords?: () => void;
+  isSelectionMode?: boolean;
+  onToggleSelectionMode?: () => void;
+  onRequestLicks?: () => void;
+  hideSelectionQuickAction?: boolean;
 }
 
 interface MenuEntry {
@@ -33,7 +58,7 @@ interface MenuEntry {
 
 /* Always-available actions — work whether or not the user is signed in. */
 const ALWAYS_ITEMS: MenuEntry[] = [
-  { id: 'photo', renderIcon: () => <PaperclipIcon />, label: '사진 추가' },
+  { id: 'photo', renderIcon: () => <PaperclipIcon />, label: '악보 또는 사진 추가' },
   { id: 'web',   renderIcon: () => <GlobeIcon />,     label: '웹 검색' },
 ];
 
@@ -45,7 +70,15 @@ const LOGIN_GATED_ITEMS: MenuEntry[] = [
   { id: 'gpt5',  renderIcon: () => <AtomIcon />,      label: 'GPT-5' },
 ];
 
-export function IntroChatInput({ onSend, disabled, placeholder, autoFocus, compact }: Props) {
+export function IntroChatInput({
+  onSend, disabled, placeholder, autoFocus, compact,
+  selectedChords = [],
+  onClearSelectedChords,
+  isSelectionMode,
+  onToggleSelectionMode,
+  onRequestLicks,
+  hideSelectionQuickAction,
+}: Props) {
   const [value, setValue] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -55,7 +88,20 @@ export function IntroChatInput({ onSend, disabled, placeholder, autoFocus, compa
   const ref = useRef<HTMLTextAreaElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const plusBtnRef = useRef<HTMLButtonElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const native = isNativeApp();
+
+  const showSelectionQuickAction = !hideSelectionQuickAction && !!onToggleSelectionMode;
+  const showLickQuickAction = selectedChords.length > 0 && !!onRequestLicks;
+  const visibleChords = selectedChords.slice(0, MAX_VISIBLE_CHIPS);
+  const hiddenChordCount = selectedChords.length - visibleChords.length;
+
+  const openFilePicker = () => fileInputRef.current?.click();
+  const onFilesPicked = (files: FileList | null) => {
+    const picked = Array.from(files ?? []);
+    if (picked.length === 0) return;
+    setAttachments((prev) => [...prev, ...picked]);
+  };
 
   /* Drag & drop — accept any files dropped onto the input box. Stored in
    * local state as attachments and shown as thumbnail chips above the
@@ -121,6 +167,53 @@ export function IntroChatInput({ onSend, disabled, placeholder, autoFocus, compa
 
   return (
     <>
+    {/* Chord-selection context + quick actions — sit right above the input
+     *  box (chord/note pages). */}
+    {(showSelectionQuickAction || showLickQuickAction) && (
+      <QuickActionRow style={{ padding: '0 4px 8px' }}>
+        {showSelectionQuickAction && (
+          <QuickActionButton
+            onClick={onToggleSelectionMode}
+            disabled={disabled}
+            style={{
+              background: isSelectionMode ? 'linear-gradient(135deg, #2D8F5E, #1F6A44)' : undefined,
+              color: isSelectionMode ? '#fff' : undefined,
+              borderColor: isSelectionMode ? 'transparent' : undefined,
+            }}
+          >
+            {isSelectionMode ? '✨ 구간 선택 활성화됨 (클릭하여 취소)' : '🎯 코드 구간 직접 선택하기'}
+          </QuickActionButton>
+        )}
+        {showLickQuickAction && (
+          <QuickActionButton
+            onClick={onRequestLicks}
+            disabled={disabled}
+            style={{ background: 'linear-gradient(135deg, #B8860B, #996600)', color: '#fff', borderColor: 'transparent', fontWeight: 700 }}
+          >
+            💡 릭 추천받기
+          </QuickActionButton>
+        )}
+      </QuickActionRow>
+    )}
+    {selectedChords.length > 0 && (
+      <div style={{ padding: '0 4px 8px' }}>
+        <SelectedContext>
+          {onClearSelectedChords && (
+            <SelectedContextClose type="button" aria-label="선택한 코드 구간 지우기" onClick={onClearSelectedChords}>X</SelectedContextClose>
+          )}
+          <SelectedContextLabel>선택한 코드 구간 · {selectedChords.length}개</SelectedContextLabel>
+          <SelectedChordRow>
+            {visibleChords.map((chord, i) => (
+              <SelectedChordStep key={chord.id}>
+                {i > 0 && <SelectedChordArrow />}
+                <SelectedChordChip>{formatChordsInText(chord.symbol)}</SelectedChordChip>
+              </SelectedChordStep>
+            ))}
+            {hiddenChordCount > 0 && <SelectedMoreChip>+{hiddenChordCount}</SelectedMoreChip>}
+          </SelectedChordRow>
+        </SelectedContext>
+      </div>
+    )}
     <Box
       $compact={compact}
       onDragOver={onDragOver}
@@ -128,6 +221,14 @@ export function IntroChatInput({ onSend, disabled, placeholder, autoFocus, compa
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={ATTACH_ACCEPT}
+        multiple
+        style={{ display: 'none' }}
+        onChange={(e) => { onFilesPicked(e.target.files); e.target.value = ''; }}
+      />
       {isDragOver && (
         <DragOverlay>
           <DragOverlayIcon>📥</DragOverlayIcon>
@@ -177,7 +278,10 @@ export function IntroChatInput({ onSend, disabled, placeholder, autoFocus, compa
                   <Fragment key={item.id}>
                     <MenuItem
                       role="menuitem"
-                      onClick={() => setMenuOpen(false)}
+                      onClick={() => {
+                        setMenuOpen(false);
+                        if (item.id === 'photo') openFilePicker();
+                      }}
                     >
                       <MenuIcon>{item.renderIcon()}</MenuIcon>
                       <MenuLabel>{item.label}</MenuLabel>

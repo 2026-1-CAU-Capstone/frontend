@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react';
 import type { ChatMessage as ChatMessageType, ChordOverlay } from '../../data/types';
 import { ChatMessage } from '../chat/ChatMessage';
-import { ChatInput } from '../chat/ChatInput';
 import { IntroChatInput } from '../chat/IntroChatInput';
 import { type ClaudeMessage } from '../../api/claude';
 import { streamWithRAG, type RagDebugInfo } from '../../api/harmorag';
@@ -432,18 +431,21 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
       )}
 
       {inputAtTop && (
-        <ChatInput
-          onSend={handleSend}
-          disabled={loading}
-          isSelectionMode={isSelectionMode}
-          onToggleSelectionMode={onToggleSelectionMode}
-          selectedChords={selectedChords}
-          onClearSelectedChords={onClearSelectedChords}
-          onRequestLicks={handleRequestLicks}
-          hideSelectionQuickAction={hideSelectionQuickAction}
-          placeholder={inputPlaceholder}
-          autoFocus={autoFocusInput}
-        />
+        <IntroInputSlot style={{ marginTop: 8, marginBottom: 8 }}>
+          <IntroChatInput
+            onSend={handleSend}
+            disabled={loading}
+            compact
+            isSelectionMode={isSelectionMode}
+            onToggleSelectionMode={onToggleSelectionMode}
+            selectedChords={selectedChords}
+            onClearSelectedChords={onClearSelectedChords}
+            onRequestLicks={handleRequestLicks}
+            hideSelectionQuickAction={hideSelectionQuickAction}
+            placeholder={inputPlaceholder}
+            autoFocus={autoFocusInput}
+          />
+        </IntroInputSlot>
       )}
 
       <MessagesArea
@@ -572,23 +574,28 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
         </IntroInputSlot>
       )}
 
-      {/* Web non-intro case: regular ChatInput at the bottom (chord / note pages).
-       *  When centerInputWhenEmpty is set, skip this in the empty state — the
-       *  ChatInput is rendered inside MessagesArea (centered) instead. */}
+      {/* Web non-intro case: bottom-pinned input (chord / note pages).
+       *  Uses the same IntroChatInput as the main page (compact) so the
+       *  design is identical everywhere. Chord-selection chips render above
+       *  the box. When centerInputWhenEmpty is set, skip this in the empty
+       *  state — the input is rendered inside MessagesArea (centered). */}
       {!nativeIntroLayout && !inputAtTop && !inputInIntro
         && !(messages.length === 0 && centerInputWhenEmpty) && (
-        <ChatInput
-          onSend={handleSend}
-          disabled={loading}
-          isSelectionMode={isSelectionMode}
-          onToggleSelectionMode={onToggleSelectionMode}
-          selectedChords={selectedChords}
-          onClearSelectedChords={onClearSelectedChords}
-          onRequestLicks={handleRequestLicks}
-          hideSelectionQuickAction={hideSelectionQuickAction}
-          placeholder={inputPlaceholder}
-          autoFocus={autoFocusInput}
-        />
+        <IntroInputSlot style={{ marginTop: 0, marginBottom: 16 }}>
+          <IntroChatInput
+            onSend={handleSend}
+            disabled={loading}
+            compact
+            isSelectionMode={isSelectionMode}
+            onToggleSelectionMode={onToggleSelectionMode}
+            selectedChords={selectedChords}
+            onClearSelectedChords={onClearSelectedChords}
+            onRequestLicks={handleRequestLicks}
+            hideSelectionQuickAction={hideSelectionQuickAction}
+            placeholder={inputPlaceholder}
+            autoFocus={autoFocusInput}
+          />
+        </IntroInputSlot>
       )}
 
       {showScrollBtn && (
