@@ -356,6 +356,15 @@ const Wrapper = styled.div`
     display: flex;
     flex-direction: column;
   }
+
+  /* Print: drop the scroll container so the full score flows across pages
+   * instead of being clipped to the on-screen viewport height. Screen-only
+   * affordances (fullscreen button) are hidden too. */
+  @media print {
+    overflow: visible;
+    height: auto;
+    .fullscreen-btn { display: none !important; }
+  }
 `;
 
 const Header = styled.div`
@@ -474,7 +483,10 @@ const KeyOption = styled.button<{ $active?: boolean }>`
 /* ── floating player (bottom-left) ─────────────────────────────────────── */
 
 const PlayerBar = styled.div`
-  position: fixed;
+  /* absolute (not fixed) so it anchors to the score Wrapper's bottom-left
+   * — i.e. the sheet section — instead of the viewport, keeping it clear
+   * of the sidebar. */
+  position: absolute;
   bottom: 24px;
   left: 24px;
   display: flex;
@@ -485,6 +497,12 @@ const PlayerBar = styled.div`
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.4);
   z-index: 1000;
+
+  /* Hidden when printing to PDF — the floating player is a screen-only
+   * control and was forcing a blank first page in the exported PDF. */
+  @media print {
+    display: none !important;
+  }
 `;
 
 const PlayerRow = styled.div`
@@ -572,6 +590,10 @@ const MixerPopup = styled.div`
 
   @media (max-width: 720px) {
     width: min(340px, calc(100vw - 32px));
+  }
+
+  @media print {
+    display: none !important;
   }
 `;
 
@@ -1187,6 +1209,12 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
       el.style.width = '';
       el.style.height = '';
       el.style.overflow = '';
+    }
+    // Give the SVG a viewBox matching its native px size. On screen this is a
+    // no-op (the width/height attrs still drive layout), but it lets the print
+    // stylesheet scale the score to the page width while keeping aspect ratio.
+    if (svgEl && !svgEl.getAttribute('viewBox')) {
+      svgEl.setAttribute('viewBox', `0 0 ${renderW} ${totalH}`);
     }
     const ctx = renderer.getContext();
 

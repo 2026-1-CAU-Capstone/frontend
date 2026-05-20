@@ -311,12 +311,13 @@ export function BackingPlayerBar({
 
 /* ─── styled bits ────────────────────────────────────────────────────── */
 
-/* Anchored just past the 56px IconSidebar rail so the bottom-of-rail
- * profile avatar stays clickable. Mobile rail is 58px so 80px clears both. */
+/* Anchored to the bottom-left of the score section (its positioned
+ * ancestor), not the viewport — so it sits inside the sheet area and
+ * shifts with the sidebar instead of overlapping it. */
 const Bar = styled.div`
-  position: fixed;
+  position: absolute;
   bottom: 24px;
-  left: 80px;
+  left: 24px;
   display: flex;
   flex-direction: column;
   gap: 8px;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../styles/theme';
 import { IconSidebar } from '../components/layout/IconSidebar';
@@ -104,6 +104,9 @@ const RightSection = styled.div`
   flex-direction: column;
   flex: 1;
   min-width: 0;
+  /* Positioning context for the absolutely-placed BackingPlayerBar so it
+   * anchors to the score section's bottom-left, not the viewport. */
+  position: relative;
 `;
 
 const MainArea = styled.div`
@@ -405,7 +408,6 @@ const ResizeDivider = styled.div`
 `;
 
 export default function ChordPage() {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { filters, effective, toggleFilter } = useAnalysisFilters();
   const leadSheetAnalysisFilters = useMemo(() => ({
@@ -905,6 +907,23 @@ export default function ChordPage() {
           />
         </RightPanelWrapper>
         </MainArea>
+
+        <BackingPlayerBar
+          playing={isPlaying}
+          tempo={tempo}
+          onTempoChange={setTempo}
+          onPlayPause={handlePlayPause}
+          disabled={!sheet || loading}
+          engine={{
+            backend: engineBackend,
+            onBackendChange: (b) => {
+              setEngineBackend(b);
+              window.localStorage.setItem('jazzify.engine', b);
+            },
+            styleChoice,
+            onStyleChange: setStyleChoice,
+          }}
+        />
       </RightSection>
 
       <MobileChatFab
@@ -954,23 +973,6 @@ export default function ChordPage() {
           </div>
         </div>
       )}
-
-      <BackingPlayerBar
-        playing={isPlaying}
-        tempo={tempo}
-        onTempoChange={setTempo}
-        onPlayPause={handlePlayPause}
-        disabled={!sheet || loading}
-        engine={{
-          backend: engineBackend,
-          onBackendChange: (b) => {
-            setEngineBackend(b);
-            window.localStorage.setItem('jazzify.engine', b);
-          },
-          styleChoice,
-          onStyleChange: setStyleChoice,
-        }}
-      />
 
       {savedLicksModal && (
         <SavedLicksModal
