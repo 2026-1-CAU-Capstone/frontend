@@ -517,8 +517,15 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
             <IntroChatInput
               onSend={handleSend}
               disabled={loading}
+              compact
               placeholder={inputPlaceholder}
               autoFocus={autoFocusInput}
+              isSelectionMode={isSelectionMode}
+              onToggleSelectionMode={onToggleSelectionMode}
+              selectedChords={selectedChords}
+              onClearSelectedChords={onClearSelectedChords}
+              onRequestLicks={handleRequestLicks}
+              hideSelectionQuickAction={hideSelectionQuickAction}
             />
           </IntroInputSlot>
         )}
