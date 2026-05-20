@@ -716,7 +716,7 @@ export default function HomePage() {
     <Wrapper $native={native}>
       {!native && (
         <MobileBrandBar>
-          <BrandLogoImage height={62} onClick={() => navigate('/')} />
+          <BrandLogoImage height={52} onClick={() => navigate('/')} />
         </MobileBrandBar>
       )}
 
@@ -742,7 +742,7 @@ export default function HomePage() {
             onTouchEnd={handleDrawerTouchEnd}
           >
             <DrawerHeader>
-              <BrandLogoImage height={62} onClick={() => navigate('/')} />
+              <BrandLogoImage height={52} onClick={() => navigate('/')} />
               <DrawerHeaderRight>
                 {isLoggedIn && (
                   <DrawerAvatarBtn onClick={() => setAccountOpen(true)} aria-label="계정">

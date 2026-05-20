@@ -578,7 +578,7 @@ export function IconSidebar({
         {expanded ? (
           <>
             <BrandRow>
-              <BrandLogoImage height={44} scaleX={1.05} onClick={() => navigate('/')} />
+              <BrandLogoImage height={38} scaleX={1.05} onClick={() => navigate('/')} />
             </BrandRow>
             <ToggleBtn $expanded onClick={toggleExpanded} aria-label="사이드바 접기">
               <PanelToggleIcon />
