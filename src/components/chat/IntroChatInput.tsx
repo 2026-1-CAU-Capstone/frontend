@@ -167,53 +167,6 @@ export function IntroChatInput({
 
   return (
     <>
-    {/* Chord-selection context + quick actions — sit right above the input
-     *  box (chord/note pages). */}
-    {(showSelectionQuickAction || showLickQuickAction) && (
-      <QuickActionRow style={{ padding: '0 4px 8px' }}>
-        {showSelectionQuickAction && (
-          <QuickActionButton
-            onClick={onToggleSelectionMode}
-            disabled={disabled}
-            style={{
-              background: isSelectionMode ? 'linear-gradient(135deg, #2D8F5E, #1F6A44)' : undefined,
-              color: isSelectionMode ? '#fff' : undefined,
-              borderColor: isSelectionMode ? 'transparent' : undefined,
-            }}
-          >
-            {isSelectionMode ? '✨ 구간 선택 활성화됨 (클릭하여 취소)' : '🎯 코드 구간 직접 선택하기'}
-          </QuickActionButton>
-        )}
-        {showLickQuickAction && (
-          <QuickActionButton
-            onClick={onRequestLicks}
-            disabled={disabled}
-            style={{ background: 'linear-gradient(135deg, #B8860B, #996600)', color: '#fff', borderColor: 'transparent', fontWeight: 700 }}
-          >
-            💡 릭 추천받기
-          </QuickActionButton>
-        )}
-      </QuickActionRow>
-    )}
-    {selectedChords.length > 0 && (
-      <div style={{ padding: '0 4px 8px' }}>
-        <SelectedContext>
-          {onClearSelectedChords && (
-            <SelectedContextClose type="button" aria-label="선택한 코드 구간 지우기" onClick={onClearSelectedChords}>X</SelectedContextClose>
-          )}
-          <SelectedContextLabel>선택한 코드 구간 · {selectedChords.length}개</SelectedContextLabel>
-          <SelectedChordRow>
-            {visibleChords.map((chord, i) => (
-              <SelectedChordStep key={chord.id}>
-                {i > 0 && <SelectedChordArrow />}
-                <SelectedChordChip>{formatChordsInText(chord.symbol)}</SelectedChordChip>
-              </SelectedChordStep>
-            ))}
-            {hiddenChordCount > 0 && <SelectedMoreChip>+{hiddenChordCount}</SelectedMoreChip>}
-          </SelectedChordRow>
-        </SelectedContext>
-      </div>
-    )}
     <Box
       $compact={compact}
       onDragOver={onDragOver}
@@ -229,6 +182,53 @@ export function IntroChatInput({
         style={{ display: 'none' }}
         onChange={(e) => { onFilesPicked(e.target.files); e.target.value = ''; }}
       />
+      {/* Chord-selection quick actions + selected-chord chips — now INSIDE
+       *  the input box, stacked above the textarea. */}
+      {(showSelectionQuickAction || showLickQuickAction) && (
+        <QuickActionRow style={{ padding: '0 0 8px' }}>
+          {showSelectionQuickAction && (
+            <QuickActionButton
+              onClick={onToggleSelectionMode}
+              disabled={disabled}
+              style={{
+                background: isSelectionMode ? 'linear-gradient(135deg, #2D8F5E, #1F6A44)' : undefined,
+                color: isSelectionMode ? '#fff' : undefined,
+                borderColor: isSelectionMode ? 'transparent' : undefined,
+              }}
+            >
+              {isSelectionMode ? '✨ 구간 선택 활성화됨 (클릭하여 취소)' : '🎯 코드 구간 직접 선택하기'}
+            </QuickActionButton>
+          )}
+          {showLickQuickAction && (
+            <QuickActionButton
+              onClick={onRequestLicks}
+              disabled={disabled}
+              style={{ background: 'linear-gradient(135deg, #B8860B, #996600)', color: '#fff', borderColor: 'transparent', fontWeight: 700 }}
+            >
+              💡 릭 추천받기
+            </QuickActionButton>
+          )}
+        </QuickActionRow>
+      )}
+      {selectedChords.length > 0 && (
+        <div style={{ padding: '0 0 8px' }}>
+          <SelectedContext>
+            {onClearSelectedChords && (
+              <SelectedContextClose type="button" aria-label="선택한 코드 구간 지우기" onClick={onClearSelectedChords}>X</SelectedContextClose>
+            )}
+            <SelectedContextLabel>선택한 코드 구간 · {selectedChords.length}개</SelectedContextLabel>
+            <SelectedChordRow>
+              {visibleChords.map((chord, i) => (
+                <SelectedChordStep key={chord.id}>
+                  {i > 0 && <SelectedChordArrow />}
+                  <SelectedChordChip>{formatChordsInText(chord.symbol)}</SelectedChordChip>
+                </SelectedChordStep>
+              ))}
+              {hiddenChordCount > 0 && <SelectedMoreChip>+{hiddenChordCount}</SelectedMoreChip>}
+            </SelectedChordRow>
+          </SelectedContext>
+        </div>
+      )}
       {isDragOver && (
         <DragOverlay>
           <DragOverlayIcon>📥</DragOverlayIcon>
