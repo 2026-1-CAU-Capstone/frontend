@@ -506,21 +506,15 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
           </IntroInputSlot>
         )}
 
-        {/* Chord / Note empty-state: full-featured ChatInput rendered right
-         *  below the empty-state hero so the input is part of the centered
-         *  group. After the first message lands, it slides back to the
-         *  pinned-bottom slot below. */}
+        {/* Chord / Note empty-state: use the SAME big IntroChatInput as the
+         *  main (HomePage) intro so the input design is identical. Width is
+         *  fluid — `width: 100%` lets it fill the chord panel column rather
+         *  than the fixed 950px the HomePage hero uses. */}
         {messages.length === 0 && centerInputWhenEmpty && !inputInIntro && !inputAtTop && !nativeIntroLayout && (
-          <IntroInputSlot style={{ marginTop: 4, padding: '0 4px' }}>
-            <ChatInput
+          <IntroInputSlot style={{ marginTop: 4, padding: '0 4px', maxWidth: '100%', width: '100%' }}>
+            <IntroChatInput
               onSend={handleSend}
               disabled={loading}
-              isSelectionMode={isSelectionMode}
-              onToggleSelectionMode={onToggleSelectionMode}
-              selectedChords={selectedChords}
-              onClearSelectedChords={onClearSelectedChords}
-              onRequestLicks={handleRequestLicks}
-              hideSelectionQuickAction={hideSelectionQuickAction}
               placeholder={inputPlaceholder}
               autoFocus={autoFocusInput}
             />
