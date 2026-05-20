@@ -60,7 +60,7 @@ const BrandRow = styled.div`
   display: flex;
   align-items: center;
   min-width: 0;
-  padding-top: 15px;
+  padding-top: 13px;
   margin-left: 8px;
 `;
 
