@@ -3,9 +3,33 @@ import { ProgressionArrow } from './ProgressionArrow';
 
 export const MessageRow = styled.div<{ $role: 'user' | 'assistant' }>`
   display: flex;
-  justify-content: ${({ $role }) => ($role === 'user' ? 'flex-end' : 'flex-start')};
   padding: ${({ $role }) => ($role === 'assistant' ? '10px 0' : '4px 0')};
-  ${({ $role }) => $role === 'assistant' && 'width: 100%;'}
+  ${({ $role }) => ($role === 'assistant'
+    ? 'width: 100%; justify-content: flex-start;'
+    /* User column: image thumbnails stack ABOVE the text bubble, both
+     * right-aligned (Claude style). */
+    : 'flex-direction: column; align-items: flex-end;')}
+`;
+
+/* Attached-image thumbnails shown above the user bubble. */
+export const UserImageRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 8px;
+  max-width: 78%;
+`;
+
+export const UserImageThumb = styled.img`
+  width: 132px;
+  max-height: 200px;
+  object-fit: contain;
+  object-position: top right;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: #fff;
+  display: block;
 `;
 
 export const Bubble = styled.div<{ $role: 'user' | 'assistant' }>`

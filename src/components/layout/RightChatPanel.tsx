@@ -262,6 +262,7 @@ export function RightChatPanel({
       content: text,
       timestamp: Date.now(),
       selectedChords: snapshotSelectedChords(selectedChords),
+      images: images.length > 0 ? images : undefined,
     };
     const aiMsgId = `ai-${Date.now()}`;
 

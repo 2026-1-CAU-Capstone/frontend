@@ -11,11 +11,15 @@ import {
   listSolos,
   listSoloPerformers,
   updateSolo,
+  createSolo,
+  createSoloViaOMR,
   toWeimarKey,
   type SoloDraft,
   type SoloFacet,
   type SoloResponse,
 } from '../api/solos';
+import { buildMergedSoloDraft } from '../lib/mergeSolos';
+import { OMRUploadModal } from '../components/common/OMRUploadModal';
 import {
   transposeLick,
   normalizeKeyInput,
@@ -130,6 +134,50 @@ const RefreshBtn = styled.button`
   &:disabled { opacity: 0.5; cursor: not-allowed; }
 `;
 
+const OMRBtn = styled.button`
+  margin-left: auto;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border: none;
+  border-radius: 6px;
+  background: #1a1a1a;
+  color: #fff;
+  cursor: pointer;
+  &:hover { opacity: 0.9; }
+`;
+
+const MergeDoBtn = styled.button`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 3px 12px;
+  border: none;
+  border-radius: 4px;
+  background: #1f9a52;
+  color: #fff;
+  cursor: pointer;
+  &:hover:not(:disabled) { background: #18803f; }
+  &:disabled { opacity: 0.45; cursor: not-allowed; }
+`;
+
+/* Ordered pick indicator shown on each row while merging. */
+const MergeCheck = styled.span<{ $picked?: boolean }>`
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: 2px solid ${({ $picked, theme }) => ($picked ? '#1f9a52' : theme.colors.border)};
+  background: ${({ $picked }) => ($picked ? '#1f9a52' : 'transparent')};
+  color: ${({ $picked }) => ($picked ? '#fff' : 'transparent')};
+`;
+
 const SplitArea = styled.div<{ $single?: boolean }>`
   display: grid;
   grid-template-columns: ${({ $single }) => ($single ? '1fr' : '380px minmax(0, 1fr)')};
@@ -159,9 +207,9 @@ const ListBody = styled.div`
   overflow-y: auto;
 `;
 
-const Row = styled.div<{ $active?: boolean }>`
+const Row = styled.div<{ $active?: boolean; $merge?: boolean }>`
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: ${({ $merge }) => ($merge ? 'auto minmax(0, 1fr)' : 'minmax(0, 1fr) auto')};
   gap: 8px;
   align-items: center;
   padding: 9px 12px;
@@ -380,6 +428,12 @@ export default function SolosPage() {
   const [previewKey, setPreviewKey] = useState('C');
   const [busy, setBusy] = useState<string | null>(null);
   const [pdfBusy, setPdfBusy] = useState<string | null>(null);
+  const [omrOpen, setOmrOpen] = useState(false);
+  /* Merge mode: pick solos in click order (numbered 1,2,3…) → concatenate
+   * their measures into one new solo. */
+  const [mergeMode, setMergeMode] = useState(false);
+  const [mergeIds, setMergeIds] = useState<string[]>([]);
+  const [mergeBusy, setMergeBusy] = useState(false);
   const previewBodyRef = useRef<HTMLDivElement>(null);
 
   /* token so concurrent fetches (e.g. fast performer-switching) can be
@@ -504,6 +558,54 @@ export default function SolosPage() {
     };
     return previewKey === sheet.key ? sheet : transposeNoteSheet(sheet, previewKey);
   }, [selected, previewKey, originalDisplayKey]);
+
+  /* OMR upload → backend persists the Solo and returns it. Jump into the
+   * Editor (solo mode) pre-loaded with the result so the user can review/edit
+   * immediately, mirroring the lick OMR flow. (Same prefill shape as the row
+   * "Edit" button — composer overridden with performer so re-save updates the
+   * same solo rather than creating an "Unknown" copy.) */
+  const handleSoloOMRCreated = useCallback((solo: SoloResponse) => {
+    setOmrOpen(false);
+    const prefill = {
+      ...solo.sheetData,
+      composer: solo.performer ?? solo.sheetData.composer ?? '',
+      tempo: solo.tempo ?? solo.sheetData.tempo,
+      key: solo.sheetData.key,
+    };
+    navigate('/editor?mode=solo', { state: { prefillSheet: prefill } });
+  }, [navigate]);
+
+  const toggleMergePick = useCallback((id: string) => {
+    setMergeIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }, []);
+
+  const exitMergeMode = useCallback(() => {
+    setMergeMode(false);
+    setMergeIds([]);
+  }, []);
+
+  /* Concatenate the picked solos (in click order) into one new solo. Originals
+   * are kept; the new merged solo is created via POST and surfaced at the top. */
+  const handleMerge = useCallback(async () => {
+    if (mergeIds.length < 2) return;
+    const ordered = mergeIds
+      .map((id) => solos.find((s) => s.publicId === id))
+      .filter((s): s is SoloResponse => !!s);
+    if (ordered.length < 2) return;
+    setMergeBusy(true);
+    setError(null);
+    try {
+      const created = await createSolo(buildMergedSoloDraft(ordered));
+      exitMergeMode();
+      await loadPage(selectedPerformer, 0);
+      setSelectedId(created.publicId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '솔로 합치기 실패');
+      setTimeout(() => setError(null), 4000);
+    } finally {
+      setMergeBusy(false);
+    }
+  }, [mergeIds, solos, selectedPerformer, exitMergeMode, loadPage]);
 
   const handleDelete = useCallback(async (solo: SoloResponse) => {
     if (!window.confirm(`"${solo.performer ?? '—'} — ${solo.title}" 솔로를 삭제할까요?`)) return;
@@ -640,6 +742,9 @@ export default function SolosPage() {
                       ? '연주자 불러오는 중…'
                       : `${visiblePerformers.length.toLocaleString()} / ${performers.length.toLocaleString()} 연주자`}
                   </CountText>
+                  <OMRBtn onClick={() => setOmrOpen(true)} title="악보 이미지를 업로드해 OMR로 솔로 생성">
+                    📄 OMR로 생성하기
+                  </OMRBtn>
                 </>
               ) : (
                 <>
@@ -669,8 +774,24 @@ export default function SolosPage() {
                     {loading ? '불러오는 중…' : '새로고침'}
                   </RefreshBtn>
 
+                  {mergeMode ? (
+                    <>
+                      <MergeDoBtn
+                        onClick={handleMerge}
+                        disabled={mergeIds.length < 2 || mergeBusy}
+                      >
+                        {mergeBusy ? '합치는 중…' : `합치기 (${mergeIds.length})`}
+                      </MergeDoBtn>
+                      <RefreshBtn onClick={exitMergeMode} disabled={mergeBusy}>취소</RefreshBtn>
+                    </>
+                  ) : (
+                    <RefreshBtn onClick={() => setMergeMode(true)}>＋ 솔로 합치기</RefreshBtn>
+                  )}
+
                   <CountText>
-                    {`${visibleList.length.toLocaleString()} / ${totalElements.toLocaleString()} solos${isLast ? '' : ' (스크롤로 더 불러오기)'}`}
+                    {mergeMode
+                      ? '합칠 솔로를 순서대로 클릭하세요 (번호 순으로 이어붙임)'
+                      : `${visibleList.length.toLocaleString()} / ${totalElements.toLocaleString()} solos${isLast ? '' : ' (스크롤로 더 불러오기)'}`}
                   </CountText>
                 </>
               )}
@@ -700,18 +821,27 @@ export default function SolosPage() {
                     <EmptyState>조건에 맞는 솔로가 없습니다.</EmptyState>
                   ) : (
                     <>
-                      {visibleList.map((s) => (
+                      {visibleList.map((s) => {
+                        const mergeIdx = mergeIds.indexOf(s.publicId);
+                        return (
                         <Row
                           key={s.publicId}
-                          $active={s.publicId === selectedId}
-                          onClick={() => setSelectedId(s.publicId)}
+                          $active={mergeMode ? mergeIdx >= 0 : s.publicId === selectedId}
+                          $merge={mergeMode}
+                          onClick={() => (mergeMode ? toggleMergePick(s.publicId) : setSelectedId(s.publicId))}
                         >
+                          {mergeMode && (
+                            <MergeCheck $picked={mergeIdx >= 0}>
+                              {mergeIdx >= 0 ? mergeIdx + 1 : ''}
+                            </MergeCheck>
+                          )}
                           <RowMain>
                             <RowTitle title={s.title}>{s.title}</RowTitle>
                             <RowSub>
                               {(s.performer ?? '—')} · {s.instrument} · {formatKeyDisplay(toWeimarKey(s.key ?? s.sheetData.key ?? 'C') ?? 'C-maj')}
                             </RowSub>
                           </RowMain>
+                          {!mergeMode && (
                           <RowActions>
                             <RowBtn
                               $color="#1976d2"
@@ -765,8 +895,10 @@ export default function SolosPage() {
                               🗑
                             </RowBtn>
                           </RowActions>
+                          )}
                         </Row>
-                      ))}
+                        );
+                      })}
                       {!isLast && <Sentinel ref={sentinelRef} />}
                       {loading && visibleList.length > 0 && (
                         <EmptyState>더 불러오는 중…</EmptyState>
@@ -793,7 +925,7 @@ export default function SolosPage() {
                           selectedKey={previewKey}
                           allKeys={allKeys}
                           onKeyChange={setPreviewKey}
-                          showMeasureNumbers
+                          lineStartMeasureNumbers
                           forceAutoStem
                         />
                       )}
@@ -808,6 +940,14 @@ export default function SolosPage() {
           </CenterColumn>
         </MainArea>
       </RightSection>
+
+      <OMRUploadModal
+        open={omrOpen}
+        onClose={() => setOmrOpen(false)}
+        title="OMR로 솔로 생성"
+        upload={createSoloViaOMR}
+        onCreated={handleSoloOMRCreated}
+      />
     </PageContainer>
   );
 }

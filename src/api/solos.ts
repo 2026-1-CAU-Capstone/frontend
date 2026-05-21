@@ -19,6 +19,7 @@
  */
 
 import type { NoteSheetData } from '../data/sampleMelody';
+import type { OMRMetadata } from './licks';
 
 const API_BASE = 'https://jazzify.p-e.kr/api';
 
@@ -205,6 +206,39 @@ export async function updateSolo(publicId: string, draft: SoloDraft): Promise<So
   if (!res.ok) {
     const detail = await readApiError(res);
     throw new Error(`Solo 수정 실패 (${res.status}) ${detail}`.trim());
+  }
+  const json: { data: SoloResponse } = await res.json();
+  return json.data;
+}
+
+/* ── OMR — sheet image → Solo ────────────────────────────────────────────── */
+
+/** POST /v1/solos/omr — upload a sheet PNG/JPG/JPEG. Backend runs OMR, parses
+ *  MusicXML, joins chord assignments, persists, returns the saved Solo.
+ *  Metadata fields are optional (extracted from MusicXML when omitted). Errors
+ *  surface as Error with the backend `detail` / `message`. Mirrors
+ *  createLickViaOMR in api/licks.ts. */
+export async function createSoloViaOMR(file: File, metadata: OMRMetadata = {}): Promise<SoloResponse> {
+  const form = new FormData();
+  form.append('file', file);
+  // Backend expects metadata as a single JSON-encoded part named "metadata".
+  const metaBlob = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
+  form.append('metadata', metaBlob);
+
+  const res = await fetch(`${API_BASE}/v1/solos/omr`, {
+    method: 'POST',
+    body: form,
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    let detail = '';
+    let code = '';
+    try {
+      const j = await res.json() as { message?: string; detail?: string; code?: string };
+      detail = j.detail || j.message || '';
+      code = j.code || '';
+    } catch { /* ignore */ }
+    throw new Error(`OMR 실패 (${res.status}${code ? ' · ' + code : ''}) ${detail}`.trim());
   }
   const json: { data: SoloResponse } = await res.json();
   return json.data;

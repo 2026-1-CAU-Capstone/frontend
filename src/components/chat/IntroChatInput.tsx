@@ -134,6 +134,14 @@ export function IntroChatInput({
     setAttachments((prev) => prev.filter((_, i) => i !== idx));
   };
 
+  // Object-URL previews for image attachments (revoked on change/unmount).
+  const [previews, setPreviews] = useState<(string | null)[]>([]);
+  useEffect(() => {
+    const urls = attachments.map((f) => (f.type.startsWith('image/') ? URL.createObjectURL(f) : null));
+    setPreviews(urls);
+    return () => urls.forEach((u) => u && URL.revokeObjectURL(u));
+  }, [attachments]);
+
   useEffect(() => onAuthChange((isLoggedIn) => setLoggedIn(isLoggedIn)), []);
 
   useEffect(() => {
@@ -239,19 +247,30 @@ export function IntroChatInput({
       )}
       {isDragOver && (
         <DragOverlay>
-          <DragOverlayIcon>📥</DragOverlayIcon>
-          <DragOverlayText>여기에 파일 놓기</DragOverlayText>
+          <DocPlusIcon />
+          <DragOverlayText>여기에 파일을 드롭하여 대화에 추가하세요.</DragOverlayText>
         </DragOverlay>
       )}
       {attachments.length > 0 && (
-        <AttachRow>
-          {attachments.map((f, i) => (
-            <AttachChip key={`${f.name}-${i}`} title={f.name}>
-              <AttachKindIcon>{/\.(png|jpe?g|gif|webp)$/i.test(f.name) ? '🖼' : '📄'}</AttachKindIcon>
-              <AttachName>{f.name}</AttachName>
-              <AttachRemoveBtn onClick={() => removeAttachment(i)} aria-label="제거">×</AttachRemoveBtn>
-            </AttachChip>
-          ))}
+        <AttachRow $compact={compact}>
+          {attachments.map((f, i) => {
+            const isImg = f.type.startsWith('image/') && previews[i];
+            return (
+              <AttachThumb key={`${f.name}-${i}`} title={f.name}>
+                {isImg ? (
+                  <ThumbImg src={previews[i]!} alt={f.name} />
+                ) : (
+                  <DocThumb>
+                    <DocFileIcon />
+                    <DocName>{f.name}</DocName>
+                  </DocThumb>
+                )}
+                <ThumbRemove type="button" onClick={() => removeAttachment(i)} aria-label="제거">
+                  <CloseX />
+                </ThumbRemove>
+              </AttachThumb>
+            );
+          })}
         </AttachRow>
       )}
       <TA
@@ -473,6 +492,36 @@ const ArrowUpIcon = () => (
   </svg>
 );
 
+/* Big document-with-plus glyph for the drag-over overlay (Claude style). */
+const DocPlusIcon = () => (
+  <svg width="46" height="46" viewBox="0 0 24 24" fill="none" aria-hidden>
+    <path
+      d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"
+      stroke="#3a3a3a" strokeWidth="1.4" strokeLinejoin="round"
+    />
+    <path d="M14 3v5h5" stroke="#3a3a3a" strokeWidth="1.4" strokeLinejoin="round" />
+    <path d="M12 11.5v5M9.5 14h5" stroke="#3a3a3a" strokeWidth="1.4" strokeLinecap="round" />
+  </svg>
+);
+
+/* Small document glyph for non-image (PDF) attachment thumbnails. */
+const DocFileIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden>
+    <path
+      d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"
+      stroke="#8a8a8a" strokeWidth="1.5" strokeLinejoin="round"
+    />
+    <path d="M14 3v5h5" stroke="#8a8a8a" strokeWidth="1.5" strokeLinejoin="round" />
+  </svg>
+);
+
+const CloseX = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden>
+    <line x1="6" y1="6" x2="18" y2="18" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" />
+    <line x1="18" y1="6" x2="6" y2="18" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" />
+  </svg>
+);
+
 /* ── styles ──────────────────────────────────────────────── */
 
 const Box = styled.div<{ $compact?: boolean }>`
@@ -519,72 +568,91 @@ const ChordPanel = styled(SelectedContext)<{ $compact?: boolean }>`
 
 /* ── Drag-over overlay + attachment chip styles ──────────── */
 
+/* Drag-over overlay — soft white wash with a centered document-plus glyph and
+ * the Claude-style prompt. Covers the whole box. */
 const DragOverlay = styled.div`
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: rgba(57, 120, 247, 0.08);
-  border: 2px dashed #3978f7;
+  background: rgba(255, 255, 255, 0.92);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  color: #1a4f8a;
+  gap: 12px;
+  color: #3a3a3a;
   font-family: ${({ theme }) => theme.fonts.ui};
-  font-weight: 600;
+  font-weight: 500;
   pointer-events: none;
   z-index: 10;
 `;
-const DragOverlayIcon = styled.div`
-  font-size: 28px;
-`;
 const DragOverlayText = styled.div`
-  font-size: 14px;
+  font-size: 15px;
+  color: #3a3a3a;
 `;
 
-const AttachRow = styled.div`
+/* Attachment thumbnails — rounded image previews (or a doc card for PDFs),
+ * with a small close button overlapping the top-right corner. */
+const AttachRow = styled.div<{ $compact?: boolean }>`
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 8px;
+  gap: 10px;
+  /* Negative top/left margins cancel most of the Box's own padding so the
+   * thumbnail hugs the top-left corner (leaving ~14px so the × stays inside). */
+  margin: ${({ $compact }) => ($compact ? '-2px -8px 10px' : '-18px -18px 14px')};
 `;
-const AttachChip = styled.div`
-  display: inline-flex;
+const AttachThumb = styled.div`
+  position: relative;
+  width: 88px;
+  height: 88px;
+  flex-shrink: 0;
+`;
+const ThumbImg = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  display: block;
+`;
+const DocThumb = styled.div`
+  width: 100%;
+  height: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  max-width: 220px;
-  padding: 4px 6px 4px 10px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.05);
+  justify-content: center;
+  gap: 5px;
+  padding: 6px;
+`;
+const DocName = styled.span`
   font-family: ${({ theme }) => theme.fonts.ui};
-  font-size: 12px;
-  color: #1a1a1a;
-`;
-const AttachKindIcon = styled.span`
-  font-size: 14px;
-  line-height: 1;
-`;
-const AttachName = styled.span`
+  font-size: 10px;
+  color: rgba(0, 0, 0, 0.55);
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 160px;
 `;
-const AttachRemoveBtn = styled.button`
-  width: 18px;
-  height: 18px;
+const ThumbRemove = styled.button`
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  border: none;
-  background: rgba(0, 0, 0, 0.18);
-  color: #fff;
-  font-size: 13px;
-  line-height: 1;
-  cursor: pointer;
+  border: 2px solid #fff;
+  background: #2b2b2b;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  &:hover { background: rgba(0, 0, 0, 0.28); }
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  transition: background 0.12s;
+  &:hover { background: #000; }
 `;
 
 const TA = styled.textarea<{ $compact?: boolean }>`

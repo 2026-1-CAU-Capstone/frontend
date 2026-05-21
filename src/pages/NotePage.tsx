@@ -934,6 +934,7 @@ export default function NotePage() {
               allKeys={allKeys}
               onKeyChange={setWrittenKey}
               forceAutoStem
+              lineStartMeasureNumbers
               selectable={isNoteSelectionMode}
               selectedRanges={noteSelectedRanges}
               onSelectionChange={setNoteSelectedRanges}

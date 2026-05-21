@@ -533,10 +533,11 @@ interface LickCardProps {
   onDelete?: () => void;
   onEdit?: () => void;
   onTranspose?: () => void;
+  onPractice?: () => void;
   onClick?: () => void;
 }
 
-export function LickCard({ lick, width, visible, compact, displayId, onDelete, onEdit, onTranspose, onClick }: LickCardProps) {
+export function LickCard({ lick, width, visible, compact, displayId, onDelete, onEdit, onTranspose, onPractice, onClick }: LickCardProps) {
   const svgRef = useRef<HTMLDivElement>(null);
   const renderedRef = useRef(false);
 
@@ -1148,6 +1149,15 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
             title="Transpose (change original key)"
           >
             {'⇋ Transpose'}
+          </PlayBtn>
+        )}
+        {onPractice && (
+          <PlayBtn
+            onClick={(e) => { e.stopPropagation(); onPractice(); }}
+            style={{ color: '#1b6b4f', borderColor: '#86c7ab' }}
+            title="12키 연습 (4도권)"
+          >
+            {'🎹 12키 연습'}
           </PlayBtn>
         )}
       </MetaRow>

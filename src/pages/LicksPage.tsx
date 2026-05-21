@@ -9,7 +9,8 @@ import { PianoKeyboard, type PianoNote } from '../components/notesheet/PianoKeyb
 import { MelodyPreview } from '../components/notesheet/MelodyPreview';
 import { loadLicks, loadFrontendLicks, loadUserLicks, invalidateLicksCache, type LickEntry } from '../data/lickData';
 import { transposeLick, normalizeKeyInput, formatKeyDisplay } from '../lib/transpose';
-import { LickOMRModal } from '../components/lick/LickOMRModal';
+import { OMRUploadModal } from '../components/common/OMRUploadModal';
+import { createLickViaOMR } from '../api/licks';
 
 const PAGE_SIZE = 30;
 
@@ -325,7 +326,7 @@ function melodySimilarity(query: QueryFeatures, lick: LickEntry): number {
 
 /* ─── visibility wrapper ─────────────────────────────────────────────── */
 
-function VisibleLickCard({ lick, width, displayId, onDelete, onEdit, onTranspose }: { lick: LickEntry; width: number; displayId: number; onDelete?: () => void; onEdit?: () => void; onTranspose?: () => void }) {
+function VisibleLickCard({ lick, width, displayId, onDelete, onEdit, onTranspose, onPractice }: { lick: LickEntry; width: number; displayId: number; onDelete?: () => void; onEdit?: () => void; onTranspose?: () => void; onPractice?: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
 
@@ -342,7 +343,7 @@ function VisibleLickCard({ lick, width, displayId, onDelete, onEdit, onTranspose
 
   return (
     <div ref={ref}>
-      <LickCard lick={lick} width={width} visible={visible} compact displayId={displayId} onDelete={onDelete} onEdit={onEdit} onTranspose={onTranspose} />
+      <LickCard lick={lick} width={width} visible={visible} compact displayId={displayId} onDelete={onDelete} onEdit={onEdit} onTranspose={onTranspose} onPractice={onPractice} />
     </div>
   );
 }
@@ -698,6 +699,7 @@ export default function LicksPage() {
                         onDelete={lickSource === 'backend' ? () => handleDeleteLick(lick) : undefined}
                         onEdit={lickSource === 'backend' ? () => handleEditLick(lick) : undefined}
                         onTranspose={lickSource === 'backend' ? () => handleTransposeLick(lick) : undefined}
+                        onPractice={() => navigate(`/lick-practice/${lick.id}`, { state: { lick } })}
                       />
                     </div>
                   ))}
@@ -708,9 +710,11 @@ export default function LicksPage() {
         </MainArea>
       </RightSection>
 
-      <LickOMRModal
+      <OMRUploadModal
         open={omrOpen}
         onClose={() => setOmrOpen(false)}
+        title="OMR로 릭 생성"
+        upload={createLickViaOMR}
         onCreated={handleOMRCreated}
       />
     </PageContainer>

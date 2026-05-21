@@ -59,10 +59,6 @@ const GENRES = [
   'Samba', 'Latin', 'Funk', 'Jazz Waltz', 'Bebop',
 ] as const;
 
-/** Longest label — used as an invisible sizer so the genre box keeps a fixed
- *  width regardless of which genre is selected. */
-const WIDEST_GENRE = GENRES.reduce((a, b) => (b.length > a.length ? b : a));
-
 /** The engine supports two feels; map the (richer) genre menu onto them.
  *  Latin-family genres play with the bossa feel, everything else swings.
  *  (Migrated here from the old mixer "스타일" section.) */
@@ -77,8 +73,7 @@ export function GenreSelect() {
   useOutsideClose(open, ref, () => setOpen(false));
   return (
     <GenreDropdown ref={ref}>
-      <GenreBtn type="button" onClick={() => setOpen((v) => !v)}>
-        <GenreSizer aria-hidden>{WIDEST_GENRE}</GenreSizer>
+      <GenreBtn type="button" onClick={() => setOpen((v) => !v)} title={genre}>
         <GenreLabel>{genre}</GenreLabel>
       </GenreBtn>
       {open && (
@@ -454,20 +449,23 @@ const MetroBtn = styled.button<{ $on?: boolean }>`
   &:hover { background: rgba(0, 0, 0, 0.05); }
 `;
 
-/* Genre — visual mock dropdown. */
+/* Genre — visual mock dropdown. Shrinks (min-width:0) so it gives up width as
+ * the transport bar narrows instead of staying a fixed-width block. */
 const GenreDropdown = styled.div`
   position: relative;
   display: inline-flex;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
 `;
 
 const GenreBtn = styled.button`
-  position: relative;
   height: ${CONTROL_H};
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  min-width: 0;
+  max-width: 100%;
   font-family: 'Pretendard', sans-serif;
   font-size: 1.04rem;
   font-weight: 600;
@@ -480,22 +478,12 @@ const GenreBtn = styled.button`
   &:hover { border-color: #888; }
 `;
 
-/* Invisible — only there to fix the genre box width to the longest label. */
-const GenreSizer = styled.span`
-  visibility: hidden;
-  white-space: nowrap;
-  font-weight: 600;
-  font-size: 1.04rem;
-`;
-
-/* The actually-shown label, centered over the sizer. */
+/* Label truncates with an ellipsis when the cell is squeezed. */
 const GenreLabel = styled.span`
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 `;
 
 const GenreMenu = styled.div`

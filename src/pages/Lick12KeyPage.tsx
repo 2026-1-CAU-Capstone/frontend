@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import {
   Renderer, Stave, StaveNote, Voice, Formatter, Beam, Accidental, Dot, BarlineType, VoltaType, StaveTie, Tuplet, Repetition,
@@ -31,10 +31,12 @@ const NAME_TO_SEMI: Record<string, number> = {
   'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11,
 };
 
-const CIRCLE_OF_5THS = ['Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E', 'B', 'Gb', 'Db', 'Ab'];
-const CIRCLE_OF_5THS_MINOR = ['Cm', 'Gm', 'Dm', 'Am', 'Em', 'Bm', 'F#m', 'C#m', 'G#m', 'Ebm', 'Bbm', 'Fm'];
-const CIRCLE_SEMITONES = CIRCLE_OF_5THS.map(k => NAME_TO_SEMI[k]);
-const CIRCLE_SEMITONES_MINOR = CIRCLE_OF_5THS_MINOR.map(k => NAME_TO_SEMI[k.replace('m', '')] ?? 0);
+/* 4도권 (cycle of fourths) — ascending perfect 4ths (+5 semitones each step).
+ * Jazz practice convention: C → F → Bb → Eb → Ab → Db → Gb → B → E → A → D → G. */
+const CIRCLE_OF_4THS = ['C', 'F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'B', 'E', 'A', 'D', 'G'];
+const CIRCLE_OF_4THS_MINOR = ['Cm', 'Fm', 'Bbm', 'Ebm', 'G#m', 'C#m', 'F#m', 'Bm', 'Em', 'Am', 'Dm', 'Gm'];
+const CIRCLE_SEMITONES = CIRCLE_OF_4THS.map(k => NAME_TO_SEMI[k]);
+const CIRCLE_SEMITONES_MINOR = CIRCLE_OF_4THS_MINOR.map(k => NAME_TO_SEMI[k.replace('m', '')] ?? 0);
 
 function noteToMidi(key: string, acc?: 'b' | '#' | 'n'): number {
   const [letter, oct] = key.split('/');
@@ -116,7 +118,7 @@ function getTranspositionOrder(lickKey: string): { keyName: string; semitones: n
     return KEY_NAMES.map((name, i) => ({ keyName: name + suffix, semitones: i }));
   }
   const rootSemi = NAME_TO_SEMI[rootMatch[1]] ?? 0;
-  const circle = isMinor ? CIRCLE_OF_5THS_MINOR : CIRCLE_OF_5THS;
+  const circle = isMinor ? CIRCLE_OF_4THS_MINOR : CIRCLE_OF_4THS;
   const circleSemis = isMinor ? CIRCLE_SEMITONES_MINOR : CIRCLE_SEMITONES;
   const circleIdx = circleSemis.indexOf(rootSemi);
   const startIdx = circleIdx >= 0 ? circleIdx : 0;
@@ -958,32 +960,41 @@ function KeyRow({ keyName, measures, width, isOriginal, defaultBpm, video }: {
 export default function Lick12KeyPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const [lick, setLick] = useState<LickEntry | null>(null);
+  const location = useLocation();
+  // The caller (Lick DB / My Licks) may hand the full lick over via router
+  // state — that's the only reliable source for the 8,000-lick frontend
+  // dataset, which isn't in loadUserLicks(). Fall back to a backend lookup by
+  // id, and surface a clear "not found" instead of hanging on "Loading…".
+  const passedLick = (location.state as { lick?: LickEntry } | null)?.lick;
+  const [lick, setLick] = useState<LickEntry | null>(passedLick ?? null);
+  const [notFound, setNotFound] = useState(false);
   const [bpm, setBpm] = useState(200);
 
   useEffect(() => {
-    if (!id) return;
+    const applyLick = (found: LickEntry) => {
+      setLick(found);
+      const has16ths = found.sheetData.measures.some((m) =>
+        m.notes.some((n) => {
+          const base = n.duration.replace(/[dr]/g, '');
+          return base === '16' || base === '32';
+        }),
+      );
+      // 16분음표 릭은 무조건 최저 BPM 150
+      if (has16ths) setBpm(Math.max(150, found.tempo ?? 150));
+      else setBpm(found.tempo ?? 200);
+    };
+
+    if (passedLick) { applyLick(passedLick); return; }
+    if (!id) { setNotFound(true); return; }
+    let cancelled = false;
     loadUserLicks().then((licks) => {
+      if (cancelled) return;
       const found = licks.find((l) => String(l.id) === id);
-      if (found) {
-        setLick(found);
-        const has16ths = found.sheetData.measures.some((m) =>
-          m.notes.some((n) => {
-            const base = n.duration.replace(/[dr]/g, '');
-            return base === '16' || base === '32';
-          }),
-        );
-        // 16분음표 릭은 무조건 최저 BPM 150
-        if (has16ths) {
-          setBpm(Math.max(150, found.tempo ?? 150));
-        } else if (found.tempo) {
-          setBpm(found.tempo);
-        } else {
-          setBpm(200);
-        }
-      }
-    });
-  }, [id]);
+      if (found) applyLick(found);
+      else setNotFound(true);
+    }).catch(() => { if (!cancelled) setNotFound(true); });
+    return () => { cancelled = true; };
+  }, [id, passedLick]);
 
   /* width tracking */
   const listRef = useRef<HTMLDivElement>(null);
@@ -1004,7 +1015,7 @@ export default function Lick12KeyPage() {
       <Page>
         <Header>
           <BackBtn onClick={() => navigate(-1)}>&larr; Back</BackBtn>
-          <TitleText>Loading...</TitleText>
+          <TitleText>{notFound ? '릭을 찾을 수 없습니다' : 'Loading…'}</TitleText>
         </Header>
       </Page>
     );
@@ -1017,7 +1028,7 @@ export default function Lick12KeyPage() {
     <Page>
       <Header>
         <BackBtn onClick={() => navigate(-1)}>&larr; Back</BackBtn>
-        <TitleText>12-Key Practice</TitleText>
+        <TitleText>12-Key Practice · 4도권</TitleText>
         <SubText>{lick.performer} — {lick.title}</SubText>
       </Header>
       <ListArea ref={listRef}>

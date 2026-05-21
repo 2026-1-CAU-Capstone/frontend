@@ -141,10 +141,16 @@ const TransportBar = styled.div`
   z-index: 60;
   display: flex;
   align-items: center;
-  padding: 5px 14px;
+  /* The chat panel is user-resizable, so this bar's width is fluid. Stay on a
+   * single row (no height growth); the middle group shrinks first and the bar
+   * compacts rather than wrapping or overlapping. */
+  flex-wrap: nowrap;
+  gap: 8px;
+  padding: 5px 10px;
   background: ${({ theme }) => theme.colors.bgPrimary};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   flex-shrink: 0;
+  min-width: 0;
 `;
 
 /* Second toolbar row shown only in edit mode — the chord "modify tool".
@@ -187,31 +193,37 @@ const BarLeft = styled.div`
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
 `;
 
+/* In-flow (not absolutely centered) so it never paints over the left/right
+ * groups when the bar narrows. flex:1 lets it fill the middle and center its
+ * content; min-width:0 lets it give up space first as the bar compacts. */
 const BarCenter = styled.div`
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
 `;
 
-/* Right-aligned tool icons (share / edit / analysis / settings). */
+/* Right-aligned tool icons (share / edit / analysis / settings). Kept intact
+ * (the left/center groups absorb the squeeze first). */
 const BarRight = styled.div`
-  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 2px;
+  flex-shrink: 0;
 `;
 
 const ToolBtn = styled.button<{ $lit?: boolean }>`
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 46px;
-  height: 46px;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
   border: none;
   border-radius: 9px;
   background: transparent;

@@ -69,6 +69,8 @@ const LICK_TAG_RE = /\[LICK:([^\]]+)\]/g;
 import {
   MessageRow,
   Bubble,
+  UserImageRow,
+  UserImageThumb,
   MarkdownBody,
   AssistantHeader,
   AssistantIcon,
@@ -302,6 +304,7 @@ const mdComponents: Components = {
 export function ChatMessage({ message, suppressChart = false, songTempo }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
   const selectedChords = message.role === 'user' ? message.selectedChords ?? [] : [];
+  const userImages = message.role === 'user' ? message.images ?? [] : [];
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(message.content).then(() => {
@@ -475,6 +478,17 @@ export function ChatMessage({ message, suppressChart = false, songTempo }: ChatM
 
   return (
     <MessageRow $role={message.role}>
+      {userImages.length > 0 && (
+        <UserImageRow>
+          {userImages.map((im, i) => (
+            <UserImageThumb
+              key={i}
+              src={`data:${im.mediaType};base64,${im.data}`}
+              alt="첨부 이미지"
+            />
+          ))}
+        </UserImageRow>
+      )}
       <Bubble $role={message.role}>
         {message.role === 'assistant' && !isThinking && (
           <AssistantHeader>

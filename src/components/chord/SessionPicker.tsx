@@ -25,6 +25,10 @@ const INSTRUMENTS: { id: SessionInstrument; label: string; img: string }[] = [
   { id: 'guitar',  label: '일렉기타',   img: '/icons/sessions/guitar.png' },
 ];
 
+/* Bump when the icon PNGs change so browsers refetch instead of serving the
+ * cached (old-background) copy at the same static URL. */
+const ICON_VER = '2';
+
 interface Props {
   value: SessionInstrument;
   onChange: (v: SessionInstrument) => void;
@@ -44,7 +48,7 @@ export function SessionPicker({ value, onChange }: Props) {
   return (
     <>
       <Trigger type="button" title="세션 변경" aria-label="세션 변경" onClick={() => setOpen(true)}>
-        <TriggerImg src={current.img} alt={current.label} />
+        <TriggerImg src={`${current.img}?v=${ICON_VER}`} alt={current.label} />
       </Trigger>
 
       {open && (
@@ -60,7 +64,7 @@ export function SessionPicker({ value, onChange }: Props) {
                   $active={id === value}
                   onClick={() => { onChange(id); setOpen(false); }}
                 >
-                  <CellIcon><img src={img} alt={label} /></CellIcon>
+                  <CellIcon><img src={`${img}?v=${ICON_VER}`} alt={label} /></CellIcon>
                   <CellLabel>{label}</CellLabel>
                 </Cell>
               ))}

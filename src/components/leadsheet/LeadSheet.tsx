@@ -258,6 +258,8 @@ const TitleRow = styled.div`
 const KeyDropdownWrap = styled.div`
   position: relative;
   display: inline-block;
+  flex-shrink: 1;
+  min-width: 0;
 `;
 
 const KeyButton = styled.button`
@@ -266,10 +268,14 @@ const KeyButton = styled.button`
   display: flex;
   align-items: center;
   gap: 2px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
   background: #fff;
   border: 1.5px solid #ccc;
   border-radius: 6px;
-  padding: 0 12px;
+  padding: 0 10px;
   cursor: pointer;
   font-family: ${CHORD_FONT};
   font-size: 1.12rem;

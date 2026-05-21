@@ -53,6 +53,9 @@ export interface ChatMessage {
   timestamp: number;
   relatedChordIds?: string[];
   selectedChords?: ChordOverlay[];
+  /** Attached images (base64, no data: prefix) shown as thumbnails in the
+   *  user bubble. Matches the ClaudeImage shape sent to the vision API. */
+  images?: { mediaType: string; data: string }[];
   /** 릭 추천 메시지일 때 매칭된 릭 목록 (LickMatch[]이지만 순환 참조 방지로 any) */
   lickMatches?: import('../lib/lickMatcher').LickMatch[];
   savedLickMatches?: import('../lib/lickMatcher').LickMatch[];

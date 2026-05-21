@@ -19,7 +19,7 @@ import { UserMenu } from '../auth/UserMenu';
  * ──────────────────────────────────────────────────────────────────────── */
 
 const Rail = styled.nav<{ $expanded: boolean }>`
-  width: ${({ $expanded }) => ($expanded ? '260px' : '56px')};
+  width: ${({ $expanded }) => ($expanded ? '244px' : '52px')};
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -232,7 +232,19 @@ const ChatNavBlock = styled.div`
   flex-direction: column;
   align-items: inherit;
   gap: 4px;
-  margin-top: 40px;
+  margin-top: 28px;
+  width: 100%;
+`;
+
+/* Personal library — "내 릭" / "내 악보". Logged-in only, sits right under the
+ * chat cluster (above the divider). Backend wiring is pending; the buttons are
+ * placeholders for the per-user lick/score database. */
+const MyLibBlock = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: inherit;
+  gap: 4px;
+  margin-top: 8px;
   width: 100%;
 `;
 
@@ -492,6 +504,42 @@ const SoloIcon = () => (
   </svg>
 );
 
+/* ── personal-library icons (Lucide-style, distinct from the admin nav) ── */
+
+/* 내 코드 차트 — table/grid (a chord chart is a grid of bars). Sized to match
+ * the chat-nav icons above (18px / strokeWidth 1.7) so the rows align. */
+const MyChordChartIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <path d="M3 9h18" />
+    <path d="M3 15h18" />
+    <path d="M9 9v12" />
+    <path d="M15 9v12" />
+  </svg>
+);
+
+/* 내 악보 차트 — a sheet/page with a music note (a score document). */
+const MyScoreChartIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+    <path d="M14 3v6h6" />
+    <circle cx="9" cy="16.5" r="1.6" />
+    <path d="M10.6 16.5V11l4 1.1" />
+  </svg>
+);
+
+/* 내 릭 — audio waveform (a lick is a short melodic phrase). */
+const MyLickIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2 13v-2" />
+    <path d="M6 16V8" />
+    <path d="M10 19V5" />
+    <path d="M14 16V8" />
+    <path d="M18 14v-4" />
+    <path d="M22 13v-2" />
+  </svg>
+);
+
 const EditorIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -579,7 +627,7 @@ export function IconSidebar({
         {expanded ? (
           <>
             <BrandRow>
-              <BrandLogoImage height={38} scaleX={1.05} onClick={() => navigate('/')} />
+              <BrandLogoImage height={34} scaleX={1.05} onClick={() => navigate('/')} />
             </BrandRow>
             <ToggleBtn $expanded onClick={toggleExpanded} aria-label="사이드바 접기">
               <PanelToggleIcon />
@@ -644,6 +692,49 @@ export function IconSidebar({
             <NavTooltip>{chatEnabled ? '채팅' : '로그인 필요'}</NavTooltip>
           </NavBtnWrap>
         </ChatNavBlock>
+      )}
+
+      {/* Personal library (logged-in only) — above the divider, below chat. */}
+      {loggedIn && (
+        <MyLibBlock>
+          {expanded ? (
+            <>
+              <NavBtn $expanded={true} onClick={() => { /* TODO: 사용자별 코드 차트 DB */ }} title="내 코드 차트">
+                <MyChordChartIcon />
+                <NavLabel $expanded={true}>내 코드 차트</NavLabel>
+              </NavBtn>
+              <NavBtn $expanded={true} onClick={() => { /* TODO: 사용자별 악보 차트 DB */ }} title="내 악보 차트">
+                <MyScoreChartIcon />
+                <NavLabel $expanded={true}>내 악보 차트</NavLabel>
+              </NavBtn>
+              <NavBtn $expanded={true} onClick={() => { /* TODO: 사용자별 릭 DB */ }} title="내 릭">
+                <MyLickIcon />
+                <NavLabel $expanded={true}>내 릭</NavLabel>
+              </NavBtn>
+            </>
+          ) : (
+            <>
+              <NavBtnWrap>
+                <NavBtn $expanded={false} onClick={() => { /* TODO: 사용자별 코드 차트 DB */ }} title="내 코드 차트">
+                  <MyChordChartIcon />
+                </NavBtn>
+                <NavTooltip>내 코드 차트</NavTooltip>
+              </NavBtnWrap>
+              <NavBtnWrap>
+                <NavBtn $expanded={false} onClick={() => { /* TODO: 사용자별 악보 차트 DB */ }} title="내 악보 차트">
+                  <MyScoreChartIcon />
+                </NavBtn>
+                <NavTooltip>내 악보 차트</NavTooltip>
+              </NavBtnWrap>
+              <NavBtnWrap>
+                <NavBtn $expanded={false} onClick={() => { /* TODO: 사용자별 릭 DB */ }} title="내 릭">
+                  <MyLickIcon />
+                </NavBtn>
+                <NavTooltip>내 릭</NavTooltip>
+              </NavBtnWrap>
+            </>
+          )}
+        </MyLibBlock>
       )}
 
       <Divider $expanded={expanded} />

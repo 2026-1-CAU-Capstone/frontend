@@ -768,6 +768,10 @@ interface NoteSheetProps {
   onSelectionChange?: (ranges: Array<[number, number]>) => void;
   /** Render a small 1-based measure number above each bar. */
   showMeasureNumbers?: boolean;
+  /** Render a tiny 1-based measure number only at the START of each line
+   *  (the left-most bar of every system row) — standard lead-sheet
+   *  convention. Used on the note page + solo database. */
+  lineStartMeasureNumbers?: boolean;
   /** Ignore any explicit per-note stem direction from the source data and let
    *  VexFlow auto-stem (high notes → stem down, low notes → stem up). Useful
    *  for sources like the Charlie Parker Omnibook where the XML hard-codes
@@ -776,7 +780,7 @@ interface NoteSheetProps {
   forceAutoStem?: boolean;
 }
 
-export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable, selectedRanges, onSelectionChange, showMeasureNumbers, forceAutoStem }: NoteSheetProps) {
+export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable, selectedRanges, onSelectionChange, showMeasureNumbers, lineStartMeasureNumbers, forceAutoStem }: NoteSheetProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(900);
@@ -1933,6 +1937,41 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
 
     measureRectsRef.current = rects;
   }, [data, width]);
+
+  /* ── line-start measure numbers ───────────────────────────────────────
+   * A tiny number at the left edge of each LINE's first bar (note page +
+   * solo DB). Defined AFTER the main render effect above so measureRectsRef
+   * is already populated when this runs. Lines are detected by a change in
+   * the measure rect's y; the anacrusis (pickup) bar is not numbered. */
+  useEffect(() => {
+    const svg = svgRef.current?.querySelector('svg');
+    if (!svg) return;
+    svg.querySelectorAll('.m-num-ls').forEach((n) => n.remove());
+    if (!lineStartMeasureNumbers) return;
+    const rects = measureRectsRef.current;
+    let mNum = 0;
+    let prevY: number | null = null;
+    for (let i = 0; i < rects.length; i++) {
+      const r = rects[i];
+      if (!r) continue;
+      const isPickup = !!data.measures[i]?.anacrusis;
+      if (!isPickup) mNum++;
+      const isLineStart = prevY === null || Math.abs(r.y - prevY) > 1;
+      prevY = r.y;
+      if (isPickup || !isLineStart) continue;
+      const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      txt.setAttribute('class', 'm-num-ls');
+      txt.setAttribute('x', String(r.x + 2));
+      txt.setAttribute('y', String(r.y + 30));
+      txt.setAttribute('font-family', "'Pretendard', sans-serif");
+      txt.setAttribute('font-size', '8');
+      txt.setAttribute('font-weight', '200');
+      txt.setAttribute('font-style', 'italic');
+      txt.setAttribute('fill', '#9aa0a6');
+      txt.textContent = String(mNum);
+      svg.appendChild(txt);
+    }
+  }, [data, width, lineStartMeasureNumbers]);
 
   /* ── close key menu on outside click ──────────────────────────────── */
   useEffect(() => {

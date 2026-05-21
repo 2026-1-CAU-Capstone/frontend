@@ -1,17 +1,23 @@
 import { useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { createLickViaOMR, type OMRMetadata } from '../../api/licks';
-import type { LickEntry } from '../../data/lickData';
+import type { OMRMetadata } from '../../api/licks';
 
-/* Modal: upload a sheet image → backend OMR (POST /v1/licks/omr) → saved
- * Lick. On success, parent receives the entry via onCreated() and is
- * expected to navigate to the editor. All metadata fields are optional;
- * the backend extracts whatever it can from the resulting MusicXML. */
+/* Generic OMR upload modal: pick a sheet image (PNG/JPG/JPEG) → call `upload`
+ * (POST /v1/licks/omr or /v1/solos/omr) → on success the parent receives the
+ * persisted entity via onCreated() and is expected to navigate to the editor.
+ * All metadata fields are optional; the backend extracts whatever it can from
+ * the resulting MusicXML. */
 
-interface Props {
+interface Props<T> {
   open: boolean;
   onClose: () => void;
-  onCreated: (lick: LickEntry) => void;
+  /** Modal heading, e.g. "OMR로 릭 생성" / "OMR로 솔로 생성". */
+  title: string;
+  /** Submit button label once a file is chosen. */
+  submitLabel?: string;
+  /** Performs the upload and resolves with the created entity. */
+  upload: (file: File, metadata: OMRMetadata) => Promise<T>;
+  onCreated: (result: T) => void;
 }
 
 const INSTRUMENT_OPTIONS: { value: string; label: string }[] = [
@@ -29,9 +35,23 @@ const INSTRUMENT_OPTIONS: { value: string; label: string }[] = [
 const STYLE_OPTIONS = ['', 'SWING', 'BEBOP', 'HARDBOP', 'COOL', 'MODAL', 'FUSION'];
 const RHYTHM_OPTIONS = ['', 'SWING', 'STRAIGHT', 'BOSSA', 'LATIN'];
 
-export function LickOMRModal({ open, onClose, onCreated }: Props) {
+export function OMRUploadModal<T>({
+  open,
+  onClose,
+  title,
+  submitLabel = '인식 후 에디터로 열기',
+  upload,
+  onCreated,
+}: Props<T>) {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isPdf, setIsPdf] = useState(false);
+  const [pageCount, setPageCount] = useState<number | null>(null);
+  /** For PDFs: the stitched single image that actually gets uploaded to OMR.
+   *  Generated at selection time so the user can preview/download exactly what
+   *  the OMR server receives. */
+  const [stitchedFile, setStitchedFile] = useState<File | null>(null);
+  const [converting, setConverting] = useState(false);
   const [meta, setMeta] = useState<OMRMetadata>({ source: 'user' });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,13 +61,37 @@ export function LickOMRModal({ open, onClose, onCreated }: Props) {
   /** Accepts a single image File (PNG/JPG/JPEG) and wires it into modal
    *  state. Shared by both click-select and drop paths. */
   const acceptFile = (f: File): boolean => {
-    if (!/^image\/(png|jpe?g)$/i.test(f.type) && !/\.(png|jpe?g)$/i.test(f.name)) {
-      setError('PNG · JPG · JPEG 파일만 지원합니다.');
+    const isImage = /^image\/(png|jpe?g)$/i.test(f.type) || /\.(png|jpe?g)$/i.test(f.name);
+    const isPdfFile = f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+    if (!isImage && !isPdfFile) {
+      setError('PNG · JPG · JPEG · PDF 파일만 지원합니다.');
       return false;
     }
     setFile(f);
-    setPreviewUrl(URL.createObjectURL(f));
+    setIsPdf(isPdfFile);
+    setStitchedFile(null);
+    setPageCount(null);
     setError(null);
+    if (isPdfFile) {
+      // Lazy-load pdf.js, stitch all pages into one image NOW so the user can
+      // preview/download exactly what OMR will receive.
+      setPreviewUrl(null);
+      setConverting(true);
+      import('../../lib/pdfToImage')
+        .then(async ({ pdfToStitchedImage, pdfPageCount }) => {
+          const [n, img] = await Promise.all([
+            pdfPageCount(f).catch(() => null),
+            pdfToStitchedImage(f),
+          ]);
+          setPageCount(n);
+          setStitchedFile(img);
+          setPreviewUrl(URL.createObjectURL(img));
+        })
+        .catch(() => setError('PDF 변환에 실패했습니다.'))
+        .finally(() => setConverting(false));
+    } else {
+      setPreviewUrl(URL.createObjectURL(f));
+    }
     return true;
   };
 
@@ -72,6 +116,10 @@ export function LickOMRModal({ open, onClose, onCreated }: Props) {
   const reset = () => {
     setFile(null);
     setPreviewUrl(null);
+    setIsPdf(false);
+    setPageCount(null);
+    setStitchedFile(null);
+    setConverting(false);
     setMeta({ source: 'user' });
     setError(null);
     setSubmitting(false);
@@ -107,9 +155,20 @@ export function LickOMRModal({ open, onClose, onCreated }: Props) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (cleaned as any)[k] = v;
       });
-      const lick = await createLickViaOMR(file, cleaned);
+      // PDFs aren't accepted by the backend — upload the stitched image built
+      // at selection time (fall back to stitching now if needed).
+      let toUpload = file;
+      if (isPdf) {
+        if (stitchedFile) {
+          toUpload = stitchedFile;
+        } else {
+          const { pdfToStitchedImage } = await import('../../lib/pdfToImage');
+          toUpload = await pdfToStitchedImage(file);
+        }
+      }
+      const result = await upload(toUpload, cleaned);
       reset();
-      onCreated(lick);
+      onCreated(result);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'OMR 인식 실패';
       setError(msg);
@@ -121,7 +180,7 @@ export function LickOMRModal({ open, onClose, onCreated }: Props) {
     <Backdrop onClick={handleClose}>
       <Modal onClick={(e) => e.stopPropagation()}>
         <Header>
-          <Title>OMR로 릭 생성</Title>
+          <Title>{title}</Title>
           <CloseBtn onClick={handleClose} aria-label="닫기" disabled={submitting}>
             ×
           </CloseBtn>
@@ -136,22 +195,37 @@ export function LickOMRModal({ open, onClose, onCreated }: Props) {
             onDragLeave={onDragLeave}
             onDrop={onDrop}
           >
-            {previewUrl ? (
+            {converting ? (
+              <DropHint>
+                <Spinner />
+                <DropText>PDF 페이지를 한 장으로 합치는 중…</DropText>
+              </DropHint>
+            ) : previewUrl ? (
               <PreviewImg src={previewUrl} alt="악보 미리보기" />
             ) : (
               <DropHint>
                 <DropIcon>📄</DropIcon>
-                <DropText>{isDragOver ? '여기에 놓기' : '클릭 또는 드래그해서 악보 이미지 선택'}</DropText>
-                <DropSub>PNG · JPG · JPEG</DropSub>
+                <DropText>{isDragOver ? '여기에 놓기' : '클릭 또는 드래그해서 악보 파일 선택'}</DropText>
+                <DropSub>PNG · JPG · JPEG · PDF</DropSub>
               </DropHint>
             )}
             <HiddenFileInput
               ref={fileInputRef}
               type="file"
-              accept="image/png,image/jpeg,image/jpg"
+              accept="image/png,image/jpeg,image/jpg,application/pdf"
               onChange={handleFile}
             />
           </FileDropZone>
+
+          {isPdf && stitchedFile && previewUrl && (
+            <StitchInfo>
+              <span>
+                {pageCount != null ? `PDF ${pageCount}페이지 → ` : ''}
+                OMR로 전송되는 합친 이미지입니다.
+              </span>
+              <a href={previewUrl} download={stitchedFile.name}>합친 이미지 저장</a>
+            </StitchInfo>
+          )}
 
           <SectionTitle>메타데이터 (선택)</SectionTitle>
           <Grid>
@@ -240,8 +314,8 @@ export function LickOMRModal({ open, onClose, onCreated }: Props) {
             <CancelBtn type="button" onClick={handleClose} disabled={submitting}>
               취소
             </CancelBtn>
-            <SubmitBtn type="submit" disabled={submitting || !file}>
-              {submitting ? <Spinner /> : '인식 후 에디터로 열기'}
+            <SubmitBtn type="submit" disabled={submitting || converting || !file}>
+              {submitting ? <Spinner /> : submitLabel}
             </SubmitBtn>
           </Actions>
         </Form>
@@ -360,6 +434,23 @@ const PreviewImg = styled.img`
   max-width: 100%;
   max-height: 240px;
   object-fit: contain;
+`;
+
+const StitchInfo = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: 12px;
+  color: #666;
+  a {
+    color: #3978f7;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    &:hover { text-decoration: underline; }
+  }
 `;
 
 const SectionTitle = styled.div`
