@@ -142,3 +142,39 @@ B7: BbMaj7(♭VIMaj7)로 가기 위한 세컨더리 도미넌트 F7의 트라이
 **instruction:** Bolivia의 작곡자가 의도한 것은 뭐라고 볼 수 있어?
 
 **response:** Cedar Walton은 이 곡에서 D 마이너 키의 다양한 모습을 보여주고 싶었던 것으로 보인다. D 내추럴 마이너, D 도리안, D 프리지안 등 서로 다른 마이너 모드에서 코드를 빌려와 모달 인터체인지를 극도로 활용했다. 동시에 하나의 큰 멜로디가 D를 중심으로 흘러가도록 설계했다. 작곡자는 일반적이고 정적인 사운드를 거부하는 성향이 강하다. 세컨더리 도미넌트 대신 트라이톤 서브를 자주 사용하여 반음 하행 해결을 즐기고, I로 직접 가지 않고 vi(대리코드)로 우회하며, 베이스 라인의 반음 하행을 의도적으로 설계하는 등 계속해서 변화를 추구했다. 이 곡의 솔로에서도 이러한 작곡자의 의도를 이해하고, 모달 인터체인지의 색채감과 키 전환의 드라마를 살려주는 것이 핵심이다.
+
+---
+
+## The Jazz Pursuit — Additional Analysis (English)
+
+*Source: The Jazz Pursuit — "Bolivia (Cedar Walton) Tutorial & Analysis" (https://youtu.be/7LDQ19K5KPo). This reading frames the tune around the concept of **"disguised harmony"** — an underlying functional skeleton that Cedar Walton reharmonized to hide it.*
+
+### EN-1. The two-section structure and the A-section vamp
+
+**instruction:** What is the large-scale form of Bolivia?
+
+**response:** Bolivia has two 16-bar halves: the A section, a 16-bar vamp, and the B section, 16 bars packed with harmony. The vamp is a two-bar bassline that outlines chord IV (G) — root G, 6th E, ♭7 F, 5th D — and the only harmonic specification is the ♭7, making it a G7. With just those four bass pitches and no busy changes, the vamp gives the improviser maximum freedom; the harmonic interest is concentrated in the B section.
+
+### EN-2. The hidden foundation harmony of the B section
+
+**instruction:** What is the "underlying" progression beneath Cedar Walton's reharmonizations?
+
+**response:** Strip away the disguises and the B section is a conventional standard in D major: a ii-V-I home (Em7 – A7 – DMaj7), a V-I to chord IV (D7 → GMaj7), then GMaj7 held two bars, chord vi (Bm7) held six bars, and a closing 3-6-2-5 (F♯m7 – B7 – Em7 – A7) that doesn't resolve but loops back to the vamp. Learning this skeleton first is essential: it lets you make sense of the actual (disguised) changes and improvise fluently over them.
+
+### EN-3. Each line has its own theme of disguise
+
+**instruction:** How did Cedar Walton disguise the foundation harmony?
+
+**response:** Line by line, each with a theme. **Line 1 (3rds & 7ths):** Em7 → EbMaj7 (both share the guide tones G and D, so voice leading is unchanged), and D7 → A♭7 (tritone sub, sharing F♯/C ≈ C/G♭). **Line 2 (bass movement):** GMaj7 → GMaj7/F♯ (tweaked to F♯7 to embrace the implied 5-1 to Bm7) → Bm7 → Bm7/C (often spelled CMaj7♯11). **Line 3:** the "On Green Dolphin Street" move — Bm7 → Bm7/A → G♯m7♭5, launching a minor ii-V-i (G♯m7♭5 – C♯7 – F♯m7). **Line 4:** F♯m7 → FMaj7 (same guide tones A/E), preceded by a ii-V (Gm7 – C7), and Em7 → BbMaj7 (the tritone-away half-diminished substitution).
+
+### EN-4. The tritone-away tonic substitution (the Stella connection)
+
+**instruction:** Why does an Em7 become B♭Maj7 near the end of the B section?
+
+**response:** It's the same trick that opens Stella By Starlight (also in B♭): a chord I can be replaced by a half-diminished chord a tritone away, because the major-7 chord is the upper structure of that half-diminished sound. Here the Em7 (functioning as a ii / chord-I-ish landing) is reheard as E half-diminished and substituted with BbMaj7. The payoff is a chromatically descending bass through the last three chords: B7 → BbMaj7 → A7 — smooth voice leading hiding a functional progression.
+
+### EN-5. The melody as a constant against shifting harmony
+
+**instruction:** How does the melody interact with all these reharmonizations?
+
+**response:** The melody flirts with the disguises — sometimes outlining them, sometimes hinting at the underlying changes. Over lines 2–3, where the harmony shifts constantly (GMaj7/F♯7/Bm7…), the melody is a repeated two-bar phrase built purely from the D major pentatonic, acting as a stable anchor that confirms the *home key* rather than the individual chords. Elsewhere it traces chord tones of the reharms (even outlining an augmented triad — D, B♭, F♯ — over the opening). The lesson: the melody tells you when to play the disguise and when to lean on the home key.

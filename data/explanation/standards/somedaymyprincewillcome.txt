@@ -87,3 +87,39 @@ BbMaj7 (I), Cm7 (ii), Dm7 (iii), EbMaj7 (IV), F7 (V), Gm7 (vi), Am7♭5 (vii°)
 **instruction:** 같은 진행(D7♯5 → EbMaj7, G7 → Cm7 등)이 반복될 때 어떻게 변화를 줘?
 
 **response:** 곡에서 D7(♯5) → EbMaj7과 G7 → Cm7, A7 → Dm7 같은 진행이 여러 번 반복된다. 매번 같은 프레이징을 사용하면 단조로워지므로 단계적으로 변화를 줄 수 있다. 첫 등장에서는 코드톤 아르페지오로 안전하게 시작한다. 두 번째에서는 해당 스케일의 특성음(D7♯5에서 ♯5인 A#, G7에서 ♭9이나 ♭13 등)을 부각시킨다. 세 번째에서는 모티브를 설정하여 반복 구간마다 변형·발전시키는 모티브 솔로를 한다. 네 번째에서는 리듬적 변화를 주거나 아예 쉬어서 긴장감을 조절한다. 3박자 곡의 특성상 프레이즈 길이가 짧으므로, 작은 변화가 큰 효과를 만든다.
+
+---
+
+## The Jazz Pursuit — Additional Analysis (English)
+
+*Source: The Jazz Pursuit — "Someday My Prince Will Come (F. Churchill) Analysis & Tutorial" (https://youtu.be/7TBQ9Lgr53g). B♭ major, 3/4, ABAC. Built up from a simple foundation, then enriched.*
+
+### EN-1. The A-section foundation and its enrichment
+
+**instruction:** What is the simple A-section harmony, and how is it filled out?
+
+**response:** The foundation is four chords, each held two bars: BbMaj7 (I) → EbMaj7 (IV) → a ii-V (Cm7 – F7) → BbMaj7. To add shape, the second bar of each pair sets up the next chord. Bar 2 becomes D7♭13 (chord iii made dominant) resolving up a semitone — a backdoor cadence — into EbMaj7. Bar 4 becomes G7 (V of Cm7). And bars 5–8 add a re-cadence (Cm7 – G7 – Cm7 – F7 – BbMaj7) so the ii-V doesn't lose momentum sitting two bars per chord.
+
+### EN-2. The backdoor cadence into chord IV
+
+**instruction:** How does a D7 chord lead to EbMaj7?
+
+**response:** Not by the usual down-a-fifth resolution, but up a half step — a backdoor cadence. D7 resolves up a semitone to EbMaj7. The melody note over it is B♭, which is the ♭13 of D7, so the chord is spelled D7♭13. Dominant chords can resolve down a fifth, up a whole step (the classic backdoor), or here up a semitone — recognizing which tells you how to treat the chord melodically.
+
+### EN-3. The melody's outside-the-key enclosures
+
+**instruction:** What's distinctive about the A-section melody?
+
+**response:** Each phrase jumps from one chord tone to another, then *encloses* a target chord tone using notes from a half-step below and a whole step above. Crucially, those enclosure neighbor notes sit outside the home key, which is exactly why the harmony can be reharmonized with chords like D7♭13 and G7♭13 — the melody's chromatic neighbors imply the altered/secondary dominants. The enclosures aren't just decoration; they open the harmonic options.
+
+### EN-4. The B section: 3-6-2-5 and a passing diminished
+
+**instruction:** Analyze the B section.
+
+**response:** The foundation is two 1-6-2-5 cells (BbMaj7 – Gm7 – Cm7 – F7, repeated). But landing on chord I at the start of bars 1 and 5 is "chord-I overload," so it substitutes chord iii (Dm7) for the tonic, turning each into a 3-6-2-5 and saving the true chord-I resolution for the section's end. The vi chord is then replaced by a passing diminished (C♯°7) between Dm7 (iii) and Cm7 (ii), smoothing the descent. The melody is two identical phrases walking up the scale (D–F, up to A, back to F).
+
+### EN-5. The dominant pedal in the C section
+
+**instruction:** How can I open up the relentless C-section harmony?
+
+**response:** Someday My Prince changes chord almost every bar, so a dominant pedal in the last four bars gives relief. The pedal is F (the V of B♭). Its length is structural: in the middle of a solo, hold it all four bars for a big cadence into the top of the form; near the end of the tune, hold it two bars so you still get a clean I resolution to finish. A passing E°7 (between the E♭ of bar 3 and the F pedal of bar 5) connects into it, and the closing melody rests on a single pitch — the pedal note — giving the comper maximum harmonic flexibility.

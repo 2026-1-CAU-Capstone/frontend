@@ -97,3 +97,39 @@ BbMaj7 (I), Cm7 (ii), Dm7 (iii), EbMaj7 (IV), F7 (V), Gm7 (vi), Am7♭5 (vii°)
 **instruction:** 마지막 G7 위에서 어떻게 연주해?
 
 **response:** G7은 곡 반복 시 Cm7(ii)로 돌아가는 세컨더리 도미넌트(V7/ii)이다. Cm7은 마이너 코드이므로 G7 위에서 G 믹솔리디안 ♭9♭13을 적용한다. 또한 ii-V 관계에서 Gm7부터 G7의 얼터드를 확장 사용할 수도 있다. 이 G7은 곡의 마지막에서 처음으로 돌아가는 다리이므로, 다음 코러스의 첫 프레이즈를 암시하는 모티브를 여기서 제시하면 코러스 간 연결이 자연스러워진다. 곡을 끝낼 때는 G7 대신 Gm7으로 마무리하거나, Am7♭5 → D7 → Gm7의 마이너 ii-V-i로 엔딩하는 것이 일반적이다.
+
+---
+
+## The Jazz Pursuit — Additional Analysis (English)
+
+*Source: The Jazz Pursuit — "Autumn Leaves (J. Kosma) Tutorial & Analysis" (https://youtu.be/gaYSNre6ffQ). The Jazz Pursuit analyzes the tune from the **G minor** center (the relative minor of B♭ major). This complements the B♭-major framing above.*
+
+### EN-1. Reading Autumn Leaves from the G minor center
+
+**instruction:** Why does The Jazz Pursuit call this a G minor tune when the chords are the same as B♭ major?
+
+**response:** G minor and B♭ major are relative keys — same key signature, same seven notes, just a different tonal home. The relative minor sits a minor third (three semitones) below its relative major, so B♭ major's relative minor is G minor. Autumn Leaves can be analyzed either way, but hearing G minor as home explains the tune's melancholy pull: the A section runs a major ii-V-I *up to the relative major* (Cm7 – F7 – BbMaj7), then a minor ii-V-i *back home* to G minor (Am7♭5 – D7 – Gm7). The whole form is a conversation between the bright relative major and the dark minor tonic.
+
+### EN-2. The A-section melody as a descending sequence
+
+**instruction:** How is the A-section melody constructed?
+
+**response:** It's four phrases, each a sequence of the first, shifted one scale step lower through the G minor scale. Each phrase rises three notes within the scale, then leaps up a fourth to land on the 3rd of the chord underneath. Phrase 1 starts on G and lands on E♭ (3rd of Cm7); phrase 2 starts a step lower on F and lands on D (3rd of BbMaj7); phrase 3 starts on E♭ and lands on C (3rd of Am7♭5). The final phrase breaks the pattern — it rises through the D7 chord (D–E–F♯) instead of the scale, to land on B♭ (3rd of Gm7), spelling the dominant's leading tone into the minor tonic.
+
+### EN-3. The structure: A A B C and how the sections mirror each other
+
+**instruction:** How do the B and C sections relate to the A section?
+
+**response:** The A section is "major ii-V-I, then minor ii-V-i." The B section does the reverse order: it opens with the minor ii-V-i home to G minor (Am7♭5 – D7 – Gm7), then a major ii-V to the relative major (Cm7 – F7 – BbMaj7). The C section is simply two minor ii-V-i's back to G minor (Am7♭5 – D7 – Gm7, repeated). So the entire tune is built from just two cells — a major ii-V-I and a minor ii-V-i — recombined, which is exactly why it's such a common first-jazz-standard for learning both cadences.
+
+### EN-4. The E♭Maj7 passing chord from the cycle of fourths
+
+**instruction:** Where does the E♭Maj7 come from in some versions?
+
+**response:** Lay out the G minor scale in a cycle of fourths and build a diatonic 7th chord on each step, and you get the chords of the tune (Cm7 – F7 – BbMaj7 – EbMaj7 – Am7♭5 – D7 – Gm7, with D tweaked to D7). The chord that joins BbMaj7 (the relative major) to Am7♭5 is EbMaj7 (chord IV of B♭ / chord VI of G minor). Inserting it in bar 4 of the A section and bar 8 of the B section continues the cycle-of-fourths motion smoothly and is a very common addition to the basic changes.
+
+### EN-5. Tritone substitutions in the C section
+
+**instruction:** How can I keep the C section moving instead of sitting on Gm7?
+
+**response:** Work backwards from the target. To set up the Am7♭5 in bar 5 you put its V in front: E7. To connect the Gm7 in bar 3 down to that E7, slide down chromatically alternating minor-7 and dominant-7 chords: Gm7 → G♭7 → Fm7 → E7 → Am7♭5. The G♭7 and E7 are tritone substitutes (each shares guide tones with the "expected" dominant a tritone away), creating a smooth chromatic bass descent that propels the music toward the final cadence rather than stalling on the tonic.

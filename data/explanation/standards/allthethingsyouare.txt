@@ -57,3 +57,38 @@ G 키를 기준으로 볼 때, Ab 키는 bII 키, Eb 키는 bVI 키, C 키는 �
 
 **instruction:** 'All The Things You Are'처럼 키가 계속 바뀌는 곡을 연주할 때 가장 중요한 것은 뭐야?
 **response:** 잦은 키 체인지(Key Change)의 흐름을 놓치지 않도록 연주 내내 정신을 바짝 차리는 것입니다. 이 곡은 중급 재즈 즉흥 연주의 시작점이 되는 곡으로, 한 가지 스케일로 밀고 나갈 수 없으며 코드가 속한 순간순간의 키 센터를 정확히 인지하고 그에 맞는 스케일과 라인을 연주해야 합니다. 이 곡의 패턴(장/단3도 변화 등)에 적응하면, 다른 복잡한 곡들의 전조에도 유연하게 대응할 수 있는 탄탄한 실력을 갖추게 됩니다.
+---
+
+## The Jazz Pursuit — Additional Analysis (English)
+
+*Source: The Jazz Pursuit — "All The Things You Are (J. Kern) Analysis & Tutorial" (https://youtu.be/abSdBUgfd7w). Analyzed in A♭ major (the common lead-sheet key). Complements the entries above (which used a G-major framing) with structure, the vi-opening, the chromatic pivot, and melodic construction.*
+
+### EN-1. Form: 36 bars, A1–B–A2 with a 4-bar tag
+
+**instruction:** Why isn't All The Things You Are a regular 32-bar AABA?
+
+**response:** It is based loosely on AABA, but it is 36 bars rather than 32, so it is better labeled A1–B–A2. The A1 and B sections are each 8 bars, but the final A2 carries a 4-bar tag at the end, making it 12 bars. That extra tag is what pushes the total to 36 and gives the tune its slightly irregular, extended feel — one of the reasons it sounds longer and more through-composed than a textbook AABA standard.
+
+### EN-2. Starting on vi instead of I
+
+**instruction:** Why does the tune begin on Fm7 instead of the A♭ tonic?
+
+**response:** Many standards open on chord I to establish the home key, but All The Things You Are deliberately opens on the relative minor, chord vi. In A♭ major that vi chord is Fm7. From there it takes a ii-V-I (Bbm7 – Eb7 – AbMaj7) home to the tonic, then moves to chord IV (DbMaj7). So the A section touches the main landing points of the key — vi, then I, then IV — but by starting on vi it begins in the "shadow" of the relative minor before resolving to A♭, which gives the opening its wistful, unsettled color.
+
+### EN-3. The chromatic pivot: D♭Maj7 → Dm7 via shared guide tones
+
+**instruction:** How does the harmony move from D♭Maj7 up to Dm7, and why does it sound smooth?
+
+**response:** After landing on chord IV (DbMaj7), the harmony slips up a semitone to Dm7, which is outside the A♭ major home key. It works because the two chords share their guide tones: the 3rd and 7th of D♭Maj7 are F and C, and the 3rd and 7th of Dm7 are also F and C. With the defining tones held in common, the chromatic root motion feels seamless. That Dm7 then functions as the ii of a new ii-V-I (Dm7 – G7 – CMaj7), tonicizing C major and launching the modulating chain the tune is famous for.
+
+### EN-4. Melody built on the 3rds of each chord
+
+**instruction:** What is the melodic logic of the A section?
+
+**response:** The A-section melody is constructed almost entirely from the 3rd of each chord. It begins on the 3rd of Fm7 (A♭), rises to the 3rd of Bbm7 (D♭), falls back, then lands on the 3rd of Eb7 (G); that same G is reinterpreted as the 7th of AbMaj7 before moving on. Because each long note targets a chord's 3rd — the tone that most defines major vs. minor quality — the melody spells the changing harmony very clearly even as the chords modulate, which is part of why the tune is such a strong study in voice-leading.
+
+### EN-5. Mindset for the constant key changes
+
+**instruction:** How should I think about improvising through so many key changes?
+
+**response:** Rather than memorizing dozens of unrelated chords, group them into ii-V-I units and think one key at a time. The tune modulates through several keys (A♭, then C, the E-major bridge, and back), but each modulation arrives via a ii-V-I you already know in isolation. Lock onto the 3rds and 7ths so your line connects smoothly from one key to the next (the F–C guide tones at the D♭Maj7→Dm7 pivot are a model for this), and let the resolution points of each ii-V-I be your melodic anchors. Practiced this way, the "hard" modulations become a string of familiar cadences.

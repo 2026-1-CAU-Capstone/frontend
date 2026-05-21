@@ -74,3 +74,39 @@
 2. **B 파트:** 모달 인터체인지를 투파이브 덩어리째로 가져와 아예 다른 세계관(키)으로 전환시켜 버립니다.
 3. **C 파트:** 원래의 다이아토닉으로 돌아오되, 마이너로 향하는 투파이브(세컨더리 도미넌트+릴레이티드 투마이너)를 곳곳에 배치해 잠깐씩 슬픈 변주를 줍니다.
 이렇게 모티브를 설계하고 이어 붙이면, 기승전결이 확실하고 색채가 풍부한 입체적인 곡을 만들 수 있습니다.
+
+---
+
+## The Jazz Pursuit — Additional Analysis (English)
+
+*Source: The Jazz Pursuit — "On Green Dolphin Street (B. Kaper) Analysis & Tutorial" (https://youtu.be/Qlazp4pnIc0). Read here in **E♭ major** (the analysis above uses C major). ABAC form; the A sections are Latin, the B and C sections swing.*
+
+### EN-1. The pedal-point A section
+
+**instruction:** How does the A-section harmony work over the bass pedal?
+
+**response:** The whole A section sits on an E♭ pedal, with chords superimposed on top. It starts on EbMaj7 (I) for two bars, turns minor to Ebm7 for two bars, then is easiest read as triads over the pedal: an F major triad over E♭ (which, with the E♭ added, becomes F7) slipping down a semitone to an E major triad over E♭ (which becomes EMaj7, the E♭ functioning as D♯), then back to EbMaj7. The pedal is what determines those chord qualities — the same triad sounds different against the held E♭ root.
+
+### EN-2. The B section: parallel ii-V-Is a minor third apart
+
+**instruction:** Analyze the B section harmony.
+
+**response:** The B section is two ii-V-Is. The first goes home to chord I (Fm7 – Bb7 – EbMaj7); the second is transposed up a minor third to G♭ major (Abm7 – Db7 – GbMaj7). A final V-I (Bb7 → EbMaj7) then resets for the returning A. Because the two cadences are identical shapes a minor third apart, both the harmony and the melody simply transpose — a tidy, easy-to-hear sequence.
+
+### EN-3. The signature "Green Dolphin Street" descending move
+
+**instruction:** What is the famous C-section progression this tune is named for?
+
+**response:** Over a held minor chord the bass walks down chromatically into a minor ii-V-i. Starting on Fm7, the bass drops to its ♭7 (Fm7/E♭), then down a semitone to D, which becomes the ii of a minor ii-V-i (Dm7♭5 – G7♭9 – Cm7). The whole figure then repeats from Cm7 (Cm7 → Cm7/B♭ → Am7♭5 – D7♭9 – Gm7). It closes with a 3-6-2-5-1 home (Gm7 – C7 – Fm7 – Bb7 – EbMaj7). This chunk shows up in many standards (it's even quoted in Bolivia), so it's worth learning in several keys.
+
+### EN-4. The half-diminished voicing trick
+
+**instruction:** Is there a shortcut for voicing the descending minor ii-V move?
+
+**response:** Yes — your minor-7 voicing for the chord you're leaving doubles as the half-diminished voicing of the next ii. For example, an Fm7 voicing, kept intact while the bass moves down to D, becomes a perfectly good Dm7♭5 voicing. So you can hold the same right-hand shape and just let the bass produce the chord changes (Fm7 → Fm7/E♭ → "Dm7♭5"). It makes the otherwise tricky chromatic minor ii-V move very economical to play.
+
+### EN-5. Latin-vs-swing contrast as a structural device
+
+**instruction:** How should the changing feel shape my playing?
+
+**response:** The A sections are Latin and built on a busy, static pedal with shifting upper harmony, so a sparse, floating melodic approach (as the written melody does) contrasts well and lets the pedal/superimposition do the work. The B and C sections swing and move through real ii-V-Is, inviting more scalar, change-spelling lines. Treating the Latin A as "atmosphere over a pedal" and the swung B/C as "blowing through changes" gives a solo a built-in narrative that matches the composition's design.

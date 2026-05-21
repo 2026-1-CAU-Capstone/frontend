@@ -108,3 +108,39 @@ CMaj7 (I), Dm7 (ii), Em7 (iii), FMaj7 (IV), G7 (V), Am7 (vi), Bm7♭5 (vii°)
 **instruction:** 심플 버전을 알고 있을 때 리하모니제이션을 어떻게 직접 적용해?
 
 **response:** 심플 버전의 기능 분석을 기반으로 단계적으로 코드를 추가한다. 첫째, 세컨더리 도미넌트를 추가한다. vi(Am7) 앞에 E7, ii(Dm7) 앞에 A7을 넣는다. 둘째, 릴레이티드 투 마이너를 추가한다. E7 앞에 Bm7♭5(또는 Bm7), A7 앞에 Em7♭5(또는 Em7)를 넣는다. 마이너 색채를 강조하고 싶으면 m7♭5와 V7(♭9)을 사용하고, 가볍게 가고 싶으면 m7과 V7만 사용한다. 셋째, V7 자리를 ii-V로 분화시킨다. G7만 있는 자리를 Dm7 → G7으로 풀어준다. 넷째, 트라이톤 서브를 적용한다. B7(V7/iii) 대신 F7을 사용하여 반음 하행 해결을 만든다. 다섯째, 모달 인터체인지를 추가한다. IV(FMaj7) 뒤에 iv(Fm)를 넣어 서브도미넌트 마이너 사운드를 도입한다. 이 모든 기법은 원래 진행의 기능적 골격을 유지하면서 색채와 밀도를 조절하는 것이므로, 어느 버전으로 반주가 나오든 솔로이스트는 기능적 본질만 파악하면 대응할 수 있다.
+
+---
+
+## The Jazz Pursuit — Additional Analysis (English)
+
+*Source: The Jazz Pursuit — "Fly Me To The Moon (B. Howard) Analysis & Tutorial" (https://youtu.be/uGF2m74tJMs). Read here in **C major**, ABAC form, focusing on the cycle-of-fourths structure and melody construction.*
+
+### EN-1. The A section as a cycle of fourths within the key
+
+**instruction:** What is the underlying logic of the A-section chord motion?
+
+**response:** The A section walks the cycle of fourths inside C major: Am7 (vi) → Dm7 (ii) → G7 (V) → CMaj7 (I) → FMaj7 (IV) → Bm7♭5 (vii°) → E7 → Am7 (vi). Each chord moves up a fourth to the next, using every degree of the C major scale as a bass note. The one chord built "out of the key" is the E7 in bar 7: diatonically it would be Em7 (iii), but because it now functions as the V of a minor ii-V-i to Am7, it's tweaked to a dominant (E7). Hearing the A section as one long cycle of fourths makes it easy to memorize.
+
+### EN-2. Melody hung on the 3rds of each chord
+
+**instruction:** How is the A-section melody built?
+
+**response:** The melody targets the 3rd of every chord and connects those 3rds with the C major scale. Over Am7 the 3rd is C, over Dm7 it's F, over G7 it's B, over CMaj7 it's E — the line simply walks down the scale from one chord's 3rd to the next. The second phrase sequences the idea over FMaj7 (3rd = A), Bm7♭5 (3rd = D), E7 (3rd = G♯), Am7 (3rd = C). The only non-scale note is that G♯, the 3rd of the dominant E7. Targeting 3rds is a model technique: it spells the changes automatically while staying almost entirely in one scale.
+
+### EN-3. Minor ii-V-i to the relative minor
+
+**instruction:** Why is the A section's final cadence different from the first ii-V-I?
+
+**response:** The first cadence (Dm7 – G7 – CMaj7) is a major ii-V-I to chord I, built from the C major scale. The closing cadence targets Am7 (chord vi, the relative minor), so it's a *minor* ii-V-i drawn from A harmonic minor: the ii is half-diminished (Bm7♭5), the V is dominant (E7), the i is Am7. The rule holds in any key — a minor ii-V has a half-diminished ii and a dominant V, while a major ii-V has a minor-7 ii and a dominant V.
+
+### EN-4. Keeping the B section moving with inserted ii-Vs
+
+**instruction:** The B section is just two ii-V-Is to C — how does it avoid feeling static?
+
+**response:** Plain, the B section would park on CMaj7 for two bars at the end of each cadence. Bart Howard fills those bars with quick ii-Vs that propel into the next chord. In bar 4, a ii-V (Em7 – A7) sets up the Dm7 in bar 5; in bar 8, the ii-V (Bm7♭5 – E7) sets up the Am7 at the top of the returning A section. These insertions keep the harmonic rhythm alive without changing the section's basic I-centered function.
+
+### EN-5. The 3-6-2-5-1 ending via the iii substitution
+
+**instruction:** How does the C section build to the end of the form?
+
+**response:** The C section's foundation is the same two ii-V-Is to C, but the final resolution is delayed to emphasize the form's end. Instead of resolving to CMaj7 in bar 3, Howard substitutes chord iii (Em7) — the upper structure of CMaj7 (E–G–B–D are the 3rd, 5th, 7th, 9th of C). That Em7 becomes the ii of a new ii-V (Em7 – A7 → Dm7), producing a 3-6-2-5-1 (Em7 – A7 – Dm7 – G7 – CMaj7). Substituting iii for I to launch a 3-6-2-5 is one of the most common ways to generate momentum into a final cadence.

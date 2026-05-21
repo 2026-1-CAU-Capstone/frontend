@@ -1,0 +1,77 @@
+## Song Info
+
+- **Title:** Body and Soul
+- **Composer:** Johnny Green (1930)
+- **Center Key:** D♭ Major
+- **Form:** 32 bars AABA (ballad)
+- **Source:** The Jazz Pursuit — "Body and Soul (J. Green) Tutorial & Analysis" (https://youtu.be/k33CyKe0MCI)
+
+### Diatonic Chords (D♭ Major)
+
+DbMaj7 (I), Ebm7 (ii), Fm7 (iii), GbMaj7 (IV), Ab7 (V), Bbm7 (vi), Cm7♭5 (vii°)
+
+### Chord Progression (A section, first 4 bars)
+
+| Ebm7 Bb7 | Ebm7 Ab7 | DbMaj7 | GbMaj7 Fm7 (E°7) Bbm7 → Ebm7 |
+
+(A section opens on ii, re-cadences, takes a ii-V-I home to I, then a I–IV–iii–vi run leads back to ii.)
+
+---
+
+## Level 1: General Concepts
+
+### 1-1. Opening on chord ii instead of chord I
+
+**instruction:** Why does Body and Soul start on E♭m7 rather than the D♭ tonic?
+
+**response:** Many standards open on chord I to plant the key, but Body and Soul opens on chord ii (Ebm7 in D♭ major). Beginning on ii immediately sets up a ii-V-I, so the listener is pulled toward the tonic rather than handed it. This delayed-tonic opening is part of what gives the ballad its yearning, unresolved quality from the very first bar — the harmony is "leaning home" before it ever arrives.
+
+### 1-2. The re-cadence (V-I onto the same chord)
+
+**instruction:** What is a re-cadence and how is it used here?
+
+**response:** A re-cadence is a V-I motion that resolves back onto the chord you are already sitting on, used to reinforce that chord or to fill time. In Body and Soul the opening Ebm7 is preceded/extended by its own dominant: Bb7 → Ebm7 (V-I into E♭m7). Because Ebm7 is chord ii of the key, this temporarily treats E♭m as a local "one," strengthening it before the real ii-V-I (Ebm7 – Ab7 – DbMaj7) carries the music home to D♭.
+
+### 1-3. The I–IV–iii–vi descending diatonic run
+
+**instruction:** Explain a "1-4-3-6" progression like the one in Body and Soul.
+
+**response:** After arriving on chord I (DbMaj7), the A section moves I → IV → iii → vi: DbMaj7 → GbMaj7 → Fm7 → Bbm7. This is a smooth, mostly stepwise diatonic descent that builds momentum back toward chord ii (Ebm7) to restart the cycle. Each chord is diatonic to D♭ major, so the run keeps the harmony inside the key while creating forward motion — a very common device for getting from I back to ii.
+
+---
+
+## Level 2: Song-Specific Analysis
+
+### 2-1. The opening four bars
+
+**instruction:** Analyze the first four bars of the A section.
+
+**response:** Bar 1 sits on chord ii (Ebm7), reinforced by a re-cadence from its dominant Bb7. Bar 2 completes a ii-V-I home: Ebm7 – Ab7 – DbMaj7. Bars 3–4 begin the I–IV–iii–vi descent: DbMaj7 (I) → GbMaj7 (IV) → Fm7 (iii) → Bbm7 (vi), which leads back to chord ii (Ebm7) to repeat. So the A section is a compact loop: delay the tonic, resolve to it, then walk back down to ii to go around again.
+
+### 2-2. The vi chord as a dominant or as a passing diminished
+
+**instruction:** Bbm7 (vi) leads to Ebm7 (ii). Can it be altered, and what's the more authentic reading?
+
+**response:** A common trick is to turn the vi chord into a dominant — Bbm7 becomes Bb7 — so that Bb7 → Ebm7 forms a V-I cadence into chord ii. That works and adds pull. But in Body and Soul the more authentic reading is that the connection between Fm7 (iii) and Ebm7 (ii) is filled by a passing diminished chord: E°7 sits chromatically between F and E♭, smoothly linking iii down to ii. So you can hear that spot either as "vi turned dominant" or, more accurately to the original, as a iii → passing-dim → ii voice-leading move.
+
+---
+
+## Level 3: Performance Decisions
+
+### 3-1. Soloing over the delayed-tonic opening
+
+**instruction:** How do I handle the ii-heavy opening when improvising?
+
+**response:** Treat the opening as what it is — a ii-V (and re-cadence) aiming at D♭. Over Bb7 → Ebm7 you can lean toward E♭ minor (E♭ dorian / B♭ as its dominant), then over Ebm7 – Ab7 – DbMaj7 play a standard ii-V-I in D♭ major, targeting the resolution to DbMaj7. Because the tonic is delayed, the strongest melodic statement is often saving a clear D♭-major resolution tone for the downbeat where DbMaj7 finally lands.
+
+### 3-2. Navigating the passing diminished into ii
+
+**instruction:** What do I play over the E°7 passing chord between Fm7 and Ebm7?
+
+**response:** Over a passing diminished like E°7, a diminished (whole-half) scale from E fits, but the simplest melodic approach is to treat it as connective tissue: it links the F of Fm7 down to the E♭ of Ebm7 by a chromatic step, so a line that descends F → E → E♭ spells the motion perfectly. Don't over-think it as its own key area; voice-lead through it. The ear hears chromatic smoothness, not a new tonality.
+
+### 3-3. Ballad pacing as a D♭-major study
+
+**instruction:** Any big-picture advice for improvising on Body and Soul?
+
+**response:** Body and Soul is a ballad, so space and tone matter as much as note choice. Harmonically, anchor yourself in D♭ major: most of the A section is diatonic, with the interest coming from the delayed tonic, the re-cadence, and the descending I–IV–iii–vi run. Mark the structural arrivals (the resolution to DbMaj7, the return to Ebm7) with your strongest melodic moments, and let the ballad tempo give each ii-V room to breathe rather than filling every beat.

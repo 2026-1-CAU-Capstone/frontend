@@ -1,0 +1,79 @@
+## Song Info
+
+- **Title:** Georgia On My Mind
+- **Composer:** Hoagy Carmichael / Stuart Gorrell (1930)
+- **Center Key:** F Major
+- **Form:** 32 bars AABA (each section 8 bars); ballad or slow swing
+- **Source:** The Jazz Pursuit — "Georgia On My Mind (H. Carmichael) Tutorial & Analysis" (https://youtu.be/7GOxPoc6FHQ)
+
+### Diatonic Chords (F Major)
+
+FMaj7 (I), Gm7 (ii), Am7 (iii), BbMaj7 (IV), C7 (V), Dm7 (vi), Em7♭5 (vii°)
+
+### Chord Progression
+
+**A section (8 bars):**
+| FMaj7 | A7 Dm7 | BbMaj7 | FMaj7 | FMaj7 Dm7 | Gm7 C7 | (ending) |
+
+**B section (relative minor D, re-cadences):**
+| Dm7 A7 | Dm7 Bb7 | Dm7 A7 | Dm7 G7 | Dm7 (E7) | Am7 | Dm7 Gm7 | C7 |
+
+---
+
+## Level 1: General Concepts
+
+### 1-1. Tonicizing chord vi with a V-I
+
+**instruction:** How does the A section move from chord I to chord vi?
+
+**response:** It starts on FMaj7 (I), then uses a V-I cadence to reach chord vi (Dm7): A7 → Dm7. A7 is the V of D minor, so it momentarily tonicizes the vi chord. From Dm7 the harmony steps to BbMaj7 (IV) and back home to FMaj7 (I). Using a secondary dominant (A7) to approach vi gives the otherwise diatonic A section a stronger sense of motion.
+
+### 1-2. The 1-6-2-5 turnaround
+
+**instruction:** What turnaround closes the A section?
+
+**response:** A 1-6-2-5: FMaj7 (I) → Dm7 (vi) → Gm7 (ii) → C7 (V). It's one of the most common cells in jazz, circling through the cycle of fifths back toward the tonic. In the first-time ending it resolves to FMaj7 to launch the repeat; in the second-time ending the music simply settles on FMaj7 before the bridge.
+
+### 1-3. Re-cadencing to stay in one harmonic area
+
+**instruction:** The bridge sits on D minor for a long time — how does it keep moving?
+
+**response:** Through re-cadencing: repeatedly leaving and returning to the same chord with V-I (or related) motion. The bridge stays on Dm7 (the relative minor) but keeps the bass and harmony alive by cadencing to it from different chords — A7 (V) → Dm7, Bb7 (♭VI/IV-dominant) → Dm7, A7 → Dm7, G7 (IV-dominant) → Dm7. Re-cadencing is the go-to device for generating motion when you're effectively parked on one chord.
+
+---
+
+## Level 2: Song-Specific Analysis
+
+### 2-1. The A section in full
+
+**instruction:** Analyze the Georgia On My Mind A section.
+
+**response:** It opens on FMaj7 (I), then a V-I (A7 → Dm7) tonicizes chord vi, moves to BbMaj7 (IV), and returns to FMaj7 (I). The second half is a 1-6-2-5 (FMaj7 – Dm7 – Gm7 – C7). The first-time ending uses that 1-6-2-5 to loop back to F for the second A; the second-time ending resolves to FMaj7 and holds, since the bridge moves away from the home key. The melody throughout is pure F major scale.
+
+### 2-2. The bridge and its return
+
+**instruction:** Walk me through the bridge harmony.
+
+**response:** The bridge shifts to the relative minor, D minor. It opens on Dm7 and re-cadences four times — via A7 (V), Bb7 (chord vi made dominant), A7 again, and G7 (chord iv made dominant) — each time returning to Dm7, keeping a single harmonic area in motion. To get home for the last A, the final two bars run a 3-6-2-5 in F: Am7 (iii) – Dm7 (vi) – Gm7 (ii) – C7 (V) → FMaj7. A short V-I (E7 → Am7) connects the lingering Dm7 to that closing Am7.
+
+---
+
+## Level 3: Performance Decisions
+
+### 3-1. One scale for the A section melody
+
+**instruction:** What scale fits the A section?
+
+**response:** The melody uses only the F major scale, so you can stay in F major across the whole A section and let the chords color the same note pool. Target chord tones at the secondary-dominant moment (the 3rd/7th of A7 — C♯ and G — as it resolves to Dm7) for definition, and use a bluesy inflection like the ♭3 (A♭→G) over the C7 the way the original melody does, to give it that vocal, down-home Georgia feel.
+
+### 3-2. Developing one motive across the bridge
+
+**instruction:** How is the bridge melody constructed, and how can I use that idea?
+
+**response:** The bridge melody develops a single phrase three times, rising progressively higher each time while outlining the D-minor tonality (D – F – G – A, then enclosing the 6th, then continuing up through the 7th/root/9th). It's a great improvising lesson: pick one motive and sequence it upward across the re-cadences instead of chasing new material, so the held D-minor area gains shape and direction toward the 3-6-2-5 return.
+
+### 3-3. Reharm tweaks for the A section
+
+**instruction:** What chord substitutions can richen the A section?
+
+**response:** Three common tweaks: (1) make the V-I to vi a full minor ii-V — Em7♭5 – A7 – Dm7 — for a smoother approach; (2) walk the bass down from Dm7 to Dm7/C into BbMaj7 instead of sitting on D; (3) turn the 1-6-2-5 into a 3-6-2-5 by substituting Am7 (iii) for the tonic — Am7 shares A–C–E–G with FMaj7 — and optionally make the vi chord dominant (D7) for extra forward motion. These keep the bass line more interesting without disturbing the melody.

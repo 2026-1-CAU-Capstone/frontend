@@ -131,3 +131,38 @@
 **instruction:** 정말 메이저 스케일과 믹솔리디안 ♭9♭13 두 가지만으로 모든 재즈 스탠더드를 연주할 수 있어?
 
 **response:** 가능하다. 모든 다이아토닉 코드와 릴레이티드 투 마이너, 그리고 V7이 아닌 도미넌트 7에서는 해당하는 메이저 스케일을 사용한다. V7(센터 키 V7이든 세컨더리 도미넌트든)에서는 믹솔리디안 ♭9♭13을 사용한다. 이 두 스케일의 조합만으로 모든 논다이아토닉 상황을 커버할 수 있다. 물론 이 외에도 다양한 접근법과 변형이 존재하지만, 기본 분석 프레임워크로서 이 두 스케일이면 충분하다. 어프로치 노트 같은 장식 없이도 이 두 스케일만으로 연주할 수 있으며, 추가적인 접근법은 이 기본 위에 쌓아가면 된다.
+---
+
+## The Jazz Pursuit — Additional Analysis (English)
+
+*Source: The Jazz Pursuit — "Cherokee (R. Noble) Analysis & Tutorial" (https://youtu.be/XK8T8CgBCCk). These entries extend the file above, which only analyzed the A section, by covering the AABA structure, the bridge, and melodic construction.*
+
+### EN-1. Overall structure (AABA, 64 bars)
+
+**instruction:** What is the overall form of Cherokee?
+
+**response:** Cherokee is a 64-bar AABA form in B♭ major, with each section lasting 16 bars. The A section is stated, repeated, then followed by the 16-bar B section (the bridge), and finally the last A section. Because each section is 16 bars rather than the usual 8, Cherokee is twice the length of a typical AABA standard — one reason it became a favorite jam-session and up-tempo "burner," most famously through Charlie Parker's recordings and his composition "Ko-Ko" built on these changes.
+
+### EN-2. The famous bridge — a descending chain of ii-V-I
+
+**instruction:** How does the Cherokee bridge work harmonically?
+
+**response:** The bridge is the most distinctive feature of Cherokee: it is a sequence of complete ii-V-I cadences that step downward by whole tone through a series of keys. Starting a tritone away from home, it tonicizes B major (C♯m7 – F♯7 – BMaj7), then A major (Bm7 – E7 – AMaj7), then G major (Am7 – D7 – GMaj7), and finally a ii-V (Gm7 – C7) that leads to F7, the home key's V7, returning to B♭ for the last A. Each ii-V-I is a self-contained key area, so the bridge is essentially four mini-modulations chained together, descending by step.
+
+### EN-3. Playing over the descending-key bridge
+
+**instruction:** How do I improvise over the Cherokee bridge?
+
+**response:** Treat each four-bar unit as its own key. Over C♯m7 – F♯7 – BMaj7 play in B major; over Bm7 – E7 – AMaj7 play in A major; over Am7 – D7 – GMaj7 play in G major; then Gm7 – C7 resolves toward the home key. The challenge at fast tempos is switching keys cleanly every four bars (and at the dominant, every two). A practical approach is to target the 3rds and 7ths of each chord — the guide tones — so the line spells the changes even when you can't think full scales at speed. Because the keys descend by whole tone, the same melodic shape can be sequenced downward through each new key.
+
+### EN-4. Melody written "in the key," harmony applied after
+
+**instruction:** Why does the Cherokee A-section melody sit so neatly in B♭ major even over non-diatonic chords?
+
+**response:** Like many early standards, Cherokee's melody belongs to the category written in the home key first, with harmony applied afterward — rather than written on the chord changes. The A-section melody outlines the B♭ major 6 sound (3rd–5th–6th–root) and stays within the B♭ major scale throughout, even when the harmony moves to the secondary dominant C7 or the ♭VI-ish E♭m. This is why the melody can be analyzed purely in relation to B♭ major: it floats in the key while the chords supply the color underneath, so a soloist can lean on B♭ major through the A section and only adjust at the clearly non-diatonic moments.
+
+### EN-5. First-time ending: the re-cadence
+
+**instruction:** What is the "re-cadence" in the first-time ending of the A section?
+
+**response:** Because the first A is immediately followed by the second A, its ending is handled differently from a final cadence. Instead of resting on the tonic for three bars, a re-cadence is used: starting on Cm7 (chord ii), the harmony cadences back to that same area via a V-I motion (G7 → Cm7) before the ii-V-I (Cm7 – F7 – BbMaj7) lands on chord I at the top of the second A. A re-cadence "does what it says" — it cadences back to the chord it started on, here used to fill time in the form and to reinforce the launch of the next A section.

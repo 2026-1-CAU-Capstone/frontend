@@ -1,0 +1,62 @@
+url : https://youtu.be/PvBlC1nDHYc
+
+곡 정보 (Song Information)
+분석 대상 곡 (Analyzed Songs):
+
+해당 없음 — 이론 강의 (N/A — Theory Lesson)
+
+형식 (Form): 이론 강의 (마이너 ii-V-i 케이던스) | Theory Lesson (The Minor ii-V-i Cadence)
+
+강의 출처 (Source): The Jazz Pursuit — "Understanding Minor 251s"
+
+레벨 1: 범용 개념 설명 (Level 1: General Concepts)
+1-1. 마이너 ii-V-i과 메이저 ii-V-I의 차이 (How a Minor ii-V-i Differs from a Major One)
+instruction (KR): 마이너 투파이브원이 뭐고 메이저 투파이브원이랑 어떻게 달라?
+instruction (EN): What is a minor ii-V-i, and how is it different from a major ii-V-I?
+
+response (KR): 투파이브원은 재즈 스탠더드에서 가장 흔한 케이던스로, ii 코드·V 코드·i 코드 세 개로 이루어지며 해결점은 i 코드입니다. 두 종류가 있습니다. 메이저 투파이브원은 해결이 메이저라서 i 코드가 메이저 7 코드이고, 진행 전체가 메이저 스케일에 기반합니다. 반면 마이너 투파이브원은 해결이 마이너라서 i 코드가 마이너 7 코드이고, 메이저 스케일이 아니라 하모닉 마이너 스케일에 기반합니다. 이 "어떤 스케일에 기반하는가"의 차이가 두 케이던스의 코드 퀄리티를 결정합니다.
+response (EN): A ii-V-I is the most common cadence in jazz standards: three chords — a ii, a V, and a i — with the i as the resolution point. There are two types. A major ii-V-I resolves to major, so the i chord is a major-7 chord and the whole progression is based on the major scale. A minor ii-V-i resolves to minor, so the i chord is a minor-7 chord and it is based on the harmonic minor scale, not the major scale. That difference in "which scale it's based on" determines the chord qualities of each cadence.
+
+1-2. 하모닉 마이너에서 코드 도출하기 (Deriving the Chords from Harmonic Minor)
+instruction (KR): 마이너 투파이브원을 이루는 코드들은 어떻게 나오는 거야?
+instruction (EN): What chords make up a minor ii-V-i, and where do they come from?
+
+response (KR): 마이너 투파이브원은 하모닉 마이너 스케일에 기반하므로, 그 스케일에서 코드를 쌓아 도출합니다. 하모닉 마이너를 빠르게 만드는 요령은 "메이저 스케일에서 3음과 6음을 반음 내리는 것"입니다(C 메이저 → C 하모닉 마이너는 E♭, A♭). C 하모닉 마이너 기준으로 각 코드의 루트는 ii=D, V=G, i=C입니다. 여기서 같은 스케일 음만 써서 3·5·7을 쌓으면, ii=Dm7♭5(하프 디미니쉬), V=G7(♭9까지 쌓으면 A♭), i=CmMaj7(마이너 트라이어드+장7도)이 나옵니다.
+response (EN): Because a minor ii-V-i is based on the harmonic minor scale, you derive its chords by stacking from that scale. A quick way to build harmonic minor is to take the major scale and flatten the 3rd and 6th (C major → C harmonic minor gives E♭ and A♭). In C harmonic minor the chord roots are ii = D, V = G, i = C. Stacking 3rds, 5ths, and 7ths using only that scale's notes gives ii = Dm7♭5 (half-diminished), V = G7 (extending to the ♭9, A♭), and i = CmMaj7 (a minor triad with a major 7th).
+
+1-3. i 코드를 마이너 7으로 바꾸는 이유 (Why the i Chord Is Usually Tweaked to a Minor 7)
+instruction (KR): i 코드가 이론상 마이너 메이저 7이라는데 실제로도 그걸 써?
+instruction (EN): The theory says the i chord is a minor-major 7 — do we actually play that?
+
+response (KR): 이론을 정확히 따르면 i 코드는 마이너 메이저 7(마이너 트라이어드 + 장7도)입니다. 하지만 이 코드는 장7도가 만드는 긴장 때문에 해결점으로 앉기엔 다소 불안정합니다. 그래서 실제로는 보통 평범한 마이너 7 코드로 바꿔 케이던스가 더 해결된 느낌이 들도록 합니다. 정리하면 마이너 투파이브원의 핵심은 ii=하프 디미니쉬, V=도미넌트 7♭9, i=마이너 메이저 7(→ 보통 마이너 7로 변형)이며, 모든 마이너 투파이브원이 동일한 하모닉 마이너 이론을 따르므로 어느 키에서나 같은 퀄리티가 나옵니다.
+response (EN): Following the theory strictly, the i chord is a minor-major 7 (a minor triad plus a major 7th). But that major 7th creates tension that makes it a slightly unstable place to land. So in practice it's usually tweaked to a plain minor-7 chord to make the cadence feel more resolved. In summary, a minor ii-V-i is ii = half-diminished, V = dominant 7♭9, i = minor-major 7 (→ usually changed to minor 7). Because every minor ii-V-i follows the same harmonic-minor theory, the qualities come out the same in any key.
+
+레벨 2: 적용 예시 (Level 2: Worked Examples)
+2-1. C 마이너에서의 마이너 투파이브원 (A Minor ii-V-i in C)
+instruction (KR): C 마이너 투파이브원을 음 하나하나 짚어서 확인해줘.
+instruction (EN): Walk me through a minor ii-V-i in C note by note.
+
+response (KR): C 하모닉 마이너(C-D-E♭-F-G-A♭-B)를 씁니다. ii 코드: 루트 D, 3음 F, 5음 A♭, 7음 C → Dm7♭5(하프 디미니쉬). V 코드: 루트 G, 3음 B, 5음 D, 7음 F → G7, 한 번 더 쌓으면 9음 A♭ = ♭9이므로 G7♭9. i 코드: 루트 C, 3음 E♭, 5음 G, 7음 B → CmMaj7. 이 CmMaj7을 보통 Cm7으로 바꿔 마무리합니다. 따라서 Dm7♭5 → G7♭9 → Cm7이 됩니다.
+response (EN): Use C harmonic minor (C-D-E♭-F-G-A♭-B). The ii chord: root D, 3rd F, 5th A♭, 7th C → Dm7♭5 (half-diminished). The V chord: root G, 3rd B, 5th D, 7th F → G7; stack one more and the 9th is A♭ = ♭9, so G7♭9. The i chord: root C, 3rd E♭, 5th G, 7th B → CmMaj7, usually changed to Cm7 to finish. So the cadence is Dm7♭5 → G7♭9 → Cm7.
+
+2-2. G 마이너로 옮겨 확인하기 (Confirming It in G Minor)
+instruction (KR): 다른 키로도 같은 결과가 나오는지 G 마이너로 확인해줘.
+instruction (EN): Confirm the same result transposes — show it in G minor.
+
+response (KR): G 하모닉 마이너(G 메이저에서 3음·6음을 내림: B♭, E♭)를 씁니다. 루트는 ii=A, V=D, i=G. ii 코드: A-C-E♭-G → Am7♭5(하프 디미니쉬, ♭5 확인). V 코드: D-F♯-A-C → D7, 9음은 E♭ = ♭9이므로 D7♭9. i 코드: G-B♭-D-F♯ → GmMaj7, 긴장 때문에 Gm7으로 변형. 결과는 Am7♭5 → D7♭9 → Gm7으로, C 키 예시와 정확히 같은 퀄리티입니다. 모든 마이너 투파이브원이 같은 이론을 공유하기 때문입니다.
+response (EN): Use G harmonic minor (G major with the 3rd and 6th flattened: B♭, E♭). Roots: ii = A, V = D, i = G. The ii chord: A-C-E♭-G → Am7♭5 (half-diminished, ♭5 confirmed). The V chord: D-F♯-A-C → D7; the 9th is E♭ = ♭9, so D7♭9. The i chord: G-B♭-D-F♯ → GmMaj7, tweaked to Gm7 because of the tension. The result is Am7♭5 → D7♭9 → Gm7 — exactly the same qualities as the C example, because all minor ii-V-i's share the same theory.
+
+레벨 3: 연주 판단 (Level 3: Performance Decisions)
+3-1. 메이저와 마이너 투파이브의 V 코드 비교 (Comparing the V Chord in Major vs. Minor)
+instruction (KR): 메이저 투파이브와 마이너 투파이브에서 V 코드는 같아, 달라?
+instruction (EN): Is the V chord the same in a major and a minor ii-V?
+
+response (KR): 둘 다 V 코드는 도미넌트 7로 같습니다. 결정적 차이는 마이너 투파이브의 V에는 ♭9이 들어간다는 점입니다(하모닉 마이너의 ♭6에서 비롯). 그래서 즉흥연주 시 마이너 투파이브의 V 위에서는 ♭9(그리고 보통 ♭13)을 강조하는 얼터드/디미니쉬 계열 사운드가 자연스럽고, 메이저 투파이브의 V보다 더 어둡고 강한 인력을 만들어 마이너 i로의 해결을 강화합니다.
+response (EN): The V chord is a dominant 7 in both. The decisive difference is that the V in a minor ii-V carries a ♭9 (coming from the ♭6 of harmonic minor). So when improvising over the V of a minor ii-V, an altered/diminished-flavored sound emphasizing the ♭9 (and usually ♭13) is natural — darker and with a stronger pull than the V of a major ii-V, reinforcing the resolution to the minor i.
+
+3-2. ii(하프 디미니쉬) 위에서의 스케일 선택 (Scale Choice over the ii Half-Diminished)
+instruction (KR): 마이너 투파이브의 ii 코드(하프 디미니쉬) 위에서는 뭘 치면 좋아?
+instruction (EN): What scale works over the ii (half-diminished) chord of a minor ii-V?
+
+response (KR): 가장 단순하게는 해결될 i의 하모닉 마이너를 그대로 ii부터 적용해도 됩니다(ii-V-i 전체가 같은 하모닉 마이너에서 나왔으므로). ii 코드 자체에 집중한다면 로크리안이 기본이고, 좀 더 부드러운 색을 원하면 로크리안 ♮2(=멜로딕 마이너의 6번째 모드)를 쓰면 9음이 내추럴이 되어 덜 어둡습니다. 핵심은 ii·V를 하나의 덩어리로 듣고, V의 ♭9·♭13을 거쳐 i의 코드톤(루트·♭3·5)으로 매끄럽게 해결하는 것입니다.
+response (EN): Most simply, you can apply the i chord's harmonic minor from the ii onward (the whole ii-V-i comes from the same harmonic minor). Focusing on the ii chord itself, Locrian is the default; for a smoother color, Locrian ♮2 (the 6th mode of melodic minor) makes the 9th natural and sounds less dark. The key is to hear the ii and V as one unit and resolve smoothly through the V's ♭9/♭13 onto a chord tone of the i (root, ♭3, or 5).

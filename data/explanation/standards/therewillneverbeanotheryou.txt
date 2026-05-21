@@ -120,3 +120,39 @@
 **instruction:** 악보에 Fm7 → B♭7 → EbMaj7으로 적혀 있어도 변형 코드톤 플레이를 할 수 있어?
 
 **response:** 가능하다. 악보에 기본 ii-V-I(Fm7 → B♭7 → EbMaj7)으로 적혀 있더라도, ii-V-I 대체 원리에 따라 자유롭게 변형 플레이를 적용할 수 있다. 예를 들어 IVMaj7 → IVm7 → IMaj7(A♭Maj7 → A♭m7 → EbMaj7) 변형으로 코드톤을 잡으면, A♭Maj7과 A♭m7 사이의 3rd 변화를 강조하는 플레이가 가능하다. 또는 IIm7 → IVm7 → IMaj7(Fm7 → A♭m7 → EbMaj7) 변형으로 Fm7의 코드톤 패턴을 단3도 위인 A♭m7에서 그대로 반복할 수도 있다. 이러한 변형 진행들은 재즈 스탠더드에서 매우 자주 등장하므로, 보자마자 눈치챌 수 있도록 익숙해지는 것이 중요하다.
+
+---
+
+## The Jazz Pursuit — Additional Analysis (English)
+
+*Source: The Jazz Pursuit — "There Will Never Be Another You Tutorial & Analysis" (https://youtu.be/oJC85BaM1E4). E♭ major, ABAC. A great vehicle for practicing the cadences within one major scale.*
+
+### EN-1. The A section: cadences to vi and IV
+
+**instruction:** Analyze the A-section harmony.
+
+**response:** It opens on EbMaj7 (I) for two bars, then a minor ii-V-i to the relative minor (Dm7♭5 – G7♭9 – Cm7), then a major ii-V-I to chord IV (Bbm7 – Eb7 – AbMaj7). So the A section visits the key's three landing points — I, vi, and IV — each reached by its own ii-V. Practicing the tune in several keys is valuable precisely because it drills both a minor and a major ii-V back to back within one scale.
+
+### EN-2. The backdoor ii-V and the secondary dominant in the B section
+
+**instruction:** How does the B section get home and what's the F7?
+
+**response:** From AbMaj7 (IV) it returns to E♭ via a backdoor ii-V: AbMaj7 turns minor (Abm7 – Db7) and resolves *up a whole step* to EbMaj7 (rather than down a fifth to G♭). Then it touches Cm7 (vi) on the way to chord ii — but the ii is made a secondary dominant, F7 (the V of the V, since B♭7 is the primary dominant). That F7 sits two bars, then turns minor (Fm7) to start a normal ii-V-I home (Fm7 – Bb7 – EbMaj7).
+
+### EN-3. Melody design: full vs. static, and pivot notes
+
+**instruction:** What's clever about how the A-section melody is written?
+
+**response:** Three things. First, it's organized by harmonic rhythm: where the harmony is static (the first two bars of a line) the melody is busy, and where the harmony moves (the last two bars) the melody holds. Second, phrase 1 walks the major scale while phrase 2 walks the C minor pentatonic, but both span exactly an octave. Third, the held notes over each ii-V are chosen as pivots that fit *both* chords — F (3rd of the ii, 7th of the V) in one phrase, C (9th of the ii, 13th of the V) in the next. The single non-key note in the whole melody is the A♮ over the F7 secondary dominant (its major 3rd).
+
+### EN-4. The 1-4-3-6-2-5-1 ending
+
+**instruction:** How does the C section bring the tune to a close?
+
+**response:** The C section begins like the B (AbMaj7, backdoor D♭7 → EbMaj7), then the last four bars use a very standard ending sequence — a 1-4-3-6-2-5-1 with each chord lasting two beats: EbMaj7 – AbMaj7 – Gm7 – C7 – Fm7 – Bb7 – EbMaj7. The descending ii-Vs (Gm7-C7, Fm7-Bb7) drive momentum into the final tonic. It's a go-to formula for closing a major-key standard.
+
+### EN-5. The tritone backdoor ii-V
+
+**instruction:** What keeps the C section from stalling on the tonic in bars 3–5?
+
+**response:** A tritone backdoor ii-V. Move a tritone from chord I (E♭ → A) and build a minor ii-V there: Am7♭5 – D7♭9, whose D7♭9 resolves up a semitone (through the back door) to EbMaj7. This is the same device that opens Stella By Starlight. A handy voicing tip: Am7♭5 is just an EbMaj7 root-position voicing played over an A in the bass — an easy comping shortcut for the half-diminished chord.

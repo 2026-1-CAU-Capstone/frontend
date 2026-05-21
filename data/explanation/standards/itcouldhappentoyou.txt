@@ -162,3 +162,39 @@
 **instruction:** 같은 라인을 단3도 위에서 반복하는 건 어떤 원리야?
 
 **response:** 특정 코드에서 사용한 라인이나 모티브를 단3도 위의 코드에서 그대로 반복하는 것은 재즈 솔로에서 매우 효과적인 기법이다. 예를 들어 Cm7(vi)에서 사용한 패턴을 단3도 위인 Fm7(ii)에서 동일하게 반복할 수 있다. 이는 IIm7과 IVMaj7이 기능적으로 같고, vi와 ii가 같은 다이아토닉 내에서 단3도 관계에 있기 때문에 자연스럽게 성립한다. 또한 1도 메이저 트라이어드 + 9th로 만든 사운드를 vi에서 사용한 후, 동일한 구조를 ii에서 4도 메이저 트라이어드 + 9th로 적용할 수도 있다. 모티브를 반복하면 솔로에 일관성과 스토리가 생기지만, 너무 많이 하면 단조로워질 수 있으므로 적절한 균형이 필요하다.
+
+---
+
+## The Jazz Pursuit — Additional Analysis (English)
+
+*Source: The Jazz Pursuit — "It Could Happen To You Tutorial & Analysis" (https://youtu.be/EA5BjLc66dY). In E♭ major, ABAC form. Complements the analysis above with passing-diminished and reharmonization angles.*
+
+### EN-1. The 1-4-3-6 progression in the A section
+
+**instruction:** What progression drives the second half of the A section?
+
+**response:** After EbMaj7 (I) held two bars, Fm7 (ii) two bars, and a return to EbMaj7, the A section runs a 1-4-3-6: EbMaj7 (I) → AbMaj7 (IV) → Gm7 (iii) → Cm7 (vi), one chord per bar. This descending diatonic chunk appears in countless standards as a way to move smoothly from the tonic toward the relative-minor region. It returns, compressed to two beats per chord, in the C section to build momentum toward the end of the form.
+
+### EN-2. Passing diminished chords and the rising bass
+
+**instruction:** Where do the passing diminished chords come from?
+
+**response:** Two are inserted to animate the opening. Between EbMaj7 (I) and Fm7 (ii) sits E°7; between Fm7 and EbMaj7/G sits F♯°7. Voicing chord I in first inversion as EbMaj7/G also matters: now the bass of the first five bars rises by whole tone through the scale — E♭ → F → G. The diminished chords are chromatic connectors that smooth and propel that rising bass line. A common alternative is to replace each passing diminished with a quick (minor) ii-V — e.g. G♭... rather, Gø – C7♭9 → Fm7 — for a more modern sound.
+
+### EN-3. The melody hung on the diminished chords
+
+**instruction:** How does the A-section melody relate to the passing diminished chords?
+
+**response:** The first two phrases are identical in shape and each outlines the 7th and 3rd of a passing diminished chord. Phrase 1 starts on the 5th of chord I (B♭), walks up to the 7th of E°7 (D♭), then leaps to its 3rd (G). Phrase 2 sequences it: from the 5th of Fm7 (C) up to the 7th of F♯°7 (E♭) and its 3rd (A). So the melody deliberately spells the inserted diminished harmony, which is a strong clue that those chords belong in the changes rather than being mere passing decoration.
+
+### EN-4. The bridge: minor ii-V to vi, then the F7 turn
+
+**instruction:** Analyze the B section harmony.
+
+**response:** The bridge opens with a ii-V-I home (Fm7 – B♭7 – EbMaj7), then a quick minor ii-V-i to the relative minor: Dm7♭5 – G7♭9 – Cm7. From there, Cm7 becomes the ii of a ii-V (Cm7 – F7), but instead of resolving, F7 turns minor (Fm7) to start another ii-V (Fm7 – B♭7 → EbMaj7) into the next A. That "V chord turning minor to become the next ii" is a classic chain device for stringing ii-Vs together.
+
+### EN-5. The backdoor V substitution
+
+**instruction:** What's a good reharmonization for the B♭7 in the bridge?
+
+**response:** Replace the regular V (B♭7) with a backdoor V — D♭7 — which resolves *up a whole step* to EbMaj7 (D♭7 is ♭VII7) rather than down a fifth. The melody still fits, though it sounds the ♯11 (G) over D♭7, so spell it D♭7♯11. Because the C section opens the same way as the B section, the same D♭7♯11 backdoor substitution slots into its second bar too, giving both turns a softer, hipper approach to the tonic than a plain dominant.

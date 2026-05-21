@@ -1,0 +1,64 @@
+url : https://youtu.be/1dztLceaHyA
+
+곡 정보 (Song Information)
+분석 대상 곡 (Analyzed Songs):
+
+해당 없음 — 이론/연주 강의 (N/A — Theory/Technique Lesson)
+
+언급 곡 (Referenced): Bye Bye Blackbird (Miles Davis, *'Round About Midnight*)
+
+형식 (Form): 이론 강의 (메이저 ii-V-I 피아노 보이싱) | Theory Lesson (Piano Voicings for the Major ii-V-I)
+
+강의 출처 (Source): The Jazz Pursuit — "Advanced Piano Voicings for Major 251s"
+
+레벨 1: 범용 개념 설명 (Level 1: General Concepts)
+1-1. 기본 1-3-5-7 보이싱과 그 한계 (The Basic 1-3-5-7 Voicing and Its Limitation)
+instruction (KR): 가장 기본적인 ii-V-I 보이싱은 뭐고 어떤 한계가 있어?
+instruction (EN): What's the most basic ii-V-I voicing, and what's its limitation?
+
+response (KR): 기본형은 왼손에 루트, 오른손에 루트·3·5·7을 두는 1-3-5-7 보이싱입니다. G 메이저로 가는 ii-V-I에서 Am7=왼손 A / 오른손 A-C-E-G, D7=왼손 D / 오른손 D-F♯-A-C, GMaj7=왼손 G / 오른손 G-B-D-F♯. 각 코드를 보이싱으로 익히기엔 좋지만, 루트가 왼손과 오른손 엄지에 중복된다는 한계가 있습니다. 이 중복을 없애는 것이 다음 단계입니다.
+response (EN): The basic shape is a 1-3-5-7 voicing: the root in the left hand and root-3-5-7 in the right hand. On a ii-V-I into G major: Am7 = LH A / RH A-C-E-G, D7 = LH D / RH D-F♯-A-C, GMaj7 = LH G / RH G-B-D-F♯. It's good for learning each chord as a voicing, but its limitation is that the root is doubled — in the left hand and in the right-hand thumb. Removing that doubling is the next step.
+
+1-2. 빌 에반스 루트리스 보이싱 (3-5-7-9) (The Bill Evans Rootless Voicing)
+instruction (KR): 루트리스 보이싱은 어떻게 만들어?
+instruction (EN): How do I build a rootless voicing?
+
+response (KR): 오른손에서 루트를 빼고 보이싱 전체를 3도 위로 올리면, 루트·3·5·7 대신 3·5·7·9가 됩니다. 이것이 빌 에반스 스타일의 루트리스 보이싱입니다. G로 가는 ii-V-I에서 Am7=C-E-G-B(3-5-7-9), D7=F♯-A-C-E(3-5-♭7-9), GMaj7=B-D-F♯-A(3-5-7-9). 이 세 코드 모두 9가 내추럴(메이저 스케일의 2음)이라 자연스럽게 들립니다. 왼손은 루트를 잡아주거나 베이시스트에게 맡깁니다.
+response (EN): Drop the root from the right hand and shift the whole voicing up a third, so instead of root-3-5-7 you get 3-5-7-9. This is the Bill Evans–style rootless voicing. On a ii-V-I into G: Am7 = C-E-G-B (3-5-7-9), D7 = F♯-A-C-E (3-5-♭7-9), GMaj7 = B-D-F♯-A (3-5-7-9). All three have a natural 9 (the 2nd of the major scale), so they sound smooth. The left hand holds the root, or leaves it to the bassist.
+
+1-3. 드롭2 보이싱 (Drop-2 Voicings)
+instruction (KR): 드롭2 보이싱은 뭐야?
+instruction (EN): What is a drop-2 voicing?
+
+response (KR): 드롭2는 보이싱에서 위에서 두 번째 음을 한 옥타브 내리는 것입니다. 이렇게 하면 양손 보이싱이 됩니다. 3-5-7-9 형태의 Am7(C-E-G-B)에서 위에서 둘째 음은 G(7음)이므로 이걸 한 옥타브 내리면, 왼손 A-G(루트·7), 오른손 C-E-B(3·5·9)가 됩니다. 이 보이싱은 마일스 데이비스의 'Round About Midnight'에 수록된 Bye Bye Blackbird에서 들을 수 있는 사운드입니다. D7은 C를 내려 왼손 D-C / 오른손 F♯-A-E, GMaj7은 F♯을 내려 왼손 G-F♯ / 오른손 B-D-A가 됩니다.
+response (EN): Drop-2 means taking the second note from the top of a voicing and dropping it down an octave, which turns it into a two-handed voicing. From the 3-5-7-9 Am7 (C-E-G-B), the second note from the top is G (the 7th), so dropping it an octave gives LH A-G (root, 7th) and RH C-E-B (3, 5, 9). This is the sound you hear on Bye Bye Blackbird from Miles Davis's *'Round About Midnight*. For D7, drop the C → LH D-C / RH F♯-A-E; for GMaj7, drop the F♯ → LH G-F♯ / RH B-D-A.
+
+레벨 2: 보이스 리딩 (Level 2: Voice Leading)
+2-1. 루트리스 보이싱으로 보이스 리딩하기 (Voice Leading the Rootless Voicing)
+instruction (KR): 같은 모양을 옮기지 말고 매끄럽게 연결하려면 어떻게 해?
+instruction (EN): Instead of moving the same shape around, how do I connect the chords smoothly?
+
+response (KR): 공통음을 유지하고 나머지만 가까운 음으로 움직입니다. Am7(C-E-G-B)에서 C와 E는 다음 D7과 공통이므로 그대로 두고, G와 B만 F♯과 A로 내립니다. 다시 GMaj7로 갈 때는 F♯과 A가 공통이므로 두고, C와 E를 B와 D로 내립니다. 정리하면 ii에서 3-5-7-9 → V에서 7-9-3-5 → I에서 다시 3-5-7-9로 열립니다. 모든 메이저 ii-V-I 이론이 동일하므로 이 움직임은 어느 키에서나 똑같습니다.
+response (EN): Keep the common tones and move only the rest to the nearest notes. In Am7 (C-E-G-B), C and E are common with the next chord D7, so leave them and let G and B fall to F♯ and A. Moving to GMaj7, F♯ and A are common, so leave them and let C and E fall to B and D. In summary: 3-5-7-9 on the ii → 7-9-3-5 on the V → opening back out to 3-5-7-9 on the I. Because the theory of every major ii-V-I is the same, this motion is identical in any key.
+
+2-2. 드롭2 보이싱으로 보이스 리딩하기 (Voice Leading the Drop-2 Voicing)
+instruction (KR): 드롭2 보이싱도 같은 식으로 연결할 수 있어?
+instruction (EN): Can I voice-lead the drop-2 voicing the same way?
+
+response (KR): 네, 동일한 공통음 원리를 씁니다. ii(Am7)에서 C와 E는 공통이라 그대로 두고, 맨 위의 B는 A로, 왼손 G는 F♯으로 내려 D7로 갑니다. 다시 GMaj7로 갈 때는 F♯과 A가 공통이라 두고, 가운데 C와 E를 B와 D로 내립니다. 손 배치로 보면 ii는 왼손 루트+7 / 오른손 3-5-9, V는 왼손 루트+3 / 오른손 7-9-5, I는 다시 왼손 루트+7 / 오른손 3-5-9로 돌아옵니다. 역시 모든 메이저 ii-V-I에서 동일합니다.
+response (EN): Yes, using the same common-tone principle. On the ii (Am7), C and E are common, so leave them; the top B falls to A and the left-hand G falls to F♯, giving D7. Moving to GMaj7, F♯ and A are common, so leave them and let the middle C and E fall to B and D. By hand placement: the ii is LH root+7 / RH 3-5-9, the V is LH root+3 / RH 7-9-5, and the I returns to LH root+7 / RH 3-5-9. Again, it's the same on every major ii-V-I.
+
+레벨 3: 연주 판단 (Level 3: Performance Decisions)
+3-1. 보이싱을 익히는 연습 순서 (A Practice Order for the Voicings)
+instruction (KR): 이 보이싱들을 어떻게 연습 순서로 익히면 좋아?
+instruction (EN): In what order should I practice these voicings?
+
+response (KR): 먼저 각 보이싱 모양을 고립시켜 익히되, 메이저 7·마이너 7·도미넌트 7 세 소노리티에서 각각 연습합니다. 그다음 5도권(또는 4도권)을 따라 흔한 화성 진행으로 옮겨가며 손에 익힙니다. 마지막으로 보이스 리딩에 집중해, 지금 연습 중인 진행이나 스탠더드를 가장 매끄럽게 통과하도록 다듬습니다. 모양 암기 → 진행에 적용 → 보이스 리딩 최적화의 순서가 효율적입니다.
+response (EN): First learn each voicing shape in isolation, practicing it across all three sonorities — major 7, minor 7, and dominant 7. Then move it through common harmonic progressions around the cycle of fifths (or fourths) to get it under your fingers. Finally, focus on voice leading so you take the smoothest possible path through whatever progression or standard you're working on. The efficient order is: memorize the shapes → apply them to progressions → optimize the voice leading.
+
+3-2. 어떤 보이싱을 언제 쓸까 (When to Use Which Voicing)
+instruction (KR): 루트리스 보이싱과 드롭2 보이싱은 상황에 따라 어떻게 골라 써?
+instruction (EN): How do I choose between the rootless and drop-2 voicings?
+
+response (KR): 루트리스(3-5-7-9)는 오른손 위주라 베이시스트가 루트를 받쳐주는 콤보 상황에서 가볍고 현대적인 컴핑에 적합합니다. 드롭2는 양손에 펼쳐져 더 두툼하고 꽉 찬 사운드를 내므로, 솔로 피아노나 더 풍성한 텍스처가 필요할 때, 또는 멜로디를 맨 위 음으로 살리고 싶을 때 좋습니다. 두 보이싱 모두 텐션(9)을 포함하므로 단순한 트라이어드보다 색채가 풍부합니다 — 곡과 편성에 맞춰 골라 쓰면 됩니다.
+response (EN): The rootless voicing (3-5-7-9) is right-hand-heavy, so it suits light, modern comping in a combo where the bassist supplies the root. The drop-2 spreads across both hands for a thicker, fuller sound, which is great for solo piano, for a richer texture, or when you want a melody note on top. Both include a tension (the 9th), so they're more colorful than plain triads — choose based on the tune and the ensemble.

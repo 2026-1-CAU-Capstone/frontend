@@ -1,0 +1,81 @@
+## Song Info
+
+- **Title:** There Is No Greater Love
+- **Composer:** Isham Jones / Marty Symes (1936)
+- **Center Key:** B♭ Major
+- **Form:** 32 bars AABA (each section 8 bars); played as a ballad or medium swing
+- **Source:** The Jazz Pursuit — "There Is No Greater Love (I. Jones) Lesson & Analysis" (https://youtu.be/D_JBN53V7hw)
+
+### Diatonic Chords (B♭ Major)
+
+BbMaj7 (I), Cm7 (ii), Dm7 (iii), EbMaj7 (IV), F7 (V), Gm7 (vi), Am7♭5 (vii°)
+
+### Chord Progression
+
+**A section (dominant-heavy reading):**
+| BbMaj7 | Eb7 | D7 | G7 | C7 | F7 | BbMaj7 | (turnaround/ending) |
+
+(The "clean" version is a 1-4-3-6-2-5-1: BbMaj7 – EbMaj7 – Dm7 – Gm7 – Cm7 – F7 – BbMaj7.)
+
+**B section (relative minor, chord vi):**
+| Am7♭5 D7♭9 | Gm7 | Am7♭5 D7♭9 | Gm7 | Am7♭5 D7♭9 | Gm7 | C7 | F7 |
+
+---
+
+## Level 1: General Concepts
+
+### 1-1. The 1-4-3-6-2-5-1 as the A-section skeleton
+
+**instruction:** What progression underlies the A section?
+
+**response:** The A section is a 1-4-3-6-2-5-1 in B♭: BbMaj7 (I) → EbMaj7 (IV) → Dm7 (iii) → Gm7 (vi) → Cm7 (ii) → F7 (V) → BbMaj7 (I). It's a long cycle that descends through the chords of the key back to the tonic. Hearing it as "1-4-3-6" plus "2-5-1" makes a big progression easy to memorize in two familiar chunks.
+
+### 1-2. Older standards prefer dominant 7ths
+
+**instruction:** Why are so many A-section chords dominant 7ths instead of diatonic minors?
+
+**response:** There Is No Greater Love was written in 1936, and older standards often "dominant-ize" their chords to add forward pull. Here every chord except the tonic becomes a dominant: BbMaj7 → Eb7 → D7 → G7 → C7 → F7 → BbMaj7. Each dominant is a secondary dominant tugging toward the next chord around the cycle, giving the section more drive than a purely diatonic version.
+
+### 1-3. The minor ii-V-i in the bridge
+
+**instruction:** How is the bridge built?
+
+**response:** The bridge centers on the relative minor (Gm7, chord vi). It opens with a minor ii-V-i — Am7♭5 – D7♭9 – Gm7 — and repeats that cadence to keep circling the minor tonic. Because the target is minor, the ii is half-diminished (Am7♭5) and the V carries a ♭9 (D7♭9). After settling on Gm7, a ii-V (C7 – F7) leads back to BbMaj7 for the final A.
+
+---
+
+## Level 2: Song-Specific Analysis
+
+### 2-1. The two A-section endings
+
+**instruction:** How do the first and second A endings differ?
+
+**response:** Because of the AABA form, the A section needs two endings. The first-time ending builds momentum into the repeat by elongating the 2-5: two bars of C7, two bars of F7, resolving to BbMaj7 at the top of the second A. The second-time ending does the opposite — it consolidates: the dominant C7 turns minor to a true ii chord (Cm7), then a quick ii-V-I (Cm7 – F7 – BbMaj7) closes the section before the bridge.
+
+### 2-2. The tritone substitution in bar 3
+
+**instruction:** What's a common reharmonization of the D7 in the A section?
+
+**response:** In bar 3 the D7 is often replaced by its tritone substitute, A♭7 (the bass moves a tritone, D → A♭). It works because D7 and A♭7 share the same guide tones (F♯/C ≈ C/G♭). A♭7 also extends the cycle-of-fourths motion B♭ → E♭7 → A♭7, then drops a semitone to G7. One caution: the melody note here is D, which is the ♯11 of A♭7 — so keep that ♯11 in your voicing rather than clashing with it.
+
+---
+
+## Level 3: Performance Decisions
+
+### 3-1. Soloing over the dominant chain
+
+**instruction:** How do I navigate the A section's string of dominants?
+
+**response:** Treat each dominant as a secondary dominant resolving to the next chord, and connect them with guide tones (3rds and 7ths) that move by step around the cycle. Because the chords change every bar, target the 3rd of each chord on the downbeat to spell the changes clearly. The tune sits firmly in B♭ overall, so you can frame everything relative to B♭ major while leaning on the chromatic guide-tone motion the dominants create.
+
+### 3-2. Phrasing the bridge's minor ii-V-i loop
+
+**instruction:** What works melodically over the repeated Am7♭5 – D7♭9 – Gm7?
+
+**response:** Outline the D7♭9 with its chord tones and resolve cleanly onto a Gm7 chord tone each cycle. A strong device the melody uses is rising through the D7♭9 (D – F♯ – A – C, adding E♭ as the ♭9) and resolving down to the 3rd or 5th of Gm7 (B♭ or D). Scale-wise, use A Locrian over Am7♭5, D altered or half-whole diminished over D7♭9, and G Dorian/natural minor over Gm7.
+
+### 3-3. Ballad vs. swing pacing
+
+**instruction:** Does the approach change between the ballad and medium-swing feels?
+
+**response:** As a ballad, give each chord room — land on guide tones and let the cycle's resolutions breathe, marking the BbMaj7 arrivals as your strongest moments. As a medium swinger, the dominant chain invites busier, change-spelling bebop lines that thread the secondary dominants. In both feels, use the bridge's relative-minor stillness as contrast: more lyrical and centered there, more active through the cycling A sections.

@@ -1,0 +1,87 @@
+## Song Info
+
+- **Title:** Have You Met Miss Jones?
+- **Composer:** Richard Rodgers / Lorenz Hart (1937)
+- **Center Key:** F Major
+- **Form:** 32 bars AABA (each section 8 bars)
+- **Source:** The Jazz Pursuit — "Have You Met Miss Jones Tutorial & Analysis" (https://youtu.be/CcTsg8nIYJ4)
+
+### Diatonic Chords (F Major)
+
+FMaj7 (I), Gm7 (ii), Am7 (iii), BbMaj7 (IV), C7 (V), Dm7 (vi), Em7♭5 (vii°)
+
+### Chord Progression
+
+**A section (8 bars):**
+| FMaj7 Dm7 | Gm7 C7 | Am7 Dm7 | Gm7 C7 | FMaj7 ... (1-6-2-5 based) |
+
+**Bridge (8 bars) — the famous major-thirds cycle:**
+| BbMaj7 | Abm7 Db7 | GbMaj7 | Em7 A7 | DMaj7 | Abm7 Db7 | Gm7 C7 | (C7) |
+
+**Last A:** resolves with a 3-6-2-5 (Am7 – D7 – Gm7 – C7 → FMaj7).
+
+---
+
+## Level 1: General Concepts
+
+### 1-1. The 1-6-2-5 turnaround as a building block
+
+**instruction:** What is the 1-6-2-5 progression that drives the A section?
+
+**response:** 1-6-2-5 is I → vi → ii → V, one of the most common turnaround cells in jazz. In F that is FMaj7 → Dm7 → Gm7 → C7. The A section of Have You Met Miss Jones is built largely from this cell, looping it to keep returning toward the tonic. Because it moves around the cycle of fifths within one key, the whole A section can be heard in F major.
+
+### 1-2. Modulating by major thirds
+
+**instruction:** Why is the Have You Met Miss Jones bridge so famous?
+
+**response:** The bridge moves through three key centers a major third apart, dividing the octave into equal parts (B♭, then G♭/F♯, then D, then back). Each new key is reached by its own ii-V: Abm7–Db7 → GbMaj7, then Em7–A7 → DMaj7, and so on, before a final ii-V (Gm7–C7) returns home to F. This symmetrical, equal-division-of-the-octave motion predates and parallels the "Coltrane changes" idea, which is why this bridge is studied as a classic example of major-third modulation.
+
+### 1-3. The iii chord as a tonic substitute (3-6-2-5)
+
+**instruction:** Why does the last A use Am7 instead of FMaj7 to start its turnaround?
+
+**response:** Am7 (chord iii) shares three notes with FMaj7 (A–C–E are in both), so iii is a common substitute for I. Replacing FMaj7 with Am7 turns the closing turnaround into 3-6-2-5 (Am7 – D7 – Gm7 – C7), which is a chain of dominant resolutions down by fifths (iii → vi → ii → V → I). This builds extra momentum to make the final A feel like a true ending rather than another loop.
+
+---
+
+## Level 2: Song-Specific Analysis
+
+### 2-1. The A section
+
+**instruction:** Analyze the Have You Met Miss Jones A section.
+
+**response:** The A section is anchored by the 1-6-2-5 cell in F: FMaj7 (I) → Dm7 (vi) → Gm7 (ii) → C7 (V), looping back toward the tonic. The repeated cycle-of-fifths motion keeps everything diatonic to F major and establishes the home key clearly, setting up the dramatic contrast of the bridge.
+
+### 2-2. The major-thirds bridge
+
+**instruction:** Walk me through the bridge harmony.
+
+**response:** The bridge starts on BbMaj7, then is pulled down a major third to G♭ major via its ii-V (Abm7 – Db7 → GbMaj7), then down another major third to D major via Em7 – A7 → DMaj7. From D it works back toward home, ending with the home ii-V (Gm7 – C7) into the last A. So three key centers — B♭, G♭, D — sit a major third apart, each tonicized by its own ii-V. That equal division of the octave is the bridge's signature.
+
+### 2-3. The final A's 3-6-2-5 ending
+
+**instruction:** How does the last A section make the tune feel finished?
+
+**response:** Earlier A sections ended by modulating onward (to F for the next A, or to B♭ to launch the bridge). The final A must instead resolve and stop, so it builds momentum with a 3-6-2-5 chain: Am7 (iii, substituting for I) → D7 → Gm7 → C7 → FMaj7. Because each chord resolves down a fifth to the next, the chain produces a strong sense of arrival on the closing FMaj7, signaling the end of the form.
+
+---
+
+## Level 3: Performance Decisions
+
+### 3-1. Soloing through the major-thirds bridge
+
+**instruction:** How do I navigate the bridge's three keys?
+
+**response:** Treat each ii-V as its own key and use guide tones to glide between them. Over Abm7 – Db7 play toward G♭ major; over Em7 – A7 play toward D major; then over Gm7 – C7 return to F major. The keys are a major third apart, so a single melodic shape can be transposed down a major third for each new ii-V, which is a great way to practice the bridge — learn one lick and move it through B♭ → G♭ → D.
+
+### 3-2. Comping the A section turnarounds
+
+**instruction:** Any tips for the repeated 1-6-2-5 in the A section?
+
+**response:** Since the cell stays in F major, you can voice-lead smoothly with rootless voicings, keeping common tones and moving the guide tones (3rds and 7ths) by step. To add motion you can make the vi a dominant (Dm7 → D7) to create a secondary-dominant pull to Gm7. Keep the A section comping relatively settled so the harmonic fireworks of the bridge stand out by contrast.
+
+### 3-3. Pacing the contrast between A and bridge
+
+**instruction:** How should a solo reflect the A-vs-bridge contrast?
+
+**response:** The A sections sit comfortably in one key (F), so they suit relaxed, melodic playing. The bridge sprints through three keys a major third apart, so it rewards more deliberate change-spelling — clean target notes on each new tonic. A common strategy is to play lyrically through the A's, then "lock in" on the bridge by outlining each ii-V's resolution, then release back into melody for the final A's 3-6-2-5 ending.

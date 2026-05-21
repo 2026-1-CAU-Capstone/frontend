@@ -1,0 +1,62 @@
+url : https://youtu.be/-iFOB-KHvn0
+
+곡 정보 (Song Information)
+분석 대상 곡 (Analyzed Songs):
+
+해당 없음 — 이론 강의 (N/A — Theory Lesson)
+
+형식 (Form): 이론 강의 (기본 7th 코드 타입과 보이싱) | Theory Lesson (Fundamental 7th Chord Types and Voicings)
+
+강의 출처 (Source): The Jazz Pursuit — "Understanding Chord Types"
+
+레벨 1: 범용 개념 설명 (Level 1: General Concepts)
+1-1. 메이저 7과 도미넌트 7 (Major 7 and Dominant 7)
+instruction (KR): 메이저 7 코드랑 도미넌트 7 코드는 각각 어떻게 만들어?
+instruction (EN): How are a major-7 chord and a dominant-7 chord built?
+
+response (KR): 메이저 7 코드는 메이저 트라이어드(스케일의 1·3·5음)에 장7도를 더한 것입니다. C 메이저에서는 C-E-G(트라이어드) + B(7음) = CMaj7. 한마디로 "전부 메이저"라서 이름이 메이저 7입니다. 도미넌트 7 코드는 메이저 트라이어드(1·3·5)에 단7도(장7도를 반음 내린 음)를 더합니다. C에서는 C-E-G + B♭ = C7. 메이저 7이 안정적이고 정착된 느낌이라면, 도미넌트 7은 움직임과 해결을 원하는 긴장의 코드입니다 — 이 점이 두 코드의 기능을 암시합니다.
+response (EN): A major-7 chord is a major triad (the 1st, 3rd, 5th of the scale) plus a major 7th. In C major: C-E-G (triad) + B (the 7th) = CMaj7. In short, "everything in it is major," hence the name. A dominant-7 chord is a major triad (1-3-5) plus a minor 7th (the major 7th lowered a semitone). In C: C-E-G + B♭ = C7. Where the major 7 feels stable and settled, the dominant 7 is a chord of tension that wants motion and resolution — which hints at each chord's function.
+
+1-2. 마이너 7 (Minor 7)
+instruction (KR): 마이너 7 코드는 어떻게 만들어?
+instruction (EN): How is a minor-7 chord built?
+
+response (KR): 마이너 7 코드는 마이너 트라이어드(루트, 반음 내린 3음, 5음)에 단7도를 더한 것입니다. "마이너 = 더 작게"라고 생각하면 쉽습니다. C에서 메이저 3음 E를 반음 내려 E♭으로 만들면 루트와 3음 사이 간격이 작아져 트라이어드가 마이너가 됩니다. 그리고 7음 B도 B♭으로 내려 단7도로 만듭니다. 따라서 C-E♭-G-B♭ = Cm7. F 키라면 F-A♭-C-E♭ = Fm7입니다.
+response (EN): A minor-7 chord is a minor triad (root, flattened 3rd, 5th) plus a minor 7th. Think "minor = smaller": in C, lowering the major 3rd E to E♭ shrinks the distance between root and 3rd, making the triad minor. Then lower the 7th B to B♭ for the minor 7th. So C-E♭-G-B♭ = Cm7. In F: F-A♭-C-E♭ = Fm7.
+
+1-3. 하프 디미니쉬와 디미니쉬 (Half-Diminished and Diminished)
+instruction (KR): 하프 디미니쉬랑 풀 디미니쉬 코드는 어떻게 달라?
+instruction (EN): What's the difference between a half-diminished and a fully diminished chord?
+
+response (KR): 하프 디미니쉬(= 마이너 7 ♭5)는 루트, ♭3, ♭5, ♭7로 이루어집니다. 마이너 7과 비교해 유일한 차이는 5음을 반음 내린 것뿐입니다. C에서는 C-E♭-G♭-B♭. 여기서 7음을 한 번 더 내려 더블 플랫 7(=디미니쉬드 7)으로 만들면 풀 디미니쉬 코드가 됩니다. C에서는 B♭을 다시 내려 A로 → C-E♭-G♭-A = C dim7. 디미니쉬 코드는 단3도를 계속 쌓은 형태입니다(C-E♭, E♭-G♭, G♭-A, A-C 모두 단3도).
+response (EN): A half-diminished chord (= minor 7♭5) is root, ♭3, ♭5, ♭7. Compared to a minor 7, the only difference is the lowered 5th. In C: C-E♭-G♭-B♭. Lower the 7th once more to a double-flat 7 (a diminished 7th) and it becomes a fully diminished chord. In C, lower B♭ again to A → C-E♭-G♭-A = C dim7. A diminished chord is a stack of minor thirds (C-E♭, E♭-G♭, G♭-A, A-C are all minor 3rds).
+
+레벨 2: 정리와 표기 (Level 2: Summary and Symbols)
+2-1. 다섯 가지 코드 타입 한눈에 보기 (The Five Chord Types at a Glance)
+instruction (KR): 지금까지 다룬 코드 타입들을 기호까지 정리해줘.
+instruction (EN): Summarize all the chord types covered, including their symbols.
+
+response (KR): ①메이저 7 = 메이저 트라이어드 + 장7도, 기호는 흔히 삼각형(△). ②도미넌트 7 = 메이저 트라이어드 + 단7도, 기호는 그냥 7. ③마이너 7 = 마이너 트라이어드(루트·♭3·5) + 단7도, 기호는 흔히 마이너스(-). ④하프 디미니쉬(= m7♭5) = 루트·♭3·♭5·♭7, 기호는 선이 그어진 원(ø). ⑤디미니쉬 = 루트·♭3·♭5·♭♭7로 단3도가 쌓인 형태, 기호는 원(°). 이 다섯이 재즈 화성의 기본 빌딩 블록입니다.
+response (EN): (1) Major 7 = major triad + major 7th, often written with a triangle (△). (2) Dominant 7 = major triad + minor 7th, written just as 7. (3) Minor 7 = minor triad (root, ♭3, 5) + minor 7th, often written with a minus sign (-). (4) Half-diminished (= m7♭5) = root, ♭3, ♭5, ♭7, written as a circle with a slash (ø). (5) Diminished = root, ♭3, ♭5, ♭♭7, a stack of minor thirds, written as a plain circle (°). These five are the fundamental building blocks of jazz harmony.
+
+2-2. 3음과 7음이 코드 성격을 결정한다 (The 3rd and 7th Define the Chord)
+instruction (KR): 코드를 빠르게 구별하려면 어디를 봐야 해?
+instruction (EN): What should I look at to quickly tell the chords apart?
+
+response (KR): 루트와 5음은 대체로 그대로이고, 코드의 성격을 결정하는 것은 3음과 7음(가이드 톤)입니다. 메이저 7은 장3도+장7도, 도미넌트 7은 장3도+단7도(이 둘 사이가 트라이톤이라 긴장 발생), 마이너 7은 단3도+단7도, 하프 디미니쉬는 거기에 ♭5까지, 디미니쉬는 ♭5와 ♭♭7까지. 그래서 보이싱을 짤 때도 3음·7음을 먼저 잡으면 코드 정체성이 분명해지고 보이스 리딩도 매끄러워집니다.
+response (EN): The root and 5th mostly stay put; what defines a chord's character is the 3rd and 7th (the guide tones). Major 7 = major 3rd + major 7th; dominant 7 = major 3rd + minor 7th (the tritone between them creates tension); minor 7 = minor 3rd + minor 7th; half-diminished adds a ♭5; diminished adds ♭5 and ♭♭7. So when building voicings, locking in the 3rd and 7th first makes the chord's identity clear and keeps voice leading smooth.
+
+레벨 3: 연주 판단 (Level 3: Performance Decisions)
+3-1. 5도권 코드 타입 연습 (Cycle-of-Fifths Chord-Type Exercise)
+instruction (KR): 이 코드 타입들을 손에 익히는 좋은 연습이 있어?
+instruction (EN): Is there a good exercise to internalize these chord types?
+
+response (KR): 세 가지 기본 타입(메이저 7 → 도미넌트 7 → 마이너 7)을 한 키에서 차례로 친 뒤, 5도권을 따라 다음 키로 올라가 또 세 코드를 치는 식으로 순환합니다. 예를 들어 F에서 시작하면 FMaj7 → F7 → Fm7을 친 다음, 5도 위(B♭)로 가서 B♭Maj7 → B♭7 → B♭m7, 다시 E♭로… 이렇게 돌면 같은 루트에서 3음·7음만 바뀌며 세 코드의 차이를 손과 귀로 동시에 익힐 수 있고, 모든 키에서 코드를 빠르게 떠올리는 능력이 길러집니다.
+response (EN): Play the three fundamental types (major 7 → dominant 7 → minor 7) in one key, then move up the cycle of fifths to the next key and play the three again, cycling through all keys. For example, start on F: FMaj7 → F7 → Fm7, then up a fifth to B♭: B♭Maj7 → B♭7 → B♭m7, then E♭, and so on. Keeping the same root while only the 3rd and 7th change lets you feel and hear the differences between the three chords at once, and builds the ability to recall any chord quickly in every key.
+
+3-2. 코드의 기능을 사운드로 연결하기 (Connecting Chord Sound to Function)
+instruction (KR): 코드 타입을 알면 곡 안에서 어떻게 활용해?
+instruction (EN): Once I know the chord types, how do I use them within a tune?
+
+response (KR): 각 타입의 사운드가 기능을 암시합니다. 메이저 7은 안정된 토닉, 도미넌트 7은 해결을 원하는 긴장(주로 V), 마이너 7은 서브도미넌트나 ii, 하프 디미니쉬는 마이너 ii-V의 ii, 디미니쉬는 코드 사이를 잇는 패싱 역할이 흔합니다. 따라서 악보의 코드 기호만 봐도 "여기는 긴장 → 저기로 해결"이라는 흐름을 예측할 수 있고, 그에 맞춰 어떤 스케일·텐션을 얹을지 빠르게 판단할 수 있습니다.
+response (EN): Each type's sound implies a function. Major 7 is a stable tonic; dominant 7 is tension wanting resolution (usually the V); minor 7 is often a subdominant or ii; half-diminished is the ii of a minor ii-V; diminished commonly acts as a passing chord linking two chords. So just reading the chord symbols, you can predict the flow of "tension here → resolving there," and quickly decide which scales and tensions to apply accordingly.

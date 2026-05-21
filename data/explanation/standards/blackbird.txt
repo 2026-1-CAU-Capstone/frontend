@@ -1,0 +1,79 @@
+## Song Info
+
+- **Title:** Blackbird
+- **Composer:** John Lennon / Paul McCartney (1968, from *The White Album*)
+- **Center Key:** G Major (chorus drops to F Major)
+- **Form:** Verse (8 bars) + Chorus (6 bars); meter shifts between 3/4, 2/4, and 4/4
+- **Source:** The Jazz Pursuit — "Blackbird (Lennon/McCartney) Tutorial & Analysis" (https://youtu.be/yI__4k2FJEg)
+
+### Diatonic Chords (G Major)
+
+GMaj7 (I), Am7 (ii), Bm7 (iii), CMaj7 (IV), D (V), Em7 (vi), F#m7♭5 (vii°)
+
+### Chord Progression
+
+**Verse (foundation):**
+| G Am Bm | G | C D | Em | D | C Cm | G | Am D G |
+
+**Chorus (in F major):**
+| F C/E Dm C Bb | C | F C/E Dm C Bb | Am | Am D7 | G |
+
+---
+
+## Level 1: General Concepts
+
+### 1-1. Rising and falling through the chords of the key
+
+**instruction:** How is the Blackbird verse organized harmonically?
+
+**response:** The verse walks up the diatonic chords of G — G (I) → Am (ii) → Bm (iii) — then falls back to G, climbs C (IV) → D (V) → Em (vi), and descends back D → C → Cm before resolving home through a ii-V-I (Am – D – G). The whole verse is a symmetrical rise-and-fall through the key. The chorus then inverts the idea, *descending* through the chords of its new key, which gives the two sections a built-in mirror contrast.
+
+### 1-2. First-inversion chords for a smooth bass line
+
+**instruction:** Why are chords like G/B and C/E used instead of plain triads?
+
+**response:** They keep the bass moving by step. In the verse, McCartney often replaces chord iii (Bm) with G/B — same bass note B, but the chord stays G major — and in the chorus uses C/E in place of the diatonic vii° (which would be a brittle diminished chord). Putting a chord's 3rd in the bass lets the bass line glide smoothly while the harmony stays gentle, a hallmark of the tune's voice-leading.
+
+### 1-3. The pivot chord between two keys
+
+**instruction:** How does the chorus get back to the verse's key?
+
+**response:** Through a pivot chord. The chorus is in F major, and in bar 4 it lands on Am — chord iii of F. But Am is also chord ii of G. McCartney exploits that double meaning: Am functions as the ii of a ii-V-I (Am – D – G) that pulls back into G major for the next verse. A pivot chord is one that belongs to both keys, making the modulation feel seamless.
+
+---
+
+## Level 2: Song-Specific Analysis
+
+### 2-1. McCartney's secondary dominants in the verse
+
+**instruction:** What are the "fancy" harmonic tweaks in verse bars 3–4?
+
+**response:** The plain version moves C (IV) → D (V) → Em (vi). McCartney sets up D and Em with their own V-I cadences: A7 → D and B7 → Em. Then he voices the dominants in first inversion (A7/C♯, B7/D♯) so the bass descends chromatically. He also colors the Em with a contour line: Em → EmMaj7/D♯ → D → C♯m7♭5 (Em/C♯) → C, a chromatic bass fall that's pure jazz harmony hiding inside a folk song.
+
+### 2-2. The chorus modulation
+
+**instruction:** Analyze the chorus harmony.
+
+**response:** The chorus slips down a whole tone to F major and descends through the key: F (I) → C/E (V in first inversion, smoothing the move to vi) → Dm (vi) → C (V) → B♭ (IV), then a V-I (C → F) back to the tonic. The figure repeats, but the second time it lands on Am (iii of F), which pivots to become ii of G, and a ii-V-I (Am – D – G) carries the music home. The descending-through-the-key motion deliberately contrasts the verse's ascent.
+
+---
+
+## Level 3: Performance Decisions
+
+### 3-1. Soloing over the verse
+
+**instruction:** What scale fits the verse, and what gives it interest?
+
+**response:** The verse melody is entirely G major, so you can stay in the key and let McCartney's secondary dominants (A7, B7) add the chromatic spice. To spell those, lean on their guide tones as the bass descends chromatically — target the 3rd of A7 (C♯) and B7 (D♯) — then resolve into D and Em. The EmMaj7 → C♯m7♭5 contour is a great spot to outline that descending chromatic bass in your line rather than fighting it.
+
+### 3-2. The bluesy chorus ending
+
+**instruction:** How do I bring out the end of the chorus?
+
+**response:** The final melodic phrase outlines G minor pentatonic (G–B♭–C–D–F) over the dominant-7 chords McCartney uses there (A7 – D7 → G). That minor-pentatonic-over-dominants combination creates a bluesy riff that gives the chorus its edge. Emphasize the ♭7 and ♭3 blue notes and let the line ride across the dominants for that gritty, vocal resolution back to G.
+
+### 3-3. Handling the shifting meters
+
+**instruction:** The time signature keeps changing — how do I keep my place?
+
+**response:** Don't count the 3/4, 2/4, and 4/4 bars in the abstract — attach the melody (and ideally the lyrics) to the changes. The meter shifts exist to fit the natural phrasing of the words, so once the melody sits on top, the bar lengths feel inevitable rather than tricky. Phrase to the lyric stress and the odd bars stop being an obstacle.

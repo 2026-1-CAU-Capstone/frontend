@@ -1,0 +1,79 @@
+## Song Info
+
+- **Title:** Polkadots and Moonbeams
+- **Composer:** Jimmy Van Heusen / Johnny Burke (1940)
+- **Center Key:** G Major (also recorded in F, E♭, D)
+- **Form:** 32 bars AABA (each section 8 bars); ballad
+- **Source:** The Jazz Pursuit — "Polkadots and Moonbeams (J. Van Heusen) Analysis & Tutorial" (https://youtu.be/iIwkUW0Us9A)
+
+### Diatonic Chords (G Major)
+
+GMaj7 (I), Am7 (ii), Bm7 (iii), CMaj7 (IV), D7 (V), Em7 (vi), F#m7♭5 (vii°)
+
+### Chord Progression
+
+**A section (8 bars):**
+| GMaj7 Em7 | Am7 D7 | GMaj7 Em7 | Am7 B7 | Em7 | Cm7 | GMaj7 (Bm7 Bbm7 Am7) | Am7 D7 |
+
+**B section (in B major, 8 bars):**
+| BMaj7 G#m7 | C#m7 F#7 | BMaj7 G#m7 | C#m7 F#7 | BMaj7 G#m7 | C#m7 F#7 | B7 E7 | Am7 D7 |
+
+---
+
+## Level 1: General Concepts
+
+### 1-1. The 1-6-2-5-1 opening cell
+
+**instruction:** How does the A section start?
+
+**response:** With a 1-6-2-5-1 in G: GMaj7 (I) → Em7 (vi) → Am7 (ii) → D7 (V) → GMaj7 (I). All four chords are diatonic to the home key, and the cycle-of-fifths motion circles smoothly back to the tonic. It's one of the most common turnaround cells in jazz, and here it states the home key right away before the harmony starts to redirect.
+
+### 1-2. Changing the target mid-progression
+
+**instruction:** The second cell starts like a 1-6-2-5 but doesn't resolve to I. Why?
+
+**response:** It sets off GMaj7 → Em7 → Am7 as if heading home, then redirects: instead of resolving to chord I, it cadences to chord vi (the relative minor) via a V-I, B7 → Em7. Swapping the expected tonic resolution for a secondary V-I to vi keeps the listener slightly off balance and opens the door to the second half, which moves to the minor IV (Cm7) before finally settling home.
+
+### 1-3. A chromatic approach to the ii chord
+
+**instruction:** What's the Bm7 – B♭m7 – Am7 motion in the A section?
+
+**response:** It's a chromatic descent into the ii chord: Bm7 (iii) → B♭m7 → Am7 (ii), each a half-step lower. The B♭m7 is a chromatic passing chord with no key function — it just connects iii down to ii smoothly. The melody descends chromatically in parallel (the 5th of each chord: F♯ → F → E), which is exactly why the chromatic harmony is there: to harmonize that descending melodic line.
+
+---
+
+## Level 2: Song-Specific Analysis
+
+### 2-1. The A section in full
+
+**instruction:** Analyze the Polkadots and Moonbeams A section.
+
+**response:** It opens with a 1-6-2-5-1 (GMaj7 – Em7 – Am7 – D7 – GMaj7). The second cell begins the same (GMaj7 – Em7 – Am7) but redirects with a V-I to the relative minor (B7 → Em7). From Em7 it moves to the minor IV (Cm7) and resolves home to GMaj7, closing with a ii-V-I (Am7 – D7 – GMaj7). A chromatic Bm7 – B♭m7 – Am7 fills the approach to the closing ii. The first-time ending adds a 3-6-2-5 (Bm7 – Em7 – Am7 – D7) to relaunch the form.
+
+### 2-2. The bridge's modulation to B major and back
+
+**instruction:** Walk me through the bridge.
+
+**response:** The bridge jumps to B major — a big gear change a major third up. It repeats a 1-6-2-5 in B (BMaj7 – G♯m7 – C♯m7 – F♯7) three times to establish the new key. To return, BMaj7 turns dominant (B7) and starts a chain of 5-1s: B7 → E7 → Am7 (chord ii of G), then a ii-V-I home (Am7 – D7 – GMaj7). You can equally read those last two bars in G as a 3-6-2-5 with the iii and vi chords made dominant (B7, E7) — whichever framing is clearer to you.
+
+---
+
+## Level 3: Performance Decisions
+
+### 3-1. Soloing within one scale while spelling the changes
+
+**instruction:** What scale carries the A section?
+
+**response:** The A-section melody stays entirely in G major, yet it still outlines each chord — e.g. landing on the 9th of Am7, the 3rd of D7, the chord tones of B7. So you can ride G major throughout and let your target notes spell the harmony. The first-time-ending phrase is almost a bebop lick (outlining Am7 up to its 3rd, resolving onto the 3rd of D7, then the 9th resolving to the 5th of GMaj7) — a good model for change-spelling inside one key.
+
+### 3-2. The "Green Dolphin Street" bass move and other reharms
+
+**instruction:** What bass-driven reharmonizations fit the A section?
+
+**response:** Two are idiomatic. In bar 4, drop the bass under Am7: Am7 → Am7/G → Am7/F (which is F half-diminished in disguise), turning it into a ii of a minor ii-V (F♯ø... actually Fm7♭5 – B7 → Em7). In bars 5–6, slide Em7 → Cm7/E♭ → GMaj7/D, a chromatic bass descent that delays the root-position tonic until the section's end. Both keep the melody intact while the bass does the work.
+
+### 3-3. A passing diminished in the bridge
+
+**instruction:** How can I break up the repeated 1-6-2-5 in the bridge?
+
+**response:** Insert a passing diminished between chord I and chord ii. In B major, between BMaj7 and C♯m7 sits C, so a C°7 chromatically links the two and adds contrast to an otherwise thrice-repeated 1-6-2-5. Use it in bar 1 or bar 5 of the bridge for variety — it brightens the harmonic rhythm without disturbing the key.

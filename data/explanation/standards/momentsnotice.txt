@@ -120,3 +120,39 @@ EbMaj7 (I), Fm7 (ii), Gm7 (iii), AbMaj7 (IV), Bb7 (V), Cm7 (vi), Dm7♭5 (vii°)
 **instruction:** 콜트레인의 화성적 의도를 이해하면 솔로에 어떤 도움이 돼?
 
 **response:** 콜트레인이 의도한 핵심은 세 가지이다. 첫째, 서로 다른 키 센터(I, ♭VII, ♭III, IV)를 하나의 곡 안에서 순환시키는 것. 둘째, 각 키 간의 연결을 디미니쉬드 축, 트라이톤 서브, 모달 인터체인지 등 다양한 방식으로 차별화하는 것. 셋째, 같은 ii-V 패턴을 반복하면서도 키와 연결 방식을 바꿔 변화를 만드는 것. 솔로에 이 의도를 반영하려면, 키가 바뀔 때마다 그 새로운 키의 색채를 명확히 제시하고(예: E♭에서 D♭으로 갈 때 D♭ 키의 특성음을 강조), 키 전환 지점에서 피벗 코드의 이중성을 라인으로 표현하면 된다. 또한 패턴이 반복될 때 모티브를 트랜스포즈하여 반복하면 콜트레인의 패턴 반복 의도와 일치하는 솔로가 된다.
+
+---
+
+## The Jazz Pursuit — Additional Analysis (English)
+
+*Source: The Jazz Pursuit — "Moment's Notice (John Coltrane) Tutorial & Analysis" (https://youtu.be/XfX2cUiqK0I). E♭ major, ABAC (the C section is extended to 14 bars by a tag). This reading builds the tune up from a simple foundation, then adds Coltrane's extra changes.*
+
+### EN-1. The foundation harmony beneath the complexity
+
+**instruction:** What is the simple skeleton of Moment's Notice before the extra changes?
+
+**response:** Stripped down, the A section is two ii-V-Is: one home (Fm7 – Bb7 – EbMaj7), then EbMaj7 turns minor to become the ii of a second (Ebm7 – Ab7 – DbMaj7, D♭ being the ♭7 of the key). The B section steps down to Cm7 (chord vi), runs a ii-V-I to chord IV (Bbm7 – Eb7 – AbMaj7), then AbMaj7 turns minor for a ii-V-I to GbMaj7 (♭III). It's surprisingly conventional jazz harmony — the difficulty comes from the layers Coltrane adds on top.
+
+### EN-2. Chromatic ii-Vs approaching from a half-step below
+
+**instruction:** What is the recurring device that fills Moment's Notice with chords?
+
+**response:** Coltrane precedes each ii-V with another ii-V a half-step below. Squeeze the original ii and V into one bar, then drop a chromatic ii-V in front. So Fm7 – Bb7 is preceded by Em7 – A7; Ebm7 – Ab7 by Dm7 – G7; Abm7 – Db7 by Gm7 – C7. The lower ii-V slides chromatically up into the target ii-V, packing the bar with motion while still resolving exactly where the foundation did.
+
+### EN-3. A single melody note binding a chain of chords
+
+**instruction:** How does the melody hold together over those fast-moving chromatic ii-Vs?
+
+**response:** Coltrane keeps one common tone across all the chords. Over Em7 – A7 – Fm7 – Bb7 – EbMaj7, the melody sits on G the whole time: it's the 3rd of Em7, the ♭7 of A7, the 9th of Fm7, the 13th of Bb7, and the 3rd of EbMaj7. A single sustained note re-contextualized against five different chords is what makes the dense harmony sound smooth and inevitable — a model lesson in writing (or improvising) melody over rapid changes.
+
+### EN-4. The backdoor ii-V
+
+**instruction:** What's the backdoor ii-V in the A section?
+
+**response:** In the foundation, the second ii-V resolves Ebm7 – Ab7 → DbMaj7. To approach the Ebm7 itself, Coltrane uses a backdoor ii-V — Abm7 – Db7 — where the V resolves *up a whole step* to E♭m (D♭7 is the ♭VII of E♭ minor) rather than down a fifth. Backdoor cadences (V resolving up a tone) give a softer, less expected arrival than a regular dominant and are a staple of his harmonic vocabulary here.
+
+### EN-5. The tag over a dominant pedal
+
+**instruction:** Why is the C section longer, and what is the tag?
+
+**response:** The C section starts like the B (Cm7, ii-V-I to AbMaj7) but then consolidates the home key with a 3-6-2-5 (Gm7 – Cm7 – Fm7 – Bb7 → EbMaj7), and adds a tag that extends it to 14 bars. The tag walks up the chords of the scale and back — EbMaj7 – Fm7 – Gm7 – Fm7 – EbMaj7 — then repeats twice as fast (two beats per chord) to drive into the solo break. Crucially, the entire tag sits over a B♭ (dominant) pedal, so all that diatonic motion floats over the V of the key, building tension before release. It doubles as an intro.

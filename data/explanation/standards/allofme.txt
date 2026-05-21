@@ -108,3 +108,39 @@ CMaj7 (I), Dm7 (ii), Em7 (iii), FMaj7 (IV), G7 (V), Am7 (vi), Bm7♭5 (vii°)
 **instruction:** 이 분석 결과를 곡 암기나 12키 트랜스포즈에 어떻게 활용해?
 
 **response:** 코드를 개별 코드명으로 외우는 것이 아니라 도수 기능으로 외우면 어떤 키에서든 적용할 수 있다. 예를 들어 A 파트를 "I → V7/V7/ii(익스텐디드 세컨더리) → V7/ii(세컨더리) → ii"로 기억하면, 어떤 키에서든 즉시 코드를 산출할 수 있다. B♭ 키로 트랜스포즈한다면 I = B♭Maj7, ii = Cm7이므로 V7/ii = G7, V7/V7/ii = D7이 되는 식이다. C 파트의 "IV → iv(모달 인터체인지) → I → V7/ii → ii → V → I → ii-V(턴어라운드)"도 도수 기능으로 기억하면 12키 전환이 자유로워진다. 분석은 단순히 곡을 이해하는 도구가 아니라, 암기와 트랜스포즈의 발판이 된다.
+
+---
+
+## The Jazz Pursuit — Additional Analysis (English)
+
+*Source: The Jazz Pursuit — "All Of Me (Marks/Simons) Tutorial & Analysis" (https://youtu.be/K4RNFpkPOSs). C major, ABAC, medium swing.*
+
+### EN-1. The A section's secondary dominants
+
+**instruction:** Why is the chord on bar 3 of the A section E7 instead of Em7?
+
+**response:** Diatonically, chord iii in C major is Em7. But All Of Me tweaks the G to G♯, making it E7 — a secondary dominant (the V of vi) that pulls strongly toward chord vi. The A section then runs a V-I to chord ii (A7 → Dm7). So the A section is essentially I, then two secondary-dominant-driven moves: E7 reaching toward A, and A7 resolving to Dm7. Turning a diatonic minor chord into a dominant to create pull is the engine of the whole tune.
+
+### EN-2. The B section: another secondary dominant
+
+**instruction:** Analyze the B section harmony.
+
+**response:** It opens with a V-I to chord vi (E7 → Am7), then makes chord ii a secondary dominant: D7 (the V of the V) for two bars, which turns minor (Dm7) to start a ii-V-I home (Dm7 – G7 – CMaj7). So D7 is the "second dominant of the key" — built up by stacking fifths C → G7 (primary dominant) → D7 (secondary). When you hear a major or dominant chord where a minor would be expected, suspect a secondary dominant.
+
+### EN-3. Melody that spells the chords
+
+**instruction:** How does the A-section melody outline the harmony?
+
+**response:** It traces chord tones directly: a falling C major triad (C–G–E) over CMaj7, a falling E triad over E7, then over A7 it descends A–G–E with a chromatic turn (E♭–E) and leaps to the ♭9 (B♭) before walking down the C major scale to the 3rd of Dm7 (F). Because the melody arpeggiates each chord, it makes the secondary dominants audible — a good model for change-spelling lines that still sound melodic.
+
+### EN-4. The chromatic-fall motif in the B section
+
+**instruction:** What melodic device unifies the B section?
+
+**response:** A chromatic fall of two half-steps. The B section starts on E (over E7) and falls chromatically to D (the ♭7), then rises through an E triad to land on the 4th of Am7 (D) before resolving down to the 3rd (C) — a suspension (4 resolving to 3). The next line repeats the idea: B falls to A (the 5th of D7), decorated with a triplet that starts and ends on the same note, then rises to the 3rd of G7 (B). One small motif, sequenced, ties the section together.
+
+### EN-5. The C section: minor IV and the 3-6-2-5-1
+
+**instruction:** How does the C section end the tune?
+
+**response:** It starts on chord IV (FMaj7), then turns it minor (Fm7) — the classic bright-to-wistful subdominant shift — and heads home with a 3-6-2-5-1 (Em7 – Am7 – Dm7 – G7 – CMaj7). The melody stays out of the way of the busy changes: it sits on the 6th of FMaj7 (D), pivots while the harmony moves to Fm7 underneath, then outlines chord tones (B–E–G over Em7, etc.) into the final cadence. The FMaj7 → Fm7 move plus a 3-6-2-5 is one of the most satisfying ways to close a C-major tune.
