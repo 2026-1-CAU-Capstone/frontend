@@ -50,6 +50,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/chord" element={<ChordPage />} />
+          <Route path="/mychord" element={<ChordPage mychordMode />} />
           <Route path="/note" element={<NotePage />} />
           <Route path="/licks" element={<LicksPage />} />
           <Route path="/solos" element={<SolosPage />} />

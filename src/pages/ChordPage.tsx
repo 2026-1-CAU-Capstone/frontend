@@ -520,11 +520,12 @@ const ResizeDivider = styled.div`
   }
 `;
 
-export default function ChordPage() {
+export default function ChordPage({ mychordMode = false }: { mychordMode?: boolean }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const { filters, effective, toggleFilter } = useAnalysisFilters();
   const [songIndex, setSongIndex] = useState<SongEntry[]>([]);
-  const [songId, setSongIdRaw] = useState(() => searchParams.get('song') ?? ANALYZED_SONG_ID);
+  const [songId, setSongIdRaw] = useState(() =>
+    mychordMode ? ANALYZED_SONG_ID : (searchParams.get('song') ?? ANALYZED_SONG_ID));
 
   const setSongId = useCallback((id: string) => {
     setSongIdRaw(id);
@@ -736,10 +737,17 @@ export default function ChordPage() {
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return [];
     const q = searchQuery.toLowerCase();
+    /* My Chord Chart only ever surfaces the single analyzed "All of Me" chart,
+     * never the 1460-song iRealPro library. */
+    if (mychordMode) {
+      return 'all of me'.includes(q)
+        ? [{ index: -1, title: 'All of Me', composer: 'Gerald Marks', style: 'Medium Swing', key: 'C' } as SongEntry]
+        : [];
+    }
     return songIndex
       .filter((s) => s.title.toLowerCase().includes(q) || s.composer.toLowerCase().includes(q))
       .slice(0, 30);
-  }, [searchQuery, songIndex]);
+  }, [searchQuery, songIndex, mychordMode]);
 
   // Close search on outside click
   useEffect(() => {
@@ -931,10 +939,10 @@ export default function ChordPage() {
           subtitle={sheet ? `${(sheet.key ?? '?').replace(/-$/, 'm')} | ${sheet.timeSignature}` : undefined}
           leftExtra={
             <>
-              <SongPickerLabel>iRealPro {songIndex.length || '...'}</SongPickerLabel>
+              {!mychordMode && <SongPickerLabel>iRealPro {songIndex.length || '...'}</SongPickerLabel>}
               <SongSelect value={songId} onChange={(e) => setSongId(e.target.value)}>
                 <option value={ANALYZED_SONG_ID}>All of Me (Analyzed)</option>
-                {songIndex.map((song) => (
+                {!mychordMode && songIndex.map((song) => (
                   <option key={song.index} value={String(song.index)}>
                     {song.title} -- {song.composer}
                   </option>
@@ -960,7 +968,7 @@ export default function ChordPage() {
                       <SearchItem
                         key={song.index}
                         onClick={() => {
-                          setSongId(String(song.index));
+                          setSongId(mychordMode ? ANALYZED_SONG_ID : String(song.index));
                           setSearchQuery('');
                           setSearchOpen(false);
                         }}

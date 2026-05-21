@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react';
 import styled, { keyframes } from 'styled-components';
 import type { OMRMetadata } from '../../api/licks';
 
@@ -57,6 +57,14 @@ export function OMRUploadModal<T>({
   const [error, setError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /* Revoke each blob preview URL once it's replaced or the modal unmounts.
+   * The cleanup closes over the previous previewUrl, so it frees the old one
+   * after a new file is selected (or on reset/close), preventing a leak. */
+  useEffect(() => {
+    if (!previewUrl) return;
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
 
   /** Accepts a single image File (PNG/JPG/JPEG) and wires it into modal
    *  state. Shared by both click-select and drop paths. */

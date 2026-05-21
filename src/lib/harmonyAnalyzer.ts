@@ -145,8 +145,8 @@ const MODE_MAJOR: Record<number, string> = {
   7: 'mixolydian', 9: 'aeolian', 11: 'locrian',
 };
 const MODE_MINOR: Record<number, string> = {
-  0: 'dorian', 2: 'locrian', 3: 'ionian', 5: 'dorian',
-  7: 'mixolydian', 8: 'lydian', 10: 'mixolydian',
+  0: 'aeolian', 2: 'locrian', 3: 'ionian', 5: 'dorian',
+  7: 'phrygian', 8: 'lydian', 10: 'mixolydian',
 };
 
 /* ── exported utilities ───────────────────────────────────────────────── */

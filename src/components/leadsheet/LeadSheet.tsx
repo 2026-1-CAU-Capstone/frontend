@@ -893,24 +893,41 @@ const ChordColumn = styled.div<{ $selected?: boolean; $selectable?: boolean }>`
   user-select: none;
 `;
 
-/* Edit mode — each chord becomes a bordered text input. */
+/* Edit mode — each chord becomes an inline text input that mirrors the chord's
+ * displayed size/weight/position. The input auto-sizes to its content
+ * (field-sizing) so it occupies the same footprint as the chord it replaces and
+ * neighbouring chords don't shift. A thin underline is the only edit affordance
+ * so the box itself doesn't visually move the chord. */
 const ChordEditInput = styled.input<{ $size?: ChordSize }>`
+  /* Hug the typed text so the input takes the same room as the chord. */
+  field-sizing: content;
+  /* Fallback for browsers without field-sizing — same fixed em widths as before. */
   width: ${({ $size }) => ($size === 'four' ? '3.4em' : '4.4em')};
+  min-width: 1.4em;
   max-width: 100%;
   box-sizing: border-box;
   text-align: center;
   font-family: ${CHORD_FONT};
-  font-size: ${({ $size }) => ($size === 'four' ? '0.95rem' : '1.2rem')};
-  font-weight: 600;
+  /* Match the display Root sizes (cqi-based) so chords don't shrink when the
+   * pencil/edit mode is toggled — the input keeps the chord's original size. */
+  font-size: ${({ $size }) =>
+    $size === 'four'    ? 'clamp(1.45rem, 5.15cqi, 3.1rem)' :
+    $size === 'compact' ? 'clamp(1.0rem, 3.7cqi, 2.2rem)' :
+    $size === 'split'   ? 'clamp(1.2rem, 4.5cqi, 2.8rem)' :
+                          'clamp(1.5rem, 5.8cqi, 3.5rem)'};
+  /* Mirror Root's weight/line-height so the glyph sits where the chord did. */
+  font-weight: 700;
+  line-height: 0.88;
+  letter-spacing: -0.01em;
   color: #1a1a1a;
-  background: #fff;
-  border: 1.5px solid #4285f4;
-  border-radius: 5px;
-  padding: 1px 2px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid rgba(66, 133, 244, 0.7);
+  border-radius: 0;
+  padding: 0;
   outline: none;
   &:focus {
-    border-color: #1a73e8;
-    box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.22);
+    border-bottom-color: #1a73e8;
   }
 `;
 

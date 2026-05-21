@@ -7,19 +7,28 @@ import { TopToolbar } from '../components/layout/TopToolbar';
 import { RightChatPanel } from '../components/layout/RightChatPanel';
 import { MobileChatFab } from '../components/layout/MobileChatFab';
 import { NoteSheet } from '../components/notesheet/NoteSheet';
-import { Toggle } from '../components/common/Toggle';
 import { SettingsGearButton } from '../components/auth/SettingsGearButton';
-import { ToolbarButton } from '../components/layout/TopToolbar.styles';
+import { KeyControl } from '../components/leadsheet/LeadSheet';
+import { SessionPicker, type SessionInstrument } from '../components/chord/SessionPicker';
+import {
+  GenreSelect, MetronomeToggle, BpmControl, RepeatControl, TransportButtons,
+  BackingMixer, type EngineBackend,
+} from '../components/backing/BackingPlayerBar';
+import { createBackingPlayer, leadSheetToChart, type BackingPlayer } from '../lib/backing';
+import { createStyBackingPlayer, createHybridBackingPlayer } from '../lib/yamaha-sty';
+import { BUILTIN_STYLE, type StyleSelectorChoice } from '../components/yamaha-sty/StyleSelector';
+import { useCountInIntro } from '../hooks/useCountInIntro';
 import { useAutoHighlight } from '../hooks/useAutoHighlight';
 import { sampleMelody } from '../data/sampleMelody';
 import type { NoteSheetData, MeasureInfo, NoteInfo } from '../data/sampleMelody';
+import type { LeadSheetData, LeadSheetChord } from '../data/leadSheetTypes';
 import type { ChordOverlay } from '../data/types';
 import { noteSongs, externalSongs, manualSongs } from '../data/noteSongs';
 import type { SongGroup } from '../data/noteSongs';
 import { loadMidiMelody } from '../lib/note/midiMelodyParser';
 import { loadXmlMelody, loadMxlMelody } from '../lib/note/xmlMelodyParser';
 import { injectChordsFromLeadSheet } from '../lib/note/jazz1460ChordInject';
-import { getPlayerSettings, subscribePlayerSettings, TRANSPOSING_INSTRUMENT_OFFSET } from '../lib/note/playerSettings';
+import { getPlayerSettings, inferPlayStyle, setPlayerSetting, subscribePlayerSettings, TRANSPOSING_INSTRUMENT_OFFSET } from '../lib/note/playerSettings';
 import { getSong } from '../lib/ireal/irealLoader';
 
 const SAMPLE_ID = '__sample__';
@@ -254,6 +263,43 @@ function buildNoteSelectionData(
   return { selectedChords, notesContext };
 }
 
+/* ─── note sheet → backing chart ─────────────────────────────────────────
+ *  ChordPage feeds LeadSheetData straight into leadSheetToChart. NotePage's
+ *  native format is a melody sheet whose chords live as display symbols
+ *  ("CΔ7", "D-7  G7") per measure. We split those tokens into LeadSheetChord
+ *  cells and reuse leadSheetToChart so the backing engine, style detection and
+ *  quality mapping stay shared with ChordPage. */
+function parseChordToken(token: string): LeadSheetChord | null {
+  const t = token.trim();
+  if (!t) return null;
+  const m = t.match(/^([A-G])([b#]?)(.*)$/);
+  if (!m) return null;
+  return {
+    root: m[1],
+    accidental: (m[2] || undefined) as 'b' | '#' | undefined,
+    quality: m[3] || undefined,
+  };
+}
+
+function noteSheetToChart(data: NoteSheetData) {
+  const bars = data.measures.map((mm, i) => ({
+    measureNumber: i + 1,
+    // Double-space separates two chords sharing a bar (e.g. "D-7  G7").
+    chords: mm.chord
+      ? mm.chord.split(/\s{2,}/).map(parseChordToken).filter((c): c is LeadSheetChord => c != null)
+      : [],
+  }));
+  const lead: LeadSheetData = {
+    title: data.title,
+    composer: data.composer ?? '',
+    style: data.genre ?? '',
+    timeSignature: data.timeSignature ?? '4/4',
+    key: data.key,
+    systems: [{ bars }],
+  };
+  return leadSheetToChart(lead);
+}
+
 /* ─── styled ─────────────────────────────────────────────────────────── */
 
 const PageContainer = styled.div`
@@ -283,13 +329,21 @@ const CenterColumn = styled.div`
   flex-direction: column;
 `;
 
-const SongPickerBar = styled.div`
+/* White transport bar above the sheet — mirrors ChordPage's TransportBar so
+ * the two analysis pages share one look. Holds the note-page controls (editor,
+ * key, convert, analysis toggle, gear). */
+const TransportBar = styled.div`
+  position: relative;
+  z-index: 60;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 16px;
-  background: ${({ theme }) => theme.colors.bgSecondary};
+  flex-wrap: nowrap;
+  gap: 8px;
+  padding: 5px 10px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  flex-shrink: 0;
+  min-width: 0;
   font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
 
@@ -300,9 +354,27 @@ const SongPickerBar = styled.div`
   }
 `;
 
-/* Settings gear pinned to the far-right edge of the toolbar. */
-const FarRightGear = styled(SettingsGearButton)`
+const BarLeft = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+`;
+
+const BarRight = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
   margin-left: auto;
+`;
+
+/* "Note N" label shown in the toolbar's leftExtra slot (matches ChordPage). */
+const SongPickerLabel = styled.span`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.82rem;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  white-space: nowrap;
 `;
 
 const SongSelect = styled.select`
@@ -319,7 +391,6 @@ const SongSelect = styled.select`
 
 const SearchWrap = styled.div`
   position: relative;
-  margin-left: auto;
 `;
 
 const SearchInput = styled.input`
@@ -392,139 +463,118 @@ const CollectionTag = styled.span`
   opacity: 0.7;
 `;
 
-const SoloGenBtn = styled.button`
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.82rem;
-  padding: 4px 12px;
-  border: 1px solid #b8960a;
-  border-radius: 5px;
-  background: #fff8e1;
-  color: #8B6914;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  &:hover { background: #f5ecd0; }
-`;
-
-const KeyDropdownWrap = styled.div`
-  position: relative;
-  display: inline-block;
-`;
-
-const KeyButton = styled.button`
+/* In-flow center group (transport controls) — mirrors ChordPage's BarCenter. */
+const BarCenter = styled.div`
   display: flex;
   align-items: center;
-  gap: 4px;
-  background: #fff;
-  border: 1.5px solid #ccc;
-  border-radius: 5px;
-  padding: 5px 14px;
-  cursor: pointer;
-  font-family: 'MuseJazz Text', 'Oswald', 'Pretendard', sans-serif;
-  font-size: clamp(1.2rem, 2.8cqi, 1.8rem);
-  font-weight: 600;
-  line-height: 1.3;
-  color: #222;
-  &:hover { border-color: #888; }
-
-  &::after {
-    content: '▾';
-    font-size: 0.7em;
-    color: #999;
-  }
+  justify-content: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
 `;
 
-const KeyMenu = styled.div`
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 3px;
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 8px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-  z-index: 100;
-`;
-
-const KeyOption = styled.button<{ $active?: boolean }>`
-  background: ${({ $active }) => $active ? '#333' : 'transparent'};
-  color: ${({ $active }) => $active ? '#fff' : '#333'};
+const ToolBtn = styled.button<{ $lit?: boolean }>`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
   border: none;
-  border-radius: 4px;
-  padding: 7px 12px;
+  border-radius: 9px;
+  background: transparent;
+  color: ${({ $lit }) => ($lit ? '#e8a838' : '#5b5b5b')};
   cursor: pointer;
-  font-family: 'MuseJazz Text', 'Oswald', 'Pretendard', sans-serif;
-  font-size: clamp(1.0rem, 1.8cqi, 1.3rem);
-  font-weight: 600;
-  text-align: center;
-  white-space: nowrap;
-  &:hover { background: ${({ $active }) => $active ? '#333' : '#f0f0f0'}; }
+  transition: background 0.15s, color 0.15s;
+  ${({ $lit }) => $lit && 'filter: drop-shadow(0 0 4px rgba(232, 168, 56, 0.55));'}
+
+  &:hover { background: rgba(0, 0, 0, 0.06); }
 `;
 
-const ConvertBtn = styled.button`
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.82rem;
-  padding: 4px 12px;
-  border: 1px solid #7a8aad;
-  border-radius: 5px;
-  background: #eef1f8;
-  color: #3d4f7c;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  &:hover { background: #dde3f0; }
+const ToolWrap = styled.div`
+  position: relative;
+  display: inline-flex;
 `;
 
-const ConvertPopover = styled.div`
+const AnalysisDrop = styled.div`
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
+  z-index: 90;
+  width: 248px;
+  background: #fff;
+  border: 1px solid #e6e6e6;
+  border-radius: 14px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.2);
+  padding: 6px 16px 12px;
+  font-family: 'Pretendard', sans-serif;
+`;
+
+const ToggleRow = styled.label<{ $disabled?: boolean }>`
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 10px 14px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-  z-index: 200;
-  white-space: nowrap;
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.85rem;
+  justify-content: space-between;
+  padding: 11px 2px;
+  border-top: 1px solid #f0f0f0;
+  cursor: ${({ $disabled }) => ($disabled ? 'default' : 'pointer')};
+  opacity: ${({ $disabled }) => ($disabled ? 0.4 : 1)};
+
+  &:first-of-type { border-top: none; }
 `;
 
-const ConvertSelect = styled.select`
-  font-family: 'MuseJazz Text', 'Pretendard', sans-serif;
+const ToggleLabel = styled.span`
   font-size: 0.95rem;
-  font-weight: 600;
-  padding: 4px 8px;
-  border: 1.5px solid #bbb;
-  border-radius: 5px;
-  background: #fff;
-  color: #222;
-  cursor: pointer;
+  color: #2a2a2a;
 `;
 
-const ConvertArrow = styled.span`
-  font-size: 1.1rem;
-  color: #666;
+const Switch = styled.span<{ $on?: boolean }>`
+  position: relative;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: ${({ $on }) => ($on ? '#3b82f6' : '#d4d4d8')};
+  transition: background 0.18s;
+  flex-shrink: 0;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: ${({ $on }) => ($on ? '20px' : '2px')};
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    transition: left 0.18s;
+  }
 `;
 
-const ConvertApply = styled.button`
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.82rem;
-  padding: 4px 10px;
-  border: 1px solid #4a7c3d;
-  border-radius: 5px;
-  background: #e8f5e1;
-  color: #3d6e32;
-  font-weight: 600;
-  cursor: pointer;
-  &:hover { background: #d4ebc9; }
-`;
+/* ─── tool icons (Lucide, 24×24 stroke) — copied from ChordPage ─────────── */
+const ShareIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="18" cy="5" r="3" />
+    <circle cx="6" cy="12" r="3" />
+    <circle cx="18" cy="19" r="3" />
+    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+  </svg>
+);
+
+const PencilIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+  </svg>
+);
+
+const LightbulbIcon = ({ lit }: { lit: boolean }) => (
+  <svg width="27" height="27" viewBox="0 0 24 24" fill={lit ? 'rgba(232, 168, 56, 0.22)' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 18h6" />
+    <path d="M10 22h4" />
+    <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" />
+  </svg>
+);
 
 const LoadingState = styled.div`
   flex: 1;
@@ -541,10 +591,34 @@ const RightPanelWrapper = styled.div<{ $width: number }>`
   min-width: 180px;
   flex-shrink: 0;
   display: flex;
+  flex-direction: column;
 
   ${mq.compactLayout} {
     display: none;
   }
+`;
+
+/* Tab strip splitting the right panel into 믹서 / AI 채팅 (matches ChordPage). */
+const PanelTabs = styled.div`
+  display: flex;
+  background: #fff;
+  border-bottom: 1px solid #e6e6e6;
+  flex-shrink: 0;
+`;
+
+const PanelTab = styled.button<{ $on?: boolean }>`
+  flex: 1;
+  padding: 9px 0;
+  border: none;
+  background: transparent;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: ${({ $on }) => ($on ? '#2b8aef' : '#888')};
+  border-bottom: 2px solid ${({ $on }) => ($on ? '#2b8aef' : 'transparent')};
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  &:hover { color: ${({ $on }) => ($on ? '#2b8aef' : '#555')}; }
 `;
 
 const ResizeDivider = styled.div`
@@ -597,8 +671,6 @@ export default function NotePage() {
   const isMinorKey = /m$/i.test(originalKey);
   const allKeys = isMinorKey ? ALL_KEYS_MINOR : ALL_KEYS_MAJOR;
   const [selectedKey, setSelectedKey] = useState(originalKey);
-  const [keyMenuOpen, setKeyMenuOpen] = useState(false);
-  const keyMenuRef = useRef<HTMLDivElement>(null);
 
   /* Transposing instrument (global '악보/연주' setting) — shifts only the
    * DISPLAYED key by a fixed interval; selectedKey stays the concert source of
@@ -620,15 +692,94 @@ export default function NotePage() {
   // Reset key when song changes
   useEffect(() => { setSelectedKey(sheet?.key ?? 'C'); }, [sheet]);
 
-  // Close key menu on outside click
+  /* ── backing playback (mirrors ChordPage) ──────────────────────────────
+   *  NotePage's melody sheet carries chord symbols per measure; noteSheetToChart
+   *  turns those into the same Chart the backing engine plays on ChordPage. */
+  const playerRef = useRef<BackingPlayer | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [repeatCount, setRepeatCount] = useState(3);
+  const [tempo, setTempo] = useState(140);
+  const [session, setSession] = useState<SessionInstrument>('piano');
+  const [engineBackend, setEngineBackend] = useState<EngineBackend>(() => {
+    if (typeof window === 'undefined') return 'rule';
+    const stored = window.localStorage.getItem('jazzify.engine');
+    if (stored === 'sty' || stored === 'hybrid') return stored;
+    return 'rule';
+  });
+  const [styleChoice, setStyleChoice] = useState<StyleSelectorChoice>(BUILTIN_STYLE);
+  const [lightMenuOpen, setLightMenuOpen] = useState(false);
+  const lightMenuRef = useRef<HTMLDivElement>(null);
+  const countIn = useCountInIntro();
+
+  // (Re)create the backing player whenever the loaded sheet / engine changes.
   useEffect(() => {
-    if (!keyMenuOpen) return;
+    if (!sheet) return;
+    const chart = noteSheetToChart(sheet);
+    setTempo(chart.bpm);
+    const inferred = inferPlayStyle(chart.defaultStyle ?? sheet.genre);
+    if (inferred && inferred !== getPlayerSettings().style) {
+      setPlayerSetting('style', inferred);
+    }
+    const styOpts = { styleUrl: styleChoice.url, styleData: styleChoice.buffer };
+    const player =
+      engineBackend === 'sty' ? createStyBackingPlayer(chart, {}, styOpts) :
+      engineBackend === 'hybrid' ? createHybridBackingPlayer(chart, {}, styOpts) :
+      createBackingPlayer(chart);
+    player.on('onDone', () => setIsPlaying(false));
+    playerRef.current = player;
+    void player.preload().catch(() => { /* retried at play time */ });
+    return () => {
+      player.dispose();
+      playerRef.current = null;
+      setIsPlaying(false);
+    };
+  }, [sheet, engineBackend, styleChoice]);
+
+  // Push tempo changes into the live player config.
+  useEffect(() => {
+    playerRef.current?.setConfig({ bpm: tempo });
+  }, [tempo]);
+
+  const handlePlayPause = useCallback(async () => {
+    const player = playerRef.current;
+    if (!player) return;
+    if (isPlaying || countIn.active) {
+      if (isPlaying) player.pause();
+      countIn.cancel();
+      setIsPlaying(false);
+      return;
+    }
+    setIsPlaying(true);
+    player.setConfig({ repeatCount });
+    const preload = player.preload();
+    const cin = await countIn.run({ bpm: tempo });
+    if (!cin.ok) { setIsPlaying(false); return; }
+    try {
+      await preload;
+      await player.play({ startAt: player.ctxNow() + cin.downbeatInSec });
+    } catch (err) {
+      console.error('[backing] play failed:', err);
+      setIsPlaying(false);
+    }
+  }, [isPlaying, tempo, countIn, repeatCount]);
+
+  const handleStop = useCallback(() => {
+    playerRef.current?.stop();
+    countIn.cancel();
+    setIsPlaying(false);
+  }, [countIn]);
+
+  // Close the analysis (lightbulb) dropdown on outside click.
+  useEffect(() => {
+    if (!lightMenuOpen) return;
     const handler = (e: MouseEvent) => {
-      if (keyMenuRef.current && !keyMenuRef.current.contains(e.target as Node)) setKeyMenuOpen(false);
+      if (lightMenuRef.current && !lightMenuRef.current.contains(e.target as Node)) {
+        setLightMenuOpen(false);
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [keyMenuOpen]);
+  }, [lightMenuOpen]);
 
   /* ── measure-range selection (for note-chat) ───────────────────────────
    *  Mirrors ChordPage's chord-selection flow: user toggles selection mode
@@ -672,42 +823,6 @@ export default function NotePage() {
     }
     return buildNoteSelectionData(transposedSheet, noteSelectedRanges);
   }, [transposedSheet, noteSelectedRanges]);
-
-  /* convert (instrument transposition) */
-  const CONVERT_KEYS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'] as const;
-  const [convertOpen, setConvertOpen] = useState(false);
-  const [convertFrom, setConvertFrom] = useState('Eb');
-  const [convertTo, setConvertTo] = useState('C');
-  const convertRef = useRef<HTMLDivElement>(null);
-
-  // Close convert popover on outside click
-  useEffect(() => {
-    if (!convertOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (convertRef.current && !convertRef.current.contains(e.target as Node)) setConvertOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [convertOpen]);
-
-  const handleConvertApply = useCallback(() => {
-    if (!sheet) return;
-    const fromPc = keyToPc(convertFrom);
-    const toPc = keyToPc(convertTo);
-    const semitones = ((toPc - fromPc) % 12 + 12) % 12;
-    if (semitones === 0) return;
-
-    // Determine new key for the sheet
-    const origPc = keyToPc(sheet.key ?? 'C');
-    const newPc = ((origPc + semitones) % 12 + 12) % 12;
-    const isMin = /m$/i.test(sheet.key ?? '');
-    const newKeyRoot = CHORD_KEY_NAMES[newPc];
-    const newKey = isMin ? `${newKeyRoot}m` : newKeyRoot;
-
-    setSheet(transposeNoteData(sheet, newKey));
-    setSelectedKey(newKey);
-    setConvertOpen(false);
-  }, [sheet, convertFrom, convertTo]);
 
   /* search state */
   const [searchQuery, setSearchQuery] = useState('');
@@ -785,6 +900,7 @@ export default function NotePage() {
   /* resizable right panel */
   const [rightPanelWidth, setRightPanelWidth] = useState(300);
   const dividerRef = useRef<HTMLDivElement>(null);
+  const [panelTab, setPanelTab] = useState<'mixer' | 'chat'>('chat');
 
   const onDividerMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -807,84 +923,43 @@ export default function NotePage() {
 
   return (
     <PageContainer>
+      {countIn.overlay}
       <IconSidebar />
       <RightSection>
         <TopToolbar
           title={sheet?.title ?? 'Note'}
-          subtitle={sheet ? `${sheet.timeSignature}` : undefined}
-        />
-
-        <MainArea>
-        <CenterColumn>
-          <SongPickerBar>
-            <span>Note</span>
-            <SoloGenBtn onClick={() => navigate('/editor?mode=solo')}>Editor</SoloGenBtn>
-            <SongSelect
-              value={songGroup}
-              onChange={(e) => {
-                const g = e.target.value as SongGroup | '__sample__';
-                setSongGroup(g);
-                if (g === '__sample__') setSongId(SAMPLE_ID);
-                else {
-                  const list = g === 'manual' ? manualSongs : externalSongs;
-                  if (list.length > 0) setSongId(list[0].id);
-                }
-              }}
-            >
-              <option value="__sample__">Sample</option>
-              <option value="manual">Manual</option>
-              <option value="external">External</option>
-            </SongSelect>
-            {songGroup !== '__sample__' && (
-              <SongSelect value={songId} onChange={(e) => setSongId(e.target.value)}>
-                {filteredSongs.map((song) => (
-                  <option key={song.id} value={song.id}>
-                    {song.title} — {song.composer}
-                  </option>
-                ))}
+          subtitle={sheet ? `${writtenKey} | ${sheet.timeSignature}` : undefined}
+          leftExtra={
+            <>
+              <SongPickerLabel>Note</SongPickerLabel>
+              <SongSelect
+                value={songGroup}
+                onChange={(e) => {
+                  const g = e.target.value as SongGroup | '__sample__';
+                  setSongGroup(g);
+                  if (g === '__sample__') setSongId(SAMPLE_ID);
+                  else {
+                    const list = g === 'manual' ? manualSongs : externalSongs;
+                    if (list.length > 0) setSongId(list[0].id);
+                  }
+                }}
+              >
+                <option value="__sample__">Sample</option>
+                <option value="manual">Manual</option>
+                <option value="external">External</option>
               </SongSelect>
-            )}
-            {sheet && !loading && (
-              <KeyDropdownWrap ref={keyMenuRef}>
-                <KeyButton onClick={() => setKeyMenuOpen((v) => !v)}>
-                  {writtenKey}
-                </KeyButton>
-                {keyMenuOpen && (
-                  <KeyMenu>
-                    {allKeys.map((k) => (
-                      <KeyOption
-                        key={k}
-                        $active={k === writtenKey}
-                        onClick={() => { setWrittenKey(k); setKeyMenuOpen(false); }}
-                      >
-                        {k}
-                      </KeyOption>
-                    ))}
-                  </KeyMenu>
-                )}
-              </KeyDropdownWrap>
-            )}
-            {sheet && !loading && (
-              <div style={{ position: 'relative', marginLeft: '4px' }} ref={convertRef}>
-                <ConvertBtn onClick={() => setConvertOpen((v) => !v)}>
-                  Convert to...
-                </ConvertBtn>
-                {convertOpen && (
-                  <ConvertPopover>
-                    <span style={{ color: '#666', fontWeight: 500 }}>From</span>
-                    <ConvertSelect value={convertFrom} onChange={(e) => setConvertFrom(e.target.value)}>
-                      {CONVERT_KEYS.map((k) => <option key={k} value={k}>{k}</option>)}
-                    </ConvertSelect>
-                    <ConvertArrow>&rarr;</ConvertArrow>
-                    <span style={{ color: '#666', fontWeight: 500 }}>To</span>
-                    <ConvertSelect value={convertTo} onChange={(e) => setConvertTo(e.target.value)}>
-                      {CONVERT_KEYS.map((k) => <option key={k} value={k}>{k}</option>)}
-                    </ConvertSelect>
-                    <ConvertApply onClick={handleConvertApply}>Apply</ConvertApply>
-                  </ConvertPopover>
-                )}
-              </div>
-            )}
+              {songGroup !== '__sample__' && (
+                <SongSelect value={songId} onChange={(e) => setSongId(e.target.value)}>
+                  {filteredSongs.map((song) => (
+                    <option key={song.id} value={song.id}>
+                      {song.title} — {song.composer}
+                    </option>
+                  ))}
+                </SongSelect>
+              )}
+            </>
+          }
+          rightExtra={
             <SearchWrap ref={searchRef}>
               <SearchIcon>&#128269;</SearchIcon>
               <SearchInput
@@ -917,15 +992,51 @@ export default function NotePage() {
                 </SearchResults>
               )}
             </SearchWrap>
-            <Toggle
-              label="분석 보기"
-              active={autoHighlight}
-              onToggle={toggleAutoHighlight}
-            />
+          }
+        />
 
-            <ToolbarButton>자동 번역</ToolbarButton>
-            <FarRightGear displaySettings={displaySettings} />
-          </SongPickerBar>
+        <MainArea>
+        <CenterColumn>
+          <TransportBar>
+            <BarLeft>
+              <GenreSelect />
+              <KeyControl selectedKey={writtenKey} onChange={setWrittenKey} isMinor={/m$/i.test(writtenKey)} />
+              <SessionPicker value={session} onChange={setSession} />
+            </BarLeft>
+            <BarCenter>
+              <MetronomeToggle />
+              <BpmControl tempo={tempo} onTempoChange={setTempo} disabled={!sheet || loading} />
+              <RepeatControl repeatCount={repeatCount} onRepeatChange={setRepeatCount} disabled={!sheet || loading} />
+              <TransportButtons playing={isPlaying} onPlayPause={handlePlayPause} onStop={handleStop} disabled={!sheet || loading} />
+            </BarCenter>
+            <BarRight>
+              <ToolBtn type="button" title="공유" onClick={() => {/* TODO: 공유 기능 */}}>
+                <ShareIcon />
+              </ToolBtn>
+              <ToolBtn type="button" title="Editor에서 수정" onClick={() => navigate('/editor?mode=solo')}>
+                <PencilIcon />
+              </ToolBtn>
+              <ToolWrap ref={lightMenuRef}>
+                <ToolBtn
+                  type="button"
+                  title="분석 보기"
+                  $lit={autoHighlight}
+                  onClick={() => setLightMenuOpen((v) => !v)}
+                >
+                  <LightbulbIcon lit={autoHighlight} />
+                </ToolBtn>
+                {lightMenuOpen && (
+                  <AnalysisDrop>
+                    <ToggleRow onClick={toggleAutoHighlight}>
+                      <ToggleLabel style={{ fontWeight: 700 }}>분석 보기</ToggleLabel>
+                      <Switch $on={autoHighlight} />
+                    </ToggleRow>
+                  </AnalysisDrop>
+                )}
+              </ToolWrap>
+              <SettingsGearButton displaySettings={displaySettings} />
+            </BarRight>
+          </TransportBar>
 
           {transposedSheet && !loading ? (
             <NoteSheet
@@ -949,20 +1060,38 @@ export default function NotePage() {
         <ResizeDivider ref={dividerRef} onMouseDown={onDividerMouseDown} />
 
         <RightPanelWrapper $width={rightPanelWidth}>
-          <RightChatPanel
-            hideHeader
-            selectedChords={noteSelectionData.selectedChords}
-            groupExplanation={
-              noteSelectionData.selectedChords.length > 0
-                ? '이 구간의 코드 진행과 선택한 음표가 다음 질문의 분석 대상으로 포함됩니다.'
-                : null
-            }
-            songTitle={sheet?.title ?? 'Jazzify AI'}
-            isSelectionMode={isNoteSelectionMode}
-            onToggleSelectionMode={toggleNoteSelectionMode}
-            onClearSelectedChords={clearNoteSelection}
-            notesContext={noteSelectionData.notesContext}
-          />
+          <PanelTabs>
+            <PanelTab type="button" $on={panelTab === 'mixer'} onClick={() => setPanelTab('mixer')}>믹서</PanelTab>
+            <PanelTab type="button" $on={panelTab === 'chat'} onClick={() => setPanelTab('chat')}>AI 채팅</PanelTab>
+          </PanelTabs>
+          {panelTab === 'mixer' ? (
+            <BackingMixer
+              engine={{
+                backend: engineBackend,
+                onBackendChange: (b) => {
+                  setEngineBackend(b);
+                  window.localStorage.setItem('jazzify.engine', b);
+                },
+                styleChoice,
+                onStyleChange: setStyleChoice,
+              }}
+            />
+          ) : (
+            <RightChatPanel
+              hideHeader
+              selectedChords={noteSelectionData.selectedChords}
+              groupExplanation={
+                noteSelectionData.selectedChords.length > 0
+                  ? '이 구간의 코드 진행과 선택한 음표가 다음 질문의 분석 대상으로 포함됩니다.'
+                  : null
+              }
+              songTitle={sheet?.title ?? 'Jazzify AI'}
+              isSelectionMode={isNoteSelectionMode}
+              onToggleSelectionMode={toggleNoteSelectionMode}
+              onClearSelectedChords={clearNoteSelection}
+              notesContext={noteSelectionData.notesContext}
+            />
+          )}
         </RightPanelWrapper>
         </MainArea>
       </RightSection>
