@@ -1,0 +1,193 @@
+{
+  "task": "structural-analysis",
+  "description": "Given a 0-indexed chord progression, identify the key(s), all ii-V-I / ii-V-i (index triples; strict P4-up then P5-down — tritone subs and V-I without a ii do NOT count), and the Roman numeral per chord. gold.keys is a list of acceptable answers, each an array of key names (a modulation needs all keys in one set; alternative spellings are separate sets).",
+  "items": [
+    {
+      "id": "p01-cmaj-251",
+      "chords": ["Dm7", "G7", "Cmaj7"],
+      "keys": [["C"]],
+      "iiVi": [[0, 1, 2]],
+      "romans": ["ii-7", "V7", "Imaj7"],
+      "ruleContext": "Key: C major. Dm7=ii-7, G7=V7, Cmaj7=Imaj7. Detected 2-5-1: Dm7→G7→Cmaj7 (C major)."
+    },
+    {
+      "id": "p02-gmaj-251",
+      "chords": ["Am7", "D7", "Gmaj7"],
+      "keys": [["G"]],
+      "iiVi": [[0, 1, 2]],
+      "romans": ["ii-7", "V7", "Imaj7"],
+      "ruleContext": "Key: G major. Am7=ii-7, D7=V7, Gmaj7=Imaj7. Detected 2-5-1: Am7→D7→Gmaj7 (G major)."
+    },
+    {
+      "id": "p03-bbmaj-251",
+      "chords": ["Cm7", "F7", "Bbmaj7"],
+      "keys": [["Bb"]],
+      "iiVi": [[0, 1, 2]],
+      "romans": ["ii-7", "V7", "Imaj7"],
+      "ruleContext": "Key: Bb major. Cm7=ii-7, F7=V7, Bbmaj7=Imaj7. Detected 2-5-1: Cm7→F7→Bbmaj7 (Bb major)."
+    },
+    {
+      "id": "p04-dmin-251",
+      "chords": ["Em7b5", "A7", "Dm7"],
+      "keys": [["D minor"]],
+      "iiVi": [[0, 1, 2]],
+      "romans": ["iiø7", "V7", "i-7"],
+      "ruleContext": "Key: D minor. Em7b5=iiø7, A7=V7(alt), Dm7=i-7. Detected minor 2-5-1: Em7b5→A7→Dm7 (D minor)."
+    },
+    {
+      "id": "p05-modulating-two-251",
+      "chords": ["Dm7", "G7", "Cmaj7", "Cm7", "F7", "Bbmaj7"],
+      "keys": [["C", "Bb"]],
+      "iiVi": [[0, 1, 2], [3, 4, 5]],
+      "romans": ["ii-7", "V7", "Imaj7", "ii-7", "V7", "Imaj7"],
+      "ruleContext": "Two key centers. C major (bars 1-3): Dm7=ii-7, G7=V7, Cmaj7=Imaj7. Bb major (bars 4-6): Cm7=ii-7, F7=V7, Bbmaj7=Imaj7. Detected 2-5-1 x2."
+    },
+    {
+      "id": "p06-251-plus-vi",
+      "chords": ["Dm7", "G7", "Cmaj7", "A7"],
+      "keys": [["C"]],
+      "iiVi": [[0, 1, 2]],
+      "romans": ["ii-7", "V7", "Imaj7", "VI7"],
+      "ruleContext": "Key: C major. Dm7=ii-7, G7=V7, Cmaj7=Imaj7, A7=VI7 (secondary dominant V7/ii, turnaround). One 2-5-1: Dm7→G7→Cmaj7."
+    },
+    {
+      "id": "p07-autumn-leaves",
+      "chords": ["Cm7", "F7", "Bbmaj7", "Ebmaj7", "Am7b5", "D7", "Gm7"],
+      "keys": [["Bb", "G minor"]],
+      "iiVi": [[0, 1, 2], [4, 5, 6]],
+      "romans": ["ii-7", "V7", "Imaj7", "IVmaj7", "iiø7", "V7", "i-7"],
+      "ruleContext": "Relative major/minor. Bb major: Cm7=ii-7, F7=V7, Bbmaj7=Imaj7, Ebmaj7=IVmaj7. G minor: Am7b5=iiø7, D7=V7(alt), Gm7=i-7. Detected 2-5-1 x2."
+    },
+    {
+      "id": "p08-blues-no-251",
+      "chords": ["F7", "Bb7", "F7", "F7"],
+      "keys": [["F"]],
+      "iiVi": [],
+      "romans": ["I7", "IV7", "I7", "I7"],
+      "ruleContext": "Key: F major (blues). All dominant chords. F7=I7, Bb7=IV7. No ii-V-I present."
+    },
+    {
+      "id": "p09-fmaj-251",
+      "chords": ["Gm7", "C7", "Fmaj7"],
+      "keys": [["F"]],
+      "iiVi": [[0, 1, 2]],
+      "romans": ["ii-7", "V7", "Imaj7"],
+      "ruleContext": "Key: F major. Gm7=ii-7, C7=V7, Fmaj7=Imaj7. Detected 2-5-1: Gm7→C7→Fmaj7 (F major)."
+    },
+    {
+      "id": "p10-static-vamp",
+      "chords": ["Cmaj7", "Cmaj7"],
+      "keys": [["C"]],
+      "iiVi": [],
+      "romans": ["Imaj7", "Imaj7"],
+      "ruleContext": "Key: C major. Static Imaj7 vamp. No ii-V-I present."
+    },
+    {
+      "id": "p11-secondary-dom-chain",
+      "chords": ["Cmaj7", "A7", "Dm7", "G7", "Cmaj7"],
+      "keys": [["C"]],
+      "iiVi": [[2, 3, 4]],
+      "romans": ["Imaj7", "VI7", "ii-7", "V7", "Imaj7"],
+      "ruleContext": "Key: C major. Cmaj7=Imaj7, A7=VI7 (secondary dominant V7/ii), Dm7=ii-7, G7=V7, Cmaj7=Imaj7. One 2-5-1 at indices 2-3-4 (Dm7→G7→Cmaj7). A7 is NOT a ii."
+    },
+    {
+      "id": "p12-modal-interchange-backdoor",
+      "chords": ["Cmaj7", "Fm7", "Bb7", "Cmaj7"],
+      "keys": [["C"]],
+      "iiVi": [],
+      "romans": ["Imaj7", "iv-7", "bVII7", "Imaj7"],
+      "ruleContext": "Key: C major with modal interchange. Cmaj7=Imaj7, Fm7=iv-7 (borrowed from C minor), Bb7=bVII7 (backdoor dominant). Fm7→Bb7 resolves deceptively to Cmaj7 — NOT a ii-V-I in C. No ii-V-I."
+    },
+    {
+      "id": "p13-coltrane-ii-v-fragment",
+      "chords": ["Am7", "D7", "Gmaj7", "Bb7"],
+      "keys": [["G"]],
+      "iiVi": [[0, 1, 2]],
+      "ruleContext": "Primary key G major: Am7=ii-7, D7=V7, Gmaj7=Imaj7 (2-5-1). Bb7 is a Coltrane-style secondary dominant pivoting toward Eb (V7/Eb) — not part of a ii-V-I here."
+    },
+    {
+      "id": "p14-dorian-vamp",
+      "chords": ["Dm7", "Em7", "Dm7", "Em7"],
+      "keys": [["D minor"], ["D dorian"]],
+      "iiVi": [],
+      "ruleContext": "Modal: D dorian vamp (Dm7 ↔ Em7, i-7 ↔ ii-7). No dominant, no ii-V-I."
+    },
+    {
+      "id": "p15-attya-opening",
+      "chords": ["Fm7", "Bbm7", "Eb7", "Abmaj7", "Dbmaj7", "G7", "Cmaj7"],
+      "keys": [["Ab", "C"]],
+      "iiVi": [[1, 2, 3]],
+      "ruleContext": "Ab major: Fm7=vi-7, Bbm7=ii-7, Eb7=V7, Abmaj7=Imaj7 (2-5-1 at 1-2-3). Then Dbmaj7=IVmaj7 of Ab. G7→Cmaj7 is a V-I into C major (no ii — NOT a ii-V-I). Detected one 2-5-1: Bbm7→Eb7→Abmaj7."
+    },
+    {
+      "id": "p16-tritone-sub",
+      "chords": ["Dm7", "Db7", "Cmaj7"],
+      "keys": [["C"]],
+      "iiVi": [],
+      "romans": ["ii-7", "bII7", "Imaj7"],
+      "ruleContext": "Key: C major. Dm7=ii-7, Db7=bII7 (tritone substitute of G7, subV7/I), Cmaj7=Imaj7. Db7→Cmaj7 is a half-step resolution, NOT the P5 of a standard ii-V-I, so no ii-V-I is counted."
+    },
+    {
+      "id": "p17-cmin-251",
+      "chords": ["Dm7b5", "G7", "Cm7"],
+      "keys": [["C minor"]],
+      "iiVi": [[0, 1, 2]],
+      "romans": ["iiø7", "V7", "i-7"],
+      "ruleContext": "Key: C minor. Dm7b5=iiø7, G7=V7(alt), Cm7=i-7. Detected minor 2-5-1: Dm7b5→G7→Cm7."
+    },
+    {
+      "id": "p18-modulating-g-f",
+      "chords": ["Am7", "D7", "Gmaj7", "Gm7", "C7", "Fmaj7"],
+      "keys": [["G", "F"]],
+      "iiVi": [[0, 1, 2], [3, 4, 5]],
+      "romans": ["ii-7", "V7", "Imaj7", "ii-7", "V7", "Imaj7"],
+      "ruleContext": "Two key centers. G major: Am7=ii-7, D7=V7, Gmaj7=Imaj7. F major: Gm7=ii-7, C7=V7, Fmaj7=Imaj7. Detected 2-5-1 x2."
+    },
+    {
+      "id": "p19-251-plus-backdoor",
+      "chords": ["Dm7", "G7", "Cmaj7", "Fm7", "Bb7", "Cmaj7"],
+      "keys": [["C"]],
+      "iiVi": [[0, 1, 2]],
+      "romans": ["ii-7", "V7", "Imaj7", "iv-7", "bVII7", "Imaj7"],
+      "ruleContext": "Key: C major. Dm7→G7→Cmaj7 is the 2-5-1. Fm7=iv-7, Bb7=bVII7 (backdoor) resolving to Cmaj7 — NOT a ii-V-I. One 2-5-1 only."
+    },
+    {
+      "id": "p20-aeolian-vamp",
+      "chords": ["Am7", "Dm7", "Am7", "Dm7"],
+      "keys": [["A minor"], ["A dorian"]],
+      "iiVi": [],
+      "ruleContext": "Modal: A minor/dorian vamp (i-7 ↔ iv-7). No dominant, no ii-V-I."
+    },
+    {
+      "id": "p21-coltrane-v-i-cell",
+      "chords": ["Cmaj7", "Eb7", "Abmaj7", "B7", "Emaj7"],
+      "keys": [["C", "Ab", "E"]],
+      "iiVi": [],
+      "ruleContext": "Coltrane changes — tonal centers in major thirds. Eb7→Abmaj7 and B7→Emaj7 are V-I motions WITHOUT a preceding ii, so they are NOT ii-V-I. No ii-V-I detected."
+    },
+    {
+      "id": "p22-turnaround-no-i",
+      "chords": ["Cmaj7", "A7", "Dm7", "G7"],
+      "keys": [["C"]],
+      "iiVi": [],
+      "romans": ["Imaj7", "VI7", "ii-7", "V7"],
+      "ruleContext": "Key: C major. Dm7=ii-7, G7=V7 but the progression ends on V7 with NO resolving I — an incomplete ii-V (turnaround). No complete ii-V-I."
+    },
+    {
+      "id": "p23-two-251-same-key",
+      "chords": ["Dm7", "G7", "Cmaj7", "Am7", "Dm7", "G7", "Cmaj7"],
+      "keys": [["C"]],
+      "iiVi": [[0, 1, 2], [4, 5, 6]],
+      "romans": ["ii-7", "V7", "Imaj7", "vi-7", "ii-7", "V7", "Imaj7"],
+      "ruleContext": "Key: C major throughout. Two 2-5-1 cells (indices 0-2 and 4-6); Am7=vi-7 is a passing turnaround chord, not part of either."
+    },
+    {
+      "id": "p24-amin-251-with-VI",
+      "chords": ["Bm7b5", "E7", "Am7", "Fmaj7", "Bm7b5", "E7", "Am7"],
+      "keys": [["A minor"]],
+      "iiVi": [[0, 1, 2], [4, 5, 6]],
+      "romans": ["iiø7", "V7", "i-7", "VImaj7", "iiø7", "V7", "i-7"],
+      "ruleContext": "Key: A minor. Bm7b5=iiø7, E7=V7(alt), Am7=i-7 (minor 2-5-1) twice; Fmaj7=VImaj7 between them. Detected minor 2-5-1 x2."
+    }
+  ]
+}

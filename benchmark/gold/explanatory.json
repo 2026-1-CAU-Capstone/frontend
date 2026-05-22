@@ -1,0 +1,46 @@
+{
+  "task": "explanatory",
+  "description": "Open-ended jazz-theory explanations, graded 1-5 by an LLM judge on correctness + coverage of the listed key points. RAG should help with grounding/depth.",
+  "items": [
+    {
+      "id": "c01",
+      "q": "Why does a tritone substitution (e.g. Db7 in place of G7 resolving to C) work? Explain the shared notes.",
+      "points": ["G7 and Db7 share the tritone (B and F), which are the 3rd and 7th guide tones", "those guide tones resolve the same way into C (B→C, F→E)", "creates smooth/chromatic bass motion Db→C", "both are dominant function toward C"]
+    },
+    {
+      "id": "c02",
+      "q": "Explain the 'backdoor ii-V' (e.g. Fm7–Bb7 resolving to Cmaj7).",
+      "points": ["Fm7–Bb7 is the ii-V of Eb (relative/parallel), borrowed from C minor", "Bb7 is the bVII7 of C", "it resolves deceptively/by common tones to Cmaj7 instead of Eb", "common substitute for the standard ii-V (Dm7-G7)"]
+    },
+    {
+      "id": "c03",
+      "q": "Why is the altered scale a good choice over a V7alt chord (e.g. G7alt going to C)?",
+      "points": ["it contains the altered tensions b9, #9, #11(b5), b13(#5)", "it is the 7th mode of the melodic minor (Ab melodic minor over G7)", "those tensions create maximum tension that resolves strongly to the I", "it omits the natural 5th and 9th"]
+    },
+    {
+      "id": "c04",
+      "q": "Explain modal interchange (borrowed chords) and give a clear example of borrowing iv in a major key.",
+      "points": ["borrowing chords from the parallel mode/key (e.g. parallel minor)", "iv in C major = Fm (or Fm7) borrowed from C minor", "creates a darker/plagal color, often iv→I", "common examples: bVII, bVI, iv, iiø7"]
+    },
+    {
+      "id": "c05",
+      "q": "What is the function of a secondary dominant (e.g. V7/V) and how does it create forward motion?",
+      "points": ["a dominant chord that targets a chord other than the I (tonicizes it)", "V7/V in C = D7 targeting G7", "introduces a chromatic leading tone (F# for D7) outside the key", "creates momentum/pull toward the target chord"]
+    },
+    {
+      "id": "c06",
+      "q": "Why do Coltrane changes (Giant Steps) move by major thirds, and why are they hard to improvise over?",
+      "points": ["the tonal centers cycle by major thirds (e.g. B–G–Eb), dividing the octave equally", "each key center has its own ii-V or V-I, moving very fast", "rapid key changes leave little time to outline each new tonality", "requires memorized patterns / strong key-center awareness"]
+    },
+    {
+      "id": "c07",
+      "q": "Explain the difference between a ii-V-i in a minor key vs a ii-V-I in a major key (chord qualities and scales).",
+      "points": ["minor: iiø7 (half-diminished), V7(b9/alt), i-(minor)", "major: ii-7, V7, Imaj7", "minor V often uses harmonic minor / altered; major V uses mixolydian", "the ii in minor is m7b5 vs m7 in major"]
+    },
+    {
+      "id": "c08",
+      "q": "Explain tension and resolution in a dominant 7th chord using the tritone between its 3rd and 7th.",
+      "points": ["the 3rd and 7th of a dominant form a tritone (unstable interval)", "e.g. in G7 the tritone is B–F", "the tritone resolves inward/outward to the tonic chord tones (B→C, F→E for C)", "this drives the V→I resolution"]
+    }
+  ]
+}
