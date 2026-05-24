@@ -6,29 +6,24 @@ import { IconSidebar } from '../components/layout/IconSidebar';
 import { TopToolbar } from '../components/layout/TopToolbar';
 import { RightChatPanel } from '../components/layout/RightChatPanel';
 import { MobileChatFab } from '../components/layout/MobileChatFab';
-import { NoteSheet } from '../components/notesheet/NoteSheet';
+import { NoteSheet, type NoteSheetHandle } from '../components/notesheet/NoteSheet';
 import { SettingsGearButton } from '../components/auth/SettingsGearButton';
 import { KeyControl } from '../components/leadsheet/LeadSheet';
 import { SessionPicker, type SessionInstrument } from '../components/chord/SessionPicker';
 import {
   GenreSelect, MetronomeToggle, BpmControl, RepeatControl, TransportButtons,
-  BackingMixer, type EngineBackend,
+  BackingMixer,
 } from '../components/backing/BackingPlayerBar';
-import { createBackingPlayer, leadSheetToChart, type BackingPlayer } from '../lib/backing';
-import { createStyBackingPlayer, createHybridBackingPlayer } from '../lib/yamaha-sty';
-import { BUILTIN_STYLE, type StyleSelectorChoice } from '../components/yamaha-sty/StyleSelector';
-import { useCountInIntro } from '../hooks/useCountInIntro';
 import { useAutoHighlight } from '../hooks/useAutoHighlight';
 import { sampleMelody } from '../data/sampleMelody';
 import type { NoteSheetData, MeasureInfo, NoteInfo } from '../data/sampleMelody';
-import type { LeadSheetData, LeadSheetChord } from '../data/leadSheetTypes';
 import type { ChordOverlay } from '../data/types';
 import { noteSongs, externalSongs, manualSongs } from '../data/noteSongs';
 import type { SongGroup } from '../data/noteSongs';
 import { loadMidiMelody } from '../lib/note/midiMelodyParser';
 import { loadXmlMelody, loadMxlMelody } from '../lib/note/xmlMelodyParser';
 import { injectChordsFromLeadSheet } from '../lib/note/jazz1460ChordInject';
-import { getPlayerSettings, inferPlayStyle, setPlayerSetting, subscribePlayerSettings, TRANSPOSING_INSTRUMENT_OFFSET } from '../lib/note/playerSettings';
+import { getPlayerSettings, subscribePlayerSettings, TRANSPOSING_INSTRUMENT_OFFSET } from '../lib/note/playerSettings';
 import { getSong } from '../lib/ireal/irealLoader';
 
 const SAMPLE_ID = '__sample__';
@@ -261,43 +256,6 @@ function buildNoteSelectionData(
   const notesContext = lines.join('\n');
 
   return { selectedChords, notesContext };
-}
-
-/* ─── note sheet → backing chart ─────────────────────────────────────────
- *  ChordPage feeds LeadSheetData straight into leadSheetToChart. NotePage's
- *  native format is a melody sheet whose chords live as display symbols
- *  ("CΔ7", "D-7  G7") per measure. We split those tokens into LeadSheetChord
- *  cells and reuse leadSheetToChart so the backing engine, style detection and
- *  quality mapping stay shared with ChordPage. */
-function parseChordToken(token: string): LeadSheetChord | null {
-  const t = token.trim();
-  if (!t) return null;
-  const m = t.match(/^([A-G])([b#]?)(.*)$/);
-  if (!m) return null;
-  return {
-    root: m[1],
-    accidental: (m[2] || undefined) as 'b' | '#' | undefined,
-    quality: m[3] || undefined,
-  };
-}
-
-function noteSheetToChart(data: NoteSheetData) {
-  const bars = data.measures.map((mm, i) => ({
-    measureNumber: i + 1,
-    // Double-space separates two chords sharing a bar (e.g. "D-7  G7").
-    chords: mm.chord
-      ? mm.chord.split(/\s{2,}/).map(parseChordToken).filter((c): c is LeadSheetChord => c != null)
-      : [],
-  }));
-  const lead: LeadSheetData = {
-    title: data.title,
-    composer: data.composer ?? '',
-    style: data.genre ?? '',
-    timeSignature: data.timeSignature ?? '4/4',
-    key: data.key,
-    systems: [{ bars }],
-  };
-  return leadSheetToChart(lead);
 }
 
 /* ─── styled ─────────────────────────────────────────────────────────── */
@@ -692,82 +650,30 @@ export default function NotePage() {
   // Reset key when song changes
   useEffect(() => { setSelectedKey(sheet?.key ?? 'C'); }, [sheet]);
 
-  /* ── backing playback (mirrors ChordPage) ──────────────────────────────
-   *  NotePage's melody sheet carries chord symbols per measure; noteSheetToChart
-   *  turns those into the same Chart the backing engine plays on ChordPage. */
-  const playerRef = useRef<BackingPlayer | null>(null);
+  /* ── melody playback handoff ──────────────────────────────────────────
+   *  Playback (count-in, anacrusis pickup, measure/note highlights, NotePlayer
+   *  scheduling) lives inside NoteSheet — we just expose its imperative handle
+   *  here so the top transport can drive it. `isPlaying` and `tempo` mirror
+   *  NoteSheet's internal state via callback props. */
+  const noteSheetRef = useRef<NoteSheetHandle | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [repeatCount, setRepeatCount] = useState(3);
-  const [tempo, setTempo] = useState(140);
+  const [tempo, setTempo] = useState(sampleMelody.tempo ?? 120);
+  const [repeatCount, setRepeatCount] = useState(3);  // UI-only — NotePlayer plays once through.
   const [session, setSession] = useState<SessionInstrument>('piano');
-  const [engineBackend, setEngineBackend] = useState<EngineBackend>(() => {
-    if (typeof window === 'undefined') return 'rule';
-    const stored = window.localStorage.getItem('jazzify.engine');
-    if (stored === 'sty' || stored === 'hybrid') return stored;
-    return 'rule';
-  });
-  const [styleChoice, setStyleChoice] = useState<StyleSelectorChoice>(BUILTIN_STYLE);
   const [lightMenuOpen, setLightMenuOpen] = useState(false);
   const lightMenuRef = useRef<HTMLDivElement>(null);
-  const countIn = useCountInIntro();
 
-  // (Re)create the backing player whenever the loaded sheet / engine changes.
-  useEffect(() => {
-    if (!sheet) return;
-    const chart = noteSheetToChart(sheet);
-    setTempo(chart.bpm);
-    const inferred = inferPlayStyle(chart.defaultStyle ?? sheet.genre);
-    if (inferred && inferred !== getPlayerSettings().style) {
-      setPlayerSetting('style', inferred);
-    }
-    const styOpts = { styleUrl: styleChoice.url, styleData: styleChoice.buffer };
-    const player =
-      engineBackend === 'sty' ? createStyBackingPlayer(chart, {}, styOpts) :
-      engineBackend === 'hybrid' ? createHybridBackingPlayer(chart, {}, styOpts) :
-      createBackingPlayer(chart);
-    player.on('onDone', () => setIsPlaying(false));
-    playerRef.current = player;
-    void player.preload().catch(() => { /* retried at play time */ });
-    return () => {
-      player.dispose();
-      playerRef.current = null;
-      setIsPlaying(false);
-    };
-  }, [sheet, engineBackend, styleChoice]);
-
-  // Push tempo changes into the live player config.
-  useEffect(() => {
-    playerRef.current?.setConfig({ bpm: tempo });
-  }, [tempo]);
-
-  const handlePlayPause = useCallback(async () => {
-    const player = playerRef.current;
-    if (!player) return;
-    if (isPlaying || countIn.active) {
-      if (isPlaying) player.pause();
-      countIn.cancel();
-      setIsPlaying(false);
-      return;
-    }
-    setIsPlaying(true);
-    player.setConfig({ repeatCount });
-    const preload = player.preload();
-    const cin = await countIn.run({ bpm: tempo });
-    if (!cin.ok) { setIsPlaying(false); return; }
-    try {
-      await preload;
-      await player.play({ startAt: player.ctxNow() + cin.downbeatInSec });
-    } catch (err) {
-      console.error('[backing] play failed:', err);
-      setIsPlaying(false);
-    }
-  }, [isPlaying, tempo, countIn, repeatCount]);
+  const handlePlayPause = useCallback(() => {
+    noteSheetRef.current?.togglePlay();
+  }, []);
 
   const handleStop = useCallback(() => {
-    playerRef.current?.stop();
-    countIn.cancel();
-    setIsPlaying(false);
-  }, [countIn]);
+    noteSheetRef.current?.stop();
+  }, []);
+
+  const handleTempoChange = useCallback((n: number) => {
+    noteSheetRef.current?.setTempo(n);
+  }, []);
 
   // Close the analysis (lightbulb) dropdown on outside click.
   useEffect(() => {
@@ -923,7 +829,6 @@ export default function NotePage() {
 
   return (
     <PageContainer>
-      {countIn.overlay}
       <IconSidebar />
       <RightSection>
         <TopToolbar
@@ -1005,7 +910,7 @@ export default function NotePage() {
             </BarLeft>
             <BarCenter>
               <MetronomeToggle />
-              <BpmControl tempo={tempo} onTempoChange={setTempo} disabled={!sheet || loading} />
+              <BpmControl tempo={tempo} onTempoChange={handleTempoChange} disabled={!sheet || loading} />
               <RepeatControl repeatCount={repeatCount} onRepeatChange={setRepeatCount} disabled={!sheet || loading} />
               <TransportButtons playing={isPlaying} onPlayPause={handlePlayPause} onStop={handleStop} disabled={!sheet || loading} />
             </BarCenter>
@@ -1040,6 +945,7 @@ export default function NotePage() {
 
           {transposedSheet && !loading ? (
             <NoteSheet
+              ref={noteSheetRef}
               data={transposedSheet}
               selectedKey={writtenKey}
               allKeys={allKeys}
@@ -1049,6 +955,9 @@ export default function NotePage() {
               selectable={isNoteSelectionMode}
               selectedRanges={noteSelectedRanges}
               onSelectionChange={setNoteSelectedRanges}
+              hideTransport
+              onPlayingChange={setIsPlaying}
+              onTempoChange={setTempo}
             />
           ) : (
             <LoadingState>
@@ -1065,17 +974,12 @@ export default function NotePage() {
             <PanelTab type="button" $on={panelTab === 'chat'} onClick={() => setPanelTab('chat')}>AI 채팅</PanelTab>
           </PanelTabs>
           {panelTab === 'mixer' ? (
-            <BackingMixer
-              engine={{
-                backend: engineBackend,
-                onBackendChange: (b) => {
-                  setEngineBackend(b);
-                  window.localStorage.setItem('jazzify.engine', b);
-                },
-                styleChoice,
-                onStyleChange: setStyleChoice,
-              }}
-            />
+            /* Engine prop is intentionally omitted — backing-chord engine
+             *  selection only applies to ChordPage's BackingPlayer, not the
+             *  NotePlayer (melody) that drives NotePage. The volume / reverb /
+             *  bass-mode / drum-kit controls all still apply via global
+             *  playerSettings, which NotePlayer subscribes to. */
+            <BackingMixer />
           ) : (
             <RightChatPanel
               hideHeader

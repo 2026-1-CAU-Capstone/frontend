@@ -1,5 +1,6 @@
 import { Fragment, useState, useRef, useEffect, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
 import styled from 'styled-components';
+import { mq } from '../../styles/theme';
 import { isNativeApp } from '../../lib/platform';
 import { IntroPlusSheet } from './IntroPlusSheet';
 import { getCachedUser, onAuthChange } from '../../api/auth';
@@ -543,17 +544,18 @@ const Box = styled.div<{ $compact?: boolean }>`
       : '0 2px 6px rgba(0, 0, 0, 0.04), 0 22px 50px -12px rgba(0, 0, 0, 0.18)')};
   }
 
-  /* ── Mobile (native Claude-iOS look) — white pill, no border ─ */
-  @media (max-width: 768px) {
+  /* ── Touch / compact (phones + iPads) — white pill, tighter padding so the
+   * input feels native-y on iPad instead of inheriting the desktop hero box. */
+  ${mq.compactLayout} {
     background: #ffffff;
-    border: 1px solid rgba(255, 255, 255, 0.9);
-    border-radius: 26px;
-    padding: 12px 16px 10px;
-    box-shadow: none;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 22px;
+    padding: 10px 16px 8px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 
     &:focus-within {
-      border: 1px solid rgba(255, 255, 255, 0.9);
-      box-shadow: none;
+      border-color: rgba(0, 0, 0, 0.14);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     }
   }
 `;
@@ -673,9 +675,9 @@ const TA = styled.textarea<{ $compact?: boolean }>`
     color: rgba(0, 0, 0, 0.35);
   }
 
-  @media (max-width: 768px) {
-    min-height: 40px;
-    max-height: 180px;
+  ${mq.compactLayout} {
+    min-height: 44px;
+    max-height: 200px;
     font-size: 16px;
     line-height: 1.45;
     padding: 4px 4px 0;
@@ -689,8 +691,8 @@ const BottomRow = styled.div`
   margin-top: 10px;
   gap: 10px;
 
-  @media (max-width: 768px) {
-    margin-top: 8px;
+  ${mq.compactLayout} {
+    margin-top: 6px;
   }
 `;
 

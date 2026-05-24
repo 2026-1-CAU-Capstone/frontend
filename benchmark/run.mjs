@@ -49,6 +49,15 @@ const JUDGE_MODEL = process.env.JUDGE_MODEL || MODEL;
 const API_KEY = process.env.ANTHROPIC_API_KEY || process.env.VITE_ANTHROPIC_API_KEY || '';
 const RAG_BASE = (process.env.RAG_BASE || process.env.VITE_RAG_BASE || '').trim().replace(/\/+$/, '');
 const RAG_TOKEN = (process.env.RAG_TOKEN || process.env.VITE_RAG_TOKEN || '').trim();
+/* Retrieval tuning knobs.
+ *   RAG_N         (default 5) — how many chunks to ask /search for.
+ *   RAG_MIN_SCORE (default 0) — drop any chunk whose cosine score is below this.
+ *                              0.7-0.75 effectively says "if no chunk is a strong
+ *                              match, inject NOTHING and let the model fall back to
+ *                              its own knowledge instead of being misled."
+ */
+const RAG_N = Math.max(1, parseInt(process.env.RAG_N || '5', 10));
+const RAG_MIN_SCORE = Number.isFinite(parseFloat(process.env.RAG_MIN_SCORE)) ? parseFloat(process.env.RAG_MIN_SCORE) : 0;
 
 const loadGold = (f) => JSON.parse(readFileSync(join(HERE, 'gold', f), 'utf8'));
 
@@ -86,14 +95,20 @@ async function judge(system, user) {
   return { json: extractJson(reply) || {}, raw: reply };
 }
 
-/** HarmoRAG GET /search → joined chunk text (title + instruction + response). */
+/** HarmoRAG GET /search → joined chunk text (title + instruction + response).
+ *  Honors RAG_N (how many chunks to ask for) and RAG_MIN_SCORE (drop weak
+ *  matches — returning null when nothing passes lets the model fall back to
+ *  its own knowledge instead of being misled by a barely-relevant chunk). */
 async function retrieve(query) {
   if (!RAG_BASE) return null;
-  const url = `${RAG_BASE}/search?q=${encodeURIComponent(query)}&n=5`;
+  const url = `${RAG_BASE}/search?q=${encodeURIComponent(query)}&n=${RAG_N}`;
   const res = await fetch(url, { headers: RAG_TOKEN ? { authorization: `Bearer ${RAG_TOKEN}` } : {} });
   if (!res.ok) throw new Error(`/search ${res.status}`);
   const data = await res.json();
-  const results = data.results ?? data.chunks ?? [];
+  let results = data.results ?? data.chunks ?? [];
+  if (RAG_MIN_SCORE > 0) {
+    results = results.filter((r) => (typeof r === 'object' && r != null && typeof r.score === 'number') ? r.score >= RAG_MIN_SCORE : true);
+  }
   const texts = results.map((r) => (typeof r === 'string' ? r : [r.title, r.instruction, r.response].filter(Boolean).join(' — ')));
   return texts.length ? texts.filter(Boolean).join('\n---\n') : null;
 }
@@ -170,6 +185,20 @@ const TASKS = {
     parse: (r) => ({ answer: r }),
     score: (pred, item) => judgeD(item, pred.answer), aggregate: aggregateHallucination, card: hallucinationCardMarkdown,
   },
+  E: {
+    /* Song-specific factual questions whose answers ARE in the RAG corpus.
+     * Designed to test whether RAG helps when the corpus actually covers the
+     * question (vs. B/C where the corpus has zero coverage of abstract theory
+     * definitions). If RAG can't help here either, the pipeline itself is
+     * broken; if it does help, the original B/C drop is a corpus/question
+     * mismatch, not a logic bug. */
+    name: 'E · 곡-grounded 단답', gold: () => loadGold('song-grounded.json'), augs: ['rag'], maxTokens: 150,
+    system: 'You are a precise jazz theory tutor. Answer in Korean with STRICT JSON only.',
+    ragQuery: (it) => it.q,
+    buildUser: (it, { ragCtx }) => ctxBlock(null, ragCtx) + `${it.q}\n\nReturn ONLY JSON: {"answer":"<concise answer>"}`,
+    parse: (r) => { const j = extractJson(r); return { answer: j?.answer ?? r }; },
+    score: scoreTheory, aggregate: aggregateTheory, card: theoryCardMarkdown,
+  },
 };
 
 function conditionsFor(task) {
@@ -189,7 +218,7 @@ async function main() {
 
   if (DRY) {
     for (const id of ids) console.log(`[dry] ${id} ${TASKS[id].name} — items=${TASKS[id].gold().items.length}, conds=${conditionsFor(TASKS[id]).map((c) => c.name).join(', ')}`);
-    console.log(`[dry] model=${MODEL}  judge=${JUDGE_MODEL}  rag=${RAG_BASE || '(off)'}`);
+    console.log(`[dry] model=${MODEL}  judge=${JUDGE_MODEL}  rag=${RAG_BASE || '(off)'}  rag_n=${RAG_N}  rag_min_score=${RAG_MIN_SCORE}`);
     return;
   }
   if (!API_KEY) { console.error('ANTHROPIC key not set.'); process.exit(1); }
@@ -199,7 +228,8 @@ async function main() {
   }
   const ragLive = RAG_BASE && !process.env.__RAG_DOWN;
 
-  let report = `# Jazzify 벤치마크 결과\n\n- model: \`${MODEL}\`  ·  judge: \`${JUDGE_MODEL}\`  ·  ${new Date().toISOString()}  ·  RAG: ${ragLive ? 'on' : 'off'}\n\n`;
+  const ragSuffix = ragLive ? ` (n=${RAG_N}${RAG_MIN_SCORE > 0 ? `, min_score=${RAG_MIN_SCORE}` : ''})` : '';
+  let report = `# Jazzify 벤치마크 결과\n\n- model: \`${MODEL}\`  ·  judge: \`${JUDGE_MODEL}\`  ·  ${new Date().toISOString()}  ·  RAG: ${ragLive ? 'on' : 'off'}${ragSuffix}\n\n`;
   const allResponses = [];
 
   for (const id of ids) {

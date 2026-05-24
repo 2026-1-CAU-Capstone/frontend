@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Jazzify Benchmark · LLM × Rule × RAG</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
+  <style>
+    :root {
+      --bg: #0a0d13;
+      --bg-grad: radial-gradient(1200px 600px at 10% -10%, #131929 0%, transparent 60%),
+                 radial-gradient(900px 500px at 110% 10%, #1a1230 0%, transparent 55%),
+                 #0a0d13;
+      --surface: #11151f;
+      --surface-2: #161b27;
+      --surface-3: #1d2330;
+      --line: rgba(255, 255, 255, 0.06);
+      --line-strong: rgba(255, 255, 255, 0.12);
+      --text: #e7ebf3;
+      --text-2: #b2bacb;
+      --muted: #6f7990;
+      --raw: #8a93a6;
+      --rule: #4ade80;
+      --rag: #f87171;
+      --rulerag: #a78bfa;
+      --good: #34d399;
+      --bad: #f87171;
+      --warn: #fbbf24;
+      --accent: #60a5fa;
+      --mono: ui-monospace, 'JetBrains Mono', SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-grad);
+      color: var(--text);
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+      letter-spacing: -0.005em;
+    }
+    a { color: inherit; }
+    .container { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
+    @media (max-width: 640px) { .container { padding: 0 18px; } }
+
+    /* ── Top bar ─────────────────────────────────────────────────────── */
+    header.top {
+      border-bottom: 1px solid var(--line);
+      background: rgba(10, 13, 19, 0.7);
+      backdrop-filter: saturate(140%) blur(10px);
+      position: sticky; top: 0; z-index: 10;
+    }
+    .top-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 0; gap: 16px;
+    }
+    .brand {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 700; letter-spacing: -0.01em;
+    }
+    .brand .logo {
+      width: 26px; height: 26px; border-radius: 7px;
+      background: conic-gradient(from 200deg at 50% 50%, #5b9eff, #a78bfa, #f87171, #4ade80, #5b9eff);
+      box-shadow: 0 0 0 1px var(--line-strong) inset, 0 6px 14px rgba(91, 158, 255, 0.18);
+    }
+    .nav {
+      display: flex; gap: 18px; font-size: 13px; color: var(--text-2);
+    }
+    .nav a { text-decoration: none; padding: 6px 0; }
+    .nav a:hover { color: var(--text); }
+    .meta {
+      display: flex; gap: 10px; font-size: 12px; color: var(--muted);
+      flex-wrap: wrap;
+    }
+    .chip {
+      padding: 4px 10px; border: 1px solid var(--line-strong);
+      border-radius: 999px; font-family: var(--mono); font-size: 11.5px;
+      color: var(--text-2); background: rgba(255,255,255,0.02);
+    }
+    .chip.on { color: var(--good); border-color: rgba(74, 222, 128, 0.3); }
+    @media (max-width: 760px) {
+      .nav { display: none; }
+    }
+
+    /* ── Hero ────────────────────────────────────────────────────────── */
+    .hero { padding: 64px 0 36px; }
+    .hero h1 {
+      font-size: clamp(36px, 5.4vw, 64px);
+      line-height: 1.04; letter-spacing: -0.025em; font-weight: 800;
+      background: linear-gradient(180deg, #ffffff 0%, #c7d0e3 100%);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .hero .tag {
+      margin-top: 14px; color: var(--text-2); font-size: 17px; max-width: 720px;
+    }
+    .hero .tag .kw { color: var(--text); font-weight: 600; }
+
+    .finding {
+      margin-top: 38px;
+      border: 1px solid var(--line-strong); border-radius: 18px;
+      background:
+        linear-gradient(180deg, rgba(248, 113, 113, 0.08), rgba(248, 113, 113, 0) 70%),
+        var(--surface);
+      padding: 28px; position: relative; overflow: hidden;
+    }
+    .finding::before {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(420px 220px at 90% 0%, rgba(248, 113, 113, 0.18), transparent 60%);
+    }
+    .finding .stamp {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+      color: var(--bad); font-weight: 700;
+    }
+    .finding .stamp::before {
+      content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--bad);
+      box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.15);
+    }
+    .finding .stamp.good::before {
+      background: var(--good);
+      box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.15);
+    }
+    .finding h2 {
+      margin-top: 14px; font-size: clamp(24px, 3.2vw, 34px);
+      letter-spacing: -0.02em; line-height: 1.18; font-weight: 700;
+    }
+    .finding p.sub {
+      margin-top: 12px; color: var(--text-2); max-width: 760px;
+    }
+    .stat-tiles {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+      margin-top: 24px;
+    }
+    @media (max-width: 760px) { .stat-tiles { grid-template-columns: repeat(2, 1fr); } }
+    .tile {
+      background: rgba(255,255,255,0.02); border: 1px solid var(--line);
+      border-radius: 12px; padding: 14px 16px;
+    }
+    .tile .name { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    .tile .delta { margin-top: 6px; font-size: 28px; font-weight: 700; font-family: var(--mono); letter-spacing: -0.02em; }
+    .tile .delta.neg { color: var(--bad); }
+    .tile .delta.zero { color: var(--muted); }
+    .tile .what { margin-top: 4px; font-size: 12.5px; color: var(--text-2); }
+
+    /* ── Section heading ─────────────────────────────────────────────── */
+    section.block { padding: 56px 0; border-top: 1px solid var(--line); }
+    section.block.first { border-top: none; padding-top: 12px; }
+    .eyebrow { font-size: 11.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+    .block-h {
+      display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+    .block-h h3 { font-size: 24px; font-weight: 700; letter-spacing: -0.015em; }
+    .block-h .n { font-family: var(--mono); color: var(--muted); font-size: 13px; }
+    .block-h .annot { color: var(--text-2); font-size: 14px; flex: 1; min-width: 240px; }
+
+    /* ── Conditions grid ─────────────────────────────────────────────── */
+    .conds {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    }
+    @media (max-width: 920px) { .conds { grid-template-columns: repeat(2, 1fr); } }
+    .cond {
+      border: 1px solid var(--line); border-radius: 14px; background: var(--surface);
+      padding: 16px; position: relative;
+    }
+    .cond .head { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; }
+    .cond p { margin-top: 8px; font-size: 13px; color: var(--text-2); line-height: 1.5; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .dot.raw { background: var(--raw); }
+    .dot.rule { background: var(--rule); box-shadow: 0 0 0 3px rgba(74,222,128,0.12); }
+    .dot.rag { background: var(--rag); box-shadow: 0 0 0 3px rgba(248,113,113,0.12); }
+    .dot.rulerag { background: var(--rulerag); box-shadow: 0 0 0 3px rgba(167,139,250,0.12); }
+
+    /* ── Bar chart ───────────────────────────────────────────────────── */
+    .panel-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+    }
+    @media (max-width: 980px) { .panel-grid { grid-template-columns: 1fr; } }
+    .panel-grid.two { grid-template-columns: repeat(2, 1fr); }
+    @media (max-width: 760px) { .panel-grid.two { grid-template-columns: 1fr; } }
+
+    .panel {
+      background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+      padding: 18px 18px 14px;
+    }
+    .panel .ptitle {
+      display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px;
+    }
+    .panel .ptitle .t { font-weight: 700; font-size: 14px; }
+    .panel .ptitle .desc { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+
+    .bar-row { display: grid; grid-template-columns: 86px 1fr; gap: 12px; align-items: center; margin: 9px 0; }
+    .bar-row .lbl {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12.5px; color: var(--text-2);
+    }
+    .bar-track {
+      position: relative; height: 26px; background: rgba(255,255,255,0.03);
+      border-radius: 7px; overflow: hidden;
+      border: 1px solid var(--line);
+    }
+    .bar-fill {
+      height: 100%; border-radius: 6px 0 0 6px;
+      display: flex; align-items: center; padding: 0 8px;
+      font-family: var(--mono); font-size: 12px; color: #0b0d12; font-weight: 600;
+      animation: grow 0.9s cubic-bezier(0.25, 1, 0.5, 1) both;
+      animation-delay: var(--d, 0s);
+      transform-origin: left center;
+      box-shadow: inset 0 -1px 0 rgba(0,0,0,0.18);
+      white-space: nowrap;
+    }
+    .bar-fill.raw { background: linear-gradient(180deg, #aeb5c4, #8a93a6); }
+    .bar-fill.rule { background: linear-gradient(180deg, #5ee390, #34c466); }
+    .bar-fill.rag { background: linear-gradient(180deg, #ff8b8b, #e25e5e); }
+    .bar-fill.rulerag { background: linear-gradient(180deg, #b69bff, #8d6ff0); color: #0b0a16; }
+    .bar-fill .tag-best {
+      margin-left: auto; font-size: 10.5px; padding: 2px 6px; border-radius: 999px;
+      background: rgba(0,0,0,0.18); color: #0b0d12; font-weight: 700;
+    }
+    .bar-fill .tag-worst {
+      margin-left: auto; font-size: 10.5px; padding: 2px 6px; border-radius: 999px;
+      background: rgba(0,0,0,0.22); color: #fff7f7; font-weight: 700;
+    }
+    @keyframes grow {
+      from { width: 0; }
+      to { width: var(--val, 50%); }
+    }
+
+    /* ── Case study (b17) ────────────────────────────────────────────── */
+    .case {
+      border: 1px solid var(--line-strong); border-radius: 16px;
+      background: linear-gradient(180deg, rgba(248,113,113,0.05), rgba(248,113,113,0) 60%), var(--surface);
+      padding: 22px; margin-top: 18px;
+    }
+    .case .ctop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .case .cid {
+      font-family: var(--mono); font-size: 11.5px; padding: 3px 8px;
+      border: 1px solid var(--line-strong); border-radius: 6px; color: var(--text-2);
+    }
+    .case .ctitle { font-weight: 700; font-size: 15px; }
+    .case .question {
+      margin-top: 12px; font-size: 15px; color: var(--text);
+      padding: 14px 16px; background: rgba(255,255,255,0.02);
+      border-left: 3px solid var(--accent); border-radius: 6px;
+    }
+    .case .replies { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+    @media (max-width: 760px) { .case .replies { grid-template-columns: 1fr; } }
+    .reply {
+      border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px;
+      background: var(--surface-2);
+    }
+    .reply.good { border-color: rgba(74, 222, 128, 0.35); background: linear-gradient(180deg, rgba(74,222,128,0.05), transparent 60%), var(--surface-2); }
+    .reply.bad { border-color: rgba(248, 113, 113, 0.35); background: linear-gradient(180deg, rgba(248,113,113,0.05), transparent 60%), var(--surface-2); }
+    .reply .rhead {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 12px; margin-bottom: 8px;
+    }
+    .reply .who { display: flex; align-items: center; gap: 7px; font-weight: 700; }
+    .reply .verdict { font-family: var(--mono); font-size: 11px; padding: 2px 7px; border-radius: 6px; }
+    .reply.good .verdict { background: rgba(74,222,128,0.15); color: var(--good); }
+    .reply.bad .verdict { background: rgba(248,113,113,0.15); color: var(--bad); }
+    .reply .text { font-size: 13.5px; color: var(--text-2); line-height: 1.6; }
+    .reply .text strong { color: var(--text); }
+    .case .diag {
+      margin-top: 14px; padding: 12px 14px; font-size: 13.5px; color: var(--text-2);
+      border: 1px dashed var(--line-strong); border-radius: 8px;
+    }
+    .case .diag b { color: var(--text); }
+
+    /* ── Discussion cards ────────────────────────────────────────────── */
+    .cards {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;
+    }
+    @media (max-width: 760px) { .cards { grid-template-columns: 1fr; } }
+    .card {
+      border: 1px solid var(--line); border-radius: 14px; background: var(--surface);
+      padding: 20px;
+    }
+    .card .num {
+      font-family: var(--mono); font-size: 12px; color: var(--muted);
+      letter-spacing: 0.06em;
+    }
+    .card h4 {
+      margin-top: 6px; font-size: 17px; font-weight: 700; letter-spacing: -0.01em;
+    }
+    .card.win h4 { color: var(--good); }
+    .card.bad h4 { color: var(--bad); }
+    .card.warn h4 { color: var(--warn); }
+    .card.note h4 { color: var(--accent); }
+    .card p { margin-top: 8px; font-size: 14px; color: var(--text-2); line-height: 1.6; }
+    .card .pill {
+      display: inline-block; margin-top: 12px; font-family: var(--mono);
+      font-size: 11.5px; padding: 4px 10px; border-radius: 999px;
+      background: rgba(255,255,255,0.04); color: var(--text-2);
+      border: 1px solid var(--line-strong);
+    }
+
+    /* ── Footer ──────────────────────────────────────────────────────── */
+    footer.foot {
+      padding: 40px 0 60px; color: var(--muted); font-size: 12.5px;
+      border-top: 1px solid var(--line); margin-top: 36px;
+    }
+    .foot .grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    }
+    @media (max-width: 760px) { .foot .grid { grid-template-columns: repeat(2, 1fr); } }
+    .foot .item .k { color: var(--text-2); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+    .foot .item .v { font-family: var(--mono); color: var(--text); font-size: 13px; margin-top: 4px; }
+
+  </style>
+</head>
+<body>
+
+<header class="top">
+  <div class="container top-row">
+    <div class="brand">
+      <span class="logo"></span>
+      <span>Jazzify · Benchmark</span>
+    </div>
+    <nav class="nav">
+      <a href="#finding">발견</a>
+      <a href="#conds">조건</a>
+      <a href="#a">A 구조</a>
+      <a href="#b">B 이론</a>
+      <a href="#c">C 설명</a>
+      <a href="#d">D 할루시</a>
+      <a href="#followup" style="color:var(--good)">Followup</a>
+      <a href="#disc">분석</a>
+    </nav>
+    <div class="meta">
+      <span class="chip">claude-sonnet-4</span>
+      <span class="chip">temp 0</span>
+      <span class="chip on">RAG on</span>
+      <span class="chip">2026-05-23</span>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- HERO ─────────────────────────────────────────────────────────── -->
+  <section class="hero">
+    <p class="eyebrow">LLM × Rule × RAG · 화성 분석 정확도 정량 비교</p>
+    <h1>같은 모델, 다른 컨텍스트.<br/>무엇이 정확도를 올리는가?</h1>
+    <p class="tag">
+      LLM 단독(<span class="kw">Raw</span>), Jazzify 룰 엔진 주입(<span class="kw">+Rule</span>),
+      RAG 검색 주입(<span class="kw">+RAG</span>), 둘 다(<span class="kw">+Rule+RAG</span>) —
+      4태스크 × 4조건, 총 79문항을 동일 모델·동일 질문으로 돌려 격리 측정.
+    </p>
+
+    <div class="finding" id="finding">
+      <span class="stamp">Initial Finding</span>
+      <h2>RAG가 모든 측정 축에서 성능을 떨어뜨렸다.</h2>
+      <p class="sub">
+        예측: RAG가 도메인 지식을 보강해 점수를 올린다. <b style="color:var(--text)">실제:</b>
+        구조분석 Roman 정확도가 17pt 하락, 이론 단답은 한 문항이 RAG 컨텍스트 때문에 정답을 뒤집힘,
+        설명 평균 점수는 0.50pt 하락. <b style="color:var(--text)">심지어 +Rule+RAG &lt; +Rule</b> —
+        완벽한 룰 컨텍스트가 있어도 RAG 노이즈가 흠집을 낸다.
+      </p>
+      <p style="margin-top:14px;font-size:13px;color:var(--text-2)">
+        <b style="color:var(--warn)">UPDATE.</b> 이 결과는 첫 실행 시점의 사실이지만, 원인을 추적해 보니
+        <b style="color:var(--text)">RAG 로직 자체는 멀쩡</b>했고 두 가지 별개 문제 — (1) 인덱스가 신규 곡 20+개를
+        반영 안 함, (2) 약한 매치도 무조건 5개 주입 — 의 합산 효과였다.
+        둘 다 고친 후속 실험은 ↓ <a href="#followup" style="color:var(--accent);text-decoration:underline">Followup 섹션</a> 참고.
+      </p>
+      <div class="stat-tiles">
+        <div class="tile">
+          <div class="name">A · Roman 정확도</div>
+          <div class="delta neg">−16.6pt</div>
+          <div class="what">83.0% → 66.4%</div>
+        </div>
+        <div class="tile">
+          <div class="name">B · 단답 정확도</div>
+          <div class="delta neg">−3.3pt</div>
+          <div class="what">93.3% → 90.0%</div>
+        </div>
+        <div class="tile">
+          <div class="name">C · 설명 점수</div>
+          <div class="delta neg">−0.50</div>
+          <div class="what">4.63 → 4.13 (5점 만점)</div>
+        </div>
+        <div class="tile">
+          <div class="name">D · 할루시네이션</div>
+          <div class="delta zero">±0pt</div>
+          <div class="what">0% → 0% (saturated)</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONDITIONS ────────────────────────────────────────────────────── -->
+  <section class="block first" id="conds">
+    <p class="eyebrow">Conditions</p>
+    <div class="block-h">
+      <h3>4가지 컨텍스트 조건</h3>
+      <p class="annot">A는 4조건 전부, B/C/D는 Raw와 +RAG만 측정.</p>
+    </div>
+    <div class="conds">
+      <div class="cond">
+        <div class="head"><span class="dot raw"></span> Raw</div>
+        <p>LLM 단독. 베이스라인.</p>
+      </div>
+      <div class="cond">
+        <div class="head"><span class="dot rule"></span> +Rule</div>
+        <p>Jazzify의 룰 기반 화성 분석기가 미리 풀어낸 키·ii-V-I·로마숫자를 컨텍스트로 주입.</p>
+      </div>
+      <div class="cond">
+        <div class="head"><span class="dot rag"></span> +RAG</div>
+        <p>HarmoRAG 서버 <code style="font-family:var(--mono);font-size:11px">/search?q=&amp;n=5</code> 결과(곡 분석/이론 강의 청크 5개)를 주입.</p>
+      </div>
+      <div class="cond">
+        <div class="head"><span class="dot rulerag"></span> +Rule+RAG</div>
+        <p>룰과 RAG를 동시에 주입. "더 많을수록 더 좋다"는 가설의 검정.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- TASK A ────────────────────────────────────────────────────────── -->
+  <section class="block" id="a">
+    <p class="eyebrow">Task A · Structural Analysis</p>
+    <div class="block-h">
+      <h3>구조 분석 — 키 · ii-V-I · 로마숫자</h3>
+      <span class="n">n = 24</span>
+      <p class="annot">코드 진행이 주어지면 키, 모든 ii-V-I (인덱스 triple), 코드별 로마숫자를 엄격 JSON으로 답함.</p>
+    </div>
+
+    <div class="panel-grid">
+      <!-- KEY -->
+      <div class="panel">
+        <div class="ptitle"><span class="t">키 정확도</span><span class="desc">멀티키 집합 일치</span></div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot raw"></span> Raw</span>
+          <div class="bar-track"><div class="bar-fill raw" style="--val: 70.8%; --d: .05s">70.8%</div></div>
+        </div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot rule"></span> +Rule</span>
+          <div class="bar-track"><div class="bar-fill rule" style="--val: 95.8%; --d: .10s">95.8%<span class="tag-best">BEST</span></div></div>
+        </div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot rag"></span> +RAG</span>
+          <div class="bar-track"><div class="bar-fill rag" style="--val: 62.5%; --d: .15s">62.5%<span class="tag-worst">WORST</span></div></div>
+        </div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot rulerag"></span> +R+RAG</span>
+          <div class="bar-track"><div class="bar-fill rulerag" style="--val: 87.5%; --d: .20s">87.5%</div></div>
+        </div>
+      </div>
+
+      <!-- F1 -->
+      <div class="panel">
+        <div class="ptitle"><span class="t">ii-V-I F1 (micro)</span><span class="desc">triple 정확 일치</span></div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot raw"></span> Raw</span>
+          <div class="bar-track"><div class="bar-fill raw" style="--val: 87.0%; --d: .05s">87.0%</div></div>
+        </div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot rule"></span> +Rule</span>
+          <div class="bar-track"><div class="bar-fill rule" style="--val: 100%; --d: .10s">100%<span class="tag-best">BEST</span></div></div>
+        </div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot rag"></span> +RAG</span>
+          <div class="bar-track"><div class="bar-fill rag" style="--val: 86.4%; --d: .15s">86.4%</div></div>
+        </div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot rulerag"></span> +R+RAG</span>
+          <div class="bar-track"><div class="bar-fill rulerag" style="--val: 100%; --d: .20s">100%<span class="tag-best">BEST</span></div></div>
+        </div>
+      </div>
+
+      <!-- ROMAN -->
+      <div class="panel">
+        <div class="ptitle"><span class="t">Roman 정확도</span><span class="desc">per-chord</span></div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot raw"></span> Raw</span>
+          <div class="bar-track"><div class="bar-fill raw" style="--val: 83.0%; --d: .05s">83.0%</div></div>
+        </div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot rule"></span> +Rule</span>
+          <div class="bar-track"><div class="bar-fill rule" style="--val: 99.2%; --d: .10s">99.2%<span class="tag-best">BEST</span></div></div>
+        </div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot rag"></span> +RAG</span>
+          <div class="bar-track"><div class="bar-fill rag" style="--val: 66.4%; --d: .15s">66.4%<span class="tag-worst">WORST</span></div></div>
+        </div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot rulerag"></span> +R+RAG</span>
+          <div class="bar-track"><div class="bar-fill rulerag" style="--val: 95.3%; --d: .20s">95.3%</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TASK B ────────────────────────────────────────────────────────── -->
+  <section class="block" id="b">
+    <p class="eyebrow">Task B · Theory Facts</p>
+    <div class="block-h">
+      <h3>이론 팩트 — 단답 객관식</h3>
+      <span class="n">n = 30</span>
+      <p class="annot">정규화 매칭으로 자동 채점. RAG가 채울 헤드룸이 있을 줄 알았던 영역.</p>
+    </div>
+
+    <div class="panel">
+      <div class="ptitle"><span class="t">정답률</span><span class="desc">accept[] 매칭</span></div>
+      <div class="bar-row">
+        <span class="lbl"><span class="dot raw"></span> Raw</span>
+        <div class="bar-track"><div class="bar-fill raw" style="--val: 93.3%; --d: .05s">93.3% (28 / 30)<span class="tag-best">BEST</span></div></div>
+      </div>
+      <div class="bar-row">
+        <span class="lbl"><span class="dot rag"></span> +RAG</span>
+        <div class="bar-track"><div class="bar-fill rag" style="--val: 90.0%; --d: .12s">90.0% (27 / 30)</div></div>
+      </div>
+    </div>
+
+    <!-- b17 case study -->
+    <div class="case">
+      <div class="ctop">
+        <span class="cid">item · b17</span>
+        <span class="ctitle">RAG가 정답을 뒤집은 단 한 문항</span>
+      </div>
+      <div class="question">
+        Q. What is the <strong>'backdoor' dominant chord</strong> that resolves to Cmaj7?
+        <div style="margin-top:6px; font-size:12px; color:var(--muted); font-family:var(--mono)">
+          gold: Bb7
+        </div>
+      </div>
+      <div class="replies">
+        <div class="reply good">
+          <div class="rhead">
+            <span class="who"><span class="dot raw"></span> Raw</span>
+            <span class="verdict">CORRECT</span>
+          </div>
+          <p class="text">
+            <strong>Bb7</strong> — the bVII7 chord that resolves to Cmaj7 through smooth voice leading, with the Bb moving down to A and F moving down to E.
+          </p>
+        </div>
+        <div class="reply bad">
+          <div class="rhead">
+            <span class="who"><span class="dot rag"></span> +RAG</span>
+            <span class="verdict">WRONG</span>
+          </div>
+          <p class="text">
+            <strong>F7</strong> — the bVII7 chord that resolves to CMaj7 via half-step root motion (F to C), creating a backdoor dominant resolution instead of the tradi…
+          </p>
+        </div>
+      </div>
+      <div class="diag">
+        <b>진단.</b> RAG 검색이 backdoor 질의에 "IV → I" 류 청크를 잘못 가져오자,
+        모델이 백도어를 P5 하행으로 잘못 정의해 F7으로 흘러갔다. 라벨까지 똑같이 "bVII7"이라 부르며
+        틀린 음을 댄 게 핵심: <b>RAG가 모델의 사전 지식을 덮어쓸 정도로 강한 신호로 작용</b>한다는
+        직접 증거.
+      </div>
+    </div>
+  </section>
+
+  <!-- TASK C ────────────────────────────────────────────────────────── -->
+  <section class="block" id="c">
+    <p class="eyebrow">Task C · Explanatory (LLM-judge)</p>
+    <div class="block-h">
+      <h3>서술형 설명 — 1~5점</h3>
+      <span class="n">n = 8</span>
+      <p class="annot">동일 모델 judge가 key-points 커버리지로 1~5점 채점. RAG가 그라운딩으로 도울 줄 알았던 영역.</p>
+    </div>
+
+    <div class="panel-grid two">
+      <div class="panel">
+        <div class="ptitle"><span class="t">평균 점수 (1~5)</span><span class="desc">judge 채점</span></div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot raw"></span> Raw</span>
+          <div class="bar-track"><div class="bar-fill raw" style="--val: 92.6%; --d: .05s">4.63 / 5<span class="tag-best">BEST</span></div></div>
+        </div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot rag"></span> +RAG</span>
+          <div class="bar-track"><div class="bar-fill rag" style="--val: 82.6%; --d: .12s">4.13 / 5</div></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="ptitle"><span class="t">0~1 정규화</span><span class="desc">(s − 1) / 4</span></div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot raw"></span> Raw</span>
+          <div class="bar-track"><div class="bar-fill raw" style="--val: 90.6%; --d: .05s">90.6%<span class="tag-best">BEST</span></div></div>
+        </div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot rag"></span> +RAG</span>
+          <div class="bar-track"><div class="bar-fill rag" style="--val: 78.1%; --d: .12s">78.1%</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TASK D ────────────────────────────────────────────────────────── -->
+  <section class="block" id="d">
+    <p class="eyebrow">Task D · Hallucination (LLM-judge)</p>
+    <div class="block-h">
+      <h3>할루시네이션 함정 — trap × control</h3>
+      <span class="n">n = 17</span>
+      <p class="annot">거짓 전제 질문(trap)에서 모델이 거부/정정하는지를 judge가 채점.</p>
+    </div>
+
+    <div class="panel-grid two">
+      <div class="panel">
+        <div class="ptitle"><span class="t">할루시네이션율</span><span class="desc">낮을수록 ↑ (trap)</span></div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot raw"></span> Raw</span>
+          <div class="bar-track"><div class="bar-fill rule" style="--val: 100%; --d: .05s">0.0% (완벽)</div></div>
+        </div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot rag"></span> +RAG</span>
+          <div class="bar-track"><div class="bar-fill rule" style="--val: 100%; --d: .12s">0.0% (완벽)</div></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="ptitle"><span class="t">컨트롤 정확도</span><span class="desc">진짜 질문 정답률</span></div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot raw"></span> Raw</span>
+          <div class="bar-track"><div class="bar-fill rule" style="--val: 100%; --d: .05s">100%</div></div>
+        </div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot rag"></span> +RAG</span>
+          <div class="bar-track"><div class="bar-fill rule" style="--val: 100%; --d: .12s">100%</div></div>
+        </div>
+      </div>
+    </div>
+    <p style="margin-top:14px; color:var(--text-2); font-size:13.5px;">
+      <b style="color:var(--warn)">Saturated.</b> Sonnet-4가 이미 fabrication에 매우 강해 변별이 사라짐.
+      RAG 효과를 보려면 더 약한 모델(haiku 등)이나 더 교묘한 함정 셋이 필요.
+    </p>
+  </section>
+
+  <!-- FOLLOWUP ──────────────────────────────────────────────────────── -->
+  <section class="block" id="followup">
+    <p class="eyebrow">Followup · 원인 추적과 처방</p>
+    <div class="block-h">
+      <h3>"RAG가 망가진 게 아니라, 우리가 잘못 쓰고 있었다"</h3>
+      <p class="annot">"RAG가 도울 줄 알았는데 왜 깎냐"는 의심에서 출발한 후속 작업. 두 가지 별개 문제를 찾아 고친 뒤 재측정.</p>
+    </div>
+
+    <!-- Root cause cards -->
+    <div class="cards" style="margin-bottom:18px">
+      <div class="card warn">
+        <div class="num">CAUSE 01</div>
+        <h4>인덱스가 신규 standards 20+곡을 누락</h4>
+        <p>
+          ChromaDB에는 285청크 · 21곡만 색인된 반면, 디스크엔 39개 standards 파일.
+          신규 파일들이 영문 헤더(<code style="font-family:var(--mono);font-size:12px">**Title:**</code>)를 쓰는데
+          chunker는 한국어 라벨(<code style="font-family:var(--mono);font-size:12px">**곡명:**</code>)만 인식 → song 메타데이터가
+          빈 문자열로 들어가 retrieval에서 곡명 매칭이 전혀 안 됐다.
+        </p>
+        <span class="pill">285 → 498 chunks · 21 → 39 songs</span>
+      </div>
+      <div class="card warn">
+        <div class="num">CAUSE 02</div>
+        <h4>약한 매치도 무조건 5개 주입</h4>
+        <p>
+          <code style="font-family:var(--mono);font-size:12px">/search?n=5</code>는 코사인 ~0.5 짜리 약한 매치도 그냥 내려준다.
+          b17(backdoor) 질의는 top-5가 모두 0.71↓ 점수의 "CMaj7 등장하는 다른 곡 분석"이었는데
+          <code style="font-family:var(--mono);font-size:12px">ctxBlock</code>이 그대로 모델에 권위 있는 컨텍스트로 주입 → 모델은 충실히 따라가 오답 도출.
+        </p>
+        <span class="pill">no score threshold · n=5</span>
+      </div>
+    </div>
+
+    <p style="font-size:13px;color:var(--text-2);margin-top:6px">
+      <b style="color:var(--text)">처방 1:</b> chunker의 메타 정규식에 영문 라벨 alternation 추가 →
+      <code style="font-family:var(--mono);font-size:12px">re-chunk + re-embed</code>로 인덱스 재구축 (498 chunks · 39 songs).
+      <b style="color:var(--text)">처방 2:</b> retrieve에 <code style="font-family:var(--mono);font-size:12px">RAG_MIN_SCORE</code> 임계값 + <code style="font-family:var(--mono);font-size:12px">RAG_N</code> 노브 추가 —
+      약한 매치는 drop, 전부 약하면 빈 컨텍스트 (= Raw로 fallback).
+    </p>
+
+    <!-- EXPERIMENT 1 -->
+    <div style="margin-top:30px">
+      <div class="block-h" style="margin-bottom:14px">
+        <h3 style="font-size:19px">실험 1 · 새 task E (곡-grounded 단답)</h3>
+        <span class="n">n = 10</span>
+        <p class="annot">코퍼스가 답을 직접 가진 곡-특정 질문 10개. "RAG가 진짜 도울 수 있는 영역에선 정말 돕는가?"의 검정.</p>
+      </div>
+
+      <div class="panel-grid two">
+        <div class="panel">
+          <div class="ptitle"><span class="t">정답률</span><span class="desc">accept[] 매칭 · default RAG (n=5)</span></div>
+          <div class="bar-row">
+            <span class="lbl"><span class="dot raw"></span> Raw</span>
+            <div class="bar-track"><div class="bar-fill raw" style="--val: 80.0%; --d: .05s">80.0% (8 / 10)</div></div>
+          </div>
+          <div class="bar-row">
+            <span class="lbl"><span class="dot rag"></span> +RAG</span>
+            <div class="bar-track"><div class="bar-fill rule" style="--val: 90.0%; --d: .12s">90.0% (9 / 10)<span class="tag-best">+10pt</span></div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="ptitle"><span class="t">RAG가 끌어준 항목</span><span class="desc">정답 뒤집힘</span></div>
+          <div style="font-size:13px;color:var(--text-2);line-height:1.7;padding:4px 2px">
+            <div style="margin-bottom:8px"><b style="color:var(--text)">e10</b> · Body and Soul (Db major)은 어떤 도수로 시작?</div>
+            <div style="display:flex;gap:8px;align-items:flex-start;margin-left:8px">
+              <span style="font-family:var(--mono);font-size:11px;padding:2px 7px;border-radius:5px;background:rgba(248,113,113,0.15);color:var(--bad);min-width:54px;text-align:center">Raw</span>
+              <span><b style="color:var(--bad)">6도(vi)</b> ← 틀림</span>
+            </div>
+            <div style="display:flex;gap:8px;align-items:flex-start;margin-left:8px;margin-top:4px">
+              <span style="font-family:var(--mono);font-size:11px;padding:2px 7px;border-radius:5px;background:rgba(74,222,128,0.15);color:var(--good);min-width:54px;text-align:center">+RAG</span>
+              <span><b style="color:var(--good)">2도(ii)</b>, Ebm7로 시작 ← 정답</span>
+            </div>
+            <p style="margin-top:12px;color:var(--muted);font-size:12px">
+              RAG가 Body and Soul 첫 4마디 분석 청크(score 0.72)를 정확히 가져와 모델이 "ii로 시작 (delayed tonic)" 정보를 컨텍스트에서 직접 보고 정답을 도출.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <p style="margin-top:12px;font-size:13px;color:var(--text-2)">
+        <b style="color:var(--good)">결론.</b> 코퍼스가 답을 가지고 retrieval이 그걸 찾아내는 경우 RAG는 명백히 도움이 된다 (+10pt).
+        <b style="color:var(--text)">파이프라인 로직은 멀쩡</b>했다는 직접 증명. 못 살린 단 한 항목 e09(Moon River 3/4 박자)는
+        해당 사실이 <code style="font-family:var(--mono);font-size:12px">Form:</code> 메타 헤더에만 있고 청크 본문엔 없는 별개 코퍼스 갭 — 청커가
+        헤더도 포함해서 인덱싱하도록 추가 수정하면 해결.
+      </p>
+    </div>
+
+    <!-- EXPERIMENT 2 -->
+    <div style="margin-top:36px">
+      <div class="block-h" style="margin-bottom:14px">
+        <h3 style="font-size:19px">실험 2 · Filter (RAG_MIN_SCORE=0.7, RAG_N=3) 적용해 B 재측정</h3>
+        <span class="n">n = 30</span>
+        <p class="annot">"약한 매치면 차라리 안 주입하고 모델 사전지식에 맡긴다"는 처방을 B(추상 이론 단답)에 적용.</p>
+      </div>
+
+      <div class="panel">
+        <div class="ptitle"><span class="t">정답률 변화 (B)</span><span class="desc">기준=Raw 93.3% · 점수 임계값 0 → 0.7</span></div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot raw"></span> Raw</span>
+          <div class="bar-track"><div class="bar-fill raw" style="--val: 93.3%; --d: .05s">93.3% (기준선)</div></div>
+        </div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot rag"></span> +RAG (n=5, min=0)</span>
+          <div class="bar-track"><div class="bar-fill rag" style="--val: 86.7%; --d: .12s">86.7% (-6.6pt)<span class="tag-worst">HARMED</span></div></div>
+        </div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot rulerag"></span> +RAG (n=3, min=0.7)</span>
+          <div class="bar-track"><div class="bar-fill rule" style="--val: 93.3%; --d: .18s">93.3% (=Raw)<span class="tag-best">RECOVERED</span></div></div>
+        </div>
+      </div>
+
+      <p style="margin-top:14px;font-size:13px;color:var(--text-2)">
+        b17(backdoor → Bb7)를 비롯한 RAG-깎임 항목들이 임계값 적용 후 모두 회복: 약한 매치가 drop되며 모델이
+        Raw 사전지식으로 fallback. <b style="color:var(--text)">RAG가 더 이상 net-negative가 아닌 안전한 no-op</b>이 된다 (도움 안 줄 땐 깎지도 않음).
+        한 항목(b28, F장조 V7 트라이톤 sub)은 rebuilt 인덱스의 새 청크가 정답을 끌어줬다가 filter에 의해 drop되며 잃음 —
+        threshold가 너무 보수적일 때의 트레이드오프.
+      </p>
+    </div>
+
+    <!-- New verdict -->
+    <div class="finding" style="margin-top:32px;background:linear-gradient(180deg,rgba(74,222,128,0.06),rgba(74,222,128,0) 70%),var(--surface);border-color:rgba(74,222,128,0.25)">
+      <span class="stamp good" style="color:var(--good)">Revised Verdict</span>
+      <h2>RAG는 망가지지 않았다. 코퍼스·임계값을 맞추면 도움이 된다.</h2>
+      <p class="sub">
+        같은 RAG 코드, 같은 모델, 같은 임베딩 — 두 가지 운영 결함(인덱스 누락 + 약한 매치 무차별 주입)을 고치자
+        <b style="color:var(--good)">곡-grounded 정답률 +10pt</b>, <b style="color:var(--good)">추상 이론은 무해 (= Raw 동률)</b>.
+        원래 결과는 사실이지만 "RAG는 안 된다"가 아니라 "이 코퍼스를 그 질문에 그렇게 주입하면 안 된다"가 정확한 해석.
+      </p>
+      <div class="stat-tiles">
+        <div class="tile">
+          <div class="name">E · 곡-grounded</div>
+          <div class="delta" style="color:var(--good)">+10pt</div>
+          <div class="what">80% → 90% (default RAG)</div>
+        </div>
+        <div class="tile">
+          <div class="name">B · 필터 적용</div>
+          <div class="delta" style="color:var(--good)">+6.6pt</div>
+          <div class="what">86.7% → 93.3% (= Raw)</div>
+        </div>
+        <div class="tile">
+          <div class="name">인덱스 재구축</div>
+          <div class="delta" style="color:var(--accent);font-size:24px">498 / 39</div>
+          <div class="what">chunks / songs (was 285 / 21)</div>
+        </div>
+        <div class="tile">
+          <div class="name">코드 변경</div>
+          <div class="delta" style="color:var(--accent);font-size:24px">~10 lines</div>
+          <div class="what">regex alt + 2 env knobs</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DISCUSSION ────────────────────────────────────────────────────── -->
+  <section class="block" id="disc">
+    <p class="eyebrow">Discussion</p>
+    <div class="block-h">
+      <h3>이 데이터가 말하는 것</h3>
+    </div>
+    <div class="cards">
+      <div class="card win">
+        <div class="num">01</div>
+        <h4>룰 레이어 = 정량적 승자</h4>
+        <p>
+          Raw가 ii-V-I을 과잉검출(P 80%)한다. +Rule이 F1을 100%로, Roman을 99.2%로,
+          key를 95.8%로 끌어올린다. <b style="color:var(--text)">Jazzify 룰 엔진의 존재이유가 숫자로 입증된다.</b>
+        </p>
+        <span class="pill">F1 87 → 100 · Roman 83 → 99</span>
+      </div>
+      <div class="card win">
+        <div class="num">02</div>
+        <h4>RAG는 살릴 수 있다 (조건부)</h4>
+        <p>
+          첫 결과만 보면 RAG가 모든 축을 깎았지만, 두 가지 운영 결함(인덱스 누락 + 약한 매치 무차별 주입)을 고치니
+          <b style="color:var(--text)">코퍼스가 답을 가진 영역(E)에선 +10pt, 추상 이론(B)에선 무해</b>.
+          "검색만 끼우면 좋아진다"는 거짓이지만 "RAG는 안 된다"도 거짓.
+        </p>
+        <span class="pill">E +10pt · B fix +6.6pt</span>
+      </div>
+      <div class="card warn">
+        <div class="num">03</div>
+        <h4>+Rule+RAG &lt; +Rule</h4>
+        <p>
+          완벽한 룰 컨텍스트가 있어도 RAG 노이즈가 흠집을 낸다 (key 96→88, Roman 99→95).
+          더 많은 컨텍스트가 항상 더 나은 답을 만들지 않는다.
+        </p>
+        <span class="pill">key −8 · Roman −4</span>
+      </div>
+      <div class="card note">
+        <div class="num">04</div>
+        <h4>추정 원인 → 다음 작업</h4>
+        <p>
+          (a) 한국어 곡-분석 코퍼스와 영어 추상 이론 질문의 도메인 불일치,
+          (b) n=5 청크가 너무 길어 산만, (c) 키워드 검색이 무관한 곡 분석을 끌어옴.
+          b17 케이스가 (c)의 직접 증거. <b style="color:var(--text)">검색·청크·랭킹을 손본 뒤 재측정.</b>
+        </p>
+        <span class="pill">n↓ · MMR · 도메인 필터</span>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <div class="grid">
+      <div class="item"><div class="k">Model</div><div class="v">claude-sonnet-4-20250514</div></div>
+      <div class="item"><div class="k">Judge</div><div class="v">동일 모델 (C / D)</div></div>
+      <div class="item"><div class="k">Temperature</div><div class="v">0</div></div>
+      <div class="item"><div class="k">RAG</div><div class="v">HarmoRAG :8001 · n=5</div></div>
+      <div class="item"><div class="k">N (total)</div><div class="v">A 24 · B 30 · C 8 · D 17</div></div>
+      <div class="item"><div class="k">Run date</div><div class="v">2026-05-23 (초기) · 2026-05-25 (Followup)</div></div>
+      <div class="item"><div class="k">Repro</div><div class="v">temp 0 · 원문 저장 (responses.json)</div></div>
+      <div class="item"><div class="k">Source</div><div class="v">benchmark/{run,scorer}.mjs</div></div>
+    </div>
+    <p style="margin-top:22px; max-width: 760px;">
+      한계: N이 작아 신뢰구간 필요, LLM-judge는 사람 캘리브레이션 필요, D는 강한 베이스 모델에서 포화,
+      RAG는 retrieval 미튜닝 상태. 이 페이지는 정량 결과의 빠른 공유용 — 자세한 설명은
+      <code style="font-family:var(--mono)">README.md</code>, 다음 작업은
+      <code style="font-family:var(--mono)">NEXT.md</code>.
+    </p>
+  </footer>
+
+</main>
+
+</body>
+</html>

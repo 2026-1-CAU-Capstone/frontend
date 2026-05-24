@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState, useCallback } from 'react';
 import styled from 'styled-components';
 import {
   Renderer,
@@ -778,9 +778,31 @@ interface NoteSheetProps {
    *  stems-up for jazz-single-line convention but the on-screen rendering
    *  reads better with standard engraver auto-stem. */
   forceAutoStem?: boolean;
+  /** Hide the bottom PlayerBar (BPM + Play/Stop + 믹서 toggle). Used when a
+   *  parent renders its own transport (NotePage) and drives this NoteSheet
+   *  via the imperative handle below. */
+  hideTransport?: boolean;
+  /** Fires whenever the internal NotePlayer transitions play/stop/pause, so
+   *  the parent transport can mirror the playing state. */
+  onPlayingChange?: (playing: boolean) => void;
+  /** Fires whenever the tempo changes (song load, BPM input, or external
+   *  setTempo via the ref handle). */
+  onTempoChange?: (tempo: number) => void;
 }
 
-export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable, selectedRanges, onSelectionChange, showMeasureNumbers, lineStartMeasureNumbers, forceAutoStem }: NoteSheetProps) {
+/** Imperative handle exposed to parents that own an external transport.
+ *  togglePlay mirrors the internal play button; stop is unconditional. */
+export interface NoteSheetHandle {
+  togglePlay: () => void;
+  stop: () => void;
+  setTempo: (n: number) => void;
+}
+
+export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function NoteSheet({
+  data, selectedKey, allKeys, onKeyChange, selectable, selectedRanges, onSelectionChange,
+  showMeasureNumbers, lineStartMeasureNumbers, forceAutoStem,
+  hideTransport, onPlayingChange, onTempoChange,
+}, ref) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(900);
@@ -977,6 +999,23 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
     setPlaying(false);
     setPaused(false);
   }, []);
+
+  /* External transport sync — fires callbacks so a parent owning its own
+   * transport bar (NotePage) can mirror our play/tempo state. */
+  useEffect(() => { onPlayingChange?.(playing); }, [playing, onPlayingChange]);
+  useEffect(() => { onTempoChange?.(tempo); }, [tempo, onTempoChange]);
+
+  /* Imperative handle so the parent can drive play/stop/tempo from its own UI
+   * without us re-implementing the count-in + anacrusis logic externally. */
+  useImperativeHandle(ref, () => ({
+    togglePlay,
+    stop: handleStop,
+    setTempo: (n: number) => {
+      const clamped = Math.max(40, Math.min(300, Math.round(n)));
+      setTempo(clamped);
+      setTempoText(String(clamped));
+    },
+  }), [togglePlay, handleStop]);
 
   /* ── measure highlight (SVG manipulation) ────────────────────────── */
   useEffect(() => {
@@ -2022,6 +2061,7 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
 
       <SvgContainer ref={svgRef} $seekable={playing && !selectable} />
 
+      {!hideTransport && (
       <PlayerBar>
         {/* -- Mixer popup — split into Piano / Bass / Drums channel strips.
              Every change writes to the global playerSettings store so other
@@ -2214,6 +2254,7 @@ export function NoteSheet({ data, selectedKey, allKeys, onKeyChange, selectable,
           <MixToggle $on={mixerOpen} onClick={() => setMixerOpen(v => !v)}>믹서</MixToggle>
         </PlayerRow>
       </PlayerBar>
+      )}
     </Wrapper>
   );
-}
+});

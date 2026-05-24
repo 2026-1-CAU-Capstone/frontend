@@ -4,8 +4,21 @@ export const BP = {
   desktop: 1280,
 } as const;
 
-/** Media query helpers — usage: ${mq.mobile} { ... } */
+/** Media query helpers — usage: ${mq.mobile} { ... }
+ *
+ *   phone         — phones only (≤ BP.mobile). Excludes every iPad, including
+ *                   iPad mini portrait (744pt). Use this for "swap to a
+ *                   bottom-tab-bar / hamburger style" rules so iPad portrait
+ *                   keeps the desktop layout instead of inheriting a phone UI.
+ *   mobile        — phones + iPad portrait (≤ BP.tablet, 960). Historical
+ *                   "small device" bucket; consider migrating to `phone` for
+ *                   anything that should not apply to iPad portrait.
+ *   compactLayout — anything with limited screen real-estate OR touch input
+ *                   (narrow web, all iPads, hybrid laptops). Used for
+ *                   "hide secondary panels / pad less" rules.
+ *   desktop       — large mouse-driven displays (≥ BP.desktop + 1, 1281). */
 export const mq = {
+  phone: `@media (max-width: ${BP.mobile}px)`,
   mobile: `@media (max-width: ${BP.tablet}px)`,
   tablet: `@media (max-width: ${BP.tablet}px)`,
   compactLayout: `@media (max-width: ${BP.desktop}px), (hover: none), (pointer: coarse)`,

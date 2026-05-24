@@ -513,8 +513,10 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
         {messages.length === 0 && inputInIntro && !inputAtTop && !nativeIntroLayout && (
           /* Empty-state input is wider than the post-chat one to match the
            * roomier hero column. Inline maxWidth overrides the styled
-           * IntroInputSlot's default 760 cap. */
-          <IntroInputSlot style={{ maxWidth: '950px' }}>
+           * IntroInputSlot's default 760 cap. $hideFade because there are no
+           * messages above to fade out from — the gradient would look like a
+           * stray band floating on empty background. */
+          <IntroInputSlot style={{ maxWidth: '950px' }} $hideFade>
             <IntroChatInput
               onSend={handleSend}
               disabled={loading}
@@ -540,6 +542,10 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
        *  hero lifts in lockstep — single GPU transform, smooth. */}
       {nativeIntroLayout && !inputAtTop && (
         <IntroInputSlot
+          /* No messages yet → nothing scrollable above to fade out from, so
+           * suppress the top gradient strip (it would otherwise look like a
+           * stray band floating over the empty hero area). */
+          $hideFade={messages.length === 0}
           style={{
             margin: 0,
             paddingBottom: keyboardOffsetPx > 0 ? '8px' : 'max(12px, env(safe-area-inset-bottom, 0px))',

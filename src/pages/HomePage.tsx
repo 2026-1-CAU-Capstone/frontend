@@ -118,16 +118,16 @@ const IntroBlock = styled.div`
   width: 100%;
   padding: 0 24px 8px;
 
-  /* Mobile: claim flex:1 and self-center so hero stays in the middle of
-   *  the remaining space (above the input). When keyboard appears, the
-   *  IntroInputSlot grows via padding-bottom → this shrinks → hero
-   *  recenters automatically in the new smaller available area.
-   *  padding-top biases the centered hero a bit downward so it doesn't
-   *  feel "stuck to the top" when the keyboard squeezes the area. */
-  @media (max-width: 768px) {
+  /* Touch / compact (phones + all iPads): claim flex:1 and self-center so the
+   *  hero stays in the middle of the remaining space above the input. When
+   *  the keyboard appears, IntroInputSlot grows via padding-bottom → this
+   *  shrinks → hero recenters automatically in the new smaller area.
+   *  padding-top biases the centered hero a bit downward so it doesn't feel
+   *  "stuck to the top" when the keyboard squeezes the area. */
+  ${mq.compactLayout} {
     flex: 1;
     justify-content: center;
-    padding: 14vh 16px 8px;
+    padding: 8vh 16px 8px;
     min-height: 0;
   }
 `;
@@ -158,7 +158,9 @@ const HeroLogo = styled.img`
   border-radius: 20px;
   object-fit: cover;
   box-shadow: 0 6px 18px rgba(0,0,0,0.08);
-  ${mq.mobile} { width: 44px; height: 44px; border-radius: 11px; }
+  /* Touch / compact (phones + iPads): smaller, tighter logo. Matches the
+   * ChatGPT-on-iPad scale where the hero doesn't dominate the empty state. */
+  ${mq.compactLayout} { width: 56px; height: 56px; border-radius: 14px; }
 `;
 
 const Greeting = styled.h1`
@@ -169,7 +171,7 @@ const Greeting = styled.h1`
   text-align: left;
   letter-spacing: -0.015em;
   line-height: 1.1;
-  ${mq.mobile} { font-size: 1.35rem; }
+  ${mq.compactLayout} { font-size: 1.55rem; }
 `;
 
 const Subtitle = styled.p`
@@ -178,7 +180,7 @@ const Subtitle = styled.p`
   margin: 0 0 18px;
   text-align: center;
   animation: ${fadeIn} 0.5s 0.1s ease both;
-  ${mq.mobile} { font-size: 0.85rem; margin-bottom: 12px; }
+  ${mq.compactLayout} { font-size: 0.92rem; margin-bottom: 12px; }
 `;
 
 const ToolGrid = styled.div`
@@ -566,9 +568,33 @@ const MOCK_SCORES = [
   'Misty',
 ];
 
+/* Tablet-or-wider detector. iPad portrait starts at 768pt logical width, so
+ * this picks up every iPad while excluding all phones. Used to give iPad the
+ * desktop-style persistent sidebar (ChatGPT-on-iPad pattern) instead of the
+ * hamburger + slide-out drawer we use on iPhone. Listens to media-query
+ * changes so rotating between portrait/landscape keeps the UI consistent. */
+function useIsTabletOrLarger(): boolean {
+  const [matches, setMatches] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(min-width: 768px)').matches;
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia('(min-width: 768px)');
+    const handler = (e: MediaQueryListEvent) => setMatches(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
+  return matches;
+}
+
 export default function HomePage() {
   const navigate = useNavigate();
   const native = isNativeApp();
+  const tabletOrLarger = useIsTabletOrLarger();
+  /* Only iPhones (native + narrow viewport) get the mobile drawer UI. iPads
+   * fall through to the persistent IconSidebar like the desktop web build. */
+  const useNativeUI = native && !tabletOrLarger;
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   /* Real auth state — driven by Jazzify backend (/v1/auth/*). The cached
@@ -632,6 +658,9 @@ export default function HomePage() {
   /* Hero shifts up by ~half the keyboard height when keyboard is up — so
    * it stays roughly in the VISIBLE center (between top of screen and top
    * of keyboard) rather than fully tracking the input. Smooth GPU transform. */
+  /* Hero lifts on any native (iPhone OR iPad) when the keyboard is up — the
+   * IntroBlock + input both translate so the input sits just above the keyboard
+   * and the hero re-centers in the remaining visible area. */
   const heroLift = native && kbHeight > 0 ? Math.round(kbHeight * 0.55) : 0;
   const introEmptyState = (
     <IntroBlock
@@ -642,6 +671,8 @@ export default function HomePage() {
       }}
     >
       {native ? (
+        /* All native (iPhone + iPad) — stacked hero is tighter and pairs
+         * better with the flex:1 vertical centering used by IntroBlock. */
         <NativeHero>
           <HeroLogo src="/jazzifylogo.png" alt="Jazzify" />
           <Greeting>오늘은 무슨 이야기를 할까요?</Greeting>
@@ -653,6 +684,8 @@ export default function HomePage() {
         </HeroRow>
       )}
       <Subtitle>화성학, 재즈 이론, 코드 진행에 대해 물어보세요</Subtitle>
+      {/* ToolGrid hidden on native (both iPhone and iPad) for a cleaner
+       * ChatGPT-style empty state. Web keeps the action cards. */}
       {!native && (
         <ToolGrid>
           {TOOLS.map((t) => (
@@ -708,14 +741,14 @@ export default function HomePage() {
   };
 
   return (
-    <Wrapper $native={native}>
-      {!native && (
+    <Wrapper $native={useNativeUI}>
+      {!useNativeUI && (
         <MobileBrandBar>
           <BrandLogoImage height={52} onClick={() => navigate('/')} />
         </MobileBrandBar>
       )}
 
-      {!native && (
+      {!useNativeUI && (
         <IconSidebar
           onNewChat={handleNewChatClick}
           onOpenChatHistory={openChatHistory}
@@ -723,10 +756,11 @@ export default function HomePage() {
         />
       )}
 
-      {!native && <AuthTopBar onLoginClick={() => navigate('/login')} />}
+      {!useNativeUI && <AuthTopBar onLoginClick={() => navigate('/login')} />}
 
-      {/* Native hamburger + full-screen drawer. */}
-      {native && (
+      {/* Native hamburger + full-screen drawer (iPhone only — iPads fall through
+       * to the desktop sidebar branch above). */}
+      {useNativeUI && (
         <>
           <HamburgerBtn onClick={() => setDrawerOpen(true)} aria-label="메뉴 열기">
             <HamburgerIcon />
@@ -823,7 +857,7 @@ export default function HomePage() {
       )}
 
       <Main>
-        <ChatArea $native={native} $started={chatMessageCount > 0}>
+        <ChatArea $native={useNativeUI} $started={chatMessageCount > 0}>
           <RightChatPanel
             key={chatKey}
             selectedChords={[]}
@@ -835,6 +869,11 @@ export default function HomePage() {
             inputPlaceholder="화성학, 재즈 이론, 무엇이든 물어보세요."
             autoFocusInput
             inputInIntro
+            /* Native (iPhone AND iPad) gets the input pinned at the bottom
+             * with a keyboard-tracking translate so the field rides just above
+             * the keyboard. iPad keeps the persistent IconSidebar (decided via
+             * useNativeUI above) — only the intro / input behaviour follows
+             * the native pattern here. */
             nativeIntroLayout={native}
             keyboardOffsetPx={native ? kbHeight : 0}
             onMessagesChange={setChatMessageCount}

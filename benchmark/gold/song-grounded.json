@@ -1,0 +1,56 @@
+{
+  "task": "song-grounded-facts",
+  "description": "Song-specific factual questions about jazz standards that ARE covered in detail in the RAG corpus (frontend/data/explanation/standards/*.txt). Designed to test whether RAG helps when the corpus actually contains the answer — vs. the abstract-theory questions in Task B where the corpus has no direct coverage. Model answers JSON {\"answer\":\"...\"}; scored by normalized match against accept[].",
+  "items": [
+    {
+      "id": "e01",
+      "q": "재즈 스탠더드 Stella by Starlight의 첫 코드는 무엇인가? (정확한 코드 기호로 답하라)",
+      "accept": ["Em7b5", "Em7♭5", "Eø7", "Eø", "E half-diminished", "E half diminished", "E-7b5", "E minor 7 flat 5"]
+    },
+    {
+      "id": "e02",
+      "q": "Have You Met Miss Jones의 브릿지는 키 센터들이 어떤 음정 간격으로 이동하는가?",
+      "accept": ["major third", "major thirds", "장3도", "장 3도", "M3", "장3", "장 3"]
+    },
+    {
+      "id": "e03",
+      "q": "Misty (E♭ major)의 A 섹션에서 AbMaj7이 마이너로 바뀐 후 함께 등장하여 backdoor 케이던스를 이루는 도미넌트 7th 코드는?",
+      "accept": ["Db7", "D♭7", "Db dominant 7"]
+    },
+    {
+      "id": "e04",
+      "q": "Charlie Parker의 Yardbird Suite는 어떤 키로 연주되는가?",
+      "accept": ["C major", "C", "Cmaj", "C 메이저"]
+    },
+    {
+      "id": "e05",
+      "q": "Roy Hargrove의 Strasbourg / St. Denis는 몇 마디 진행을 반복해서 만들어지는가? (숫자만)",
+      "accept": ["8", "8마디", "8 bars", "eight", "eight bars", "여덟"]
+    },
+    {
+      "id": "e06",
+      "q": "Oscar Peterson의 Hymn To Freedom A섹션에서 chord IV(EbMaj)가 chord I(Bb)로 진행하는 케이던스의 일반적 이름은 무엇인가?",
+      "accept": ["plagal", "plagal cadence", "변격종지", "변격 종지", "amen cadence", "변진행"]
+    },
+    {
+      "id": "e07",
+      "q": "Kenny Dorham의 Blue Bossa는 어느 키로 시작하는가?",
+      "accept": ["C minor", "Cm", "C-", "C 마이너", "C minor key", "Cmin", "C 단조"]
+    },
+    {
+      "id": "e08",
+      "q": "Joseph Kosma의 Autumn Leaves가 Bb major와 함께 사용하는 나란한 마이너 키는 무엇인가?",
+      "accept": ["G minor", "Gm", "G-", "G 마이너", "Gmin", "G minor key"]
+    },
+    {
+      "id": "e09",
+      "q": "Henry Mancini의 Moon River는 몇 박자(time signature)로 작곡되었는가?",
+      "accept": ["3/4", "삼사박자", "3박자", "3 4박자", "waltz", "왈츠"]
+    },
+    {
+      "id": "e10",
+      "q": "Body and Soul (Db major)은 1도(I)가 아닌 어떤 도수(roman numeral)의 코드로 시작하는가?",
+      "accept": ["ii", "ii도", "ii chord", "ii-7", "2도", "Ebm7", "E♭m7", "2"]
+    }
+  ]
+}

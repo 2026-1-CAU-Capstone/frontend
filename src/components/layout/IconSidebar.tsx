@@ -35,7 +35,10 @@ const Rail = styled.nav<{ $expanded: boolean }>`
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
 
-  ${mq.mobile} {
+  /* Phone-only: collapse into a 58px icon rail along the left edge. iPad
+   * portrait (820pt) and wider keep the proper desktop-style sidebar so the
+   * ChatGPT-on-iPad layout is preserved in both orientations. */
+  ${mq.phone} {
     width: 58px;
     padding: 8px 0;
     align-items: center;
@@ -176,7 +179,7 @@ const NavBtn = styled.button<{ $active?: boolean; $expanded?: boolean; disabled?
     cursor: not-allowed;
   }
 
-  ${mq.mobile} {
+  ${mq.phone} {
     width: 50px;
     height: 46px;
     border-radius: 9px;
@@ -251,7 +254,7 @@ const MyLibBlock = styled.div`
 const NavLabel = styled.span<{ $expanded?: boolean }>`
   display: ${({ $expanded }) => ($expanded ? 'inline' : 'none')};
 
-  ${mq.mobile} {
+  ${mq.phone} {
     display: block;
     font-family: ${({ theme }) => theme.fonts.ui};
     font-size: 9px;
@@ -267,7 +270,7 @@ const Divider = styled.div<{ $expanded?: boolean }>`
   background: rgba(0, 0, 0, 0.08);
   margin: 8px 0;
 
-  ${mq.mobile} {
+  ${mq.phone} {
     width: 36px;
     margin: 2px 0;
   }
@@ -593,8 +596,21 @@ export function IconSidebar({
   const { pathname } = useLocation();
   const [authUser, setAuthUser] = useState<AuthUser | null>(() => getCachedUser());
   const [expanded, setExpanded] = useState<boolean>(() => {
-    try { return localStorage.getItem(SIDEBAR_STORAGE_KEY) === '1'; }
-    catch { return false; }
+    /* Tablet / desktop widths: always start expanded on launch. Users can
+     * still toggle it closed within a session via the panel button, but
+     * each fresh entry re-opens the sidebar so the first screen consistently
+     * shows the ChatGPT-on-iPad pattern. (The saved preference is honoured
+     * only on narrow / phone widths where space is at a premium.) */
+    if (typeof window !== 'undefined'
+        && window.matchMedia('(min-width: 768px)').matches) {
+      return true;
+    }
+    try {
+      const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+      if (stored === '1') return true;
+      if (stored === '0') return false;
+    } catch { /* storage unavailable */ }
+    return false;
   });
 
   useEffect(() => {

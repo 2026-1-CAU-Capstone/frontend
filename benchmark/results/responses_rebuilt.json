@@ -1,0 +1,965 @@
+{
+  "model": "claude-sonnet-4-20250514",
+  "responses": [
+    {
+      "task": "B",
+      "id": "b01",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"Db7\"}",
+      "score": {
+        "id": "b01",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b01",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"D♭7 is the tritone substitute of G7. They share the same guide tones (3rd and 7th): G7 has B and F, while D♭7 has F and C♭ (enharmonically B), allowing D♭7 to resolve to C by descending a semitone instead of the usual fourth resolution.\"}",
+      "score": {
+        "id": "b01",
+        "hit": 0
+      }
+    },
+    {
+      "task": "B",
+      "id": "b02",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"C minor\"}",
+      "score": {
+        "id": "b02",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b02",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"C minor\"}",
+      "score": {
+        "id": "b02",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b03",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"C altered scale (C Db Eb E Gb Ab Bb)\"}",
+      "score": {
+        "id": "b03",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b03",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"C altered scale (C-Db-Eb-E-Gb-Ab-Bb), which is the 7th mode of Db melodic minor\"}",
+      "score": {
+        "id": "b03",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b04",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"C, E, G, B\"}",
+      "score": {
+        "id": "b04",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b04",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"C, E, G, B\"}",
+      "score": {
+        "id": "b04",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b05",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"A7 (A-C#-E-G)\"}",
+      "score": {
+        "id": "b05",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b05",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"A7\"}",
+      "score": {
+        "id": "b05",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b06",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"G#\"}",
+      "score": {
+        "id": "b06",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b06",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"G#\"}",
+      "score": {
+        "id": "b06",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b07",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"Mixolydian\"}",
+      "score": {
+        "id": "b07",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b07",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"Mixolydian\"}",
+      "score": {
+        "id": "b07",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b08",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"G7\"}",
+      "score": {
+        "id": "b08",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b08",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"G7\"}",
+      "score": {
+        "id": "b08",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b09",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"C major\"}",
+      "score": {
+        "id": "b09",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b09",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"C major\"}",
+      "score": {
+        "id": "b09",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b10",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"Locrian mode (7th mode of major scale)\"}",
+      "score": {
+        "id": "b10",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b10",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"Locrian mode - the 7th mode of the major scale, containing the root, b2, b3, 4, b5, b6, and b7 intervals that define the half-diminished chord structure.\"}",
+      "score": {
+        "id": "b10",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b11",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"Cm7 (C-Eb-G-Bb)\"}",
+      "score": {
+        "id": "b11",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b11",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"Cm7\"}",
+      "score": {
+        "id": "b11",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b12",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"F#\"}",
+      "score": {
+        "id": "b12",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b12",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"F#\"}",
+      "score": {
+        "id": "b12",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b13",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"The 7th mode of the melodic minor scale is the altered (super Locrian) scale\"}",
+      "score": {
+        "id": "b13",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b13",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"The altered scale is the 7th mode of the melodic minor scale (also called super Locrian)\"}",
+      "score": {
+        "id": "b13",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b14",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"4th mode\"}",
+      "score": {
+        "id": "b14",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b14",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"The Lydian dominant scale is the 4th mode of the melodic minor scale\"}",
+      "score": {
+        "id": "b14",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b15",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"F# major triad\"}",
+      "score": {
+        "id": "b15",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b15",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"F# major triad over C7 (contains F#, A#, C# which are the #11, 13, and #9 of C7)\"}",
+      "score": {
+        "id": "b15",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b16",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"A7 altered scale (or harmonic minor scale from the target key)\"}",
+      "score": {
+        "id": "b16",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b16",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"A altered scale (A altered dominant) or A harmonic minor 5th mode (Phrygian dominant) to emphasize the leading tone and create tension resolving to Dm\"}",
+      "score": {
+        "id": "b16",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b17",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"Bb7 - the bVII7 chord that resolves to Cmaj7 through smooth voice leading, with the Bb moving down to A and F moving down to E\"}",
+      "score": {
+        "id": "b17",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b17",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"F7 - the ♭VII7 of C major, which resolves up a whole step to CMaj7\"}",
+      "score": {
+        "id": "b17",
+        "hit": 0
+      }
+    },
+    {
+      "task": "B",
+      "id": "b18",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"Octatonic scale (diminished scale) - specifically the half-whole diminished scale starting with a half step\"}",
+      "score": {
+        "id": "b18",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b18",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"Over a fully diminished 7th chord like C°7, use the diminished scale (also called octatonic scale). This is an 8-note scale alternating whole and half steps. For C°7, use C-D-E♭-F-G♭-A♭-A-B, which contains all four chord tones (C-E♭-G♭-A) plus passing tones that create smooth voice leading and maintain the symmetrical diminished harmony.\"}",
+      "score": {
+        "id": "b18",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b19",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"Eb minor\"}",
+      "score": {
+        "id": "b19",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b19",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"Eb minor\"}",
+      "score": {
+        "id": "b19",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b20",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"C minor\"}",
+      "score": {
+        "id": "b20",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b20",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"C minor\"}",
+      "score": {
+        "id": "b20",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b21",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"Phrygian dominant\"}",
+      "score": {
+        "id": "b21",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b21",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"Phrygian dominant (or Phrygian ♮3)\"}",
+      "score": {
+        "id": "b21",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b22",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"The 6th mode (Aeolian b5 or Locrian natural 2)\"}",
+      "score": {
+        "id": "b22",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b22",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"The 6th mode of melodic minor is Locrian natural 2 (half-diminished scale)\"}",
+      "score": {
+        "id": "b22",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b23",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"D7\"}",
+      "score": {
+        "id": "b23",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b23",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"G7\"}",
+      "score": {
+        "id": "b23",
+        "hit": 0
+      }
+    },
+    {
+      "task": "B",
+      "id": "b24",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"Bmaj7\"}",
+      "score": {
+        "id": "b24",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b24",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"BMaj7\"}",
+      "score": {
+        "id": "b24",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b25",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"D♭\"}",
+      "score": {
+        "id": "b25",
+        "hit": 0
+      }
+    },
+    {
+      "task": "B",
+      "id": "b25",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"D#\"}",
+      "score": {
+        "id": "b25",
+        "hit": 0
+      }
+    },
+    {
+      "task": "B",
+      "id": "b26",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"3rd mode\"}",
+      "score": {
+        "id": "b26",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b26",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"The Lydian augmented scale is the third mode of the melodic minor scale\"}",
+      "score": {
+        "id": "b26",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b27",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"B# (the seventh degree of C# harmonic minor)\"}",
+      "score": {
+        "id": "b27",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b27",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"B# (which is enharmonically equivalent to C natural)\"}",
+      "score": {
+        "id": "b27",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b28",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"B7\"}",
+      "score": {
+        "id": "b28",
+        "hit": 0
+      }
+    },
+    {
+      "task": "B",
+      "id": "b28",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"C7 is the tritone substitute for B7 (which would be the V7 of F major). However, since F major's actual V7 is C7, the tritone substitute would be F#7 (or Gb7).\"}",
+      "score": {
+        "id": "b28",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b29",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"Cm7 - F7 - BbMaj7\"}",
+      "score": {
+        "id": "b29",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b29",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"Cm7 → F7 → BbMaj7\"}",
+      "score": {
+        "id": "b29",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b30",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"4th degree (F)\"}",
+      "score": {
+        "id": "b30",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b30",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"The 4th degree (F) is the avoid note when playing C major (Ionian) scale over a Cmaj7 chord, as it creates a harsh half-step dissonance against the major 3rd (E) of the chord.\"}",
+      "score": {
+        "id": "b30",
+        "hit": 1
+      }
+    },
+    {
+      "task": "C",
+      "id": "c01",
+      "condition": "Raw",
+      "reply": "A tritone substitution works because the substitute chord (Db7) shares the two most important notes with the original dominant chord (G7) - the 3rd and 7th, which form the tritone interval that creates the dominant's characteristic tension. In G7, the 3rd is B and the 7th is F. In Db7, the 3rd is F and the 7th is Cb (enharmonically B). These critical voice-leading tones are simply inverted between the two chords, so both create the same essential harmonic tension that wants to resolve to C major. Additionally, the root movement from Db to C (down a half-step) creates smooth, chromatic bass motion, while the shared tritone ensures the substitute maintains the original chord's dominant function and resolution tendency.",
+      "score": {
+        "id": "c01",
+        "score5": 5
+      }
+    },
+    {
+      "task": "C",
+      "id": "c01",
+      "condition": "+RAG",
+      "reply": "A tritone substitution works because the two dominant chords—separated by a tritone—share the same **guide tones** (3rd and 7th), which are the most important notes for defining a dominant chord's sound and function. \n\nFor example, when substituting D♭7 for G7 resolving to C: G7 contains B (3rd) and F (7th), while D♭7 contains F (3rd) and C♭/B (7th). These guide tones are identical, just with their roles reversed—G7's 3rd becomes D♭7's 7th, and vice versa. This shared harmonic content preserves the dominant function and voice-leading tension that wants to resolve to the tonic. The tritone substitution also creates smoother bass motion, as D♭7 resolves down by half-step to C instead of G7's fourth-down resolution, giving a more sophisticated, chromatic sound while maintaining the essential harmonic function.",
+      "score": {
+        "id": "c01",
+        "score5": 5
+      }
+    },
+    {
+      "task": "C",
+      "id": "c02",
+      "condition": "Raw",
+      "reply": "The backdoor ii-V is a sophisticated harmonic progression that approaches a major chord from a half-step above, creating a smooth and unexpected resolution. In the example Fm7–Bb7 to Cmaj7, the Fm7 functions as a ii chord and Bb7 as a V7 chord, but they're borrowed from the key of Eb major (a tritone away from the target key of C). The magic happens in the voice leading: the Bb7 contains the notes Bb-D-F-Ab, and when it resolves to Cmaj7 (C-E-G-B), the Bb moves down by half-step to B (the major 7th of C), while the F moves down by half-step to E (the major 3rd of C). This creates an incredibly smooth, chromatic resolution that sounds both surprising and inevitable. The backdoor ii-V is commonly used in jazz standards and provides a sophisticated alternative to the traditional V7-I resolution, often appearing in songs like \"All The Things You Are\" and \"Body and Soul.\"",
+      "score": {
+        "id": "c02",
+        "score5": 4
+      }
+    },
+    {
+      "task": "C",
+      "id": "c02",
+      "condition": "+RAG",
+      "reply": "The backdoor ii-V is a common jazz progression where a minor ii-V resolves to a major chord a whole step above the V7, creating a smooth voice-leading alternative to the traditional ii-V-I. In the example Fm7–Bb7→CMaj7, we have a ii-V from Eb major (where Fm7 is ii and Bb7 is V) resolving \"backwards\" to CMaj7 instead of the expected EbMaj7.\n\nThis works because of the strong voice-leading: the Bb in the Bb7 moves down by half-step to the root of CMaj7, while other chord tones resolve smoothly. The backdoor ii-V creates a distinctive sound that's both unexpected and satisfying, often used as a substitute for the more predictable Dm7–G7–CMaj7 progression. It's particularly effective because it approaches the target chord from the bVII7, which has a strong pull to the I chord due to the tritone substitution relationship (Bb7 can be heard as a substitute for E7, the V7/vi that would naturally resolve to Am, but instead resolves deceptively to C).",
+      "score": {
+        "id": "c02",
+        "score5": 4
+      }
+    },
+    {
+      "task": "C",
+      "id": "c03",
+      "condition": "Raw",
+      "reply": "The altered scale (also called the super Locrian or diminished whole-tone scale) is an excellent choice over V7alt chords because it contains all the essential altered tensions that define the chord's sound and function. When playing G7alt resolving to C, the G altered scale (G-Ab-Bb-B-Db-Eb-F) provides the chord tones (G-B-D-F) plus all four possible altered extensions: b9 (Ab), #9 (Bb), #11 (Db), and b13 (Eb). This creates maximum harmonic tension and instability, which makes the resolution to the tonic chord feel more satisfying and inevitable. The scale's chromatic voice leading also facilitates smooth resolutions - for example, the b9 (Ab) resolves down to the 5th of C major (G), while the b13 (Eb) resolves down to the 3rd (E). This combination of harmonic tension and linear resolution makes the altered scale the most comprehensive and effective choice for V7alt chords.",
+      "score": {
+        "id": "c03",
+        "score5": 4
+      }
+    },
+    {
+      "task": "C",
+      "id": "c03",
+      "condition": "+RAG",
+      "reply": "The altered scale is an excellent choice over V7alt chords because it contains all the essential altered tensions that create maximum harmonic tension and smooth voice-leading resolution to the tonic.\n\nWhen you play G7alt resolving to C, the altered scale (G altered: G-Ab-Bb-B-Db-Eb-F) gives you the critical altered extensions: b9 (Ab), #9 (Bb), #11 (Db), and b13 (Eb). These tensions create strong pull toward chord tones of the target C major chord - the b9 and #9 both resolve to the root C, while the b13 resolves down to the 3rd (E). The altered scale also contains the essential guide tones (3rd and b7th) plus the natural 5th, giving you both stability and maximum color.\n\nMelodically, the altered scale provides chromatic approach tones to every chord tone of the resolution, making it perfect for creating smooth, tension-filled lines that release satisfyingly into the tonic. This is why it's become the standard choice for dominant chords with altered extensions - it maximizes both harmonic sophistication and melodic flow in one scale choice.",
+      "score": {
+        "id": "c03",
+        "score5": 3
+      }
+    },
+    {
+      "task": "C",
+      "id": "c04",
+      "condition": "Raw",
+      "reply": "Modal interchange, also known as borrowed chords, occurs when you temporarily \"borrow\" chords from the parallel minor key (or other modes) while remaining in a major key context. This creates richer harmonic color and emotional depth by introducing chords that contain notes outside the original key signature.\n\nA classic example is borrowing the iv chord (minor four) in a major key. In C major, instead of using the diatonic IV chord (F major: F-A-C), you would borrow the iv chord from C minor, giving you F minor (F-Ab-C). The Ab note creates a distinctive, slightly melancholic sound that contrasts beautifully with the brightness of the major key. You'll hear this frequently in popular music - for instance, in the progression C - Am - F - Fm - C, where that Fm chord (iv) creates a poignant \"pull\" back to the tonic that's much stronger than the regular F major chord would provide. The Beatles used this technique extensively, such as in \"Yesterday\" and \"Michelle.\"",
+      "score": {
+        "id": "c04",
+        "score5": 5
+      }
+    },
+    {
+      "task": "C",
+      "id": "c04",
+      "condition": "+RAG",
+      "reply": "Modal interchange, also known as borrowed chords, is the practice of temporarily borrowing chords from the parallel minor key (or other parallel modes) while remaining in a major key context. This technique adds harmonic color and emotional depth by introducing chords that contain notes outside the original major key's diatonic scale.\n\nThe most common example is borrowing the iv chord (minor subdominant) from the parallel natural minor. In C major, instead of using the diatonic IV chord (F major), you borrow iv (F minor) from C natural minor. This F minor chord contains A♭, which is not in the C major scale, creating a darker, more poignant sound. The progression C - Am - Fm - G7 - C demonstrates this beautifully, where the Fm (iv) provides a melancholic contrast before resolving back through the dominant. This borrowed iv chord is particularly effective because it maintains the subdominant function while adding the emotional weight of the minor quality, making it one of the most widely used modal interchange techniques in both classical and popular music.",
+      "score": {
+        "id": "c04",
+        "score5": 5
+      }
+    },
+    {
+      "task": "C",
+      "id": "c05",
+      "condition": "Raw",
+      "reply": "A secondary dominant is a dominant seventh chord that temporarily tonicizes a chord other than the home key's tonic, creating the sound of briefly \"visiting\" a new key center. For example, V7/V (five-seven of five) is the dominant seventh chord of the dominant, which creates a strong pull toward the V chord rather than back to the original tonic. This chord functions by introducing chromatic alterations that don't belong to the home key, generating harmonic tension through the tritone interval between its third and seventh. The forward motion comes from this increased tension demanding resolution—the leading tone and chordal seventh create powerful voice-leading forces that pull toward specific notes in the target chord. This temporary departure from diatonic harmony followed by resolution creates a sense of harmonic journey and momentum, making the music feel like it's actively moving forward rather than remaining static, which is why secondary dominants are such effective tools for creating compelling chord progressions.",
+      "score": {
+        "id": "c05",
+        "score5": 5
+      }
+    },
+    {
+      "task": "C",
+      "id": "c05",
+      "condition": "+RAG",
+      "reply": "A secondary dominant is a dominant 7th chord that temporarily tonicizes (treats as a temporary tonic) a chord other than the home key's tonic. The V7/V notation means \"the dominant of the dominant\" - essentially borrowing the V7 chord from another key to create a stronger pull toward your target chord.\n\nSecondary dominants create powerful forward motion through several mechanisms: First, they establish temporary V-I relationships using the strong gravitational pull of dominant-to-tonic resolution, where the tritone between the 3rd and 7th of the dominant chord resolves by half-step motion. Second, they introduce chromatic notes from outside the diatonic scale, creating harmonic tension that demands resolution. Third, they extend the cycle of fifths progression, allowing you to chain multiple dominant resolutions together (like V7/V → V7 → I), which builds cumulative momentum. This technique essentially \"borrows\" the resolution strength from other keys while remaining anchored in your home tonality, making chord progressions feel more directed and inevitable rather than simply moving through diatonic relationships.",
+      "score": {
+        "id": "c05",
+        "score5": 5
+      }
+    },
+    {
+      "task": "C",
+      "id": "c06",
+      "condition": "Raw",
+      "reply": "Coltrane changes move by major thirds because they create a cycle that divides the octave into three equal parts (4 semitones each), allowing the harmonic progression to systematically visit all 12 chromatic tones before returning to the starting point. In \"Giant Steps,\" the three tonal centers (B, G, and Eb major) form an augmented triad, with each key area connected by dominant-tonic relationships that resolve down a fifth. This creates a rapidly shifting harmonic landscape that's difficult to improvise over because traditional scalar approaches break down—each chord change demands a different key center, leaving little time to establish melodic patterns or rely on familiar fingerings. The speed of harmonic rhythm (often two chords per measure) combined with the distant key relationships forces improvisers to think in terms of chord tones and arpeggios rather than scales, requiring exceptional technical facility and harmonic knowledge to navigate smoothly between these constantly shifting tonal centers.",
+      "score": {
+        "id": "c06",
+        "score5": 5
+      }
+    },
+    {
+      "task": "C",
+      "id": "c06",
+      "condition": "+RAG",
+      "reply": "Coltrane changes move by major thirds because they create a systematic cycle through three distant key centers that divide the octave equally. In \"Giant Steps,\" the three tonal centers (B, G, and Eb) are each a major third apart, forming an augmented triad. This creates maximum harmonic distance - each new key center shares no common tones with the previous one, forcing constant reorientation.\n\nThe difficulty in improvising comes from several factors: First, the rapid harmonic rhythm gives you only 2 beats per chord change, leaving little time to establish each new key. Second, the major third relationships eliminate familiar pivot tones or smooth voice leading that musicians typically rely on for transitions. Third, traditional scalar approaches break down because you're constantly jumping between unrelated key centers rather than moving through a single tonal area. The brain must rapidly process three different tonal contexts while maintaining melodic coherence, requiring both exceptional technical facility and deep harmonic understanding. Most effective approaches involve either arpeggiated lines that outline each chord change directly, or motivic patterns that can be quickly transposed to each new key center.",
+      "score": {
+        "id": "c06",
+        "score5": 5
+      }
+    },
+    {
+      "task": "C",
+      "id": "c07",
+      "condition": "Raw",
+      "reply": "In a major key ii-V-I, the ii chord is minor 7 (built on the 2nd degree), the V is dominant 7, and the I is major 7. For example, in C major: Dm7-G7-Cmaj7. The scales typically used are Dorian for the ii chord, Mixolydian for the V, and Ionian (major) for the I.\n\nIn a minor key ii-V-i, the ii chord is minor 7♭5 (half-diminished), the V is still dominant 7 (often with altered extensions), and the i is minor (maj7 or m6). For example, in C minor: Dm7♭5-G7-Cm(maj7). The scales are Locrian for the ii chord, and commonly harmonic minor, Phrygian dominant, or altered scales for the V chord, with natural minor, harmonic minor, or melodic minor for the i chord. The key difference is that the minor ii-V-i uses the half-diminished ii chord and resolves to a minor tonic, creating a darker, more tension-filled sound compared to the brighter major ii-V-I progression.",
+      "score": {
+        "id": "c07",
+        "score5": 5
+      }
+    },
+    {
+      "task": "C",
+      "id": "c07",
+      "condition": "+RAG",
+      "reply": "The key difference lies in the chord qualities and the underlying harmonic minor scale foundation of the minor ii-V-i.\n\nIn a **major ii-V-I** (based on the major scale): ii is a minor 7th chord, V is a dominant 7th, and I is a major 7th chord. In a **minor ii-V-i** (based on harmonic minor): ii becomes a half-diminished chord (m7♭5), V remains dominant 7th but typically includes a ♭9 tension (from the ♭6 degree of harmonic minor), and i is a minor 7th chord.\n\nFor example, in C major: Dm7 - G7 - CMaj7, while in C minor: Dm7♭5 - G7(♭9) - Cm7. The half-diminished ii chord and the ♭9 on the V7 create the characteristic dark, intense pull toward the minor resolution. Scale-wise, you'd use modes of the major scale for major ii-V-I, but for minor ii-V-i, you'd typically use harmonic minor-derived scales like Locrian ♮2 for the ii chord and altered/diminished scales emphasizing the ♭9 and ♭13 for the V chord.",
+      "score": {
+        "id": "c07",
+        "score5": 5
+      }
+    },
+    {
+      "task": "C",
+      "id": "c08",
+      "condition": "Raw",
+      "reply": "In a dominant 7th chord, the tritone interval between the 3rd and 7th creates a powerful sense of harmonic tension that demands resolution. For example, in a G7 chord (G-B-D-F), the tritone exists between B (the 3rd) and F (the 7th). This dissonant interval creates instability because the tritone divides the octave almost exactly in half, making it harmonically ambiguous. The tension resolves naturally when the chord moves to its tonic - typically, the 3rd (B) resolves upward by half-step to the root of the tonic chord (C), while the 7th (F) resolves downward by half-step to the 3rd of the tonic chord (E). This contrary motion resolution transforms the unstable tritone into the stable intervals of the tonic chord, creating the satisfying sense of harmonic arrival that defines the dominant-tonic relationship in tonal music.",
+      "score": {
+        "id": "c08",
+        "score5": 5
+      }
+    },
+    {
+      "task": "C",
+      "id": "c08",
+      "condition": "+RAG",
+      "reply": "The dominant 7th chord's characteristic tension comes from the tritone interval between its 3rd and 7th degrees. In a C7 chord, this tritone exists between E (the 3rd) and B♭ (the 7th). The tritone is the most dissonant interval in Western harmony, creating an unstable sound that demands resolution.\n\nWhen C7 resolves to F major, this tritone resolves by contrary motion: the E moves down a half-step to D (the 5th of F), while the B♭ moves up a half-step to C (the 5th of F). This smooth voice-leading creates a satisfying sense of release from tension to stability. The tritone's resolution is so fundamental that it works even when the root movement changes—which is exactly why tritone substitution functions. A♭7 can substitute for C7 because they share the same tritone (E and B♭), and this shared tritone resolves identically to F major, maintaining the same harmonic function despite the different root.",
+      "score": {
+        "id": "c08",
+        "score5": 2
+      }
+    },
+    {
+      "task": "E",
+      "id": "e01",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"Em7b5\"}",
+      "score": {
+        "id": "e01",
+        "hit": 1
+      }
+    },
+    {
+      "task": "E",
+      "id": "e01",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"Em7♭5\"}",
+      "score": {
+        "id": "e01",
+        "hit": 1
+      }
+    },
+    {
+      "task": "E",
+      "id": "e02",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"Have You Met Miss Jones의 브릿지는 장3도 하행으로 키 센터가 이동합니다. F major에서 Db major로 이동하는 구조입니다.\"}",
+      "score": {
+        "id": "e02",
+        "hit": 1
+      }
+    },
+    {
+      "task": "E",
+      "id": "e02",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"장3도 간격으로 이동합니다. B♭ → G♭ → D로 각각 장3도씩 하행하며, 이는 옥타브를 3등분하는 대칭적 구조를 만듭니다.\"}",
+      "score": {
+        "id": "e02",
+        "hit": 1
+      }
+    },
+    {
+      "task": "E",
+      "id": "e03",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"Db7\"}",
+      "score": {
+        "id": "e03",
+        "hit": 1
+      }
+    },
+    {
+      "task": "E",
+      "id": "e03",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"Db7\"}",
+      "score": {
+        "id": "e03",
+        "hit": 1
+      }
+    },
+    {
+      "task": "E",
+      "id": "e04",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"C major\"}",
+      "score": {
+        "id": "e04",
+        "hit": 1
+      }
+    },
+    {
+      "task": "E",
+      "id": "e04",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"Charlie Parker의 Yardbird Suite는 주로 C Major 키로 연주됩니다. 이 곡은 AABA 형식의 32마디 스탠다드로, C Major를 중심으로 하면서 관계조인 F Major(서브도미넌트 키)와 G Major(도미넌트 키)로의 전조가 자주 나타나는 비밥 스타일의 대표적인 곡입니다.\"}",
+      "score": {
+        "id": "e04",
+        "hit": 1
+      }
+    },
+    {
+      "task": "E",
+      "id": "e05",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"8\"}",
+      "score": {
+        "id": "e05",
+        "hit": 1
+      }
+    },
+    {
+      "task": "E",
+      "id": "e05",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"8\"}",
+      "score": {
+        "id": "e05",
+        "hit": 1
+      }
+    },
+    {
+      "task": "E",
+      "id": "e06",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"plagal cadence (플라갈 케이던스)\"}",
+      "score": {
+        "id": "e06",
+        "hit": 1
+      }
+    },
+    {
+      "task": "E",
+      "id": "e06",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"plagal cadence\"}",
+      "score": {
+        "id": "e06",
+        "hit": 1
+      }
+    },
+    {
+      "task": "E",
+      "id": "e07",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"C minor\"}",
+      "score": {
+        "id": "e07",
+        "hit": 1
+      }
+    },
+    {
+      "task": "E",
+      "id": "e07",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"C 마이너\"}",
+      "score": {
+        "id": "e07",
+        "hit": 1
+      }
+    },
+    {
+      "task": "E",
+      "id": "e08",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"G minor\"}",
+      "score": {
+        "id": "e08",
+        "hit": 1
+      }
+    },
+    {
+      "task": "E",
+      "id": "e08",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"G minor\"}",
+      "score": {
+        "id": "e08",
+        "hit": 1
+      }
+    },
+    {
+      "task": "E",
+      "id": "e09",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"4/4박자\"}",
+      "score": {
+        "id": "e09",
+        "hit": 0
+      }
+    },
+    {
+      "task": "E",
+      "id": "e09",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"4/4박자로 작곡되었습니다.\"}",
+      "score": {
+        "id": "e09",
+        "hit": 0
+      }
+    },
+    {
+      "task": "E",
+      "id": "e10",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"6도(vi)\"}",
+      "score": {
+        "id": "e10",
+        "hit": 0
+      }
+    },
+    {
+      "task": "E",
+      "id": "e10",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"2도(ii) 코드인 Ebm7로 시작한다\"}",
+      "score": {
+        "id": "e10",
+        "hit": 1
+      }
+    }
+  ]
+}

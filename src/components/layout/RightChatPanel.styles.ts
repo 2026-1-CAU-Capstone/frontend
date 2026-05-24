@@ -82,8 +82,11 @@ export const MessagesArea = styled.div`
  * negative pulls it up snug against the empty state; max-width keeps it from
  * stretching edge-to-edge on wide layouts. */
 /* Wrapper around the IntroChatInput in intro mode. Centers it horizontally
- * and caps width so it stays Claude-proportioned on wide screens. */
-export const IntroInputSlot = styled.div`
+ * and caps width so it stays Claude-proportioned on wide screens.
+ * $hideFade hides the top fade strip — pass it on the empty-state intro
+ * (nothing to fade out from above) so the input doesn't get a stray band
+ * floating over plain background. */
+export const IntroInputSlot = styled.div<{ $hideFade?: boolean }>`
   width: 100%;
   /* 메시지(max 760) 와 정확히 같은 가로 폭으로 통일. 둘 다 가운데 정렬
    *  이므로 viewport 중앙 기준 같은 컬럼에 정렬된다. */
@@ -109,9 +112,19 @@ export const IntroInputSlot = styled.div`
       ${({ theme }) => theme.colors.bgPrimary}
     );
     pointer-events: none;
+    ${({ $hideFade }) => $hideFade && 'display: none;'}
   }
 
-  /* Mobile/native: nearly edge-to-edge with a small breathing margin. */
+  /* Touch devices (iPad + iPhone): fill the available column width so the
+   * input feels generously sized next to the persistent sidebar instead of
+   * being capped at 760px. iPhones tighten padding further via the rule below. */
+  @media (hover: none), (pointer: coarse) {
+    max-width: 100%;
+    padding: 0 24px;
+  }
+
+  /* Phones: tighter side padding + suppress the top fade (no scroll-room
+   * above the input on the empty intro screen). */
   @media (max-width: 768px) {
     max-width: 100%;
     padding: 0 14px;
