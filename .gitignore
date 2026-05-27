@@ -64,3 +64,13 @@ ios/App/App/public/
 ios/App/Podfile.lock
 *.xcuserstate
 xcuserdata/
+
+# RAG corpus source — managed outside git (chroma DB holds the indexed form)
+data/explanation/
+
+# RAG raw transcripts (regen via rag/ingest_youtube.py)
+data/youtube/
+
+# Local DB backups & bak files
+rag/db.old-*/
+rag/*.bak

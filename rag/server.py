@@ -156,13 +156,18 @@ async def chat(req: ChatRequest):
 
 
 @app.get("/search")
-async def search_rag(q: str, level: int | None = None, n: int = 5):
+async def search_rag(q: str, level: int | None = None, n: int = 5, source_type: str | None = None):
     """
     직접 RAG 검색 테스트용 엔드포인트
-    예: GET /search?q=트라이톤서브&level=1&n=3
+    예: GET /search?q=트라이톤서브&level=1&n=3&source_type=standard
+
+    source_type:
+      'standard'  곡-단위 정형 분석만 (E 같은 song-grounded 질문용)
+      'lesson'    강의 트랜스크립트만 (추상 이론 질문에 유리)
+      None        제한 없음 (기본)
     """
     from retrieve import search
-    results = search(q, n_results=n, level_filter=level)
+    results = search(q, n_results=n, level_filter=level, source_type=source_type)
     return {"query": q, "results": results}
 
 

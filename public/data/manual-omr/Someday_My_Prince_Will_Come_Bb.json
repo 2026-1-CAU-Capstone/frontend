@@ -1,0 +1,387 @@
+{
+  "title": "Someday My Prince Will Come",
+  "composer": "Frank Churchill / Larry Morey",
+  "key": "Bb",
+  "timeSignature": "4/4",
+  "measures": [
+    {
+      "notes": [
+        {
+          "keys": [
+            "f/4"
+          ],
+          "duration": "h",
+          "dotted": true
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "h",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "f/4"
+          ],
+          "duration": "q",
+          "accidentals": {
+            "0": "#"
+          }
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "a/4"
+          ],
+          "duration": "h"
+        },
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "q"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "h",
+          "dotted": true
+        }
+      ]
+    },
+    {
+      "chord": "C1",
+      "notes": [
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "h",
+          "dotted": true
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "e/5"
+          ],
+          "duration": "h"
+        },
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "q"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "d/5"
+          ],
+          "duration": "h"
+        },
+        {
+          "keys": [
+            "c/5"
+          ],
+          "duration": "q"
+        }
+      ]
+    },
+    {
+      "chord": "F1",
+      "notes": [
+        {
+          "keys": [
+            "c/5"
+          ],
+          "duration": "q"
+        },
+        {
+          "keys": [
+            "d/5"
+          ],
+          "duration": "q"
+        },
+        {
+          "keys": [
+            "e/5"
+          ],
+          "duration": "q"
+        }
+      ]
+    },
+    {
+      "chord": "D-1",
+      "notes": [
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "h"
+        },
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "q"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "h"
+        },
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "q"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "h",
+          "dotted": true
+        }
+      ]
+    },
+    {
+      "chord": "F1",
+      "notes": [
+        {
+          "keys": [
+            "d/4"
+          ],
+          "duration": "q"
+        },
+        {
+          "keys": [
+            "e/4"
+          ],
+          "duration": "q"
+        },
+        {
+          "keys": [
+            "f/4"
+          ],
+          "duration": "q"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "h"
+        },
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "q"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "h"
+        },
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "q"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "h",
+          "dotted": true
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "h",
+          "dotted": true
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "q",
+          "dotted": true
+        },
+        {
+          "keys": [
+            "f/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "q"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "h"
+        },
+        {
+          "keys": [
+            "c/5"
+          ],
+          "duration": "q"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "d/4"
+          ],
+          "duration": "q"
+        },
+        {
+          "keys": [
+            "c/4"
+          ],
+          "duration": "q"
+        },
+        {
+          "keys": [
+            "d/4"
+          ],
+          "duration": "q"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "h"
+        },
+        {
+          "keys": [
+            "a/4"
+          ],
+          "duration": "q"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "h"
+        },
+        {
+          "keys": [
+            "f/4"
+          ],
+          "duration": "q"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "e/4"
+          ],
+          "duration": "h"
+        },
+        {
+          "keys": [
+            "d/4"
+          ],
+          "duration": "q"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "c/4"
+          ],
+          "duration": "h",
+          "dotted": true
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "c/4"
+          ],
+          "duration": "h",
+          "dotted": true
+        }
+      ]
+    }
+  ]
+}

@@ -4,3 +4,19 @@ fastapi>=0.115.0
 uvicorn>=0.32.0
 anthropic>=0.40.0
 python-dotenv>=1.0.0
+
+# YouTube ingest pipeline (user-authorized: @easyonejazz channel content the
+# project owner has rights to). yt-dlp pulls audio; mlx-whisper runs local
+# Whisper inference on Apple Silicon. Both opt-in — chunk/embed steps below
+# work without them when the youtube data folder is empty.
+yt-dlp>=2026.3.0
+# Whisper backend. mlx-whisper was the original plan (GPU-accelerated on Apple
+# Silicon) but its model fetch hangs on HF Hub unauthenticated rate limits;
+# faster-whisper-small (Systran/faster-whisper-small) ships pre-cached and
+# runs on CPU with CTranslate2 — slower but reliable and adequate for jazz
+# pedagogy RAG. Both libs are kept so an HF_TOKEN user can switch to large-v3.
+mlx-whisper>=0.4.0
+faster-whisper>=1.0.0
+# Optional accelerator for HF downloads (parallel chunks) — declared so an
+# HF_TOKEN-authenticated upgrade to large-v3 stays one env-var away.
+hf_transfer>=0.1.9

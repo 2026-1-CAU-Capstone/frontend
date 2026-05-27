@@ -1,0 +1,619 @@
+{
+  "title": "Crazy Race",
+  "composer": "",
+  "key": "Gb",
+  "timeSignature": "4/4",
+  "measures": [
+    {
+      "notes": [
+        {
+          "keys": [
+            "f/5"
+          ],
+          "duration": "16"
+        },
+        {
+          "keys": [
+            "d/5"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "f/4"
+          ],
+          "duration": "16"
+        },
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "16",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "16",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "d/5"
+          ],
+          "duration": "16",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "e/5"
+          ],
+          "duration": "16",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "f/5"
+          ],
+          "duration": "8",
+          "dotted": true
+        },
+        {
+          "keys": [
+            "f/5"
+          ],
+          "duration": "16"
+        },
+        {
+          "keys": [
+            "e/5"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "c/5"
+          ],
+          "duration": "16"
+        },
+        {
+          "keys": [
+            "e/5"
+          ],
+          "duration": "16",
+          "accidentals": {
+            "0": "b"
+          }
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "e/5"
+          ],
+          "duration": "q",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "b/5"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "a/5"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "a/5"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "g/5"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "g/5"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "g/5"
+          ],
+          "duration": "q",
+          "accidentals": {
+            "0": "b"
+          }
+        }
+      ]
+    },
+    {
+      "chord": "Gbmaj7  Eb  E  Fmin7",
+      "notes": [
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "hr"
+        },
+        {
+          "keys": [
+            "f/4"
+          ],
+          "duration": "16"
+        },
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "16",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "16",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "d/5"
+          ],
+          "duration": "16",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "e/5"
+          ],
+          "duration": "16",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "f/5"
+          ],
+          "duration": "8",
+          "dotted": true
+        },
+        {
+          "keys": [
+            "f/5"
+          ],
+          "duration": "16"
+        },
+        {
+          "keys": [
+            "e/5"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "c/5"
+          ],
+          "duration": "16"
+        },
+        {
+          "keys": [
+            "e/5"
+          ],
+          "duration": "16",
+          "accidentals": {
+            "0": "b"
+          }
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "e/5"
+          ],
+          "duration": "q",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "b/5"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "a/5"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "a/5"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "g/5"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "g/5"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "g/5"
+          ],
+          "duration": "q",
+          "accidentals": {
+            "0": "b"
+          }
+        }
+      ]
+    },
+    {
+      "chord": "Gbmaj7  Eb  E  Fmin7",
+      "notes": [
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "hr"
+        },
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "8r"
+        },
+        {
+          "keys": [
+            "f/4"
+          ],
+          "duration": "16"
+        },
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "16",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "16",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "d/5"
+          ],
+          "duration": "16",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "e/5"
+          ],
+          "duration": "16",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "f/5"
+          ],
+          "duration": "8",
+          "dotted": true
+        },
+        {
+          "keys": [
+            "f/5"
+          ],
+          "duration": "16"
+        },
+        {
+          "keys": [
+            "e/5"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "c/5"
+          ],
+          "duration": "16"
+        },
+        {
+          "keys": [
+            "e/5"
+          ],
+          "duration": "16",
+          "accidentals": {
+            "0": "b"
+          }
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "e/5"
+          ],
+          "duration": "q",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "b/5"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "a/5"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "a/5"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "g/5"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "g/5"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "g/5"
+          ],
+          "duration": "q",
+          "accidentals": {
+            "0": "b"
+          }
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "hr"
+        },
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "8r"
+        },
+        {
+          "keys": [
+            "f/4"
+          ],
+          "duration": "16"
+        },
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "16",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "16",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "d/5"
+          ],
+          "duration": "16",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "e/5"
+          ],
+          "duration": "16",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "f/5"
+          ],
+          "duration": "8",
+          "dotted": true
+        },
+        {
+          "keys": [
+            "f/5"
+          ],
+          "duration": "16"
+        },
+        {
+          "keys": [
+            "e/5"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "c/5"
+          ],
+          "duration": "16"
+        },
+        {
+          "keys": [
+            "e/5"
+          ],
+          "duration": "16",
+          "accidentals": {
+            "0": "b"
+          }
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "e/5"
+          ],
+          "duration": "q",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "b/5"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "a/5"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "a/5"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "g/5"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "g/5"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "g/5"
+          ],
+          "duration": "q",
+          "accidentals": {
+            "0": "b"
+          }
+        }
+      ]
+    }
+  ]
+}

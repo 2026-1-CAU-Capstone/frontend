@@ -100,15 +100,24 @@ async function judge(system, user) {
   return { json: extractJson(reply) || {}, raw: reply };
 }
 
-async function retrieve(query) {
+/** HarmoRAG GET /search → joined chunk text (title + instruction + response).
+ *  Honors RAG_N + minScore (override or global RAG_MIN_SCORE).
+ *  Per-task minScore (passed in) lets abstract-theory tasks demand a strong
+ *  match (e.g. 0.75) while song-grounded tasks accept moderate ones (~0.55).
+ *  Returning null when nothing passes lets the model fall back to its own
+ *  knowledge instead of being misled by a barely-relevant chunk. */
+async function retrieve(query, minScoreOverride, sourceType) {
   if (!RAG_BASE) return null;
-  const url = `${RAG_BASE}/search?q=${encodeURIComponent(query)}&n=${RAG_N}`;
+  const params = new URLSearchParams({ q: query, n: String(RAG_N) });
+  if (sourceType) params.set('source_type', sourceType);
+  const url = `${RAG_BASE}/search?${params.toString()}`;
   const res = await fetch(url, { headers: RAG_TOKEN ? { authorization: `Bearer ${RAG_TOKEN}` } : {} });
   if (!res.ok) throw new Error(`/search ${res.status}`);
   const data = await res.json();
   let results = data.results ?? data.chunks ?? [];
-  if (RAG_MIN_SCORE > 0) {
-    results = results.filter((r) => (typeof r === 'object' && r != null && typeof r.score === 'number') ? r.score >= RAG_MIN_SCORE : true);
+  const minScore = typeof minScoreOverride === 'number' ? minScoreOverride : RAG_MIN_SCORE;
+  if (minScore > 0) {
+    results = results.filter((r) => (typeof r === 'object' && r != null && typeof r.score === 'number') ? r.score >= minScore : true);
   }
   const texts = results.map((r) => (typeof r === 'string' ? r : [r.title, r.instruction, r.response].filter(Boolean).join(' — ')));
   return texts.length ? texts.filter(Boolean).join('\n---\n') : null;
@@ -161,6 +170,7 @@ async function judgeC(item, answer) {
 const TASKS = {
   A: {
     name: 'A · 구조 분석', gold: () => loadGold('structural.json'), maxTokens: 700,
+    minScore: 0.70,    // chord-string queries; only confident lesson matches
     system: 'You are a precise jazz harmony analyst. Answer with STRICT JSON only.',
     ragQuery: (it) => `jazz harmony: ${it.chords.join(' ')} — key, ii-V-I, Roman numerals`,
     ruleCtx: (it) => it.ruleContext,
@@ -174,6 +184,8 @@ const TASKS = {
   },
   B: {
     name: 'B · 이론 팩트', gold: () => loadGold('theory.json'), maxTokens: 200,
+    minScore: 0.65,    // theory facts — lesson chunks score higher than standards on abstract questions
+    sourceType: 'lesson',  // restrict to lesson transcripts (theory-heavy; standard chunks are song-specific)
     system: 'You are a precise jazz theory tutor. Answer with STRICT JSON only.',
     ragQuery: (it) => it.q,
     ruleCtx: () => RULE_PREAMBLE_THEORY,
@@ -183,6 +195,8 @@ const TASKS = {
   },
   C: {
     name: 'C · 설명 (LLM-judge)', gold: () => loadGold('explanatory.json'), maxTokens: 400,
+    minScore: 0.65,
+    sourceType: 'lesson',
     system: 'You are a knowledgeable jazz theory teacher. Explain clearly and accurately in a short paragraph.',
     ragQuery: (it) => it.q,
     ruleCtx: () => RULE_PREAMBLE_THEORY,
@@ -200,7 +214,15 @@ const TASKS = {
     score: (pred, item) => judgeD(item, pred.answer), aggregate: aggregateHallucination, card: hallucinationCardMarkdown,
   },
   E: {
+    /* Song-specific factual questions whose answers ARE in the RAG corpus.
+     * Designed to test whether RAG helps when the corpus actually covers the
+     * question (vs. B/C where the corpus has zero coverage of abstract theory
+     * definitions). If RAG can't help here either, the pipeline itself is
+     * broken; if it does help, the original B/C drop is a corpus/question
+     * mismatch, not a logic bug. */
     name: 'E · 곡-grounded 단답', gold: () => loadGold('song-grounded.json'), maxTokens: 150,
+    minScore: 0.50,        // song-grounded; lower threshold since lessons no longer compete
+    sourceType: 'standard',// restrict to song-specific standard chunks
     system: 'You are a precise jazz theory tutor. Answer in Korean with STRICT JSON only.',
     ragQuery: (it) => it.q,
     ruleCtx: () => RULE_PREAMBLE_THEORY,
@@ -242,7 +264,10 @@ async function main() {
     catch (e) { console.warn(`RAG unreachable (${e.message}) — +Rule+RAG will degrade to +Rule.`); }
   }
 
-  const ragSuffix = ragLive ? ` (n=${RAG_N}${RAG_MIN_SCORE > 0 ? `, min_score=${RAG_MIN_SCORE}` : ''})` : '';
+  const taskMinScores = Object.entries(TASKS)
+    .filter(([id]) => ids.includes(id))
+    .map(([id, t]) => `${id}=${t.minScore ?? RAG_MIN_SCORE}`).join(', ');
+  const ragSuffix = ragLive ? ` (n=${RAG_N}${RAG_MIN_SCORE > 0 ? `, min_score=${RAG_MIN_SCORE}` : ''}; per-task: ${taskMinScores})` : '';
   const modelsLabel = MODELS.map((m) => `${m.id}=\`${m.model}\``).join('  ·  ');
   let report = `# Jazzify 벤치마크 결과 (multi-model)\n\n- models: ${modelsLabel}\n- judge: \`${JUDGE_MODEL}\`\n- RAG: ${ragLive ? 'on' : 'off'}${ragSuffix}\n- timestamp: ${new Date().toISOString()}\n\n`;
   const allResponses = [];
@@ -267,8 +292,9 @@ async function main() {
       let ragCtx = null;
       if (ragLive) {
         const q = task.ragQuery(item);
-        if (!ragCache.has(q)) ragCache.set(q, await retrieve(q).catch(() => null));
-        ragCtx = ragCache.get(q);
+        const cacheKey = `${task.sourceType || ''}|${q}`;
+        if (!ragCache.has(cacheKey)) ragCache.set(cacheKey, await retrieve(q, task.minScore, task.sourceType).catch(() => null));
+        ragCtx = ragCache.get(cacheKey);
       }
       for (const cell of cells) {
         const ruleCtx = cell.rule ? task.ruleCtx?.(item) : null;

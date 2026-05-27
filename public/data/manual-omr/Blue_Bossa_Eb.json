@@ -1,0 +1,348 @@
+{
+  "title": "Blue Bossa",
+  "composer": "Kenny Dorham",
+  "key": "Eb",
+  "timeSignature": "4/4",
+  "measures": [
+    {
+      "notes": [
+        {
+          "keys": [
+            "b/3"
+          ],
+          "duration": "q",
+          "accidentals": {
+            "0": "b"
+          },
+          "dotted": true
+        },
+        {
+          "keys": [
+            "a/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "g/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "f/3"
+          ],
+          "duration": "q"
+        },
+        {
+          "keys": [
+            "e/3"
+          ],
+          "duration": "8"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "e/3"
+          ],
+          "duration": "h",
+          "dotted": true
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "c/3"
+          ],
+          "duration": "h"
+        },
+        {
+          "keys": [
+            "b/3"
+          ],
+          "duration": "q",
+          "dotted": true
+        },
+        {
+          "keys": [
+            "a/3"
+          ],
+          "duration": "8"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "wr"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "a/3"
+          ],
+          "duration": "q",
+          "dotted": true
+        },
+        {
+          "keys": [
+            "f/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "d/3"
+          ],
+          "duration": "8"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "d/3"
+          ],
+          "duration": "h",
+          "dotted": true
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "b/2"
+          ],
+          "duration": "h"
+        },
+        {
+          "keys": [
+            "f/5"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "e/5"
+          ],
+          "duration": "8"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/3"
+          ],
+          "duration": "w"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "f/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "d/3"
+          ],
+          "duration": "q"
+        },
+        {
+          "keys": [
+            "c/3"
+          ],
+          "duration": "8"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "c/3"
+          ],
+          "duration": "h",
+          "dotted": true
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "b/2"
+          ],
+          "duration": "q",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "a/2"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "d/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "d/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "a/2"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "c/3"
+          ],
+          "duration": "q"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "wr"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "a/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "q"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "a/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "q",
+          "dotted": true
+        },
+        {
+          "keys": [
+            "a/4"
+          ],
+          "duration": "8"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "w"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "h",
+          "dotted": true
+        },
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "8"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "wr"
+        }
+      ]
+    }
+  ]
+}

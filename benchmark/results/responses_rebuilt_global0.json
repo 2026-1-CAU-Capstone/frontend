@@ -1,0 +1,605 @@
+{
+  "model": "claude-sonnet-4-20250514",
+  "responses": [
+    {
+      "task": "B",
+      "id": "b01",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"Db7\"}",
+      "score": {
+        "id": "b01",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b01",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"Db7\"}",
+      "score": {
+        "id": "b01",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b02",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"C minor\"}",
+      "score": {
+        "id": "b02",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b02",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"C minor\"}",
+      "score": {
+        "id": "b02",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b03",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"C altered scale (C Db Eb E Gb Ab Bb)\"}",
+      "score": {
+        "id": "b03",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b03",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"C altered scale (C Db Eb E Gb Ab Bb)\"}",
+      "score": {
+        "id": "b03",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b04",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"C, E, G, B\"}",
+      "score": {
+        "id": "b04",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b04",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"C, E, G, B\"}",
+      "score": {
+        "id": "b04",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b05",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"A7 (A-C#-E-G)\"}",
+      "score": {
+        "id": "b05",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b05",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"A7\"}",
+      "score": {
+        "id": "b05",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b06",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"G#\"}",
+      "score": {
+        "id": "b06",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b06",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"G#\"}",
+      "score": {
+        "id": "b06",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b07",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"Mixolydian\"}",
+      "score": {
+        "id": "b07",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b07",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"Mixolydian\"}",
+      "score": {
+        "id": "b07",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b08",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"G7\"}",
+      "score": {
+        "id": "b08",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b08",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"G7\"}",
+      "score": {
+        "id": "b08",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b09",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"C major\"}",
+      "score": {
+        "id": "b09",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b09",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"C major\"}",
+      "score": {
+        "id": "b09",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b10",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"Locrian mode (7th mode of major scale)\"}",
+      "score": {
+        "id": "b10",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b10",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"Locrian mode (7th mode of major scale)\"}",
+      "score": {
+        "id": "b10",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b11",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"Cm7 (C-Eb-G-Bb)\"}",
+      "score": {
+        "id": "b11",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b11",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"Cm7\"}",
+      "score": {
+        "id": "b11",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b12",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"F#\"}",
+      "score": {
+        "id": "b12",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b12",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"F#\"}",
+      "score": {
+        "id": "b12",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b13",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"The 7th mode of the melodic minor scale is the altered (super Locrian) scale\"}",
+      "score": {
+        "id": "b13",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b13",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"The 7th mode of the melodic minor scale is the altered (super Locrian) scale\"}",
+      "score": {
+        "id": "b13",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b14",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"4th mode\"}",
+      "score": {
+        "id": "b14",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b14",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"The Lydian dominant scale is the 4th mode of the melodic minor scale\"}",
+      "score": {
+        "id": "b14",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b15",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"F# major triad\"}",
+      "score": {
+        "id": "b15",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b15",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"F# major triad\"}",
+      "score": {
+        "id": "b15",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b16",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"A7 altered scale (or harmonic minor scale from the target key)\"}",
+      "score": {
+        "id": "b16",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b16",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"A7 altered scale (5th mode of Bb melodic minor) or A harmonic minor scale (5th mode of D harmonic minor)\"}",
+      "score": {
+        "id": "b16",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b17",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"Bb7 - the bVII7 chord that resolves to Cmaj7 through smooth voice leading, with the Bb moving down to A and F moving down to E\"}",
+      "score": {
+        "id": "b17",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b17",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"Bb7 - the bVII7 chord that resolves to Cmaj7 through smooth voice leading, with the Bb moving down to A and F moving down to E\"}",
+      "score": {
+        "id": "b17",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b18",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"Octatonic scale (diminished scale) - specifically the half-whole diminished scale starting with a half step\"}",
+      "score": {
+        "id": "b18",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b18",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"Octatonic scale (diminished scale) - specifically the half-whole diminished scale starting with a half step\"}",
+      "score": {
+        "id": "b18",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b19",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"Eb minor\"}",
+      "score": {
+        "id": "b19",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b19",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"Eb minor\"}",
+      "score": {
+        "id": "b19",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b20",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"C minor\"}",
+      "score": {
+        "id": "b20",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b20",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"C minor\"}",
+      "score": {
+        "id": "b20",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b21",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"Phrygian dominant\"}",
+      "score": {
+        "id": "b21",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b21",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"Phrygian dominant (or Phrygian ♮3)\"}",
+      "score": {
+        "id": "b21",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b22",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"The 6th mode (Aeolian b5 or Locrian natural 2)\"}",
+      "score": {
+        "id": "b22",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b22",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"The 6th mode (Aeolian b5 or Locrian natural 2)\"}",
+      "score": {
+        "id": "b22",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b23",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"D7\"}",
+      "score": {
+        "id": "b23",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b23",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"D7\"}",
+      "score": {
+        "id": "b23",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b24",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"Bmaj7\"}",
+      "score": {
+        "id": "b24",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b24",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"Bmaj7\"}",
+      "score": {
+        "id": "b24",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b25",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"D♭\"}",
+      "score": {
+        "id": "b25",
+        "hit": 0
+      }
+    },
+    {
+      "task": "B",
+      "id": "b25",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"D♭\"}",
+      "score": {
+        "id": "b25",
+        "hit": 0
+      }
+    },
+    {
+      "task": "B",
+      "id": "b26",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"3rd mode\"}",
+      "score": {
+        "id": "b26",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b26",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"The Lydian augmented scale is the third mode of the melodic minor scale\"}",
+      "score": {
+        "id": "b26",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b27",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"B# (the seventh degree of C# harmonic minor)\"}",
+      "score": {
+        "id": "b27",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b27",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"B# (the seventh degree of C# harmonic minor)\"}",
+      "score": {
+        "id": "b27",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b28",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"B7\"}",
+      "score": {
+        "id": "b28",
+        "hit": 0
+      }
+    },
+    {
+      "task": "B",
+      "id": "b28",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"B7\"}",
+      "score": {
+        "id": "b28",
+        "hit": 0
+      }
+    },
+    {
+      "task": "B",
+      "id": "b29",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"Cm7 - F7 - BbMaj7\"}",
+      "score": {
+        "id": "b29",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b29",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"Cm7 → F7 → BbMaj7\"}",
+      "score": {
+        "id": "b29",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b30",
+      "condition": "Raw",
+      "reply": "{\"answer\":\"4th degree (F)\"}",
+      "score": {
+        "id": "b30",
+        "hit": 1
+      }
+    },
+    {
+      "task": "B",
+      "id": "b30",
+      "condition": "+RAG",
+      "reply": "{\"answer\":\"4th degree (F)\"}",
+      "score": {
+        "id": "b30",
+        "hit": 1
+      }
+    }
+  ]
+}

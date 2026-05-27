@@ -1,0 +1,1312 @@
+{
+  "title": "Take The A Train",
+  "composer": "Billy Strayhorn",
+  "key": "C",
+  "timeSignature": "4/4",
+  "measures": [
+    {
+      "notes": [
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "8r"
+        },
+        {
+          "keys": [
+            "e/6"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "e/6"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "d/6"
+          ],
+          "duration": "32"
+        },
+        {
+          "keys": [
+            "c/6"
+          ],
+          "duration": "32"
+        },
+        {
+          "keys": [
+            "b/5"
+          ],
+          "duration": "16",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "a/5"
+          ],
+          "duration": "h",
+          "accidentals": {
+            "0": "b"
+          }
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "e/6"
+          ],
+          "duration": "q"
+        },
+        {
+          "keys": [
+            "e/6"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "d/6"
+          ],
+          "duration": "16"
+        },
+        {
+          "keys": [
+            "c/6"
+          ],
+          "duration": "16"
+        },
+        {
+          "keys": [
+            "b/5"
+          ],
+          "duration": "16",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "a/5"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "a/6"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "qr"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "8r"
+        },
+        {
+          "keys": [
+            "e/6"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "e/6"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "d/6"
+          ],
+          "duration": "16"
+        },
+        {
+          "keys": [
+            "c/6"
+          ],
+          "duration": "16"
+        },
+        {
+          "keys": [
+            "b/5"
+          ],
+          "duration": "16",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "a/5"
+          ],
+          "duration": "q",
+          "accidentals": {
+            "0": "b"
+          }
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "e/6"
+          ],
+          "duration": "q"
+        },
+        {
+          "keys": [
+            "e/6"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "d/6"
+          ],
+          "duration": "32"
+        },
+        {
+          "keys": [
+            "c/6"
+          ],
+          "duration": "32"
+        },
+        {
+          "keys": [
+            "b/5"
+          ],
+          "duration": "32",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "a/5"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "a/6"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "qr"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "8r"
+        },
+        {
+          "keys": [
+            "g/3"
+          ],
+          "duration": "q",
+          "dotted": true
+        },
+        {
+          "keys": [
+            "g/3"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/3"
+          ],
+          "duration": "w"
+        },
+        {
+          "keys": [
+            "g/3"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "g/3"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "qr"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "8r"
+        },
+        {
+          "keys": [
+            "g/3"
+          ],
+          "duration": "q",
+          "dotted": true
+        },
+        {
+          "keys": [
+            "g/3"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "e/4"
+          ],
+          "duration": "w"
+        },
+        {
+          "keys": [
+            "g/3"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "g/3"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "8"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "w"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "e/5"
+          ],
+          "duration": "q",
+          "dotted": true
+        },
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "q"
+        },
+        {
+          "keys": [
+            "c/5"
+          ],
+          "duration": "q"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "e/5"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "#"
+          }
+        },
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "w",
+          "accidentals": {
+            "0": "#"
+          },
+          "dotted": true
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "w",
+          "accidentals": {
+            "0": "#"
+          }
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "c/3"
+          ],
+          "duration": "w"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "c/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "c/3"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "#"
+          }
+        },
+        {
+          "keys": [
+            "d/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "g/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "b/2"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "b/2"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "a/2"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "f/3"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "e/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "g/2"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "g/2"
+          ],
+          "duration": "w",
+          "dotted": true
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/2"
+          ],
+          "duration": "w"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "w"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "e/5"
+          ],
+          "duration": "q",
+          "dotted": true
+        },
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "q"
+        },
+        {
+          "keys": [
+            "c/5"
+          ],
+          "duration": "q"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "e/5"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "#"
+          }
+        },
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "w",
+          "accidentals": {
+            "0": "#"
+          },
+          "dotted": true
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "w",
+          "accidentals": {
+            "0": "#"
+          }
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "c/3"
+          ],
+          "duration": "w"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "c/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "c/3"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "#"
+          }
+        },
+        {
+          "keys": [
+            "d/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "g/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "b/2"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "b/2"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "a/2"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "f/3"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "e/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "g/2"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "g/2"
+          ],
+          "duration": "h",
+          "dotted": true
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/2"
+          ],
+          "duration": "w"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "b/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "d/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "d/4"
+          ],
+          "duration": "q",
+          "dotted": true
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "f/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "g/3"
+          ],
+          "duration": "q",
+          "dotted": true
+        },
+        {
+          "keys": [
+            "b/3"
+          ],
+          "duration": "q"
+        },
+        {
+          "keys": [
+            "d/4"
+          ],
+          "duration": "q"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "f/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "b/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "b/3"
+          ],
+          "duration": "h",
+          "dotted": true
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "b/3"
+          ],
+          "duration": "w"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "b/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "b/3"
+          ],
+          "duration": "h",
+          "dotted": true
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "d/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "e/3"
+          ],
+          "duration": "q",
+          "accidentals": {
+            "0": "#"
+          },
+          "dotted": true
+        },
+        {
+          "keys": [
+            "g/3"
+          ],
+          "duration": "q"
+        },
+        {
+          "keys": [
+            "b/3"
+          ],
+          "duration": "q"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "d/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "g/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "g/3"
+          ],
+          "duration": "w",
+          "dotted": true
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/3"
+          ],
+          "duration": "w"
+        },
+        {
+          "keys": [
+            "a/3"
+          ],
+          "duration": "w",
+          "accidentals": {
+            "0": "b"
+          }
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "e/5"
+          ],
+          "duration": "q",
+          "dotted": true
+        },
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "q"
+        },
+        {
+          "keys": [
+            "c/5"
+          ],
+          "duration": "q"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "e/5"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "#"
+          }
+        },
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "w",
+          "accidentals": {
+            "0": "#"
+          },
+          "dotted": true
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "w",
+          "accidentals": {
+            "0": "#"
+          }
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "b/3"
+          ],
+          "duration": "w"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "b/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "b/3"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "#"
+          }
+        },
+        {
+          "keys": [
+            "c/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "f/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "a/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "a/3"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "g/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "e/4"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "d/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "f/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "f/3"
+          ],
+          "duration": "w",
+          "dotted": true
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "f/3"
+          ],
+          "duration": "w"
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "c/5"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "e/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "e/4"
+          ],
+          "duration": "h",
+          "dotted": true
+        },
+        {
+          "keys": [
+            "f/3"
+          ],
+          "duration": "q"
+        },
+        {
+          "keys": [
+            "f/3"
+          ],
+          "duration": "q",
+          "accidentals": {
+            "0": "#"
+          }
+        }
+      ]
+    },
+    {
+      "chord": "Cm",
+      "notes": [
+        {
+          "keys": [
+            "g/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "a/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "b/3"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "c/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "qr"
+        },
+        {
+          "keys": [
+            "c/3"
+          ],
+          "duration": "q"
+        }
+      ]
+    },
+    {
+      "chord": "C6",
+      "notes": [
+        {
+          "keys": [
+            "c/4"
+          ],
+          "duration": "q",
+          "dotted": true
+        },
+        {
+          "keys": [
+            "d/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "e/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "f/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "8r"
+        },
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "8"
+        }
+      ]
+    },
+    {
+      "chord": "C  E7  Am7",
+      "notes": [
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "8r"
+        },
+        {
+          "keys": [
+            "a/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "8r"
+        },
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "c/5"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "c/5"
+          ],
+          "duration": "q",
+          "dotted": true
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "d/5"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "d/5"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "c/5"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "b/4"
+          ],
+          "duration": "8",
+          "accidentals": {
+            "0": "b"
+          }
+        },
+        {
+          "keys": [
+            "a/4"
+          ],
+          "duration": "8"
+        },
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "h",
+          "accidentals": {
+            "0": "#"
+          }
+        }
+      ]
+    },
+    {
+      "notes": [
+        {
+          "keys": [
+            "g/4"
+          ],
+          "duration": "w",
+          "accidentals": {
+            "0": "#"
+          }
+        }
+      ]
+    }
+  ]
+}

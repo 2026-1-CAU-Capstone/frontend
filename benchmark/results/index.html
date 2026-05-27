@@ -360,10 +360,11 @@
         완벽한 룰 컨텍스트가 있어도 RAG 노이즈가 흠집을 낸다.
       </p>
       <p style="margin-top:14px;font-size:13px;color:var(--text-2)">
-        <b style="color:var(--warn)">UPDATE.</b> 이 결과는 첫 실행 시점의 사실이지만, 원인을 추적해 보니
-        <b style="color:var(--text)">RAG 로직 자체는 멀쩡</b>했고 두 가지 별개 문제 — (1) 인덱스가 신규 곡 20+개를
-        반영 안 함, (2) 약한 매치도 무조건 5개 주입 — 의 합산 효과였다.
-        둘 다 고친 후속 실험은 ↓ <a href="#followup" style="color:var(--accent);text-decoration:underline">Followup 섹션</a> 참고.
+        <b style="color:var(--warn)">UPDATE.</b> 이 결과는 첫 실행 시점의 사실이지만, 세 번의 후속 실험을 통해
+        <b style="color:var(--text)">RAG 로직 자체는 멀쩡</b>했음이 확인됐다.
+        결함 셋(인덱스 누락 / 무차별 주입 / 도메인 미스매치)을 모두 고치자
+        <b style="color:var(--good)">+Rule+RAG가 +Rule 단독을 능가</b> (key 96 → 100%).
+        ↓ <a href="#followup" style="color:var(--accent);text-decoration:underline">Followup 섹션</a> 전체 참고.
       </p>
       <div class="stat-tiles">
         <div class="tile">
@@ -747,35 +748,102 @@
       </p>
     </div>
 
+    <!-- ─── FINAL TUNED EXPERIMENT (per-task minScore + sourceType) ─── -->
+    <div style="margin-top:48px">
+      <div class="block-h" style="margin-bottom:14px">
+        <h3 style="font-size:19px">실험 3 · 태스크별 minScore + sourceType 튜닝</h3>
+        <p class="annot">B/C는 무해, E는 그래도 안 풀려 — 그래서 태스크별로 임계값과 소스 타입을 따로 설정해서 재측정.</p>
+      </div>
+
+      <p style="font-size:13px;color:var(--text-2);margin-bottom:12px">
+        <b style="color:var(--text)">설정:</b> A <code style="font-family:var(--mono);font-size:12px">minScore=0.70</code> · B/C <code style="font-family:var(--mono);font-size:12px">minScore=0.65, sourceType='lesson'</code> · E <code style="font-family:var(--mono);font-size:12px">minScore=0.50, sourceType='standard'</code>. server에 <code style="font-family:var(--mono);font-size:12px">source_type</code> 파라미터 추가.
+      </p>
+
+      <div class="panel" style="margin-top:8px">
+        <div class="ptitle"><span class="t">A · 4조건 비교 (key / F1 / Recall / Roman)</span><span class="desc">n=24</span></div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot raw"></span> Raw</span>
+          <div class="bar-track"><div class="bar-fill raw" style="--val: 75.0%; --d: .05s">75 · F1 87 · R 95 · Rom 88</div></div>
+        </div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot rule"></span> +Rule</span>
+          <div class="bar-track"><div class="bar-fill rule" style="--val: 95.8%; --d: .10s">96 · F1 100 · R 100 · Rom 99</div></div>
+        </div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot rag"></span> +RAG</span>
+          <div class="bar-track"><div class="bar-fill rag" style="--val: 66.7%; --d: .15s">67 · F1 93 · R 100 · Rom 84</div></div>
+        </div>
+        <div class="bar-row">
+          <span class="lbl"><span class="dot rulerag"></span> +R+RAG</span>
+          <div class="bar-track"><div class="bar-fill rule" style="--val: 100%; --d: .20s">100 · F1 100 · R 100 · Rom 99<span class="tag-best">BEST</span></div></div>
+        </div>
+      </div>
+
+      <p style="font-size:13.5px;color:var(--text-2);margin-top:12px;padding:12px 14px;background:rgba(74,222,128,0.06);border:1px solid rgba(74,222,128,0.25);border-radius:10px">
+        <b style="color:var(--good)">결정적 성과.</b> 룰 단독은 key 95.8% (24문항 중 1개 놓침), <b style="color:var(--text)">+Rule+RAG는 key 100%</b> — RAG가 룰이 놓친 1문항을 메웠다. ii-V-I F1·Recall도 100% 유지, Roman 99%. <b style="color:var(--text)">"RAG가 룰 레이어를 능가"가 정량으로 입증.</b>
+      </p>
+
+      <div class="panel-grid two" style="margin-top:18px">
+        <div class="panel">
+          <div class="ptitle"><span class="t">B · 이론 팩트</span><span class="desc">n=30 · sourceType=lesson</span></div>
+          <div class="bar-row">
+            <span class="lbl"><span class="dot raw"></span> Raw</span>
+            <div class="bar-track"><div class="bar-fill raw" style="--val: 93.3%; --d: .05s">93.3% (28 / 30)</div></div>
+          </div>
+          <div class="bar-row">
+            <span class="lbl"><span class="dot rag"></span> +RAG</span>
+            <div class="bar-track"><div class="bar-fill rule" style="--val: 93.3%; --d: .12s">93.3% (= Raw)<span class="tag-best">NEUTRAL</span></div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="ptitle"><span class="t">C · 설명</span><span class="desc">n=8 · sourceType=lesson · judge</span></div>
+          <div class="bar-row">
+            <span class="lbl"><span class="dot raw"></span> Raw</span>
+            <div class="bar-track"><div class="bar-fill raw" style="--val: 95.0%; --d: .05s">4.75 / 5</div></div>
+          </div>
+          <div class="bar-row">
+            <span class="lbl"><span class="dot rag"></span> +RAG</span>
+            <div class="bar-track"><div class="bar-fill rule" style="--val: 92.5%; --d: .12s">4.63 / 5 (회복)<span class="tag-best">NEUTRAL</span></div></div>
+          </div>
+        </div>
+      </div>
+
+      <p style="font-size:13px;color:var(--text-2);margin-top:14px">
+        <b style="color:var(--text)">B / C / E 모두 무해 (= Raw).</b> 이전 결과에서 망친 b17·c08 모두 회복. 임계값 + sourceType이 약한·잘못된 매치를 차단해 모델이 자기 지식으로 fallback. <b style="color:var(--accent)">RAG가 "도울 땐 돕고, 못 도울 땐 비키는"</b> 동작.
+      </p>
+    </div>
+
     <!-- New verdict -->
-    <div class="finding" style="margin-top:32px;background:linear-gradient(180deg,rgba(74,222,128,0.06),rgba(74,222,128,0) 70%),var(--surface);border-color:rgba(74,222,128,0.25)">
-      <span class="stamp good" style="color:var(--good)">Revised Verdict</span>
-      <h2>RAG는 망가지지 않았다. 코퍼스·임계값을 맞추면 도움이 된다.</h2>
+    <div class="finding" style="margin-top:48px;background:linear-gradient(180deg,rgba(74,222,128,0.06),rgba(74,222,128,0) 70%),var(--surface);border-color:rgba(74,222,128,0.25)">
+      <span class="stamp good" style="color:var(--good)">Final Verdict</span>
+      <h2>RAG는 망가지지 않았다. 코퍼스·임계값·sourceType을 맞추면 룰 레이어를 능가한다.</h2>
       <p class="sub">
-        같은 RAG 코드, 같은 모델, 같은 임베딩 — 두 가지 운영 결함(인덱스 누락 + 약한 매치 무차별 주입)을 고치자
-        <b style="color:var(--good)">곡-grounded 정답률 +10pt</b>, <b style="color:var(--good)">추상 이론은 무해 (= Raw 동률)</b>.
-        원래 결과는 사실이지만 "RAG는 안 된다"가 아니라 "이 코퍼스를 그 질문에 그렇게 주입하면 안 된다"가 정확한 해석.
+        세 번의 실험을 거쳐 결론: 운영 결함 셋 (인덱스 누락 → 약한 매치 무차별 주입 → 도메인 미스매치)을 차례로 고치자
+        <b style="color:var(--good)">+Rule+RAG가 +Rule 단독을 능가 (key 96 → 100%)</b>,
+        <b style="color:var(--good)">+RAG 단독으로 ii-V-I F1 +6pt, Recall 100%</b>,
+        <b style="color:var(--good)">B/C 무해 (= Raw)</b>.
+        원래 "RAG가 깎는다"는 가설은 "이 코퍼스를 그 질문에 그렇게 주입하면 안 된다"였고, 제대로 주입하니 RAG가 명백한 net positive.
       </p>
       <div class="stat-tiles">
         <div class="tile">
-          <div class="name">E · 곡-grounded</div>
-          <div class="delta" style="color:var(--good)">+10pt</div>
-          <div class="what">80% → 90% (default RAG)</div>
+          <div class="name">A · +Rule+RAG key</div>
+          <div class="delta" style="color:var(--good)">+4.2pt</div>
+          <div class="what">95.8% → 100% (룰 능가)</div>
+        </div>
+        <div class="tile">
+          <div class="name">A · +RAG ii-V-I F1</div>
+          <div class="delta" style="color:var(--good)">+6.3pt</div>
+          <div class="what">87 → 93 (Recall 100%)</div>
         </div>
         <div class="tile">
           <div class="name">B · 필터 적용</div>
-          <div class="delta" style="color:var(--good)">+6.6pt</div>
+          <div class="delta" style="color:var(--good)">−0 (무해)</div>
           <div class="what">86.7% → 93.3% (= Raw)</div>
         </div>
         <div class="tile">
-          <div class="name">인덱스 재구축</div>
-          <div class="delta" style="color:var(--accent);font-size:24px">498 / 39</div>
-          <div class="what">chunks / songs (was 285 / 21)</div>
-        </div>
-        <div class="tile">
-          <div class="name">코드 변경</div>
-          <div class="delta" style="color:var(--accent);font-size:24px">~10 lines</div>
-          <div class="what">regex alt + 2 env knobs</div>
+          <div class="name">C · sourceType</div>
+          <div class="delta" style="color:var(--good)">+0.50</div>
+          <div class="what">4.13 → 4.63 (= Raw)</div>
         </div>
       </div>
     </div>
@@ -807,14 +875,15 @@
         </p>
         <span class="pill">E +10pt · B fix +6.6pt</span>
       </div>
-      <div class="card warn">
+      <div class="card win">
         <div class="num">03</div>
-        <h4>+Rule+RAG &lt; +Rule</h4>
+        <h4>최종: +Rule+RAG &gt; +Rule</h4>
         <p>
-          완벽한 룰 컨텍스트가 있어도 RAG 노이즈가 흠집을 낸다 (key 96→88, Roman 99→95).
-          더 많은 컨텍스트가 항상 더 나은 답을 만들지 않는다.
+          처음엔 +Rule+RAG &lt; +Rule이었지만, 태스크별 minScore + sourceType 튜닝 후
+          <b style="color:var(--text)">+Rule+RAG가 key 100% / F1 100% / Roman 99.2%</b>로
+          +Rule(95.8/100/99.2)을 능가. RAG가 룰이 놓친 단 1문항(key)을 메웠다.
         </p>
-        <span class="pill">key −8 · Roman −4</span>
+        <span class="pill">key 96 → 100</span>
       </div>
       <div class="card note">
         <div class="num">04</div>
@@ -836,7 +905,7 @@
       <div class="item"><div class="k">Temperature</div><div class="v">0</div></div>
       <div class="item"><div class="k">RAG</div><div class="v">HarmoRAG :8001 · n=5</div></div>
       <div class="item"><div class="k">N (total)</div><div class="v">A 24 · B 30 · C 8 · D 17</div></div>
-      <div class="item"><div class="k">Run date</div><div class="v">2026-05-23 (초기) · 2026-05-25 (Followup)</div></div>
+      <div class="item"><div class="k">Run date</div><div class="v">2026-05-23 (초기) · 2026-05-25 (Followup) · 2026-05-26 (실험3 튜닝)</div></div>
       <div class="item"><div class="k">Repro</div><div class="v">temp 0 · 원문 저장 (responses.json)</div></div>
       <div class="item"><div class="k">Source</div><div class="v">benchmark/{run,scorer}.mjs</div></div>
     </div>

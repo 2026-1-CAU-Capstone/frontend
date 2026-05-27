@@ -18,7 +18,7 @@ import { useAutoHighlight } from '../hooks/useAutoHighlight';
 import { sampleMelody } from '../data/sampleMelody';
 import type { NoteSheetData, MeasureInfo, NoteInfo } from '../data/sampleMelody';
 import type { ChordOverlay } from '../data/types';
-import { noteSongs, externalSongs, manualSongs } from '../data/noteSongs';
+import { noteSongs, externalSongs, manualSongs, leadsheetSongs } from '../data/noteSongs';
 import type { SongGroup } from '../data/noteSongs';
 import { loadMidiMelody } from '../lib/note/midiMelodyParser';
 import { loadXmlMelody, loadMxlMelody } from '../lib/note/xmlMelodyParser';
@@ -619,7 +619,9 @@ export default function NotePage() {
 
   const filteredSongs = useMemo(() => {
     if (songGroup === '__sample__') return [];
-    return songGroup === 'manual' ? manualSongs : externalSongs;
+    if (songGroup === 'manual') return manualSongs;
+    if (songGroup === 'leadsheet') return leadsheetSongs;
+    return externalSongs;
   }, [songGroup]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -844,13 +846,16 @@ export default function NotePage() {
                   setSongGroup(g);
                   if (g === '__sample__') setSongId(SAMPLE_ID);
                   else {
-                    const list = g === 'manual' ? manualSongs : externalSongs;
+                    const list = g === 'manual' ? manualSongs
+                      : g === 'leadsheet' ? leadsheetSongs
+                      : externalSongs;
                     if (list.length > 0) setSongId(list[0].id);
                   }
                 }}
               >
                 <option value="__sample__">Sample</option>
                 <option value="manual">Manual</option>
+                <option value="leadsheet">Lead Sheet</option>
                 <option value="external">External</option>
               </SongSelect>
               {songGroup !== '__sample__' && (

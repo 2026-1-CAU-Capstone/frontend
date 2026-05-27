@@ -23,7 +23,14 @@ from typing import Iterable
 DATA_ROOT = "../data/explanation"
 STANDARDS_DIR = os.path.join(DATA_ROOT, "standards")
 LESSONS_DIR = os.path.join(DATA_ROOT, "lessons")
+EOJ_DIR = os.path.join(DATA_ROOT, "이지원재즈")
+YOUTUBE_ROOT = "../data/youtube"  # per-channel subdirs with transcripts/*.json
 OUTPUT_FILE = "chunks/chunks.json"
+
+# Target chunk length for YouTube transcripts. ~150 words ≈ 1 min of speech;
+# big enough to carry a full thought, small enough that retrieval can pin
+# the relevant passage rather than dump a whole lesson at the LLM.
+YOUTUBE_CHUNK_CHARS = 1200
 
 # 곡별 메타데이터 (standards/*.txt 파일명 → 토픽 태그)
 TOPIC_TAGS = {
@@ -187,6 +194,106 @@ def chunk_standards(dir_path: str) -> list[dict]:
     return chunks
 
 
+def chunk_youtube(root_dir: str) -> list[dict]:
+    """YouTube transcript JSONs (produced by ingest_youtube.py).
+
+    Layout: <root_dir>/<channel>/transcripts/<video_id>.json
+    Each video is sliced into ~YOUTUBE_CHUNK_CHARS-sized windows snapped to
+    Whisper-segment boundaries, so chunks always start/end on speech pauses
+    and never split a sentence. We preserve start/end timestamps so the
+    retriever can return a deep-link URL (?t=NN) pointing at the exact moment.
+    """
+    if not os.path.isdir(root_dir):
+        return []
+    chunks: list[dict] = []
+    for channel in sorted(os.listdir(root_dir)):
+        if channel == "easyonejazz":
+            continue  # handled via explanation/이지원재즈/*.txt (chunk_eoj)
+        tdir = os.path.join(root_dir, channel, "transcripts")
+        if not os.path.isdir(tdir):
+            continue
+        for fname in sorted(os.listdir(tdir)):
+            if not fname.endswith(".json"):
+                continue
+            with open(os.path.join(tdir, fname), encoding="utf-8") as f:
+                doc = json.load(f)
+            segments = doc.get("segments") or []
+            if not segments:
+                # Whisper sometimes returns text-only on very short clips;
+                # fall back to a single chunk using the full text.
+                full = (doc.get("text") or "").strip()
+                if not full:
+                    print(f"  SKIP (empty transcript): {channel}/{fname}")
+                    continue
+                segments = [{"start": 0.0,
+                             "end": doc.get("duration", 0.0),
+                             "text": full}]
+
+            video_id = doc.get("video_id") or fname[:-5]
+            title = doc.get("title", "")
+            base_url = doc.get("url") or f"https://www.youtube.com/watch?v={video_id}"
+
+            # Greedy pack: fill the current chunk until adding the next segment
+            # would exceed YOUTUBE_CHUNK_CHARS, then flush.
+            buf: list[dict] = []
+            buf_len = 0
+            chunk_idx = 0
+
+            def flush():
+                nonlocal buf, buf_len, chunk_idx
+                if not buf: return
+                start = float(buf[0]["start"])
+                end = float(buf[-1]["end"])
+                text = " ".join(s["text"].strip() for s in buf if s.get("text"))
+                if not text.strip():
+                    buf = []; buf_len = 0
+                    return
+                ts = int(start)
+                deep_url = f"{base_url}&t={ts}s"
+                header_bits = [f"YouTube: {channel}"]
+                if title: header_bits.append(title)
+                header_bits.append(f"@{ts // 60}:{ts % 60:02d}")
+                header = f"[{' · '.join(header_bits)}]"
+                chunks.append({
+                    "id":           f"youtube__{channel}__{video_id}__{chunk_idx:03d}",
+                    "source_type":  "youtube",
+                    "song":         "",
+                    "key":          "",
+                    # Reuse `source` for the channel + video title — retrieval
+                    # already filters/groups by this field for lessons.
+                    "source":       f"{channel} · {title}".strip(" ·"),
+                    "analyzed_songs": "",
+                    "level":        1,
+                    "section_id":   f"00-{chunk_idx}",
+                    "title":        f"{title} @{ts // 60}:{ts % 60:02d}",
+                    "instruction":  "",
+                    "response":     text,
+                    "embed_text":   f"{header}\n{text}",
+                    "topic_tags":   [],
+                    "file":         video_id,
+                    # YouTube-specific extras (read by 2_embed.py if present).
+                    "video_id":     video_id,
+                    "video_url":    deep_url,
+                    "channel":      channel,
+                    "start_sec":    round(start, 2),
+                    "end_sec":      round(end, 2),
+                })
+                chunk_idx += 1
+                buf = []; buf_len = 0
+
+            for seg in segments:
+                seg_text = (seg.get("text") or "").strip()
+                if not seg_text:
+                    continue
+                seg_len = len(seg_text) + 1
+                if buf and buf_len + seg_len > YOUTUBE_CHUNK_CHARS:
+                    flush()
+                buf.append(seg); buf_len += seg_len
+            flush()
+            print(f"  youtube/{channel}/{fname}: {chunk_idx}개 청크")
+    return chunks
+
+
 def chunk_lessons(dir_path: str) -> list[dict]:
     """강의 트랜스크립트 (lessons/). `analyzed_songs` 메타에서 곡 목록 추출."""
     chunks = []
@@ -220,6 +327,103 @@ def chunk_lessons(dir_path: str) -> list[dict]:
     return chunks
 
 
+
+EOJ_CHUNK_CHARS = 1200
+EOJ_FILENAME_RE = re.compile(r"\[([A-Za-z0-9_-]{6,15})\]\.txt$")
+
+
+def chunk_eoj(dir_path: str) -> list[dict]:
+    """explanation/이지원재즈/*.txt → youtube chunks.
+
+    Body split into ~EOJ_CHUNK_CHARS sentence-aligned windows. No segment
+    timestamps (the source txt is plain text), so the chunk URL points to
+    the video without &t=.
+    """
+    if not os.path.isdir(dir_path):
+        return []
+    chunks: list[dict] = []
+    for fname in sorted(os.listdir(dir_path)):
+        if not fname.endswith(".txt"):
+            continue
+        with open(os.path.join(dir_path, fname), encoding="utf-8") as f:
+            raw = f.read()
+
+        header = {}
+        body_lines = []
+        for ln in raw.splitlines():
+            if ln.startswith("# "):
+                header["title"] = ln[2:].strip()
+            elif ln.startswith("channel:"):
+                header["channel"] = ln.split(":", 1)[1].strip()
+            elif ln.startswith("url:"):
+                header["url"] = ln.split(":", 1)[1].strip()
+            elif ln.startswith("duration:"):
+                header["duration"] = ln.split(":", 1)[1].strip()
+            elif ln.startswith("language:"):
+                header["language"] = ln.split(":", 1)[1].strip()
+            else:
+                body_lines.append(ln)
+        body = "\n".join(body_lines).strip()
+        if not body:
+            print(f"  SKIP (empty body): 이지원재즈/{fname}")
+            continue
+
+        title = header.get("title", fname[:-4])
+        channel = header.get("channel", "easyonejazz") or "easyonejazz"
+        url = header.get("url", "")
+        m = EOJ_FILENAME_RE.search(fname)
+        video_id = m.group(1) if m else fname[:-4]
+
+        sents = re.split(r"(?<=[.!?\n])\s+", body)
+        sents = [s.strip() for s in sents if s.strip()]
+        buf = []
+        buf_len = 0
+        chunk_idx = 0
+
+        def flush():
+            nonlocal buf, buf_len, chunk_idx
+            if not buf:
+                return
+            text = " ".join(buf).strip()
+            if not text:
+                buf = []; buf_len = 0; return
+            header_bits = [f"YouTube: {channel}"]
+            if title: header_bits.append(title)
+            hdr = f"[{' · '.join(header_bits)}]"
+            chunks.append({
+                "id":           f"youtube__{channel}__{video_id}__{chunk_idx:03d}",
+                "source_type":  "youtube",
+                "song":         "",
+                "key":          "",
+                "source":       f"{channel} · {title}".strip(" ·"),
+                "analyzed_songs": "",
+                "level":        1,
+                "section_id":   f"00-{chunk_idx}",
+                "title":        title,
+                "instruction":  "",
+                "response":     text,
+                "embed_text":   f"{hdr}\n{text}",
+                "topic_tags":   [],
+                "file":         video_id,
+                "video_id":     video_id,
+                "video_url":    url,
+                "channel":      channel,
+                "start_sec":    0.0,
+                "end_sec":      0.0,
+            })
+            chunk_idx += 1
+            buf = []; buf_len = 0
+
+        for s in sents:
+            sl = len(s) + 1
+            if buf and buf_len + sl > EOJ_CHUNK_CHARS:
+                flush()
+            buf.append(s); buf_len += sl
+        flush()
+        print(f"  이지원재즈/{fname}: {chunk_idx}개 청크")
+    return chunks
+
+
 def main():
     os.makedirs("chunks", exist_ok=True)
     all_chunks: list[dict] = []
@@ -233,6 +437,16 @@ def main():
         all_chunks.extend(chunk_lessons(LESSONS_DIR))
     else:
         print(f"  (no folder) {LESSONS_DIR}")
+
+    if os.path.isdir(EOJ_DIR):
+        all_chunks.extend(chunk_eoj(EOJ_DIR))
+    else:
+        print(f"  (no folder) {EOJ_DIR}")
+
+    if os.path.isdir(YOUTUBE_ROOT):
+        all_chunks.extend(chunk_youtube(YOUTUBE_ROOT))
+    else:
+        print(f"  (no folder) {YOUTUBE_ROOT}")
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(all_chunks, f, ensure_ascii=False, indent=2)

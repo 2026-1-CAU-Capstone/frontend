@@ -78,6 +78,14 @@ def main():
                 "response":       c["response"][:1000],
                 "topic_tags":     ",".join(c["topic_tags"]),
                 "file":           c["file"],
+                # YouTube-only extras (omitted/empty for standard/lesson chunks).
+                # Stored so the retriever can build a deep-link URL into the
+                # exact moment a passage starts.
+                "video_id":       c.get("video_id", ""),
+                "video_url":      c.get("video_url", ""),
+                "channel":        c.get("channel", ""),
+                "start_sec":      c.get("start_sec", 0.0),
+                "end_sec":        c.get("end_sec", 0.0),
             } for c in batch_chunks],
         )
         print(f"   배치 {i//batch_size + 1}: {len(batch_chunks)}개 저장")
