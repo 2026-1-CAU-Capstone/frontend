@@ -277,24 +277,32 @@ async function main() {
         try { reply = await anthropic(cell.model, task.system, user, task.maxTokens); }
         catch (e) { console.error(`${item.id}/${cell.label}: ${e.message}`); }
         const pred = task.parse(reply);
-        const s = await task.score(pred, item);
-        scoresByLabel[cell.label].push(s);
+        /* Wrap score() — it may invoke the LLM judge which can fail. Treat
+         * a judge failure as "skip this score" rather than abort the run. */
+        let s = null;
+        try { s = await task.score(pred, item); }
+        catch (e) { console.error(`${item.id}/${cell.label} score/judge: ${e.message}`); }
+        if (s) scoresByLabel[cell.label].push(s);
         allResponses.push({ task: id, id: item.id, model: cell.modelId, condition: cell.condName, label: cell.label, reply, score: s });
       }
       process.stdout.write('.');
     }
     process.stdout.write('\n');
 
+    /* Incremental persistence: write after every task so a later crash
+     * doesn't lose hours of earlier work. */
+    mkdirSync(join(HERE, 'results'), { recursive: true });
+    writeFileSync(join(HERE, 'results', 'responses.json'), JSON.stringify({
+      models: MODELS, judge: JUDGE_MODEL, rag: { enabled: ragLive, base: RAG_BASE, n: RAG_N, min_score: RAG_MIN_SCORE },
+      timestamp: new Date().toISOString(), responses: allResponses,
+    }, null, 2));
+
     const byLabel = Object.fromEntries(cells.map((x) => [x.label, task.aggregate(scoresByLabel[x.label])]));
     report += `## ${task.name}  (n=${gold.items.length})\n\n${task.card(byLabel)}\n`;
   }
 
-  mkdirSync(join(HERE, 'results'), { recursive: true });
+  /* responses.json was written incrementally above; only scorecard.md left. */
   writeFileSync(join(HERE, 'results', 'scorecard.md'), report);
-  writeFileSync(join(HERE, 'results', 'responses.json'), JSON.stringify({
-    models: MODELS, judge: JUDGE_MODEL, rag: { enabled: ragLive, base: RAG_BASE, n: RAG_N, min_score: RAG_MIN_SCORE },
-    timestamp: new Date().toISOString(), responses: allResponses,
-  }, null, 2));
   console.log('\n' + report);
   console.log('→ benchmark/results/scorecard.md , responses.json');
 }
