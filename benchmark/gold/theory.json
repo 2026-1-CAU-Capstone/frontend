@@ -1,36 +1,417 @@
 {
   "task": "theory-facts",
-  "description": "Objective jazz-theory questions with a checkable short answer. Model answers JSON {\"answer\":\"...\"}; scored by normalized match against accept[].",
+  "description": "Objective jazz-theory questions with a checkable short answer. Model answers JSON {\"answer\":\"...\"}; scored by normalized match against accept[]. (b31~ are former F items: external music-theory YouTube benchmark)",
   "items": [
-    { "id": "b01", "q": "What is the tritone substitute of G7?", "accept": ["Db7", "C#7"] },
-    { "id": "b02", "q": "What is the relative minor of Eb major?", "accept": ["C minor", "Cm", "Cmin"] },
-    { "id": "b03", "q": "Which scale is most commonly played over a C7alt (altered dominant) chord?", "accept": ["altered scale", "super locrian", "superlocrian", "diminished whole tone", "altered"] },
-    { "id": "b04", "q": "What are the four notes of a Cmaj7 chord (root position)?", "accept": ["C E G B", "CEGB"] },
-    { "id": "b05", "q": "What is the V7 chord in the key of D minor?", "accept": ["A7"] },
-    { "id": "b06", "q": "In a Dmaj7#11 chord, which note is the #11?", "accept": ["G#", "Ab"] },
-    { "id": "b07", "q": "What is the name of the 5th mode of the major scale?", "accept": ["Mixolydian"] },
-    { "id": "b08", "q": "Name the dominant 7th chord a tritone away from Db7.", "accept": ["G7"] },
-    { "id": "b09", "q": "What is the relative major of A minor?", "accept": ["C major", "Cmaj", "C"] },
-    { "id": "b10", "q": "Which mode/scale fits a half-diminished (m7b5) chord?", "accept": ["Locrian"] },
-    { "id": "b11", "q": "What is the ii chord (ii-7) in the key of Bb major?", "accept": ["Cm7", "Cmin7", "Cm"] },
-    { "id": "b12", "q": "What is the enharmonic equivalent of Gb?", "accept": ["F#"] },
-    { "id": "b13", "q": "Which mode of the melodic minor scale is the 'altered' (super Locrian) scale?", "accept": ["7th mode", "seventh mode", "7"] },
-    { "id": "b14", "q": "The Lydian dominant scale is which mode of the melodic minor scale?", "accept": ["4th mode", "fourth mode", "4"] },
-    { "id": "b15", "q": "Name the upper-structure triad that gives a 7#11 sound when played over a C7 chord (which major triad on which root).", "accept": ["D major", "D", "Dmaj"] },
-    { "id": "b16", "q": "In a minor ii-V-i, the V7 chord typically uses which scale (over e.g. A7 to Dm)?", "accept": ["altered", "harmonic minor", "phrygian dominant", "hmp5b", "harmonic minor perfect 5th below"] },
-    { "id": "b17", "q": "What is the 'backdoor' dominant chord that resolves to Cmaj7?", "accept": ["Bb7"] },
-    { "id": "b18", "q": "Which collection (scale) do you use over a fully diminished 7th chord, e.g. C°7?", "accept": ["whole half diminished", "diminished scale", "whole-half", "octatonic", "half-whole"] },
-    { "id": "b19", "q": "What is the relative minor of Gb major?", "accept": ["Eb minor", "Ebm", "Ebmin", "D# minor", "D#m"] },
-    { "id": "b20", "q": "A Dm7b5 is the iiø7 in which minor key?", "accept": ["C minor", "Cm", "Cmin"] },
-    { "id": "b21", "q": "What is the name of the 5th mode of the harmonic minor scale?", "accept": ["Phrygian dominant", "Phrygian major", "Spanish Phrygian"] },
-    { "id": "b22", "q": "Which mode of the melodic minor scale is the half-diminished scale (Locrian natural 2)?", "accept": ["6th mode", "sixth mode"] },
-    { "id": "b23", "q": "In Bb 'rhythm changes', the bridge is a cycle of dominant 7ths. Name the first chord of the bridge.", "accept": ["D7"] },
-    { "id": "b24", "q": "What is the first chord of John Coltrane's 'Giant Steps'?", "accept": ["Bmaj7", "B major", "B"] },
-    { "id": "b25", "q": "Barry Harris's major 6th-diminished scale on C adds which note to the C major scale?", "accept": ["Ab", "G#"] },
-    { "id": "b26", "q": "The Lydian augmented scale is which mode of the melodic minor scale?", "accept": ["3rd mode", "third mode"] },
-    { "id": "b27", "q": "What is the leading tone in the key of C# harmonic minor?", "accept": ["B#"] },
-    { "id": "b28", "q": "What is the tritone substitute for the V7 chord in the key of F major?", "accept": ["Gb7", "F#7"] },
-    { "id": "b29", "q": "In 'Autumn Leaves' (G minor), the A section opens with a ii-V-I in Bb major. Give the three chords.", "accept": ["Cm7 F7 Bbmaj7", "Cm7F7Bbmaj7"] },
-    { "id": "b30", "q": "Which scale degree is the 'avoid note' when playing the C major (Ionian) scale over a Cmaj7 chord?", "accept": ["4th", "fourth", "11th", "F"] }
+    {
+      "id": "b01",
+      "q": "What is the tritone substitute of G7?",
+      "accept": [
+        "Db7",
+        "C#7"
+      ]
+    },
+    {
+      "id": "b02",
+      "q": "What is the relative minor of Eb major?",
+      "accept": [
+        "C minor",
+        "Cm",
+        "Cmin"
+      ]
+    },
+    {
+      "id": "b03",
+      "q": "Which scale is most commonly played over a C7alt (altered dominant) chord?",
+      "accept": [
+        "altered scale",
+        "super locrian",
+        "superlocrian",
+        "diminished whole tone",
+        "altered"
+      ]
+    },
+    {
+      "id": "b04",
+      "q": "What are the four notes of a Cmaj7 chord (root position)?",
+      "accept": [
+        "C E G B",
+        "CEGB"
+      ]
+    },
+    {
+      "id": "b05",
+      "q": "What is the V7 chord in the key of D minor?",
+      "accept": [
+        "A7"
+      ]
+    },
+    {
+      "id": "b06",
+      "q": "In a Dmaj7#11 chord, which note is the #11?",
+      "accept": [
+        "G#",
+        "Ab"
+      ]
+    },
+    {
+      "id": "b07",
+      "q": "What is the name of the 5th mode of the major scale?",
+      "accept": [
+        "Mixolydian"
+      ]
+    },
+    {
+      "id": "b08",
+      "q": "Name the dominant 7th chord a tritone away from Db7.",
+      "accept": [
+        "G7"
+      ]
+    },
+    {
+      "id": "b09",
+      "q": "What is the relative major of A minor?",
+      "accept": [
+        "C major",
+        "Cmaj",
+        "C"
+      ]
+    },
+    {
+      "id": "b10",
+      "q": "Which mode/scale fits a half-diminished (m7b5) chord?",
+      "accept": [
+        "Locrian"
+      ]
+    },
+    {
+      "id": "b11",
+      "q": "What is the ii chord (ii-7) in the key of Bb major?",
+      "accept": [
+        "Cm7",
+        "Cmin7",
+        "Cm"
+      ]
+    },
+    {
+      "id": "b12",
+      "q": "What is the enharmonic equivalent of Gb?",
+      "accept": [
+        "F#"
+      ]
+    },
+    {
+      "id": "b13",
+      "q": "Which mode of the melodic minor scale is the 'altered' (super Locrian) scale?",
+      "accept": [
+        "7th mode",
+        "seventh mode",
+        "7"
+      ]
+    },
+    {
+      "id": "b14",
+      "q": "The Lydian dominant scale is which mode of the melodic minor scale?",
+      "accept": [
+        "4th mode",
+        "fourth mode",
+        "4"
+      ]
+    },
+    {
+      "id": "b15",
+      "q": "Name the upper-structure triad that gives a 7#11 sound when played over a C7 chord (which major triad on which root).",
+      "accept": [
+        "D major",
+        "D",
+        "Dmaj"
+      ]
+    },
+    {
+      "id": "b16",
+      "q": "In a minor ii-V-i, the V7 chord typically uses which scale (over e.g. A7 to Dm)?",
+      "accept": [
+        "altered",
+        "harmonic minor",
+        "phrygian dominant",
+        "hmp5b",
+        "harmonic minor perfect 5th below"
+      ]
+    },
+    {
+      "id": "b17",
+      "q": "What is the 'backdoor' dominant chord that resolves to Cmaj7?",
+      "accept": [
+        "Bb7"
+      ]
+    },
+    {
+      "id": "b18",
+      "q": "Which collection (scale) do you use over a fully diminished 7th chord, e.g. C°7?",
+      "accept": [
+        "whole half diminished",
+        "diminished scale",
+        "whole-half",
+        "octatonic",
+        "half-whole"
+      ]
+    },
+    {
+      "id": "b19",
+      "q": "What is the relative minor of Gb major?",
+      "accept": [
+        "Eb minor",
+        "Ebm",
+        "Ebmin",
+        "D# minor",
+        "D#m"
+      ]
+    },
+    {
+      "id": "b20",
+      "q": "A Dm7b5 is the iiø7 in which minor key?",
+      "accept": [
+        "C minor",
+        "Cm",
+        "Cmin"
+      ]
+    },
+    {
+      "id": "b21",
+      "q": "What is the name of the 5th mode of the harmonic minor scale?",
+      "accept": [
+        "Phrygian dominant",
+        "Phrygian major",
+        "Spanish Phrygian"
+      ]
+    },
+    {
+      "id": "b22",
+      "q": "Which mode of the melodic minor scale is the half-diminished scale (Locrian natural 2)?",
+      "accept": [
+        "6th mode",
+        "sixth mode"
+      ]
+    },
+    {
+      "id": "b23",
+      "q": "In Bb 'rhythm changes', the bridge is a cycle of dominant 7ths. Name the first chord of the bridge.",
+      "accept": [
+        "D7"
+      ]
+    },
+    {
+      "id": "b24",
+      "q": "What is the first chord of John Coltrane's 'Giant Steps'?",
+      "accept": [
+        "Bmaj7",
+        "B major",
+        "B"
+      ]
+    },
+    {
+      "id": "b25",
+      "q": "Barry Harris's major 6th-diminished scale on C adds which note to the C major scale?",
+      "accept": [
+        "Ab",
+        "G#"
+      ]
+    },
+    {
+      "id": "b26",
+      "q": "The Lydian augmented scale is which mode of the melodic minor scale?",
+      "accept": [
+        "3rd mode",
+        "third mode"
+      ]
+    },
+    {
+      "id": "b27",
+      "q": "What is the leading tone in the key of C# harmonic minor?",
+      "accept": [
+        "B#"
+      ]
+    },
+    {
+      "id": "b28",
+      "q": "What is the tritone substitute for the V7 chord in the key of F major?",
+      "accept": [
+        "Gb7",
+        "F#7"
+      ]
+    },
+    {
+      "id": "b29",
+      "q": "In 'Autumn Leaves' (G minor), the A section opens with a ii-V-I in Bb major. Give the three chords.",
+      "accept": [
+        "Cm7 F7 Bbmaj7",
+        "Cm7F7Bbmaj7"
+      ]
+    },
+    {
+      "id": "b30",
+      "q": "Which scale degree is the 'avoid note' when playing the C major (Ionian) scale over a Cmaj7 chord?",
+      "accept": [
+        "4th",
+        "fourth",
+        "11th",
+        "F"
+      ]
+    },
+    {
+      "id": "f01",
+      "q": "A triad is made of the notes G#, C#, and E. What is the root and quality of this chord? (Give root + quality.)",
+      "accept": [
+        "C# minor",
+        "C#minor",
+        "C#m",
+        "C#min",
+        "Csharp minor",
+        "C-sharp minor"
+      ]
+    },
+    {
+      "id": "f02",
+      "q": "The notes Bb, F, D, and A form a chord. Analyze it in Roman numerals in the context of F major (use the full Roman numeral with quality).",
+      "accept": [
+        "IVmaj7",
+        "IV7",
+        "IV△7",
+        "IVΔ7",
+        "IV maj 7",
+        "IV M7",
+        "BbMaj7",
+        "Bbmaj7"
+      ]
+    },
+    {
+      "id": "f03",
+      "q": "In the key of E major, what is the full name of the seventh chord built on the third scale degree?",
+      "accept": [
+        "G# minor 7",
+        "G#m7",
+        "G#min7",
+        "G#-7",
+        "G sharp minor 7",
+        "Gsharp minor 7",
+        "Gsharpm7"
+      ]
+    },
+    {
+      "id": "f04",
+      "q": "Of the seven modes of the major scale (Ionian, Dorian, Phrygian, Lydian, Mixolydian, Aeolian, Locrian), which ones contain a minor 7th interval relative to the tonic? List all that qualify.",
+      "accept": [
+        "Dorian, Phrygian, Mixolydian, Aeolian, Locrian",
+        "Dorian Phrygian Mixolydian Aeolian Locrian",
+        "Dorian, Phrygian, Mixolydian, Aeolian, and Locrian"
+      ]
+    },
+    {
+      "id": "f05",
+      "q": "A progression in Bb major is: Bb → G7 → C7 → F. What is the harmonic function of the G7 chord, expressed in Roman numerals?",
+      "accept": [
+        "V7/ii",
+        "V/ii",
+        "V7 of ii",
+        "five of two",
+        "V/2",
+        "V7/2",
+        "V(7)/ii"
+      ]
+    },
+    {
+      "id": "f06",
+      "q": "The notes B, G, F, and A appear together as a chord in F major. Identify the chord (full name) and its harmonic function.",
+      "accept": [
+        "V9/V",
+        "V/V",
+        "V7/V",
+        "five of five",
+        "G9",
+        "G9(no 5)",
+        "G9 no 5th",
+        "G dominant 9"
+      ]
+    },
+    {
+      "id": "f07",
+      "q": "In the key of E major, the chord G#7 resolves DECEPTIVELY. To which chord does it resolve? (Answer with the chord name.)",
+      "accept": [
+        "A major",
+        "Amaj7",
+        "A maj7",
+        "Amajor",
+        "Amajor7",
+        "IV major"
+      ]
+    },
+    {
+      "id": "f08",
+      "q": "The notes A, D, C, F#, and Eb appear together as a chord in the key of Eb major. Identify the chord (full name) and its function in Roman numerals.",
+      "accept": [
+        "V7b9/iii",
+        "V7♭9/iii",
+        "V/iii",
+        "D7b9",
+        "D7♭9",
+        "five seven flat nine of three",
+        "V7(b9)/iii"
+      ]
+    },
+    {
+      "id": "f09",
+      "q": "A scale is spelled: G, A, Bb, C#, D, E, F. Identify this scale by name (or as a mode of a parent scale).",
+      "accept": [
+        "4th mode of D harmonic minor",
+        "fourth mode of D harmonic minor",
+        "Ukrainian Dorian",
+        "Romanian minor",
+        "Mi sheberach",
+        "4th mode harmonic minor"
+      ]
+    },
+    {
+      "id": "f10",
+      "q": "What is the hidden harmonic function behind the diminished chord G#, F, D, B in the key of E minor? Express it in Roman numerals.",
+      "accept": [
+        "vii°7/IV",
+        "viio7/IV",
+        "vii dim7/IV",
+        "vii diminished 7/IV",
+        "V7b9/IV",
+        "V/IV",
+        "V7/IV",
+        "vii°/IV"
+      ]
+    },
+    {
+      "id": "f11",
+      "q": "In a piece in Ab major, an E7 chord appears. Explain a possible harmonic function of this chord (use a standard theory name or a Roman-numeral analysis).",
+      "accept": [
+        "German sixth",
+        "German 6",
+        "Ger+6",
+        "augmented sixth",
+        "sub V7/V",
+        "subV/V",
+        "tritone substitute of Bb7",
+        "tritone sub for V",
+        "V/N",
+        "V of Neapolitan",
+        "V7/N"
+      ]
+    },
+    {
+      "id": "f14",
+      "q": "Suppose Ebm7 is the ii chord in Db major. Provide a V–I resolution that uses a TRITONE SUBSTITUTION for the V chord — give the three chord symbols ii → subV → I.",
+      "accept": [
+        "Ebm7 D7 Dbmaj7",
+        "Ebm7-D7-Dbmaj7",
+        "Ebm7 → D7 → Dbmaj7",
+        "Ebm7, D7, Dbmaj7",
+        "D7 Dbmaj7",
+        "D7-Dbmaj7",
+        "D7 to Dbmaj7"
+      ]
+    }
   ]
 }

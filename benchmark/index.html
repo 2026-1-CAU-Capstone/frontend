@@ -1,0 +1,2299 @@
+<!doctype html>
+<html lang="ko"><head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Jazzify 벤치마크 · 결과</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<style>
+:root {
+  --gold: #D4A843; --gold-dark: #B8860B; --ink: #13110D; --ink-soft: #2A2620;
+  --teal: #163239; --cream: #F8F5EF; --cream-card: #FFFFFF; --line: #E7E0D4;
+  --muted: #6e6a62; --ok: #2D8F5E; --bad: #C45C5C;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: var(--ink); background: var(--cream); letter-spacing: -0.01em;
+  line-height: 1.5; }
+code, pre { font-family: 'JetBrains Mono', 'Menlo', Consolas, monospace; font-size: 12.5px; }
+pre { margin: 0; }
+a { color: var(--gold-dark); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.wrap { max-width: 1100px; margin: 0 auto; padding: 40px 28px 80px; }
+header { border-bottom: 1px solid var(--line); padding-bottom: 24px; margin-bottom: 28px; }
+header h1 { margin: 0 0 6px; font-size: 32px; font-weight: 800; letter-spacing: -0.025em; }
+header .sub { color: var(--muted); font-size: 14.5px; }
+header .sub code { color: var(--ink); background: rgba(0,0,0,0.04); padding: 2px 7px; border-radius: 5px; }
+
+h2 { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; margin: 40px 0 12px; padding-top: 8px; border-top: 1px solid var(--line); }
+h2 .small { font-weight: 600; color: var(--muted); font-size: 14px; margin-left: 8px; }
+h3 { font-size: 16px; font-weight: 700; margin: 28px 0 10px; }
+
+table { width: 100%; border-collapse: collapse; }
+.summary table, .agg table { background: var(--cream-card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.summary th, .summary td, .agg th, .agg td { padding: 9px 14px; font-size: 14px; text-align: left; }
+.summary thead th, .agg thead th { background: rgba(0,0,0,0.03); font-weight: 700; color: var(--ink-soft); border-bottom: 1px solid var(--line); }
+.summary tbody tr + tr td, .agg tbody tr + tr th, .agg tbody tr + tr td { border-top: 1px solid var(--line); }
+.agg { margin-bottom: 14px; }
+
+details.item { background: var(--cream-card); border: 1px solid var(--line); border-radius: 10px; margin: 8px 0; padding: 0; }
+details.item summary { padding: 12px 16px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+details.item summary::-webkit-details-marker { display: none; }
+details.item summary::before { content: "▸"; color: var(--muted); margin-right: 4px; }
+details.item[open] summary::before { content: "▾"; }
+details.item .id { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: var(--gold-dark); font-weight: 700; }
+details.item .chords { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--ink); }
+details.item .q { color: var(--ink-soft); }
+details.item .gold { color: var(--muted); font-size: 12.5px; font-family: 'JetBrains Mono', monospace; }
+details.item .badge { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; letter-spacing: 0.06em; text-transform: uppercase; }
+details.item .badge.trap { background: rgba(196,92,92,0.12); color: var(--bad); }
+details.item .badge.control { background: rgba(45,143,94,0.12); color: var(--ok); }
+details.item .body { padding: 6px 18px 16px; border-top: 1px solid var(--line); }
+details.item .body p { margin: 10px 0 6px; font-size: 13.5px; }
+details.item .body ul { margin: 6px 0 14px 18px; padding: 0; font-size: 13.5px; color: var(--ink-soft); }
+details.item .rule { background: rgba(212,168,67,0.07); padding: 10px 12px; border-radius: 8px; font-size: 13px; }
+
+table.cond { width: 100%; border-collapse: collapse; margin-top: 10px; }
+table.cond th, table.cond td { padding: 8px 10px; font-size: 13px; vertical-align: top; border-bottom: 1px solid var(--line); }
+table.cond th { font-weight: 700; color: var(--ink-soft); white-space: nowrap; background: rgba(0,0,0,0.02); }
+table.cond td.reply { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: var(--ink-soft); }
+table.cond td.reply code { background: rgba(0,0,0,0.04); padding: 1px 6px; border-radius: 4px; color: var(--ink); }
+.ok { color: var(--ok); font-weight: 800; }
+.bad { color: var(--bad); font-weight: 800; }
+.miss { color: var(--muted); }
+
+.creply { background: rgba(0,0,0,0.02); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin: 10px 0; }
+.creply .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-size: 13.5px; }
+.creply .score { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: var(--muted); }
+.creply pre.long { white-space: pre-wrap; word-break: break-word; max-height: 320px; overflow: auto; padding: 10px 12px; background: var(--cream-card); border-radius: 6px; border: 1px solid var(--line); font-size: 12.5px; line-height: 1.55; }
+
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 18px 0 8px; padding: 6px; background: rgba(0,0,0,0.04); border-radius: 12px; width: fit-content; }
+.tabs button { appearance: none; border: none; background: transparent; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 700; color: var(--ink-soft); }
+.tabs button.on { background: var(--cream-card); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.tabs button .n { color: var(--muted); font-weight: 500; margin-left: 6px; font-size: 12px; }
+
+.toolbar { display: flex; align-items: center; gap: 12px; margin: 10px 0 8px; font-size: 13.5px; color: var(--muted); flex-wrap: wrap; }
+.toolbar input { font-family: inherit; font-size: 13.5px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--cream-card); color: var(--ink); width: 240px; outline: none; }
+.toolbar input:focus { border-color: var(--gold); }
+.toolbar label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+
+footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+footer code { background: rgba(0,0,0,0.04); padding: 1px 6px; border-radius: 4px; }
+</style>
+</head><body><div class="wrap">
+
+<header>
+  <h1>Jazzify 벤치마크 · 전체 결과</h1>
+  <p class="sub">model <code>claude-sonnet-4-20250514</code> · temperature 0 · 응답 216건 · 자동 생성 <code>node benchmark/buildSite.mjs</code></p>
+</header>
+
+<section class="summary">
+  <h2>요약</h2>
+  <table>
+    <thead><tr><th>태스크</th><th>문항 수</th><th>측정된 조건</th></tr></thead>
+    <tbody><tr>
+  <td><a href="#task-A"><b>A</b> · 구조 분석</a></td>
+  <td>24</td>
+  <td><code>Raw</code> · <code>+Rule</code> · <code>+RAG</code> · <code>+Rule+RAG</code></td>
+</tr><tr>
+  <td><a href="#task-B"><b>B</b> · 이론 팩트</a></td>
+  <td>30</td>
+  <td><code>Raw</code> · <code>+RAG</code></td>
+</tr><tr>
+  <td><a href="#task-C"><b>C</b> · 설명</a></td>
+  <td>8</td>
+  <td><code>Raw</code> · <code>+RAG</code></td>
+</tr><tr>
+  <td><a href="#task-D"><b>D</b> · 할루시네이션</a></td>
+  <td>17</td>
+  <td><i>응답 없음</i></td>
+</tr><tr>
+  <td><a href="#task-E"><b>E</b> · 곡 특화 (RAG-favored)</a></td>
+  <td>10</td>
+  <td><code>Raw</code> · <code>+RAG</code></td>
+</tr><tr>
+  <td><a href="#task-F"><b>F</b> · 외부 음악이론 벤치 (YouTube)</a></td>
+  <td>12</td>
+  <td><code>Raw</code> · <code>+RAG</code></td>
+</tr></tbody>
+  </table>
+</section>
+
+
+<section id="task-A">
+  <h2>A · 구조 분석 <span class="small">(24문항)</span></h2>
+  <div class="agg"><table>
+    <thead><tr><th>조건</th><th>key</th><th>ii-V-I F1</th><th>P</th><th>R</th><th>Roman</th></tr></thead>
+    <tbody><tr>
+      <th>Raw</th>
+      <td>75.0%</td>
+      <td>87.0%</td>
+      <td>80.0%</td>
+      <td>95.2%</td>
+      <td>88.3%</td>
+    </tr><tr>
+      <th>+Rule</th>
+      <td>95.8%</td>
+      <td>100.0%</td>
+      <td>100.0%</td>
+      <td>100.0%</td>
+      <td>99.2%</td>
+    </tr><tr>
+      <th>+RAG</th>
+      <td>66.7%</td>
+      <td>93.3%</td>
+      <td>87.5%</td>
+      <td>100.0%</td>
+      <td>84.1%</td>
+    </tr><tr>
+      <th>+Rule+RAG</th>
+      <td>100.0%</td>
+      <td>100.0%</td>
+      <td>100.0%</td>
+      <td>100.0%</td>
+      <td>99.2%</td>
+    </tr></tbody>
+  </table></div>
+  <div class="toolbar">
+    <input type="search" placeholder="필터 (id·질문·코드)…" data-filter="A" />
+    <label><input type="checkbox" data-only-fail="A" /> 오답/실패만</label>
+    <span data-count="A"></span>
+  </div>
+  <details class="item">
+      <summary>
+        <span class="id">p01-cmaj-251</span>
+        <span class="chords">Dm7  G7  Cmaj7</span>
+        <span class="gold">키 [[&quot;C&quot;]] · ii-V-I [[0,1,2]] · romans</span>
+      </summary>
+      <div class="body">
+        <p class="rule"><b>Rule context (주입):</b> Key: C major. Dm7=ii-7, G7=V7, Cmaj7=Imaj7. Detected 2-5-1: Dm7→G7→Cmaj7 (C major).</p>
+        <table class="cond"><thead><tr><th>조건</th><th>모델 답 (parsed)</th><th>key</th><th>ii-V-I</th><th>Roman</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+Rule</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+Rule+RAG</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">p02-gmaj-251</span>
+        <span class="chords">Am7  D7  Gmaj7</span>
+        <span class="gold">키 [[&quot;G&quot;]] · ii-V-I [[0,1,2]] · romans</span>
+      </summary>
+      <div class="body">
+        <p class="rule"><b>Rule context (주입):</b> Key: G major. Am7=ii-7, D7=V7, Gmaj7=Imaj7. Detected 2-5-1: Am7→D7→Gmaj7 (G major).</p>
+        <table class="cond"><thead><tr><th>조건</th><th>모델 답 (parsed)</th><th>key</th><th>ii-V-I</th><th>Roman</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">key=<code>G major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+Rule</th>
+        <td class="reply">key=<code>G major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">key=<code>G major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+Rule+RAG</th>
+        <td class="reply">key=<code>G major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">p03-bbmaj-251</span>
+        <span class="chords">Cm7  F7  Bbmaj7</span>
+        <span class="gold">키 [[&quot;Bb&quot;]] · ii-V-I [[0,1,2]] · romans</span>
+      </summary>
+      <div class="body">
+        <p class="rule"><b>Rule context (주입):</b> Key: Bb major. Cm7=ii-7, F7=V7, Bbmaj7=Imaj7. Detected 2-5-1: Cm7→F7→Bbmaj7 (Bb major).</p>
+        <table class="cond"><thead><tr><th>조건</th><th>모델 답 (parsed)</th><th>key</th><th>ii-V-I</th><th>Roman</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">key=<code>Bb</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+Rule</th>
+        <td class="reply">key=<code>Bb major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">key=<code>Bb major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+Rule+RAG</th>
+        <td class="reply">key=<code>Bb major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">p04-dmin-251</span>
+        <span class="chords">Em7b5  A7  Dm7</span>
+        <span class="gold">키 [[&quot;D minor&quot;]] · ii-V-I [[0,1,2]] · romans</span>
+      </summary>
+      <div class="body">
+        <p class="rule"><b>Rule context (주입):</b> Key: D minor. Em7b5=iiø7, A7=V7(alt), Dm7=i-7. Detected minor 2-5-1: Em7b5→A7→Dm7 (D minor).</p>
+        <table class="cond"><thead><tr><th>조건</th><th>모델 답 (parsed)</th><th>key</th><th>ii-V-I</th><th>Roman</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">key=<code>D minor</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii°7&quot;,&quot;V7&quot;,&quot;i7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>67%</td>
+      </tr><tr>
+        <th>+Rule</th>
+        <td class="reply">key=<code>D minor</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;iiø7&quot;,&quot;V7&quot;,&quot;i7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">key=<code>Dm</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii∅7&quot;,&quot;V7&quot;,&quot;i7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>67%</td>
+      </tr><tr>
+        <th>+Rule+RAG</th>
+        <td class="reply">key=<code>D minor</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;iiø7&quot;,&quot;V7&quot;,&quot;i7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">p05-modulating-two-251</span>
+        <span class="chords">Dm7  G7  Cmaj7  Cm7  F7  Bbmaj7</span>
+        <span class="gold">키 [[&quot;C&quot;,&quot;Bb&quot;]] · ii-V-I [[0,1,2],[3,4,5]] · romans</span>
+      </summary>
+      <div class="body">
+        <p class="rule"><b>Rule context (주입):</b> Two key centers. C major (bars 1-3): Dm7=ii-7, G7=V7, Cmaj7=Imaj7. Bb major (bars 4-6): Cm7=ii-7, F7=V7, Bbmaj7=Imaj7. Detected 2-5-1 x2.</p>
+        <table class="cond"><thead><tr><th>조건</th><th>모델 답 (parsed)</th><th>key</th><th>ii-V-I</th><th>Roman</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[0,1,2],[3,4,5]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✗</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+Rule</th>
+        <td class="reply">key=<code>C major, Bb major</code> · iiVi=<code>[[0,1,2],[3,4,5]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[0,1,2],[3,4,5]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✗</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+Rule+RAG</th>
+        <td class="reply">key=<code>C major, Bb major</code> · iiVi=<code>[[0,1,2],[3,4,5]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">p06-251-plus-vi</span>
+        <span class="chords">Dm7  G7  Cmaj7  A7</span>
+        <span class="gold">키 [[&quot;C&quot;]] · ii-V-I [[0,1,2]] · romans</span>
+      </summary>
+      <div class="body">
+        <p class="rule"><b>Rule context (주입):</b> Key: C major. Dm7=ii-7, G7=V7, Cmaj7=Imaj7, A7=VI7 (secondary dominant V7/ii, turnaround). One 2-5-1: Dm7→G7→Cmaj7.</p>
+        <table class="cond"><thead><tr><th>조건</th><th>모델 답 (parsed)</th><th>key</th><th>ii-V-I</th><th>Roman</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;VI7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+Rule</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;VI7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;VI7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+Rule+RAG</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;VI7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">p07-autumn-leaves</span>
+        <span class="chords">Cm7  F7  Bbmaj7  Ebmaj7  Am7b5  D7  Gm7</span>
+        <span class="gold">키 [[&quot;Bb&quot;,&quot;G minor&quot;]] · ii-V-I [[0,1,2],[4,5,6]] · romans</span>
+      </summary>
+      <div class="body">
+        <p class="rule"><b>Rule context (주입):</b> Relative major/minor. Bb major: Cm7=ii-7, F7=V7, Bbmaj7=Imaj7, Ebmaj7=IVmaj7. G minor: Am7b5=iiø7, D7=V7(alt), Gm7=i-7. Detected 2-5-1 x2.</p>
+        <table class="cond"><thead><tr><th>조건</th><th>모델 답 (parsed)</th><th>key</th><th>ii-V-I</th><th>Roman</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">key=<code>Bb major</code> · iiVi=<code>[[0,1,2],[4,5,6]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;IVmaj7&quot;,&quot;vii7b5&quot;,&quot;V7/vi&quot;,&quot;vi7&quot;]</code></td>
+        <td>✗</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>57%</td>
+      </tr><tr>
+        <th>+Rule</th>
+        <td class="reply">key=<code>Bb major, G minor</code> · iiVi=<code>[[0,1,2],[4,5,6]]</code> · romans=<code>[&quot;ii-7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;IVmaj7&quot;,&quot;iiø7&quot;,&quot;V7&quot;,&quot;i-7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">key=<code>Bb major</code> · iiVi=<code>[[0,1,2],[4,5,6]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;IVmaj7&quot;,&quot;vii7b5&quot;,&quot;V7/vi&quot;,&quot;vi7&quot;]</code></td>
+        <td>✗</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>57%</td>
+      </tr><tr>
+        <th>+Rule+RAG</th>
+        <td class="reply">key=<code>Bb major, G minor</code> · iiVi=<code>[[0,1,2],[4,5,6]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;IVmaj7&quot;,&quot;iiø7&quot;,&quot;V7&quot;,&quot;i7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item" data-negative="1">
+      <summary>
+        <span class="id">p08-blues-no-251</span>
+        <span class="chords">F7  Bb7  F7  F7</span>
+        <span class="gold">키 [[&quot;F&quot;]] · ii-V-I [] · romans</span>
+      </summary>
+      <div class="body">
+        <p class="rule"><b>Rule context (주입):</b> Key: F major (blues). All dominant chords. F7=I7, Bb7=IV7. No ii-V-I present.</p>
+        <table class="cond"><thead><tr><th>조건</th><th>모델 답 (parsed)</th><th>key</th><th>ii-V-I</th><th>Roman</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">key=<code>F</code> · iiVi=<code>[]</code> · romans=<code>[&quot;I7&quot;,&quot;IV7&quot;,&quot;I7&quot;,&quot;I7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+Rule</th>
+        <td class="reply">key=<code>F major</code> · iiVi=<code>[]</code> · romans=<code>[&quot;I7&quot;,&quot;IV7&quot;,&quot;I7&quot;,&quot;I7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">key=<code>Bb</code> · iiVi=<code>[]</code> · romans=<code>[&quot;V7&quot;,&quot;I7&quot;,&quot;V7&quot;,&quot;V7&quot;]</code></td>
+        <td>✗</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>0%</td>
+      </tr><tr>
+        <th>+Rule+RAG</th>
+        <td class="reply">key=<code>F major</code> · iiVi=<code>[]</code> · romans=<code>[&quot;I7&quot;,&quot;IV7&quot;,&quot;I7&quot;,&quot;I7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">p09-fmaj-251</span>
+        <span class="chords">Gm7  C7  Fmaj7</span>
+        <span class="gold">키 [[&quot;F&quot;]] · ii-V-I [[0,1,2]] · romans</span>
+      </summary>
+      <div class="body">
+        <p class="rule"><b>Rule context (주입):</b> Key: F major. Gm7=ii-7, C7=V7, Fmaj7=Imaj7. Detected 2-5-1: Gm7→C7→Fmaj7 (F major).</p>
+        <table class="cond"><thead><tr><th>조건</th><th>모델 답 (parsed)</th><th>key</th><th>ii-V-I</th><th>Roman</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">key=<code>F major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+Rule</th>
+        <td class="reply">key=<code>F major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">key=<code>F major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+Rule+RAG</th>
+        <td class="reply">key=<code>F major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item" data-negative="1">
+      <summary>
+        <span class="id">p10-static-vamp</span>
+        <span class="chords">Cmaj7  Cmaj7</span>
+        <span class="gold">키 [[&quot;C&quot;]] · ii-V-I [] · romans</span>
+      </summary>
+      <div class="body">
+        <p class="rule"><b>Rule context (주입):</b> Key: C major. Static Imaj7 vamp. No ii-V-I present.</p>
+        <table class="cond"><thead><tr><th>조건</th><th>모델 답 (parsed)</th><th>key</th><th>ii-V-I</th><th>Roman</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[]</code> · romans=<code>[&quot;Imaj7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+Rule</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[]</code> · romans=<code>[&quot;Imaj7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">key=<code>C</code> · iiVi=<code>[]</code> · romans=<code>[&quot;Imaj7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+Rule+RAG</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[]</code> · romans=<code>[&quot;Imaj7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">p11-secondary-dom-chain</span>
+        <span class="chords">Cmaj7  A7  Dm7  G7  Cmaj7</span>
+        <span class="gold">키 [[&quot;C&quot;]] · ii-V-I [[2,3,4]] · romans</span>
+      </summary>
+      <div class="body">
+        <p class="rule"><b>Rule context (주입):</b> Key: C major. Cmaj7=Imaj7, A7=VI7 (secondary dominant V7/ii), Dm7=ii-7, G7=V7, Cmaj7=Imaj7. One 2-5-1 at indices 2-3-4 (Dm7→G7→Cmaj7). A7 is NOT a ii.</p>
+        <table class="cond"><thead><tr><th>조건</th><th>모델 답 (parsed)</th><th>key</th><th>ii-V-I</th><th>Roman</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[2,3,4]]</code> · romans=<code>[&quot;Imaj7&quot;,&quot;V7/ii&quot;,&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>80%</td>
+      </tr><tr>
+        <th>+Rule</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[2,3,4]]</code> · romans=<code>[&quot;Imaj7&quot;,&quot;VI7&quot;,&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[2,3,4]]</code> · romans=<code>[&quot;Imaj7&quot;,&quot;VI7&quot;,&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+Rule+RAG</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[2,3,4]]</code> · romans=<code>[&quot;Imaj7&quot;,&quot;VI7&quot;,&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item" data-negative="1">
+      <summary>
+        <span class="id">p12-modal-interchange-backdoor</span>
+        <span class="chords">Cmaj7  Fm7  Bb7  Cmaj7</span>
+        <span class="gold">키 [[&quot;C&quot;]] · ii-V-I [] · romans</span>
+      </summary>
+      <div class="body">
+        <p class="rule"><b>Rule context (주입):</b> Key: C major with modal interchange. Cmaj7=Imaj7, Fm7=iv-7 (borrowed from C minor), Bb7=bVII7 (backdoor dominant). Fm7→Bb7 resolves deceptively to Cmaj7 — NOT a ii-V-I in C. No ii-V-I.</p>
+        <table class="cond"><thead><tr><th>조건</th><th>모델 답 (parsed)</th><th>key</th><th>ii-V-I</th><th>Roman</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[]</code> · romans=<code>[&quot;Imaj7&quot;,&quot;ivm7&quot;,&quot;bVII7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>75%</td>
+      </tr><tr>
+        <th>+Rule</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[]</code> · romans=<code>[&quot;Imaj7&quot;,&quot;iv7&quot;,&quot;bVII7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[1,2,3]]</code> · romans=<code>[&quot;Imaj7&quot;,&quot;ivm7&quot;,&quot;bVII7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 0.00 · R 0.00 · F1 0.00</td>
+    <td>75%</td>
+      </tr><tr>
+        <th>+Rule+RAG</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[]</code> · romans=<code>[&quot;Imaj7&quot;,&quot;iv7&quot;,&quot;bVII7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">p13-coltrane-ii-v-fragment</span>
+        <span class="chords">Am7  D7  Gmaj7  Bb7</span>
+        <span class="gold">키 [[&quot;G&quot;]] · ii-V-I [[0,1,2]]</span>
+      </summary>
+      <div class="body">
+        <p class="rule"><b>Rule context (주입):</b> Primary key G major: Am7=ii-7, D7=V7, Gmaj7=Imaj7 (2-5-1). Bb7 is a Coltrane-style secondary dominant pivoting toward Eb (V7/Eb) — not part of a ii-V-I here.</p>
+        <table class="cond"><thead><tr><th>조건</th><th>모델 답 (parsed)</th><th>key</th><th>ii-V-I</th><th>Roman</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">key=<code>G major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;bIII7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>—</td>
+      </tr><tr>
+        <th>+Rule</th>
+        <td class="reply">key=<code>G major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;bIII7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>—</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">key=<code>G major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;bIII7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>—</td>
+      </tr><tr>
+        <th>+Rule+RAG</th>
+        <td class="reply">key=<code>G major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;bIII7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>—</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item" data-negative="1">
+      <summary>
+        <span class="id">p14-dorian-vamp</span>
+        <span class="chords">Dm7  Em7  Dm7  Em7</span>
+        <span class="gold">키 [[&quot;D minor&quot;],[&quot;D dorian&quot;]] · ii-V-I []</span>
+      </summary>
+      <div class="body">
+        <p class="rule"><b>Rule context (주입):</b> Modal: D dorian vamp (Dm7 ↔ Em7, i-7 ↔ ii-7). No dominant, no ii-V-I.</p>
+        <table class="cond"><thead><tr><th>조건</th><th>모델 답 (parsed)</th><th>key</th><th>ii-V-I</th><th>Roman</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[]</code> · romans=<code>[&quot;ii7&quot;,&quot;iii7&quot;,&quot;ii7&quot;,&quot;iii7&quot;]</code></td>
+        <td>✗</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>—</td>
+      </tr><tr>
+        <th>+Rule</th>
+        <td class="reply">key=<code>D dorian</code> · iiVi=<code>[]</code> · romans=<code>[&quot;i7&quot;,&quot;ii7&quot;,&quot;i7&quot;,&quot;ii7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>—</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[]</code> · romans=<code>[&quot;ii7&quot;,&quot;iii7&quot;,&quot;ii7&quot;,&quot;iii7&quot;]</code></td>
+        <td>✗</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>—</td>
+      </tr><tr>
+        <th>+Rule+RAG</th>
+        <td class="reply">key=<code>D dorian</code> · iiVi=<code>[]</code> · romans=<code>[&quot;i7&quot;,&quot;ii7&quot;,&quot;i7&quot;,&quot;ii7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>—</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">p15-attya-opening</span>
+        <span class="chords">Fm7  Bbm7  Eb7  Abmaj7  Dbmaj7  G7  Cmaj7</span>
+        <span class="gold">키 [[&quot;Ab&quot;,&quot;C&quot;]] · ii-V-I [[1,2,3]]</span>
+      </summary>
+      <div class="body">
+        <p class="rule"><b>Rule context (주입):</b> Ab major: Fm7=vi-7, Bbm7=ii-7, Eb7=V7, Abmaj7=Imaj7 (2-5-1 at 1-2-3). Then Dbmaj7=IVmaj7 of Ab. G7→Cmaj7 is a V-I into C major (no ii — NOT a ii-V-I). Detected one 2-5-1: Bbm7→Eb7→Abmaj7.</p>
+        <table class="cond"><thead><tr><th>조건</th><th>모델 답 (parsed)</th><th>key</th><th>ii-V-I</th><th>Roman</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">key=<code>Ab major</code> · iiVi=<code>[[0,1,2],[4,5,6]]</code> · romans=<code>[&quot;vi7&quot;,&quot;ii7&quot;,&quot;V7&quot;,&quot;I&quot;,&quot;IV&quot;,&quot;V7/vi&quot;,&quot;vi&quot;]</code></td>
+        <td>✗</td>
+    <td>P 0.00 · R 0.00 · F1 0.00</td>
+    <td>—</td>
+      </tr><tr>
+        <th>+Rule</th>
+        <td class="reply">key=<code>Ab major</code> · iiVi=<code>[[1,2,3]]</code> · romans=<code>[&quot;vi7&quot;,&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;IVmaj7&quot;,&quot;V7/V&quot;,&quot;Vmaj7&quot;]</code></td>
+        <td>✗</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>—</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">key=<code>Ab major</code> · iiVi=<code>[[1,2,3]]</code> · romans=<code>[&quot;vi7&quot;,&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;IVmaj7&quot;,&quot;V7/vi&quot;,&quot;vi7&quot;]</code></td>
+        <td>✗</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>—</td>
+      </tr><tr>
+        <th>+Rule+RAG</th>
+        <td class="reply">key=<code>Ab major, C major</code> · iiVi=<code>[[1,2,3]]</code> · romans=<code>[&quot;vi7&quot;,&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;IVmaj7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>—</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item" data-negative="1">
+      <summary>
+        <span class="id">p16-tritone-sub</span>
+        <span class="chords">Dm7  Db7  Cmaj7</span>
+        <span class="gold">키 [[&quot;C&quot;]] · ii-V-I [] · romans</span>
+      </summary>
+      <div class="body">
+        <p class="rule"><b>Rule context (주입):</b> Key: C major. Dm7=ii-7, Db7=bII7 (tritone substitute of G7, subV7/I), Cmaj7=Imaj7. Db7→Cmaj7 is a half-step resolution, NOT the P5 of a standard ii-V-I, so no ii-V-I is counted.</p>
+        <table class="cond"><thead><tr><th>조건</th><th>모델 답 (parsed)</th><th>key</th><th>ii-V-I</th><th>Roman</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;bII7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 0.00 · R 0.00 · F1 0.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+Rule</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[]</code> · romans=<code>[&quot;ii7&quot;,&quot;bII7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;bII7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 0.00 · R 0.00 · F1 0.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+Rule+RAG</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[]</code> · romans=<code>[&quot;ii7&quot;,&quot;bII7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">p17-cmin-251</span>
+        <span class="chords">Dm7b5  G7  Cm7</span>
+        <span class="gold">키 [[&quot;C minor&quot;]] · ii-V-I [[0,1,2]] · romans</span>
+      </summary>
+      <div class="body">
+        <p class="rule"><b>Rule context (주입):</b> Key: C minor. Dm7b5=iiø7, G7=V7(alt), Cm7=i-7. Detected minor 2-5-1: Dm7b5→G7→Cm7.</p>
+        <table class="cond"><thead><tr><th>조건</th><th>모델 답 (parsed)</th><th>key</th><th>ii-V-I</th><th>Roman</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">key=<code>Cm</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii°7&quot;,&quot;V7&quot;,&quot;i7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>67%</td>
+      </tr><tr>
+        <th>+Rule</th>
+        <td class="reply">key=<code>C minor</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;iiø7&quot;,&quot;V7&quot;,&quot;i7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">key=<code>Cm</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii∅7&quot;,&quot;V7&quot;,&quot;i7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>67%</td>
+      </tr><tr>
+        <th>+Rule+RAG</th>
+        <td class="reply">key=<code>C minor</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;iiø7&quot;,&quot;V7&quot;,&quot;i7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">p18-modulating-g-f</span>
+        <span class="chords">Am7  D7  Gmaj7  Gm7  C7  Fmaj7</span>
+        <span class="gold">키 [[&quot;G&quot;,&quot;F&quot;]] · ii-V-I [[0,1,2],[3,4,5]] · romans</span>
+      </summary>
+      <div class="body">
+        <p class="rule"><b>Rule context (주입):</b> Two key centers. G major: Am7=ii-7, D7=V7, Gmaj7=Imaj7. F major: Gm7=ii-7, C7=V7, Fmaj7=Imaj7. Detected 2-5-1 x2.</p>
+        <table class="cond"><thead><tr><th>조건</th><th>모델 답 (parsed)</th><th>key</th><th>ii-V-I</th><th>Roman</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">key=<code>G major, F major</code> · iiVi=<code>[[0,1,2],[3,4,5]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+Rule</th>
+        <td class="reply">key=<code>G major, F major</code> · iiVi=<code>[[0,1,2],[3,4,5]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">key=<code>G major</code> · iiVi=<code>[[0,1,2],[3,4,5]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✗</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+Rule+RAG</th>
+        <td class="reply">key=<code>G major, F major</code> · iiVi=<code>[[0,1,2],[3,4,5]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">p19-251-plus-backdoor</span>
+        <span class="chords">Dm7  G7  Cmaj7  Fm7  Bb7  Cmaj7</span>
+        <span class="gold">키 [[&quot;C&quot;]] · ii-V-I [[0,1,2]] · romans</span>
+      </summary>
+      <div class="body">
+        <p class="rule"><b>Rule context (주입):</b> Key: C major. Dm7→G7→Cmaj7 is the 2-5-1. Fm7=iv-7, Bb7=bVII7 (backdoor) resolving to Cmaj7 — NOT a ii-V-I. One 2-5-1 only.</p>
+        <table class="cond"><thead><tr><th>조건</th><th>모델 답 (parsed)</th><th>key</th><th>ii-V-I</th><th>Roman</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[0,1,2],[3,4,5]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;iv7&quot;,&quot;bVII7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 0.50 · R 1.00 · F1 0.67</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+Rule</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;iv7&quot;,&quot;bVII7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;iv7&quot;,&quot;bVII7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+Rule+RAG</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[0,1,2]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;iv7&quot;,&quot;bVII7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item" data-negative="1">
+      <summary>
+        <span class="id">p20-aeolian-vamp</span>
+        <span class="chords">Am7  Dm7  Am7  Dm7</span>
+        <span class="gold">키 [[&quot;A minor&quot;],[&quot;A dorian&quot;]] · ii-V-I []</span>
+      </summary>
+      <div class="body">
+        <p class="rule"><b>Rule context (주입):</b> Modal: A minor/dorian vamp (i-7 ↔ iv-7). No dominant, no ii-V-I.</p>
+        <table class="cond"><thead><tr><th>조건</th><th>모델 답 (parsed)</th><th>key</th><th>ii-V-I</th><th>Roman</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[]</code> · romans=<code>[&quot;vi7&quot;,&quot;ii7&quot;,&quot;vi7&quot;,&quot;ii7&quot;]</code></td>
+        <td>✗</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>—</td>
+      </tr><tr>
+        <th>+Rule</th>
+        <td class="reply">key=<code>A minor</code> · iiVi=<code>[]</code> · romans=<code>[&quot;i7&quot;,&quot;iv7&quot;,&quot;i7&quot;,&quot;iv7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>—</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[]</code> · romans=<code>[&quot;vi7&quot;,&quot;ii7&quot;,&quot;vi7&quot;,&quot;ii7&quot;]</code></td>
+        <td>✗</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>—</td>
+      </tr><tr>
+        <th>+Rule+RAG</th>
+        <td class="reply">key=<code>A minor</code> · iiVi=<code>[]</code> · romans=<code>[&quot;i7&quot;,&quot;iv7&quot;,&quot;i7&quot;,&quot;iv7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>—</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item" data-negative="1">
+      <summary>
+        <span class="id">p21-coltrane-v-i-cell</span>
+        <span class="chords">Cmaj7  Eb7  Abmaj7  B7  Emaj7</span>
+        <span class="gold">키 [[&quot;C&quot;,&quot;Ab&quot;,&quot;E&quot;]] · ii-V-I []</span>
+      </summary>
+      <div class="body">
+        <p class="rule"><b>Rule context (주입):</b> Coltrane changes — tonal centers in major thirds. Eb7→Abmaj7 and B7→Emaj7 are V-I motions WITHOUT a preceding ii, so they are NOT ii-V-I. No ii-V-I detected.</p>
+        <table class="cond"><thead><tr><th>조건</th><th>모델 답 (parsed)</th><th>key</th><th>ii-V-I</th><th>Roman</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[]</code> · romans=<code>[&quot;Imaj7&quot;,&quot;bIII7&quot;,&quot;bVImaj7&quot;,&quot;VII7&quot;,&quot;IIImaj7&quot;]</code></td>
+        <td>✗</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>—</td>
+      </tr><tr>
+        <th>+Rule</th>
+        <td class="reply">key=<code>C,Ab,E</code> · iiVi=<code>[]</code> · romans=<code>[&quot;Imaj7&quot;,&quot;bIII7&quot;,&quot;Imaj7&quot;,&quot;bVI7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>—</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">key=<code>C</code> · iiVi=<code>[]</code> · romans=<code>[&quot;Imaj7&quot;,&quot;bIII7&quot;,&quot;bVImaj7&quot;,&quot;VII7&quot;,&quot;IIImaj7&quot;]</code></td>
+        <td>✗</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>—</td>
+      </tr><tr>
+        <th>+Rule+RAG</th>
+        <td class="reply">key=<code>C,Ab,E</code> · iiVi=<code>[]</code> · romans=<code>[&quot;Imaj7&quot;,&quot;bIII7&quot;,&quot;Imaj7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>—</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item" data-negative="1">
+      <summary>
+        <span class="id">p22-turnaround-no-i</span>
+        <span class="chords">Cmaj7  A7  Dm7  G7</span>
+        <span class="gold">키 [[&quot;C&quot;]] · ii-V-I [] · romans</span>
+      </summary>
+      <div class="body">
+        <p class="rule"><b>Rule context (주입):</b> Key: C major. Dm7=ii-7, G7=V7 but the progression ends on V7 with NO resolving I — an incomplete ii-V (turnaround). No complete ii-V-I.</p>
+        <table class="cond"><thead><tr><th>조건</th><th>모델 답 (parsed)</th><th>key</th><th>ii-V-I</th><th>Roman</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[2,3,0]]</code> · romans=<code>[&quot;Imaj7&quot;,&quot;V7/ii&quot;,&quot;ii7&quot;,&quot;V7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 0.00 · R 0.00 · F1 0.00</td>
+    <td>75%</td>
+      </tr><tr>
+        <th>+Rule</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[]</code> · romans=<code>[&quot;Imaj7&quot;,&quot;VI7&quot;,&quot;ii7&quot;,&quot;V7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[2,3,0]]</code> · romans=<code>[&quot;Imaj7&quot;,&quot;V7/ii&quot;,&quot;ii7&quot;,&quot;V7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 0.00 · R 0.00 · F1 0.00</td>
+    <td>75%</td>
+      </tr><tr>
+        <th>+Rule+RAG</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[]</code> · romans=<code>[&quot;Imaj7&quot;,&quot;VI7&quot;,&quot;ii7&quot;,&quot;V7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">p23-two-251-same-key</span>
+        <span class="chords">Dm7  G7  Cmaj7  Am7  Dm7  G7  Cmaj7</span>
+        <span class="gold">키 [[&quot;C&quot;]] · ii-V-I [[0,1,2],[4,5,6]] · romans</span>
+      </summary>
+      <div class="body">
+        <p class="rule"><b>Rule context (주입):</b> Key: C major throughout. Two 2-5-1 cells (indices 0-2 and 4-6); Am7=vi-7 is a passing turnaround chord, not part of either.</p>
+        <table class="cond"><thead><tr><th>조건</th><th>모델 답 (parsed)</th><th>key</th><th>ii-V-I</th><th>Roman</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[0,1,2],[4,5,6]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;vi7&quot;,&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+Rule</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[0,1,2],[4,5,6]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;vi7&quot;,&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[0,1,2],[4,5,6]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;vi7&quot;,&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr><tr>
+        <th>+Rule+RAG</th>
+        <td class="reply">key=<code>C major</code> · iiVi=<code>[[0,1,2],[4,5,6]]</code> · romans=<code>[&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;,&quot;vi7&quot;,&quot;ii7&quot;,&quot;V7&quot;,&quot;Imaj7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>100%</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">p24-amin-251-with-VI</span>
+        <span class="chords">Bm7b5  E7  Am7  Fmaj7  Bm7b5  E7  Am7</span>
+        <span class="gold">키 [[&quot;A minor&quot;]] · ii-V-I [[0,1,2],[4,5,6]] · romans</span>
+      </summary>
+      <div class="body">
+        <p class="rule"><b>Rule context (주입):</b> Key: A minor. Bm7b5=iiø7, E7=V7(alt), Am7=i-7 (minor 2-5-1) twice; Fmaj7=VImaj7 between them. Detected minor 2-5-1 x2.</p>
+        <table class="cond"><thead><tr><th>조건</th><th>모델 답 (parsed)</th><th>key</th><th>ii-V-I</th><th>Roman</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">key=<code>Am</code> · iiVi=<code>[[0,1,2],[4,5,6]]</code> · romans=<code>[&quot;ii°7&quot;,&quot;V7&quot;,&quot;i7&quot;,&quot;♭VI&quot;,&quot;ii°7&quot;,&quot;V7&quot;,&quot;i7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>57%</td>
+      </tr><tr>
+        <th>+Rule</th>
+        <td class="reply">key=<code>A minor</code> · iiVi=<code>[[0,1,2],[4,5,6]]</code> · romans=<code>[&quot;iiø7&quot;,&quot;V7&quot;,&quot;i7&quot;,&quot;♭VImaj7&quot;,&quot;iiø7&quot;,&quot;V7&quot;,&quot;i7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>86%</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">key=<code>Am</code> · iiVi=<code>[[0,1,2],[4,5,6]]</code> · romans=<code>[&quot;ii∅7&quot;,&quot;V7&quot;,&quot;i7&quot;,&quot;♭VImaj7&quot;,&quot;ii∅7&quot;,&quot;V7&quot;,&quot;i7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>57%</td>
+      </tr><tr>
+        <th>+Rule+RAG</th>
+        <td class="reply">key=<code>A minor</code> · iiVi=<code>[[0,1,2],[4,5,6]]</code> · romans=<code>[&quot;iiø7&quot;,&quot;V7&quot;,&quot;i7&quot;,&quot;♭VImaj7&quot;,&quot;iiø7&quot;,&quot;V7&quot;,&quot;i7&quot;]</code></td>
+        <td>✓</td>
+    <td>P 1.00 · R 1.00 · F1 1.00</td>
+    <td>86%</td>
+      </tr></tbody></table>
+      </div>
+    </details>
+</section>
+
+<section id="task-B">
+  <h2>B · 이론 팩트 <span class="small">(30문항)</span></h2>
+  <div class="agg"><table>
+    <thead><tr><th>조건</th><th>정확도</th><th>N</th></tr></thead>
+    <tbody><tr>
+    <th>Raw</th>
+    <td>93.3%</td>
+    <td>30 문항</td>
+  </tr><tr>
+    <th>+RAG</th>
+    <td>93.3%</td>
+    <td>30 문항</td>
+  </tr></tbody>
+  </table></div>
+  <div class="toolbar">
+    <input type="search" placeholder="필터 (id·질문·코드)…" data-filter="B" />
+    <label><input type="checkbox" data-only-fail="B" /> 오답/실패만</label>
+    <span data-count="B"></span>
+  </div>
+  <details class="item">
+      <summary>
+        <span class="id">b01</span>
+        <span class="q">What is the tritone substitute of G7?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>Db7</code> / <code>C#7</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">Db7</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">Db7</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b02</span>
+        <span class="q">What is the relative minor of Eb major?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>C minor</code> / <code>Cm</code> / <code>Cmin</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">C minor</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">C minor</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b03</span>
+        <span class="q">Which scale is most commonly played over a C7alt (altered dominant) chord?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>altered scale</code> / <code>super locrian</code> / <code>superlocrian</code> / <code>diminished whole tone</code> / <code>altered</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">C altered scale (C Db Eb E Gb Ab Bb)</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">C altered scale (C Db Eb E Gb Ab Bb)</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b04</span>
+        <span class="q">What are the four notes of a Cmaj7 chord (root position)?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>C E G B</code> / <code>CEGB</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">C, E, G, B</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">C, E, G, B</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b05</span>
+        <span class="q">What is the V7 chord in the key of D minor?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>A7</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">A7 (A-C#-E-G)</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">A7 (A-C#-E-G)</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b06</span>
+        <span class="q">In a Dmaj7#11 chord, which note is the #11?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>G#</code> / <code>Ab</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">G#</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">G#</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b07</span>
+        <span class="q">What is the name of the 5th mode of the major scale?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>Mixolydian</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">Mixolydian</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">Mixolydian</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b08</span>
+        <span class="q">Name the dominant 7th chord a tritone away from Db7.</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>G7</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">G7</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">G7</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b09</span>
+        <span class="q">What is the relative major of A minor?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>C major</code> / <code>Cmaj</code> / <code>C</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">C major</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">C major</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b10</span>
+        <span class="q">Which mode/scale fits a half-diminished (m7b5) chord?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>Locrian</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">Locrian mode (7th mode of major scale)</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">Locrian mode (7th mode of major scale)</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b11</span>
+        <span class="q">What is the ii chord (ii-7) in the key of Bb major?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>Cm7</code> / <code>Cmin7</code> / <code>Cm</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">Cm7 (C-Eb-G-Bb)</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">Cm7 (C-Eb-G-Bb)</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b12</span>
+        <span class="q">What is the enharmonic equivalent of Gb?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>F#</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">F#</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">F#</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b13</span>
+        <span class="q">Which mode of the melodic minor scale is the &#39;altered&#39; (super Locrian) scale?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>7th mode</code> / <code>seventh mode</code> / <code>7</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">The 7th mode of the melodic minor scale is the altered (super Locrian) scale</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">The 7th mode of the melodic minor scale is the altered (super Locrian) scale</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b14</span>
+        <span class="q">The Lydian dominant scale is which mode of the melodic minor scale?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>4th mode</code> / <code>fourth mode</code> / <code>4</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">4th mode</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">4th mode</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b15</span>
+        <span class="q">Name the upper-structure triad that gives a 7#11 sound when played over a C7 chord (which major triad on which root).</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>D major</code> / <code>D</code> / <code>Dmaj</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">F# major triad</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">F# major triad</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b16</span>
+        <span class="q">In a minor ii-V-i, the V7 chord typically uses which scale (over e.g. A7 to Dm)?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>altered</code> / <code>harmonic minor</code> / <code>phrygian dominant</code> / <code>hmp5b</code> / <code>harmonic minor perfect 5th below</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">A7 altered scale (or harmonic minor scale from the target key)</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">A7 altered scale (or harmonic minor scale from the target key)</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b17</span>
+        <span class="q">What is the &#39;backdoor&#39; dominant chord that resolves to Cmaj7?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>Bb7</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">Bb7 - the bVII7 chord that resolves to Cmaj7 through smooth voice leading, with the Bb moving down to A and F moving down to E</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">Bb7 - the bVII7 chord that resolves to Cmaj7 through smooth voice leading, with the Bb moving down to A and F moving down to E</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b18</span>
+        <span class="q">Which collection (scale) do you use over a fully diminished 7th chord, e.g. C°7?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>whole half diminished</code> / <code>diminished scale</code> / <code>whole-half</code> / <code>octatonic</code> / <code>half-whole</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">Diminished scale (whole-half or half-whole pattern)</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">Diminished scale (whole-half or half-whole pattern)</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b19</span>
+        <span class="q">What is the relative minor of Gb major?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>Eb minor</code> / <code>Ebm</code> / <code>Ebmin</code> / <code>D# minor</code> / <code>D#m</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">Eb minor</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">Eb minor</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b20</span>
+        <span class="q">A Dm7b5 is the iiø7 in which minor key?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>C minor</code> / <code>Cm</code> / <code>Cmin</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">C minor</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">C minor</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b21</span>
+        <span class="q">What is the name of the 5th mode of the harmonic minor scale?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>Phrygian dominant</code> / <code>Phrygian major</code> / <code>Spanish Phrygian</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">Phrygian dominant</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">Phrygian dominant</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b22</span>
+        <span class="q">Which mode of the melodic minor scale is the half-diminished scale (Locrian natural 2)?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>6th mode</code> / <code>sixth mode</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">The 6th mode (6th degree) of the melodic minor scale is the half-diminished scale (Locrian natural 2)</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">The 6th mode (6th degree) of the melodic minor scale is the half-diminished scale (Locrian natural 2)</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b23</span>
+        <span class="q">In Bb &#39;rhythm changes&#39;, the bridge is a cycle of dominant 7ths. Name the first chord of the bridge.</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>D7</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">D7</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">D7</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b24</span>
+        <span class="q">What is the first chord of John Coltrane&#39;s &#39;Giant Steps&#39;?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>Bmaj7</code> / <code>B major</code> / <code>B</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">Bmaj7</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">Bmaj7</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b25</span>
+        <span class="q">Barry Harris&#39;s major 6th-diminished scale on C adds which note to the C major scale?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>Ab</code> / <code>G#</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">D♭</td>
+        <td class="bad">✗</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">D♭</td>
+        <td class="bad">✗</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b26</span>
+        <span class="q">The Lydian augmented scale is which mode of the melodic minor scale?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>3rd mode</code> / <code>third mode</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">3rd mode</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">3rd mode</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b27</span>
+        <span class="q">What is the leading tone in the key of C# harmonic minor?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>B#</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">B# (the seventh degree of C# harmonic minor)</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">B# (the seventh degree of C# harmonic minor)</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b28</span>
+        <span class="q">What is the tritone substitute for the V7 chord in the key of F major?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>Gb7</code> / <code>F#7</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">B7</td>
+        <td class="bad">✗</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">B7</td>
+        <td class="bad">✗</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b29</span>
+        <span class="q">In &#39;Autumn Leaves&#39; (G minor), the A section opens with a ii-V-I in Bb major. Give the three chords.</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>Cm7 F7 Bbmaj7</code> / <code>Cm7F7Bbmaj7</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">Cm7 - F7 - BbMaj7</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">Cm7 - F7 - BbMaj7</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">b30</span>
+        <span class="q">Which scale degree is the &#39;avoid note&#39; when playing the C major (Ionian) scale over a Cmaj7 chord?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>4th</code> / <code>fourth</code> / <code>11th</code> / <code>F</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">4th degree (F)</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">4th degree (F)</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details>
+</section>
+
+<section id="task-C">
+  <h2>C · 설명 <span class="small">(8문항)</span></h2>
+  <div class="agg"><table>
+    <thead><tr><th>조건</th><th>평균 점수</th><th>정규화</th></tr></thead>
+    <tbody><tr>
+      <th>Raw</th>
+      <td>4.75 / 5</td>
+      <td>93.8%</td>
+    </tr><tr>
+      <th>+RAG</th>
+      <td>4.63 / 5</td>
+      <td>90.6%</td>
+    </tr></tbody>
+  </table></div>
+  <div class="toolbar">
+    <input type="search" placeholder="필터 (id·질문·코드)…" data-filter="C" />
+    <label><input type="checkbox" data-only-fail="C" /> 오답/실패만</label>
+    <span data-count="C"></span>
+  </div>
+  <details class="item">
+      <summary><span class="id">c01</span><span class="q">Why does a tritone substitution (e.g. Db7 in place of G7 resolving to C) work? Explain the shared notes.</span></summary>
+      <div class="body">
+        <p class="gold"><b>Key points (judge 기준):</b></p>
+        <ul><li>G7 and Db7 share the tritone (B and F), which are the 3rd and 7th guide tones</li><li>those guide tones resolve the same way into C (B→C, F→E)</li><li>creates smooth/chromatic bass motion Db→C</li><li>both are dominant function toward C</li></ul>
+        <div class="creply">
+        <div class="head"><b>Raw</b><span class="score">judge 4/5</span></div>
+        <pre class="long">A tritone substitution works because the substitute chord (Db7) shares the two most important notes with the original dominant chord (G7) - the 3rd and 7th, which form the tritone that creates the dominant&#39;s characteristic tension. In G7, the 3rd is B and the 7th is F. In Db7, the 3rd is F and the 7th is Cb (enharmonically B). These are the exact same pitches, just with their roles reversed! Since these two notes create the essential dissonance that demands resolution, both chords function identically in pulling toward the tonic (C). The tritone substitution also creates smooth voice leading, as Db moves down by half-step to C (compared to G&#39;s leap of a fifth), while maintaining that crucial tritone tension that makes dominant chords so effective.</pre>
+      </div><div class="creply">
+        <div class="head"><b>+RAG</b><span class="score">judge 4/5</span></div>
+        <pre class="long">A tritone substitution works because the substitute chord (Db7) shares the two most important notes with the original dominant chord (G7) - the 3rd and 7th, which form the tritone that creates the dominant&#39;s characteristic tension. In G7, the 3rd is B and the 7th is F. In Db7, the 3rd is F and the 7th is Cb (enharmonically B). These are the exact same pitches, just with their roles reversed! Since these two notes create the essential dissonance that demands resolution, both chords function identically in pulling toward the tonic (C). The tritone substitution also creates smooth voice leading, as Db moves down by half-step to C (compared to G&#39;s leap of a fifth), while maintaining that crucial tritone tension that makes dominant chords want to resolve.</pre>
+      </div>
+      </div>
+    </details><details class="item">
+      <summary><span class="id">c02</span><span class="q">Explain the &#39;backdoor ii-V&#39; (e.g. Fm7–Bb7 resolving to Cmaj7).</span></summary>
+      <div class="body">
+        <p class="gold"><b>Key points (judge 기준):</b></p>
+        <ul><li>Fm7–Bb7 is the ii-V of Eb (relative/parallel), borrowed from C minor</li><li>Bb7 is the bVII7 of C</li><li>it resolves deceptively/by common tones to Cmaj7 instead of Eb</li><li>common substitute for the standard ii-V (Dm7-G7)</li></ul>
+        <div class="creply">
+        <div class="head"><b>Raw</b><span class="score">judge 5/5</span></div>
+        <pre class="long">The backdoor ii-V is a sophisticated harmonic progression that approaches a major chord from a half-step above, creating a smooth and unexpected resolution. In the example Fm7–Bb7→Cmaj7, the Fm7 functions as a ii chord and Bb7 as a V7 chord, but they&#39;re borrowed from the key of Eb major (where Fm7 is ii and Bb7 is V7). The magic happens when the Bb7 resolves down by half-step to Cmaj7 instead of resolving to Eb as expected. This works because the Bb7 can be reinterpreted as a bVII7 chord in the key of C, and the voice leading is particularly smooth—the F in Fm7 moves down to E (the 3rd of Cmaj7), while the Bb in the bass drops chromatically to C. This progression is beloved in jazz for its sophisticated sound and appears frequently in standards, offering an elegant alternative to the traditional ii-V-I progression.</pre>
+      </div><div class="creply">
+        <div class="head"><b>+RAG</b><span class="score">judge 4/5</span></div>
+        <pre class="long">The backdoor ii-V is a chromatic approach to a major chord that uses the bVII7 chord as the dominant, creating a smoother voice-leading alternative to the traditional V7. In your example (Fm7–Bb7–Cmaj7), the Fm7 functions as ii7 of Bb, and Bb7 acts as bVII7 of C major. This progression works because Bb7 contains the notes Bb-D-F-Ab, where the Ab (b7 of Bb7) resolves down by half-step to G (the 5th of Cmaj7), while D moves down to C (the root). This creates a particularly smooth resolution compared to the traditional G7–Cmaj7, where the B natural in G7 creates a more dramatic leading-tone resolution. The backdoor ii-V is especially popular in jazz ballads and provides a more subdued, sophisticated sound while maintaining strong harmonic motion through the cycle of fifths (Fm to Bb) before the chromatic resolution to the target chord.</pre>
+      </div>
+      </div>
+    </details><details class="item">
+      <summary><span class="id">c03</span><span class="q">Why is the altered scale a good choice over a V7alt chord (e.g. G7alt going to C)?</span></summary>
+      <div class="body">
+        <p class="gold"><b>Key points (judge 기준):</b></p>
+        <ul><li>it contains the altered tensions b9, #9, #11(b5), b13(#5)</li><li>it is the 7th mode of the melodic minor (Ab melodic minor over G7)</li><li>those tensions create maximum tension that resolves strongly to the I</li><li>it omits the natural 5th and 9th</li></ul>
+        <div class="creply">
+        <div class="head"><b>Raw</b><span class="score">judge 5/5</span></div>
+        <pre class="long">The altered scale (also called the super Locrian or diminished whole-tone scale) is an excellent choice over V7alt chords because it contains all the essential altered tensions that define the chord&#39;s sound. When playing G7alt resolving to C, the G altered scale (G-Ab-Bb-B-Db-Eb-F) provides the b9 (Ab), #9 (Bb), #11 (Db), and b13 (Eb) - all the &quot;outside&quot; tensions that create maximum harmonic tension and demand resolution to the tonic. This scale omits the natural 5th and natural 9th, avoiding any consonant intervals that might weaken the chord&#39;s pull toward resolution. The altered scale&#39;s symmetrical construction and abundance of tritones create a highly unstable, chromatic sound that perfectly captures the restless, unresolved quality composers and improvisers seek in dominant chords, making the eventual resolution to the tonic chord sound particularly satisfying and inevitable.</pre>
+      </div><div class="creply">
+        <div class="head"><b>+RAG</b><span class="score">judge 5/5</span></div>
+        <pre class="long">The altered scale (also called the super Locrian or diminished whole-tone scale) is an excellent choice over V7alt chords because it contains all the essential altered tensions that define the chord&#39;s sound. Built on the 7th degree of melodic minor, the altered scale provides the chord tones (root, 3rd, b7th) plus all four possible altered extensions: b9, #9, #11, and b13. When playing G7alt resolving to C, this scale (G-Ab-Bb-B-Db-Eb-F) creates maximum harmonic tension through its abundance of chromatic alterations, which then resolve satisfyingly to the stable tones of the tonic chord. The scale&#39;s inherent instability—containing both a diminished 5th and augmented 5th—perfectly captures the restless, unresolved quality that makes altered dominants so effective at driving toward resolution.</pre>
+      </div>
+      </div>
+    </details><details class="item">
+      <summary><span class="id">c04</span><span class="q">Explain modal interchange (borrowed chords) and give a clear example of borrowing iv in a major key.</span></summary>
+      <div class="body">
+        <p class="gold"><b>Key points (judge 기준):</b></p>
+        <ul><li>borrowing chords from the parallel mode/key (e.g. parallel minor)</li><li>iv in C major = Fm (or Fm7) borrowed from C minor</li><li>creates a darker/plagal color, often iv→I</li><li>common examples: bVII, bVI, iv, iiø7</li></ul>
+        <div class="creply">
+        <div class="head"><b>Raw</b><span class="score">judge 5/5</span></div>
+        <pre class="long">Modal interchange, also known as borrowed chords, occurs when you temporarily &quot;borrow&quot; chords from the parallel minor key (or other modes) while remaining in a major key context. This creates richer harmonic color and emotional depth by introducing chords that contain notes outside the original key signature.
+
+A classic example is borrowing the iv chord (minor four) in a major key. In C major, instead of using the diatonic IV chord (F major: F-A-C), you would borrow the iv chord from C minor, giving you F minor (F-Ab-C). The Ab note creates a distinctive, slightly melancholic sound that contrasts beautifully with the brightness of the major key. You might hear this in a progression like C - Am - Fm - G - C, where that Fm chord adds unexpected emotional weight. This borrowed iv chord is extremely common in popular music and jazz, often appearing just before returning to the tonic, creating a poignant &quot;pull&quot; back home.</pre>
+      </div><div class="creply">
+        <div class="head"><b>+RAG</b><span class="score">judge 5/5</span></div>
+        <pre class="long">Modal interchange, also known as borrowed chords, occurs when you temporarily &quot;borrow&quot; chords from the parallel minor key (or other modes) while remaining in a major key context. This creates richer harmonic color and emotional depth by introducing chords that contain notes outside the original key signature.
+
+A classic example is borrowing the iv chord (minor four) in a major key. In C major, instead of using the diatonic IV chord (F major: F-A-C), you would borrow the iv chord from C minor, giving you F minor (F-Ab-C). The Ab note creates a distinctive, slightly melancholic sound that contrasts beautifully with the brightness of the major key. You might hear this in a progression like C - Am - Fm - G - C, where that Fm chord adds unexpected emotional weight. This borrowed iv often appears in popular music, classical compositions, and jazz standards, creating a brief &quot;shadow&quot; over the major tonality before resolving back to more stable major key harmony.</pre>
+      </div>
+      </div>
+    </details><details class="item">
+      <summary><span class="id">c05</span><span class="q">What is the function of a secondary dominant (e.g. V7/V) and how does it create forward motion?</span></summary>
+      <div class="body">
+        <p class="gold"><b>Key points (judge 기준):</b></p>
+        <ul><li>a dominant chord that targets a chord other than the I (tonicizes it)</li><li>V7/V in C = D7 targeting G7</li><li>introduces a chromatic leading tone (F# for D7) outside the key</li><li>creates momentum/pull toward the target chord</li></ul>
+        <div class="creply">
+        <div class="head"><b>Raw</b><span class="score">judge 4/5</span></div>
+        <pre class="long">A secondary dominant is a dominant seventh chord that temporarily tonicizes a chord other than the home key&#39;s tonic, creating the sound of briefly &quot;visiting&quot; a new key center. For example, V7/V (five-seven of five) is the dominant seventh chord of the dominant, which creates a strong pull toward the V chord rather than back to the original tonic. This generates forward motion through two key mechanisms: first, it introduces chromatic notes that create tension and demand resolution, and second, it establishes a temporary dominant-tonic relationship that pulls the harmony away from the home key. The tritone within the secondary dominant (between the 3rd and 7th of the chord) creates harmonic instability that strongly wants to resolve, while the chromatic voice leading—particularly the raised notes that weren&#39;t in the original key—adds momentum that propels the music forward rather than allowing it to settle back into the home key too quickly.</pre>
+      </div><div class="creply">
+        <div class="head"><b>+RAG</b><span class="score">judge 4/5</span></div>
+        <pre class="long">A secondary dominant is a dominant seventh chord that temporarily tonicizes a chord other than the home key&#39;s tonic, creating the sound of briefly &quot;visiting&quot; a new key center. For example, V7/V (five-seven of five) is the dominant seventh chord of the dominant, which creates a strong pull toward the V chord rather than back to the original tonic. This generates forward motion through two key mechanisms: first, it introduces chromatic alterations (notes outside the home key) that create harmonic tension demanding resolution, and second, it establishes a temporary dominant-tonic relationship with its target chord, making that chord sound like a momentary new &quot;home.&quot; The tritone within the secondary dominant&#39;s structure creates particularly strong voice-leading tendencies—the 3rd wants to resolve up and the 7th wants to resolve down—that propel the harmony forward with greater momentum than diatonic progressions alone. This technique allows composers to create more dynamic harmonic rhythm and a sense of journey through multiple tonal centers while remaining anchored in the original key.</pre>
+      </div>
+      </div>
+    </details><details class="item">
+      <summary><span class="id">c06</span><span class="q">Why do Coltrane changes (Giant Steps) move by major thirds, and why are they hard to improvise over?</span></summary>
+      <div class="body">
+        <p class="gold"><b>Key points (judge 기준):</b></p>
+        <ul><li>the tonal centers cycle by major thirds (e.g. B–G–Eb), dividing the octave equally</li><li>each key center has its own ii-V or V-I, moving very fast</li><li>rapid key changes leave little time to outline each new tonality</li><li>requires memorized patterns / strong key-center awareness</li></ul>
+        <div class="creply">
+        <div class="head"><b>Raw</b><span class="score">judge 5/5</span></div>
+        <pre class="long">Coltrane changes move by major thirds because they create a cycle that divides the octave into three equal parts (4 semitones each), allowing Coltrane to systematically explore all 12 chromatic tones while maintaining strong harmonic motion through dominant-tonic relationships. In &quot;Giant Steps,&quot; each major third leap (B-G-Eb-B) is connected by ii-V-I progressions that tonicize each new key center. This creates a constantly shifting tonal landscape that&#39;s challenging to improvise over because traditional scalar approaches break down—musicians can&#39;t rely on staying in one key or using familiar patterns. The rapid harmonic rhythm (often changing every 1-2 beats) demands that improvisers either think in terms of chord tones and arpeggios, use chromatic/intervallic approaches, or develop new scalar concepts that can navigate the frequent modulations. The changes essentially force musicians to abandon comfortable diatonic thinking and develop more advanced harmonic awareness and technical facility.</pre>
+      </div><div class="creply">
+        <div class="head"><b>+RAG</b><span class="score">judge 5/5</span></div>
+        <pre class="long">Coltrane changes move by major thirds because they create a cycle that divides the octave into three equal parts (4 semitones each), allowing Coltrane to systematically explore all 12 chromatic tones while maintaining strong harmonic motion through dominant-tonic relationships. In &quot;Giant Steps,&quot; the three key centers (B, G, and Eb major) are equidistant, and each is approached by its dominant chord, creating the progression&#39;s characteristic sound. These changes are notoriously difficult to improvise over because they move so quickly (often two chords per measure) through distant key centers, requiring musicians to rapidly shift their thinking between three different tonal areas while maintaining melodic coherence. The harmonic rhythm is relentless, and traditional scalar approaches often fall short—players must think in terms of chord tones, arpeggios, and chromatic voice-leading rather than staying in one key, demanding exceptional technical facility and harmonic knowledge to navigate smoothly.</pre>
+      </div>
+      </div>
+    </details><details class="item">
+      <summary><span class="id">c07</span><span class="q">Explain the difference between a ii-V-i in a minor key vs a ii-V-I in a major key (chord qualities and scales).</span></summary>
+      <div class="body">
+        <p class="gold"><b>Key points (judge 기준):</b></p>
+        <ul><li>minor: iiø7 (half-diminished), V7(b9/alt), i-(minor)</li><li>major: ii-7, V7, Imaj7</li><li>minor V often uses harmonic minor / altered; major V uses mixolydian</li><li>the ii in minor is m7b5 vs m7 in major</li></ul>
+        <div class="creply">
+        <div class="head"><b>Raw</b><span class="score">judge 5/5</span></div>
+        <pre class="long">In a major key ii-V-I, the ii chord is minor 7 (built on the 2nd degree), the V is dominant 7, and the I is major 7. For example, in C major: Dm7-G7-Cmaj7. The scales typically used are Dorian for the ii chord, Mixolydian for the V, and Ionian (major) for the I.
+
+In a minor key ii-V-i, the ii chord is minor 7♭5 (half-diminished), the V is still dominant 7 (often with altered extensions), and the i is minor (maj7 or m6). For example, in C minor: Dm7♭5-G7-Cm(maj7). The scales commonly used are Locrian for the ii chord, harmonic minor (or altered scales) for the V chord, and harmonic or natural minor for the i chord. The key difference is that the minor ii-V-i creates a darker, more tension-filled sound due to the half-diminished ii chord and the resolution to a minor tonic.</pre>
+      </div><div class="creply">
+        <div class="head"><b>+RAG</b><span class="score">judge 5/5</span></div>
+        <pre class="long">In a major key ii-V-I, the ii chord is minor 7 (built on the 2nd degree), the V is dominant 7, and the I is major 7. For example, in C major: Dm7-G7-Cmaj7. The scales typically used are Dorian for the ii chord, Mixolydian for the V, and Ionian (major) for the I.
+
+In a minor key ii-V-i, the ii chord is minor 7♭5 (half-diminished), the V is still dominant 7 (often with altered extensions), and the i is minor (maj7 or m6). For example, in C minor: Dm7♭5-G7-Cm(maj7). The scales commonly used are Locrian for the ii chord, harmonic minor (or altered scales) for the V chord, and harmonic or natural minor for the i chord. The key difference is that the minor ii-V-i uses the half-diminished ii chord and resolves to a minor tonic, creating a darker, more tension-filled sound compared to the brighter major ii-V-I progression.</pre>
+      </div>
+      </div>
+    </details><details class="item">
+      <summary><span class="id">c08</span><span class="q">Explain tension and resolution in a dominant 7th chord using the tritone between its 3rd and 7th.</span></summary>
+      <div class="body">
+        <p class="gold"><b>Key points (judge 기준):</b></p>
+        <ul><li>the 3rd and 7th of a dominant form a tritone (unstable interval)</li><li>e.g. in G7 the tritone is B–F</li><li>the tritone resolves inward/outward to the tonic chord tones (B→C, F→E for C)</li><li>this drives the V→I resolution</li></ul>
+        <div class="creply">
+        <div class="head"><b>Raw</b><span class="score">judge 5/5</span></div>
+        <pre class="long">In a dominant 7th chord, the tritone interval between the 3rd and 7th creates a powerful sense of harmonic tension that demands resolution. For example, in a G7 chord (G-B-D-F), the tritone exists between B (the 3rd) and F (the 7th). This dissonant interval creates instability because the tritone divides the octave exactly in half, making it harmonically ambiguous. The tension resolves naturally when the chord moves to its tonic - typically the B resolves upward by half-step to C, while the F resolves downward by half-step to E, landing on the root and 3rd of the C major chord. This voice-leading motion, where the tritone expands outward to a stable consonance, is fundamental to tonal harmony and explains why dominant 7th chords have such a strong pull toward their resolution.</pre>
+      </div><div class="creply">
+        <div class="head"><b>+RAG</b><span class="score">judge 5/5</span></div>
+        <pre class="long">In a dominant 7th chord, the tritone interval between the 3rd and 7th creates a powerful sense of harmonic tension that demands resolution. For example, in a G7 chord (G-B-D-F), the tritone exists between B (the 3rd) and F (the 7th). This dissonant interval creates instability because the tritone divides the octave exactly in half, making it harmonically ambiguous. The tension resolves naturally when the chord moves to its tonic - typically the B resolves upward by half-step to C, while the F resolves downward by half-step to E, both moving to chord tones of the C major triad. This voice-leading motion, where the tritone resolves inward by half-steps, is fundamental to tonal harmony and explains why dominant 7th chords have such a strong pull toward their resolution, making them essential for establishing key centers and creating satisfying harmonic progressions.</pre>
+      </div>
+      </div>
+    </details>
+</section>
+
+<section id="task-D">
+  <h2>D · 할루시네이션 <span class="small">(17문항)</span></h2>
+  <div class="agg"><table>
+    <thead><tr><th>조건</th><th>할루시네이션율</th><th>컨트롤 정확도</th></tr></thead>
+    <tbody><tr><td colspan="2"><i>응답 없음</i></td></tr></tbody>
+  </table></div>
+  <div class="toolbar">
+    <input type="search" placeholder="필터 (id·질문·코드)…" data-filter="D" />
+    <label><input type="checkbox" data-only-fail="D" /> 오답/실패만</label>
+    <span data-count="D"></span>
+  </div>
+  <details class="item">
+      <summary><span class="id">d01</span><span class="badge trap">trap</span><span class="q">Explain the &#39;Hendrix cadence&#39; commonly taught in bebop harmony.</span></summary>
+      <div class="body">
+        <p><b>좋은 답 신호:</b> <code>not a standard</code>, <code>not a recognized</code>, <code>no such</code>, <code>not aware</code>…</p>
+        <p class="miss"><i>이 태스크는 최신 런에서 미실행 — 응답 미동기화</i></p>
+      </div>
+    </details><details class="item">
+      <summary><span class="id">d02</span><span class="badge trap">trap</span><span class="q">What chord is built on the 9th scale degree of the C major scale?</span></summary>
+      <div class="body">
+        <p><b>좋은 답 신호:</b> <code>only 7</code>, <code>only seven</code>, <code>seven degrees</code>, <code>no 9th degree</code>…</p>
+        <p class="miss"><i>이 태스크는 최신 런에서 미실행 — 응답 미동기화</i></p>
+      </div>
+    </details><details class="item">
+      <summary><span class="id">d03</span><span class="badge trap">trap</span><span class="q">Which major key signature has 9 sharps?</span></summary>
+      <div class="body">
+        <p><b>좋은 답 신호:</b> <code>no key</code>, <code>doesn&#39;t exist</code>, <code>maximum</code>, <code>only 7</code>…</p>
+        <p class="miss"><i>이 태스크는 최신 런에서 미실행 — 응답 미동기화</i></p>
+      </div>
+    </details><details class="item">
+      <summary><span class="id">d04</span><span class="badge trap">trap</span><span class="q">Describe the harmonic function of the &#39;Coltrane diminished pivot&#39; chord in standard analysis.</span></summary>
+      <div class="body">
+        <p><b>좋은 답 신호:</b> <code>not a standard</code>, <code>no such</code>, <code>not a recognized</code>, <code>not aware</code>…</p>
+        <p class="miss"><i>이 태스크는 최신 런에서 미실행 — 응답 미동기화</i></p>
+      </div>
+    </details><details class="item">
+      <summary><span class="id">d05</span><span class="badge trap">trap</span><span class="q">What note is the 14th of a Cmaj chord?</span></summary>
+      <div class="body">
+        <p><b>좋은 답 신호:</b> <code>no 14th</code>, <code>doesn&#39;t exist</code>, <code>only extends to 13</code>, <code>beyond the 13th</code>…</p>
+        <p class="miss"><i>이 태스크는 최신 런에서 미실행 — 응답 미동기화</i></p>
+      </div>
+    </details><details class="item">
+      <summary><span class="id">d06</span><span class="badge control">control</span><span class="q">Who composed &#39;Giant Steps&#39;?</span></summary>
+      <div class="body">
+        <p><b>Accept:</b> <code>coltrane</code> / <code>john coltrane</code></p>
+        <p class="miss"><i>이 태스크는 최신 런에서 미실행 — 응답 미동기화</i></p>
+      </div>
+    </details><details class="item">
+      <summary><span class="id">d07</span><span class="badge control">control</span><span class="q">How many sharps are in the key signature of D major?</span></summary>
+      <div class="body">
+        <p><b>Accept:</b> <code>2</code> / <code>two</code></p>
+        <p class="miss"><i>이 태스크는 최신 런에서 미실행 — 응답 미동기화</i></p>
+      </div>
+    </details><details class="item">
+      <summary><span class="id">d08</span><span class="badge control">control</span><span class="q">What is the V chord in the key of C major?</span></summary>
+      <div class="body">
+        <p><b>Accept:</b> <code>G7</code> / <code>G</code> / <code>G dominant</code> / <code>G major</code></p>
+        <p class="miss"><i>이 태스크는 최신 런에서 미실행 — 응답 미동기화</i></p>
+      </div>
+    </details><details class="item">
+      <summary><span class="id">d09</span><span class="badge control">control</span><span class="q">What is the relative minor of C major?</span></summary>
+      <div class="body">
+        <p><b>Accept:</b> <code>A minor</code> / <code>Am</code> / <code>Amin</code></p>
+        <p class="miss"><i>이 태스크는 최신 런에서 미실행 — 응답 미동기화</i></p>
+      </div>
+    </details><details class="item">
+      <summary><span class="id">d10</span><span class="badge control">control</span><span class="q">What is the tritone substitute of G7?</span></summary>
+      <div class="body">
+        <p><b>Accept:</b> <code>Db7</code> / <code>C#7</code></p>
+        <p class="miss"><i>이 태스크는 최신 런에서 미실행 — 응답 미동기화</i></p>
+      </div>
+    </details><details class="item">
+      <summary><span class="id">d11</span><span class="badge trap">trap</span><span class="q">Explain the &#39;Coltrane pentatonic&#39; — the six-note scale John Coltrane invented for Giant Steps.</span></summary>
+      <div class="body">
+        <p><b>좋은 답 신호:</b> <code>pentatonic means five</code>, <code>five notes</code>, <code>not six</code>, <code>no such</code>…</p>
+        <p class="miss"><i>이 태스크는 최신 런에서 미실행 — 응답 미동기화</i></p>
+      </div>
+    </details><details class="item">
+      <summary><span class="id">d12</span><span class="badge trap">trap</span><span class="q">Describe the standard &#39;Barry Harris rule&#39; that every b9 must resolve upward by a half step.</span></summary>
+      <div class="body">
+        <p><b>좋은 답 신호:</b> <code>not a standard rule</code>, <code>no such rule</code>, <code>not a recognized</code>, <code>resolves down</code>…</p>
+        <p class="miss"><i>이 태스크는 최신 런에서 미실행 — 응답 미동기화</i></p>
+      </div>
+    </details><details class="item">
+      <summary><span class="id">d13</span><span class="badge trap">trap</span><span class="q">Why is the E7#9 &#39;Hendrix chord&#39; also commonly called the &#39;Lydian cadence&#39;?</span></summary>
+      <div class="body">
+        <p><b>좋은 답 신호:</b> <code>not called</code>, <code>not known as</code>, <code>no such term</code>, <code>not a standard term</code>…</p>
+        <p class="miss"><i>이 태스크는 최신 런에서 미실행 — 응답 미동기화</i></p>
+      </div>
+    </details><details class="item">
+      <summary><span class="id">d14</span><span class="badge trap">trap</span><span class="q">Explain the rule in jazz harmony that a major 7th chord must always omit its 11th.</span></summary>
+      <div class="body">
+        <p><b>좋은 답 신호:</b> <code>not an absolute</code>, <code>not always</code>, <code>#11 can</code>, <code>can include</code>…</p>
+        <p class="miss"><i>이 태스크는 최신 런에서 미실행 — 응답 미동기화</i></p>
+      </div>
+    </details><details class="item">
+      <summary><span class="id">d15</span><span class="badge trap">trap</span><span class="q">What is the &#39;augmented ii-V-I&#39; progression as defined in standard jazz theory?</span></summary>
+      <div class="body">
+        <p><b>좋은 답 신호:</b> <code>not a standard</code>, <code>no such</code>, <code>not a recognized</code>, <code>not aware</code>…</p>
+        <p class="miss"><i>이 태스크는 최신 런에서 미실행 — 응답 미동기화</i></p>
+      </div>
+    </details><details class="item">
+      <summary><span class="id">d16</span><span class="badge control">control</span><span class="q">In a major key, what is the chord quality built on the 7th scale degree (the vii chord)?</span></summary>
+      <div class="body">
+        <p><b>Accept:</b> <code>diminished</code> / <code>m7b5</code> / <code>half-diminished</code> / <code>half diminished</code> / <code>minor 7 flat 5</code></p>
+        <p class="miss"><i>이 태스크는 최신 런에서 미실행 — 응답 미동기화</i></p>
+      </div>
+    </details><details class="item">
+      <summary><span class="id">d17</span><span class="badge control">control</span><span class="q">What are the four notes of a G7 chord?</span></summary>
+      <div class="body">
+        <p><b>Accept:</b> <code>G B D F</code> / <code>GBDF</code></p>
+        <p class="miss"><i>이 태스크는 최신 런에서 미실행 — 응답 미동기화</i></p>
+      </div>
+    </details>
+</section>
+
+<section id="task-E">
+  <h2>E · 곡 특화 (RAG-favored) <span class="small">(10문항)</span></h2>
+  <div class="agg"><table>
+    <thead><tr><th>조건</th><th>정확도</th><th>N</th></tr></thead>
+    <tbody><tr>
+    <th>Raw</th>
+    <td>80.0%</td>
+    <td>10 문항</td>
+  </tr><tr>
+    <th>+RAG</th>
+    <td>80.0%</td>
+    <td>10 문항</td>
+  </tr></tbody>
+  </table></div>
+  <div class="toolbar">
+    <input type="search" placeholder="필터 (id·질문·코드)…" data-filter="E" />
+    <label><input type="checkbox" data-only-fail="E" /> 오답/실패만</label>
+    <span data-count="E"></span>
+  </div>
+  <details class="item">
+      <summary>
+        <span class="id">e01</span>
+        <span class="q">재즈 스탠더드 Stella by Starlight의 첫 코드는 무엇인가? (정확한 코드 기호로 답하라)</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>Em7b5</code> / <code>Em7♭5</code> / <code>Eø7</code> / <code>Eø</code> / <code>E half-diminished</code> / <code>E half diminished</code> / <code>E-7b5</code> / <code>E minor 7 flat 5</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">Em7b5</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">Em7b5</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">e02</span>
+        <span class="q">Have You Met Miss Jones의 브릿지는 키 센터들이 어떤 음정 간격으로 이동하는가?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>major third</code> / <code>major thirds</code> / <code>장3도</code> / <code>장 3도</code> / <code>M3</code> / <code>장3</code> / <code>장 3</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">Have You Met Miss Jones의 브릿지는 장3도 간격으로 키 센터가 이동합니다. F major → A major → D♭ major → F major 순서로 진행되어 각각 장3도씩 상행하는 패턴을 보입니다.</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">Have You Met Miss Jones의 브릿지는 장3도 간격으로 키 센터가 이동합니다. F major → A major → D♭ major → F major 순서로 진행되며, 각 키 센터 간의 간격이 장3도입니다.</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">e03</span>
+        <span class="q">Misty (E♭ major)의 A 섹션에서 AbMaj7이 마이너로 바뀐 후 함께 등장하여 backdoor 케이던스를 이루는 도미넌트 7th 코드는?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>Db7</code> / <code>D♭7</code> / <code>Db dominant 7</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">Db7</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">Db7</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">e04</span>
+        <span class="q">Charlie Parker의 Yardbird Suite는 어떤 키로 연주되는가?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>C major</code> / <code>C</code> / <code>Cmaj</code> / <code>C 메이저</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">C major</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">C major</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">e05</span>
+        <span class="q">Roy Hargrove의 Strasbourg / St. Denis는 몇 마디 진행을 반복해서 만들어지는가? (숫자만)</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>8</code> / <code>8마디</code> / <code>8 bars</code> / <code>eight</code> / <code>eight bars</code> / <code>여덟</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">8</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">8</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">e06</span>
+        <span class="q">Oscar Peterson의 Hymn To Freedom A섹션에서 chord IV(EbMaj)가 chord I(Bb)로 진행하는 케이던스의 일반적 이름은 무엇인가?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>plagal</code> / <code>plagal cadence</code> / <code>변격종지</code> / <code>변격 종지</code> / <code>amen cadence</code> / <code>변진행</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">plagal cadence (플라갈 케이던스)</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">plagal cadence (플라갈 케이던스)</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">e07</span>
+        <span class="q">Kenny Dorham의 Blue Bossa는 어느 키로 시작하는가?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>C minor</code> / <code>Cm</code> / <code>C-</code> / <code>C 마이너</code> / <code>C minor key</code> / <code>Cmin</code> / <code>C 단조</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">C minor</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">C minor</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">e08</span>
+        <span class="q">Joseph Kosma의 Autumn Leaves가 Bb major와 함께 사용하는 나란한 마이너 키는 무엇인가?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>G minor</code> / <code>Gm</code> / <code>G-</code> / <code>G 마이너</code> / <code>Gmin</code> / <code>G minor key</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">G minor</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">G minor</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">e09</span>
+        <span class="q">Henry Mancini의 Moon River는 몇 박자(time signature)로 작곡되었는가?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>3/4</code> / <code>삼사박자</code> / <code>3박자</code> / <code>3 4박자</code> / <code>waltz</code> / <code>왈츠</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">4/4박자</td>
+        <td class="bad">✗</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">4/4박자</td>
+        <td class="bad">✗</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">e10</span>
+        <span class="q">Body and Soul (Db major)은 1도(I)가 아닌 어떤 도수(roman numeral)의 코드로 시작하는가?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>ii</code> / <code>ii도</code> / <code>ii chord</code> / <code>ii-7</code> / <code>2도</code> / <code>Ebm7</code> / <code>E♭m7</code> / <code>2</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">6도(vi)</td>
+        <td class="bad">✗</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">6도(vi)</td>
+        <td class="bad">✗</td>
+      </tr></tbody></table>
+      </div>
+    </details>
+</section>
+
+<section id="task-F">
+  <h2>F · 외부 음악이론 벤치 (YouTube) <span class="small">(12문항)</span></h2>
+  <div class="agg"><table>
+    <thead><tr><th>조건</th><th>정확도</th><th>N</th></tr></thead>
+    <tbody><tr>
+    <th>Raw</th>
+    <td>16.7%</td>
+    <td>12 문항</td>
+  </tr><tr>
+    <th>+RAG</th>
+    <td>8.3%</td>
+    <td>12 문항</td>
+  </tr></tbody>
+  </table></div>
+  <div class="toolbar">
+    <input type="search" placeholder="필터 (id·질문·코드)…" data-filter="F" />
+    <label><input type="checkbox" data-only-fail="F" /> 오답/실패만</label>
+    <span data-count="F"></span>
+  </div>
+  <details class="item">
+      <summary>
+        <span class="id">f01</span>
+        <span class="q">A triad is made of the notes G#, C#, and E. What is the root and quality of this chord? (Give root + quality.)</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>C# minor</code> / <code>C#minor</code> / <code>C#m</code> / <code>C#min</code> / <code>Csharp minor</code> / <code>C-sharp minor</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">C# minor</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">G# major</td>
+        <td class="bad">✗</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">f02</span>
+        <span class="q">The notes Bb, F, D, and A form a chord. Analyze it in Roman numerals in the context of F major (use the full Roman numeral with quality).</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>IVmaj7</code> / <code>IV7</code> / <code>IV△7</code> / <code>IVΔ7</code> / <code>IV maj 7</code> / <code>IV M7</code> / <code>BbMaj7</code> / <code>Bbmaj7</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">vi7</td>
+        <td class="bad">✗</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">V7</td>
+        <td class="bad">✗</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">f03</span>
+        <span class="q">In the key of E major, what is the full name of the seventh chord built on the third scale degree?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>G# minor 7</code> / <code>G#m7</code> / <code>G#min7</code> / <code>G#-7</code> / <code>G sharp minor 7</code> / <code>Gsharp minor 7</code> / <code>Gsharpm7</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">G# minor seventh</td>
+        <td class="bad">✗</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">G# minor 7th chord (G#m7)</td>
+        <td class="ok">✓</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">f04</span>
+        <span class="q">Of the seven modes of the major scale (Ionian, Dorian, Phrygian, Lydian, Mixolydian, Aeolian, Locrian), which ones contain a minor 7th interval relative to the tonic? List all that qualify.</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>Dorian, Phrygian, Mixolydian, Aeolian, Locrian</code> / <code>Dorian Phrygian Mixolydian Aeolian Locrian</code> / <code>Dorian, Phrygian, Mixolydian, Aeolian, and Locrian</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">Dorian, Phrygian, Mixolydian, Aeolian, Locrian</td>
+        <td class="ok">✓</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">Dorian, Phrygian, Aeolian, and Locrian contain a minor 7th interval relative to the tonic</td>
+        <td class="bad">✗</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">f05</span>
+        <span class="q">A progression in Bb major is: Bb → G7 → C7 → F. What is the harmonic function of the G7 chord, expressed in Roman numerals?</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>V7/ii</code> / <code>V/ii</code> / <code>V7 of ii</code> / <code>five of two</code> / <code>V/2</code> / <code>V7/2</code> / <code>V(7)/ii</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">vi7</td>
+        <td class="bad">✗</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">VI7</td>
+        <td class="bad">✗</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">f06</span>
+        <span class="q">The notes B, G, F, and A appear together as a chord in F major. Identify the chord (full name) and its harmonic function.</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>V9/V</code> / <code>V/V</code> / <code>V7/V</code> / <code>five of five</code> / <code>G9</code> / <code>G9(no 5)</code> / <code>G9 no 5th</code> / <code>G dominant 9</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">G minor 7 chord (Gm7), functioning as ii7 in F major</td>
+        <td class="bad">✗</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">G7 (G dominant seventh) - V7 chord, dominant function</td>
+        <td class="bad">✗</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">f07</span>
+        <span class="q">In the key of E major, the chord G#7 resolves DECEPTIVELY. To which chord does it resolve? (Answer with the chord name.)</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>A major</code> / <code>Amaj7</code> / <code>A maj7</code> / <code>Amajor</code> / <code>Amajor7</code> / <code>IV major</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">C#m</td>
+        <td class="bad">✗</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">Am</td>
+        <td class="bad">✗</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">f08</span>
+        <span class="q">The notes A, D, C, F#, and Eb appear together as a chord in the key of Eb major. Identify the chord (full name) and its function in Roman numerals.</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>V7b9/iii</code> / <code>V7♭9/iii</code> / <code>V/iii</code> / <code>D7b9</code> / <code>D7♭9</code> / <code>five seven flat nine of three</code> / <code>V7(b9)/iii</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">F#dim7 chord, functioning as viio7/vi (leading tone diminished seventh of vi)</td>
+        <td class="bad">✗</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">Eb major 7th chord with added 6th and sharp 11th (EbMaj7#11add6), functioning as IMaj7#11add6 in the key of Eb major</td>
+        <td class="bad">✗</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">f09</span>
+        <span class="q">A scale is spelled: G, A, Bb, C#, D, E, F. Identify this scale by name (or as a mode of a parent scale).</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>4th mode of D harmonic minor</code> / <code>fourth mode of D harmonic minor</code> / <code>Ukrainian Dorian</code> / <code>Romanian minor</code> / <code>Mi sheberach</code> / <code>4th mode harmonic minor</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">G Harmonic Minor</td>
+        <td class="bad">✗</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">G Harmonic Minor</td>
+        <td class="bad">✗</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">f10</span>
+        <span class="q">What is the hidden harmonic function behind the diminished chord G#, F, D, B in the key of E minor? Express it in Roman numerals.</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>vii°7/IV</code> / <code>viio7/IV</code> / <code>vii dim7/IV</code> / <code>vii diminished 7/IV</code> / <code>V7b9/IV</code> / <code>V/IV</code> / <code>V7/IV</code> / <code>vii°/IV</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">vii°7/V (leading tone diminished seventh of the dominant)</td>
+        <td class="bad">✗</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">#iv°7 (raised fourth degree diminished seventh chord)</td>
+        <td class="bad">✗</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">f11</span>
+        <span class="q">In a piece in Ab major, an E7 chord appears. Explain a possible harmonic function of this chord (use a standard theory name or a Roman-numeral analysis).</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>German sixth</code> / <code>German 6</code> / <code>Ger+6</code> / <code>augmented sixth</code> / <code>sub V7/V</code> / <code>subV/V</code> / <code>tritone substitute of Bb7</code> / <code>tritone sub for V</code> / <code>V/N</code> / <code>V of Neapolitan</code> / <code>V7/N</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">V7/vi - dominant seventh of the relative minor (F minor)</td>
+        <td class="bad">✗</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">V7/vi - secondary dominant of the vi chord (F minor)</td>
+        <td class="bad">✗</td>
+      </tr></tbody></table>
+      </div>
+    </details><details class="item">
+      <summary>
+        <span class="id">f14</span>
+        <span class="q">Suppose Ebm7 is the ii chord in Db major. Provide a V–I resolution that uses a TRITONE SUBSTITUTION for the V chord — give the three chord symbols ii → subV → I.</span>
+      </summary>
+      <div class="body">
+        <p class="gold"><b>Accept:</b> <code>Ebm7 D7 Dbmaj7</code> / <code>Ebm7-D7-Dbmaj7</code> / <code>Ebm7 → D7 → Dbmaj7</code> / <code>Ebm7, D7, Dbmaj7</code> / <code>D7 Dbmaj7</code> / <code>D7-Dbmaj7</code> / <code>D7 to Dbmaj7</code></p>
+        <table class="cond"><thead><tr><th>조건</th><th>답</th><th>채점</th></tr></thead>
+        <tbody><tr>
+        <th>Raw</th>
+        <td class="reply">Ebm7 → A7 → Db</td>
+        <td class="bad">✗</td>
+      </tr><tr>
+        <th>+RAG</th>
+        <td class="reply">Ebm7 → G7 → DbMaj7</td>
+        <td class="bad">✗</td>
+      </tr></tbody></table>
+      </div>
+    </details>
+</section>
+
+
+<footer>
+  파일: <code>gold/*.json</code> · <code>results/responses.json</code> · <code>scorer.mjs</code> ·
+  세부 마크다운: <code>DISCLOSURE.md</code> · 다음 작업: <code>NEXT.md</code>
+</footer>
+
+</div>
+<script>
+/* Filter + fail-only toggle per task. */
+function isFail(detail) {
+  // Search inside the rendered table cells for ✗ glyphs or "응답 없음".
+  const t = detail.innerText || '';
+  return /✗|응답 없음/.test(t);
+}
+function applyFilter(task) {
+  const filterEl = document.querySelector('input[data-filter="' + task + '"]');
+  const failEl   = document.querySelector('input[data-only-fail="' + task + '"]');
+  const countEl  = document.querySelector('[data-count="' + task + '"]');
+  const q = (filterEl?.value || '').trim().toLowerCase();
+  const onlyFail = !!failEl?.checked;
+  const items = document.querySelectorAll('#task-' + task + ' details.item');
+  let visible = 0, total = items.length;
+  items.forEach((d) => {
+    const text = (d.innerText || '').toLowerCase();
+    const matchQ = !q || text.includes(q);
+    const matchFail = !onlyFail || isFail(d);
+    const ok = matchQ && matchFail;
+    d.style.display = ok ? '' : 'none';
+    if (ok) visible++;
+  });
+  if (countEl) countEl.textContent = visible + ' / ' + total;
+}
+document.querySelectorAll('input[data-filter]').forEach((el) => {
+  const t = el.dataset.filter;
+  el.addEventListener('input', () => applyFilter(t));
+  applyFilter(t);
+});
+document.querySelectorAll('input[data-only-fail]').forEach((el) => {
+  el.addEventListener('change', () => applyFilter(el.dataset.onlyFail));
+});
+</script>
+</body></html>

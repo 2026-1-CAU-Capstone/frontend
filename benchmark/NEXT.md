@@ -4,20 +4,21 @@
 
 ---
 
-## 0. 현재 상태 (요약, 2026-05-23)
-- 4태스크 완성: **A 구조분석 / B 이론팩트 / C 설명(LLM-judge) / D 할루시네이션(LLM-judge)**
-- 4조건 **전부 측정 완료**: Raw / +Rule / +RAG / +Rule+RAG (로컬 RAG :8001)
+## 0. 현재 상태 (요약, 2026-05-27 갱신)
+- 5태스크: **A 구조분석 / B 이론팩트 / C 설명(judge) / D 할루시네이션(judge) / E 곡 특화 (신규)**
+- 응답 192건 동기화 완료 (`responses.json`, scp from mac-mini). **D는 최신 런에서 미실행** — 이전 결과 표만 보존.
 
 | 태스크 | Raw | +Rule | +RAG | +Rule+RAG |
 |---|---|---|---|---|
 | A (24) | F1 87/key 71/Rom 83 | **F1 100/key 96/Rom 99** | F1 86/key 63/Rom **66** | F1 100/key 88/Rom 95 |
-| B (30) | **93.3%** | — | 90.0% (-1 = b17) | — |
+| B (30, 추상) | **93.3%** | — | 90.0% (-1 = b17) | — |
 | C (8)  | 4.63/5 | — | 4.13/5 | — |
-| D (17) | 0% · 100% | — | 0% · 100% | — |
+| **E (10, 곡 특화)** | **80.0%** | — | **80.0%** (lift 0, 동일 오답 e09/e10) | — |
+| D (17, 이전 런) | 0% · 100% | — | 0% · 100% | — |
 
-**큰 발견 — RAG가 모든 축에서 성능을 떨어뜨림.** A Roman 83→66, B 1문항 뒤집힘(b17 backdoor → F7), C 4.63→4.13. **+Rule+RAG가 +Rule보다 낮음** — 완벽한 룰 컨텍스트에 RAG를 더해도 노이즈가 흠집을 냄. D는 모델이 이미 강해 변별 안 됨.
+**큰 발견 — RAG가 모든 축에서 성능을 떨어뜨림.** 특히 **E**: 답이 RAG 코퍼스에 직접 있는 곡 분석 질문에서도 **lift 0, 오답 동일**. 이걸로 "B는 도메인 미스매치라 안 도왔다"는 가설이 직접 반증됨 — retrieval/주입 자체가 문제. +Rule+RAG가 +Rule보다 낮은 것도 같은 결.
 
-**추정 원인:** (a) RAG 코퍼스가 한국어 곡-분석 중심 → 영어 추상 이론 질문과 도메인 불일치, (b) `n=5` 청크가 길어 산만, (c) 키워드 검색이 무관한 곡 분석을 끌어옴(b17은 backdoor 질문에 IV→I 청크가 와서 모델이 F7로 흘러감).
+**추정 원인:** (a) `n=5` 청크 노이즈, (b) 의미 검색의 정밀도 부족, (c) 청크 형식이 직접 인용에 부적합. `b17`은 backdoor 질문에 `IV→I` 류 청크가 와서 모델이 F7로 흘러감 — 한 항목 직접 증거.
 
 ---
 
@@ -87,8 +88,19 @@ RAG_BASE=http://127.0.0.1:8001 node benchmark/run.mjs --task=B
 benchmark/
 ├─ NEXT.md          ← 이 파일 (다음 작업)
 ├─ README.md        설계·실행법·최신 결과
-├─ run.mjs          러너 (.env 로더 · 4태스크 · judge · RAG /search)
-├─ scorer.mjs       A/B 채점 + C/D 집계 + 카드
-├─ gold/            structural(24) · theory(30) · explanatory(8) · hallucination(17)
-└─ results/         scorecard.md · responses.json (원문, 재채점용)
+├─ index.html       전체 결과 브라우저 사이트 (자동 생성, buildSite.mjs)
+├─ DISCLOSURE.md    전체 QA·응답·점수 마크다운 공개 (자동 생성, disclose.mjs)
+├─ run.mjs          러너 (.env 로더 · 5태스크 · judge · RAG /search)
+├─ scorer.mjs       채점 + 집계 + 카드
+├─ disclose.mjs     DISCLOSURE.md 생성기
+├─ buildSite.mjs    index.html 생성기
+├─ gold/            structural(24) · theory(30) · explanatory(8) · hallucination(17) · song-grounded(10)
+└─ results/         scorecard.md · responses.json (192건 원문, 재채점용)
+```
+
+## 6. 사이트 다시 빌드하는 법
+```bash
+node benchmark/buildSite.mjs   # benchmark/index.html 갱신
+node benchmark/disclose.mjs    # benchmark/DISCLOSURE.md 갱신
+open benchmark/index.html      # 브라우저로 확인
 ```

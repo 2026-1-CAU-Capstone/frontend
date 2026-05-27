@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { AppPreviewProvider } from './contexts/AppPreviewContext';
 import HomePage from './pages/HomePage';
 import ChordPage from './pages/ChordPage';
 import NotePage from './pages/NotePage';
 import LicksPage from './pages/LicksPage';
 import SolosPage from './pages/SolosPage';
 import MyLicksPage from './pages/MyLicksPage';
+import MyChordChartsPage from './pages/MyChordChartsPage';
 import Lick12KeyPage from './pages/Lick12KeyPage';
 import InputPage from './pages/InputPage';
 import StyPocPage from './pages/StyPocPage';
@@ -57,6 +59,7 @@ export default function App() {
           <Route path="/input" element={<InputPage />} />
           <Route path="/youtube-onset" element={<YoutubeOnsetPage />} />
           <Route path="/my-licks" element={<MyLicksPage />} />
+          <Route path="/my-charts" element={<MyChordChartsPage />} />
           <Route path="/lick-practice/:id" element={<Lick12KeyPage />} />
           <Route path="/sty-poc" element={<StyPocPage />} />
           <Route path="/sty-demo" element={<StyDemoPage />} />
@@ -65,6 +68,15 @@ export default function App() {
           {/* Standalone public marketing page — not linked from any in-app
               navigation. Reachable only via the direct URL (#/intro). */}
           <Route path="/intro" element={<IntroPage />} />
+          {/* /preview/* — browser-side design preview of app-only screens.
+              Wraps children in AppPreviewProvider so isNativeLandscape (and
+              any future app-only UI hooks) see "we're in app mode" without
+              affecting the regular /chord, /note, … routes. */}
+          <Route path="/preview" element={<AppPreviewProvider><Outlet /></AppPreviewProvider>}>
+            <Route path="chord" element={<ChordPage />} />
+            <Route path="mychord" element={<ChordPage mychordMode />} />
+            <Route path="note" element={<NotePage />} />
+          </Route>
           {/* Legacy routes — SoloGeneratorPage & LickInputPage merged into
               the unified EditorPage (mode=solo|lick). Keep redirects so old
               bookmarks / external links still land in the right place. */}

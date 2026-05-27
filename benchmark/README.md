@@ -28,10 +28,10 @@ RAG_RETRIEVE_URL=https://<host>/retrieve  ANTHROPIC_API_KEY=sk-...  node benchma
 
 ## 태스크
 - **A · 구조 분석** (`gold/structural.json`, 24문항): 키 / ii-V-I triple / 로마숫자. 룰·RAG 관련.
-- **B · 이론 팩트** (`gold/theory.json`, 30문항): 객관식 단답 → accept[] 매칭. RAG 관련.
+- **B · 이론 팩트** (`gold/theory.json`, 30문항, 추상 이론): 객관식 단답 → accept[] 매칭. RAG 관련.
 - **C · 설명** (`gold/explanatory.json`, 8문항): 서술형 → LLM-judge 1~5점 (key points 커버리지). RAG 관련.
-- **D · 할루시네이션** (`gold/hallucination.json`, 17문항, trap+control 혼합): 함정에서 모델이
-  올바르게 거부/정정하는지를 LLM-judge가 채점해 할루시네이션율로 환산. RAG 관련.
+- **D · 할루시네이션** (`gold/hallucination.json`, 17문항, trap+control): 함정에서 모델이 거부/정정하는지를 LLM-judge가 채점. RAG 관련.
+- **E · 곡 특화** (`gold/song-grounded.json`, 10문항): RAG 코퍼스에 답이 직접 들어있는 곡 분석 질문(Stella by Starlight, Misty 등). **B의 "도메인 미스매치" 가설을 직접 반증하기 위한 통제 비교**. RAG가 lift를 보여야 마땅한 설계.
 
 ## 실행 결과 (claude-sonnet-4-20250514, judge 동일 모델, RAG **on**: 로컬 :8001, 2026-05-23)
 | 태스크 | 조건 | 수치 |
@@ -44,15 +44,18 @@ RAG_RETRIEVE_URL=https://<host>/retrieve  ANTHROPIC_API_KEY=sk-...  node benchma
 |                | +RAG      | 90.0% (27/30 — b17 추가 오답: Bb7 → F7) |
 | C 설명 (8, judge) | Raw     | 4.63 / 5 (90.6%) |
 |                  | +RAG    | 4.13 / 5 (78.1%) |
-| D 할루시네이션 (17, judge) | Raw | 할루시네이션 0% · 컨트롤 100% |
-|                            | +RAG | 할루시네이션 0% · 컨트롤 100% |
+| D 할루시네이션 (17, judge) | Raw | 할루시네이션 0% · 컨트롤 100% _(이전 실행)_ |
+|                            | +RAG | 할루시네이션 0% · 컨트롤 100% _(이전 실행)_ |
+| **E 곡 특화 (10)**          | Raw  | **80.0%** (8/10 — 오답 e09, e10) |
+|                            | +RAG | **80.0%** (8/10 — 동일 오답 e09, e10) |
 
 **해석:**
 1. **A = 룰 레이어의 명백·안정적 승리** (24문항). Raw는 ii-V-I 과잉검출(P 80%), **+Rule이 F1 100% + Roman 99.2%로 교정.** ← 확정.
 2. **현재 RAG는 모든 측정 축에서 성능을 떨어뜨림.** A Roman 83→66, B 93.3→90, C 4.63→4.13. **+Rule+RAG < +Rule** 까지 — 완벽한 룰 컨텍스트가 있어도 RAG 노이즈가 흠집을 냄.
 3. **B에서 RAG가 깬 단 한 항목 = b17(backdoor → Cmaj7)**: Raw는 Bb7로 정답. RAG 컨텍스트가 `IV→I` 류 설명을 주입해 모델이 "F7"로 잘못 답함. **검색이 잘못된 청크를 가져왔다는 직접 증거.**
 4. **D는 sonnet-4가 이미 0%** — 강한 모델에선 fabrication 변별 안 됨(약한 모델/더 적대적 함정이 필요).
-5. **추정 원인:** (a) RAG 코퍼스가 한국어 곡-분석 중심이라 영어 추상 이론 질문과 도메인이 어긋남, (b) `n=5` 청크가 길어 산만함, (c) 검색이 키워드 기반이라 관련성 낮은 곡 분석을 끌어옴. **현재 형태 RAG는 배포 비추 — retrieval/필터를 고쳐 재측정 필요.**
+5. **★ E (곡 특화) = 가장 강한 negative finding.** RAG 코퍼스에 답이 직접 들어있는 곡 분석 질문 10개에서 **Raw 80% = +RAG 80%, 오답 동일(e09, e10)**. "B는 도메인이 어긋나서 RAG가 안 도왔다"는 가설을 직접 반증함 — **답이 코퍼스에 있어도 retrieval/주입 자체의 한계로 lift 0**. 도메인 매치 변명도 더는 안 통함.
+6. **추정 원인:** (a) `n=5` 청크가 길어 산만, (b) 의미 검색이 정밀하지 않아 관련 청크 위치/순위가 약함, (c) 청크 형식(title+instruction+response)이 답을 직접 인용하기 어려운 서술형. **현재 형태 RAG는 배포 비추 — retrieval/필터/청킹을 고쳐 재측정 필요.**
 
 > 채점기 주의: normFact가 대시/슬래시/화살표를 제거하도록 수정(`"Cm7 - F7 - BbMaj7"` 같은 정답 오탐 방지). 저장된 `responses.json`으로 API 재호출 없이 재채점 가능.
 

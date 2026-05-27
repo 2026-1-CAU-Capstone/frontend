@@ -19,6 +19,8 @@ import { createStyBackingPlayer, createHybridBackingPlayer } from '../lib/yamaha
 import { BUILTIN_STYLE, type StyleSelectorChoice } from '../components/yamaha-sty/StyleSelector';
 import { getPlayerSettings, inferPlayStyle, setPlayerSetting, subscribePlayerSettings, TRANSPOSING_INSTRUMENT_OFFSET } from '../lib/note/playerSettings';
 import { GenreSelect, MetronomeToggle, BpmControl, RepeatControl, TransportButtons, BackingMixer, type EngineBackend } from '../components/backing/BackingPlayerBar';
+import { useIsNativeUi } from '../contexts/AppPreviewContext';
+import { NativeChordPlayer } from '../components/backing/NativeChordPlayer';
 import { withLeadSheetSelectionIds } from '../lib/leadSheetSelection';
 import type { LeadSheetChordSelection } from '../components/leadsheet/LeadSheet';
 import { loadUserLicksSync } from '../data/lickData';
@@ -122,11 +124,11 @@ const MainArea = styled.div`
   overflow: hidden;
 `;
 
-const CenterColumn = styled.div`
+const CenterColumn = styled.div<{ $reverse?: boolean }>`
   display: flex;
   flex: 1;
   min-width: 0;
-  flex-direction: column;
+  flex-direction: ${({ $reverse }) => ($reverse ? 'column-reverse' : 'column')};
   /* Positioning context for the BackingPlayerBar dock so it spans only the
    * score column (not the chat panel on the right). */
   position: relative;
@@ -134,7 +136,7 @@ const CenterColumn = styled.div`
 
 /* White transport bar above the lead sheet (BPM/repeat/transport on the left,
  * key dropdown centered). Zoom & fullscreen stay inside the sheet. */
-const TransportBar = styled.div`
+const TransportBar = styled.div<{ $bottom?: boolean }>`
   position: relative;
   /* Lift the bar (and therefore its dropdowns) above the lead sheet, which is
    * a later sibling and would otherwise paint over the open menus. */
@@ -146,11 +148,19 @@ const TransportBar = styled.div`
    * compacts rather than wrapping or overlapping. */
   flex-wrap: nowrap;
   gap: 8px;
-  padding: 5px 10px;
   background: ${({ theme }) => theme.colors.bgPrimary};
-  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   flex-shrink: 0;
   min-width: 0;
+
+  ${({ $bottom, theme }) => $bottom
+    ? `
+      border-top: 1px solid ${theme.colors.border};
+      padding: 5px 10px max(5px, env(safe-area-inset-bottom, 0px));
+    `
+    : `
+      border-bottom: 1px solid ${theme.colors.border};
+      padding: 5px 10px;
+    `}
 `;
 
 /* Second toolbar row shown only in edit mode — the chord "modify tool".
@@ -241,9 +251,9 @@ const ToolWrap = styled.div`
   display: inline-flex;
 `;
 
-const AnalysisDrop = styled.div`
+const AnalysisDrop = styled.div<{ $up?: boolean }>`
   position: absolute;
-  top: calc(100% + 6px);
+  ${({ $up }) => ($up ? 'bottom: calc(100% + 6px);' : 'top: calc(100% + 6px);')}
   right: 0;
   z-index: 90;
   width: 248px;
@@ -523,6 +533,8 @@ const ResizeDivider = styled.div`
 export default function ChordPage({ mychordMode = false }: { mychordMode?: boolean }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const { filters, effective, toggleFilter } = useAnalysisFilters();
+  /* Gate for Capacitor-app-only UI (native shell OR /preview/* route). */
+  const isNativeUi = useIsNativeUi();
   const [songIndex, setSongIndex] = useState<SongEntry[]>([]);
   const [songId, setSongIdRaw] = useState(() =>
     mychordMode ? ANALYZED_SONG_ID : (searchParams.get('song') ?? ANALYZED_SONG_ID));
@@ -986,19 +998,20 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
 
         <MainArea>
         <CenterColumn>
-          {/* White transport bar above the sheet (zoom/fullscreen stay inside
-           *  the sheet at top-right). */}
+          {/* White transport bar — always at the top of the score column on
+           *  web. (Native: the duplicated cells are hidden here and rendered
+           *  in the bottom NativeChordPlayer instead.) */}
           <TransportBar>
             <BarLeft>
-              <GenreSelect />
-              <KeyControl selectedKey={writtenKey} onChange={setWrittenKey} isMinor={isMinorKey(writtenKey)} />
-              <SessionPicker value={session} onChange={setSession} />
+              {!isNativeUi && <GenreSelect />}
+              {!isNativeUi && <KeyControl selectedKey={writtenKey} onChange={setWrittenKey} isMinor={isMinorKey(writtenKey)} />}
+              {!isNativeUi && <SessionPicker value={session} onChange={setSession} />}
             </BarLeft>
             <BarCenter>
               <MetronomeToggle />
-              <BpmControl tempo={tempo} onTempoChange={setTempo} disabled={!sheet || loading} />
-              <RepeatControl repeatCount={repeatCount} onRepeatChange={setRepeatCount} disabled={!sheet || loading} />
-              <TransportButtons playing={isPlaying} onPlayPause={handlePlayPause} onStop={handleStop} disabled={!sheet || loading} />
+              {!isNativeUi && <BpmControl tempo={tempo} onTempoChange={setTempo} disabled={!sheet || loading} />}
+              {!isNativeUi && <RepeatControl repeatCount={repeatCount} onRepeatChange={setRepeatCount} disabled={!sheet || loading} />}
+              {!isNativeUi && <TransportButtons playing={isPlaying} onPlayPause={handlePlayPause} onStop={handleStop} disabled={!sheet || loading} />}
             </BarCenter>
             <BarRight>
               <ToolBtn type="button" title="공유" onClick={() => {/* TODO: 공유 기능 */}}>
@@ -1131,6 +1144,38 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
           ) : (
             <LoadingState>{error ?? (loading ? 'Loading chart...' : 'Loading song list...')}</LoadingState>
           )}
+
+          {/* Native bottom bar — iReal Pro 2-row layout. Renders inside
+           *  CenterColumn so its width matches the score area only (not the
+           *  chat panel). The cells in row 1 use the same functional controls
+           *  that were in the top TransportBar (hidden there in native mode). */}
+          {isNativeUi && (
+            <NativeChordPlayer
+              tempo={tempo}
+              onTempoChange={setTempo}
+              repeatCount={repeatCount}
+              onRepeatChange={setRepeatCount}
+              writtenKey={writtenKey}
+              onWrittenKeyChange={setWrittenKey}
+              session={session}
+              onSessionChange={setSession}
+              playing={isPlaying}
+              onPlayPause={handlePlayPause}
+              onStop={handleStop}
+              disabled={!sheet || loading}
+              engine={{
+                backend: engineBackend,
+                onBackendChange: (b) => {
+                  setEngineBackend(b);
+                  window.localStorage.setItem('jazzify.engine', b);
+                },
+                styleChoice,
+                onStyleChange: setStyleChoice,
+              }}
+              analysisOn={filters.showAnalysis}
+              onToggleAnalysis={() => toggleFilter('showAnalysis')}
+            />
+          )}
         </CenterColumn>
 
         <ResizeDivider ref={dividerRef} onMouseDown={onDividerMouseDown} />
@@ -1249,6 +1294,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
           </ModalCard>
         </ModalOverlay>
       )}
+
     </PageContainer>
   );
 }

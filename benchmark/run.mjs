@@ -1,20 +1,27 @@
 /* ─────────────────────────────────────────────────────────────────────────
- * Benchmark runner — tasks × conditions (Raw / +Rule / +RAG / +Rule+RAG).
+ * Benchmark runner — tasks × models × conditions.
  *
- *   A  structural-analysis  (key / ii-V-I / Roman)        rule + rag
- *   B  theory-facts         (objective short answer)      rag
- *   C  explanatory          (open answer, LLM-judge 1-5)  rag
- *   D  hallucination         (trap vs control, LLM-judge)  rag
+ *   Tasks:
+ *     A  structural-analysis  (key / ii-V-I / Roman)
+ *     B  theory-facts         (objective short answer)
+ *     C  explanatory          (open answer, LLM-judge 1-5)
+ *     D  hallucination        (trap vs control, LLM-judge)
+ *     E  song-grounded        (corpus-covered factual)
  *
- * Same model & question per item; only injected context differs. D and C are
+ *   Models × conditions (6 cells per item):
+ *     haiku / raw           sonnet / raw
+ *     haiku / +Rule         sonnet / +Rule
+ *     haiku / +Rule+RAG     sonnet / +Rule+RAG
+ *
+ * Same question per item; only model + injected context differs. D and C are
  * graded by an LLM judge (a separate Claude call) instead of keyword matching.
  * RAG context comes from the HarmoRAG server's GET /search endpoint.
  *
  * Env (auto-loaded from .env if present):
  *   VITE_ANTHROPIC_API_KEY / ANTHROPIC_API_KEY   (required)
- *   VITE_RAG_BASE / RAG_BASE                      (enables +RAG / +Rule+RAG)
- *   MODEL, JUDGE_MODEL
- * Run:  node benchmark/run.mjs [--task=A,B,C,D] [--dry]
+ *   VITE_RAG_BASE / RAG_BASE                      (enables +Rule+RAG)
+ *   JUDGE_MODEL  (defaults to sonnet for stable grading)
+ * Run:  node benchmark/run.mjs [--task=A,B,C,D,E] [--model=haiku,sonnet] [--dry]
  * ──────────────────────────────────────────────────────────────────────── */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
@@ -43,19 +50,19 @@ const ROOT = join(HERE, '..');
 const DRY = process.argv.includes('--dry');
 const taskArg = (process.argv.find((a) => a.startsWith('--task=')) || '').split('=')[1];
 const TASK_FILTER = taskArg ? taskArg.split(',').map((s) => s.trim().toUpperCase()) : null;
+const modelArg = (process.argv.find((a) => a.startsWith('--model=')) || '').split('=')[1];
+const MODEL_FILTER = modelArg ? modelArg.split(',').map((s) => s.trim().toLowerCase()) : null;
 
-const MODEL = process.env.MODEL || 'claude-sonnet-4-20250514';
-const JUDGE_MODEL = process.env.JUDGE_MODEL || MODEL;
+const MODELS = [
+  { id: 'haiku',  model: 'claude-haiku-4-5-20251001' },
+  { id: 'sonnet', model: 'claude-sonnet-4-6' },
+].filter((m) => !MODEL_FILTER || MODEL_FILTER.includes(m.id));
+
+/* Judge: stable model so grading isn't itself a confound. Defaults to sonnet. */
+const JUDGE_MODEL = process.env.JUDGE_MODEL || 'claude-sonnet-4-6';
 const API_KEY = process.env.ANTHROPIC_API_KEY || process.env.VITE_ANTHROPIC_API_KEY || '';
 const RAG_BASE = (process.env.RAG_BASE || process.env.VITE_RAG_BASE || '').trim().replace(/\/+$/, '');
 const RAG_TOKEN = (process.env.RAG_TOKEN || process.env.VITE_RAG_TOKEN || '').trim();
-/* Retrieval tuning knobs.
- *   RAG_N         (default 5) — how many chunks to ask /search for.
- *   RAG_MIN_SCORE (default 0) — drop any chunk whose cosine score is below this.
- *                              0.7-0.75 effectively says "if no chunk is a strong
- *                              match, inject NOTHING and let the model fall back to
- *                              its own knowledge instead of being misled."
- */
 const RAG_N = Math.max(1, parseInt(process.env.RAG_N || '5', 10));
 const RAG_MIN_SCORE = Number.isFinite(parseFloat(process.env.RAG_MIN_SCORE)) ? parseFloat(process.env.RAG_MIN_SCORE) : 0;
 
@@ -83,22 +90,16 @@ async function anthropic(model, system, user, maxTokens) {
     headers: { 'content-type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({ model, max_tokens: maxTokens, temperature: 0, system, messages: [{ role: 'user', content: user }] }),
   });
-  if (!res.ok) throw new Error(`Anthropic ${res.status}: ${(await res.text()).slice(0, 160)}`);
+  if (!res.ok) throw new Error(`Anthropic ${res.status} (${model}): ${(await res.text()).slice(0, 160)}`);
   const data = await res.json();
   return data.content?.map((b) => b.text).join('') ?? '';
 }
-const callModel = (system, user, max) => anthropic(MODEL, system, user, max);
 
-/** Judge call → parsed JSON verdict (best-effort). */
 async function judge(system, user) {
   const reply = await anthropic(JUDGE_MODEL, system, user, 80);
   return { json: extractJson(reply) || {}, raw: reply };
 }
 
-/** HarmoRAG GET /search → joined chunk text (title + instruction + response).
- *  Honors RAG_N (how many chunks to ask for) and RAG_MIN_SCORE (drop weak
- *  matches — returning null when nothing passes lets the model fall back to
- *  its own knowledge instead of being misled by a barely-relevant chunk). */
 async function retrieve(query) {
   if (!RAG_BASE) return null;
   const url = `${RAG_BASE}/search?q=${encodeURIComponent(query)}&n=${RAG_N}`;
@@ -116,6 +117,16 @@ async function retrieve(query) {
 const ctxBlock = (rule, rag) =>
   (rule ? `Rule-based analysis (authoritative):\n${rule}\n\n` : '') +
   (rag ? `Reference theory:\n${rag}\n\n` : '');
+
+/* Shared rule preamble for B/C/D/E. Reminds the model of formal labeling
+ * conventions and signals "use authoritative theory, not guesses". For A, the
+ * gold items carry per-item ruleContext (deterministic local analysis). */
+const RULE_PREAMBLE_THEORY = `Apply formal jazz-harmony analysis:
+- Use Roman numerals with quality (Imaj7, ii-7, V7, iiø7, V7/V, subV7/V, German 6th, etc.).
+- Identify function: tonic / subdominant / dominant / pivot / secondary dominant.
+- Name scales by mode and parent (e.g., "7th mode of melodic minor = altered").
+- For multi-chord questions, state the local key center first, then label each chord.
+- If a premise is false or a term is non-standard, say so plainly.`;
 
 /* ── judges for D and C ────────────────────────────────────────────────── */
 
@@ -149,7 +160,7 @@ async function judgeC(item, answer) {
 
 const TASKS = {
   A: {
-    name: 'A · 구조 분석', gold: () => loadGold('structural.json'), augs: ['rule', 'rag'], maxTokens: 700,
+    name: 'A · 구조 분석', gold: () => loadGold('structural.json'), maxTokens: 700,
     system: 'You are a precise jazz harmony analyst. Answer with STRICT JSON only.',
     ragQuery: (it) => `jazz harmony: ${it.chords.join(' ')} — key, ii-V-I, Roman numerals`,
     ruleCtx: (it) => it.ruleContext,
@@ -162,54 +173,55 @@ const TASKS = {
     score: scoreItem, aggregate, card: scorecardMarkdown,
   },
   B: {
-    name: 'B · 이론 팩트', gold: () => loadGold('theory.json'), augs: ['rag'], maxTokens: 150,
+    name: 'B · 이론 팩트', gold: () => loadGold('theory.json'), maxTokens: 200,
     system: 'You are a precise jazz theory tutor. Answer with STRICT JSON only.',
     ragQuery: (it) => it.q,
-    buildUser: (it, { ragCtx }) => ctxBlock(null, ragCtx) + `${it.q}\n\nReturn ONLY JSON: {"answer":"<concise answer>"}`,
+    ruleCtx: () => RULE_PREAMBLE_THEORY,
+    buildUser: (it, { ruleCtx, ragCtx }) => ctxBlock(ruleCtx, ragCtx) + `${it.q}\n\nReturn ONLY JSON: {"answer":"<concise answer>"}`,
     parse: (r) => { const j = extractJson(r); return { answer: j?.answer ?? r }; },
     score: scoreTheory, aggregate: aggregateTheory, card: theoryCardMarkdown,
   },
   C: {
-    name: 'C · 설명 (LLM-judge)', gold: () => loadGold('explanatory.json'), augs: ['rag'], maxTokens: 400,
+    name: 'C · 설명 (LLM-judge)', gold: () => loadGold('explanatory.json'), maxTokens: 400,
     system: 'You are a knowledgeable jazz theory teacher. Explain clearly and accurately in a short paragraph.',
     ragQuery: (it) => it.q,
-    buildUser: (it, { ragCtx }) => ctxBlock(null, ragCtx) + it.q,
+    ruleCtx: () => RULE_PREAMBLE_THEORY,
+    buildUser: (it, { ruleCtx, ragCtx }) => ctxBlock(ruleCtx, ragCtx) + it.q,
     parse: (r) => ({ answer: r }),
     score: (pred, item) => judgeC(item, pred.answer), aggregate: aggregateExplanatory, card: explanatoryCardMarkdown,
   },
   D: {
-    name: 'D · 할루시네이션 (LLM-judge)', gold: () => loadGold('hallucination.json'), augs: ['rag'], maxTokens: 220,
+    name: 'D · 할루시네이션 (LLM-judge)', gold: () => loadGold('hallucination.json'), maxTokens: 220,
     system: 'You are a jazz theory expert. If a question rests on a false premise or uses a non-standard term, say so plainly instead of inventing an answer. Answer in 1-3 sentences.',
     ragQuery: (it) => it.q,
-    buildUser: (it, { ragCtx }) => ctxBlock(null, ragCtx) + it.q,
+    ruleCtx: () => RULE_PREAMBLE_THEORY,
+    buildUser: (it, { ruleCtx, ragCtx }) => ctxBlock(ruleCtx, ragCtx) + it.q,
     parse: (r) => ({ answer: r }),
     score: (pred, item) => judgeD(item, pred.answer), aggregate: aggregateHallucination, card: hallucinationCardMarkdown,
   },
   E: {
-    /* Song-specific factual questions whose answers ARE in the RAG corpus.
-     * Designed to test whether RAG helps when the corpus actually covers the
-     * question (vs. B/C where the corpus has zero coverage of abstract theory
-     * definitions). If RAG can't help here either, the pipeline itself is
-     * broken; if it does help, the original B/C drop is a corpus/question
-     * mismatch, not a logic bug. */
-    name: 'E · 곡-grounded 단답', gold: () => loadGold('song-grounded.json'), augs: ['rag'], maxTokens: 150,
+    name: 'E · 곡-grounded 단답', gold: () => loadGold('song-grounded.json'), maxTokens: 150,
     system: 'You are a precise jazz theory tutor. Answer in Korean with STRICT JSON only.',
     ragQuery: (it) => it.q,
-    buildUser: (it, { ragCtx }) => ctxBlock(null, ragCtx) + `${it.q}\n\nReturn ONLY JSON: {"answer":"<concise answer>"}`,
+    ruleCtx: () => RULE_PREAMBLE_THEORY,
+    buildUser: (it, { ruleCtx, ragCtx }) => ctxBlock(ruleCtx, ragCtx) + `${it.q}\n\nReturn ONLY JSON: {"answer":"<concise answer>"}`,
     parse: (r) => { const j = extractJson(r); return { answer: j?.answer ?? r }; },
     score: scoreTheory, aggregate: aggregateTheory, card: theoryCardMarkdown,
   },
 };
 
-function conditionsFor(task) {
-  const out = [{ name: 'Raw', rule: false, rag: false }];
-  const hasRule = task.augs.includes('rule');
-  const hasRag = task.augs.includes('rag') && !!RAG_BASE;
-  if (hasRule) out.push({ name: '+Rule', rule: true, rag: false });
-  if (hasRag) out.push({ name: '+RAG', rule: false, rag: true });
-  if (hasRule && hasRag) out.push({ name: '+Rule+RAG', rule: true, rag: true });
+/* Conditions: 3 per task — raw / +Rule / +Rule+RAG. */
+function conditionsFor() {
+  const out = [
+    { name: 'raw',          rule: false, rag: false },
+    { name: '+Rule',        rule: true,  rag: false },
+    { name: '+Rule+RAG',    rule: true,  rag: true  },
+  ];
   return out;
 }
+
+/* Full label for storage & display: `<modelId>/<condName>` */
+const condLabel = (modelId, condName) => `${modelId}/${condName}`;
 
 /* ── main ──────────────────────────────────────────────────────────────── */
 
@@ -217,28 +229,39 @@ async function main() {
   const ids = Object.keys(TASKS).filter((id) => !TASK_FILTER || TASK_FILTER.includes(id));
 
   if (DRY) {
-    for (const id of ids) console.log(`[dry] ${id} ${TASKS[id].name} — items=${TASKS[id].gold().items.length}, conds=${conditionsFor(TASKS[id]).map((c) => c.name).join(', ')}`);
-    console.log(`[dry] model=${MODEL}  judge=${JUDGE_MODEL}  rag=${RAG_BASE || '(off)'}  rag_n=${RAG_N}  rag_min_score=${RAG_MIN_SCORE}`);
+    for (const id of ids) console.log(`[dry] ${id} ${TASKS[id].name} — items=${TASKS[id].gold().items.length}`);
+    console.log(`[dry] models=${MODELS.map((m) => `${m.id}(${m.model})`).join(', ')}`);
+    console.log(`[dry] conditions=raw, +Rule, +Rule+RAG`);
+    console.log(`[dry] judge=${JUDGE_MODEL}  rag=${RAG_BASE || '(off)'}  rag_n=${RAG_N}  rag_min_score=${RAG_MIN_SCORE}`);
     return;
   }
   if (!API_KEY) { console.error('ANTHROPIC key not set.'); process.exit(1); }
+  let ragLive = false;
   if (RAG_BASE) {
-    try { await retrieve('test ii-V-I'); console.log(`RAG reachable: ${RAG_BASE}`); }
-    catch (e) { console.warn(`RAG unreachable (${e.message}) — running without +RAG.`); process.env.__RAG_DOWN = '1'; }
+    try { await retrieve('test ii-V-I'); ragLive = true; console.log(`RAG reachable: ${RAG_BASE}`); }
+    catch (e) { console.warn(`RAG unreachable (${e.message}) — +Rule+RAG will degrade to +Rule.`); }
   }
-  const ragLive = RAG_BASE && !process.env.__RAG_DOWN;
 
   const ragSuffix = ragLive ? ` (n=${RAG_N}${RAG_MIN_SCORE > 0 ? `, min_score=${RAG_MIN_SCORE}` : ''})` : '';
-  let report = `# Jazzify 벤치마크 결과\n\n- model: \`${MODEL}\`  ·  judge: \`${JUDGE_MODEL}\`  ·  ${new Date().toISOString()}  ·  RAG: ${ragLive ? 'on' : 'off'}${ragSuffix}\n\n`;
+  const modelsLabel = MODELS.map((m) => `${m.id}=\`${m.model}\``).join('  ·  ');
+  let report = `# Jazzify 벤치마크 결과 (multi-model)\n\n- models: ${modelsLabel}\n- judge: \`${JUDGE_MODEL}\`\n- RAG: ${ragLive ? 'on' : 'off'}${ragSuffix}\n- timestamp: ${new Date().toISOString()}\n\n`;
   const allResponses = [];
+  const conditions = conditionsFor();
 
   for (const id of ids) {
     const task = TASKS[id];
     const gold = task.gold();
-    const conditions = conditionsFor(task).filter((c) => !c.rag || ragLive);
-    const scoresByCond = Object.fromEntries(conditions.map((c) => [c.name, []]));
+    /* Build condition list: 6 cells (each model × each cond), skipping rag-only cells if RAG down. */
+    const cells = [];
+    for (const m of MODELS) {
+      for (const c of conditions) {
+        if (c.rag && !ragLive) continue;
+        cells.push({ label: condLabel(m.id, c.name), modelId: m.id, model: m.model, condName: c.name, rule: c.rule, rag: c.rag });
+      }
+    }
+    const scoresByLabel = Object.fromEntries(cells.map((x) => [x.label, []]));
     const ragCache = new Map();
-    console.log(`\n=== ${id} ${task.name} (${gold.items.length}) ===`);
+    console.log(`\n=== ${id} ${task.name} (${gold.items.length} items × ${cells.length} cells = ${gold.items.length * cells.length} calls) ===`);
 
     for (const item of gold.items) {
       let ragCtx = null;
@@ -247,27 +270,31 @@ async function main() {
         if (!ragCache.has(q)) ragCache.set(q, await retrieve(q).catch(() => null));
         ragCtx = ragCache.get(q);
       }
-      for (const cond of conditions) {
-        const user = task.buildUser(item, { ruleCtx: cond.rule ? task.ruleCtx?.(item) : null, ragCtx: cond.rag ? ragCtx : null });
+      for (const cell of cells) {
+        const ruleCtx = cell.rule ? task.ruleCtx?.(item) : null;
+        const user = task.buildUser(item, { ruleCtx, ragCtx: cell.rag ? ragCtx : null });
         let reply = '';
-        try { reply = await callModel(task.system, user, task.maxTokens); }
-        catch (e) { console.error(`${item.id}/${cond.name}: ${e.message}`); }
+        try { reply = await anthropic(cell.model, task.system, user, task.maxTokens); }
+        catch (e) { console.error(`${item.id}/${cell.label}: ${e.message}`); }
         const pred = task.parse(reply);
         const s = await task.score(pred, item);
-        scoresByCond[cond.name].push(s);
-        allResponses.push({ task: id, id: item.id, condition: cond.name, reply, score: s });
+        scoresByLabel[cell.label].push(s);
+        allResponses.push({ task: id, id: item.id, model: cell.modelId, condition: cell.condName, label: cell.label, reply, score: s });
       }
       process.stdout.write('.');
     }
     process.stdout.write('\n');
 
-    const byCond = Object.fromEntries(conditions.map((c) => [c.name, task.aggregate(scoresByCond[c.name])]));
-    report += `## ${task.name}  (n=${gold.items.length})\n\n${task.card(byCond)}\n`;
+    const byLabel = Object.fromEntries(cells.map((x) => [x.label, task.aggregate(scoresByLabel[x.label])]));
+    report += `## ${task.name}  (n=${gold.items.length})\n\n${task.card(byLabel)}\n`;
   }
 
   mkdirSync(join(HERE, 'results'), { recursive: true });
   writeFileSync(join(HERE, 'results', 'scorecard.md'), report);
-  writeFileSync(join(HERE, 'results', 'responses.json'), JSON.stringify({ model: MODEL, responses: allResponses }, null, 2));
+  writeFileSync(join(HERE, 'results', 'responses.json'), JSON.stringify({
+    models: MODELS, judge: JUDGE_MODEL, rag: { enabled: ragLive, base: RAG_BASE, n: RAG_N, min_score: RAG_MIN_SCORE },
+    timestamp: new Date().toISOString(), responses: allResponses,
+  }, null, 2));
   console.log('\n' + report);
   console.log('→ benchmark/results/scorecard.md , responses.json');
 }

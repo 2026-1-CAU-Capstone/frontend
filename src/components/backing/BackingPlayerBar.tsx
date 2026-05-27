@@ -10,6 +10,7 @@ import {
   type PlayerSettings,
 } from '../../lib/note/playerSettings';
 import { StyleSelector, type StyleSelectorChoice } from '../yamaha-sty/StyleSelector';
+import { usePlayerBarPosition } from '../../contexts/PlayerBarPositionContext';
 
 export type EngineBackend = 'rule' | 'sty' | 'hybrid';
 
@@ -71,13 +72,14 @@ export function GenreSelect() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useOutsideClose(open, ref, () => setOpen(false));
+  const up = usePlayerBarPosition() === 'bottom';
   return (
     <GenreDropdown ref={ref}>
       <GenreBtn type="button" onClick={() => setOpen((v) => !v)} title={genre}>
         <GenreLabel>{genre}</GenreLabel>
       </GenreBtn>
       {open && (
-        <GenreMenu>
+        <GenreMenu $up={up}>
           {GENRES.map((g) => (
             <GenreOpt key={g} type="button" $on={g === genre}
               onClick={() => { setGenre(g); setOpen(false); setPlayerSetting('style', genreToStyle(g)); }}>
@@ -190,6 +192,7 @@ export function BpmControl({ tempo, onTempoChange, disabled = false }: BpmContro
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useOutsideClose(open, ref, () => setOpen(false));
+  const up = usePlayerBarPosition() === 'bottom';
 
   const clampBpm = (n: number) => Math.max(40, Math.min(300, n));
 
@@ -200,7 +203,7 @@ export function BpmControl({ tempo, onTempoChange, disabled = false }: BpmContro
         <FieldU>BPM</FieldU>
       </FieldBtn>
       {open && (
-        <MenuPanel>
+        <MenuPanel $up={up}>
           <MenuTitle>템포</MenuTitle>
           <EditableBigNum value={tempo} min={40} max={300} onCommit={onTempoChange} />
           <MenuRow>
@@ -224,6 +227,7 @@ export function RepeatControl({ repeatCount = 3, onRepeatChange, disabled = fals
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useOutsideClose(open, ref, () => setOpen(false));
+  const up = usePlayerBarPosition() === 'bottom';
 
   const infinite = (repeatCount ?? 3) <= 0;
   const commitRepeat = (n: number) => onRepeatChange?.(Math.max(1, Math.min(99, n)));
@@ -241,7 +245,7 @@ export function RepeatControl({ repeatCount = 3, onRepeatChange, disabled = fals
         {infinite ? <FieldVal>∞</FieldVal> : <><FieldVal>{repeatCount}</FieldVal><FieldU>x</FieldU></>}
       </FieldBtn>
       {open && (
-        <MenuPanel>
+        <MenuPanel $up={up}>
           {infinite ? (
             <BigNumStatic>∞</BigNumStatic>
           ) : (
@@ -486,9 +490,9 @@ const GenreLabel = styled.span`
   min-width: 0;
 `;
 
-const GenreMenu = styled.div`
+const GenreMenu = styled.div<{ $up?: boolean }>`
   position: absolute;
-  top: calc(100% + 6px);
+  ${({ $up }) => ($up ? 'bottom: calc(100% + 6px);' : 'top: calc(100% + 6px);')}
   left: 0;
   z-index: 60;
   min-width: 160px;
@@ -555,9 +559,9 @@ const FieldU = styled.span`
 `;
 
 /* Dropdown panel (iOS-tempo style): title + big number + circular ± + extras. */
-const MenuPanel = styled.div`
+const MenuPanel = styled.div<{ $up?: boolean }>`
   position: absolute;
-  top: calc(100% + 6px);
+  ${({ $up }) => ($up ? 'bottom: calc(100% + 6px);' : 'top: calc(100% + 6px);')}
   left: 0;
   z-index: 80;
   width: 220px;

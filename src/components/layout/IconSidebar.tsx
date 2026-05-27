@@ -715,7 +715,7 @@ export function IconSidebar({
         <MyLibBlock>
           {expanded ? (
             <>
-              <NavBtn $expanded={true} $active={pathname.startsWith('/mychord')} onClick={() => navigate('/mychord')} title="내 코드 차트">
+              <NavBtn $expanded={true} $active={pathname.startsWith('/my-charts')} onClick={() => navigate('/my-charts')} title="내 코드 차트">
                 <MyChordChartIcon />
                 <NavLabel $expanded={true}>내 코드 차트</NavLabel>
               </NavBtn>
@@ -731,7 +731,7 @@ export function IconSidebar({
           ) : (
             <>
               <NavBtnWrap>
-                <NavBtn $expanded={false} $active={pathname.startsWith('/mychord')} onClick={() => navigate('/mychord')} title="내 코드 차트">
+                <NavBtn $expanded={false} $active={pathname.startsWith('/my-charts')} onClick={() => navigate('/my-charts')} title="내 코드 차트">
                   <MyChordChartIcon />
                 </NavBtn>
                 <NavTooltip>내 코드 차트</NavTooltip>

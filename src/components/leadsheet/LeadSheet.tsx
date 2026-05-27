@@ -10,6 +10,8 @@ import { ZoomControls, useZoom } from '../common/ZoomControls';
 import { analyzeHarmony, formatKeyDisplay } from '../../lib/harmonyAnalyzer';
 import type { AnalysisFilters } from '../../hooks/useAnalysisFilters';
 import { useCompactLayout } from '../../hooks/useCompactLayout';
+import { useIsNativeLandscape } from '../../hooks/useIsNativeLandscape';
+import { usePlayerBarPosition } from '../../contexts/PlayerBarPositionContext';
 import { chordToInputString } from '../../lib/leadSheetChordEdit';
 import { getModalInterchangeTemplate } from '../../lib/modalInterchangeTemplates';
 import { ModalInterchangePopup } from './ModalInterchangePopup';
@@ -133,7 +135,7 @@ function transposeData(data: LeadSheetData, targetKey: string): LeadSheetData {
 
 /* ─── page ───────────────────────────────────────────────────────────────── */
 
-const ViewerOuter = styled.div<{ $fs?: boolean }>`
+const ViewerOuter = styled.div<{ $fs?: boolean; $fit?: boolean }>`
   position: relative;
   flex: 1;
   overflow: auto;
@@ -159,6 +161,14 @@ const ViewerOuter = styled.div<{ $fs?: boolean }>`
   ${mq.mobile} {
     padding: 0;
   }
+
+  /* Native landscape "fit to one page": no scroll, vertical-center the
+   * scaled chart inside the score column. */
+  ${({ $fit }) => $fit && `
+    overflow: hidden;
+    padding: 0;
+    align-items: center;
+  `}
 
   /* In-app "fullscreen": fill the viewport BELOW the top toolbar (58px) so the
    * app's top bar stays visible, instead of the browser's native fullscreen
@@ -297,9 +307,9 @@ const KeyQual = styled.span`
   margin-left: 1px;
 `;
 
-const KeyMenu = styled.div`
+const KeyMenu = styled.div<{ $up?: boolean }>`
   position: absolute;
-  top: calc(100% + 4px);
+  ${({ $up }) => ($up ? 'bottom: calc(100% + 4px);' : 'top: calc(100% + 4px);')}
   left: 0;
   background: #fff;
   border: 1px solid #ddd;
@@ -1968,6 +1978,7 @@ export function KeyControl({
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, [open]);
+  const up = usePlayerBarPosition() === 'bottom';
   const keys = isMinor ? ALL_MINOR_KEYS : ALL_MAJOR_KEYS;
   return (
     <KeyDropdownWrap ref={ref}>
@@ -1975,7 +1986,7 @@ export function KeyControl({
         {formatKeyDisplay(selectedKey).replace(/m$/, '')}<KeyQual>{isMinor ? '단조' : '장조'}</KeyQual>
       </KeyButton>
       {open && (
-        <KeyMenu>
+        <KeyMenu $up={up}>
           <KeyGrid>
             {keys.map((k) => (
               <KeyOption
@@ -2030,6 +2041,10 @@ export function LeadSheet({
   }, [isFullscreen]);
   const { zoom, zoomIn, zoomOut, setZoomLevel } = useZoom(100);
   const isCompactLayout = useCompactLayout();
+  /* On iPhone/iPad in landscape we fit the whole chart on one screen (shrink
+   * to fit) instead of scrolling — mirrors iRealPro's landscape behaviour. */
+  const isNativeLandscape = useIsNativeLandscape();
+  const fitToScreen = isFullscreen || isNativeLandscape;
 
   // Scroll to top when zoom changes
   useEffect(() => {
@@ -2105,15 +2120,44 @@ export function LeadSheet({
     return () => window.removeEventListener('resize', onResize);
   }, [isFullscreen]);
 
-  const fitScale = useMemo(() => {
-    if (!isFullscreen || pageNaturalSize.w === 0 || pageNaturalSize.h === 0) return 1;
-    const availW = viewportSize.vw - FS_PAD * 2;
-    const availH = viewportSize.vh - FS_TOPBAR - FS_PAD * 2;
-    return Math.min(availW / pageNaturalSize.w, availH / pageNaturalSize.h) * 1.08;
-  }, [isFullscreen, pageNaturalSize, viewportSize]);
+  /* Track the LeadSheet container's size so we can fit the page within IT
+   * (not the whole viewport) when running native + landscape. */
+  const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    if (!isNativeLandscape || isFullscreen) return;
+    const el = outerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      setContainerSize({ w: el.clientWidth, h: el.clientHeight });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isNativeLandscape, isFullscreen]);
 
-  // The effective scale: in fullscreen use fitScale, otherwise use zoom
-  const effectiveScale = isFullscreen ? fitScale : isCompactLayout ? 1 : zoom / 100;
+  /* On orientation flip (or entering/leaving fit mode) discard the cached
+   * page natural size so the next render measures it again at the new
+   * container width — otherwise rotation would scale a stale size. */
+  useEffect(() => {
+    setPageNaturalSize({ w: 0, h: 0 });
+  }, [isNativeLandscape]);
+
+  const fitScale = useMemo(() => {
+    if (!fitToScreen || pageNaturalSize.w === 0 || pageNaturalSize.h === 0) return 1;
+    if (isFullscreen) {
+      const availW = viewportSize.vw - FS_PAD * 2;
+      const availH = viewportSize.vh - FS_TOPBAR - FS_PAD * 2;
+      return Math.min(availW / pageNaturalSize.w, availH / pageNaturalSize.h) * 1.08;
+    }
+    // Native landscape: fit inside the lead-sheet's own container, not the
+    // whole viewport (the bar above + chat panel beside it eat space).
+    const availW = Math.max(0, containerSize.w - 8);
+    const availH = Math.max(0, containerSize.h - 8);
+    if (!availW || !availH) return 1;
+    return Math.min(availW / pageNaturalSize.w, availH / pageNaturalSize.h);
+  }, [fitToScreen, isFullscreen, pageNaturalSize, viewportSize, containerSize]);
+
+  // The effective scale: fit-to-screen modes use fitScale, otherwise zoom.
+  const effectiveScale = fitToScreen ? fitScale : isCompactLayout ? 1 : zoom / 100;
 
   const selectionTargets = useMemo<LeadSheetChordSelection[]>(() => {
     const targets: LeadSheetChordSelection[] = [];
@@ -3056,6 +3100,15 @@ export function LeadSheet({
         transform: 'translate(-50%, -50%)',
       };
     }
+    // Native landscape: collapse the wrapper to the scaled visible size so the
+    // whole chart shows centred in the container without scrolling.
+    if (isNativeLandscape && pageNaturalSize.w > 0 && fitScale > 0 && fitScale < 1) {
+      return {
+        width: `${pageNaturalSize.w * fitScale}px`,
+        height: `${pageNaturalSize.h * fitScale}px`,
+        margin: '0 auto',
+      };
+    }
     if (isCompactLayout) {
       return {
         width: '100%',
@@ -3069,19 +3122,26 @@ export function LeadSheet({
       height: pageNaturalSize.h > 0 ? `${pageNaturalSize.h * (zoom / 100)}px` : undefined,
       margin: '0 auto',
     };
-  }, [isFullscreen, isCompactLayout, zoom, pageNaturalSize, fitScale]);
+  }, [isFullscreen, isNativeLandscape, isCompactLayout, zoom, pageNaturalSize, fitScale]);
 
   const pageStyle = useMemo<React.CSSProperties | undefined>(() => {
-    if (!isFullscreen && (effectiveScale === 1 || isCompactLayout)) return undefined;
+    // Fit modes always need transform; otherwise compact/zoom=100 means no transform.
+    if (!fitToScreen && (effectiveScale === 1 || isCompactLayout)) return undefined;
+    // Not measured yet — let the Page render naturally so the observer can
+    // capture its size; only then will fitScale kick in.
+    if (pageNaturalSize.w === 0) return undefined;
+    // In native-landscape, if the chart already fits without shrinking, just
+    // render naturally (avoids locking Page width to a possibly-stale measure).
+    if (isNativeLandscape && !isFullscreen && effectiveScale >= 1) return undefined;
     return {
-      width: pageNaturalSize.w > 0 ? `${pageNaturalSize.w}px` : undefined,
+      width: `${pageNaturalSize.w}px`,
       transform: `scale(${effectiveScale})`,
       transformOrigin: 'top left',
     };
-  }, [effectiveScale, isFullscreen, isCompactLayout, pageNaturalSize.w]);
+  }, [effectiveScale, fitToScreen, isFullscreen, isNativeLandscape, isCompactLayout, pageNaturalSize.w]);
 
   return (
-    <ViewerOuter ref={outerRef} $fs={isFullscreen}>
+    <ViewerOuter ref={outerRef} $fs={isFullscreen} $fit={isNativeLandscape && !isFullscreen}>
       <FullscreenButton isFullscreen={isFullscreen} onClick={toggleFullscreen} />
       {!isFullscreen && !isCompactLayout && <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onSetZoom={setZoomLevel} />}
       <PageShell style={wrapperStyle}>
