@@ -5,6 +5,7 @@ import {
   BpmControl,
   GenreSelect,
   RepeatControl,
+  TransportButtons,
   type BackingEngineControls,
 } from './BackingPlayerBar';
 import { KeyControl, isMinorKey } from '../leadsheet/LeadSheet';
@@ -86,14 +87,12 @@ export function NativeChordPlayer({
 
         <IconRow>
           <SessionPicker value={session} onChange={onSessionChange} />
-          <RoundBtn $tone="stop" type="button" aria-label="정지" title="정지"
-            onClick={onStop} disabled={disabled}>
-            <StopIcon />
-          </RoundBtn>
-          <RoundBtn $primary type="button" aria-label={playing ? '일시정지' : '재생'}
-            title={playing ? '일시정지' : '재생'} onClick={onPlayPause} disabled={disabled}>
-            {playing ? <PauseIcon /> : <PlayIcon />}
-          </RoundBtn>
+          <TransportButtons
+            playing={playing}
+            onPlayPause={onPlayPause}
+            onStop={onStop}
+            disabled={disabled}
+          />
           <RoundBtn type="button" aria-label="믹서" title="믹서" onClick={() => setMixerOpen(true)}>
             <MixerIcon />
           </RoundBtn>
@@ -126,25 +125,6 @@ export function NativeChordPlayer({
 }
 
 /* ── icons ───────────────────────────────────────────────────────────── */
-
-const StopIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-    <rect x="5" y="5" width="14" height="14" rx="2" />
-  </svg>
-);
-
-const PlayIcon = () => (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-    <polygon points="6,3 21,12 6,21" />
-  </svg>
-);
-
-const PauseIcon = () => (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-    <rect x="6" y="4" width="4" height="16" />
-    <rect x="14" y="4" width="4" height="16" />
-  </svg>
-);
 
 const MixerIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>

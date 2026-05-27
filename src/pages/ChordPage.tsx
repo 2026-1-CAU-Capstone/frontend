@@ -20,7 +20,6 @@ import { BUILTIN_STYLE, type StyleSelectorChoice } from '../components/yamaha-st
 import { getPlayerSettings, inferPlayStyle, setPlayerSetting, subscribePlayerSettings, TRANSPOSING_INSTRUMENT_OFFSET } from '../lib/note/playerSettings';
 import { GenreSelect, MetronomeToggle, BpmControl, RepeatControl, TransportButtons, BackingMixer, type EngineBackend } from '../components/backing/BackingPlayerBar';
 import { useIsNativeUi } from '../contexts/AppPreviewContext';
-import { NativeChordPlayer } from '../components/backing/NativeChordPlayer';
 import { withLeadSheetSelectionIds } from '../lib/leadSheetSelection';
 import type { LeadSheetChordSelection } from '../components/leadsheet/LeadSheet';
 import { loadUserLicksSync } from '../data/lickData';
@@ -28,6 +27,7 @@ import { findMatchingLicks, type LickMatch } from '../lib/lickMatcher';
 import { SavedLicksModal } from '../components/leadsheet/SavedLicksModal';
 import { useCountInIntro } from '../hooks/useCountInIntro';
 import { parseChordInput, loadChartEdit, saveChartEdit } from '../lib/leadSheetChordEdit';
+import { useTransitionState } from '../hooks/useTransitionState';
 
 const ANALYZED_SONG_ID = '__analyzed_all-of-me__';
 
@@ -251,6 +251,123 @@ const ToolWrap = styled.div`
   display: inline-flex;
 `;
 
+/* ─── native-only sidebar (slide-in song list, iRealPro-style) ─────────── */
+
+const SidebarBackdrop = styled.div<{ $entered: boolean }>`
+  position: fixed;
+  inset: 0;
+  z-index: 210;
+  background: ${({ $entered }) => ($entered ? 'rgba(0, 0, 0, 0.32)' : 'rgba(0, 0, 0, 0)')};
+  display: flex;
+  align-items: stretch;
+  transition: background 0.28s ease;
+  /* Avoid swallowing taps while the backdrop is still fully transparent on
+   * the way out — feels snappier and prevents accidental dismiss. */
+  pointer-events: ${({ $entered }) => ($entered ? 'auto' : 'none')};
+`;
+
+const SidebarPanel = styled.aside<{ $entered: boolean }>`
+  width: min(380px, 80vw);
+  height: 100%;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 4px 0 28px rgba(0, 0, 0, 0.18);
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  font-family: 'Pretendard', sans-serif;
+  transform: translateX(${({ $entered }) => ($entered ? '0' : '-100%')});
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  will-change: transform;
+`;
+
+const SidebarHeader = styled.header`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+`;
+
+const SidebarIconBtn = styled.button`
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: #0a84ff;
+  cursor: pointer;
+  border-radius: 8px;
+  &:active { opacity: 0.55; }
+`;
+
+const SidebarTitle = styled.div`
+  flex: 1;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #111;
+  text-align: left;
+`;
+
+const SidebarSearch = styled.div`
+  padding: 8px 12px 4px;
+`;
+
+const SidebarSearchInput = styled.input`
+  width: 100%;
+  height: 34px;
+  border-radius: 9px;
+  border: none;
+  background: #eef0f3;
+  padding: 0 12px;
+  font-family: inherit;
+  font-size: 0.92rem;
+  outline: none;
+  &::placeholder { color: #9a9a9a; }
+`;
+
+const SidebarList = styled.div`
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 12px;
+`;
+
+const SongRow = styled.button<{ $active?: boolean }>`
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 16px;
+  border: none;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  background: ${({ $active }) => ($active ? '#eef4ff' : 'transparent')};
+  cursor: pointer;
+  font-family: inherit;
+  &:hover { background: ${({ $active }) => ($active ? '#dde7ff' : '#f7f7f8')}; }
+`;
+
+const SongTitle = styled.div`
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 2px;
+`;
+
+const SongComposer = styled.div`
+  font-size: 0.78rem;
+  color: #777;
+`;
+
+const SongMeta = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: #999;
+`;
+
 const AnalysisDrop = styled.div<{ $up?: boolean }>`
   position: absolute;
   ${({ $up }) => ($up ? 'bottom: calc(100% + 6px);' : 'top: calc(100% + 6px);')}
@@ -266,6 +383,33 @@ const AnalysisDrop = styled.div<{ $up?: boolean }>`
 `;
 
 /* ─── tool icons (Lucide, 24×24 stroke) ───────────────────────────────── */
+const SidebarIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <line x1="9" y1="4" x2="9" y2="20" />
+  </svg>
+);
+
+const ChatIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+  </svg>
+);
+
+const MixerIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="4" y1="21" x2="4" y2="14" />
+    <line x1="4" y1="10" x2="4" y2="3" />
+    <line x1="12" y1="21" x2="12" y2="12" />
+    <line x1="12" y1="8" x2="12" y2="3" />
+    <line x1="20" y1="21" x2="20" y2="16" />
+    <line x1="20" y1="12" x2="20" y2="3" />
+    <line x1="1" y1="14" x2="7" y2="14" />
+    <line x1="9" y1="8" x2="15" y2="8" />
+    <line x1="17" y1="16" x2="23" y2="16" />
+  </svg>
+);
+
 const ShareIcon = () => (
   <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="18" cy="5" r="3" />
@@ -299,17 +443,19 @@ const GearIcon = () => (
 );
 
 /* ─── settings modal (analysis sub-filters) ───────────────────────────── */
-const ModalOverlay = styled.div`
+const ModalOverlay = styled.div<{ $entered: boolean }>`
   position: fixed;
   inset: 0;
   z-index: 200;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.42);
+  background: ${({ $entered }) => ($entered ? 'rgba(0, 0, 0, 0.42)' : 'rgba(0, 0, 0, 0)')};
+  transition: background 0.24s ease;
+  pointer-events: ${({ $entered }) => ($entered ? 'auto' : 'none')};
 `;
 
-const ModalCard = styled.div`
+const ModalCard = styled.div<{ $entered: boolean }>`
   width: 340px;
   max-width: calc(100vw - 32px);
   background: #fff;
@@ -317,6 +463,10 @@ const ModalCard = styled.div`
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
   padding: 22px 24px 24px;
   font-family: 'Pretendard', sans-serif;
+  opacity: ${({ $entered }) => ($entered ? 1 : 0)};
+  transform: scale(${({ $entered }) => ($entered ? 1 : 0.94)});
+  transition: opacity 0.22s ease, transform 0.24s cubic-bezier(0.32, 0.72, 0, 1);
+  will-change: opacity, transform;
 `;
 
 const ModalTitle = styled.h3`
@@ -370,6 +520,134 @@ const Switch = styled.span<{ $on?: boolean }>`
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
     transition: left 0.18s;
   }
+`;
+
+/* ─── native-only chat window + mixer bottom-sheet ─────────────────────── */
+
+const ChatWindowOverlay = styled.div<{ $entered: boolean }>`
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  background: ${({ $entered }) => ($entered ? 'rgba(0, 0, 0, 0.42)' : 'rgba(0, 0, 0, 0)')};
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  transition: background 0.28s ease;
+  pointer-events: ${({ $entered }) => ($entered ? 'auto' : 'none')};
+`;
+
+const ChatWindowCard = styled.div<{ $entered: boolean }>`
+  width: 100%;
+  max-width: 480px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  display: flex;
+  flex-direction: column;
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.24);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  transform: translateX(${({ $entered }) => ($entered ? '0' : '100%')});
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  will-change: transform;
+`;
+
+const ChatWindowHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  font-family: 'Pretendard', sans-serif;
+`;
+
+const ChatWindowTitle = styled.div`
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a1a1a;
+`;
+
+const ChatWindowClose = styled.button`
+  border: none;
+  background: transparent;
+  font-size: 1.4rem;
+  color: #1a1a1a;
+  cursor: pointer;
+  line-height: 1;
+`;
+
+const ChatWindowBody = styled.div`
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+`;
+
+const SheetBackdrop = styled.div<{ $entered: boolean }>`
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  background: ${({ $entered }) => ($entered ? 'rgba(0, 0, 0, 0.42)' : 'rgba(0, 0, 0, 0)')};
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  transition: background 0.28s ease;
+  pointer-events: ${({ $entered }) => ($entered ? 'auto' : 'none')};
+`;
+
+const SheetCard = styled.div<{ $entered: boolean }>`
+  width: 100%;
+  max-width: 540px;
+  background: #fff;
+  border-top-left-radius: 18px;
+  border-top-right-radius: 18px;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  font-family: 'Pretendard', sans-serif;
+  transform: translateY(${({ $entered }) => ($entered ? '0' : '100%')});
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  will-change: transform;
+`;
+
+const SheetHandle = styled.div`
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.18);
+  margin: 8px auto 4px;
+`;
+
+const SheetHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 16px 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+`;
+
+const SheetTitle = styled.div`
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a1a;
+`;
+
+const SheetDone = styled.button`
+  background: none;
+  border: none;
+  color: #0a84ff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+`;
+
+const SheetBody = styled.div`
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
 `;
 
 /* "iRealPro 1460" label — now lives in the toolbar's leftExtra slot. */
@@ -577,6 +855,21 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [analysisMenuOpen, setAnalysisMenuOpen] = useState(false);
   const [lightMenuOpen, setLightMenuOpen] = useState(false);
+  /* Native-only top-bar toggles. Sidebar drops the song list, chat opens the
+   * AI panel as a modal (no right-side dock), mixer opens BackingMixer as a
+   * bottom sheet. */
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarQuery, setSidebarQuery] = useState('');
+  const [chatOpen, setChatOpen] = useState(false);
+  const [mixerSheetOpen, setMixerSheetOpen] = useState(false);
+
+  /* All overlays use a shared mount + transition pattern so they slide in
+   * and back out smoothly instead of popping. Durations match the CSS
+   * transitions on each respective styled component below. */
+  const sidebarT = useTransitionState(sidebarOpen);
+  const chatT = useTransitionState(chatOpen);
+  const mixerSheetT = useTransitionState(mixerSheetOpen);
+  const analysisModalT = useTransitionState(analysisMenuOpen);
   // ★ 저장된 릭 있는 마디 번호 세트
   const [savedLickBarNums, setSavedLickBarNums] = useState<Set<number>>(new Set());
   const [savedLicksModal, setSavedLicksModal] = useState<{ label: string; matches: LickMatch[] } | null>(null);
@@ -795,6 +1088,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     return () => document.removeEventListener('mousedown', handler);
   }, [lightMenuOpen]);
 
+
   const chordContext = useMemo(() => {
     if (sheet) return buildChordContext(sheet);
     return undefined;
@@ -944,8 +1238,9 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   return (
     <PageContainer onClick={() => setSelectionBubblePos(null)}>
       {countIn.overlay}
-      <IconSidebar />
+      {!isNativeUi && <IconSidebar />}
       <RightSection>
+        {!isNativeUi && (
         <TopToolbar
           title={sheet?.title ?? `iRealPro ${songIndex.length || '...'}`}
           subtitle={sheet ? `${(sheet.key ?? '?').replace(/-$/, 'm')} | ${sheet.timeSignature}` : undefined}
@@ -995,6 +1290,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
             </SearchWrap>
           }
         />
+        )}
 
         <MainArea>
         <CenterColumn>
@@ -1003,17 +1299,37 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
            *  in the bottom NativeChordPlayer instead.) */}
           <TransportBar>
             <BarLeft>
-              {!isNativeUi && <GenreSelect />}
-              {!isNativeUi && <KeyControl selectedKey={writtenKey} onChange={setWrittenKey} isMinor={isMinorKey(writtenKey)} />}
-              {!isNativeUi && <SessionPicker value={session} onChange={setSession} />}
+              {isNativeUi && (
+                <ToolBtn type="button" title="곡 목록" onClick={() => setSidebarOpen((v) => !v)}>
+                  <SidebarIcon />
+                </ToolBtn>
+              )}
+              <GenreSelect />
+              <KeyControl selectedKey={writtenKey} onChange={setWrittenKey} isMinor={isMinorKey(writtenKey)} />
+              <SessionPicker value={session} onChange={setSession} />
             </BarLeft>
             <BarCenter>
               <MetronomeToggle />
-              {!isNativeUi && <BpmControl tempo={tempo} onTempoChange={setTempo} disabled={!sheet || loading} />}
-              {!isNativeUi && <RepeatControl repeatCount={repeatCount} onRepeatChange={setRepeatCount} disabled={!sheet || loading} />}
-              {!isNativeUi && <TransportButtons playing={isPlaying} onPlayPause={handlePlayPause} onStop={handleStop} disabled={!sheet || loading} />}
+              <BpmControl tempo={tempo} onTempoChange={setTempo} disabled={!sheet || loading} />
+              <RepeatControl repeatCount={repeatCount} onRepeatChange={setRepeatCount} disabled={!sheet || loading} />
+              <TransportButtons playing={isPlaying} onPlayPause={handlePlayPause} onStop={handleStop} disabled={!sheet || loading} />
             </BarCenter>
             <BarRight>
+              {isNativeUi && (
+                <>
+                  <ToolBtn
+                    type="button"
+                    title={chatOpen ? 'AI 채팅 닫기' : 'AI 채팅 열기'}
+                    $lit={chatOpen}
+                    onClick={() => setChatOpen((v) => !v)}
+                  >
+                    <ChatIcon />
+                  </ToolBtn>
+                  <ToolBtn type="button" title="믹서" onClick={() => setMixerSheetOpen(true)}>
+                    <MixerIcon />
+                  </ToolBtn>
+                </>
+              )}
               <ToolBtn type="button" title="공유" onClick={() => {/* TODO: 공유 기능 */}}>
                 <ShareIcon />
               </ToolBtn>
@@ -1145,41 +1461,11 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
             <LoadingState>{error ?? (loading ? 'Loading chart...' : 'Loading song list...')}</LoadingState>
           )}
 
-          {/* Native bottom bar — iReal Pro 2-row layout. Renders inside
-           *  CenterColumn so its width matches the score area only (not the
-           *  chat panel). The cells in row 1 use the same functional controls
-           *  that were in the top TransportBar (hidden there in native mode). */}
-          {isNativeUi && (
-            <NativeChordPlayer
-              tempo={tempo}
-              onTempoChange={setTempo}
-              repeatCount={repeatCount}
-              onRepeatChange={setRepeatCount}
-              writtenKey={writtenKey}
-              onWrittenKeyChange={setWrittenKey}
-              session={session}
-              onSessionChange={setSession}
-              playing={isPlaying}
-              onPlayPause={handlePlayPause}
-              onStop={handleStop}
-              disabled={!sheet || loading}
-              engine={{
-                backend: engineBackend,
-                onBackendChange: (b) => {
-                  setEngineBackend(b);
-                  window.localStorage.setItem('jazzify.engine', b);
-                },
-                styleChoice,
-                onStyleChange: setStyleChoice,
-              }}
-              analysisOn={filters.showAnalysis}
-              onToggleAnalysis={() => toggleFilter('showAnalysis')}
-            />
-          )}
         </CenterColumn>
 
-        <ResizeDivider ref={dividerRef} onMouseDown={onDividerMouseDown} />
+        {!isNativeUi && <ResizeDivider ref={dividerRef} onMouseDown={onDividerMouseDown} />}
 
+        {!isNativeUi && (
         <RightPanelWrapper $width={rightPanelWidth}>
           <PanelTabs>
             <PanelTab type="button" $on={panelTab === 'mixer'} onClick={() => setPanelTab('mixer')}>믹서</PanelTab>
@@ -1211,6 +1497,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
           />
           )}
         </RightPanelWrapper>
+        )}
         </MainArea>
       </RightSection>
 
@@ -1271,9 +1558,9 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
         />
       )}
 
-      {analysisMenuOpen && (
-        <ModalOverlay>
-          <ModalCard ref={analysisMenuRef}>
+      {analysisModalT.mounted && (
+        <ModalOverlay $entered={analysisModalT.entered}>
+          <ModalCard $entered={analysisModalT.entered} ref={analysisMenuRef}>
             <ModalTitle>분석 설정</ModalTitle>
             <ModalSub>룰 기반 분석에 표시할 항목을 선택하세요.</ModalSub>
             {([
@@ -1293,6 +1580,113 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
             ))}
           </ModalCard>
         </ModalOverlay>
+      )}
+
+      {/* Native: song-list sidebar slides in from the left. Backdrop click
+       *  or the close icon dismisses it. Mounted while animating in either
+       *  direction so the slide-out transition plays out. */}
+      {isNativeUi && sidebarT.mounted && (
+        <SidebarBackdrop $entered={sidebarT.entered} onClick={() => setSidebarOpen(false)}>
+          <SidebarPanel $entered={sidebarT.entered} onClick={(e) => e.stopPropagation()}>
+            <SidebarHeader>
+              <SidebarIconBtn type="button" onClick={() => setSidebarOpen(false)} aria-label="닫기">
+                <SidebarIcon />
+              </SidebarIconBtn>
+              <SidebarTitle>노래</SidebarTitle>
+            </SidebarHeader>
+            <SidebarSearch>
+              <SidebarSearchInput
+                placeholder="검색"
+                value={sidebarQuery}
+                onChange={(e) => setSidebarQuery(e.target.value)}
+              />
+            </SidebarSearch>
+            <SidebarList>
+              {(() => {
+                const q = sidebarQuery.trim().toLowerCase();
+                const filter = (s: string) => !q || s.toLowerCase().includes(q);
+                const items: { id: string; title: string; composer: string; meta?: string }[] = [];
+                if (filter('all of me') || filter('analyzed')) {
+                  items.push({ id: ANALYZED_SONG_ID, title: 'All of Me (Analyzed)', composer: 'Gerald Marks' });
+                }
+                for (const song of songIndex) {
+                  if (filter(song.title) || filter(song.composer)) {
+                    items.push({
+                      id: String(song.index),
+                      title: song.title,
+                      composer: song.composer,
+                      meta: [song.style, song.key].filter(Boolean).join(' · '),
+                    });
+                  }
+                }
+                return items.map((it) => (
+                  <SongRow
+                    key={it.id}
+                    type="button"
+                    $active={songId === it.id}
+                    onClick={() => { setSongId(it.id); setSidebarOpen(false); }}
+                  >
+                    <SongTitle>{it.title}</SongTitle>
+                    <SongComposer>{it.composer}</SongComposer>
+                    {it.meta && <SongMeta><span>{it.meta}</span></SongMeta>}
+                  </SongRow>
+                ));
+              })()}
+            </SidebarList>
+          </SidebarPanel>
+        </SidebarBackdrop>
+      )}
+
+      {/* Native: AI chat opens as a sliding side window (not the resizable
+       *  right panel). Tapping the backdrop or × closes it. */}
+      {isNativeUi && chatT.mounted && (
+        <ChatWindowOverlay $entered={chatT.entered} onClick={() => setChatOpen(false)}>
+          <ChatWindowCard $entered={chatT.entered} onClick={(e) => e.stopPropagation()}>
+            <ChatWindowHeader>
+              <ChatWindowTitle>AI 채팅</ChatWindowTitle>
+              <ChatWindowClose type="button" onClick={() => setChatOpen(false)}>×</ChatWindowClose>
+            </ChatWindowHeader>
+            <ChatWindowBody>
+              <RightChatPanel
+                hideHeader
+                selectedChords={selectedChordsData}
+                groupExplanation={selectedChordsData.length > 0 ? '이 구간이 다음 질문의 분석 대상으로 포함됩니다.' : null}
+                songTitle={sheet?.title ?? 'Jazzify AI'}
+                chordContext={chordContext}
+                isSelectionMode={isSelectionMode}
+                onToggleSelectionMode={toggleSelectionMode}
+                onClearSelectedChords={clearSelectedChords}
+                songTempo={tempo}
+              />
+            </ChatWindowBody>
+          </ChatWindowCard>
+        </ChatWindowOverlay>
+      )}
+
+      {/* Native: mixer opens as a bottom sheet. */}
+      {isNativeUi && mixerSheetT.mounted && (
+        <SheetBackdrop $entered={mixerSheetT.entered} onClick={() => setMixerSheetOpen(false)}>
+          <SheetCard $entered={mixerSheetT.entered} onClick={(e) => e.stopPropagation()}>
+            <SheetHandle />
+            <SheetHeader>
+              <SheetTitle>믹서</SheetTitle>
+              <SheetDone type="button" onClick={() => setMixerSheetOpen(false)}>완료</SheetDone>
+            </SheetHeader>
+            <SheetBody>
+              <BackingMixer
+                engine={{
+                  backend: engineBackend,
+                  onBackendChange: (b) => {
+                    setEngineBackend(b);
+                    window.localStorage.setItem('jazzify.engine', b);
+                  },
+                  styleChoice,
+                  onStyleChange: setStyleChoice,
+                }}
+              />
+            </SheetBody>
+          </SheetCard>
+        </SheetBackdrop>
       )}
 
     </PageContainer>

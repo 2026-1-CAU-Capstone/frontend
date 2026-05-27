@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { HashRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppPreviewProvider } from './contexts/AppPreviewContext';
+import { BottomTabBar } from './components/layout/BottomTabBar';
 import HomePage from './pages/HomePage';
 import ChordPage from './pages/ChordPage';
 import NotePage from './pages/NotePage';
@@ -49,6 +50,7 @@ export default function App() {
     <>
       {showIntro && <IntroScreen onDone={handleIntroDone} />}
       <HashRouter>
+        <AppPreviewProvider>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/chord" element={<ChordPage />} />
@@ -69,20 +71,23 @@ export default function App() {
               navigation. Reachable only via the direct URL (#/intro). */}
           <Route path="/intro" element={<IntroPage />} />
           {/* /preview/* — browser-side design preview of app-only screens.
-              Wraps children in AppPreviewProvider so isNativeLandscape (and
-              any future app-only UI hooks) see "we're in app mode" without
-              affecting the regular /chord, /note, … routes. */}
-          <Route path="/preview" element={<AppPreviewProvider><Outlet /></AppPreviewProvider>}>
-            <Route path="chord" element={<ChordPage />} />
-            <Route path="mychord" element={<ChordPage mychordMode />} />
-            <Route path="note" element={<NotePage />} />
-          </Route>
+              AppPreviewProvider at the app root flips when pathname starts
+              with /preview, so isNativeUi/isNativeLandscape pick it up
+              globally (including the bottom tab bar). */}
+          <Route path="/preview/chord" element={<ChordPage />} />
+          <Route path="/preview/mychord" element={<ChordPage mychordMode />} />
+          <Route path="/preview/note" element={<NotePage />} />
+          <Route path="/preview" element={<Navigate to="/preview/chord" replace />} />
           {/* Legacy routes — SoloGeneratorPage & LickInputPage merged into
               the unified EditorPage (mode=solo|lick). Keep redirects so old
               bookmarks / external links still land in the right place. */}
           <Route path="/note/sologenerator" element={<Navigate to="/editor?mode=solo" replace />} />
           <Route path="/lick-input" element={<Navigate to="/editor?mode=lick" replace />} />
         </Routes>
+        {/* Native-only 5-tab bottom navigation. No-ops on web; the component
+         *  reads useIsNativeUi() which is also true under /preview/*. */}
+        <BottomTabBar />
+        </AppPreviewProvider>
       </HashRouter>
     </>
   );

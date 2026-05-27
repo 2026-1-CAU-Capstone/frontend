@@ -1,17 +1,25 @@
 import { createContext, useContext, type ReactNode } from 'react';
+import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import { isNativeApp } from '../lib/platform';
 
-/* True only inside a /preview/* route. Lets components render their
- * Capacitor-app-only UI from a browser for design review, without affecting
- * the regular /chord, /note, … routes (which stay strictly web). */
+/* True only when the current URL is under /preview/*. Lets components render
+ * their Capacitor-app-only UI from a browser for design review, without
+ * affecting the regular /chord, /note, … routes (which stay strictly web).
+ *
+ * Mount this provider once at the app root (inside the Router so useLocation
+ * works) — it reads the current pathname so the value is reactive to
+ * navigation and visible from globally-mounted components like the bottom
+ * tab bar. */
 const AppPreviewContext = createContext(false);
 
 export function AppPreviewProvider({ children }: { children: ReactNode }) {
+  const loc = useLocation();
+  const inPreview = loc.pathname.startsWith('/preview');
   return (
-    <AppPreviewContext.Provider value={true}>
+    <AppPreviewContext.Provider value={inPreview}>
       {children}
-      <PreviewBadge>앱 프리뷰</PreviewBadge>
+      {inPreview && <PreviewBadge>앱 프리뷰</PreviewBadge>}
     </AppPreviewContext.Provider>
   );
 }

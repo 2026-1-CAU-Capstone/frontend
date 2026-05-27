@@ -861,9 +861,11 @@ const SortWrap = styled.div`
 
 const SortMenu = styled.div`
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 4px);
+  /* Anchor under the sort icon button (36px wide) — shift right so the menu's
+   * right edge lines up with the button's right edge. */
   right: 0;
-  min-width: 200px;
+  min-width: 180px;
   background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 14px;
@@ -972,13 +974,13 @@ const Grid = styled.div`
   flex: 1;
   overflow-y: auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 18px;
-  padding: 12px 28px 32px;
+  grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
+  gap: 14px;
+  padding: 10px 22px 24px;
   ${mq.mobile} {
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 12px;
-    padding: 8px 14px 24px;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+    padding: 6px 14px 20px;
   }
 `;
 
