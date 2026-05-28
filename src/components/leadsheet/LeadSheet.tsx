@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import styled from 'styled-components';
 import type {
   LeadSheetData,
@@ -6,6 +6,7 @@ import type {
   LeadSheetChord,
 } from '../../data/leadSheetTypes';
 import { FullscreenButton } from '../common/FullscreenButton';
+import { CompactButton } from '../common/CompactButton';
 import { ZoomControls, useZoom } from '../common/ZoomControls';
 import { analyzeHarmony, formatKeyDisplay } from '../../lib/harmonyAnalyzer';
 import type { AnalysisFilters } from '../../hooks/useAnalysisFilters';
@@ -729,17 +730,24 @@ const Acc = styled.span<{ $size?: ChordSize }>`
  * the "7" sits closer to the middle of the root letter — without this the
  * AccQualStack's space-between pushed Quality flush against the root's
  * baseline, which read as "F7 is too far down" beside the high-perched Acc. */
-const Quality = styled.span<{ $size?: ChordSize; $stacked?: boolean }>`
-  font-size: ${({ $size }) =>
-    $size === 'four'    ? 'clamp(0.88rem, 2.75cqi, 1.6rem)' :
-    $size === 'compact' ? 'clamp(0.6rem,  1.8cqi, 1.1rem)' :
-    $size === 'split'   ? 'clamp(0.75rem, 2.2cqi, 1.4rem)' :
-                          'clamp(0.9rem,  2.9cqi, 1.7rem)'};
+const Quality = styled.span<{ $size?: ChordSize; $stacked?: boolean; $dom7?: boolean }>`
+  /* Dominant 7 ("G7", "C7sus" …) renders ~8 % larger than other qualities
+   * (△7, m7, °7, ø7) and sits slightly lower / nudged right — per design
+   * request. Multiplier is applied to every value inside the clamp so the
+   * font scales consistently across viewport sizes. */
+  font-size: ${({ $size, $dom7 }) => {
+    const m = $dom7 ? 1.08 : 1;
+    if ($size === 'four')    return `clamp(${0.88 * m}rem, ${2.75 * m}cqi, ${1.6 * m}rem)`;
+    if ($size === 'compact') return `clamp(${0.6 * m}rem, ${1.8 * m}cqi, ${1.1 * m}rem)`;
+    if ($size === 'split')   return `clamp(${0.75 * m}rem, ${2.2 * m}cqi, ${1.4 * m}rem)`;
+    return `clamp(${0.9 * m}rem, ${2.9 * m}cqi, ${1.7 * m}rem)`;
+  }};
   font-weight: 600;
   font-family: ${CHORD_FONT};
   line-height: 1;
   padding-bottom: 1px;
-  transform: translateY(-0.18em);
+  transform: ${({ $dom7 }) =>
+    $dom7 ? 'translate(0.04em, -0.04em)' : 'translateY(-0.18em)'};
   transform-origin: left bottom;
   ${({ $stacked }) => $stacked && `
     display: inline-flex;
@@ -1073,6 +1081,9 @@ function ChordSymbol({
     : ['', ''];
 
   const hasQuality = !!(base || tensions);
+  /* Dominant 7: base is bare "7" (or "7sus", "7sus2", "7sus4"); excludes
+   * △7, m7/-7, °7, ø7. Drives a tiny per-glyph offset in <Quality>. */
+  const isDom7 = /^7(sus[24]?)?$/.test(base);
 
   const subVLabel = isSubV  ? `SubV/${chord.analysis!.subV!.targetDegree}` : null;
 
@@ -1137,7 +1148,7 @@ function ChordSymbol({
                * it to anchor the arrow at the BASE glyph's right edge rather
                * than the tension's, so the cadence arc doesn't shoot off
                * from a high "#9" instead of the "7" trunk. */
-              <Quality $size={size} $stacked={!!tensions && !accChar}>
+              <Quality $size={size} $stacked={!!tensions && !accChar} $dom7={isDom7}>
                 {tensions && !accChar && <TensionSpan $size={size}>{tensions}</TensionSpan>}
                 <span>{renderWithDim(base, size)}</span>
                 {tensions && accChar && (
@@ -2159,6 +2170,59 @@ export function LeadSheet({
   // The effective scale: fit-to-screen modes use fitScale, otherwise zoom.
   const effectiveScale = fitToScreen ? fitScale : isCompactLayout ? 1 : zoom / 100;
 
+  /* "Compact" button — toggles between fit-to-one-screen and the zoom the
+   * user had before. Behaviour:
+   *   1st press   → save current zoom, compute fit, apply.
+   *   2nd press   → if still at the fitted zoom, restore the saved one.
+   *   If the user manually changes zoom (+/-/preset) in between, the saved
+   *   state is invalidated (compactFitRef no longer matches `zoom`) so the
+   *   next press starts a fresh compact cycle from the new zoom.
+   *
+   * Reading from refs (not state) avoids two known traps with the existing
+   * state: `containerSize` is only populated in native-landscape mode (would
+   * early-return on desktop), and `pageNaturalSize` actually tracks the
+   * scaled offsetWidth at the current zoom — so neither is a reliable
+   * reference for "true natural size". Working from `factor = avail / current`
+   * and multiplying the current zoom sidesteps both. */
+  const compactPreZoomRef = useRef<number | null>(null);
+  const compactFitZoomRef = useRef<number | null>(null);
+  const handleCompact = useCallback(() => {
+    /* Toggle back to the saved pre-compact zoom if (a) we stored one AND
+     * (b) the current zoom is still the fitted value we set (i.e. the user
+     * hasn't manually zoomed since). */
+    if (
+      compactPreZoomRef.current !== null &&
+      compactFitZoomRef.current !== null &&
+      zoom === compactFitZoomRef.current
+    ) {
+      const saved = compactPreZoomRef.current;
+      compactPreZoomRef.current = null;
+      compactFitZoomRef.current = null;
+      setZoomLevel(saved);
+      return;
+    }
+    /* Otherwise: compute fit and engage compact mode. */
+    const page = pageRef.current;
+    const outer = outerRef.current;
+    if (!page || !outer) return;
+    const pageW = page.offsetWidth;
+    const pageH = page.offsetHeight;
+    if (pageW <= 0 || pageH <= 0) return;
+    /* Leave a small safety margin so the last bar's border doesn't kiss the
+     * bottom edge. Match what fitScale does (-8 each axis). */
+    const availW = Math.max(0, outer.clientWidth - 8);
+    const availH = Math.max(0, outer.clientHeight - 8);
+    if (!availW || !availH) return;
+    const factor = Math.min(availW / pageW, availH / pageH);
+    /* Match the clamp range that ZoomControls applies (25 … 400) so the
+     * stored "fitted" value equals what `zoom` will actually be on the
+     * next render — needed for the toggle-back equality check above. */
+    const fitted = Math.max(25, Math.min(400, Math.round(zoom * factor)));
+    compactPreZoomRef.current = zoom;
+    compactFitZoomRef.current = fitted;
+    setZoomLevel(fitted);
+  }, [zoom, setZoomLevel]);
+
   const selectionTargets = useMemo<LeadSheetChordSelection[]>(() => {
     const targets: LeadSheetChordSelection[] = [];
 
@@ -3143,7 +3207,22 @@ export function LeadSheet({
   return (
     <ViewerOuter ref={outerRef} $fs={isFullscreen} $fit={isNativeLandscape && !isFullscreen}>
       <FullscreenButton isFullscreen={isFullscreen} onClick={toggleFullscreen} />
-      {!isFullscreen && !isCompactLayout && <ZoomControls zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onSetZoom={setZoomLevel} />}
+      {/* Corner button row (right-anchored, uniform 6px gaps):
+       *   [   -  %  +   ] gap6 [ compact ] gap6 [ fullscreen ]
+       *      right=80px        right=44px      right=8px
+       * Compact + fullscreen share the same 30×30 / radius-6 silhouette. */}
+      {!isFullscreen && !isCompactLayout && (
+        <>
+          <ZoomControls
+            zoom={zoom}
+            onZoomIn={zoomIn}
+            onZoomOut={zoomOut}
+            onSetZoom={setZoomLevel}
+            rightPx={80}
+          />
+          <CompactButton onClick={handleCompact} />
+        </>
+      )}
       <PageShell style={wrapperStyle}>
       <Page ref={pageRef} style={pageStyle}>
         {(af.showArrows || af.showIIVI) && (

@@ -75,6 +75,20 @@ function notifyAuth(loggedIn: boolean, user: AuthUser | null) {
   listeners.forEach((cb) => { try { cb(loggedIn, user); } catch { /* swallow */ } });
 }
 
+/* ── unauth → login redirect ─────────────────────────────── */
+
+/** When an auth-required call definitively fails (refresh exhausted),
+ *  log a clear diagnostic and bounce the user to the login screen. Uses
+ *  hash navigation so it works with HashRouter without importing
+ *  react-router. Skips the redirect when already on /login to avoid an
+ *  endless reload loop. */
+function redirectToLogin(reason: string): void {
+  console.warn(`[Jazzify auth] ${reason} → /login`);
+  if (typeof window === 'undefined') return;
+  if (window.location.hash.startsWith('#/login')) return;
+  window.location.hash = '#/login';
+}
+
 /* ── low-level fetch with bearer + auto-refresh on 401 ──── */
 
 async function rawJson<T>(res: Response): Promise<T> {
@@ -129,10 +143,14 @@ export async function authFetch(input: string, init: RequestInit = {}): Promise<
     res = await fetch(url, { ...opts, headers });
     return res;
   } catch {
-    // Refresh failed → drop auth state.
+    // Refresh failed → drop auth state and send the user to /login. The
+    // calling code still receives the original 401 response (so a caller
+    // mid-stream can clean up its UI), but by the time it does, the URL is
+    // already heading to the login page.
     setAccessToken(null);
     setCachedUser(null);
     notifyAuth(false, null);
+    redirectToLogin('refresh failed — session expired or invalid');
     return res;
   }
 }
@@ -192,15 +210,36 @@ export async function fetchMe(): Promise<AuthUser> {
 
 /** Check session at app start. If we have a stale access token, /me will
  *  401 → authFetch tries refresh → either succeeds (logged in) or fails
- *  (cleared). Either way the auth state ends up correct. */
+ *  (cleared). Either way the auth state ends up correct.
+ *
+ *  Important: any failure path here MUST clear the cached user and notify,
+ *  otherwise a stale localStorage entry from a prior session keeps the UI
+ *  rendering as "logged in" until the next protected API call surfaces a 401.
+ *  Users have reported the exact symptom — looks logged in, then errors. */
 export async function bootstrapAuth(): Promise<AuthUser | null> {
   // Even with no access token, the refresh cookie may still be valid.
   if (!getAccessToken()) {
-    try { await refreshAccessToken(); } catch { return null; }
+    try {
+      await refreshAccessToken();
+    } catch {
+      // No valid session at all (no access token, refresh failed).
+      // Wipe any cached user so the UI drops to logged-out immediately.
+      setAccessToken(null);
+      setCachedUser(null);
+      notifyAuth(false, null);
+      return null;
+    }
   }
   try {
     return await fetchMe();
   } catch {
+    // /me failed even after authFetch's automatic refresh attempt.
+    // authFetch already cleared state on a refresh-failure path, but be
+    // defensive for the other /me failure modes (network, server 5xx, etc.)
+    // — we'd rather show a logged-out UI than a stale logged-in one.
+    setAccessToken(null);
+    setCachedUser(null);
+    notifyAuth(false, null);
     return null;
   }
 }

@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../../styles/theme';
 import { BrandLogoImage } from '../common/BrandLogoImage';
 import { getCachedUser, onAuthChange, type AuthUser } from '../../api/auth';
 import { UserMenu } from '../auth/UserMenu';
+import { RecentChatsList } from './RecentChatsList';
+import { setActiveChat } from '../../api/chat';
 
 /* ─────────────────────────────────────────────────────────────────────────
  * IconSidebar — universal left rail for all pages.
@@ -575,6 +577,116 @@ const NAV = [
   { path: '/input', icon: OmrIcon, label: 'OMR' },
 ] as const;
 
+/* ── Admin drop-up ───────────────────────────────────────────────────────
+ * Sits just above the bottom UserMenu / PromoCard row. Clicking the button
+ * opens a popover that slides UPWARD from the button, listing the legacy NAV
+ * tools (Chord/Note/Lick/Solo/Editor/YouTube/OMR). Closes on outside-click
+ * or after a nav-item click. */
+
+const AdminIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <rect x="3"  y="3"  width="6" height="6" rx="1" />
+    <rect x="15" y="3"  width="6" height="6" rx="1" />
+    <rect x="3"  y="15" width="6" height="6" rx="1" />
+    <rect x="15" y="15" width="6" height="6" rx="1" />
+  </svg>
+);
+
+/* Wraps the button + popover so position:absolute on the popover anchors to
+ * the button, not the whole Rail. */
+const AdminBlock = styled.div<{ $expanded?: boolean }>`
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: ${({ $expanded }) => ($expanded ? 'stretch' : 'center')};
+  margin-bottom: 6px;
+`;
+
+/* Admin trigger — visually a NavBtn so it fits the rest of the rail. The
+ * $on prop highlights it while the dropup is open. */
+const AdminBtn = styled.button<{ $expanded?: boolean; $on?: boolean }>`
+  ${({ $expanded }) => ($expanded
+    ? `
+      width: 100%;
+      height: 38px;
+      padding: 0 10px;
+      justify-content: flex-start;
+      border-radius: 10px;
+      gap: 12px;
+    `
+    : `
+      width: 36px;
+      height: 36px;
+      justify-content: center;
+      border-radius: 50%;
+      gap: 0;
+    `)}
+
+  display: flex;
+  align-items: center;
+  border: none;
+  background: ${({ $on }) => ($on ? 'rgba(0, 0, 0, 0.08)' : 'transparent')};
+  color: ${({ $on }) => ($on ? '#1a1a1a' : '#2a2a2a')};
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+
+  &:hover { background: rgba(0, 0, 0, 0.06); color: #1a1a1a; }
+`;
+
+/* Popover anchored to the bottom of AdminBlock and growing upward. min-width
+ * keeps labels readable even when the rail is collapsed (52px). */
+const AdminDropup = styled.div<{ $expanded?: boolean }>`
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: ${({ $expanded }) => ($expanded ? '0' : '8px')};
+  ${({ $expanded }) => ($expanded ? 'right: 0;' : '')}
+  min-width: 220px;
+  max-width: calc(100vw - 80px);
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.06);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 60;
+  /* Subtle slide-up reveal. */
+  animation: adminDropupIn 0.14s ease-out;
+  @keyframes adminDropupIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+`;
+
+const AdminItem = styled.button<{ $active?: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 8px;
+  background: ${({ $active }) => ($active ? 'rgba(0, 0, 0, 0.06)' : 'transparent')};
+  color: #1a1a1a;
+  cursor: pointer;
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+
+  &:hover { background: rgba(0, 0, 0, 0.06); }
+  svg { flex-shrink: 0; }
+`;
+
 interface IconSidebarProps {
   /** Suppress the "로그인하세요" promo card. */
   hideAuthPromo?: boolean;
@@ -631,10 +743,32 @@ export function IconSidebar({
   const loggedIn = authUser !== null;
 
   /* Chat nav defaults: navigate to '/' so tool pages get a "back to chat"
-   * affordance, while HomePage can pass its own handlers for in-page actions. */
-  const handleNewChat = onNewChat ?? (() => navigate('/'));
+   * affordance, while HomePage can pass its own handlers for in-page actions.
+   * Always clear the active backend chat so RightChatPanel resets to a fresh
+   * conversation (which then creates a new backend chat on first message). */
+  const handleNewChat = onNewChat ?? (() => { setActiveChat(null); navigate('/'); });
   const handleOpenChatHistory = onOpenChatHistory ?? (() => navigate('/'));
   const chatEnabled = isLoggedInUser !== undefined ? isLoggedInUser : loggedIn;
+
+  /* Admin drop-up state. Closes when the user clicks outside the block
+   * or presses Escape — both standard popover dismissal patterns. */
+  const [adminOpen, setAdminOpen] = useState(false);
+  const adminBlockRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!adminOpen) return;
+    const onPointerDown = (e: MouseEvent | TouchEvent) => {
+      if (!adminBlockRef.current?.contains(e.target as Node)) setAdminOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setAdminOpen(false); };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('touchstart', onPointerDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('touchstart', onPointerDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [adminOpen]);
 
   return (
     <>
@@ -710,65 +844,124 @@ export function IconSidebar({
         </ChatNavBlock>
       )}
 
-      {/* Personal library (logged-in only) — above the divider, below chat. */}
-      {loggedIn && (
-        <MyLibBlock>
-          {expanded ? (
-            <>
-              <NavBtn $expanded={true} $active={pathname.startsWith('/my-charts')} onClick={() => navigate('/my-charts')} title="내 코드 차트">
+      {/* Personal library — always rendered. Disabled (and visibly dimmed via
+       *  NavBtn's :disabled styling) when logged out so the section is
+       *  discoverable but inert. */}
+      <MyLibBlock>
+        {expanded ? (
+          <>
+            <NavBtn
+              $expanded={true}
+              $active={loggedIn && pathname.startsWith('/my-charts')}
+              onClick={() => navigate('/my-charts')}
+              disabled={!loggedIn}
+              title={loggedIn ? '내 코드 차트' : '로그인 필요'}
+            >
+              <MyChordChartIcon />
+              <NavLabel $expanded={true}>내 코드 차트</NavLabel>
+            </NavBtn>
+            <NavBtn
+              $expanded={true}
+              $active={loggedIn && pathname.startsWith('/my-sheets')}
+              onClick={() => navigate('/my-sheets')}
+              disabled={!loggedIn}
+              title={loggedIn ? '내 악보 차트' : '로그인 필요'}
+            >
+              <MyScoreChartIcon />
+              <NavLabel $expanded={true}>내 악보 차트</NavLabel>
+            </NavBtn>
+            <NavBtn
+              $expanded={true}
+              onClick={() => { /* TODO: 사용자별 릭 DB */ }}
+              disabled={!loggedIn}
+              title={loggedIn ? '내 릭' : '로그인 필요'}
+            >
+              <MyLickIcon />
+              <NavLabel $expanded={true}>내 릭</NavLabel>
+            </NavBtn>
+          </>
+        ) : (
+          <>
+            <NavBtnWrap>
+              <NavBtn
+                $expanded={false}
+                $active={loggedIn && pathname.startsWith('/my-charts')}
+                onClick={() => navigate('/my-charts')}
+                disabled={!loggedIn}
+                title={loggedIn ? '내 코드 차트' : '로그인 필요'}
+              >
                 <MyChordChartIcon />
-                <NavLabel $expanded={true}>내 코드 차트</NavLabel>
               </NavBtn>
-              <NavBtn $expanded={true} onClick={() => { /* TODO: 사용자별 악보 차트 DB */ }} title="내 악보 차트">
+              <NavTooltip>{loggedIn ? '내 코드 차트' : '로그인 필요'}</NavTooltip>
+            </NavBtnWrap>
+            <NavBtnWrap>
+              <NavBtn
+                $expanded={false}
+                $active={loggedIn && pathname.startsWith('/my-sheets')}
+                onClick={() => navigate('/my-sheets')}
+                disabled={!loggedIn}
+                title={loggedIn ? '내 악보 차트' : '로그인 필요'}
+              >
                 <MyScoreChartIcon />
-                <NavLabel $expanded={true}>내 악보 차트</NavLabel>
               </NavBtn>
-              <NavBtn $expanded={true} onClick={() => { /* TODO: 사용자별 릭 DB */ }} title="내 릭">
+              <NavTooltip>{loggedIn ? '내 악보 차트' : '로그인 필요'}</NavTooltip>
+            </NavBtnWrap>
+            <NavBtnWrap>
+              <NavBtn
+                $expanded={false}
+                onClick={() => { /* TODO: 사용자별 릭 DB */ }}
+                disabled={!loggedIn}
+                title={loggedIn ? '내 릭' : '로그인 필요'}
+              >
                 <MyLickIcon />
-                <NavLabel $expanded={true}>내 릭</NavLabel>
               </NavBtn>
-            </>
-          ) : (
-            <>
-              <NavBtnWrap>
-                <NavBtn $expanded={false} $active={pathname.startsWith('/my-charts')} onClick={() => navigate('/my-charts')} title="내 코드 차트">
-                  <MyChordChartIcon />
-                </NavBtn>
-                <NavTooltip>내 코드 차트</NavTooltip>
-              </NavBtnWrap>
-              <NavBtnWrap>
-                <NavBtn $expanded={false} onClick={() => { /* TODO: 사용자별 악보 차트 DB */ }} title="내 악보 차트">
-                  <MyScoreChartIcon />
-                </NavBtn>
-                <NavTooltip>내 악보 차트</NavTooltip>
-              </NavBtnWrap>
-              <NavBtnWrap>
-                <NavBtn $expanded={false} onClick={() => { /* TODO: 사용자별 릭 DB */ }} title="내 릭">
-                  <MyLickIcon />
-                </NavBtn>
-                <NavTooltip>내 릭</NavTooltip>
-              </NavBtnWrap>
-            </>
-          )}
-        </MyLibBlock>
-      )}
+              <NavTooltip>{loggedIn ? '내 릭' : '로그인 필요'}</NavTooltip>
+            </NavBtnWrap>
+          </>
+        )}
+      </MyLibBlock>
 
       <Divider $expanded={expanded} />
 
-      {NAV.map(({ path, icon: Icon, label }) => (
-        <NavBtn
-          key={path}
-          $active={pathname.startsWith(path)}
-          $expanded={expanded}
-          onClick={() => navigate(path)}
-          title={label}
-        >
-          <Icon />
-          <NavLabel $expanded={expanded}>{label}</NavLabel>
-        </NavBtn>
-      ))}
+      {/* "최근 채팅" — per-user chat history list (Jazzify backend /v1/chat).
+       * Click an item → RightChatPanel loads that chat. Only renders in
+       * expanded mode + when logged in; otherwise it self-mounts to null and
+       * RailSpacer fills the gap. */}
+      <RecentChatsList expanded={expanded} loggedIn={loggedIn} />
 
       <RailSpacer />
+
+      {/* Admin drop-up — clicking opens a popover ABOVE the button that
+       * contains the legacy tool nav (Chord / Note / Lick / Solo / Editor /
+       * YouTube / OMR). Sits just above the profile/Max-plan row. */}
+      <AdminBlock ref={adminBlockRef} $expanded={expanded}>
+        {adminOpen && (
+          <AdminDropup $expanded={expanded} role="menu">
+            {NAV.map(({ path, icon: Icon, label }) => (
+              <AdminItem
+                key={path}
+                $active={pathname.startsWith(path)}
+                role="menuitem"
+                onClick={() => { navigate(path); setAdminOpen(false); }}
+              >
+                <Icon />
+                <span>{label}</span>
+              </AdminItem>
+            ))}
+          </AdminDropup>
+        )}
+        <AdminBtn
+          $expanded={expanded}
+          $on={adminOpen}
+          onClick={() => setAdminOpen((o) => !o)}
+          aria-haspopup="menu"
+          aria-expanded={adminOpen}
+          title="Admin"
+        >
+          <AdminIcon />
+          {expanded && <span>Admin</span>}
+        </AdminBtn>
+      </AdminBlock>
 
       {loggedIn && authUser ? (
         <UserMenu user={authUser} compact={!expanded} />

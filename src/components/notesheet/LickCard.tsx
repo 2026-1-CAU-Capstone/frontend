@@ -112,10 +112,20 @@ function appendChordSVG(
   }
 
   if (ext) {
+    // Dominant 7: bare root (no \u25B3/\u00B0/\u00F8/- quality marker) followed by "7".
+    // Renders ~8 % larger, slightly lower, and nudged right vs. other
+    // 7-extensions \u2014 mirrors the same treatment applied in LeadSheet.
+    const isDom7 = ext === '7' && !/[\u25B3\u00B0\u00F8\-]/.test(base);
     const extSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-    extSpan.setAttribute('font-size', String(Math.round(size * 0.85)));
-    extSpan.setAttribute('dx', base.endsWith('\u25B3') ? '-1' : '1');
-    extSpan.setAttribute('dy', String(-size * 0.18));
+    extSpan.setAttribute(
+      'font-size',
+      String(Math.round(size * (isDom7 ? 0.92 : 0.85))),
+    );
+    extSpan.setAttribute(
+      'dx',
+      base.endsWith('\u25B3') ? '-1' : (isDom7 ? '3' : '1'),
+    );
+    extSpan.setAttribute('dy', String(isDom7 ? -size * 0.03 : -size * 0.18));
     extSpan.textContent = ext;
     txt.appendChild(extSpan);
 

@@ -25,10 +25,10 @@ const PlusIcon = () => (
 
 /* ─── styled components ───────────────────────────────────────────────── */
 
-const Wrapper = styled.div`
+const Wrapper = styled.div<{ $right: number }>`
   position: absolute;
   top: 8px;
-  right: 44px;
+  right: ${({ $right }) => $right}px;
   z-index: 50;
   display: flex;
   align-items: center;
@@ -151,9 +151,13 @@ interface ZoomControlsProps {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onSetZoom: (level: number) => void;
+  /** Right offset (px) used to position the group. Pages that also render a
+   *  CompactButton + FullscreenButton to the right pass a larger value so
+   *  the trio doesn't overlap. Defaults to 44 (just-FullscreenButton). */
+  rightPx?: number;
 }
 
-export function ZoomControls({ zoom, onZoomIn, onZoomOut, onSetZoom }: ZoomControlsProps) {
+export function ZoomControls({ zoom, onZoomIn, onZoomOut, onSetZoom, rightPx = 44 }: ZoomControlsProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -167,7 +171,7 @@ export function ZoomControls({ zoom, onZoomIn, onZoomOut, onSetZoom }: ZoomContr
   }, [open]);
 
   return (
-    <Wrapper ref={ref} className="zoom-controls">
+    <Wrapper ref={ref} className="zoom-controls" $right={rightPx}>
       <ZoomBtn
         onClick={(e) => { e.stopPropagation(); onZoomOut(); }}
         disabled={zoom <= MIN_ZOOM}

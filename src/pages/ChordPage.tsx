@@ -1692,4 +1692,3 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     </PageContainer>
   );
 }
-

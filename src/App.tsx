@@ -9,6 +9,7 @@ import LicksPage from './pages/LicksPage';
 import SolosPage from './pages/SolosPage';
 import MyLicksPage from './pages/MyLicksPage';
 import MyChordChartsPage from './pages/MyChordChartsPage';
+import MySheetProjectsPage from './pages/MySheetProjectsPage';
 import Lick12KeyPage from './pages/Lick12KeyPage';
 import InputPage from './pages/InputPage';
 import StyPocPage from './pages/StyPocPage';
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="/youtube-onset" element={<YoutubeOnsetPage />} />
           <Route path="/my-licks" element={<MyLicksPage />} />
           <Route path="/my-charts" element={<MyChordChartsPage />} />
+          <Route path="/my-sheets" element={<MySheetProjectsPage />} />
           <Route path="/lick-practice/:id" element={<Lick12KeyPage />} />
           <Route path="/sty-poc" element={<StyPocPage />} />
           <Route path="/sty-demo" element={<StyDemoPage />} />

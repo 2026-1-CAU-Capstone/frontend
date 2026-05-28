@@ -4,6 +4,16 @@ import { ChatMessage } from '../chat/ChatMessage';
 import { IntroChatInput } from '../chat/IntroChatInput';
 import { type ClaudeMessage, type ClaudeImage } from '../../api/claude';
 import { streamWithRAG, type RagDebugInfo } from '../../api/harmorag';
+import {
+  streamChat as backendStreamChat,
+  getChat as backendGetChat,
+  onActiveChatChange,
+  setActiveChat,
+  notifyChatListChanged,
+  toBackendHistory,
+  toBackendImages,
+} from '../../api/chat';
+import { getCachedUser, onAuthChange } from '../../api/auth';
 import { RagDebugPanel } from '../chat/RagDebugPanel';
 import {
   findMatchingLicks,
@@ -167,6 +177,62 @@ export function RightChatPanel({
   const historyRef = useRef<ClaudeMessage[]>([]);
   const allLicksRef = useRef<LickEntry[]>([]);
 
+  /* Backend chat persistence (Jazzify /v1/chat/*). When the user is logged
+   * in we route streaming through the backend so each message is saved
+   * server-side and shows up in the sidebar list. chatPublicIdRef mirrors
+   * the state for use inside async callbacks (where stale closures bite). */
+  const [loggedIn, setLoggedIn] = useState(() => !!getCachedUser());
+  const [chatPublicId, setChatPublicIdState] = useState<string | null>(null);
+  const chatPublicIdRef = useRef<string | null>(null);
+  const setChatPublicId = useCallback((id: string | null) => {
+    chatPublicIdRef.current = id;
+    setChatPublicIdState(id);
+  }, []);
+
+  useEffect(() => {
+    return onAuthChange((isIn) => {
+      setLoggedIn(isIn);
+      if (!isIn) {
+        setChatPublicId(null);
+        setActiveChat(null);
+      }
+    });
+  }, [setChatPublicId]);
+
+  /* Sidebar dispatched a chat selection → load it (or clear on null).
+   * Skips the load if the requested id is already open, which avoids a
+   * redundant fetch when the right panel itself emitted the change after
+   * creating a fresh chat. */
+  useEffect(() => {
+    const unsub = onActiveChatChange(async (id) => {
+      if (id === chatPublicIdRef.current) return;
+      if (id === null) {
+        setChatPublicId(null);
+        setMessages([]);
+        historyRef.current = [];
+        return;
+      }
+      try {
+        const detail = await backendGetChat(id);
+        const msgs: MessageWithDebug[] = (detail.messages || [])
+          .filter((m) => m.role === 'user' || m.role === 'assistant')
+          .map((m) => ({
+            id: `db-${m.publicId}`,
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+            timestamp: new Date(m.createdAt).getTime() || Date.now(),
+          }));
+        setChatPublicId(id);
+        setMessages(msgs);
+        historyRef.current = msgs.map((m) => ({ role: m.role, content: m.content }));
+        isScrolledUpRef.current = false;
+      } catch (e) {
+        console.error('[chat] load failed:', e);
+      }
+    });
+    return unsub;
+  }, [setChatPublicId]);
+
   // 릭 추천 풀: 백엔드 릭 DB (jazzify.p-e.kr/api/v1/licks). 예전엔 프론트
   // 정적 JSON(user_licks.json)을 봤지만, 릭이 백엔드로 이관되어 그쪽을 단일
   // 소스로 사용. 실패 시 빈 배열 — 채팅은 LLM 답변으로 폴백된다.
@@ -203,7 +269,13 @@ export function RightChatPanel({
   useEffect(() => {
     setMessages([]);
     historyRef.current = [];
-  }, [songTitle]);
+    /* Switching songs starts a fresh ad-hoc chat — drop the backend chat
+     * pointer too so the next message creates a new chat (and the sidebar
+     * highlight clears). The user can still re-open the previous chat from
+     * the sidebar list. */
+    setChatPublicId(null);
+    setActiveChat(null);
+  }, [songTitle, setChatPublicId]);
 
   const handleRequestLicks = useCallback(() => {
     if (selectedChords.length === 0) return;
@@ -405,24 +477,63 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
       contextForModel = [contextForModel, notesContext].filter(Boolean).join('\n\n');
     }
 
-    const finalText = await streamWithRAG(
-      textForLLM,
-      historyRef.current,
-      contextForModel,
-      songTitle,
-      (accumulated) => {
-        setMessages((prev) =>
-          prev.map((m) => (m.id === aiMsgId ? { ...m, content: accumulated } : m)),
+    /* When the user is logged in, route through the Jazzify backend so the
+     * conversation is saved (and shows up in the sidebar list). Falls back
+     * to the local RAG/Claude path on error or when not logged in. */
+    let finalText = '';
+    let backendOk = false;
+    if (loggedIn) {
+      try {
+        finalText = await backendStreamChat(
+          {
+            message: textForLLM,
+            history: toBackendHistory(historyRef.current),
+            chordContext: contextForModel || undefined,
+            songTitle: songTitle || undefined,
+            images: toBackendImages(images),
+            chatPublicId: chatPublicIdRef.current ?? undefined,
+          },
+          (accumulated) => {
+            setMessages((prev) =>
+              prev.map((m) => (m.id === aiMsgId ? { ...m, content: accumulated } : m)),
+            );
+          },
+          (newId) => {
+            /* First message of a brand-new chat → server assigned an id.
+             * Save it for continuation + sync the sidebar selection so the
+             * new chat shows up highlighted as it appears in the list. */
+            if (newId !== chatPublicIdRef.current) {
+              setChatPublicId(newId);
+              setActiveChat(newId);
+            }
+          },
         );
-      },
-      // RAG 디버그 정보 수신 → 해당 메시지에 attach
-      (debugInfo) => {
-        setMessages((prev) =>
-          prev.map((m) => (m.id === aiMsgId ? { ...m, ragDebug: debugInfo } : m)),
-        );
-      },
-      images,
-    );
+        backendOk = true;
+        notifyChatListChanged();
+      } catch (e) {
+        console.warn('[chat] backend stream failed, falling back to local:', e);
+      }
+    }
+    if (!backendOk) {
+      finalText = await streamWithRAG(
+        textForLLM,
+        historyRef.current,
+        contextForModel,
+        songTitle,
+        (accumulated) => {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === aiMsgId ? { ...m, content: accumulated } : m)),
+          );
+        },
+        // RAG 디버그 정보 수신 → 해당 메시지에 attach
+        (debugInfo) => {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === aiMsgId ? { ...m, ragDebug: debugInfo } : m)),
+          );
+        },
+        images,
+      );
+    }
 
     historyRef.current.push(
       { role: 'user', content: text },
