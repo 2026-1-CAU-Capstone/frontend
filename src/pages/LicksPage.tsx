@@ -7,7 +7,7 @@ import { TopToolbar } from '../components/layout/TopToolbar';
 import { LickCard } from '../components/notesheet/LickCard';
 import { PianoKeyboard, type PianoNote } from '../components/notesheet/PianoKeyboard';
 import { MelodyPreview } from '../components/notesheet/MelodyPreview';
-import { loadLicks, loadFrontendLicks, loadUserLicks, invalidateLicksCache, type LickEntry } from '../data/lickData';
+import { loadLicks, loadFrontendLicks, loadBackupLicks, loadUserLicks, invalidateLicksCache, type LickEntry } from '../data/lickData';
 import { transposeLick, normalizeKeyInput, formatKeyDisplay } from '../lib/transpose';
 import { OMRUploadModal } from '../components/common/OMRUploadModal';
 import { createLickViaOMR } from '../api/licks';
@@ -355,8 +355,11 @@ export default function LicksPage() {
   const [melodySearch, setMelodySearch] = useState(false);
   const [searchMidis, setSearchMidis] = useState<number[]>([]);
 
-  /* lick source toggle */
-  const [lickSource, setLickSource] = useState<'backend' | 'frontend'>('backend');
+  /* lick source toggle. 3 sources:
+   *   backend  — live /v1/licks (현재 비어있음, 복구 대기)
+   *   frontend — 백엔드 wipe 직전 snapshot 145개 (public/data/licks/backend_backup_licks.json)
+   *   static   — WJazzD 정적 ~8000개 + user_licks.json (브라우저용 폴백 풀) */
+  const [lickSource, setLickSource] = useState<'backend' | 'frontend' | 'static'>('backend');
 
   /* lick data */
   const [allLicks, setAllLicks] = useState<LickEntry[]>([]);
@@ -372,8 +375,13 @@ export default function LicksPage() {
     if (lickSource === 'backend') {
       loadLicks()
         .then((licks) => { setAllLicks(licks); setLoadingLicks(false); })
-        .catch((err) => { console.error('Failed to load licks:', err); setLoadingLicks(false); });
+        .catch((err) => { console.error('Failed to load backend licks:', err); setLoadingLicks(false); });
+    } else if (lickSource === 'frontend') {
+      loadBackupLicks()
+        .then((licks) => { setAllLicks(licks); setLoadingLicks(false); })
+        .catch((err) => { console.error('Failed to load backup snapshot licks:', err); setLoadingLicks(false); });
     } else {
+      // 'static'
       loadFrontendLicks()
         .then((licks) =>
           loadUserLicks().then((userLicks) => {
@@ -381,7 +389,7 @@ export default function LicksPage() {
             setLoadingLicks(false);
           }),
         )
-        .catch((err) => { console.error('Failed to load licks:', err); setLoadingLicks(false); });
+        .catch((err) => { console.error('Failed to load static licks:', err); setLoadingLicks(false); });
     }
   }, [lickSource]);
 
@@ -574,6 +582,7 @@ export default function LicksPage() {
                 <SourceToggleWrap>
                   <SourceBtn $active={lickSource === 'backend'} onClick={() => setLickSource('backend')}>Backend</SourceBtn>
                   <SourceBtn $active={lickSource === 'frontend'} onClick={() => setLickSource('frontend')}>Frontend</SourceBtn>
+                  <SourceBtn $active={lickSource === 'static'} onClick={() => setLickSource('static')}>Static</SourceBtn>
                 </SourceToggleWrap>
 
                 <OMRBtn onClick={() => setOmrOpen(true)} title="악보 이미지를 업로드해 OMR로 릭 생성">

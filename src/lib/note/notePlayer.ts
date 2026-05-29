@@ -472,8 +472,16 @@ export class NotePlayer {
 
   /** Melody swing — always on globally (jazz feel is the project default).
    *  Ratio is the on-beat 8th's share of the beat (0.5 = straight, 0.667 =
-   *  strong triplet swing, ~0.62 = medium swing). */
+   *  strong triplet swing, 0.708 = corpus-calibrated medium swing — the
+   *  current default that matches drums via getSwingRatio()). */
   swingEnabled = true;
+  // SWING_RATIO (0.708) is the legacy fallback used only between
+  // construction and the first applySettings() — which fires synchronously
+  // inside the constructor, then again whenever the user moves the mixer
+  // slider. Drums use getSwingRatio(bpm, feel) which also defaults to
+  // 0.708 for medium-swing, so all rhythm-section instruments now lock
+  // together. (Was 0.62 before — caused a perceptible drift between
+  // drums and bass/piano timing.)
   swingRatio = SWING_RATIO;
   /** Overall genre feel — drives comp/drum/bass branching plus forces
    *  straight 8ths when 'bossa'. Mirrors playerSettings.style. */

@@ -14,8 +14,8 @@ import type { LeadSheetData } from '../data/leadSheetTypes';
 import type { ChordOverlay } from '../data/types';
 import { getSongIndex, getSong, type SongEntry } from '../lib/ireal/irealLoader';
 import { buildChordContext } from '../api/chordContext';
-import { createBackingPlayer, leadSheetToChart, type BackingPlayer } from '../lib/backing';
-import { createStyBackingPlayer, createHybridBackingPlayer } from '../lib/yamaha-sty';
+import { leadSheetToChart } from '../lib/backing';
+import { useGlobalPlayer, type ChartInput } from '../lib/player';
 import { BUILTIN_STYLE, type StyleSelectorChoice } from '../components/yamaha-sty/StyleSelector';
 import { getPlayerSettings, inferPlayStyle, setPlayerSetting, subscribePlayerSettings, TRANSPOSING_INSTRUMENT_OFFSET } from '../lib/note/playerSettings';
 import { GenreSelect, MetronomeToggle, BpmControl, RepeatControl, TransportButtons, BackingMixer, type EngineBackend } from '../components/backing/BackingPlayerBar';
@@ -868,7 +868,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   const [editMode, setEditMode] = useState(() => searchParams.get('edit') === '1');
   const editValuesRef = useRef<Map<string, string>>(new Map());
 
-  const playerRef = useRef<BackingPlayer | null>(null);
+  const { player: globalPlayer } = useGlobalPlayer();
   const [isPlaying, setIsPlaying] = useState(false);
   /* How many times Play repeats the chart before stopping (default 3). */
   const [repeatCount, setRepeatCount] = useState(3);
@@ -958,9 +958,24 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     getSongIndex().then(setSongIndex).catch(() => {});
   }, []);
 
-  // (Re)create backing player whenever the loaded sheet changes. The player
-  // hydrates from the global mixer store on construction so we don't need
-  // to pass volumes/kit/reverb explicitly.
+  // Build a stable ChartInput for the GlobalPlayer whenever the loaded
+  // sheet / engine backend / style choice changes. The GlobalPlayer
+  // lazy-instantiates the appropriate BackingPlayer engine when play()
+  // is called with this input.
+  const chartInput = useMemo<ChartInput | null>(() => {
+    if (!sheet) return null;
+    return {
+      kind: 'chart',
+      data: sheet,
+      engineBackend,
+      styleUrl: styleChoice.url,
+      styleData: styleChoice.buffer,
+    };
+  }, [sheet, engineBackend, styleChoice]);
+
+  // Sync tempo and inferred rhythm style from the chart whenever the
+  // sheet changes. (BackingPlayer reads the global playerSettings store
+  // on construction, so we don't need to pass volumes/kit/reverb here.)
   useEffect(() => {
     if (!sheet) return;
     const chart = leadSheetToChart(sheet);
@@ -973,66 +988,76 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     if (inferred && inferred !== getPlayerSettings().style) {
       setPlayerSetting('style', inferred);
     }
-    const styOpts = { styleUrl: styleChoice.url, styleData: styleChoice.buffer };
-    const player =
-      engineBackend === 'sty' ? createStyBackingPlayer(chart, {}, styOpts) :
-      engineBackend === 'hybrid' ? createHybridBackingPlayer(chart, {}, styOpts) :
-      createBackingPlayer(chart);
-    player.on('onBar', (bar) => setActiveBar(bar));
-    player.on('onDone', () => setIsPlaying(false));
-    playerRef.current = player;
-    // Warm up the audio context + instrument/drum samples in the background
-    // the moment the player exists, so the FIRST Play doesn't stall after the
-    // count-in waiting on the (network + decode) load. preload is idempotent
-    // (ensure-cached / preloadPromise), so the play-time preload() resolves
-    // instantly once this finishes — fixing the "1234 … long pause … sound"
-    // first-play delay. Later plays already hit cache.
-    void player.preload().catch(() => { /* will retry at play time */ });
+  }, [sheet]);
+
+  // Subscribe to GlobalPlayer events for this page's reactive UI state.
+  // We use player.on('bar'/'done', …) directly (not the hook's currentBar)
+  // because the page already owns `activeBar` and `isPlaying` state for
+  // the lead-sheet highlight and transport button.
+  useEffect(() => {
+    const offBar = globalPlayer.on('bar', (bar) => setActiveBar(bar));
+    const offDone = globalPlayer.on('done', () => setIsPlaying(false));
     return () => {
-      player.dispose();
-      playerRef.current = null;
-      setIsPlaying(false);
-      setActiveBar(-1);
+      offBar();
+      offDone();
     };
-  }, [sheet, engineBackend, styleChoice]);
+  }, [globalPlayer]);
+
+  // Warm up the audio context + instrument/drum samples in the background
+  // the moment the chart input is known, so the FIRST Play doesn't stall
+  // after the count-in waiting on the (network + decode) load. preload is
+  // idempotent so the play-time preload() resolves instantly once this
+  // finishes — fixing the "1234 … long pause … sound" first-play delay.
+  useEffect(() => {
+    if (!chartInput) return;
+    void globalPlayer.preload(chartInput).catch(() => { /* retry at play time */ });
+  }, [globalPlayer, chartInput]);
+
+  // Stop the GlobalPlayer when this page unmounts so the engine doesn't
+  // keep firing bar events into a stale activeBar setter. (Engines are
+  // singletons; we just need to halt playback on teardown.)
+  useEffect(() => {
+    return () => {
+      globalPlayer.stop();
+    };
+  }, [globalPlayer]);
 
   // Push tempo changes into the live player config (per-page state, not global)
   useEffect(() => {
-    playerRef.current?.setConfig({ bpm: tempo });
-  }, [tempo]);
+    globalPlayer.setConfig({ bpm: tempo });
+  }, [globalPlayer, tempo]);
 
   const countIn = useCountInIntro();
 
   const handlePlayPause = useCallback(async () => {
-    const player = playerRef.current;
-    if (!player) return;
+    if (!chartInput) return;
     if (isPlaying || countIn.active) {
-      if (isPlaying) player.pause();
+      if (isPlaying) globalPlayer.pause();
       countIn.cancel();
       setIsPlaying(false);
       return;
     }
     setIsPlaying(true);
     // 카운트인과 병렬로 instruments + drum 자원 로드 — 첫 재생 지연 제거.
-    player.setConfig({ repeatCount });
-    const preload = player.preload();
+    globalPlayer.setConfig({ repeatCount });
+    const preload = globalPlayer.preload(chartInput);
     const cin = await countIn.run({ bpm: tempo });
     if (!cin.ok) { setIsPlaying(false); return; }
     try {
       await preload;
-      await player.play({ startAt: player.ctxNow() + cin.downbeatInSec });
+      await globalPlayer.play(chartInput, { startAt: globalPlayer.ctxNow() + cin.downbeatInSec });
     } catch (err) {
       console.error('[backing] play failed:', err);
       setIsPlaying(false);
     }
-  }, [isPlaying, tempo, countIn, repeatCount]);
+  }, [globalPlayer, chartInput, isPlaying, tempo, countIn, repeatCount]);
 
   const handleStop = useCallback(() => {
-    playerRef.current?.stop();
+    globalPlayer.stop();
     countIn.cancel();
     setIsPlaying(false);
     setActiveBar(-1);
-  }, [countIn]);
+  }, [globalPlayer, countIn]);
 
   // Load selected song
   useEffect(() => {

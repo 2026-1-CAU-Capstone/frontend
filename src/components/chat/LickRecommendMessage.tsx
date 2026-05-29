@@ -11,7 +11,7 @@ import {
 import type { LickEntry } from '../../data/lickData';
 import { saveUserLick, deleteUserLick, loadUserLicksSync } from '../../data/lickData';
 import type { LickMatch } from '../../lib/lickMatcher';
-import { NotePlayer } from '../../lib/note/notePlayer';
+import { useGlobalPlayer } from '../../lib/player/GlobalPlayerContext';
 import { useCountInIntro } from '../../hooks/useCountInIntro';
 import { PATTERN_SIMPLE } from '../../lib/note/countInPatterns';
 import type { NoteInfo, MeasureInfo } from '../../data/sampleMelody';
@@ -385,7 +385,7 @@ export function LickRecommendMessage({ match, tempoOverride }: Props) {
   const { lick, originalKey } = match;
   const wrapperRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<HTMLDivElement>(null);
-  const playerRef = useRef<NotePlayer | null>(null);
+  const { player } = useGlobalPlayer();
   const [playing, setPlaying] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
   // 마운트 시 localStorage 확인 — 이미 저장된 릭이면 saved 상태로 시작
@@ -414,29 +414,27 @@ export function LickRecommendMessage({ match, tempoOverride }: Props) {
   const countIn = useCountInIntro();
 
   const togglePlay = useCallback(async () => {
-    if (!playerRef.current) {
-      const p = new NotePlayer({ lickMode: true });
-      p.onDone = () => setPlaying(false);
-      playerRef.current = p;
-    }
-    const p = playerRef.current;
-    if (p.playing || countIn.active) {
-      p.stop();
+    if (playing || countIn.active) {
+      player.stop();
       countIn.cancel();
       setPlaying(false);
       return;
     }
     const bpm = tempoOverride ?? lick.tempo ?? 200;
     setPlaying(true);
-    const preload = p.preload();
+    const preload = player.preload({ kind: 'lick', data: lick.sheetData });
     // 릭 재생: BPM 무관하게 SIMPLE 카운트인.
     const cin = await countIn.run({ bpm, pattern: PATTERN_SIMPLE });
     if (!cin.ok) { setPlaying(false); return; }
     await preload;
-    await p.play(lick.sheetData, bpm, { startAt: p.ctxNow() + cin.downbeatInSec });
-  }, [lick, tempoOverride, countIn]);
+    player.setConfig({ bpm });
+    player.play({ kind: 'lick', data: lick.sheetData }, { startAt: player.ctxNow() + cin.downbeatInSec });
+  }, [lick, tempoOverride, countIn, player, playing]);
 
-  useEffect(() => () => { playerRef.current?.dispose(); }, []);
+  useEffect(() => {
+    const unsub = player.on('done', () => setPlaying(false));
+    return unsub;
+  }, [player]);
 
   const handleToggleSave = useCallback(() => {
     if (saved) {

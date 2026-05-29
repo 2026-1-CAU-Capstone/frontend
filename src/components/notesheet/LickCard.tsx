@@ -1,29 +1,94 @@
 ﻿import { useEffect, useRef, useState, useCallback } from 'react';
 import styled from 'styled-components';
-import {
-  Renderer,
-  Stave,
-  StaveNote,
-  Voice,
-  Formatter,
-  Beam,
-  Accidental,
-  Dot,
-  BarlineType,
-  VoltaType,
-  StaveTie,
-  Tuplet,
-  Repetition,
-  Articulation,
-  Annotation,
-  AnnotationVerticalJustify,
-  Ornament,
-  Tremolo,
-  Curve,
+// vexflow는 ~1 MB이므로 dynamic import로 lazy-load.
+// 렌더링 useEffect 내부에서 await import('vexflow') 로 사용.
+import type {
+  Renderer as RendererT,
+  Stave as StaveT,
+  StaveNote as StaveNoteT,
+  Voice as VoiceT,
+  Formatter as FormatterT,
+  Beam as BeamT,
+  Accidental as AccidentalT,
+  Dot as DotT,
+  BarlineType as BarlineTypeT,
+  VoltaType as VoltaTypeT,
+  StaveTie as StaveTieT,
+  Tuplet as TupletT,
+  Repetition as RepetitionT,
+  Articulation as ArticulationT,
+  Annotation as AnnotationT,
+  AnnotationVerticalJustify as AnnotationVerticalJustifyT,
+  Ornament as OrnamentT,
+  Tremolo as TremoloT,
+  Curve as CurveT,
 } from 'vexflow';
+type Renderer = RendererT;
+type Stave = StaveT;
+type StaveNote = StaveNoteT;
+type Voice = VoiceT;
+type Formatter = FormatterT;
+type Beam = BeamT;
+type Accidental = AccidentalT;
+type Dot = DotT;
+type BarlineType = BarlineTypeT;
+type VoltaType = VoltaTypeT;
+type StaveTie = StaveTieT;
+type Tuplet = TupletT;
+type Repetition = RepetitionT;
+type Articulation = ArticulationT;
+type Annotation = AnnotationT;
+type AnnotationVerticalJustify = AnnotationVerticalJustifyT;
+type Ornament = OrnamentT;
+type Tremolo = TremoloT;
+type Curve = CurveT;
+let Renderer: typeof RendererT;
+let Stave: typeof StaveT;
+let StaveNote: typeof StaveNoteT;
+let Voice: typeof VoiceT;
+let Formatter: typeof FormatterT;
+let Beam: typeof BeamT;
+let Accidental: typeof AccidentalT;
+let Dot: typeof DotT;
+let BarlineType: typeof BarlineTypeT;
+let VoltaType: typeof VoltaTypeT;
+let StaveTie: typeof StaveTieT;
+let Tuplet: typeof TupletT;
+let Repetition: typeof RepetitionT;
+let Articulation: typeof ArticulationT;
+let Annotation: typeof AnnotationT;
+let AnnotationVerticalJustify: typeof AnnotationVerticalJustifyT;
+let Ornament: typeof OrnamentT;
+let Tremolo: typeof TremoloT;
+let Curve: typeof CurveT;
+let __vexflowLoaded = false;
+async function __ensureVexflow() {
+  if (__vexflowLoaded) return;
+  const vf = await import('vexflow');
+  Renderer = vf.Renderer;
+  Stave = vf.Stave;
+  StaveNote = vf.StaveNote;
+  Voice = vf.Voice;
+  Formatter = vf.Formatter;
+  Beam = vf.Beam;
+  Accidental = vf.Accidental;
+  Dot = vf.Dot;
+  BarlineType = vf.BarlineType;
+  VoltaType = vf.VoltaType;
+  StaveTie = vf.StaveTie;
+  Tuplet = vf.Tuplet;
+  Repetition = vf.Repetition;
+  Articulation = vf.Articulation;
+  Annotation = vf.Annotation;
+  AnnotationVerticalJustify = vf.AnnotationVerticalJustify;
+  Ornament = vf.Ornament;
+  Tremolo = vf.Tremolo;
+  Curve = vf.Curve;
+  __vexflowLoaded = true;
+}
 import type { NoteInfo, MeasureInfo } from '../../data/sampleMelody';
 import type { LickEntry } from '../../data/lickData';
-import { NotePlayer } from '../../lib/note/notePlayer';
+import { useGlobalPlayer } from '../../lib/player';
 import { YoutubeEmbed } from '../common/YoutubeEmbed';
 import { getLickVideo } from '../../data/lickVideos';
 import { useCountInIntro } from '../../hooks/useCountInIntro';
@@ -570,7 +635,7 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
   }, [visible]);
 
   /* player */
-  const playerRef = useRef<NotePlayer | null>(null);
+  const { player } = useGlobalPlayer();
   const [playing, setPlaying] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
   const [scrollable, setScrollable] = useState(false);
@@ -649,16 +714,8 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
   const countIn = useCountInIntro({ scoped: true });
 
   const togglePlay = useCallback(async () => {
-    if (!playerRef.current) {
-      const p = new NotePlayer({ lickMode: true });
-      p.onMeasure = (idx) => drawMeasureHL(idx);
-      p.onNote = (mi, ni) => highlightNote(mi, ni);
-      p.onDone = () => { setPlaying(false); };
-      playerRef.current = p;
-    }
-    const p = playerRef.current;
-    if (p.playing || countIn.active) {
-      p.stop();
+    if (playing || countIn.active) {
+      player.stop();
       countIn.cancel();
       setPlaying(false);
       clearNoteHighlight();
@@ -667,7 +724,7 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
     }
     setPlaying(true);
     // 카운트인과 병렬로 인스트루먼트 로딩 — 첫 재생 지연 제거.
-    const preload = p.preload();
+    const preload = player.preload({ kind: 'lick', data: lick.sheetData });
     // 릭 재생은 BPM과 무관하게 항상 SIMPLE (1 2 3 4) 카운트인 사용.
     const cin = await countIn.run({ bpm, pattern: PATTERN_SIMPLE });
     if (!cin.ok) {
@@ -675,27 +732,39 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
       return;
     }
     await preload;
-    await p.play(lick.sheetData, bpm, { startAt: p.ctxNow() + cin.downbeatInSec });
-  }, [lick, bpm, countIn, highlightNote, clearNoteHighlight, drawMeasureHL]);
 
-  // cleanup on unmount
-  useEffect(() => () => { playerRef.current?.dispose(); }, []);
+    const unsub = [
+      player.on('bar', (barIndex) => drawMeasureHL(barIndex)),
+      player.on('note', (mi, ni) => highlightNote(mi, ni)),
+      player.on('done', () => { setPlaying(false); unsub.forEach((fn) => fn()); }),
+    ];
+
+    player.setConfig({ bpm });
+    await player.play({ kind: 'lick', data: lick.sheetData }, { startAt: player.ctxNow() + cin.downbeatInSec });
+  }, [player, lick, bpm, playing, countIn, highlightNote, clearNoteHighlight, drawMeasureHL]);
 
   // stop if lick changes while playing
   useEffect(() => {
-    playerRef.current?.stop();
+    player.stop();
     setPlaying(false);
     clearNoteHighlight();
     drawMeasureHL(-1);
     renderedRef.current = false;
-  }, [lick.id, clearNoteHighlight, drawMeasureHL]);
+  }, [lick.id, player, clearNoteHighlight, drawMeasureHL]);
 
   /* render notation — default size → CSS scale → horizontal scroll */
   useEffect(() => {
-    const el = svgRef.current;
-    if (!el || !visible) return;
+    let cancelled = false;
+    const elOuter = svgRef.current;
+    if (!elOuter || !visible) return;
     if (!lick.sheetData.measures.length) return;
+    void __ensureVexflow().then(() => {
+      if (cancelled) return;
+      renderLick(elOuter);
+    });
+    return () => { cancelled = true; };
 
+    function renderLick(el: HTMLDivElement) {
     renderedRef.current = true;
     el.innerHTML = '';
     el.style.width = '';
@@ -1092,6 +1161,7 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
       }
     }
     noteElMapRef.current = noteMap;
+    } // end renderLick
   }, [visible, width, containerW, lick]);
 
   const keyNorm = (() => {

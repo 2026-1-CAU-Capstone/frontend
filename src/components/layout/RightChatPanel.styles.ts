@@ -145,6 +145,33 @@ export const EmptyState = styled.div`
   line-height: 1.6;
 `;
 
+/* Shown in place of the empty-state hero while a sidebar-clicked chat is
+ * being fetched from GET /v1/chat/{id}. Gives the user visual feedback so
+ * the panel never looks frozen during the network round-trip. */
+export const ChatLoadingState = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: 13.5px;
+`;
+
+export const ChatLoadingSpinner = styled.div`
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-top-color: rgba(0, 0, 0, 0.45);
+  animation: chatSpin 0.8s linear infinite;
+  @keyframes chatSpin {
+    to { transform: rotate(360deg); }
+  }
+`;
+
 export const EmptyIcon = styled.img`
   width: 48px;
   height: 48px;

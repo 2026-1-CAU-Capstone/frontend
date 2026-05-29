@@ -11,6 +11,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import {
   listChats,
@@ -113,6 +114,7 @@ interface Props {
 }
 
 export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactElement | null {
+  const navigate = useNavigate();
   const [items, setItems] = useState<ChatSummary[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -163,7 +165,15 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
           key={c.publicId}
           $active={c.publicId === activeId}
           title={c.title}
-          onClick={() => setActiveChat(c.publicId)}
+          onClick={() => {
+            /* Update the active-chat pub-sub BEFORE navigating so the chat
+             * panel's listener fires with the new id during its mount, not
+             * after a no-op tick. Also navigate so the chat view actually
+             * comes into focus (clicking from /chord, /my-charts, etc.
+             * shouldn't leave the user on that page). */
+            setActiveChat(c.publicId);
+            navigate('/');
+          }}
         >
           {c.title || '제목 없음'}
         </Item>

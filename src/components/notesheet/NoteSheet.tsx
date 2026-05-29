@@ -1,33 +1,116 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState, useCallback } from 'react';
 import styled from 'styled-components';
-import {
-  Renderer,
-  Stave,
-  StaveNote,
-  Voice,
-  Formatter,
-  Beam,
-  Accidental,
-  Dot,
-  BarlineType,
-  StaveTie,
-  Tuplet,
-  VoltaType,
-  Repetition,
-  Articulation,
-  Ornament,
-  Annotation,
-  AnnotationVerticalJustify,
-  GraceNote,
-  GraceNoteGroup,
-  Curve,
-  TextBracket,
-  TextBracketPosition,
-  Tremolo,
-  StaveHairpin,
+// vexflow는 ~1 MB이므로 dynamic import로 lazy-load.
+// 렌더링 useEffect 내부에서 await import('vexflow') 로 사용.
+import type {
+  Renderer as RendererT,
+  Stave as StaveT,
+  StaveNote as StaveNoteT,
+  Voice as VoiceT,
+  Formatter as FormatterT,
+  Beam as BeamT,
+  Accidental as AccidentalT,
+  Dot as DotT,
+  BarlineType as BarlineTypeT,
+  StaveTie as StaveTieT,
+  Tuplet as TupletT,
+  VoltaType as VoltaTypeT,
+  Repetition as RepetitionT,
+  Articulation as ArticulationT,
+  Ornament as OrnamentT,
+  Annotation as AnnotationT,
+  AnnotationVerticalJustify as AnnotationVerticalJustifyT,
+  GraceNote as GraceNoteT,
+  GraceNoteGroup as GraceNoteGroupT,
+  Curve as CurveT,
+  TextBracket as TextBracketT,
+  TextBracketPosition as TextBracketPositionT,
+  Tremolo as TremoloT,
+  StaveHairpin as StaveHairpinT,
 } from 'vexflow';
+// Type aliases — `StaveNote` etc. used as type annotations in the code below.
+type Renderer = RendererT;
+type Stave = StaveT;
+type StaveNote = StaveNoteT;
+type Voice = VoiceT;
+type Formatter = FormatterT;
+type Beam = BeamT;
+type Accidental = AccidentalT;
+type Dot = DotT;
+type BarlineType = BarlineTypeT;
+type StaveTie = StaveTieT;
+type Tuplet = TupletT;
+type VoltaType = VoltaTypeT;
+type Repetition = RepetitionT;
+type Articulation = ArticulationT;
+type Ornament = OrnamentT;
+type Annotation = AnnotationT;
+type AnnotationVerticalJustify = AnnotationVerticalJustifyT;
+type GraceNote = GraceNoteT;
+type GraceNoteGroup = GraceNoteGroupT;
+type Curve = CurveT;
+type TextBracket = TextBracketT;
+type TextBracketPosition = TextBracketPositionT;
+type Tremolo = TremoloT;
+type StaveHairpin = StaveHairpinT;
+// runtime bindings are populated lazily inside the rendering useEffect.
+let Renderer: typeof RendererT;
+let Stave: typeof StaveT;
+let StaveNote: typeof StaveNoteT;
+let Voice: typeof VoiceT;
+let Formatter: typeof FormatterT;
+let Beam: typeof BeamT;
+let Accidental: typeof AccidentalT;
+let Dot: typeof DotT;
+let BarlineType: typeof BarlineTypeT;
+let StaveTie: typeof StaveTieT;
+let Tuplet: typeof TupletT;
+let VoltaType: typeof VoltaTypeT;
+let Repetition: typeof RepetitionT;
+let Articulation: typeof ArticulationT;
+let Ornament: typeof OrnamentT;
+let Annotation: typeof AnnotationT;
+let AnnotationVerticalJustify: typeof AnnotationVerticalJustifyT;
+let GraceNote: typeof GraceNoteT;
+let GraceNoteGroup: typeof GraceNoteGroupT;
+let Curve: typeof CurveT;
+let TextBracket: typeof TextBracketT;
+let TextBracketPosition: typeof TextBracketPositionT;
+let Tremolo: typeof TremoloT;
+let StaveHairpin: typeof StaveHairpinT;
+let __vexflowLoaded = false;
+async function __ensureVexflow() {
+  if (__vexflowLoaded) return;
+  const vf = await import('vexflow');
+  Renderer = vf.Renderer;
+  Stave = vf.Stave;
+  StaveNote = vf.StaveNote;
+  Voice = vf.Voice;
+  Formatter = vf.Formatter;
+  Beam = vf.Beam;
+  Accidental = vf.Accidental;
+  Dot = vf.Dot;
+  BarlineType = vf.BarlineType;
+  StaveTie = vf.StaveTie;
+  Tuplet = vf.Tuplet;
+  VoltaType = vf.VoltaType;
+  Repetition = vf.Repetition;
+  Articulation = vf.Articulation;
+  Ornament = vf.Ornament;
+  Annotation = vf.Annotation;
+  AnnotationVerticalJustify = vf.AnnotationVerticalJustify;
+  GraceNote = vf.GraceNote;
+  GraceNoteGroup = vf.GraceNoteGroup;
+  Curve = vf.Curve;
+  TextBracket = vf.TextBracket;
+  TextBracketPosition = vf.TextBracketPosition;
+  Tremolo = vf.Tremolo;
+  StaveHairpin = vf.StaveHairpin;
+  __vexflowLoaded = true;
+}
 import type { NoteSheetData, MeasureInfo } from '../../data/sampleMelody';
-import { NotePlayer } from '../../lib/note/notePlayer';
+import { useGlobalPlayer } from '../../lib/player';
+import type { AnacrusisNote } from '../../lib/player';
 import { useCountInIntro } from '../../hooks/useCountInIntro';
 import {
   DRUM_KIT_PRESETS,
@@ -813,7 +896,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
   const keyMenuRef = useRef<HTMLDivElement>(null);
 
   /* ── player state ────────────────────────────────────────────────── */
-  const playerRef = useRef<NotePlayer | null>(null);
+  const { player } = useGlobalPlayer();
   const [playing, setPlaying] = useState(false);
   const [tempo, setTempo] = useState(data.tempo ?? 120);
   const [tempoText, setTempoText] = useState(String(data.tempo ?? 120));
@@ -875,22 +958,16 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     prevNoteKeyRef.current = key;
   }, [colorNote]);
 
-  const clearNoteHighlight = useCallback(() => {
-    const prev = prevNoteKeyRef.current;
-    if (prev) colorNote(prev, '');
-    prevNoteKeyRef.current = null;
-  }, [colorNote]);
-
-  // init / cleanup player
+  // subscribe to GlobalPlayer events
   useEffect(() => {
-    const p = new NotePlayer();
-    p.onMeasure = (idx) => setActiveMeasure(idx);
-    p.onNote = (mi, ni) => highlightNote(mi, ni);
-    p.onDone = () => { setPlaying(false); };
-    p.onDrumKitError = (msg) => setDrumKitError(msg);
-    playerRef.current = p;
-    return () => p.dispose();
-  }, [highlightNote, clearNoteHighlight]);
+    const unsubBar = player.on('bar', (barIndex) => setActiveMeasure(barIndex));
+    const unsubNote = player.on('note', (mi, ni) => highlightNote(mi, ni));
+    const unsubDone = player.on('done', () => { setPlaying(false); });
+    const unsubError = player.on('drumKitError', (msg) => {
+      setDrumKitError(typeof msg === 'string' ? msg : msg.message);
+    });
+    return () => { unsubBar(); unsubNote(); unsubDone(); unsubError(); };
+  }, [player, highlightNote]);
 
   /* NotePlayer instances subscribe to playerSettings on construction, so any
    * setPlayerSetting() call below propagates automatically — no per-player
@@ -898,7 +975,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
 
   // stop on song change & sync tempo
   useEffect(() => {
-    playerRef.current?.stop();
+    player.stop();
     setPlaying(false);
     setActiveMeasure(-1);
     const t = data.tempo ?? 120;
@@ -909,21 +986,19 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
   const countIn = useCountInIntro();
 
   const togglePlay = useCallback(async () => {
-    const p = playerRef.current;
-    if (!p) return;
-    if (p.playing || countIn.active) {
-      if (p.playing) {
+    const p = player;
+    if (playing || countIn.active) {
+      if (playing) {
         p.pause();
         setPaused(true);
       }
       countIn.cancel();
-      p.cancelStandaloneNotes();
       setPlaying(false);
       return;
     }
     setPlaying(true);
     setPaused(false);
-    const preload = p.preload();
+    const preload = p.preload({ kind: 'sheet', data });
 
     // ── Anacrusis (pickup) handling ───────────────────────────────────────
     // If the song opens with a pickup measure (shorter than the time
@@ -961,9 +1036,8 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
       const pickupStart = cinStart + (tsNum - anacrusisBeats) * beatDur;
       const songStart = cinStart + tsNum * beatDur;
 
-      // Schedule pickup notes. We walk firstMeas.notes accumulating beat
-      // position so each note's onset lines up with the engraver's rhythm
-      // (handles dotted / tuplet / rest within the pickup correctly).
+      // Schedule pickup notes through the GlobalPlayer anacrusis API.
+      const anacrusisNotes: AnacrusisNote[] = [];
       let beatCursor = 0;
       for (const n of firstMeas.notes) {
         const base = n.duration.replace(/[dr]/g, '');
@@ -978,27 +1052,30 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
           const midi = noteToMidi(n.keys[0], n.accidentals?.[0]);
           const when = pickupStart + beatCursor * beatDur;
           const dur = Math.max(b * beatDur * 0.9, 0.04);
-          p.scheduleStandaloneNote(midi, when, dur);
+          anacrusisNotes.push({ pitch: midi, startAt: when, durationSec: dur });
         }
         beatCursor += b;
       }
+      p.scheduleAnacrusis(anacrusisNotes);
 
       const cin = await countIn.run({ bpm: tempo });
-      if (!cin.ok) { p.cancelStandaloneNotes(); setPlaying(false); return; }
+      if (!cin.ok) { p.cancelAnacrusis(); setPlaying(false); return; }
       const strippedData: NoteSheetData = { ...data, measures: data.measures.slice(1) };
-      await p.play(strippedData, tempo, { startAt: songStart, measureOffset: 1 });
+      p.setConfig({ bpm: tempo });
+      await p.play({ kind: 'sheet', data: strippedData }, { startAt: songStart, measureOffset: 1 });
     } else {
       const cin = await countIn.run({ bpm: tempo });
       if (!cin.ok) { setPlaying(false); return; }
-      await p.play(data, tempo, { startAt: cinStart + tsNum * beatDur });
+      p.setConfig({ bpm: tempo });
+      await p.play({ kind: 'sheet', data }, { startAt: cinStart + tsNum * beatDur });
     }
-  }, [data, tempo, countIn]);
+  }, [data, tempo, countIn, player, playing]);
 
   const handleStop = useCallback(() => {
-    playerRef.current?.stop();
+    player.stop();
     setPlaying(false);
     setPaused(false);
-  }, []);
+  }, [player]);
 
   /* External transport sync — fires callbacks so a parent owning its own
    * transport bar (NotePage) can mirror our play/tempo state. */
@@ -1158,8 +1235,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     const svg = svgRef.current?.querySelector('svg');
     if (!svg || selectable) return;
     const handler = (e: MouseEvent) => {
-      const p = playerRef.current;
-      if (!p || !p.playing) return;
+      if (!player.playing) return;
       const pt = (svg as SVGSVGElement).createSVGPoint();
       pt.x = e.clientX;
       pt.y = e.clientY;
@@ -1172,7 +1248,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
         if (!r) continue;
         if (local.x >= r.x && local.x <= r.x + r.w
             && local.y >= r.y && local.y <= r.y + lineH) {
-          p.seekToMeasure(i);
+          player.seekToMeasure(i);
           setActiveMeasure(i);
           return;
         }
@@ -1180,7 +1256,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     };
     (svg as SVGSVGElement).addEventListener('click', handler);
     return () => { (svg as SVGSVGElement).removeEventListener('click', handler); };
-  }, [selectable, data]);
+  }, [selectable, data, player]);
 
   /* ── auto-scroll to active measure ────────────────────────────────── */
   useEffect(() => {
@@ -1215,9 +1291,17 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
 
   /* ── render notation ──────────────────────────────────────────────── */
   useEffect(() => {
-    const el = svgRef.current;
-    if (!el || !data.measures.length) return;
-    el.innerHTML = '';
+    let cancelled = false;
+    const elOuter = svgRef.current;
+    if (!elOuter || !data.measures.length) return;
+    void __ensureVexflow().then(() => {
+      if (cancelled) return;
+      elOuter.innerHTML = '';
+      renderNotation(elOuter);
+    });
+    return () => { cancelled = true; };
+
+    function renderNotation(el: HTMLDivElement) {
 
     const layout = getBarLayout(width);
     lineHRef.current = layout.lineH * layout.scale;
@@ -1975,6 +2059,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     }
 
     measureRectsRef.current = rects;
+    } // end renderNotation
   }, [data, width]);
 
   /* ── line-start measure numbers ───────────────────────────────────────

@@ -43,11 +43,52 @@ interface ApiError { code: string; message: string; detail?: string }
 export function getAccessToken(): string | null {
   try { return window.localStorage.getItem(ACCESS_TOKEN_KEY); } catch { return null; }
 }
+
+/* Resume the silent-refresh timer on module load — covers the case where a
+ * persisted token already sits in localStorage from a previous tab session. */
+if (typeof window !== 'undefined') {
+  try { scheduleProactiveRefresh(window.localStorage.getItem(ACCESS_TOKEN_KEY)); }
+  catch { /* private mode */ }
+}
 function setAccessToken(token: string | null) {
   try {
     if (token) window.localStorage.setItem(ACCESS_TOKEN_KEY, token);
     else window.localStorage.removeItem(ACCESS_TOKEN_KEY);
   } catch { /* private mode */ }
+  scheduleProactiveRefresh(token);
+}
+
+/* ── proactive silent refresh ────────────────────────────────
+ * Backend access tokens are short-lived; without this the user would hit a
+ * 401 the moment a token expires mid-action. Decode the JWT's `exp` claim and
+ * schedule a background refresh shortly before it dies — the next API call
+ * sees a fresh token instead. As long as the refresh cookie is alive, the
+ * session effectively never logs out on its own. */
+
+let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+function decodeJwtExpMs(token: string): number | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    /* base64url → base64 padding for atob. */
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(atob(b64)) as { exp?: number };
+    return typeof payload.exp === 'number' ? payload.exp * 1000 : null;
+  } catch { return null; }
+}
+
+function scheduleProactiveRefresh(token: string | null): void {
+  if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null; }
+  if (!token || typeof window === 'undefined') return;
+  const expMs = decodeJwtExpMs(token);
+  if (!expMs) return;
+  /* Fire 60s before expiry; clamp to a 5s minimum so we never busy-loop on an
+   * already-expired token (authFetch's reactive path will pick it up). */
+  const delay = Math.max(5_000, expMs - Date.now() - 60_000);
+  refreshTimer = setTimeout(() => {
+    refreshAccessToken().catch(() => { /* reactive authFetch path retries on next 401 */ });
+  }, delay);
 }
 
 export function getCachedUser(): AuthUser | null {
@@ -219,6 +260,13 @@ export async function fetchMe(): Promise<AuthUser> {
 export async function bootstrapAuth(): Promise<AuthUser | null> {
   // Even with no access token, the refresh cookie may still be valid.
   if (!getAccessToken()) {
+    // Never-logged-in clients have no refresh cookie either, so calling
+    // /v1/auth/refresh is guaranteed to 401 with USER_005 — pure noise on
+    // every first visit. Skip the round-trip and resolve as logged-out.
+    if (!getCachedUser()) {
+      notifyAuth(false, null);
+      return null;
+    }
     try {
       await refreshAccessToken();
     } catch {

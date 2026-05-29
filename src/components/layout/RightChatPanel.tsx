@@ -33,6 +33,8 @@ import {
   EmptyActionButton,
   IntroInputSlot,
   ScrollToBottomBtn,
+  ChatLoadingState,
+  ChatLoadingSpinner,
 } from './RightChatPanel.styles';
 
 /** Read an attached image File into a Claude vision block (base64, no prefix).
@@ -170,19 +172,28 @@ export function RightChatPanel({
     onMessagesChange?.(messages.length);
   }, [messages.length, onMessagesChange]);
   const [loading, setLoading] = useState(false);
+  /* True while a sidebar-triggered GET /v1/chat/{id} is in flight, so the
+   * empty MessagesArea can show a "채팅 불러오는 중…" placeholder instead of
+   * looking frozen. */
+  const [chatLoading, setChatLoading] = useState(false);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesAreaRef = useRef<HTMLDivElement>(null);
   const isScrolledUpRef = useRef(false);
   const historyRef = useRef<ClaudeMessage[]>([]);
   const allLicksRef = useRef<LickEntry[]>([]);
+  /* Tracks the songTitle that was active the LAST time we cleared the chat,
+   * so we can skip the clear on the very first effect run (which would
+   * otherwise stomp an activeChat that the sidebar just dispatched). */
+  const lastSongTitleRef = useRef<string | null>(null);
+  const songTitleInitedRef = useRef(false);
 
   /* Backend chat persistence (Jazzify /v1/chat/*). When the user is logged
    * in we route streaming through the backend so each message is saved
    * server-side and shows up in the sidebar list. chatPublicIdRef mirrors
    * the state for use inside async callbacks (where stale closures bite). */
   const [loggedIn, setLoggedIn] = useState(() => !!getCachedUser());
-  const [chatPublicId, setChatPublicIdState] = useState<string | null>(null);
+  const [_chatPublicId, setChatPublicIdState] = useState<string | null>(null);
   const chatPublicIdRef = useRef<string | null>(null);
   const setChatPublicId = useCallback((id: string | null) => {
     chatPublicIdRef.current = id;
@@ -202,7 +213,9 @@ export function RightChatPanel({
   /* Sidebar dispatched a chat selection → load it (or clear on null).
    * Skips the load if the requested id is already open, which avoids a
    * redundant fetch when the right panel itself emitted the change after
-   * creating a fresh chat. */
+   * creating a fresh chat. chatLoading drives the placeholder shown in the
+   * MessagesArea so the UI never looks "frozen" while GET /v1/chat is in
+   * flight. */
   useEffect(() => {
     const unsub = onActiveChatChange(async (id) => {
       if (id === chatPublicIdRef.current) return;
@@ -210,8 +223,10 @@ export function RightChatPanel({
         setChatPublicId(null);
         setMessages([]);
         historyRef.current = [];
+        setChatLoading(false);
         return;
       }
+      setChatLoading(true);
       try {
         const detail = await backendGetChat(id);
         const msgs: MessageWithDebug[] = (detail.messages || [])
@@ -228,19 +243,22 @@ export function RightChatPanel({
         isScrolledUpRef.current = false;
       } catch (e) {
         console.error('[chat] load failed:', e);
+      } finally {
+        setChatLoading(false);
       }
     });
     return unsub;
   }, [setChatPublicId]);
 
-  // 릭 추천 풀: 백엔드 릭 DB (jazzify.p-e.kr/api/v1/licks). 예전엔 프론트
-  // 정적 JSON(user_licks.json)을 봤지만, 릭이 백엔드로 이관되어 그쪽을 단일
-  // 소스로 사용. 실패 시 빈 배열 — 채팅은 LLM 답변으로 폴백된다.
+  /* 릭 추천 풀: 백엔드 lick DB (jazzify.p-e.kr/api/v1/licks)만 유일 소스.
+   * 정적 frontend 풀(public/data/licks/licks.json)은 폴백으로도 쓰지 않음 —
+   * 채팅 추천 결과의 권위성은 백엔드 curated 릭으로 단일화. 백엔드가 비어
+   * 있으면 채팅 추천도 비는 게 정상 동작. */
   useEffect(() => {
     loadLicks()
       .then((licks) => { allLicksRef.current = licks; })
       .catch((err) => {
-        console.warn('[RightChatPanel] 릭 DB 로드 실패 — 릭 추천 비활성:', err);
+        console.warn('[RightChatPanel] 백엔드 lick DB 로드 실패 — 릭 추천 비활성:', err);
         allLicksRef.current = [];
       });
   }, []);
@@ -267,6 +285,18 @@ export function RightChatPanel({
   }, [messages]);
 
   useEffect(() => {
+    /* First effect run = component mount, NOT a real song switch. Skipping
+     * here is critical: without it we'd stomp an activeChat that the sidebar
+     * just dispatched (the user clicked "최근 채팅" then navigated here →
+     * mount fires → setActiveChat(null) wipes the selection before the
+     * listener above has a chance to fetch it). */
+    if (!songTitleInitedRef.current) {
+      songTitleInitedRef.current = true;
+      lastSongTitleRef.current = songTitle;
+      return;
+    }
+    if (lastSongTitleRef.current === songTitle) return;
+    lastSongTitleRef.current = songTitle;
     setMessages([]);
     historyRef.current = [];
     /* Switching songs starts a fresh ad-hoc chat — drop the backend chat
@@ -349,6 +379,8 @@ export function RightChatPanel({
 
     // 릭 DB 매칭: lick 쿼리일 때 관련 릭을 컨텍스트로 주입
     let lickMatchesForMsg: ReturnType<typeof findMatchingLicks> = [];
+    let lickProgressionLabelForMsg: string | undefined;
+    let savedLickMatchesForMsg: ReturnType<typeof findMatchingLicks> | undefined;
     if (isLickQuery) {
       const keyMatch = chordContext?.match(/Key:\s*([A-G][b#♭]?)/);
       const songKey = (keyMatch ? keyMatch[1] : 'C').replace('♭', 'b');
@@ -358,11 +390,34 @@ export function RightChatPanel({
       // 코드를 직접 선택하지 않고 "2-5-1 추천" / "ii-V-I lick" 같은 키워드만 던진
       // 경우엔 findMatchingLicks 가 빈 배열을 반환. 진행 키워드를 감지해서 DB
       // 전체에서 해당 진행을 포함하는 릭을 샘플링한다.
-      if (lickMatchesForMsg.length === 0) {
-        const prog = detectProgressionKeyword(text);
-        if (prog) {
-          lickMatchesForMsg = findLicksByProgression(prog, allLicksRef.current, 5);
-        }
+      const detectedProg = detectProgressionKeyword(text);
+      if (lickMatchesForMsg.length === 0 && detectedProg) {
+        lickMatchesForMsg = findLicksByProgression(detectedProg, allLicksRef.current, 5);
+      }
+
+      // LickRecommendList 패널(VexFlow + 저장/플레이/정지) 렌더 트리거.
+      // ChatMessage 는 lickProgressionLabel 이 설정된 경우에만 패널을 띄우고,
+      // 그렇지 않으면 LLM 본문에서 [LICK:id] 인라인 태그가 나오길 기대한다.
+      // 백엔드 경로에서는 LLM 이 내부 지시를 받지 못하므로 항상 패널 모드로
+      // 렌더되도록 label 을 항상 세팅한다. (로컬 경로에서 LLM 이 인라인
+      // 태그를 박는다면 ChatMessage 가 그 경우 패널을 자동으로 숨긴다.)
+      if (lickMatchesForMsg.length > 0) {
+        const PROG_LABELS: Record<string, string> = {
+          'ii-V-I': 'ii-V-I',
+          'ii-V': 'ii-V',
+          'minor-ii-V': '마이너 ii-V',
+          'V-I': 'V-I',
+          'turnaround': '턴어라운드',
+          'iii-VI-ii-V': 'iii-VI-ii-V',
+        };
+        lickProgressionLabelForMsg =
+          (detectedProg && PROG_LABELS[detectedProg]) ||
+          (chordsForMatch.length > 0 ? selectionProgressionLabel(chordsForMatch) : '추천 릭');
+        const savedPool = loadUserLicksSync();
+        const savedRaw = chordsForMatch.length > 0
+          ? findMatchingLicks(chordsForMatch, songTitle, songKey, savedPool, 5)
+          : (detectedProg ? findLicksByProgression(detectedProg, savedPool, 5) : []);
+        if (savedRaw.length > 0) savedLickMatchesForMsg = savedRaw;
       }
 
       if (lickMatchesForMsg.length > 0) {
@@ -461,6 +516,8 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
       content: '',
       timestamp: Date.now(),
       ...(lickMatchesForMsg.length > 0 ? { lickMatches: lickMatchesForMsg } : {}),
+      ...(lickProgressionLabelForMsg ? { lickProgressionLabel: lickProgressionLabelForMsg } : {}),
+      ...(savedLickMatchesForMsg ? { savedLickMatches: savedLickMatchesForMsg } : {}),
     };
     setMessages((prev) => [...prev, userMsg, aiMsg]);
     setLoading(true);
@@ -484,9 +541,15 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
     let backendOk = false;
     if (loggedIn) {
       try {
+        /* DB에 영속화되는 message 필드는 항상 raw user text만. textForLLM에
+         * 부착되는 `[내부 지시 — 유저에게 보이지 않음:` 블록을 그대로 보내면
+         * 백엔드가 user 메시지로 저장 → 사이드바 재로드 시 유저에게 그대로
+         * 노출되는 누출이 발생함. 백엔드 LLM은 message + chordContext + history
+         * 만 받게 되므로 [LICK:id] / ```glick 같은 클라 전용 지시는 백엔드
+         * 경로에서 작동하지 않음(이미 회귀 중인 기능이므로 의도된 트레이드오프). */
         finalText = await backendStreamChat(
           {
-            message: textForLLM,
+            message: text,
             history: toBackendHistory(historyRef.current),
             chordContext: contextForModel || undefined,
             songTitle: songTitle || undefined,
@@ -590,7 +653,14 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
             : undefined
         }
       >
-        {messages.length === 0 && (
+        {chatLoading && messages.length === 0 && (
+          <ChatLoadingState>
+            <ChatLoadingSpinner aria-hidden />
+            <span>채팅 불러오는 중…</span>
+          </ChatLoadingState>
+        )}
+
+        {!chatLoading && messages.length === 0 && (
           emptyState ?? (
             <EmptyState>
               <EmptyIcon src="/jazzifylogo.png" alt="Jazzify" />

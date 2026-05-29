@@ -8,11 +8,42 @@
  */
 
 import { getPlayerSettings } from './playerSettings';
+import type { FeelId } from '../backing/types';
 
-/** Compile-time default swing ratio. Live value is read from playerSettings
- *  by `swungBeats()` so the user's mixer choice (incl. straight 0.5) applies
- *  uniformly across every playback path. */
-export const SWING_RATIO = 0.62;
+/** Legacy compile-time default swing ratio. Kept exported for back-compat
+ *  with call sites that have not yet been routed through `getSwingRatio()`.
+ *  The new tempo-aware default is 0.708 (classic medium swing) — slightly
+ *  wider than the old 0.62 because the new BPM model leans into the triplet
+ *  feel at moderate tempos. Code that should not change yet still imports
+ *  this constant. */
+export const SWING_RATIO = 0.708;
+
+/**
+ * Resolve the effective 8th-note swing ratio for a given tempo / feel.
+ *
+ * Ratios are calibrated from sampled iReal Pro performances:
+ *   - Even-8ths / latin / bossa / NOLA → 0.5 (straight)
+ *   - Ballads or anything < 80 BPM → 0.667 (strong triplet feel)
+ *   - Up-tempo (≥220 BPM) → 0.621 (compressed swing — hard to articulate wider)
+ *   - Default medium / medium-up swing → 0.708
+ *
+ * If `style` is omitted, only the BPM bands apply.
+ */
+export function getSwingRatio(bpm: number, style?: FeelId): number {
+  if (
+    style === 'even-8ths' ||
+    style === 'bossa' ||
+    style === 'latin' ||
+    style === 'new-orleans-swing' ||
+    style === 'straight-8' ||
+    style === 'straight-16'
+  ) {
+    return 0.5;
+  }
+  if (style === 'ballad-swing' || bpm < 80) return 0.667;
+  if (bpm >= 220 || style === 'up-tempo-swing') return 0.621;
+  return 0.708; // medium-swing / medium-up-swing default
+}
 
 /** Map a straight beat position to its swung version. Reads the current ratio
  *  from playerSettings unless `ratio` is supplied (tests / pinned contexts).

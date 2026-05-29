@@ -221,6 +221,24 @@ export async function loadFrontendLicks(): Promise<LickEntry[]> {
   return cachedFrontendLicks;
 }
 
+/* ─── Load from backup snapshot (145 licks, frozen 2026-05-18) ─────
+ *
+ * 백엔드 lick DB가 비워진 사고에 대응해 직전 운영 데이터의 정적 스냅샷을
+ * public/data/licks/backend_backup_licks.json 으로 둠. 백엔드와 동일한
+ * LickResponse 스키마라 toLickEntry 로 변환만 하면 그대로 카드에 렌더된다.
+ * 백엔드가 복구되면 이 로더는 비활성/제거 후보. */
+
+let cachedBackupLicks: LickEntry[] | null = null;
+
+export async function loadBackupLicks(): Promise<LickEntry[]> {
+  if (cachedBackupLicks) return cachedBackupLicks;
+  const res = await fetch('/data/licks/backend_backup_licks.json');
+  const raw = await res.json();
+  const { toLickEntry } = await import('../api/licks');
+  cachedBackupLicks = raw.map(toLickEntry);
+  return cachedBackupLicks!;
+}
+
 /* ─── Load from backend API (verified / 54 licks) ────────────────── */
 
 let cachedLicks: LickEntry[] | null = null;

@@ -1,20 +1,48 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import styled from 'styled-components';
-import {
-  Renderer,
-  Stave,
-  StaveNote,
-  Voice,
-  Formatter,
-  Beam,
-  Accidental,
-  Dot,
-  Fraction,
-  BarlineType,
+// vexflow는 ~1 MB이므로 dynamic import로 lazy-load.
+// renderSheet 호출 전에 await __ensureVexflow() 로 사용.
+import type {
+  Renderer as RendererT,
+  Stave as StaveT,
+  StaveNote as StaveNoteT,
+  Voice as VoiceT,
+  Formatter as FormatterT,
+  Beam as BeamT,
+  Accidental as AccidentalT,
+  Dot as DotT,
+  Fraction as FractionT,
+  BarlineType as BarlineTypeT,
 } from 'vexflow';
+let Renderer: typeof RendererT;
+let Stave: typeof StaveT;
+let StaveNote: typeof StaveNoteT;
+let Voice: typeof VoiceT;
+let Formatter: typeof FormatterT;
+let Beam: typeof BeamT;
+let Accidental: typeof AccidentalT;
+let Dot: typeof DotT;
+let Fraction: typeof FractionT;
+let BarlineType: typeof BarlineTypeT;
+let __vexflowLoaded = false;
+async function __ensureVexflow() {
+  if (__vexflowLoaded) return;
+  const vf = await import('vexflow');
+  Renderer = vf.Renderer;
+  Stave = vf.Stave;
+  StaveNote = vf.StaveNote;
+  Voice = vf.Voice;
+  Formatter = vf.Formatter;
+  Beam = vf.Beam;
+  Accidental = vf.Accidental;
+  Dot = vf.Dot;
+  Fraction = vf.Fraction;
+  BarlineType = vf.BarlineType;
+  __vexflowLoaded = true;
+}
 import type { NoteSheetData, NoteInfo, MeasureInfo } from '../../data/sampleMelody';
 import { PianoKeyboard, type PianoNote } from './PianoKeyboard';
-import { NotePlayer } from '../../lib/note/notePlayer';
+import { useGlobalPlayer } from '../../lib/player';
 import { useCountInIntro } from '../../hooks/useCountInIntro';
 import { PATTERN_SIMPLE } from '../../lib/note/countInPatterns';
 import { NoteIcon, RestIcon } from './NotationIcon';
@@ -510,7 +538,7 @@ export function LickCreator({ width, onSave, onCancel }: LickCreatorProps) {
   const [ottavaMode, setOttavaMode] = useState<'8va' | '8vb' | null>(null);
   const ottavaOpenRef = useRef(false); // true = bracket is currently open
   const svgRef = useRef<HTMLDivElement>(null);
-  const playerRef = useRef<NotePlayer | null>(null);
+  const { player } = useGlobalPlayer();
   const [playing, setPlaying] = useState(false);
   const [activeMeasure, setActiveMeasure] = useState(-1);
   const measureRectsRef = useRef<{ x: number; y: number; w: number }[]>([]);
@@ -631,32 +659,29 @@ export function LickCreator({ width, onSave, onCancel }: LickCreatorProps) {
 
   const countIn = useCountInIntro();
 
+  useEffect(() => {
+    const unsubBar = player.on('bar', (barIndex) => setActiveMeasure(barIndex));
+    const unsubDone = player.on('done', () => setPlaying(false));
+    return () => { unsubBar(); unsubDone(); };
+  }, [player]);
+
   const handlePlay = useCallback(async () => {
-    if (!playerRef.current) {
-      const p = new NotePlayer({ lickMode: true });
-      p.onMeasure = (idx) => setActiveMeasure(idx);
-      p.onDone = () => { setPlaying(false); };
-      playerRef.current = p;
-    }
-    const p = playerRef.current;
-    if (p.playing || countIn.active) {
-      p.stop();
+    if (playing || countIn.active) {
+      player.stop();
       countIn.cancel();
       setPlaying(false);
       return;
     }
     if (measures.length > 0) {
       setPlaying(true);
-      const preload = p.preload();
+      const preload = player.preload({ kind: 'lick', data: sheetData });
       // 릭 재생: BPM 무관하게 SIMPLE 카운트인.
       const cin = await countIn.run({ bpm: 120, pattern: PATTERN_SIMPLE });
       if (!cin.ok) { setPlaying(false); return; }
       await preload;
-      await p.play(sheetData, 120, { startAt: p.ctxNow() + cin.downbeatInSec });
+      await player.play({ kind: 'lick', data: sheetData }, { startAt: player.ctxNow() + cin.downbeatInSec });
     }
-  }, [measures, sheetData]);
-
-  useEffect(() => () => { playerRef.current?.dispose(); }, []);
+  }, [measures, sheetData, playing, player]);
 
   /* ── save ──────────────────────────────────────────────────────────── */
   const handleSave = useCallback(() => {
@@ -698,14 +723,19 @@ export function LickCreator({ width, onSave, onCancel }: LickCreatorProps) {
 
   /* ── render VexFlow ────────────────────────────────────────────────── */
   useEffect(() => {
+    let cancelled = false;
     const el = svgRef.current;
     if (!el) return;
     if (measures.length === 0) {
       el.innerHTML = '';
       return;
     }
-    const rects = renderSheet(el, measures, Math.max(width - 32, 300));
-    measureRectsRef.current = rects;
+    void __ensureVexflow().then(() => {
+      if (cancelled || !el) return;
+      const rects = renderSheet(el, measures, Math.max(width - 32, 300));
+      measureRectsRef.current = rects;
+    });
+    return () => { cancelled = true; };
   }, [measures, width]);
 
   /* ── measure highlight (SVG manipulation) ────────────────────────── */

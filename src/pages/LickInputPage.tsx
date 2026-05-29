@@ -8,7 +8,7 @@ import {
 import { PianoKeyboard, playMidi, type PianoNote } from '../components/notesheet/PianoKeyboard';
 import type { NoteInfo, MeasureInfo, NavigationMarker } from '../data/sampleMelody';
 import { saveUserLick, computeLickFeatures, type LickEntry } from '../data/lickData';
-import { NotePlayer } from '../lib/note/notePlayer';
+import { useGlobalPlayer } from '../lib/player';
 import { useCountInIntro } from '../hooks/useCountInIntro';
 import { PATTERN_SIMPLE } from '../lib/note/countInPatterns';
 import { normalizeChord, formatChordDisplay } from '../lib/jazz-harmony';
@@ -1322,7 +1322,7 @@ export default function LickInputPage() {
     return () => clearInterval(intv);
   }, [editingLick, measures, curNotes, curChord, performer, title, album, instrument, lickKey, bpm]);
   const [playing, setPlaying] = useState(false);
-  const playerRef = useRef<NotePlayer | null>(null);
+  const { player } = useGlobalPlayer();
   const svgRef = useRef<HTMLDivElement>(null);
   const positionsRef = useRef<MeasurePos[]>([]);
   const [measurePositions, setMeasurePositions] = useState<MeasurePos[]>([]);
@@ -1856,35 +1856,30 @@ export default function LickInputPage() {
   /* playback — lick mode: melody + piano comp (no bass/drums), lush reverb */
   const handlePlay = useCallback(async () => {
     if (allMeasures.length === 0) return;
-    if (!playerRef.current) {
-      const p = new NotePlayer({ lickMode: true });
-      p.onDone = () => setPlaying(false);
-      playerRef.current = p;
-    }
-    const p = playerRef.current;
-    if (p.playing || countIn.active) {
-      p.stop();
+    if (playing || countIn.active) {
+      player.stop();
       countIn.cancel();
       setPlaying(false);
       return;
     }
     setPlaying(true);
-    const preload = p.preload();
-    // 릭 재생: BPM 무관하게 SIMPLE 카운트인.
-    const cin = await countIn.run({ bpm, pattern: PATTERN_SIMPLE });
-    if (!cin.ok) { setPlaying(false); return; }
-    await preload;
-    await p.play({
+    const sheetData = {
       title: title || 'Lick',
       composer: performer || '',
       key: lickKey || 'C',
       timeSignature: '4/4',
       tempo: bpm,
       measures: allMeasures,
-    }, bpm, { startAt: p.ctxNow() + cin.downbeatInSec });
-  }, [allMeasures, bpm, title, performer, lickKey, countIn]);
-
-  useEffect(() => () => { playerRef.current?.dispose(); }, []);
+    };
+    const preload = player.preload({ kind: 'lick', data: sheetData });
+    // 릭 재생: BPM 무관하게 SIMPLE 카운트인.
+    const cin = await countIn.run({ bpm, pattern: PATTERN_SIMPLE });
+    if (!cin.ok) { setPlaying(false); return; }
+    await preload;
+    player.setConfig({ bpm });
+    player.on('done', () => setPlaying(false));
+    await player.play({ kind: 'lick', data: sheetData }, { startAt: player.ctxNow() + cin.downbeatInSec });
+  }, [allMeasures, bpm, title, performer, lickKey, countIn, playing, player]);
 
   /* update chord for any measure (completed or current) */
   const updateMeasureChord = useCallback((idx: number, chord: string) => {

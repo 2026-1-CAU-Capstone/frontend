@@ -145,8 +145,12 @@ export function createBackingPlayer(
         }
         drumLoop = player;
         drumLoopUrl = targetUrl;
+        callbacks.onDrumKitError?.(null);
       } catch (err) {
         console.warn("[backing] drum loop load failed, falling back to hit mode:", err);
+        callbacks.onDrumKitError?.(
+          `드럼 루프 파일을 불러오지 못해 Synth로 재생합니다.`,
+        );
       } finally {
         drumLoopLoading = null;
       }
@@ -158,7 +162,10 @@ export function createBackingPlayer(
 
   function build() {
     const bpm = config.bpm ?? chart.bpm;
-    events = renderChart(chart, { bpm, style: config.style });
+    // Pass `config.feel` so a user-side feel override (e.g. switching from
+    // medium-swing to ballad-swing on the same chart) actually changes the
+    // engine's piano/drum routing. Previously this dropped `feel` silently.
+    events = renderChart(chart, { bpm, style: config.style, feel: config.feel });
     const beatsPerBar = chart.timeSig[0];
     secPerBar = beatsPerBar * (60 / bpm);
     totalBars = chart.sections.reduce((s, sec) => s + sec.bars.length, 0);
@@ -351,20 +358,22 @@ export function createBackingPlayer(
     const prevUrl = config.drumLoop?.url;
     const prevBpm = config.bpm;
     const prevStyle = config.style;
+    const prevFeel = config.feel;
     config = { ...config, ...next };
 
     // Apply pianoReverb immediately whether playing or not.
     applyPianoReverb();
 
     if (playing) {
-      // Mid-playback drum-kit / loop-URL / BPM / style changes all desync
-      // against events already scheduled under the old settings. Fully stop
-      // so the user explicitly resumes.
+      // Mid-playback drum-kit / loop-URL / BPM / style / feel changes all
+      // desync against events already scheduled under the old settings.
+      // Fully stop so the user explicitly resumes.
       const modeChanged = prevMode !== config.drumMode;
       const urlChanged = prevUrl !== config.drumLoop?.url;
       const bpmChanged = "bpm" in next && prevBpm !== config.bpm;
       const styleChanged = "style" in next && prevStyle !== config.style;
-      if (modeChanged || urlChanged || bpmChanged || styleChanged) {
+      const feelChanged = "feel" in next && prevFeel !== config.feel;
+      if (modeChanged || urlChanged || bpmChanged || styleChanged || feelChanged) {
         stop();
         callbacks.onDone?.();
         // Pre-fetch the new loop so the next play() doesn't wait on IO.

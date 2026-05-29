@@ -115,6 +115,16 @@ export function getActiveChatId(): string | null {
 
 /* ── REST ─────────────────────────────────────────────────────────────── */
 
+/* Internal-instruction sentinel used by RightChatPanel when building textForLLM
+ * (lick injection / glick generation prompts). If any legacy DB record contains
+ * this marker in a stored user message, strip it on display so the user never
+ * sees the augmented prompt. Belt-and-suspenders — going forward we send only
+ * raw text in the `message` field, but this defends against historical leaks. */
+const INTERNAL_INSTRUCTION_RE = /\n*\[내부 지시 — 유저에게 보이지 않음:[\s\S]*$/;
+export function stripInternalInstructions(s: string): string {
+  return s.replace(INTERNAL_INSTRUCTION_RE, '').trimEnd();
+}
+
 async function readApiError(res: Response): Promise<string> {
   try {
     const j = await res.json() as { code?: string; message?: string; detail?: string };
@@ -124,7 +134,9 @@ async function readApiError(res: Response): Promise<string> {
   }
 }
 
-/** GET /v1/chat — paginated chat list (most recent first). */
+/** GET /v1/chat — paginated chat list (most recent first). Titles are
+ *  scrubbed of any internal-instruction leak (backend may auto-title from
+ *  the first user message, which historically included the augmented prompt). */
 export async function listChats(opts: { page?: number; size?: number; sort?: string } = {}): Promise<Page<ChatSummary>> {
   const params = new URLSearchParams();
   params.set('page', String(opts.page ?? 0));
@@ -133,15 +145,23 @@ export async function listChats(opts: { page?: number; size?: number; sort?: str
   const res = await authFetch(`${API_BASE}/v1/chat?${params.toString()}`);
   if (!res.ok) throw new Error(`chat list ${res.status} ${await readApiError(res)}`.trim());
   const json: { data: Page<ChatSummary> } = await res.json();
-  return json.data;
+  const page = json.data;
+  page.content = page.content.map((c) => ({ ...c, title: stripInternalInstructions(c.title) }));
+  return page;
 }
 
-/** GET /v1/chat/{publicId} — full chat with message history. */
+/** GET /v1/chat/{publicId} — full chat with message history. User messages
+ *  are sanitized through stripInternalInstructions on the way out so any
+ *  legacy DB rows with leaked `[내부 지시 ...]` blocks do not reach the UI. */
 export async function getChat(publicId: string): Promise<ChatDetail> {
   const res = await authFetch(`${API_BASE}/v1/chat/${encodeURIComponent(publicId)}`);
   if (!res.ok) throw new Error(`chat get ${res.status} ${await readApiError(res)}`.trim());
   const json: { data: ChatDetail } = await res.json();
-  return json.data;
+  const detail = json.data;
+  detail.messages = detail.messages.map((m) =>
+    m.role === 'user' ? { ...m, content: stripInternalInstructions(m.content) } : m,
+  );
+  return detail;
 }
 
 /** POST /v1/chat/stream — text/plain stream of the assistant reply.

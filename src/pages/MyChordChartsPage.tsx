@@ -1661,19 +1661,21 @@ const NewLabel = styled.div`
  * generous padding, ~24 px icons). Anchored under the NewCard. */
 const NewMenu = styled.div`
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 6px);
   left: 0;
-  min-width: 260px;
+  min-width: 196px;
   background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 16px;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.14);
-  padding: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 12px 32px rgba(0, 0, 0, 0.10);
+  padding: 5px;
   z-index: 50;
   animation: menuIn 0.12s ease both;
 
   @keyframes menuIn {
-    from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+    from { opacity: 0; transform: translateY(-3px) scale(0.985); }
     to   { opacity: 1; transform: translateY(0) scale(1); }
   }
 `;
@@ -1681,30 +1683,31 @@ const NewMenu = styled.div`
 const NewMenuItem = styled.button`
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
   width: 100%;
-  padding: 14px 14px;
+  padding: 8px 10px;
   border: none;
   background: transparent;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
   font-family: inherit;
-  font-size: 17px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
   color: #1a1a1a;
   text-align: left;
   transition: background 0.1s;
-  &:hover { background: rgba(0, 0, 0, 0.04); }
+  &:hover { background: rgba(0, 0, 0, 0.05); }
 `;
 
 const MenuIco = styled.span`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  color: #1a1a1a;
+  width: 18px;
+  color: rgba(0, 0, 0, 0.7);
   flex-shrink: 0;
-  svg { width: 24px; height: 24px; }
+  svg { width: 16px; height: 16px; }
 `;
 
 /* Video / file card. $selected highlights the card in multi-select mode.
@@ -2719,6 +2722,6 @@ function FolderPlusIcon() {
 /* Thin divider rendered between upload items and 폴더 생성 in the new-menu. */
 const MenuDivider = styled.div`
   height: 1px;
-  background: rgba(0, 0, 0, 0.08);
-  margin: 6px 6px;
+  background: rgba(0, 0, 0, 0.06);
+  margin: 4px 6px;
 `;

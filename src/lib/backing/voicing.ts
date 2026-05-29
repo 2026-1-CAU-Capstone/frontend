@@ -21,6 +21,23 @@ const REGISTER_LOW = 54;     // F#3
 const REGISTER_HIGH = 73;    // C#5
 
 /**
+ * PATCH #9 — opt-in iReal-style deterministic voicing lookup.
+ *
+ * Measurement (18 iReal lead-sheet files) showed that 141 unique root-relative
+ * pc-sets accounted for the entire corpus; 57% of those pc-sets used a single
+ * interval pattern across every file (e.g. {F,Ab,C,D} = (5,8,12,14) appeared
+ * 198x with 100% consistency). iReal Pro is not running motionCost — it picks
+ * the first canonical voicing per quality and lives with it.
+ *
+ * Flag is OFF by default so existing playback is unaffected. Flip to `true`
+ * to opt into the simpler iReal-style behaviour:
+ *   - Always returns the first (richest) candidate from VOICING_LIBRARY.
+ *   - Exception: min7 still runs motionCost when a previous voicing exists
+ *     (shell inversion choice is musically important for m7).
+ */
+export const IREAL_DETERMINISTIC_VOICING = false; // opt-in
+
+/**
  * Candidate interval sets per quality. Ordered roughly by richness — the
  * voice-leading selector picks whichever is closest to the previous
  * voicing so the ordering is only a stylistic nudge when no history.
@@ -104,14 +121,33 @@ function motionCost(prev: MidiNote[], next: MidiNote[]): number {
 /**
  * Voice a chord, optionally minimizing motion from the previous voicing.
  * When no previous voicing is given, picks the first (richest) candidate.
+ *
+ * The chosen voicing is post-processed through `clampVoicing` so every
+ * note lands in D3..C5 (MIDI 50..72). Clamping happens AFTER selection
+ * so it never overrides the voice-leading choice — only octave placement.
  */
 export function voiceChord(chord: Chord, previous?: MidiNote[]): MidiNote[] {
   const lib = VOICING_LIBRARY[chord.quality] ?? VOICING_LIBRARY.maj;
   if (lib.length === 0) return [];
 
   const candidates = lib.map((iv) => buildCandidate(chord.root, iv));
-  if (!previous || previous.length === 0) return candidates[0];
 
+  // PATCH #9 — opt-in iReal-style deterministic lookup. First candidate is
+  // the canonical (richest) voicing per quality; only min7 still runs
+  // motionCost when a previous voicing is available (m7 inversion choice).
+  if (IREAL_DETERMINISTIC_VOICING) {
+    if (chord.quality === "min7" && previous && previous.length > 0) {
+      return clampVoicing(pickByMotionCost(candidates, previous));
+    }
+    return clampVoicing(candidates[0]);
+  }
+
+  if (!previous || previous.length === 0) return clampVoicing(candidates[0]);
+  return clampVoicing(pickByMotionCost(candidates, previous));
+}
+
+/** Pick the candidate with minimum motionCost relative to `previous`. */
+function pickByMotionCost(candidates: MidiNote[][], previous: MidiNote[]): MidiNote[] {
   let bestIdx = 0;
   let bestCost = motionCost(previous, candidates[0]);
   for (let i = 1; i < candidates.length; i++) {
@@ -122,6 +158,21 @@ export function voiceChord(chord: Chord, previous?: MidiNote[]): MidiNote[] {
     }
   }
   return candidates[bestIdx];
+}
+
+/**
+ * Piano comping register clamp — every note octave-shifted into D3..C5
+ * (MIDI 50..72). Applied AFTER voice-leading selection so the choice of
+ * voicing candidate is preserved; only octave placement changes.
+ */
+export function clampVoicing(notes: MidiNote[]): MidiNote[] {
+  const out: MidiNote[] = [];
+  for (let n of notes) {
+    while (n < 50) n += 12;
+    while (n > 72) n -= 12;
+    out.push(n);
+  }
+  return out;
 }
 
 /**

@@ -90,14 +90,34 @@ export type StyleId =
  *
  * Phase 0 uses only "swing". Feels can be applied per-bar (B axis of the
  * differentiation plan — drummer responds to half-time/double-time cues).
+ *
+ * Stage-1 extension: added BPM-driven and groove-flavor variants used by
+ * `getSwingRatio()` and iReal/MIDI corpus adapters. The canonical name for
+ * classic medium swing remains "swing" (kept for back-compat). "medium-swing"
+ * is added as an explicit alias — both resolve to the same ratio. Any new
+ * value that a downstream switch does not yet specialize falls back to the
+ * existing swing behaviour via a default branch.
  */
 export type FeelId =
+  // Legacy values (preserved for back-compat — do NOT remove)
   | "swing"
   | "straight-8"
   | "straight-16"
   | "shuffle"
   | "half-time"
-  | "double-time";
+  | "double-time"
+  // Stage-1 additions — swing flavors
+  | "medium-swing"      // alias of "swing" (canonical swing remains "swing")
+  | "medium-up-swing"
+  | "up-tempo-swing"
+  | "ballad-swing"
+  | "new-orleans-swing"
+  // Stage-1 additions — straight feels
+  | "even-8ths"
+  // Stage-1 additions — latin flavors
+  | "bossa"
+  | "latin"
+  | "latin-swing";
 
 /* ─── Chart instructions (bar-level behaviors) ───────────────────────── */
 
@@ -299,6 +319,10 @@ export interface BackingPlayerCallbacks {
   onBar?: (barIndex: number) => void;
   /** Fires when playback finishes naturally. */
   onDone?: () => void;
+  /** Fires when a loop-kit drum file fails to load and the player falls back
+   *  to per-hit synth drums. Mirrors NotePlayer.onDrumKitError semantics:
+   *  passes `null` to clear a previous warning (called on successful load). */
+  onDrumKitError?: (msg: string | null) => void;
 }
 
 /* ─── Public player interface ────────────────────────────────────────── */

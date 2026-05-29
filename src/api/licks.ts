@@ -44,7 +44,10 @@ interface ApiResponse<T> {
 
 /* ── Mapper ───────────────────────────────────────────────────────────────── */
 
-function toEntry(r: LickResponse): LickEntry {
+/** LickResponse → LickEntry. Exported so static fallback loaders (e.g.
+ *  loadBackupLicks reading public/data/licks/backend_backup_licks.json) can
+ *  reuse the same mapping. */
+export function toLickEntry(r: LickResponse): LickEntry {
   return {
     id: r.publicId,
     performer: r.performer,
@@ -148,7 +151,7 @@ export async function createLick(entry: LickEntry): Promise<LickEntry> {
     throw new Error(`저장 실패 (${res.status}) ${detail}`.trim());
   }
   const json: { data: LickResponse } = await res.json();
-  return toEntry(json.data);
+  return toLickEntry(json.data);
 }
 
 /* ── Update (PUT) ─────────────────────────────────────────────────────────── */
@@ -191,7 +194,7 @@ export async function updateLick(publicId: string, entry: LickEntry): Promise<Li
     throw new Error(`수정 실패 (${res.status}) ${detail}`.trim());
   }
   const json: { data: LickResponse } = await res.json();
-  return toEntry(json.data);
+  return toLickEntry(json.data);
 }
 
 /* ── Update video (PUT /licks/{id}/video) ────────────────────────────────── */
@@ -262,7 +265,7 @@ export async function createLickViaOMR(file: File, metadata: OMRMetadata = {}): 
     throw new Error(`OMR 실패 (${res.status}${code ? ' · ' + code : ''}) ${detail}`.trim());
   }
   const json: { data: LickResponse } = await res.json();
-  return toEntry(json.data);
+  return toLickEntry(json.data);
 }
 
 /* ── Delete ───────────────────────────────────────────────────────────────── */
@@ -295,7 +298,7 @@ export async function fetchAllLicks(): Promise<LickEntry[]> {
     );
     if (!res.ok) throw new Error(`licks API ${res.status}`);
     const json: ApiResponse<LickResponse> = await res.json();
-    all.push(...json.data.content.map(toEntry));
+    all.push(...json.data.content.map(toLickEntry));
     isLast = json.data.last;
     page++;
   }

@@ -44,6 +44,9 @@ export function createHybridBackingPlayer(
   // .sty owns onBar callbacks (it ticks through the chart's structure).
   styEngine.on('onBar', (bar) => callbacks.onBar?.(bar));
   styEngine.on('onDone', () => callbacks.onDone?.());
+  // Rule engine drives drums in the hybrid mix, so forward its drum-kit
+  // load-failure signal up to whoever owns this player.
+  ruleEngine.on('onDrumKitError', (msg) => callbacks.onDrumKitError?.(msg));
 
   return {
     get playing() { return styEngine.playing || ruleEngine.playing; },

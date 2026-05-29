@@ -46,9 +46,11 @@ export interface PlayerSettings {
   drumEnabled: boolean;
   metroEnabled: boolean;
   metroVolume: number;
-  /** 8th-note swing ratio. 0.5 = straight 8ths. 0.62 = classic medium swing.
-   *  0.66 = strong swing (triplet feel). Applied uniformly across all melody
-   *  playback paths via lib/note/swing.ts. Forced to 0.5 when style='bossa'. */
+  /** 8th-note swing ratio. 0.5 = straight 8ths. 0.62 = old default ("medium
+   *  swing"). 0.708 = corpus-calibrated medium swing (matches iReal Pro /
+   *  classic recordings — the new default). 0.667 = strong triplet feel.
+   *  Applied uniformly across all melody playback paths via lib/note/swing.ts.
+   *  Forced to 0.5 when style='bossa'. Mixer slider lets the user override. */
   swingRatio: number;
   /** Overall feel — swing (default) vs bossa nova. Switches comping / drum /
    *  bass patterns AND forces straight 8ths when 'bossa'. */
@@ -72,7 +74,12 @@ const DEFAULTS: PlayerSettings = {
   drumEnabled: true,
   metroEnabled: false,
   metroVolume: 0.6,
-  swingRatio: 0.62,
+  // 0.708 matches the corpus-calibrated medium-swing ratio used by drum
+  // patterns via `getSwingRatio(bpm, 'medium-swing')`. Before this change,
+  // drums used 0.708 but bass/piano timing used 0.62, producing audible
+  // micro-drift between rhythm-section instruments. Mixer slider remains
+  // user-overridable for ballads / up-tempo manual tuning.
+  swingRatio: 0.708,
   style: 'swing',
   loop: true,
   transposingInstrument: 'C',

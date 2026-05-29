@@ -1,24 +1,42 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppPreviewProvider } from './contexts/AppPreviewContext';
+import { GlobalPlayerProvider } from './lib/player';
 import { BottomTabBar } from './components/layout/BottomTabBar';
 import HomePage from './pages/HomePage';
 import ChordPage from './pages/ChordPage';
 import NotePage from './pages/NotePage';
 import LicksPage from './pages/LicksPage';
 import SolosPage from './pages/SolosPage';
-import MyLicksPage from './pages/MyLicksPage';
-import MyChordChartsPage from './pages/MyChordChartsPage';
-import MySheetProjectsPage from './pages/MySheetProjectsPage';
-import Lick12KeyPage from './pages/Lick12KeyPage';
-import InputPage from './pages/InputPage';
-import StyPocPage from './pages/StyPocPage';
-import StyDemoPage from './pages/StyDemoPage';
-import EditorPage from './pages/EditorPage';
-import YoutubeOnsetPage from './pages/YoutubeOnsetPage';
-import IntroPage from './pages/IntroPage';
 import { IntroScreen } from './components/common/IntroScreen';
-import LoginPage from './pages/LoginPage';
+
+/* Secondary routes — code-split to keep the initial bundle small. The five
+ * bottom-tab pages above stay eagerly imported because they render on first
+ * paint or are one tap away. Everything else is reached less frequently and
+ * can afford a brief async load. */
+const MyLicksPage         = lazy(() => import('./pages/MyLicksPage'));
+const MyChordChartsPage   = lazy(() => import('./pages/MyChordChartsPage'));
+const MySheetProjectsPage = lazy(() => import('./pages/MySheetProjectsPage'));
+const Lick12KeyPage       = lazy(() => import('./pages/Lick12KeyPage'));
+const InputPage           = lazy(() => import('./pages/InputPage'));
+const StyPocPage          = lazy(() => import('./pages/StyPocPage'));
+const StyDemoPage         = lazy(() => import('./pages/StyDemoPage'));
+const EditorPage          = lazy(() => import('./pages/EditorPage'));
+const YoutubeOnsetPage    = lazy(() => import('./pages/YoutubeOnsetPage'));
+const IntroPage           = lazy(() => import('./pages/IntroPage'));
+const LoginPage           = lazy(() => import('./pages/LoginPage'));
+
+function RouteFallback() {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, display: 'flex',
+      alignItems: 'center', justifyContent: 'center',
+      color: '#888', fontSize: 14,
+    }}>
+      Loading…
+    </div>
+  );
+}
 
 /* Per-tab session key — the splash plays on the FIRST page load of a browser
  * session (or app cold start) and then stays out of the way on every refresh
@@ -52,6 +70,8 @@ export default function App() {
       {showIntro && <IntroScreen onDone={handleIntroDone} />}
       <HashRouter>
         <AppPreviewProvider>
+        <GlobalPlayerProvider>
+        <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/chord" element={<ChordPage />} />
@@ -86,9 +106,11 @@ export default function App() {
           <Route path="/note/sologenerator" element={<Navigate to="/editor?mode=solo" replace />} />
           <Route path="/lick-input" element={<Navigate to="/editor?mode=lick" replace />} />
         </Routes>
+        </Suspense>
         {/* Native-only 5-tab bottom navigation. No-ops on web; the component
          *  reads useIsNativeUi() which is also true under /preview/*. */}
         <BottomTabBar />
+        </GlobalPlayerProvider>
         </AppPreviewProvider>
       </HashRouter>
     </>
