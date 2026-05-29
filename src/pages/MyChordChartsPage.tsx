@@ -211,6 +211,7 @@ export default function MyChordChartsPage() {
   const newWrapRef = useRef<HTMLDivElement>(null);
   const sortWrapRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const kebabMenuRef = useRef<HTMLDivElement>(null);
 
   const projectSort = useMemo(() => {
@@ -357,6 +358,17 @@ export default function MyChordChartsPage() {
 
   /* ── actions ───────────────────────────────────────────────────────── */
 
+  const addImageUpload = async (file: File): Promise<void> => {
+    setProjectError(null);
+    try {
+      const title = file.name.replace(/\.[^.]+$/, '');
+      const created = await createChordProjectFromOmr(file, { title });
+      setProjects((prev) => [created.project, ...prev.filter((p) => p.publicId !== created.project.publicId)]);
+    } catch (e) {
+      setProjectError(e instanceof Error ? e.message : '이미지 업로드 실패');
+    }
+  };
+
   const addFolder = (name: string): void => {
     const trimmed = name.trim();
     if (!trimmed) return;
@@ -388,10 +400,14 @@ export default function MyChordChartsPage() {
     setProjectError(null);
   };
 
-  const openCreateProject = (): void => {
+  // Legacy modal entry — kept while the create-project modal still exists
+  // (now unused by the new-menu after the dropdown was re-aligned with the
+  // 직접 입력하기 / 파일·이미지 업로드 / 폴더 생성 set).
+  const _openCreateProject = (): void => {
     resetCreateProject();
     setCreateProjectOpen(true);
   };
+  void _openCreateProject;
 
   const handleCreateProject = async (): Promise<void> => {
     const title = newProjectTitle.trim();
@@ -740,17 +756,32 @@ export default function MyChordChartsPage() {
               <NewMenu role="menu">
                 <NewMenuItem
                   type="button"
-                  onClick={() => { setNewMenuOpen(false); openCreateProject(); }}
+                  onClick={() => { setNewMenuOpen(false); navigate('/mychord?empty=1&edit=1'); }}
                 >
-                  <MenuIco><ChordGridIcon /></MenuIco>
-                  <span>코드 직접 입력</span>
+                  <MenuIco><PencilIcon /></MenuIco>
+                  <span>직접 입력하기</span>
                 </NewMenuItem>
                 <NewMenuItem
                   type="button"
                   onClick={() => { setNewMenuOpen(false); fileInputRef.current?.click(); }}
                 >
                   <MenuIco><FileUpIcon /></MenuIco>
-                  <span>OMR 파일 업로드</span>
+                  <span>파일 업로드</span>
+                </NewMenuItem>
+                <NewMenuItem
+                  type="button"
+                  onClick={() => { setNewMenuOpen(false); imageInputRef.current?.click(); }}
+                >
+                  <MenuIco><ImageIcon /></MenuIco>
+                  <span>이미지 업로드</span>
+                </NewMenuItem>
+                <MenuDivider />
+                <NewMenuItem
+                  type="button"
+                  onClick={() => { setNewMenuOpen(false); setFolderName(''); setCreateFolderOpen(true); }}
+                >
+                  <MenuIco><FolderPlusIcon /></MenuIco>
+                  <span>폴더 생성</span>
                 </NewMenuItem>
               </NewMenu>
             )}
@@ -920,17 +951,32 @@ export default function MyChordChartsPage() {
               <NewMenu role="menu">
                 <NewMenuItem
                   type="button"
-                  onClick={() => { setNewMenuOpen(false); openCreateProject(); }}
+                  onClick={() => { setNewMenuOpen(false); navigate('/mychord?empty=1&edit=1'); }}
                 >
-                  <MenuIco><ChordGridIcon /></MenuIco>
-                  <span>코드 직접 입력</span>
+                  <MenuIco><PencilIcon /></MenuIco>
+                  <span>직접 입력하기</span>
                 </NewMenuItem>
                 <NewMenuItem
                   type="button"
                   onClick={() => { setNewMenuOpen(false); fileInputRef.current?.click(); }}
                 >
                   <MenuIco><FileUpIcon /></MenuIco>
-                  <span>OMR 파일 업로드</span>
+                  <span>파일 업로드</span>
+                </NewMenuItem>
+                <NewMenuItem
+                  type="button"
+                  onClick={() => { setNewMenuOpen(false); imageInputRef.current?.click(); }}
+                >
+                  <MenuIco><ImageIcon /></MenuIco>
+                  <span>이미지 업로드</span>
+                </NewMenuItem>
+                <MenuDivider />
+                <NewMenuItem
+                  type="button"
+                  onClick={() => { setNewMenuOpen(false); setFolderName(''); setCreateFolderOpen(true); }}
+                >
+                  <MenuIco><FolderPlusIcon /></MenuIco>
+                  <span>폴더 생성</span>
                 </NewMenuItem>
               </NewMenu>
             )}
@@ -1020,10 +1066,21 @@ export default function MyChordChartsPage() {
           ref={fileInputRef}
           type="file"
           hidden
-          accept="image/png,image/jpeg,image/jpg"
+          accept="image/png,image/jpeg,image/jpg,.pdf,.musicxml,.xml"
           onChange={(e) => {
             const f = e.target.files?.[0];
             if (f) void handleOmrFile(f);
+            e.target.value = '';
+          }}
+        />
+        <input
+          ref={imageInputRef}
+          type="file"
+          hidden
+          accept="image/*"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void addImageUpload(f);
             e.target.value = '';
           }}
         />
@@ -1573,7 +1630,7 @@ const NewCard = styled.button`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 10px;
   width: 100%;
   max-width: 200px;
   justify-self: start;
@@ -1584,24 +1641,34 @@ const NewCard = styled.button`
   color: rgba(0, 0, 0, 0.55);
   cursor: pointer;
   font-family: inherit;
-  transition: border-color 0.12s, color 0.12s, background 0.12s;
-  &:hover { border-color: rgba(0, 0, 0, 0.32); color: #1a1a1a; background: rgba(0, 0, 0, 0.02); }
+  transition: border-color 0.15s, color 0.15s, background 0.15s, box-shadow 0.15s;
+  /* Same cream tint as the other cards' hover bg so the column reads as
+   * one consistent affordance. */
+  &:hover {
+    border-color: rgba(0, 0, 0, 0.3);
+    color: #1a1a1a;
+    background: ${CARD_HOVER_BG};
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+  }
 `;
 const NewLabel = styled.div`
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 `;
 
+/* Larger, bolder "신규" dropdown — matches the design mock (big rows,
+ * generous padding, ~24 px icons). Anchored under the NewCard. */
 const NewMenu = styled.div`
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
-  min-width: 232px;
+  min-width: 260px;
   background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 14px;
+  border-radius: 16px;
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.14);
-  padding: 8px;
+  padding: 10px;
   z-index: 50;
   animation: menuIn 0.12s ease both;
 
@@ -1614,16 +1681,16 @@ const NewMenu = styled.div`
 const NewMenuItem = styled.button`
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   width: 100%;
-  padding: 10px 12px;
+  padding: 14px 14px;
   border: none;
   background: transparent;
-  border-radius: 9px;
+  border-radius: 10px;
   cursor: pointer;
   font-family: inherit;
-  font-size: 14.5px;
-  font-weight: 500;
+  font-size: 17px;
+  font-weight: 600;
   color: #1a1a1a;
   text-align: left;
   transition: background 0.1s;
@@ -1634,9 +1701,10 @@ const MenuIco = styled.span`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  color: rgba(0, 0, 0, 0.65);
+  width: 28px;
+  color: #1a1a1a;
   flex-shrink: 0;
+  svg { width: 24px; height: 24px; }
 `;
 
 /* Video / file card. $selected highlights the card in multi-select mode.
@@ -2611,3 +2679,46 @@ function RenameIcon() {
     </svg>
   );
 }
+
+/* Pencil icon used by the "직접 입력하기" entry in the new-menu. Larger
+ * size (24) since MenuIco scales SVGs to that footprint via its CSS. */
+function PencilIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 20h4l10-10-4-4L4 16v4z" />
+      <path d="M14 6l4 4" />
+    </svg>
+  );
+}
+
+/* Picture/image upload icon — frame with mountain + sun glyph and a tiny
+ * up-arrow to suggest upload. Used by "이미지 업로드". */
+function ImageIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="4" width="18" height="14" rx="2" />
+      <circle cx="8.5" cy="9" r="1.4" />
+      <path d="M21 15l-5-5-7 7" />
+      <path d="M12 22v-4" />
+      <path d="M10 20l2-2 2 2" />
+    </svg>
+  );
+}
+
+/* Folder-with-plus icon for "폴더 생성". */
+function FolderPlusIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
+      <line x1="12" y1="11" x2="12" y2="17" />
+      <line x1="9" y1="14" x2="15" y2="14" />
+    </svg>
+  );
+}
+
+/* Thin divider rendered between upload items and 폴더 생성 in the new-menu. */
+const MenuDivider = styled.div`
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+  margin: 6px 6px;
+`;

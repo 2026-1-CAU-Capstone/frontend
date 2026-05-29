@@ -31,6 +31,33 @@ import { useTransitionState } from '../hooks/useTransitionState';
 
 const ANALYZED_SONG_ID = '__analyzed_all-of-me__';
 
+/* Sentinel song id used by `/mychord?empty=1` — the "직접 입력하기" entry
+ * point from the chord-chart library. Renders a blank 4/4 sheet with empty
+ * chord slots; combined with `?edit=1` the chart opens straight into edit
+ * mode so the user can type chord symbols immediately. */
+const EMPTY_SONG_ID = '__empty__';
+const EMPTY_BARS_PER_SYSTEM = 4;
+const EMPTY_SYSTEM_COUNT = 4;
+function makeEmptySheet(): LeadSheetData {
+  return {
+    id: EMPTY_SONG_ID,
+    title: '새 코드 차트',
+    style: '',
+    composer: '',
+    timeSignature: '4/4',
+    key: 'C',
+    systems: Array.from({ length: EMPTY_SYSTEM_COUNT }, (_, si) => ({
+      bars: Array.from({ length: EMPTY_BARS_PER_SYSTEM }, (_, bi) => ({
+        measureNumber: si * EMPTY_BARS_PER_SYSTEM + bi + 1,
+        /* One empty chord slot per bar — renders as a single input in
+         * edit mode. The user adds more chords via the existing edit
+         * UI; we don't try to pre-seed extra slots here. */
+        chords: [{ id: `s${si}-b${bi}-c0` }],
+      })),
+    })),
+  };
+}
+
 /* Rule-based analysis is forced off while editing the chart. */
 const ANALYSIS_OFF = {
   showAnalysis: false, showDegree: false, showIIVI: false, showArrows: false, showColors: false,
@@ -814,8 +841,10 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   /* Gate for Capacitor-app-only UI (native shell OR /preview/* route). */
   const isNativeUi = useIsNativeUi();
   const [songIndex, setSongIndex] = useState<SongEntry[]>([]);
-  const [songId, setSongIdRaw] = useState(() =>
-    mychordMode ? ANALYZED_SONG_ID : (searchParams.get('song') ?? ANALYZED_SONG_ID));
+  const [songId, setSongIdRaw] = useState(() => {
+    if (mychordMode && searchParams.get('empty') === '1') return EMPTY_SONG_ID;
+    return mychordMode ? ANALYZED_SONG_ID : (searchParams.get('song') ?? ANALYZED_SONG_ID);
+  });
 
   const setSongId = useCallback((id: string) => {
     setSongIdRaw(id);
@@ -833,8 +862,10 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   const searchRef = useRef<HTMLDivElement>(null);
 
   /* Chord-chart edit mode (frontend-only; no per-user backend yet). Edits are
-   * collected by source index ("system-bar-chord") and applied on save. */
-  const [editMode, setEditMode] = useState(false);
+   * collected by source index ("system-bar-chord") and applied on save.
+   * Starts ON when the page is entered via `?edit=1` (used by the
+   * "직접 입력하기" flow that lands on an empty sheet). */
+  const [editMode, setEditMode] = useState(() => searchParams.get('edit') === '1');
   const editValuesRef = useRef<Map<string, string>>(new Map());
 
   const playerRef = useRef<BackingPlayer | null>(null);
@@ -1005,6 +1036,14 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
 
   // Load selected song
   useEffect(() => {
+    if (songId === EMPTY_SONG_ID) {
+      /* Blank-sheet entry point. Persisted edits keyed by EMPTY_SONG_ID
+       * are reused so the user can come back and continue typing. */
+      setSheet(loadChartEdit(songId) ?? makeEmptySheet());
+      setLoading(false);
+      setError(null);
+      return;
+    }
     if (songId === ANALYZED_SONG_ID) {
       setSheet(loadChartEdit(songId) ?? withLeadSheetSelectionIds(allOfMe, ANALYZED_SONG_ID));
       setLoading(false);

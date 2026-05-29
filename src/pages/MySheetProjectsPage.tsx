@@ -8,6 +8,7 @@ import { leadsheetSongs, type NoteSongEntry } from '../data/noteSongs';
 import {
   KEY_SIGNATURES,
   createSheetProject,
+  deleteSheetProject,
   type KeySignature,
 } from '../api/sheetProjects';
 import { uploadStorageFile } from '../api/storageFiles';
@@ -218,17 +219,71 @@ export default function MySheetProjectsPage() {
     setRenameInput('');
   };
 
-  const deleteUploaded = (id: string) => {
+  /* Single-item delete from the kebab menu. Calls the backend first; on
+   * success the row is removed locally and the selection set is cleaned
+   * up. Network failures surface via setError (existing pattern
+   * used elsewhere on this page). */
+  const deleteUploaded = async (id: string): Promise<void> => {
     setKebabMenuId(null);
-    setUploadedProjects((prev) => prev.filter((p) => p.id !== id));
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
+    try {
+      await deleteSheetProject(id);
+      setUploadedProjects((prev) => prev.filter((p) => p.id !== id));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '악보 삭제 실패');
+    }
   };
 
-  const totalCount = uploadedProjects.length + visibleSongs.length;
+  /* Bulk-delete confirm modal (driven by the selection-bar 삭제 button).
+   * `null` = closed; truthy = open showing the count. */
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const requestBulkDelete = (): void => {
+    if (selectedIds.size === 0) return;
+    setBulkDeleteOpen(true);
+  };
+  const confirmBulkDelete = async (): Promise<void> => {
+    const ids = Array.from(selectedIds).filter((id) => uploadedProjects.some((p) => p.id === id));
+    if (ids.length === 0) {
+      setBulkDeleteOpen(false);
+      exitSelect();
+      return;
+    }
+    setBulkDeleting(true);
+    try {
+      /* Sequential — predictable error reporting and avoids slamming the
+       * backend if the user selected dozens of rows. */
+      for (const id of ids) {
+        await deleteSheetProject(id);
+      }
+      setUploadedProjects((prev) => prev.filter((p) => !ids.includes(p.id)));
+      setBulkDeleteOpen(false);
+      exitSelect();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '악보 일괄 삭제 실패');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  /* Selection-bar handlers — mirror the chord-chart page so the bar reads
+   * and behaves identically across both libraries. */
+  const exitSelect = (): void => { setSelectMode(false); setSelectedIds(new Set()); };
+  const selectAllCurrent = (): void => {
+    const all = new Set<string>();
+    uploadedProjects.forEach((p) => all.add(p.id));
+    visibleSongs.forEach((s) => all.add(s.id));
+    setSelectedIds(all);
+  };
+  /* Bulk delete from the selection bar. Only user-uploaded items can be
+   * removed — bundled `visibleSongs` come from a static asset list and
+   * have no delete API, so selected sample songs are simply ignored.
+   * (Now routed through confirmBulkDelete after the confirm modal.) */
+
 
   return (
     <Page>
@@ -332,7 +387,11 @@ export default function MySheetProjectsPage() {
                       <KebabMenuIcon><RenameIcon /></KebabMenuIcon>
                       <span>이름 변경</span>
                     </KebabMenuItem>
-                    <KebabMenuItem type="button" $danger onClick={() => deleteUploaded(item.id)}>
+                    <KebabMenuItem type="button" onClick={() => { setKebabMenuId(null); alert('이동: 추후 구현'); }}>
+                      <KebabMenuIcon><MoveIcon /></KebabMenuIcon>
+                      <span>이동</span>
+                    </KebabMenuItem>
+                    <KebabMenuItem type="button" $danger onClick={() => void deleteUploaded(item.id)}>
                       <KebabMenuIcon><TrashIcon /></KebabMenuIcon>
                       <span>삭제</span>
                     </KebabMenuItem>
@@ -345,6 +404,7 @@ export default function MySheetProjectsPage() {
               <SheetCard
                 key={song.id}
                 $selected={selectedIds.has(song.id)}
+                $menuOpen={kebabMenuId === song.id}
                 onClick={() => selectMode && toggleSelect(song.id)}
               >
                 {selectMode && (
@@ -373,6 +433,29 @@ export default function MySheetProjectsPage() {
                     <ComposerText>{formatComposer(song.composer)}</ComposerText>
                   </MetaRow>
                 </CardMeta>
+                <Kebab aria-label="더보기" onClick={openKebab(song.id)}>
+                  <KebabDot /><KebabDot /><KebabDot />
+                </Kebab>
+                {kebabMenuId === song.id && (
+                  <KebabMenu ref={kebabMenuRef} role="menu" onClick={(e) => e.stopPropagation()}>
+                    {/* Bundled sample songs aren't user-owned, so every
+                     * action is informational — preserves the design's
+                     * uniform menu while making it clear nothing
+                     * destructive can happen here. */}
+                    <KebabMenuItem type="button" onClick={() => { setKebabMenuId(null); alert('기본 제공 곡은 이름을 변경할 수 없습니다.'); }}>
+                      <KebabMenuIcon><RenameIcon /></KebabMenuIcon>
+                      <span>이름 변경</span>
+                    </KebabMenuItem>
+                    <KebabMenuItem type="button" onClick={() => { setKebabMenuId(null); alert('이동: 추후 구현'); }}>
+                      <KebabMenuIcon><MoveIcon /></KebabMenuIcon>
+                      <span>이동</span>
+                    </KebabMenuItem>
+                    <KebabMenuItem type="button" $danger onClick={() => { setKebabMenuId(null); alert('기본 제공 곡은 삭제할 수 없습니다.'); }}>
+                      <KebabMenuIcon><TrashIcon /></KebabMenuIcon>
+                      <span>삭제</span>
+                    </KebabMenuItem>
+                  </KebabMenu>
+                )}
               </SheetCard>
             ))}
           </Grid>
@@ -472,11 +555,55 @@ export default function MySheetProjectsPage() {
 
         {selectMode && (
           <SelectionBar>
-            <SbBtn type="button" onClick={() => setSelectedIds(new Set())}>
-              <XIcon /> 선택 해제
+            <SbBtn type="button" onClick={() => alert('이동 — 추후 구현')}>
+              <MoveIcon /> 이동
             </SbBtn>
-            <SbText>{selectedIds.size}개 선택됨 / 전체 {totalCount}개</SbText>
+            <SbBtn $danger type="button" onClick={requestBulkDelete} disabled={selectedIds.size === 0}>
+              <TrashIcon /> 삭제
+            </SbBtn>
+            <SbBtn type="button" onClick={selectAllCurrent}>
+              <CheckSquareIcon /> 전체 선택
+            </SbBtn>
+            <SbBtn type="button" onClick={exitSelect}>
+              <XIcon /> 취소
+            </SbBtn>
           </SelectionBar>
+        )}
+
+        {bulkDeleteOpen && (
+          <ModalBackdrop onClick={() => !bulkDeleting && setBulkDeleteOpen(false)}>
+            <ModalCard onClick={(e) => e.stopPropagation()}>
+              <ModalTitle>선택한 악보 삭제</ModalTitle>
+              <ModalBody>
+                {/* Count only what will actually be deleted (uploaded items),
+                 * so the user isn't surprised by selected sample songs being
+                 * silently skipped. */}
+                {(() => {
+                  const deletableCount = Array.from(selectedIds).filter(
+                    (id) => uploadedProjects.some((p) => p.id === id),
+                  ).length;
+                  const skipped = selectedIds.size - deletableCount;
+                  return (
+                    <>
+                      <div>{deletableCount}개의 악보를 삭제합니다.</div>
+                      {skipped > 0 && (
+                        <SkippedNote>
+                          기본 제공 곡 {skipped}개는 삭제되지 않습니다.
+                        </SkippedNote>
+                      )}
+                      <ModalWarn>이 작업은 되돌릴 수 없습니다.</ModalWarn>
+                    </>
+                  );
+                })()}
+              </ModalBody>
+              <ModalActions>
+                <ModalBtn $variant="ghost" type="button" onClick={() => setBulkDeleteOpen(false)} disabled={bulkDeleting}>취소</ModalBtn>
+                <ModalBtn $variant="primary" type="button" onClick={() => void confirmBulkDelete()} disabled={bulkDeleting}>
+                  {bulkDeleting ? '삭제 중…' : '삭제'}
+                </ModalBtn>
+              </ModalActions>
+            </ModalCard>
+          </ModalBackdrop>
         )}
       </PageBody>
     </Page>
@@ -665,6 +792,31 @@ function XIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <line x1="6" y1="6" x2="18" y2="18" />
       <line x1="18" y1="6" x2="6" y2="18" />
+    </svg>
+  );
+}
+
+/* Move icon (4-way arrows) for the selection bar's "이동" action. Matches
+ * the chord-chart page's MoveIcon glyph 1-for-1. */
+function MoveIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polyline points="5 9 2 12 5 15" />
+      <polyline points="9 5 12 2 15 5" />
+      <polyline points="15 19 12 22 9 19" />
+      <polyline points="19 9 22 12 19 15" />
+      <line x1="2" y1="12" x2="22" y2="12" />
+      <line x1="12" y1="2" x2="12" y2="22" />
+    </svg>
+  );
+}
+
+/* Checkbox icon for the selection bar's "전체 선택" action. */
+function CheckSquareIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polyline points="9 11 12 14 22 4" />
+      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
     </svg>
   );
 }
@@ -1015,6 +1167,11 @@ const MetaRow = styled.div`
 `;
 
 const ComposerText = styled.span`
+  display: block;
+  /* Ellipsis-clip when the composer / filename overflows the meta row.
+   * max-width:100% + min-width:0 + the card's overflow:hidden together
+   * force a single-line clip even inside flex parents. */
+  max-width: 100%;
   font-size: 12px;
   font-weight: 500;
   color: rgba(0, 0, 0, 0.55);
@@ -1264,6 +1421,24 @@ const ModalTitle = styled.h2`
   color: #1a1a1a;
 `;
 
+/* Bulk-delete confirm modal body — short, info-only stack of lines. */
+const ModalBody = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 14px;
+  color: #1a1a1a;
+`;
+const ModalWarn = styled.div`
+  font-size: 12.5px;
+  color: rgba(0, 0, 0, 0.55);
+`;
+const SkippedNote = styled.div`
+  font-size: 12.5px;
+  color: rgba(0, 0, 0, 0.45);
+`;
+
 const ModalField = styled.label`
   display: flex;
   flex-direction: column;
@@ -1351,39 +1526,39 @@ const ModalBtn = styled.button<{ $variant?: 'ghost' | 'primary' }>`
   &:disabled { opacity: 0.5; cursor: not-allowed; }
 `;
 
+/* Bottom floating selection-mode action bar (white pill). Matches the
+ * chord-chart page's SelectionBar 1-for-1 so both libraries share the
+ * exact same selection UX. */
 const SelectionBar = styled.div`
   position: fixed;
+  bottom: max(20px, env(safe-area-inset-bottom, 0px));
   left: 50%;
-  bottom: 20px;
   transform: translateX(-50%);
-  z-index: 60;
-  display: flex;
+  z-index: 1000;
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 10px;
+  gap: 4px;
+  padding: 6px 10px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 999px;
-  background: rgba(20, 20, 20, 0.9);
-  color: #fff;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.24);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.14);
 `;
 
-const SbBtn = styled.button`
+const SbBtn = styled.button<{ $danger?: boolean }>`
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  padding: 8px 14px;
   border: none;
+  background: transparent;
   border-radius: 999px;
-  padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
   font-family: inherit;
-  font-size: 12.5px;
-  font-weight: 700;
-  cursor: pointer;
-`;
-
-const SbText = styled.span`
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 600;
-  padding-right: 8px;
+  color: ${({ $danger }) => ($danger ? '#e74c3c' : '#1a1a1a')};
+  cursor: pointer;
+  transition: background 0.12s, opacity 0.12s;
+  &:hover:not(:disabled) { background: rgba(0, 0, 0, 0.04); }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
 `;
