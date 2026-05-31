@@ -134,11 +134,17 @@ function createLazyGlobalPlayer(): GlobalPlayer {
         return;
       }
       // Anacrusis schedule times are in AudioContext time and only meaningful
-      // once a real engine + ctx exist. Kick off the load and replay; in
-      // practice this is called immediately before play(), so the load is
-      // already in flight via preload/play.
+      // once a real engine + ctx exist. Before load, our `ctxNow()` returns
+      // 0 — so callers computed `startAt = 0 + offsetSec`. After load, the
+      // real ctx has advanced past 0, so we shift every startAt by the real
+      // ctx's currentTime to preserve the intended "offsetSec from now"
+      // semantics.
       load()
-        .then((r) => r.scheduleAnacrusis(notes))
+        .then((r) => {
+          const now = r.ctxNow();
+          const shifted = notes.map((n) => ({ ...n, startAt: n.startAt + now }));
+          r.scheduleAnacrusis(shifted);
+        })
         .catch(() => {
           /* error already surfaced through the real player's error bus */
         });

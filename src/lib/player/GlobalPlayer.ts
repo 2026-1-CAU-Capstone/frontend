@@ -170,6 +170,10 @@ export function createGlobalPlayer(
   // dispose() closes this; a shared ctx (sourced from active.getCtx())
   // belongs to the BackingPlayer's lifecycle and must NOT be closed here.
   let ownedAnacrusisCtx: AudioContext | null = null;
+  // The BackingPlayer instance whose ctx anacrusis is currently sharing. If
+  // active changes (song switch → new BackingPlayer with new ctx), we must
+  // rebuild anacrusis so its scheduler reads the same clock as p.ctxNow().
+  let anacrusisCtxOwner: BackingPlayer | null = null;
   let backingPlayer: BackingPlayer | null = null;
   // The chart input we last built `backingPlayer` for. If the user calls
   // play() with a different chart or engineBackend, we tear down and
@@ -560,6 +564,18 @@ export function createGlobalPlayer(
   /* ── Anacrusis (pickup-note) scheduling ──────────────────────────── */
 
   function getAnacrusisPlayer(): AnacrusisPlayer {
+    // If active changed since we created the anacrusis player, the old
+    // ctx is stale (or closed). Tear down and rebuild against the new ctx
+    // so picking-up notes line up with p.ctxNow().
+    if (notePlayerAnacrusis && active && anacrusisCtxOwner !== active) {
+      notePlayerAnacrusis.dispose();
+      notePlayerAnacrusis = null;
+      anacrusisCtxOwner = null;
+      if (ownedAnacrusisCtx) {
+        try { ownedAnacrusisCtx.close(); } catch { /* */ }
+        ownedAnacrusisCtx = null;
+      }
+    }
     if (!notePlayerAnacrusis) {
       // Prefer the active BackingPlayer's AudioContext so anacrusis schedule
       // times computed from `p.ctxNow()` (which reads active's ctx) align
@@ -581,6 +597,7 @@ export function createGlobalPlayer(
         ownedAnacrusisCtx = ctx;
       }
       notePlayerAnacrusis = new AnacrusisPlayer(ctx);
+      anacrusisCtxOwner = sharedCtx ? active : null;
       // Kick off the piano sample load now so the first scheduled note
       // doesn't get silently dropped by AnacrusisPlayer.scheduleStandaloneNote's
       // `if (!this.piano) return` guard. We fire-and-forget: if load fails,
@@ -661,6 +678,7 @@ export function createGlobalPlayer(
     }
     notePlayerAnacrusis = null;
     ownedAnacrusisCtx = null;
+    anacrusisCtxOwner = null;
     backingPlayer = null;
     backingPlayerSig = null;
     backingPlayerMelody = null;
