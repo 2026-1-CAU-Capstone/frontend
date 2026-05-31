@@ -1,6 +1,7 @@
 import type { BackingEvent, Bar, Chart, Chord, FeelId, MidiNote, StyleId } from "./types";
 import { renderDrumBar } from "./drums";
-import { walkChord } from "./bass";
+import { walkChord, twoFeelBass, type WalkingBassBeat } from "./bass";
+import { getSwingRatio } from "../note/swing";
 import { voiceChord } from "./voicing";
 import { PSBASE_CH0_PATTERN } from "./jazz-piano-pattern";
 import { fitChordPhraseToChord } from "../yamaha-sty/fit-phrase";
@@ -117,7 +118,7 @@ const COMPING_PATTERNS_BOSSA_2BEAT: Array<Array<[number, number]>> = [
  * for 4-beat chords; just the root for shorter chords. This is the surdo-
  * style bass line that gives bossa its characteristic "boom-boom" pulse.
  */
-function bossaBass(current: Chord, beats: number): Array<{ beatOffset: number; midi: MidiNote }> {
+function bossaBass(current: Chord, beats: number): WalkingBassBeat[] {
   if (beats <= 0) return [];
   const rootPc = current.bass ?? current.root;
   const fifthPc = (current.root + 7) % 12;
@@ -265,6 +266,10 @@ export function renderChart(chart: Chart, opts: RenderOptions): BackingEvent[] {
   // PATCH #9 — running previous-voicing tracker for the legacy piano path
   // (bossa/latin). Carries across bars so voice leading actually works.
   let prevVoicing: MidiNote[] = [];
+  // Last bass MIDI note, threaded across chords so the walking line keeps its
+  // register continuity (each note placed in the octave nearest this one).
+  let prevBassMidi: MidiNote | null = null;
+  const swingRatio = getSwingRatio(opts.bpm, feel);
 
   for (let bi = 0; bi < flatBars.length; bi++) {
     const bar = flatBars[bi];
@@ -293,26 +298,44 @@ export function renderChart(chart: Chart, opts: RenderOptions): BackingEvent[] {
       const chord = bar.chords[ci];
       const next = nextChord(bar, ci, flatBars, bi);
 
-      // Bass — bossa uses 2-feel (root + fifth), swing uses walking bass.
-      // Seed = stable hash of bar + chord index so the same chart renders
-      // the same walking approach every time (no autoplay drift).
-      const bassNotes = isBossa
+      // Bass — bossa/latin: 2-feel surdo; ballad: 2-feel half notes; swing:
+      // walking. Seed = stable hash of bar + chord index so the same chart
+      // renders the same line every time (no autoplay drift). `prevBassMidi`
+      // threads register continuity through the walking/two-feel generators.
+      const bassSeed = bi * 1009 + ci * 17;
+      const bassNotes: WalkingBassBeat[] = isBossa
         ? bossaBass(chord, chord.beats)
-        : walkChord(chord, next, chord.beats, bi * 1009 + ci * 17);
+        : feel === "ballad-swing"
+          ? twoFeelBass(chord, chord.beats, prevBassMidi, bassSeed)
+          : walkChord(chord, next, chord.beats, bassSeed, prevBassMidi, swingRatio);
       for (const bn of bassNotes) {
-        const isDownbeat = bn.beatOffset === 0;
+        const beatInBar = beatCursor + bn.beatOffset;
+        // Walking bass: iReal Pro accents the BACKBEAT — beats 2 & 4 land
+        // around vel 0.88 while beats 1 & 3 sit softer (~0.79). Swung-8th
+        // ornaments (`accent`) push harder (~0.95). Bossa keeps its surdo
+        // accent on beat 1.
+        const onBackbeat = Math.round(beatInBar) % 2 === 1;
         const baseVel = isBossa
-          ? (isDownbeat ? 0.9 : 0.82)
-          : (isDownbeat ? 0.92 : 0.78);
+          ? (bn.beatOffset === 0 ? 0.9 : 0.82)
+          : bn.accent
+            ? 0.95
+            : (onBackbeat ? 0.88 : 0.79);
         events.push({
           kind: "note",
           instrument: "bass",
           midi: bn.midi,
-          time: barStart + (beatCursor + bn.beatOffset) * secPerBeat,
-          duration: secPerBeat * (isBossa ? 1.6 : 0.92),
+          time: barStart + beatInBar * secPerBeat,
+          // Per-note length override (2-feel half notes, short ornaments) wins;
+          // otherwise walking is legato (~0.96 beat) and bossa rings longer.
+          duration: secPerBeat * (bn.durBeats ?? (isBossa ? 1.6 : 0.96)),
           velocity: baseVel + (rand(bi * 31 + ci * 7 + bn.beatOffset) - 0.5) * 0.08,
           bar: bi,
         });
+      }
+      // Carry the last on-beat (integer-offset) bass note forward for register
+      // continuity — skip fractional ornament notes.
+      for (let k = bassNotes.length - 1; k >= 0; k--) {
+        if (Number.isInteger(bassNotes[k].beatOffset)) { prevBassMidi = bassNotes[k].midi; break; }
       }
 
       // Piano comping — use the pre-recorded psBase ch 0 pattern instead

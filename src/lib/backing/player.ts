@@ -7,7 +7,7 @@ import type {
   StyleId,
 } from "./types";
 import { renderChart } from "./engine";
-import { loadInstruments, type TriggerableInstrument } from "./soundfont";
+import { loadInstruments, loadMelodyInstrument, type TriggerableInstrument } from "./soundfont";
 import { loadDrumLoopPlayer, type DrumLoopPlayer } from "./drumLoopPlayer";
 import {
   getPlayerSettings,
@@ -63,11 +63,13 @@ function mixSettingsIntoConfig(
     ...kitCfg,                   // drumMode + drumLoop
     style: mappedStyle,
     loop: s.loop,
+    melodyInstrument: s.melodyInstrument,
     ...base,                     // caller overrides win
     volume: {
       piano: s.pianoVolume,
       bass: s.bassVolume,
       drums: s.drumVolume,
+      melody: s.melodyVolume,
       ...(base.volume ?? {}),
     },
     pianoReverb: base.pianoReverb ?? s.pianoReverb,
@@ -88,6 +90,10 @@ export function createBackingPlayer(
   let piano: TriggerableInstrument | null = null;
   let bass: TriggerableInstrument | null = null;
   let drums: TriggerableInstrument | null = null;
+  let melody: TriggerableInstrument | null = null;
+  let melodyDestination: AudioNode | null = null;
+  let melodyInstId: string | null = null;        // currently-loaded melody instrument
+  let melodyLoading: Promise<void> | null = null; // in-flight melody (re)load
   let pianoReverbSend: GainNode | null = null;
   let drumLoop: DrumLoopPlayer | null = null;
   let drumLoopUrl: string | null = null;       // currently-loaded loop URL
@@ -107,6 +113,8 @@ export function createBackingPlayer(
   let loopCount = 0;  // completed song passes this play() session (for repeatCount)
   let secPerBar = 0;
   let totalBars = 0;
+  // Pending teardown timer for the reverberant ending tail (see finishWithTail).
+  let endingTimer: ReturnType<typeof setTimeout> | null = null;
 
   /* ── audio context / instruments ─────────────────────────────────── */
 
@@ -117,17 +125,46 @@ export function createBackingPlayer(
   }
 
   function ensureInstruments(): Promise<void> {
-    if (piano && bass && drums) return Promise.resolve();
+    if (piano && bass && drums) return ensureMelodyInstrument();
     if (loading) return loading;
     loading = ensureCtx().then(loadInstruments).then((inst) => {
       piano = inst.piano;
       bass = inst.bass;
       drums = inst.drums;
       pianoReverbSend = inst.pianoReverbSend;
+      melodyDestination = inst.melodyDestination;
       // Apply any pianoReverb setting that was already in config when we loaded.
       applyPianoReverb();
-    });
+    }).then(() => ensureMelodyInstrument());
     return loading;
+  }
+
+  /** Lazily (re)load the melody lead instrument to match config.melodyInstrument.
+   *  Idempotent — returns immediately when the wanted instrument is already
+   *  loaded. Concurrent / rapid changes chain off the in-flight load and
+   *  re-evaluate against the latest config when it resolves, so a stale load
+   *  can't clobber the newer selection (same pattern as ensureDrumLoop). */
+  function ensureMelodyInstrument(): Promise<void> {
+    if (melodyLoading) return melodyLoading.then(() => ensureMelodyInstrument());
+    const want = config.melodyInstrument ?? "piano";
+    if (melody && melodyInstId === want) return Promise.resolve();
+    if (!ctx || !melodyDestination) return Promise.resolve(); // loaded in ensureInstruments
+    const dest = melodyDestination;
+    melodyLoading = (async () => {
+      try {
+        const inst = await loadMelodyInstrument(ctx!, dest, want);
+        // Config may have changed during the fetch — drop a stale result.
+        if ((config.melodyInstrument ?? "piano") !== want) return;
+        melody?.stopAll();
+        melody = inst;
+        melodyInstId = want;
+      } catch (err) {
+        console.warn("[backing] melody instrument load failed:", want, err);
+      } finally {
+        melodyLoading = null;
+      }
+    })();
+    return melodyLoading;
   }
 
   function applyPianoReverb() {
@@ -275,8 +312,9 @@ export function createBackingPlayer(
           // drumLoop already loops internally (it's an audio-buffer loop),
           // so no need to restart it here.
         } else {
-          stop();
-          callbacks.onDone?.();
+          // Final pass finished — don't hard-cut. Re-strike the closing chord
+          // and let it bloom into the reverb tail before teardown.
+          finishWithTail();
           return;
         }
       }
@@ -303,14 +341,14 @@ export function createBackingPlayer(
       return;
     }
 
-    // Melody routes through the piano soundfont for now — matches the legacy
-    // historical behaviour (lead line on SplendidGrandPiano). A dedicated
-    // melody-volume key still wins over piano's so the lead can be mixed
-    // independently.
+    // Melody plays on its own swappable lead instrument (piano / sax / flute /
+    // …, loaded by ensureMelodyInstrument). Falls back to the comp piano while
+    // the lead is still loading so the very first notes aren't dropped. Its own
+    // melody-volume key mixes the lead independently of the comp piano.
     const inst =
       ev.instrument === "piano" ? piano :
       ev.instrument === "bass"  ? bass  :
-      ev.instrument === "melody" ? piano :
+      ev.instrument === "melody" ? (melody ?? piano) :
       null;
     if (!inst) return;
 
@@ -329,7 +367,87 @@ export function createBackingPlayer(
     piano?.stopAll();
     bass?.stopAll();
     drums?.stopAll();
+    melody?.stopAll();
     drumLoop?.stop();
+  }
+
+  /* ── reverberant ending ──────────────────────────────────────────────
+   * Instead of cutting everything dead on the final pass, re-strike the
+   * closing voicing as one long sustained chord, crank the piano reverb send
+   * for a big bloom, and defer teardown until the tail has rung out. Gives a
+   * "button" ending that hangs in the air rather than stopping abruptly. */
+  const ENDING_TAIL_SEC = 4.5;
+  const ENDING_REVERB_SEND = 0.85;
+
+  /** Pull the last-struck comp voicing + last bass note from the event stream.
+   *  Keyed on the latest onset time (not bar index) so it stays robust even if
+   *  the final bar's comping slice happens to be sparse. */
+  function collectFinalChord(): { piano: number[]; bass: number | null } {
+    let maxPiano = -Infinity;
+    let bassNote: number | null = null;
+    let bassTime = -Infinity;
+    for (const ev of events) {
+      if (ev.kind !== "note") continue;
+      if (ev.instrument === "piano" && ev.time > maxPiano) maxPiano = ev.time;
+      if (ev.instrument === "bass" && ev.time >= bassTime) {
+        bassTime = ev.time;
+        bassNote = ev.midi;
+      }
+    }
+    const pitches = new Set<number>();
+    if (maxPiano > -Infinity) {
+      for (const ev of events) {
+        if (ev.kind !== "note" || ev.instrument !== "piano") continue;
+        // 0.12s window captures the final onset cluster incl. roll-spread.
+        if (Math.abs(ev.time - maxPiano) < 0.12) pitches.add(ev.midi);
+      }
+    }
+    return { piano: [...pitches].slice(0, 6), bass: bassNote };
+  }
+
+  function finishWithTail(): void {
+    if (!ctx) { stop(); callbacks.onDone?.(); return; }
+    playing = false;
+    cancelAnimationFrame(rafHandle);
+
+    const t = ctx.currentTime + 0.02;
+    const { piano: chord, bass: bassNote } = collectFinalChord();
+
+    // Drums end — this is a held chord, not a groove.
+    drums?.stopAll();
+    drumLoop?.stop();
+
+    // Bloom the piano reverb send for the tail.
+    if (pianoReverbSend) {
+      pianoReverbSend.gain.cancelScheduledValues(t);
+      pianoReverbSend.gain.setTargetAtTime(ENDING_REVERB_SEND, t, 0.08);
+    }
+
+    // Re-strike the closing voicing, sustained into the reverb tail.
+    const pVol = config.volume?.piano ?? 1;
+    if (pVol > 0) {
+      for (const midi of chord) {
+        piano?.trigger({ note: midi, time: t, duration: ENDING_TAIL_SEC, velocity: 0.5 * pVol });
+      }
+    }
+    const bVol = config.volume?.bass ?? 1;
+    if (bassNote != null && bVol > 0) {
+      bass?.trigger({ note: bassNote, time: t, duration: ENDING_TAIL_SEC, velocity: 0.6 * bVol });
+    }
+
+    // Defer teardown until the chord + reverb tail have decayed. setTimeout is
+    // fine here — all audio is already scheduled; this just releases nodes and
+    // notifies the UI.
+    if (endingTimer) clearTimeout(endingTimer);
+    endingTimer = setTimeout(() => {
+      endingTimer = null;
+      // Restore the configured reverb send for the next play().
+      if (pianoReverbSend && ctx) {
+        pianoReverbSend.gain.setTargetAtTime(config.pianoReverb ?? 0.22, ctx.currentTime, 0.1);
+      }
+      stop();
+      callbacks.onDone?.();
+    }, (ENDING_TAIL_SEC + 1.5) * 1000);
   }
 
   /* ── public API ──────────────────────────────────────────────────── */
@@ -345,6 +463,17 @@ export function createBackingPlayer(
 
   async function play(playOpts: { startAt?: number } = {}): Promise<void> {
     if (playing) return;
+    // A previous ending tail may still be ringing (playing===false but the
+    // teardown timer pending). Cancel it so its stop()/onDone can't fire into
+    // this fresh playback, and reset the reverb send.
+    if (endingTimer) {
+      clearTimeout(endingTimer);
+      endingTimer = null;
+      killActiveNodes();
+      if (pianoReverbSend && ctx) {
+        pianoReverbSend.gain.setTargetAtTime(config.pianoReverb ?? 0.22, ctx.currentTime, 0.05);
+      }
+    }
     await ensureCtx();
     await ensureInstruments();
     await ensureDrumLoop();
@@ -408,6 +537,15 @@ export function createBackingPlayer(
   function stop(): void {
     playing = false;
     cancelAnimationFrame(rafHandle);
+    // Cancel any pending ending tail and restore the reverb send so a manual
+    // stop mid-bloom doesn't leave the next play() over-reverbed.
+    if (endingTimer) {
+      clearTimeout(endingTimer);
+      endingTimer = null;
+      if (pianoReverbSend && ctx) {
+        pianoReverbSend.gain.setTargetAtTime(config.pianoReverb ?? 0.22, ctx.currentTime, 0.05);
+      }
+    }
     elapsed = 0;
     nextIdx = 0;
     lastBarFired = -2;
@@ -421,26 +559,35 @@ export function createBackingPlayer(
     const prevBpm = config.bpm;
     const prevStyle = config.style;
     const prevFeel = config.feel;
+    const prevMelodyInst = config.melodyInstrument;
     config = { ...config, ...next };
 
     // Apply pianoReverb immediately whether playing or not.
     applyPianoReverb();
 
+    const melodyInstChanged =
+      "melodyInstrument" in next && prevMelodyInst !== config.melodyInstrument;
+
     if (playing) {
-      // Mid-playback drum-kit / loop-URL / BPM / style / feel changes all
-      // desync against events already scheduled under the old settings.
-      // Fully stop so the user explicitly resumes.
+      // Mid-playback drum-kit / loop-URL / BPM / style / feel / melody-instrument
+      // changes all desync against events already scheduled under the old
+      // settings (or need a new sample set loaded). Fully stop so the user
+      // explicitly resumes.
       const modeChanged = prevMode !== config.drumMode;
       const urlChanged = prevUrl !== config.drumLoop?.url;
       const bpmChanged = "bpm" in next && prevBpm !== config.bpm;
       const styleChanged = "style" in next && prevStyle !== config.style;
       const feelChanged = "feel" in next && prevFeel !== config.feel;
-      if (modeChanged || urlChanged || bpmChanged || styleChanged || feelChanged) {
+      if (modeChanged || urlChanged || bpmChanged || styleChanged || feelChanged || melodyInstChanged) {
         stop();
         callbacks.onDone?.();
-        // Pre-fetch the new loop so the next play() doesn't wait on IO.
+        // Pre-fetch the new loop / melody instrument so the next play() doesn't
+        // wait on IO.
         if (config.drumMode === "loop") {
           ensureDrumLoop().catch(() => { /* logged in loader */ });
+        }
+        if (melodyInstChanged) {
+          ensureMelodyInstrument().catch(() => { /* logged in loader */ });
         }
         return;
       }
@@ -448,6 +595,13 @@ export function createBackingPlayer(
         const drumVol = config.volume?.drums ?? 1;
         drumLoop.setGain((config.drumLoop?.gain ?? 1) * drumVol);
       }
+      return;
+    }
+
+    // Idle: pre-load a newly-selected melody instrument so the next play()
+    // doesn't stall on the sample fetch.
+    if (melodyInstChanged) {
+      ensureMelodyInstrument().catch(() => { /* logged in loader */ });
     }
   }
 
@@ -463,6 +617,10 @@ export function createBackingPlayer(
     piano = null;
     bass = null;
     drums = null;
+    melody = null;
+    melodyDestination = null;
+    melodyInstId = null;
+    melodyLoading = null;
     pianoReverbSend = null;
     loading = null;
   }

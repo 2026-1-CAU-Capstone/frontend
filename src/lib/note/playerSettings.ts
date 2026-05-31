@@ -23,6 +23,31 @@ export type BassMode =
  * the whole rhythm section reads as that style. */
 export type PlayStyle = 'swing' | 'bossa';
 
+/** Melody lead-line instrument. 'piano' uses the SplendidGrandPiano (Salamander
+ * grand) — every other id is a General-MIDI instrument name loaded from the
+ * MusyngKite soundfont (same high-quality free kit the bass uses). */
+export type MelodyInstrumentId =
+  | 'piano'
+  | 'flute'
+  | 'alto_sax'
+  | 'tenor_sax'
+  | 'trumpet'
+  | 'electric_guitar_jazz'
+  | 'vibraphone'
+  | 'clarinet';
+
+/** Display lineup for the mixer's melody-instrument picker (order = UI order). */
+export const MELODY_INSTRUMENTS: { id: MelodyInstrumentId; label: string }[] = [
+  { id: 'piano',                label: '🎹 피아노' },
+  { id: 'flute',                label: '🎶 플룻' },
+  { id: 'alto_sax',             label: '🎷 알토 색소폰' },
+  { id: 'tenor_sax',            label: '🎷 테너 색소폰' },
+  { id: 'trumpet',              label: '🎺 트럼펫' },
+  { id: 'electric_guitar_jazz', label: '🎸 재즈 기타' },
+  { id: 'vibraphone',           label: '🔔 비브라폰' },
+  { id: 'clarinet',             label: '🪈 클라리넷' },
+];
+
 /** Transposing instrument for the chord-chart display. 'C' is concert pitch;
  * the others shift the written chart up by a fixed interval so a player reading
  * that instrument sees the correct fingering key (iReal-Pro "이조 악기"). */
@@ -36,6 +61,8 @@ export const TRANSPOSING_INSTRUMENT_OFFSET: Record<TransposingInstrument, number
 
 export interface PlayerSettings {
   melodyVolume: number;
+  /** Which instrument plays the melody lead line. Default 'piano'. */
+  melodyInstrument: MelodyInstrumentId;
   pianoVolume: number;
   /** 0–1, send level into the shared reverb bus for piano (comp + melody). */
   pianoReverb: number;
@@ -71,6 +98,7 @@ export interface PlayerSettings {
 
 const DEFAULTS: PlayerSettings = {
   melodyVolume: 1.0,
+  melodyInstrument: 'piano',
   pianoVolume: 1.0,
   pianoReverb: 0.45,
   bassVolume: 1.0,

@@ -35,6 +35,12 @@ export interface DrumBarOptions {
 /** Swung 8th lands at 2/3 through the beat (triplet 3rd). */
 const SWING_OFFSET = 2 / 3;
 
+/** Extra lay-back (in beats) applied to the dominant "& of 3" snare comp in
+ *  medium swing. iReal Pro plays it at frac ≈ 0.835 — about this far behind
+ *  the ride's swung 8th (frac ≈ 0.708) — a characteristic fat, behind-the-beat
+ *  comp. Only used at medium swing; up-tempo plays it on the grid. */
+const SNARE_AND3_LAYBACK_BEATS = 0.127;
+
 /** Build a beat-offset → seconds projector for a given swing ratio.
  *  Mirrors the math in lib/note/swing.ts so 8th-note "a" hits land at
  *  the same place the bass/piano use. ratio = 0.5 → straight 8ths. */
@@ -65,11 +71,13 @@ export function mediumSwingBar(opts: DrumBarOptions, bpm: number): DrumEvent[] {
   const beatToSec = makeBeatToSec(secPerBeat, swingRatio);
 
   const events: DrumEvent[] = [];
-  const push = (beat: number, piece: DrumPiece, velocity: number) => {
+  // `extraSec` nudges a hit later than its swung grid position (used for the
+  // behind-the-beat snare comp); defaults to 0 for everything else.
+  const push = (beat: number, piece: DrumPiece, velocity: number, extraSec = 0) => {
     events.push({
       kind: "drum",
       piece,
-      time: barStart + beatToSec(beat),
+      time: barStart + beatToSec(beat) + extraSec,
       velocity,
       bar: barIndex,
     });
@@ -97,10 +105,12 @@ export function mediumSwingBar(opts: DrumBarOptions, bpm: number): DrumEvent[] {
   push(2, "kick", 0.24);
   push(3, "kick", 0.24);
 
-  // Snare comping
+  // Snare comping — the "& of 3" (offset 2.5) is laid back behind the ride
+  // grid to match iReal's fat, behind-the-beat comp; the rest lock to the grid.
   const snarePattern = SNARE_PATTERNS[barIndex % SNARE_PATTERNS.length];
   for (const [offset, vel] of snarePattern) {
-    push(offset, "snare", vel);
+    const layback = offset === 2.5 ? SNARE_AND3_LAYBACK_BEATS * secPerBeat : 0;
+    push(offset, "snare", vel, layback);
   }
 
   if (barIndex % 8 === 7) {
@@ -491,16 +501,28 @@ export function swingBar(opts: DrumBarOptions): DrumEvent[] {
 
 /**
  * Rotating snare comping patterns (offset in beats → velocity).
- * Velocities are intentionally strong (0.7-0.85) so they sit clearly in
- * the mix after the drums volume multiplier (~0.9) is applied.
+ *
+ * Offsets are STRAIGHT half-beats (x.5). `mediumSwingBar` / `upTempoBar`
+ * project them through `beatToSec`, which swings them onto the SAME grid as
+ * the ride's swung 8ths (frac ≈ 0.71). The earlier patterns pre-baked the
+ * swing (`x.0 + SWING_OFFSET`) and were then swung a second time, landing the
+ * snare ~0.1 beat behind the ride (a flam). Using straight offsets locks the
+ * comp to the ride, matching the iReal Pro medium-swing track.
+ *
+ * Distribution mirrors iReal's measured comp: the "& of 3" is by far the most
+ * common hit, then "& of 1", then "& of 4"; the straight downbeat-of-4 hit
+ * iReal never plays is dropped. ~1.5 hits/bar (iReal ≈ 1.66).
+ *
+ * NOTE: the deprecated `swingBar` below schedules at raw time (no beatToSec),
+ * so it now reads these as un-swung — it is unused by `renderDrumBar`.
  */
 const SNARE_PATTERNS: Array<Array<[number, number]>> = [
-  [[2.0 + SWING_OFFSET, 0.72]],                              // "and of 3"
-  [[3.0 + SWING_OFFSET, 0.78]],                              // "and of 4"
-  [[0.0 + SWING_OFFSET, 0.68], [2.0 + SWING_OFFSET, 0.75]], // "and of 1" + "and of 3"
-  [[1.0 + SWING_OFFSET, 0.74]],                              // "and of 2"
-  [[3.0, 0.72]],                                             // downbeat of 4
-  [[1.0 + SWING_OFFSET, 0.7], [3.0 + SWING_OFFSET, 0.82]],  // "and of 2" + "and of 4"
+  [[2.5, 0.72]],               // "& of 3" — iReal's dominant comp
+  [[0.5, 0.66]],               // "& of 1"
+  [[0.5, 0.62], [2.5, 0.72]],  // "& of 1" + "& of 3"
+  [[2.5, 0.70], [3.5, 0.64]],  // "& of 3" + "& of 4"
+  [[0.5, 0.64]],               // "& of 1"
+  [[1.0, 0.55], [2.5, 0.70]],  // beat-2 tap + "& of 3"
 ];
 
 /* ─── Style → drum renderer dispatcher ─────────────────────────────────── */

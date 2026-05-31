@@ -215,6 +215,16 @@ export interface Bar {
   instruction?: BarInstruction;
   /** Original measure number (for UI sync / highlighting). */
   measureNumber?: number;
+  /** Volta-bracket number (1 for 1st ending, 2 for 2nd ending). When
+   *  expanding repeats, bars with `ending===1` are skipped on the 2nd pass
+   *  and bars with `ending===2` are played only on the 2nd pass. */
+  ending?: number;
+  /** True iff the SOURCE bar had no chord cells at all (not `%` and not
+   *  an explicit chord). Used by `expandForPlayback` to detect layout-only
+   *  padding bars sitting between a `:|` and a 2nd-ending marker — those
+   *  must be silent. Mid-chart empty bars (no nearby ending marker) are
+   *  preserved by cloning the prior chord, matching iReal Pro's behavior. */
+  wasEmpty?: boolean;
 }
 
 export interface Section {
@@ -323,6 +333,11 @@ export interface BackingConfig {
     velocity?: number;
     tie?: boolean;
   }>;
+  /** Melody lead-line instrument. 'piano' (default) routes the lead through the
+   *  SplendidGrandPiano; any other value is a General-MIDI soundfont name
+   *  (flute / alto_sax / trumpet / …) loaded on demand. Matches
+   *  `PlayerSettings.melodyInstrument`. */
+  melodyInstrument?: string;
 }
 
 /* ─── Player lifecycle callbacks ─────────────────────────────────────── */

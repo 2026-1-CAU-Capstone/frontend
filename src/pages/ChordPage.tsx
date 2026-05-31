@@ -1466,6 +1466,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
               editMode={editMode}
               onChordEdit={handleChordEdit}
               activeBar={activeBar}
+              bpm={tempo}
               onChordClick={handleChordClick}
               onChordRangeSelect={handleChordRangeSelect}
               selectedChordIds={selectedChordIds}

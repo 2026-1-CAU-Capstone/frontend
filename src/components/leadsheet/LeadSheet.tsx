@@ -28,6 +28,9 @@ const BARLINE_PAD  = 18;  // px — left padding reserved for barline decoration
 const BAR_H        = 78;  // px — row height (snug around chord content)
 const BARLINE_GAP  = 6;   // px — vertical inset at top/bottom of each barline
 const ROW_GAP      = 44;  // px — space between rows (extra room for bigger labels)
+const COMPACT_ROW_GAP = 28; // px — tighter gap when neither this row nor the next
+                            // carries an analysis decoration (ii-V bracket below /
+                            // ii-V-I or modal-interchange band above)
 /* Section spacing. The A/B label floats above its own chord row by
  * LABEL_OFFSET; lowering it pulls the label closer to its section's first row
  * (intentional slight asymmetry — sits nearer the part it labels).
@@ -343,19 +346,22 @@ const KeyOption = styled.button<{ $active?: boolean }>`
 
 /* ─── system row ─────────────────────────────────────────────────────────── */
 
-const SystemRow = styled.div<{ $sectionStart?: boolean; $hasVolta?: boolean }>`
+const SystemRow = styled.div<{ $sectionStart?: boolean; $hasVolta?: boolean; $compact?: boolean }>`
   display: flex;
   /* center (not stretch) so the larger TimeSig on row 1 doesn't inflate the
    * BarsGrid height — every row's chord grid stays at BAR_H regardless. */
   align-items: center;
-  margin-bottom: ${ROW_GAP}px;
-  /* When a row has a volta bracket (which sits VOLTA_HEIGHT=56px above the
+  /* Compact the gap below a row only when nothing decorates the seam: no ii-V
+   * bracket hangs off this row AND no ii-V-I / modal band tab pokes up from the
+   * next row. Decorated seams keep the full ROW_GAP so tabs/brackets never touch. */
+  margin-bottom: ${({ $compact }) => $compact ? COMPACT_ROW_GAP : ROW_GAP}px;
+  /* When a row has a volta bracket (which sits VOLTA_HEIGHT px above the
    * grid) AND the previous row carries a ii-V bracket below (~14px), the
-   * default ROW_GAP=44 isn't enough. Force margin-top to 78px on volta rows
-   * so the two decorations can never collide vertically. $sectionStart wins
-   * via max() when both apply. */
+   * default ROW_GAP=44 isn't enough. Force margin-top to VOLTA_HEIGHT+22 on
+   * volta rows so the two decorations can never collide vertically.
+   * $sectionStart wins via max() when both apply. */
   ${({ $sectionStart, $hasVolta }) => {
-    const mt = Math.max($sectionStart ? SECTION_GAP : 0, $hasVolta ? 78 : 0);
+    const mt = Math.max($sectionStart ? SECTION_GAP : 0, $hasVolta ? VOLTA_HEIGHT + 22 : 0);
     return mt > 0 ? `margin-top: ${mt}px;` : '';
   }}
   /* overflow visible so the section label can float above the grid */
@@ -450,7 +456,7 @@ const SectionLabel = styled.div`
 /* ─── volta ending bracket ──────────────────────────────────────────────── */
 
 // 볼타 브래킷 높이 — 충분한 여백을 두어 IIVI/모달 인터체인지 밴드와 겹치지 않도록.
-const VOLTA_HEIGHT = 56;
+const VOLTA_HEIGHT = 44;
 
 const VoltaBracket = styled.div<{ $cols?: number }>`
   position: absolute;
@@ -1245,6 +1251,8 @@ interface SystemRowProps {
   isLast: boolean;
   timeSignature: string;
   systemIndex: number;
+  /** True when the gap below this row can be compacted (no decoration on the seam). */
+  compact?: boolean;
   registerChordEl: (id: string, el: HTMLSpanElement | null) => void;
   registerSystemEl: (index: number, el: HTMLDivElement | null) => void;
   registerGridEl: (index: number, el: HTMLDivElement | null) => void;
@@ -1270,6 +1278,7 @@ function SystemRowComponent({
   isLast,
   timeSignature,
   systemIndex,
+  compact = false,
   registerChordEl,
   registerSystemEl,
   registerGridEl,
@@ -1306,6 +1315,7 @@ function SystemRowComponent({
       ref={(el) => registerSystemEl(systemIndex, el)}
       $sectionStart={!!system.sectionLabel}
       $hasVolta={system.bars.some((b) => b.ending != null)}
+      $compact={compact}
     >
       {/* Section label — lifted to SystemRow level so its left edge sits in
        *  the LeftMeta column, sharing the X position of the 4/4 time sig
@@ -1502,6 +1512,12 @@ interface LeadSheetProps {
    * Pass -1 (or omit) to disable the playback highlight.
    */
   activeBar?: number;
+  /**
+   * Playback tempo (BPM). When provided, multi-chord bars advance the
+   * playback highlight chord-by-chord in beat-proportion within the active
+   * bar. Omit to keep the highlight covering the whole bar.
+   */
+  bpm?: number;
   onChordClick?: (chord: LeadSheetChord, measureNumber: number, target?: LeadSheetChordSelection) => void;
   onChordRangeSelect?: (targets: LeadSheetChordSelection[], pos?: { x: number; y: number }) => void;
   selectedChordIds?: string[];
@@ -2020,6 +2036,7 @@ export function LeadSheet({
   analysisFilters,
   showAnalysis,
   activeBar = -1,
+  bpm,
   onChordClick,
   onChordRangeSelect,
   selectedChordIds,
@@ -2365,6 +2382,9 @@ export function LeadSheet({
   const [highlights, setHighlights] = useState<HighlightRect[]>([]);
   const [modalHighlights, setModalHighlights] = useState<ModalHighlightRect[]>([]);
   const [activeBarRect, setActiveBarRect] = useState<ActiveBarRect | null>(null);
+  // Which chord within the active bar is currently sounding. Only advances for
+  // multi-chord bars (driven by the bpm timing effect below); stays 0 otherwise.
+  const [activeChordIndex, setActiveChordIndex] = useState(0);
   const [selectionHighlights, setSelectionHighlights] = useState<SelectionHighlightRect[]>([]);
   const [hoveredSpanKey, setHoveredSpanKey] = useState<string | null>(null);
   const [activeTooltip, setActiveTooltip] = useState<{ hl: HighlightRect; anchorX: number; anchorY: number } | null>(null);
@@ -2389,6 +2409,35 @@ export function LeadSheet({
     const spanIndex = Number(hoveredSpanKey.replace('span-', ''));
     return new Set(iiviSpans[spanIndex]?.chordKeys ?? []);
   }, [af.showIIVI, hoveredSpanKey, iiviSpans]);
+
+  // Per-row: can the gap BELOW this row be compacted? Yes when the seam carries
+  // no analysis decoration — i.e. this row has no ii-V bracket hanging below AND
+  // the next row has no ii-V-I / modal-interchange band tab poking up. Derived
+  // from data + the active filter toggles, so compaction tracks what's visible.
+  const compactRows = useMemo(() => {
+    const n = resolvedData.systems.length;
+    const belowDeco = new Array<boolean>(n).fill(false); // ii-V bracket hangs below
+    const aboveDeco = new Array<boolean>(n).fill(false); // ii-V-I / modal tab above
+    if (af.showIIVI) {
+      for (const spec of bracketSpecs) {
+        const si = Number(spec.chordId1.split('-')[0]);
+        if (si >= 0 && si < n) belowDeco[si] = true;
+      }
+      for (const span of iiviSpans) {
+        for (const ck of span.chordKeys) {
+          const si = Number(ck.split('-')[0]);
+          if (si >= 0 && si < n) aboveDeco[si] = true;
+        }
+      }
+    }
+    if (af.showColors) {
+      for (const { chordKey } of modalChordLabels) {
+        const si = Number(chordKey.split('-')[0]);
+        if (si >= 0 && si < n) aboveDeco[si] = true;
+      }
+    }
+    return resolvedData.systems.map((_, i) => !(belowDeco[i] || aboveDeco[i + 1]));
+  }, [resolvedData, bracketSpecs, iiviSpans, modalChordLabels, af.showIIVI, af.showColors]);
 
   useLayoutEffect(() => {
     const pageEl = pageRef.current;
@@ -2750,6 +2799,17 @@ export function LeadSheet({
       const resolvedBrackets: ResolvedBracket[] = [];
       const BRACKET_GAP = 4;   // px below row bottom
       const BRACKET_DEPTH = 10; // px height of the bracket
+      const BRACKET_UNHL_LIFT = 7; // px — non-highlighted ii-V brackets ride up a
+                                   // touch toward the chords (no band fills the
+                                   // row above them, so the default seam looks loose)
+
+      // Chord keys covered by a (rule-based) ii-V-I highlight span. A bracket
+      // whose ii AND V are both highlighted sits flush under the yellow band;
+      // a standalone ii-V (no highlight) gets lifted toward the chord text.
+      const highlightedKeys = new Set<string>();
+      for (const span of iiviSpans) {
+        for (const ck of span.chordKeys) highlightedKeys.add(ck);
+      }
 
       for (const spec of bracketSpecs) {
         const el1 = chordElsRef.current[spec.chordId1];
@@ -2768,9 +2828,12 @@ export function LeadSheet({
         const siStr = spec.chordId1.split('-')[0];
         const gridEl = gridElsRef.current[Number(siStr)];
         const gridRect = gridEl?.getBoundingClientRect();
-        const yBase = gridRect
+        const isHighlighted =
+          highlightedKeys.has(spec.chordId1) && highlightedKeys.has(spec.chordId2);
+        const lift = isHighlighted ? 0 : BRACKET_UNHL_LIFT;
+        const yBase = (gridRect
           ? ly(gridRect.bottom - BARLINE_GAP * scale) + BRACKET_GAP
-          : Math.max(ly(rect1.bottom), ly(rect2.bottom)) + BRACKET_GAP;
+          : Math.max(ly(rect1.bottom), ly(rect2.bottom)) + BRACKET_GAP) - lift;
         const yBottom = yBase + BRACKET_DEPTH;
 
         resolvedBrackets.push({
@@ -3105,9 +3168,45 @@ export function LeadSheet({
     };
   }, [arrowSpecs, bracketSpecs, iiviSpans, modalChordLabels, resolvedData, effectiveScale]);
 
+  /* ── Per-beat chord advance within the active bar ─────────────────────
+   * A bar with 2+ chords advances the playback highlight chord-by-chord in
+   * beat-proportion (chordSpanInBar mirrors the painted layout, so each chord
+   * owns its beats). Single-chord bars hold index 0 → full-bar highlight.
+   * Bar start is approximated at effect-run time; accurate enough for a cue. */
+  useEffect(() => {
+    if (activeBar < 0) { setActiveChordIndex(0); return; }
+    const mapping = flatBarToSystemBar(activeBar, resolvedData.systems);
+    const chords = mapping
+      ? resolvedData.systems[mapping.si]?.bars[mapping.bi]?.chords ?? []
+      : [];
+    if (!bpm || bpm <= 0 || chords.length < 2) { setActiveChordIndex(0); return; }
+
+    const beatsPerBar = Number(resolvedData.timeSignature.split('/')[0]) || 4;
+    const secPerBar = (60 / bpm) * beatsPerBar;
+    if (secPerBar <= 0) { setActiveChordIndex(0); return; }
+
+    setActiveChordIndex(0);
+    const barStart = performance.now();
+    let raf = 0;
+    const tick = () => {
+      const frac = Math.min((performance.now() - barStart) / 1000 / secPerBar, 0.9999);
+      let idx = chords.length - 1;
+      for (let i = 0; i < chords.length; i++) {
+        const { start, end } = chordSpanInBar(chords, i);
+        if (frac >= start && frac < end) { idx = i; break; }
+      }
+      setActiveChordIndex((prev) => (prev === idx ? prev : idx));
+      if (frac < 0.9999) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [activeBar, bpm, resolvedData]);
+
   /* ── Active-bar playback highlight ───────────────────────────────────
-   * Transparent sky-blue overlay covering the bar currently being played.
-   * Recomputes on activeBar / scale / resize / data changes. */
+   * Transparent sky-blue overlay covering the currently-sounding chord. Its
+   * vertical bounds mirror the yellow ii-V-I band EXACTLY (BARLINE_GAP inset
+   * top & bottom, song-canonical row height) so the two align when they meet.
+   * Recomputes on activeBar / activeChordIndex / scale / resize / data. */
   useLayoutEffect(() => {
     const pageEl = pageRef.current;
     if (!pageEl || activeBar < 0) {
@@ -3131,11 +3230,29 @@ export function LeadSheet({
       const numBars = resolvedData.systems[mapping.si]?.bars.length ?? 4;
       const barW = gridRect.width / numBars;
 
+      // Canonical (median) row height, measured exactly like the yellow band
+      // so the sky-blue overlay shares its top & bottom edges.
+      const measuredHeights: number[] = [];
+      for (let si = 0; si < resolvedData.systems.length; si++) {
+        const el = gridElsRef.current[si];
+        if (el) measuredHeights.push(el.getBoundingClientRect().height / scale);
+      }
+      measuredHeights.sort((a, b) => a - b);
+      const canonicalRowHeight = measuredHeights.length > 0
+        ? measuredHeights[Math.floor(measuredHeights.length / 2)]
+        : BAR_H;
+
+      // Beat-proportional sub-region: a multi-chord bar paints only the active
+      // chord's slot; a single-chord bar gets span {0,1} → the whole bar.
+      const chords = resolvedData.systems[mapping.si]?.bars[mapping.bi]?.chords ?? [];
+      const idx = Math.min(Math.max(activeChordIndex, 0), Math.max(chords.length - 1, 0));
+      const { start, end } = chordSpanInBar(chords, idx);
+
       setActiveBarRect({
-        x: (gridRect.left + mapping.bi * barW - pageRect.left) / scale,
-        y: (gridRect.top - pageRect.top) / scale,
-        width: barW / scale,
-        height: gridRect.height / scale,
+        x: (gridRect.left + (mapping.bi + start) * barW - pageRect.left) / scale,
+        y: (gridRect.top - pageRect.top) / scale + BARLINE_GAP,
+        width: ((end - start) * barW) / scale,
+        height: canonicalRowHeight - 2 * BARLINE_GAP,
       });
     };
 
@@ -3148,7 +3265,7 @@ export function LeadSheet({
       observer.disconnect();
       window.removeEventListener('resize', measureActiveBar);
     };
-  }, [activeBar, resolvedData, effectiveScale]);
+  }, [activeBar, activeChordIndex, resolvedData, effectiveScale]);
 
   const registerChordEl = (id: string, el: HTMLSpanElement | null) => {
     chordElsRef.current[id] = el;
@@ -3462,6 +3579,7 @@ export function LeadSheet({
             isFirst={i === 0}
             isLast={i === resolvedData.systems.length - 1}
             systemIndex={i}
+            compact={compactRows[i]}
             timeSignature={resolvedData.timeSignature}
             registerChordEl={registerChordEl}
             registerSystemEl={registerSystemEl}

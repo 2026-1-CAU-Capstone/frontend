@@ -48,6 +48,10 @@ export interface BackingInstruments {
   /** Gain node that feeds the piano's wet-reverb send. Adjust to tune the
    * piano's apparent room size live. */
   pianoReverbSend: GainNode;
+  /** Destination node the melody instrument should connect to. Already routed
+   * through the shared reverb (dry + wet send) so any lead instrument loaded
+   * by loadMelodyInstrument() sits in the same room as the piano. */
+  melodyDestination: AudioNode;
 }
 
 /* ─── helpers ────────────────────────────────────────────────────────── */
@@ -83,6 +87,36 @@ function wrapPitched(inst: PitchedSampler, gainMultiplier = 1.0): TriggerableIns
   };
 }
 
+/* ─── melody lead instrument (swappable) ─────────────────────────────── */
+
+/**
+ * Load the melody lead-line instrument on demand. 'piano' returns a
+ * SplendidGrandPiano (the Salamander grand — best-in-class free piano);
+ * everything else loads a General-MIDI instrument from the MusyngKite kit,
+ * the same high-quality free soundfont the walking bass uses.
+ *
+ * `destination` should be the reverb-routed node from
+ * BackingInstruments.melodyDestination so the lead sits in the same room.
+ */
+export async function loadMelodyInstrument(
+  ctx: AudioContext,
+  destination: AudioNode,
+  instrumentId: string,
+): Promise<TriggerableInstrument> {
+  if (instrumentId === "piano") {
+    const piano = new SplendidGrandPiano(ctx, { destination });
+    await piano.load;
+    return wrapPitched(piano, 1.0);
+  }
+  const inst = new Soundfont(ctx, {
+    instrument: instrumentId,
+    kit: "MusyngKite",
+    destination,
+  });
+  await inst.load;
+  return wrapPitched(inst, 1.0);
+}
+
 /* ─── loader ─────────────────────────────────────────────────────────── */
 
 export async function loadInstruments(ctx: AudioContext): Promise<BackingInstruments> {
@@ -107,6 +141,19 @@ export async function loadInstruments(ctx: AudioContext): Promise<BackingInstrum
   pianoSend.gain.value = 0.22;
   pianoAmp.connect(pianoSend);
   pianoSend.connect(reverb.wet);
+
+  // Melody routing: its own dry + wet send so the swappable lead instrument
+  // (piano / sax / flute / …) shares the same room as the comp. A small boost
+  // keeps GM leads (sax, trumpet) present against the rhythm section; the
+  // melody volume slider rides on top of this.
+  const melodyAmp = ctx.createGain();
+  melodyAmp.gain.value = 1.5;
+  melodyAmp.connect(reverb.dry);
+
+  const melodySend = ctx.createGain();
+  melodySend.gain.value = 0.18;
+  melodyAmp.connect(melodySend);
+  melodySend.connect(reverb.wet);
 
   // Drum routing: same dry + send pattern
   const drumAmp = ctx.createGain();
@@ -146,5 +193,6 @@ export async function loadInstruments(ctx: AudioContext): Promise<BackingInstrum
     bass: wrapPitched(bass, 1.0),
     drums,
     pianoReverbSend: pianoSend,
+    melodyDestination: melodyAmp,
   };
 }

@@ -20,10 +20,8 @@ import type {
  *   2. Otherwise fall back to parsing the raw root letter + quality string.
  *   3. Expand whole-bar repeat markers by cloning the previous bar's chords.
  *   4. Split chords evenly across bar beats (Phase 0 simplification).
- *   5. Map LeadSheetSystem 1:1 to Chart.Section, preserving repeat flags.
- *
- * Phase 0 scope: flat conversion, no repeat/volta expansion for playback.
- * Phase 2+: expand repeats into a flat playable sequence.
+ *   5. Map LeadSheetSystem to Chart.Section, then RUN expansion over repeat
+ *      brackets and 1st/2nd endings so the engine sees a linear sequence.
  * ──────────────────────────────────────────────────────────────────────── */
 
 export interface AdapterOptions {
@@ -49,6 +47,7 @@ export function leadSheetToChart(
   for (const sys of data.systems) {
     const bars: Bar[] = [];
     for (const srcBar of sys.bars) {
+      const wasEmpty = srcBar.chords.length === 0;
       const chords = convertBarChords(srcBar.chords, beatsPerBar, previousBarChords);
       if (chords.length > 0) {
         previousBarChords = chords;
@@ -56,6 +55,8 @@ export function leadSheetToChart(
       bars.push({
         chords,
         measureNumber: srcBar.measureNumber,
+        ending: srcBar.ending,
+        wasEmpty,
       });
     }
     sections.push({
@@ -74,8 +75,114 @@ export function leadSheetToChart(
     timeSig,
     defaultStyle: opts.style ?? detected.style,
     defaultFeel: opts.feel ?? "swing",
-    sections,
+    sections: expandForPlayback(sections),
   };
+}
+
+/* ─── repeat / volta expansion ───────────────────────────────────────── */
+
+/**
+ * Expand `|: ... :|` repeats and 1st/2nd endings (volta brackets) into a
+ * single linear bar sequence the engine can play straight through.
+ *
+ * iReal's encoding:
+ *   - `hasRepeatStart` lives on a Section: the section's FIRST bar is the
+ *     repeat-start marker (`|:`).
+ *   - `hasRepeatEnd` lives on a Section: the section's LAST bar is the
+ *     repeat-end marker (`:|`).
+ *   - `bar.ending = 1 | 2` marks volta brackets. The 1st-ending bracket
+ *     starts at the bar marked `ending=1` and runs up to (and includes) the
+ *     bar at `:|`. The 2nd-ending bracket starts at the bar marked
+ *     `ending=2` and runs to the next structural break (usually a new
+ *     section without an ending marker).
+ *   - Bars between `:|` and the `ending=2` marker are visual-layout
+ *     padding (empty `chords:[]` cells in iReal JSON). They MUST be skipped
+ *     in playback — they only exist so the lead sheet visually aligns the
+ *     2nd ending under the 1st.
+ *
+ * Pass-1 semantics: linear walk through every bar (including ending=1).
+ * Pass-2 semantics: jump back to the repeat-start, then on the way down,
+ *   skip the entire 1st-ending bracket (ending=1 bar through `:|`) and
+ *   skip the visual-padding bars, leaving ending=2 + everything after.
+ */
+function expandForPlayback(sections: Section[]): Section[] {
+  type Tagged = {
+    bar: Bar;
+    repeatStart: boolean;
+    repeatEnd: boolean;
+  };
+
+  const flat: Tagged[] = [];
+  for (const sec of sections) {
+    for (let bi = 0; bi < sec.bars.length; bi++) {
+      const bar = sec.bars[bi];
+      flat.push({
+        bar,
+        repeatStart: !!sec.repeatStart && bi === 0,
+        repeatEnd: !!sec.repeatEnd && bi === sec.bars.length - 1,
+      });
+    }
+  }
+
+  // Padding detection: source-empty bars (wasEmpty=true) that sit between a
+  // `:|` and a subsequent `ending` marker. Marked ONLY when the scan
+  // actually reaches an ending marker — otherwise the empties are real
+  // intentional rests/clones in the middle of the chart (e.g. "Hindsight").
+  const isPadding = new Array<boolean>(flat.length).fill(false);
+  for (let i = 0; i < flat.length; i++) {
+    if (!flat[i].repeatEnd) continue;
+    const candidates: number[] = [];
+    let foundEnding = false;
+    for (let j = i + 1; j < flat.length; j++) {
+      if (flat[j].bar.ending != null) { foundEnding = true; break; }
+      if (flat[j].bar.wasEmpty) candidates.push(j);
+    }
+    if (foundEnding) {
+      for (const j of candidates) isPadding[j] = true;
+    }
+  }
+
+  const output: Bar[] = [];
+  let i = 0;
+  let repeatStartIdx: number | null = null;
+  let havePlayedOnce = false;
+
+  while (i < flat.length) {
+    const t = flat[i];
+
+    // Entering a (new) repeat block — remember where to jump back to.
+    if (t.repeatStart && repeatStartIdx !== i) {
+      repeatStartIdx = i;
+      havePlayedOnce = false;
+    }
+
+    // 2nd pass: skip the entire 1st-ending bracket (this bar → `:|`).
+    if (havePlayedOnce && t.bar.ending === 1) {
+      let j = i;
+      while (j < flat.length && !flat[j].repeatEnd) j++;
+      i = j + 1;
+      continue;
+    }
+
+    // 2nd pass: skip layout-padding bars under the 2nd-ending bracket.
+    if (havePlayedOnce && isPadding[i]) {
+      i++;
+      continue;
+    }
+
+    output.push(t.bar);
+
+    // First time we hit `:|` — loop back to `|:`.
+    if (t.repeatEnd && !havePlayedOnce && repeatStartIdx !== null) {
+      i = repeatStartIdx;
+      havePlayedOnce = true;
+      continue;
+    }
+
+    i++;
+  }
+
+  return [{ label: "expanded", bars: output }];
 }
 
 /* ─── bar-level conversion ───────────────────────────────────────────── */
@@ -98,7 +205,11 @@ function convertBarChords(
   // Bar is entirely N.C. → silent bar (no chord events scheduled)
   if (real.length === 0 && hasNoChord) return [];
 
-  // Empty or repeat-only bar → clone previous bar's chords
+  // No real chords AND no N.C. marker → either a `%` bar (isRepeat:true)
+  // or an empty visual cell. Both behave as "continue prior harmony" in
+  // iReal Pro — clone previous chord. Padding bars under a 2nd-ending
+  // bracket carry the same clone but get skipped at playback expansion
+  // time via the `wasEmpty` flag set by the caller.
   if (real.length === 0) {
     return previousBarChords.map((c) => ({ ...c }));
   }

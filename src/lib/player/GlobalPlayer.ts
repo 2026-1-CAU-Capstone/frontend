@@ -532,16 +532,14 @@ export function createGlobalPlayer(
       setPlayerSettings(patch.mixer);
     }
 
-    if (!active) return;
-
-    // The orchestrator's `bpm` field isn't part of the mixer store, so
-    // for melody engines the actual BPM applied to playback comes from
-    // `play()`'s `tempo` arg — pages that change BPM mid-play should
-    // call `play()` again with the new BPM.
-    if (activeKind !== "chart") return;
-
-    // For chart engine, fan out to BackingPlayer.setConfig.
-    const bp = active as BackingPlayer;
+    // Fan out chart-engine fields (bpm/style/feel/loop/repeatCount) to the
+    // chart BackingPlayer *instance* directly — NOT gated on `active`. The
+    // user typically sets these (e.g. the "3x" repeat control) before pressing
+    // play, when `active` is still null; gating on `active` silently dropped
+    // the value and the player fell back to its default (infinite loop).
+    // Targeting the instance keeps its config in sync so the next play()
+    // honours it. The mixer-store comment above still holds for melody BPM.
+    if (!backingPlayer) return;
     const bpPatch: Partial<BackingConfig> = {};
     if ("bpm" in patch) bpPatch.bpm = patch.bpm;
     if ("style" in patch) bpPatch.style = patch.style;
@@ -549,7 +547,7 @@ export function createGlobalPlayer(
     if ("loop" in patch) bpPatch.loop = patch.loop;
     if ("repeatCount" in patch) bpPatch.repeatCount = patch.repeatCount;
     if (Object.keys(bpPatch).length > 0) {
-      bp.setConfig(bpPatch);
+      backingPlayer.setConfig(bpPatch);
     }
   }
 

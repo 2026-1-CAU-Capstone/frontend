@@ -6,6 +6,7 @@ import {
   setPlayerSetting,
   setPlayerSettings,
   subscribePlayerSettings,
+  MELODY_INSTRUMENTS,
   type BassMode,
   type PlayStyle,
   type PlayerSettings,
@@ -324,7 +325,7 @@ export function BackingMixer({ engine, analysisOn, onToggleAnalysis }: BackingMi
   useEffect(() => subscribePlayerSettings(setSettings), []);
 
   const {
-    melodyVolume, pianoVolume, pianoReverb,
+    melodyVolume, melodyInstrument, pianoVolume, pianoReverb,
     bassVolume, bassMode,
     drumVolume, drumKit,
   } = settings;
@@ -400,6 +401,17 @@ export function BackingMixer({ engine, analysisOn, onToggleAnalysis }: BackingMi
       {/* 악기 디테일 — per-instrument options. */}
       <MixerSection $accent='#b87edd'>
         <MixerSectionTitle>🎛 악기 디테일</MixerSectionTitle>
+        <MixerRow $top>
+          <MixerLabel>멜로디</MixerLabel>
+          <InstGroup>
+            {MELODY_INSTRUMENTS.map(({ id, label }) => (
+              <InstBtn key={id} type='button' $on={melodyInstrument === id}
+                onClick={() => setPlayerSetting('melodyInstrument', id)}>
+                {label}
+              </InstBtn>
+            ))}
+          </InstGroup>
+        </MixerRow>
         <MixerRow>
           <MixerLabel>베이스</MixerLabel>
           <KitGroup>
@@ -764,9 +776,9 @@ const MixerSectionTitle = styled.div`
   gap: 8px;
 `;
 
-const MixerRow = styled.div`
+const MixerRow = styled.div<{ $top?: boolean }>`
   display: flex;
-  align-items: center;
+  align-items: ${({ $top }) => ($top ? 'flex-start' : 'center')};
   gap: 12px;
   min-height: 30px;
 `;
@@ -845,6 +857,20 @@ const KitBtn = styled.button<{ $on?: boolean }>`
   &:hover {
     background: ${({ $on }) => ($on ? 'rgba(78,161,255,0.2)' : '#f4f4f5')};
   }
+`;
+
+/* Melody-instrument picker — wraps to a 2-column grid since the lineup has
+ * more entries than the inline bass / kit groups. */
+const InstGroup = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+`;
+
+const InstBtn = styled(KitBtn)`
+  flex: 0 1 calc(50% - 3px);
 `;
 
 const AttribLine = styled.div`
