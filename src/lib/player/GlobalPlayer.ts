@@ -2,11 +2,11 @@
  * GlobalPlayer — Unified player orchestrator.
  *
  * Approach B from the Unified Player Architecture design doc: this is a
- * thin orchestrator that wraps two concrete engines —
- *  • `NotePlayer`         (lib/note/notePlayer.ts)
+ * thin orchestrator that wraps the concrete engines —
  *  • `BackingPlayer`      (lib/backing/player.ts +
  *                          lib/yamaha-sty/sty-backing-player.ts +
  *                          lib/yamaha-sty/hybrid-backing-player.ts)
+ *  • `AnacrusisPlayer`    (lib/player/anacrusisPlayer.ts) — pickup notes
  *
  * Responsibilities of this layer (intentionally small):
  *  1. Route `play({ kind })` to the correct inner engine and instantiate
@@ -39,49 +39,43 @@
  *
  * SHARED — every page that plays audio sees the same value:
  *   • `playerSettings` store (mixer volumes, drumKit, swingRatio, style,
- *     bassMode, metroEnabled, pianoReverb). Both NotePlayer and the
- *     BackingPlayer family subscribe via `subscribePlayerSettings()`.
- *     Patches written through `setConfig({ mixer })` reach all engines.
+ *     bassMode, metroEnabled, pianoReverb). The BackingPlayer family
+ *     subscribes via `subscribePlayerSettings()`. Patches written through
+ *     `setConfig({ mixer })` reach all engines.
  *   • `createReverbBus()`, `loadSampledDrumKit()`, `loadDrumLoopPlayer()`
  *     — common asset loaders (per-engine AudioContext, but identical
  *     samples).
  *
- * NOT SHARED — by design, these live inside the inner engines:
- *   • Piano comping algorithm — NotePlayer uses its own `VOICINGS` table
- *     + `COMP_PATTERNS_*` rhythms (see notePlayer.ts `build()`).
- *     BackingPlayer uses the pre-recorded `PSBASE_CH0_PATTERN` slice
- *     (swing) or `renderLegacyPianoComping` (bossa/latin) in engine.ts.
- *     Stage-2 iReal patches (#6 roll, #7 anticipation, #8 3-hit pool) are
- *     applied INSIDE the BackingPlayer paths only — NotePlayer has its
- *     own humanization tuned for the melody-on-top context.
- *   • Bass walk — BackingPlayer uses `walkChord()` in bass.ts; NotePlayer
- *     has its own two-feel/four-feel routine in `build()`. Patch #1
- *     (approach-tone weighted roulette) is in walkChord only.
- *   • Drum patterns — BackingPlayer uses `renderDrumBar()` in drums.ts;
- *     NotePlayer has its own swing/bossa hits in `build()`. Patch #2
- *     (snare rotation library) and #5 (style router) live in drums.ts
- *     only.
- *   • Piano library — NotePlayer uses `soundfont-player`'s
- *     `acoustic_grand_piano`; BackingPlayer uses `smplr`'s
- *     `SplendidGrandPiano` (velocity layers). Unifying these is a
- *     separate audio-engineering decision (see design doc §7).
+ * Engine-internal details (live inside BackingPlayer):
+ *   • Piano comping — pre-recorded `PSBASE_CH0_PATTERN` slice (swing)
+ *     or `renderLegacyPianoComping` (bossa/latin) in engine.ts. Stage-2
+ *     iReal patches (#6 roll, #7 anticipation, #8 3-hit pool) live here.
+ *   • Bass walk — `walkChord()` in bass.ts. Patch #1 (approach-tone
+ *     weighted roulette) lives here.
+ *   • Drum patterns — `renderDrumBar()` in drums.ts. Patch #2 (snare
+ *     rotation library) and #5 (style router) live here.
+ *   • Piano library — `smplr`'s `SplendidGrandPiano` (velocity layers).
  *
- * So: when the user plays a "chart" (chord chart) every Stage-2 patch
- * reaches audio. When the user plays a "sheet"/"lick"/"solo" (melody
- * with embedded rhythm section), the rhythm-section humanization comes
- * from NotePlayer's own (separate) logic, NOT from the iReal patches.
- * If a future patch should reach BOTH paths, it must be applied in BOTH
- * engines.
+ * Melody (sheet/lick/solo) and chart paths both route through
+ * BackingPlayer engines, so Stage-2 iReal humanization patches reach
+ * audio uniformly. In lick mode the rhythm section is silenced via
+ * `seed.volume` rather than swapped for a different engine.
  * ──────────────────────────────────────────────────────────────────── */
 
-import { NotePlayer } from "../note/notePlayer";
+import { AnacrusisPlayer } from "./anacrusisPlayer";
 import { setPlayerSettings } from "../note/playerSettings";
 import { createBackingPlayer } from "../backing/player";
 import { leadSheetToChart } from "../backing/adapters/leadSheetToChart";
+import {
+  noteSheetToChart,
+  extractMelody,
+  type MelodyNote,
+} from "../backing/adapters/noteSheetToChart";
 import { createStyBackingPlayer } from "../../lib/yamaha-sty/sty-backing-player";
 import { createHybridBackingPlayer } from "../../lib/yamaha-sty/hybrid-backing-player";
 import type { Chart, BackingPlayer, BackingConfig } from "../backing/types";
 import type { LeadSheetData } from "../../data/leadSheetTypes";
+import type { NoteSheetData } from "../../data/sampleMelody";
 import type {
   AnacrusisNote,
   ChartInput,
@@ -101,7 +95,6 @@ import type {
  * AudioContext / soundfont fetch.
  */
 export interface GlobalPlayerEngineFactories {
-  createNotePlayer: (opts: { lickMode?: boolean }) => NotePlayer;
   createBackingPlayer: (
     chart: Chart,
     config?: BackingConfig,
@@ -119,7 +112,6 @@ export interface GlobalPlayerEngineFactories {
 }
 
 const DEFAULT_FACTORIES: GlobalPlayerEngineFactories = {
-  createNotePlayer: (opts) => new NotePlayer(opts),
   createBackingPlayer: (chart, config) => createBackingPlayer(chart, config),
   createStyBackingPlayer: (chart, config, options) =>
     createStyBackingPlayer(chart, config, options),
@@ -168,43 +160,35 @@ export function createGlobalPlayer(
 ): GlobalPlayer {
   /* ── Inner engine handles (lazy) ─────────────────────────────────── */
 
-  // We keep one NotePlayer per `lickMode` value because lickMode is
-  // baked into the instance at construction (silences bass/drums,
-  // boosts melody). Cheap: no AudioContext is created until first play.
-  let notePlayerSheet: NotePlayer | null = null;
-  let notePlayerLick: NotePlayer | null = null;
-  // Dedicated NotePlayer for anacrusis (pickup-note) scheduling. Kept
-  // separate from the sheet/lick instances so the page can schedule
-  // pickups without affecting whichever melody engine is about to play()
-  // — and so cancelAnacrusis() doesn't interfere with the main timeline.
-  let notePlayerAnacrusis: NotePlayer | null = null;
+  // Dedicated AnacrusisPlayer for pickup-note scheduling. Kept separate
+  // from the melody engine so the page can schedule pickups without
+  // affecting whichever melody playback is about to start — and so
+  // cancelAnacrusis() doesn't interfere with the main timeline.
+  let notePlayerAnacrusis: AnacrusisPlayer | null = null;
+  // Non-null only when AnacrusisPlayer's ctx was allocated by us (fallback
+  // path: no active BackingPlayer existed at first getAnacrusisPlayer()).
+  // dispose() closes this; a shared ctx (sourced from active.getCtx())
+  // belongs to the BackingPlayer's lifecycle and must NOT be closed here.
+  let ownedAnacrusisCtx: AudioContext | null = null;
   let backingPlayer: BackingPlayer | null = null;
   // The chart input we last built `backingPlayer` for. If the user calls
   // play() with a different chart or engineBackend, we tear down and
   // rebuild — there's no clean "setChart" API on BackingPlayer.
   let backingPlayerSig: string | null = null;
-
-  function getNotePlayer(lickMode: boolean): NotePlayer {
-    if (lickMode) {
-      if (!notePlayerLick) {
-        notePlayerLick = factories.createNotePlayer({ lickMode: true });
-        wireNotePlayer(notePlayerLick);
-      }
-      return notePlayerLick;
-    }
-    if (!notePlayerSheet) {
-      notePlayerSheet = factories.createNotePlayer({ lickMode: false });
-      wireNotePlayer(notePlayerSheet);
-    }
-    return notePlayerSheet;
-  }
+  // Separate BackingPlayer dedicated to the unified `sheet`/`lick`/`solo`
+  // path so it doesn't fight the chord-chart `backingPlayer` for an
+  // AudioContext. Lazy: only created when the page calls play() with a
+  // melody kind.
+  let backingPlayerMelody: BackingPlayer | null = null;
+  let backingPlayerMelodySig: string | null = null;
+  let backingPlayerMelodyOffset = 0;
 
   /* ── Active engine pointer ───────────────────────────────────────── */
 
   // Which inner engine is currently selected. Used by pause/stop/etc.
   // so the orchestrator routes to the right one without re-checking
   // currentInput on every call.
-  let active: NotePlayer | BackingPlayer | null = null;
+  let active: BackingPlayer | null = null;
   let activeKind: PlayerInput["kind"] | null = null;
   let currentInput: PlayerInput | null = null;
   let barChordTable: (ChordSymbol | null)[] = [];
@@ -248,27 +232,6 @@ export function createGlobalPlayer(
 
   /* ── Engine → bus wiring ─────────────────────────────────────────── */
 
-  function wireNotePlayer(np: NotePlayer) {
-    np.onMeasure = (idx: number) => {
-      // NotePlayer fires onMeasure(-1) on stop — only forward live bars.
-      if (idx < 0) return;
-      emit("bar", idx);
-    };
-    np.onNote = (mi: number, ni: number) => {
-      emit("note", mi, ni);
-    };
-    np.onDone = () => {
-      emit("done");
-    };
-    np.onDrumKitError = (msg: string | null) => {
-      // NotePlayer calls this with `null` on successful (re)load to clear
-      // any stale warning. We only forward actual error strings so
-      // subscribers don't have to filter the no-op case.
-      if (msg == null) return;
-      emit("drumKitError", msg);
-    };
-  }
-
   function wireBackingPlayer(bp: BackingPlayer) {
     bp.on("onBar", (barIndex: number) => {
       if (barIndex < 0) return;
@@ -280,8 +243,30 @@ export function createGlobalPlayer(
       emit("done");
     });
     bp.on("onDrumKitError", (msg: string | null) => {
-      // Same `null = clear` semantics as NotePlayer; subscribers only see
-      // real error strings.
+      // `null = clear` semantics: subscribers only see real error strings.
+      if (msg == null) return;
+      emit("drumKitError", msg);
+    });
+  }
+
+  /**
+   * Wire the melody-side BackingPlayer to the unified event bus. Emits
+   * `bar` + `note` events (no `chord` — sheet/lick consumers don't subscribe
+   * to chord changes via this path). Applies the orchestrator's latest
+   * `measureOffset` so source-bar indices match what pages expect.
+   */
+  function wireBackingPlayerMelody(bp: BackingPlayer) {
+    bp.on("onBar", (barIndex: number) => {
+      if (barIndex < 0) return;
+      emit("bar", barIndex + backingPlayerMelodyOffset);
+    });
+    bp.on("onNote", (mi: number, ni: number) => {
+      emit("note", mi + backingPlayerMelodyOffset, ni);
+    });
+    bp.on("onDone", () => {
+      emit("done");
+    });
+    bp.on("onDrumKitError", (msg: string | null) => {
       if (msg == null) return;
       emit("drumKitError", msg);
     });
@@ -350,6 +335,72 @@ export function createGlobalPlayer(
     return backingPlayer;
   }
 
+  /**
+   * Build (or reuse) the unified BackingPlayer for a sheet/lick input.
+   * Converts NoteSheetData → Chart + MelodyNote[] via the Phase-2 adapter,
+   * seeds the BackingConfig with the orchestrator's current config plus the
+   * melody track and (for lick) the lick-mode volume preset, and wires the
+   * unified event bus through `wireBackingPlayerMelody`.
+   *
+   * Returns the BackingPlayer instance; caller is responsible for calling
+   * `play({ startAt })` on it.
+   */
+  function ensureBackingPlayerForSheet(
+    input: { kind: "sheet" | "lick" | "solo"; data: NoteSheetData },
+  ): BackingPlayer {
+    const sig = computeMelodySig(input);
+    if (backingPlayerMelody && backingPlayerMelodySig === sig) {
+      return backingPlayerMelody;
+    }
+    if (backingPlayerMelody) {
+      backingPlayerMelody.dispose();
+      backingPlayerMelody = null;
+      backingPlayerMelodySig = null;
+    }
+
+    const chart: Chart = noteSheetToChart(input.data);
+    const melody: MelodyNote[] = extractMelody(input.data);
+
+    // Seed BackingConfig with orchestrator state. Tempo precedence matches
+    // the legacy path: explicit config.bpm > sheet.tempo > chart.bpm default.
+    const tempo = config.bpm ?? input.data.tempo ?? chart.bpm;
+    const seed: BackingConfig = {
+      bpm: tempo,
+      melody,
+    };
+    if (config.style !== undefined) seed.style = config.style;
+    if (config.feel !== undefined) seed.feel = config.feel;
+    if (config.loop !== undefined) seed.loop = config.loop;
+    if (config.repeatCount !== undefined) seed.repeatCount = config.repeatCount;
+
+    // Lick mode: silence rhythm section, boost the lead (preserves the
+    // legacy `lickMode: true` preset behavior). Volume keys hit the
+    // BackingPlayer.dispatch lookup (config.volume[ev.instrument]) directly.
+    if (input.kind === "lick") {
+      seed.volume = { drums: 0, bass: 0, piano: 0, melody: 1.0 };
+      seed.pianoReverb = 0.5;
+    }
+
+    backingPlayerMelody = factories.createBackingPlayer(chart, seed);
+    backingPlayerMelodySig = sig;
+    wireBackingPlayerMelody(backingPlayerMelody);
+    return backingPlayerMelody;
+  }
+
+  function computeMelodySig(input: { kind: string; data: NoteSheetData }): string {
+    // Cheap identity proxy — same convention as computeBackingSig. The kind
+    // is part of the signature so toggling sheet↔lick (different volume
+    // preset) forces a rebuild.
+    const d = input.data;
+    return (
+      input.kind +
+      "|" +
+      (d.title ?? "?") +
+      "/" +
+      (d.measures?.length ?? 0)
+    );
+  }
+
   function computeBackingSig(input: ChartInput): string {
     const backend = input.engineBackend ?? "rule";
     const data: LeadSheetData = input.data;
@@ -370,7 +421,7 @@ export function createGlobalPlayer(
 
   function activate(
     input: PlayerInput,
-  ): { engine: NotePlayer; lickMode: boolean } | { engine: BackingPlayer } {
+  ): { engine: BackingPlayer; unifiedMelody?: boolean } {
     // If a previously active engine differs, stop it cleanly before
     // swapping so the user doesn't hear two engines at once.
     if (active && active !== getCandidate(input)) {
@@ -382,11 +433,16 @@ export function createGlobalPlayer(
     }
     currentInput = input;
     if (isMelodyInput(input)) {
-      const lickMode = input.kind === "lick";
-      const np = getNotePlayer(lickMode);
-      active = np;
+      // Unified path: sheet/lick/solo all go through BackingPlayer + melody
+      // track. Solo uses the same piano melody instrument as sheet — its
+      // distinct kind only forces a separate cache entry so downstream
+      // callbacks (and any future solo-specific defaults) can branch.
+      const bp = ensureBackingPlayerForSheet(
+        input as { kind: "sheet" | "lick" | "solo"; data: NoteSheetData },
+      );
+      active = bp;
       activeKind = input.kind;
-      return { engine: np, lickMode };
+      return { engine: bp, unifiedMelody: true };
     }
     const bp = ensureBackingPlayer(input);
     active = bp;
@@ -396,11 +452,8 @@ export function createGlobalPlayer(
 
   /** Helper for `activate` — returns the engine that WOULD become active
    *  for `input` without mutating any state. Lets us detect engine swaps. */
-  function getCandidate(input: PlayerInput): NotePlayer | BackingPlayer | null {
-    if (isMelodyInput(input)) {
-      const lickMode = input.kind === "lick";
-      return lickMode ? notePlayerLick : notePlayerSheet;
-    }
+  function getCandidate(input: PlayerInput): BackingPlayer | null {
+    if (isMelodyInput(input)) return backingPlayerMelody;
     return backingPlayer;
   }
 
@@ -409,8 +462,10 @@ export function createGlobalPlayer(
   async function preload(input: PlayerInput): Promise<void> {
     try {
       if (isMelodyInput(input)) {
-        const np = getNotePlayer(input.kind === "lick");
-        await np.preload();
+        const bp = ensureBackingPlayerForSheet(
+          input as { kind: "sheet" | "lick" | "solo"; data: NoteSheetData },
+        );
+        await bp.preload();
         return;
       }
       const bp = ensureBackingPlayer(input);
@@ -426,23 +481,13 @@ export function createGlobalPlayer(
     opts: { startAt?: number; measureOffset?: number } = {},
   ): Promise<void> {
     try {
+      // Stash the measureOffset for the unified path's `wireBackingPlayerMelody`
+      // to bias `bar`/`note` events. Applied before activate() so the wiring
+      // (which may have been attached on a previous play() call) uses the new
+      // offset.
+      backingPlayerMelodyOffset = opts.measureOffset ?? 0;
       const handle = activate(input);
-      if ("lickMode" in handle) {
-        const tempo =
-          config.bpm ??
-          (isMelodyInput(input) ? input.data.tempo : undefined) ??
-          120;
-        await handle.engine.play(
-          isMelodyInput(input) ? input.data : (input as never),
-          tempo,
-          {
-            startAt: opts.startAt,
-            measureOffset: opts.measureOffset,
-          },
-        );
-      } else {
-        await handle.engine.play({ startAt: opts.startAt });
-      }
+      await handle.engine.play({ startAt: opts.startAt });
     } catch (err) {
       emit("error", err instanceof Error ? err : new Error(String(err)));
       throw err;
@@ -467,12 +512,11 @@ export function createGlobalPlayer(
     }
   }
 
-  function seekToMeasure(mi: number): void {
+  function seekToMeasure(_mi: number): void {
     if (!active) return;
-    // Only NotePlayer supports per-measure seeking. BackingPlayer has no
-    // analogous method — silently ignore for the chart kind.
-    if (activeKind === "chart") return;
-    (active as NotePlayer).seekToMeasure(mi);
+    // BackingPlayer has no per-measure seek API — silently ignore. All
+    // melody/chart playback now routes through BackingPlayer, so this
+    // method is currently a no-op kept for API compatibility.
   }
 
   function setConfig(patch: Partial<GlobalPlayerConfig>): void {
@@ -486,13 +530,10 @@ export function createGlobalPlayer(
 
     if (!active) return;
 
-    // For melody engines, NotePlayer reads bpm/style/swingRatio via the
-    // mixer store and rebuilds its schedule on the next tick when those
-    // change. The orchestrator's `bpm` field above isn't part of the
-    // mixer store, so we only push it through when the user explicitly
-    // patches the mixer (already handled). The actual BPM applied to
-    // melody playback comes from `play()`'s `tempo` arg — pages that
-    // change BPM mid-play should call `play()` again with the new BPM.
+    // The orchestrator's `bpm` field isn't part of the mixer store, so
+    // for melody engines the actual BPM applied to playback comes from
+    // `play()`'s `tempo` arg — pages that change BPM mid-play should
+    // call `play()` again with the new BPM.
     if (activeKind !== "chart") return;
 
     // For chart engine, fan out to BackingPlayer.setConfig.
@@ -518,15 +559,38 @@ export function createGlobalPlayer(
 
   /* ── Anacrusis (pickup-note) scheduling ──────────────────────────── */
 
-  function getAnacrusisPlayer(): NotePlayer {
+  function getAnacrusisPlayer(): AnacrusisPlayer {
     if (!notePlayerAnacrusis) {
-      // Anacrusis playback is melody-on-top only; lickMode would silence
-      // the rhythm section but pages call this BEFORE the count-in, so
-      // there's no rhythm section to silence. Use the plain sheet config.
-      notePlayerAnacrusis = factories.createNotePlayer({ lickMode: false });
-      // Forward drum-kit errors only — the anacrusis player has no
-      // measure/note/done timeline of its own, so wiring bar/note/done
-      // would cross-fire with the main melody engine.
+      // Prefer the active BackingPlayer's AudioContext so anacrusis schedule
+      // times computed from `p.ctxNow()` (which reads active's ctx) align
+      // with the AnacrusisPlayer's own clock. Without this, the two ctxs
+      // start at independent t=0 and pickup-note timing is undefined.
+      //
+      // Fallback: if no active engine exists yet (anacrusis called before
+      // any play()), allocate our own ctx. dispose() will close it because
+      // we own it; if active later becomes non-null we keep using this
+      // fallback ctx for the rest of the singleton's life (rebuilding
+      // mid-session would drop in-flight scheduled notes).
+      const sharedCtx = active?.getCtx() ?? null;
+      let ctx: AudioContext;
+      if (sharedCtx) {
+        ctx = sharedCtx;
+        ownedAnacrusisCtx = null;
+      } else {
+        ctx = new AudioContext();
+        ownedAnacrusisCtx = ctx;
+      }
+      notePlayerAnacrusis = new AnacrusisPlayer(ctx);
+      // Kick off the piano sample load now so the first scheduled note
+      // doesn't get silently dropped by AnacrusisPlayer.scheduleStandaloneNote's
+      // `if (!this.piano) return` guard. We fire-and-forget: if load fails,
+      // surface it through the error bus rather than crashing the caller.
+      notePlayerAnacrusis.preload().catch((err) => {
+        emit("error", err instanceof Error ? err : new Error(String(err)));
+      });
+      // No-op slot retained for surface compatibility — AnacrusisPlayer
+      // has no drum kit, but keeping this assignment matches the prior
+      // wiring shape.
       notePlayerAnacrusis.onDrumKitError = (msg: string | null) => {
         if (msg == null) return;
         emit("drumKitError", msg);
@@ -540,8 +604,8 @@ export function createGlobalPlayer(
     try {
       const np = getAnacrusisPlayer();
       for (const n of notes) {
-        // velocity is 0..1 in our public API; NotePlayer's gain is in the
-        // same scale already multiplied by `melodyVolume`. Defer to its
+        // velocity is 0..1 in our public API; AnacrusisPlayer's gain is in
+        // the same scale already multiplied by `melodyVolume`. Defer to its
         // default when velocity is omitted by not passing the optional arg.
         if (n.velocity === undefined) {
           np.scheduleStandaloneNote(n.pitch, n.startAt, n.durationSec);
@@ -575,30 +639,32 @@ export function createGlobalPlayer(
 
   function dispose(): void {
     try {
-      notePlayerSheet?.dispose();
-    } catch {
-      /* */
-    }
-    try {
-      notePlayerLick?.dispose();
-    } catch {
-      /* */
-    }
-    try {
       notePlayerAnacrusis?.dispose();
     } catch {
       /* */
+    }
+    // AnacrusisPlayer.dispose() does NOT close the AudioContext (caller owns
+    // it). Close it here ONLY if we allocated the fallback ctx ourselves —
+    // shared ctxs are owned by the BackingPlayer and closed by its dispose().
+    if (ownedAnacrusisCtx) {
+      try { ownedAnacrusisCtx.close(); } catch { /* */ }
     }
     try {
       backingPlayer?.dispose();
     } catch {
       /* */
     }
-    notePlayerSheet = null;
-    notePlayerLick = null;
+    try {
+      backingPlayerMelody?.dispose();
+    } catch {
+      /* */
+    }
     notePlayerAnacrusis = null;
+    ownedAnacrusisCtx = null;
     backingPlayer = null;
     backingPlayerSig = null;
+    backingPlayerMelody = null;
+    backingPlayerMelodySig = null;
     active = null;
     activeKind = null;
     currentInput = null;

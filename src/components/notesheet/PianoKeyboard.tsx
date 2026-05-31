@@ -1,6 +1,8 @@
 import { useRef, useState, useCallback } from 'react';
 import styled from 'styled-components';
-import Soundfont from 'soundfont-player';
+/* Click-to-hear uses the app-wide shared piano singleton (GlobalKeyboard)
+ * so we don't spin up a per-page AudioContext + SplendidGrandPiano. */
+import { getGlobalKeyboard } from '../../lib/player/GlobalKeyboard';
 
 /* ─── types ──────────────────────────────────────────────────────────── */
 
@@ -95,33 +97,13 @@ for (const [k, v] of Object.entries(KEY_MAP)) {
 
 /* ─── sound ──────────────────────────────────────────────────────────── */
 
-let _audioCtx: AudioContext | null = null;
-let _pianoInst: Soundfont.Player | null = null;
-let _loading: Promise<void> | null = null;
-
-function ensurePiano(): Promise<Soundfont.Player> {
-  if (_pianoInst) return Promise.resolve(_pianoInst);
-  if (!_audioCtx) _audioCtx = new AudioContext();
-  if (_audioCtx.state === 'suspended') _audioCtx.resume();
-  if (!_loading) {
-    _loading = Soundfont.instrument(
-      _audioCtx,
-      'acoustic_grand_piano' as Soundfont.InstrumentName,
-      { gain: 2.2 },
-    ).then((inst) => {
-      _pianoInst = inst;
-    });
-  }
-  return _loading.then(() => _pianoInst!);
-}
-
 export async function playMidi(midi: number) {
-  const piano = await ensurePiano();
-  piano.play(String(midi), 0, { duration: 0.5, gain: 2 });
+  const kb = getGlobalKeyboard();
+  // Best-effort: trigger lazy load so the next click works; play() returns
+  // null on the very first call before samples land — that's intentional.
+  await kb.ensureReady();
+  kb.play(String(midi), { duration: 0.5, gain: 2 });
 }
-
-// preload on import
-// ensurePiano().catch(() => {});
 
 /* ─── styled ─────────────────────────────────────────────────────────── */
 

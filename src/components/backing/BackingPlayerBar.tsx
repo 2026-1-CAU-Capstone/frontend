@@ -4,6 +4,7 @@ import { DRUM_KIT_PRESETS, type DrumKitId } from '../../lib/backing/drumKitPrese
 import {
   getPlayerSettings,
   setPlayerSetting,
+  setPlayerSettings,
   subscribePlayerSettings,
   type BassMode,
   type PlayStyle,
@@ -66,12 +67,17 @@ const GENRES = [
 const BOSSA_GENRES = new Set<string>(['Bossa Nova', 'Samba', 'Latin']);
 const genreToStyle = (g: string): PlayStyle => (BOSSA_GENRES.has(g) ? 'bossa' : 'swing');
 
-/* ── Genre — visual mock dropdown. ─────────────────────────────────────── */
+/* ── Genre — reflects the loaded song's genre (global playerSettings.genre)
+ *  and lets the user override it. Picking a genre also sets the engine feel
+ *  (swing|bossa) via genreToStyle. ──────────────────────────────────────── */
 export function GenreSelect() {
-  const [genre, setGenre] = useState<string>('Ballad');
+  const [genre, setGenre] = useState<string>(() => getPlayerSettings().genre);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useOutsideClose(open, ref, () => setOpen(false));
+  // Stay in sync with the store so loading a song (ChordPage/NoteSheet set
+  // `genre` from the chart) updates the label without a manual selection.
+  useEffect(() => subscribePlayerSettings((s) => setGenre(s.genre)), []);
   const up = usePlayerBarPosition() === 'bottom';
   return (
     <GenreDropdown ref={ref}>
@@ -82,7 +88,7 @@ export function GenreSelect() {
         <GenreMenu $up={up}>
           {GENRES.map((g) => (
             <GenreOpt key={g} type="button" $on={g === genre}
-              onClick={() => { setGenre(g); setOpen(false); setPlayerSetting('style', genreToStyle(g)); }}>
+              onClick={() => { setOpen(false); setPlayerSettings({ genre: g, style: genreToStyle(g) }); }}>
               {g}
             </GenreOpt>
           ))}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 import { login, getCachedUser } from '../api/auth';
 
@@ -16,10 +16,16 @@ const ROTATING = [
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  /* ProtectedRoute passes the page the user originally tried to visit as
+   * `state.from.pathname`. Fall back to "/" when the user opened /login
+   * directly (e.g., from the sidebar). */
+  const fromPath =
+    (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? '/';
 
   useEffect(() => {
-    if (getCachedUser()) navigate('/', { replace: true });
-  }, [navigate]);
+    if (getCachedUser()) navigate(fromPath, { replace: true });
+  }, [navigate, fromPath]);
 
   const [step, setStep] = useState<Step>('username');
   const [username, setUsername] = useState('');
@@ -67,7 +73,7 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await login(username.trim(), password);
-      navigate('/');
+      navigate(fromPath, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : '로그인에 실패했습니다.');
     } finally {

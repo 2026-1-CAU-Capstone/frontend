@@ -2874,6 +2874,14 @@ export function LeadSheet({
             minY = Math.min(minY, rect.top);
             maxY = Math.max(maxY, rect.bottom);
           }
+          /* Floor for the right edge — the I chord glyph's right edge + a
+           * small pad. Used by every "snap to bar midpoint" branch below so
+           * the highlight never cuts INTO the chord text on narrow widths
+           * (where geometric midpoint can land inside the glyph because the
+           * text font is min-clamped while the bar slot shrinks). */
+          const chordRightFloor = hlRight !== -Infinity
+            ? hlRight + HL_PAD_X * scale
+            : -Infinity;
 
           // Fallback X: extend to end of last bar if no element was found
           if (hlRight === -Infinity) {
@@ -2882,8 +2890,10 @@ export function LeadSheet({
             const lastBar = resolvedData.systems[si]?.bars[maxBi];
             const lastBarChordCount = lastBar?.chords.filter(c => c.root).length ?? 0;
             if (lastBarChordCount === 1) {
-              // 1-chord bar: extend to bar midpoint (matches visual chord area)
-              hlRight = gridRect.left + (maxBi + 0.5) * barW;
+              // 1-chord bar: prefer the bar midpoint (iReal-style half-bar
+              // look), but never let it cut into the chord text.
+              const midpoint = gridRect.left + (maxBi + 0.5) * barW;
+              hlRight = Math.max(midpoint, chordRightFloor);
             } else {
               hlRight += HL_PAD_X * scale;
             }
@@ -2907,7 +2917,8 @@ export function LeadSheet({
             if (r === 0) {
               hlRight = gridRect.right;
             } else if (r === rowIndices.length - 1) {
-              hlRight = gridRect.left + (maxBi + I_CHORD_END_FRACTION) * barW;
+              const midpoint = gridRect.left + (maxBi + I_CHORD_END_FRACTION) * barW;
+              hlRight = Math.max(midpoint, chordRightFloor);
             } else {
               hlLeft = gridRect.left;
               hlRight = gridRect.right;
@@ -2920,7 +2931,8 @@ export function LeadSheet({
             if (si === rowIndices[rowIndices.length - 1]) {
               hlRight = gridRect.right;
             } else if (si === rowIndices[0]) {
-              hlRight = gridRect.left + (maxBi + I_CHORD_END_FRACTION) * barW;
+              const midpoint = gridRect.left + (maxBi + I_CHORD_END_FRACTION) * barW;
+              hlRight = Math.max(midpoint, chordRightFloor);
             }
           }
 

@@ -4,16 +4,18 @@ import { AppPreviewProvider } from './contexts/AppPreviewContext';
 import { GlobalPlayerProvider } from './lib/player';
 import { BottomTabBar } from './components/layout/BottomTabBar';
 import HomePage from './pages/HomePage';
-import ChordPage from './pages/ChordPage';
-import NotePage from './pages/NotePage';
-import LicksPage from './pages/LicksPage';
-import SolosPage from './pages/SolosPage';
 import { IntroScreen } from './components/common/IntroScreen';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
-/* Secondary routes — code-split to keep the initial bundle small. The five
- * bottom-tab pages above stay eagerly imported because they render on first
- * paint or are one tap away. Everything else is reached less frequently and
- * can afford a brief async load. */
+/* Sheet-music tab pages — split out of the initial bundle so that vexflow
+ * (~1.1 MB) and OSMD only load when the user navigates into a chord/note/
+ * licks/solos screen. HomePage and /login stay free of the dependency. */
+const ChordPage           = lazy(() => import('./pages/ChordPage'));
+const NotePage            = lazy(() => import('./pages/NotePage'));
+const LicksPage           = lazy(() => import('./pages/LicksPage'));
+const SolosPage           = lazy(() => import('./pages/SolosPage'));
+
+/* Secondary routes — code-split to keep the initial bundle small. */
 const MyLicksPage         = lazy(() => import('./pages/MyLicksPage'));
 const MyChordChartsPage   = lazy(() => import('./pages/MyChordChartsPage'));
 const MySheetProjectsPage = lazy(() => import('./pages/MySheetProjectsPage'));
@@ -74,20 +76,24 @@ export default function App() {
         <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/chord" element={<ChordPage />} />
-          <Route path="/mychord" element={<ChordPage mychordMode />} />
-          <Route path="/note" element={<NotePage />} />
-          <Route path="/licks" element={<LicksPage />} />
-          <Route path="/solos" element={<SolosPage />} />
-          <Route path="/input" element={<InputPage />} />
-          <Route path="/youtube-onset" element={<YoutubeOnsetPage />} />
-          <Route path="/my-licks" element={<MyLicksPage />} />
-          <Route path="/my-charts" element={<MyChordChartsPage />} />
-          <Route path="/my-sheets" element={<MySheetProjectsPage />} />
-          <Route path="/lick-practice/:id" element={<Lick12KeyPage />} />
-          <Route path="/sty-poc" element={<StyPocPage />} />
-          <Route path="/sty-demo" element={<StyDemoPage />} />
-          <Route path="/editor" element={<EditorPage />} />
+          {/* Gated routes — require an authenticated user. Direct URL access
+           * (deep-link, refresh, share) without a session redirects to /login,
+           * passing the original location so the user lands back here after
+           * signing in. */}
+          <Route path="/chord" element={<ProtectedRoute><ChordPage /></ProtectedRoute>} />
+          <Route path="/mychord" element={<ProtectedRoute><ChordPage mychordMode /></ProtectedRoute>} />
+          <Route path="/note" element={<ProtectedRoute><NotePage /></ProtectedRoute>} />
+          <Route path="/licks" element={<ProtectedRoute><LicksPage /></ProtectedRoute>} />
+          <Route path="/solos" element={<ProtectedRoute><SolosPage /></ProtectedRoute>} />
+          <Route path="/input" element={<ProtectedRoute><InputPage /></ProtectedRoute>} />
+          <Route path="/youtube-onset" element={<ProtectedRoute><YoutubeOnsetPage /></ProtectedRoute>} />
+          <Route path="/my-licks" element={<ProtectedRoute><MyLicksPage /></ProtectedRoute>} />
+          <Route path="/my-charts" element={<ProtectedRoute><MyChordChartsPage /></ProtectedRoute>} />
+          <Route path="/my-sheets" element={<ProtectedRoute><MySheetProjectsPage /></ProtectedRoute>} />
+          <Route path="/lick-practice/:id" element={<ProtectedRoute><Lick12KeyPage /></ProtectedRoute>} />
+          <Route path="/sty-poc" element={<ProtectedRoute><StyPocPage /></ProtectedRoute>} />
+          <Route path="/sty-demo" element={<ProtectedRoute><StyDemoPage /></ProtectedRoute>} />
+          <Route path="/editor" element={<ProtectedRoute><EditorPage /></ProtectedRoute>} />
           <Route path="/login" element={<LoginPage />} />
           {/* Standalone public marketing page — not linked from any in-app
               navigation. Reachable only via the direct URL (#/intro). */}

@@ -1,7 +1,7 @@
 /* Count-in 인트로용 woodblock 클릭 음.
  *
- * NotePlayer 의 synthMetro 와 같은 스타일이지만, 별도의 공유 AudioContext 를 써서
- * 어떤 플레이어 (NotePlayer / BackingPlayer / soundfont-direct) 도 일관된 카운트인을
+ * 기존 synthMetro 스타일과 동일하지만, 별도의 공유 AudioContext 를 써서
+ * 어떤 플레이어 (BackingPlayer / soundfont-direct) 도 일관된 카운트인을
  * 받을 수 있도록 한다. 카운트인이 끝난 직후 본 재생이 시작되므로 두 ctx 의
  * clock drift 는 신경 쓰지 않아도 됨. */
 

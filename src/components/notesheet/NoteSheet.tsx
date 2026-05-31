@@ -118,6 +118,7 @@ import {
 } from '../../lib/backing/drumKitPresets';
 import {
   getPlayerSettings,
+  inferGenre,
   inferPlayStyle,
   setPlayerSetting,
   subscribePlayerSettings,
@@ -274,7 +275,7 @@ function noteToMidi(key: string, acc?: '#' | 'b' | 'n' | '##' | 'bb'): number {
 }
 
 /** Compute the playable beat-length of a measure (sum of its notes), used for
- *  anacrusis detection. Mirrors NotePlayer.build()'s per-note beat formula. */
+ *  anacrusis detection. Mirrors the player's per-note beat formula. */
 function measureBeats(m: MeasureInfo): number {
   let beats = 0;
   for (const n of m.notes) {
@@ -865,7 +866,7 @@ interface NoteSheetProps {
    *  parent renders its own transport (NotePage) and drives this NoteSheet
    *  via the imperative handle below. */
   hideTransport?: boolean;
-  /** Fires whenever the internal NotePlayer transitions play/stop/pause, so
+  /** Fires whenever the internal player transitions play/stop/pause, so
    *  the parent transport can mirror the playing state. */
   onPlayingChange?: (playing: boolean) => void;
   /** Fires whenever the tempo changes (song load, BPM input, or external
@@ -902,7 +903,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
   const [tempoText, setTempoText] = useState(String(data.tempo ?? 120));
   const [activeMeasure, setActiveMeasure] = useState(-1);
   const [paused, setPaused] = useState(false);
-  /* Global mixer state — every NotePlayer instance reads from / writes to the
+  /* Global mixer state — every player instance reads from / writes to the
    * same store via setPlayerSetting, so the mixer is truly global. */
   const [settings, setSettingsState] = useState<PlayerSettings>(() => getPlayerSettings());
   useEffect(() => subscribePlayerSettings(setSettingsState), []);
@@ -915,6 +916,10 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     const inferred = inferPlayStyle(data.genre);
     if (inferred && inferred !== getPlayerSettings().style) {
       setPlayerSetting('style', inferred);
+    }
+    const genre = inferGenre(data.genre);
+    if (genre && genre !== getPlayerSettings().genre) {
+      setPlayerSetting('genre', genre);
     }
   }, [data.genre]);
   const [mixerOpen, setMixerOpen] = useState(false);
@@ -969,7 +974,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     return () => { unsubBar(); unsubNote(); unsubDone(); unsubError(); };
   }, [player, highlightNote]);
 
-  /* NotePlayer instances subscribe to playerSettings on construction, so any
+  /* Player instances subscribe to playerSettings on construction, so any
    * setPlayerSetting() call below propagates automatically — no per-player
    * sync useEffects needed here anymore. */
 

@@ -30,6 +30,7 @@ export const SWING_RATIO = 0.708;
  * If `style` is omitted, only the BPM bands apply.
  */
 export function getSwingRatio(bpm: number, style?: FeelId): number {
+  let r: number;
   if (
     style === 'even-8ths' ||
     style === 'bossa' ||
@@ -38,11 +39,15 @@ export function getSwingRatio(bpm: number, style?: FeelId): number {
     style === 'straight-8' ||
     style === 'straight-16'
   ) {
-    return 0.5;
+    r = 0.5;
+  } else if (style === 'ballad-swing' || bpm < 80) {
+    r = 0.667;
+  } else if (bpm >= 220 || style === 'up-tempo-swing') {
+    r = 0.621;
+  } else {
+    r = 0.708; // medium-swing / medium-up-swing default
   }
-  if (style === 'ballad-swing' || bpm < 80) return 0.667;
-  if (bpm >= 220 || style === 'up-tempo-swing') return 0.621;
-  return 0.708; // medium-swing / medium-up-swing default
+  return r;
 }
 
 /** Map a straight beat position to its swung version. Reads the current ratio

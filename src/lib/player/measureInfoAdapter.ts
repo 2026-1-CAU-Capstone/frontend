@@ -30,7 +30,7 @@ export interface MeasureInfoAdapterOpts {
   key?: string;
   /** Time signature, e.g. "4/4" (default "4/4"). */
   timeSignature?: string;
-  /** Initial tempo. Optional — when omitted, NotePlayer falls back to the
+  /** Initial tempo. Optional — when omitted, the player falls back to the
    *  `tempo` arg passed to `play()`. */
   tempo?: number;
   /** Genre tag forwarded to NoteSheetData (default "Jazz"). */
@@ -42,7 +42,7 @@ export interface MeasureInfoAdapterOpts {
  * no side effects, no mutation of the input array. Use the same input
  * array reference if you want React to skip re-rendering.
  *
- * Note: this is intentionally a thin shaper. NotePlayer's own parser
+ * Note: this is intentionally a thin shaper. The player's own parser
  * handles ties, tuplets, ottava brackets, repeats, D.C./D.S./Fine,
  * anacrusis — none of that needs to be replicated here.
  */

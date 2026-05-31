@@ -1,6 +1,6 @@
 /**
  * Global player settings — single source of truth for mixer/transport state
- * shared across every NotePlayer instance (NoteSheet, LickCard, LickRecommend,
+ * shared across every player instance (NoteSheet, LickCard, LickRecommend,
  * etc.). Settings are persisted to localStorage so they survive reloads, and
  * any change is broadcast to subscribers (running players + live mixer UI).
  *
@@ -55,6 +55,12 @@ export interface PlayerSettings {
   /** Overall feel — swing (default) vs bossa nova. Switches comping / drum /
    *  bass patterns AND forces straight 8ths when 'bossa'. */
   style: PlayStyle;
+  /** Display label shown in the transport genre dropdown (one of GENRES in
+   *  BackingPlayerBar, e.g. "Bossa Nova"). The engine only acts on `style`
+   *  (swing|bossa); `genre` keeps the richer name so the UI reflects the
+   *  loaded song's actual genre. Set alongside `style` on song load and on
+   *  manual genre selection. */
+  genre: string;
   /** Loop chorus continuously. Backing tracks default to looping for
    *  practice; flip off for a single-chorus playthrough. */
   loop: boolean;
@@ -81,6 +87,7 @@ const DEFAULTS: PlayerSettings = {
   // user-overridable for ballads / up-tempo manual tuning.
   swingRatio: 0.708,
   style: 'swing',
+  genre: 'Medium Swing',
   loop: true,
   transposingInstrument: 'C',
 };
@@ -161,4 +168,31 @@ export function inferPlayStyle(raw: string | undefined | null): PlayStyle | null
     s.includes('afro')
   ) return 'bossa';
   return 'swing';
+}
+
+/**
+ * Map a free-form genre/style string (iReal style string or a chart's
+ * StyleId) to one of the labels shown in the transport genre dropdown
+ * (see GENRES in BackingPlayerBar). Parallel to inferPlayStyle, but keeps
+ * the richer genre name for display. Returns null on empty input so callers
+ * leave the user's current choice alone.
+ */
+export function inferGenre(raw: string | undefined | null): string | null {
+  if (!raw) return null;
+  const s = raw.toLowerCase();
+  if (s.includes('bossa')) return 'Bossa Nova';
+  if (s.includes('samba') || s.includes('calypso')) return 'Samba';
+  if (
+    s.includes('latin') || s.includes('afro') || s.includes('mambo') ||
+    s.includes('songo') || s.includes('cha') || s.includes('6/8')
+  ) return 'Latin';
+  if (
+    s.includes('funk') || s.includes('even 8') || s.includes('even 16') ||
+    s.includes('8ths') || s.includes('16ths')
+  ) return 'Funk';
+  if (s.includes('waltz')) return 'Jazz Waltz';
+  if (s.includes('bebop') || s.includes('bop')) return 'Bebop';
+  if (s.includes('ballad')) return 'Ballad';
+  if (s.includes('up') && s.includes('swing')) return 'Up-Tempo Swing';
+  return 'Medium Swing';
 }

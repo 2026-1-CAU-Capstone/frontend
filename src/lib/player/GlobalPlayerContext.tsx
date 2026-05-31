@@ -30,10 +30,16 @@ import {
   type ReactNode,
 } from "react";
 
+// NOTE: We deliberately import only the LAZY proxy here, not
+// `./GlobalPlayer` directly. `./GlobalPlayer` transitively pulls in
+// `smplr` via the soundfont loaders; importing it at the React provider
+// (which mounts at app boot) forces smplr into the eager startup chunk.
+// The lazy proxy delays that dynamic `import('./GlobalPlayer')` until
+// the first method call that actually needs audio (preload/play/...).
 import {
-  getGlobalPlayerSingleton,
-  disposeGlobalPlayerSingleton,
-} from "./GlobalPlayer";
+  getLazyGlobalPlayerSingleton,
+  disposeLazyGlobalPlayerSingleton,
+} from "./GlobalPlayerLazy";
 import type {
   ChordSymbol,
   GlobalPlayer,
@@ -75,7 +81,7 @@ export function GlobalPlayerProvider({
   disposeOnUnmount = false,
 }: ProviderProps) {
   const player = useMemo(
-    () => injected ?? getGlobalPlayerSingleton(),
+    () => injected ?? getLazyGlobalPlayerSingleton(),
     [injected],
   );
 
@@ -126,7 +132,7 @@ export function GlobalPlayerProvider({
     ];
     return () => {
       for (const u of unsubs) u();
-      if (disposeOnUnmount) disposeGlobalPlayerSingleton();
+      if (disposeOnUnmount) disposeLazyGlobalPlayerSingleton();
     };
   }, [player, disposeOnUnmount]);
 

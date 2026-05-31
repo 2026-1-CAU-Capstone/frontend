@@ -6,6 +6,7 @@ import { PSBASE_CH0_PATTERN } from "./jazz-piano-pattern";
 import { fitChordPhraseToChord } from "../yamaha-sty/fit-phrase";
 import { chordTypeFromQuality } from "../yamaha-sty/quality-map";
 import { ChordSymbol } from "../jazz-harmony";
+import type { MelodyNote } from "./adapters/noteSheetToChart";
 
 // Pre-resolve the source ChordType once (cached) — PSBASE_CH0_PATTERN was
 // recorded against C Maj7 ("M7").
@@ -37,6 +38,12 @@ export interface RenderOptions {
    *  via `resolveFeel()`. Threading this through is what makes
    *  `BackingPlayer.setConfig({ feel })` actually take effect. */
   feel?: FeelId;
+  /** Optional melody track (from `noteSheetToChart`'s `extractMelody`).
+   *  Beat offsets are absolute from the start of the chart. */
+  melody?: MelodyNote[];
+  /** When false, suppress melody emission even if `melody` is provided.
+   *  Defaults to `true` whenever `melody` is set. */
+  playMelody?: boolean;
 }
 
 /* ─── comping rhythm patterns ────────────────────────────────────────── */
@@ -240,7 +247,11 @@ export function renderChart(chart: Chart, opts: RenderOptions): BackingEvent[] {
   // `opts.feel` overrides the chart-default feel when provided so
   // `BackingPlayer.setConfig({ feel })` actually reaches piano/drum routing.
   const feel = resolveFeel(style, opts.feel ?? chart.defaultFeel);
-  const isBossa = style === "bossa";
+  // Bossa AND the latin family share the "straight" rhythm-section treatment:
+  // 2-feel bass + blocked/legacy piano comping (the per-feel comping helpers
+  // below already special-case feel==='latin' the same way). Keyed off `feel`
+  // so samba/mambo/songo/cha-cha/afro-cuban all route here, not just bossa.
+  const isBossa = feel === "bossa" || feel === "latin";
 
   // Flatten all bars across sections (no repeat expansion yet).
   const flatBars: Bar[] = [];
@@ -325,7 +336,28 @@ export function renderChart(chart: Chart, opts: RenderOptions): BackingEvent[] {
     }
   }
 
+  // Melody track — emitted after bass/piano/drums so the absolute timestamps
+  // share the same secPerBeat / barIndex grid. `playMelody` defaults to true
+  // whenever `melody` is provided; pass `playMelody: false` to mute the lead
+  // line without rebuilding the chart.
+  const playMelody = opts.playMelody ?? (opts.melody != null);
+  if (playMelody && opts.melody && opts.melody.length > 0) {
+    for (const m of opts.melody) {
+      events.push({
+        kind: "note",
+        instrument: "melody",
+        midi: m.midi,
+        time: m.beatOffset * secPerBeat,
+        duration: m.durationBeats * secPerBeat,
+        velocity: m.velocity ?? 0.85,
+        bar: Math.floor(m.beatOffset / beatsPerBar),
+      });
+    }
+    console.log("[unified] melody track →", { count: opts.melody.length });
+  }
+
   events.sort((a, b) => a.time - b.time);
+
   return events;
 }
 

@@ -98,7 +98,7 @@ export function useCountInIntro(options: HookOptions = {}) {
       const startAudioTime = getCountInTime() + 0.06;
       // The first downbeat AFTER the count-in. This is the precise audio time
       // when the caller's playback should begin so that "1 2 3 4 |1" lands
-      // exactly on beat. Returned to the caller so NotePlayer.play({ startAt })
+      // exactly on beat. Returned to the caller so play({ startAt })
       // can anchor its origin to it instead of "ctx.currentTime now", which
       // drifts by ~30-80ms due to setTimeout slop and microtask scheduling.
       const downbeatAudioTime = startAudioTime + totalCells * bs;
@@ -128,7 +128,7 @@ export function useCountInIntro(options: HookOptions = {}) {
 
       // Wait until the downbeat lands (in wall-clock terms), then resolve.
       // Callers anchor their playback to the AUDIO-clock `startAt` we return,
-      // so even small setTimeout drift here is corrected by NotePlayer using
+      // so even small setTimeout drift here is corrected by the player using
       // `startAt` rather than `ctx.currentTime` to position the first event.
       const totalMs = totalCells * bs * 1000;
       await new Promise<void>((resolve) => {

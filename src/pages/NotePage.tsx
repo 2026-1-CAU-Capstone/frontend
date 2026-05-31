@@ -653,14 +653,14 @@ export default function NotePage() {
   useEffect(() => { setSelectedKey(sheet?.key ?? 'C'); }, [sheet]);
 
   /* ── melody playback handoff ──────────────────────────────────────────
-   *  Playback (count-in, anacrusis pickup, measure/note highlights, NotePlayer
+   *  Playback (count-in, anacrusis pickup, measure/note highlights, player
    *  scheduling) lives inside NoteSheet — we just expose its imperative handle
    *  here so the top transport can drive it. `isPlaying` and `tempo` mirror
    *  NoteSheet's internal state via callback props. */
   const noteSheetRef = useRef<NoteSheetHandle | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [tempo, setTempo] = useState(sampleMelody.tempo ?? 120);
-  const [repeatCount, setRepeatCount] = useState(3);  // UI-only — NotePlayer plays once through.
+  const [repeatCount, setRepeatCount] = useState(3);  // UI-only — player plays once through.
   const [session, setSession] = useState<SessionInstrument>('piano');
   const [lightMenuOpen, setLightMenuOpen] = useState(false);
   const lightMenuRef = useRef<HTMLDivElement>(null);
@@ -981,9 +981,9 @@ export default function NotePage() {
           {panelTab === 'mixer' ? (
             /* Engine prop is intentionally omitted — backing-chord engine
              *  selection only applies to ChordPage's BackingPlayer, not the
-             *  NotePlayer (melody) that drives NotePage. The volume / reverb /
+             *  player (melody) that drives NotePage. The volume / reverb /
              *  bass-mode / drum-kit controls all still apply via global
-             *  playerSettings, which NotePlayer subscribes to. */
+             *  playerSettings, which the player subscribes to. */
             <BackingMixer />
           ) : (
             <RightChatPanel

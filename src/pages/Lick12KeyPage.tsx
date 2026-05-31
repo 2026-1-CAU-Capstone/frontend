@@ -4,7 +4,8 @@ import styled from 'styled-components';
 import {
   Renderer, Stave, StaveNote, Voice, Formatter, Beam, Accidental, Dot, BarlineType, VoltaType, StaveTie, Tuplet, Repetition,
 } from 'vexflow';
-import Soundfont from 'soundfont-player';
+/* Click-to-hear / lick playback uses the shared app-wide piano singleton. */
+import { getGlobalKeyboard } from '../lib/player/GlobalKeyboard';
 import { useCountInIntro } from '../hooks/useCountInIntro';
 import { PATTERN_SIMPLE } from '../lib/note/countInPatterns';
 import { swungBeats } from '../lib/note/swing';
@@ -598,22 +599,7 @@ function renderMeasures(el: HTMLDivElement, measures: MeasureInfo[], minWidth: n
 
 /* ─── piano playback ─────────────────────────────────────────────────── */
 
-let _pianoCtx: AudioContext | null = null;
-let _pianoInst: Soundfont.Player | null = null;
-let _pianoLoading: Promise<void> | null = null;
-
-function ensurePiano(): Promise<Soundfont.Player> {
-  if (_pianoInst) return Promise.resolve(_pianoInst);
-  if (!_pianoCtx) _pianoCtx = new AudioContext();
-  if (_pianoCtx.state === 'suspended') _pianoCtx.resume();
-  if (!_pianoLoading) {
-    _pianoLoading = Soundfont.instrument(_pianoCtx, 'acoustic_grand_piano' as Soundfont.InstrumentName, { gain: 3 })
-      .then((inst) => { _pianoInst = inst; });
-  }
-  return _pianoLoading.then(() => _pianoInst!);
-}
-
-// ensurePiano().catch(() => {});
+/* Lick playback shares the app-wide piano via getGlobalKeyboard(). */
 
 /* ─── styled ──────────────────────────────────────────────────────────── */
 
@@ -805,12 +791,13 @@ function KeyRow({ keyName, measures, width, isOriginal, defaultBpm, video }: {
       return;
     }
     setPlaying(true);
-    // 카운트인과 병렬로 sax soundfont 로드 — 첫 재생 지연 제거.
-    const saxPromise = ensurePiano();
+    // 카운트인과 병렬로 piano soundfont 로드 — 첫 재생 지연 제거.
+    const kb = getGlobalKeyboard();
+    const loadPromise = kb.ensureReady();
     // 릭 재생: BPM 무관하게 SIMPLE 카운트인.
     const cin = await countIn.run({ bpm, pattern: PATTERN_SIMPLE });
     if (!cin.ok) { setPlaying(false); return; }
-    const sax = await saxPromise;
+    await loadPromise;
     const abort = new AbortController();
     abortRef.current = abort;
     const beatDur = 60 / bpm;
@@ -865,7 +852,7 @@ function KeyRow({ keyName, measures, width, isOriginal, defaultBpm, video }: {
           const sec = toSec(mt + beats) - toSec(mt);
           const acc = n.accidentals?.[0] as '#' | 'b' | 'n' | undefined;
           const midi = noteToMidi(n.keys[0], acc === 'n' ? undefined : acc);
-          sax.play(String(midi), 0, { duration: sec * 0.9, gain: 3 });
+          kb.play(String(midi), { duration: sec * 0.9, gain: 3 });
           await new Promise<void>((resolve, reject) => {
             const timer = setTimeout(resolve, sec * 1000);
             abort.signal.addEventListener('abort', () => { clearTimeout(timer); reject('stop'); }, { once: true });
@@ -879,7 +866,7 @@ function KeyRow({ keyName, measures, width, isOriginal, defaultBpm, video }: {
         if (!isRest) {
           const acc = n.accidentals?.[0] as '#' | 'b' | 'n' | undefined;
           const midi = noteToMidi(n.keys[0], acc === 'n' ? undefined : acc);
-          sax.play(String(midi), 0, { duration: sec * 0.9, gain: 3 });
+          kb.play(String(midi), { duration: sec * 0.9, gain: 3 });
         }
         await new Promise<void>((resolve, reject) => {
           const timer = setTimeout(resolve, sec * 1000);
@@ -889,7 +876,7 @@ function KeyRow({ keyName, measures, width, isOriginal, defaultBpm, video }: {
         ni++;
       }
     } catch { /* stopped */ }
-    sax.stop();
+    kb.stopAll();
     setPlaying(false);
   }, [playing, measures, bpm]);
 

@@ -578,7 +578,7 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
       }
 
       // Accidental — semantically the FLAT/SHARP/NATURAL on the actual sounding
-      // pitch. NotePlayer.vexToMidi falls back to the key signature when no
+      // pitch. vexToMidi falls back to the key signature when no
       // explicit accidental is present, but we still encode key-sig-implied
       // alterations here so playback doesn't hinge on data.key being right.
       // The NoteSheet renderer suppresses drawing the symbol when it already

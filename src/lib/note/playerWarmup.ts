@@ -1,4 +1,7 @@
-import Soundfont from 'soundfont-player';
+/* Migrated to smplr alongside the rest of the audio engine. Same warmup
+ * intent — fetch + decode the piano sample bank before user clicks play so
+ * the count-in doesn't stall on a cold cache. */
+import { SplendidGrandPiano } from 'smplr';
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Player asset warmup.
@@ -12,12 +15,12 @@ import Soundfont from 'soundfont-player';
  * 시작과 동시에 호출해도 카운트인 끝나고 추가 대기 발생.
  *
  * 해결: 앱 시작 시점에 자산들을 미리 fetch → 브라우저 HTTP 캐시 적재. 사용자가
- * 재생 클릭할 즈음엔 모든 게 캐시에 있어서 NotePlayer.preload() 가 빠르게 (~수십
+ * 재생 클릭할 즈음엔 모든 게 캐시에 있어서 플레이어 preload() 가 빠르게 (~수십
  * ms decode 만) 끝남.
  *
  * - AudioContext 는 user gesture 없이 만들면 suspended 상태로 생성됨 (정상).
  *   warmup 단계에선 decode 까지만 하고 resume 안 함. 실제 재생은 사용자 클릭에서
- *   NotePlayer 가 자기 ctx 로 재진행 (이번엔 HTTP 캐시 hit).
+ *   각 플레이어가 자기 ctx 로 재진행 (이번엔 HTTP 캐시 hit).
  * - 동일 URL 을 두 번째 fetch 하면 브라우저는 disk cache 에서 즉시 응답.
  * - 이미 실패해도 silent — 재생 시점에 다시 시도하니까 functional 영향 없음.
  * ──────────────────────────────────────────────────────────────────────── */
@@ -53,12 +56,10 @@ export function warmupPlayerAssets(): Promise<void> {
       const tmpCtx = new Ctor();
 
       await Promise.allSettled([
-        // piano soundfont (NotePlayer 가 melody/comp 둘 다 같은 instrument 사용)
-        Soundfont.instrument(
-          tmpCtx,
-          'acoustic_grand_piano' as Soundfont.InstrumentName,
-        ),
-        // drum samples — 단순 fetch 로 HTTP 캐시만 채움 (decode 는 재생 시점 NotePlayer 가)
+        // SplendidGrandPiano sample bank warmup — BackingPlayer (melody + chart)
+        // both use this now (single library across the app).
+        new SplendidGrandPiano(tmpCtx).load,
+        // drum samples — 단순 fetch 로 HTTP 캐시만 채움 (decode 는 재생 시점 BackingPlayer 가)
         ...DRUM_SAMPLE_PATHS.map((p) =>
           fetch(p, { cache: 'force-cache' }).catch(() => undefined),
         ),

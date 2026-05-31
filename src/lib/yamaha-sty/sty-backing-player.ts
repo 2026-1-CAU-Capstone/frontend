@@ -439,6 +439,7 @@ export function createStyBackingPlayer(
     setConfig(next) { config = { ...config, ...next }; },
     dispose,
     ctxNow() { return ctx?.currentTime ?? 0; },
+    getCtx() { return ctx; },
     on(ev, cb) { callbacks[ev] = cb as never; },
   };
 }

@@ -12,7 +12,7 @@ import type { NoteInfo, MeasureInfo, NavigationMarker, NoteSheetData } from '../
 
 /* ─── helpers ──────────────────────────────────────────────────────────── */
 
-import Soundfont from 'soundfont-player';
+import { getGlobalKeyboard } from '../lib/player/GlobalKeyboard';
 import { useCountInIntro } from '../hooks/useCountInIntro';
 import { swungBeats } from '../lib/note/swing';
 import { normalizeChord, formatChordDisplay } from '../lib/jazz-harmony';
@@ -153,25 +153,7 @@ function splitMeasuresByBeats(measures: MeasureInfo[], beatsPerBar = 4): Measure
 
 /* ─── piano playback ─────────────────────────────────────────────────── */
 
-let _pianoCtx: AudioContext | null = null;
-let _pianoInst: Soundfont.Player | null = null;
-let _pianoLoading: Promise<void> | null = null;
-
-function ensurePiano(): Promise<Soundfont.Player> {
-  if (_pianoInst) return Promise.resolve(_pianoInst);
-  if (!_pianoCtx) _pianoCtx = new AudioContext();
-  if (_pianoCtx.state === 'suspended') _pianoCtx.resume();
-  if (!_pianoLoading) {
-    _pianoLoading = Soundfont.instrument(
-      _pianoCtx,
-      'acoustic_grand_piano' as Soundfont.InstrumentName,
-      { gain: 2.5 },
-    ).then((inst) => { _pianoInst = inst; });
-  }
-  return _pianoLoading.then(() => _pianoInst!);
-}
-
-// ensurePiano().catch(() => {});
+/* Playback shares the app-wide piano via getGlobalKeyboard(). */
 
 /** Parse a chord symbol like "CΔ7", "Dm7", "G7b9" → array of MIDI notes (3-4 note voicing around C3-C4) */
 function chordToMidi(chord: string): number[] {
@@ -765,7 +747,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
   }
 
   // Draw 8va / 8vb brackets (ottava). The printed pitch is at-stave; the
-  // bracket signals "sounds an octave up / down". NotePlayer applies the
+  // bracket signals "sounds an octave up / down". The player applies the
   // matching ±12 semitones at scheduling time so playback stays correct.
   {
     let active: { kind: '8va' | '8vb'; idx: number } | null = null;
@@ -2297,7 +2279,7 @@ export default function EditorPage() {
   const countIn = useCountInIntro();
 
   /* Stop playback if the editor unmounts mid-play (save→navigate, sidebar
-   * nav, etc.). Aborting trips the play loop's catch → sax.stop()/piano.stop(),
+   * nav, etc.). Aborting trips the play loop's catch → kb.stopAll(),
    * so sound stops and we don't keep scheduling notes after leaving. */
   useEffect(() => () => { playAbortRef.current?.abort(); }, []);
 
@@ -2316,10 +2298,11 @@ export default function EditorPage() {
 
     setPlaying(true);
     // 카운트인과 병렬로 piano soundfont 로드 — 첫 재생 지연 제거.
-    const pianoPair = Promise.all([ensurePiano(), ensurePiano()]);
+    const kb = getGlobalKeyboard();
+    const kbReady = kb.ensureReady();
     const cin = await countIn.run({ bpm });
     if (!cin.ok) { setPlaying(false); return; }
-    const [sax, piano] = await pianoPair;
+    await kbReady;
     const abort = new AbortController();
     playAbortRef.current = abort;
     pausedRef.current = false;
@@ -2501,7 +2484,7 @@ export default function EditorPage() {
               compedBeats.add(key);
               const cc = compChords[emIdx];
               if (cc.midi1.length > 0) {
-                for (const m of cc.midi1) piano.play(String(m), 0, { duration: compDur, gain: 1.2 });
+                for (const m of cc.midi1) kb.play(String(m), { duration: compDur, gain: 1.2 });
               }
             }
           }
@@ -2511,7 +2494,7 @@ export default function EditorPage() {
               compedBeats.add(key);
               const cc = compChords[emIdx];
               if (cc.midi2.length > 0) {
-                for (const m of cc.midi2) piano.play(String(m), 0, { duration: compDur, gain: 1.2 });
+                for (const m of cc.midi2) kb.play(String(m), { duration: compDur, gain: 1.2 });
               }
             }
           }
@@ -2590,7 +2573,7 @@ export default function EditorPage() {
             const sec = beatRange(beatPos, totalBeats);
             const acc = n.accidentals?.[0] as '#' | 'b' | 'n' | undefined;
             const midi = vexToMidi(n.keys[0], acc);
-            sax.play(String(midi), 0, { duration: sec * 0.9, gain: 3 });
+            kb.play(String(midi), { duration: sec * 0.9, gain: 3 });
             for (const seg of tieSegs) {
               await waitWithComp(seg.beats, seg.emIdx, seg.beatPos);
             }
@@ -2602,7 +2585,7 @@ export default function EditorPage() {
           if (!isRest) {
             const acc = n.accidentals?.[0] as '#' | 'b' | 'n' | undefined;
             const midi = vexToMidi(n.keys[0], acc);
-            sax.play(String(midi), 0, { duration: sec * 0.9, gain: 3 });
+            kb.play(String(midi), { duration: sec * 0.9, gain: 3 });
           }
           await waitWithComp(beats, emIdx, beatPos);
           i++;
@@ -2615,8 +2598,7 @@ export default function EditorPage() {
     }
 
     clearHighlight();
-    sax.stop();
-    piano.stop();
+    kb.stopAll();
     setPlaying(false);
   }, [playing, allMeasures, bpm]);
 

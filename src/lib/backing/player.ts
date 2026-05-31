@@ -4,6 +4,7 @@ import type {
   BackingEvent,
   BackingPlayer,
   BackingPlayerCallbacks,
+  StyleId,
 } from "./types";
 import { renderChart } from "./engine";
 import { loadInstruments, type TriggerableInstrument } from "./soundfont";
@@ -22,11 +23,31 @@ import { DRUM_KIT_PRESETS } from "./drumKitPresets";
  * to an event stream via the engine, and schedules those events into the
  * AudioContext with a lookahead-based RAF tick loop.
  *
- * Transport pattern is ported from lib/note/notePlayer.ts::NotePlayer.
+ * Transport pattern is ported from the legacy NotePlayer (removed).
  * ──────────────────────────────────────────────────────────────────────── */
 
 const LOOKAHEAD_SEC = 0.2;
 const TICK_TOLERANCE_SEC = 0.05;
+
+/** Map the transport's genre label (PlayerSettings.genre, one of GENRES in
+ *  BackingPlayerBar) to the engine's StyleId so the rhythm section routes to
+ *  the matching per-genre drum/feel renderer. Falls back to the binary
+ *  PlayStyle when the genre is unrecognized. Latin maps to 'samba' so it
+ *  resolves to the engine's 'latin' feel. */
+function genreToStyleId(genre: string, fallback: "swing" | "bossa"): StyleId {
+  switch (genre) {
+    case "Ballad":         return "ballad-swing";
+    case "Medium Swing":   return "medium-swing";
+    case "Up-Tempo Swing": return "up-swing";
+    case "Bebop":          return "up-swing";
+    case "Bossa Nova":     return "bossa";
+    case "Samba":          return "samba";
+    case "Latin":          return "samba";
+    case "Funk":           return "funk";
+    case "Jazz Waltz":     return "waltz-jazz";
+    default:               return fallback === "bossa" ? "bossa" : "medium-swing";
+  }
+}
 
 /** Merge the global PlayerSettings into a BackingConfig — explicit fields in
  *  the config take precedence so callers can override per-player if needed. */
@@ -35,8 +56,9 @@ function mixSettingsIntoConfig(
   base: BackingConfig,
 ): BackingConfig {
   const kitCfg = DRUM_KIT_PRESETS[s.drumKit].toConfig();
-  // PlayerSettings.style ('swing'|'bossa') → BackingConfig.style (StyleId).
-  const mappedStyle = s.style === "bossa" ? "bossa" : "medium-swing";
+  // Genre label → StyleId so the engine plays the genre's own groove
+  // (bossa/latin/ballad/up-tempo/funk/…), not just swing-vs-bossa.
+  const mappedStyle = genreToStyleId(s.genre, s.style);
   return {
     ...kitCfg,                   // drumMode + drumLoop
     style: mappedStyle,
@@ -165,11 +187,33 @@ export function createBackingPlayer(
     // Pass `config.feel` so a user-side feel override (e.g. switching from
     // medium-swing to ballad-swing on the same chart) actually changes the
     // engine's piano/drum routing. Previously this dropped `feel` silently.
-    events = renderChart(chart, { bpm, style: config.style, feel: config.feel });
+    // `config.melody` (when set) threads the lead line into RenderOptions so
+    // it's scheduled alongside the rhythm section on the same time grid.
+    events = renderChart(chart, {
+      bpm,
+      style: config.style,
+      feel: config.feel,
+      melody: config.melody,
+    });
     const beatsPerBar = chart.timeSig[0];
     secPerBar = beatsPerBar * (60 / bpm);
     totalBars = chart.sections.reduce((s, sec) => s + sec.bars.length, 0);
+    // Build a parallel (bar, niInBar) index for melody events so dispatch()
+    // can fire `onNote(mi, ni)` without an extra scan. Resets on every build.
+    melodyNiByEventIdx.clear();
+    const niCounter = new Map<number, number>();
+    for (let i = 0; i < events.length; i++) {
+      const ev = events[i];
+      if (ev.kind === "note" && ev.instrument === "melody") {
+        const ni = niCounter.get(ev.bar) ?? 0;
+        melodyNiByEventIdx.set(i, ni);
+        niCounter.set(ev.bar, ni + 1);
+      }
+    }
   }
+
+  /** Maps event-array index → note-index-within-bar for melody events. */
+  const melodyNiByEventIdx = new Map<number, number>();
 
   /* ── scheduler loop ──────────────────────────────────────────────── */
 
@@ -183,6 +227,16 @@ export function createBackingPlayer(
       if (ev.time > now + LOOKAHEAD_SEC) break;
       if (ev.time >= now - TICK_TOLERANCE_SEC) {
         dispatch(ev);
+        // Emit per-note callback for melody events so pages can highlight the
+        // current lead-line note. `mi` = source bar index, `ni` = 0-based
+        // melody-note index within that bar (precomputed in build()).
+        // TODO: this fires at lookahead schedule time, ~LOOKAHEAD_SEC before
+        // the audio actually sounds. Pages relying on tight visual sync may
+        // want a defer/setTimeout wrapper keyed off ev.time vs ctx.currentTime.
+        if (ev.kind === "note" && ev.instrument === "melody") {
+          const ni = melodyNiByEventIdx.get(nextIdx);
+          if (ni != null) callbacks.onNote?.(ev.bar, ni);
+        }
       }
       nextIdx++;
     }
@@ -249,7 +303,15 @@ export function createBackingPlayer(
       return;
     }
 
-    const inst = ev.instrument === "piano" ? piano : ev.instrument === "bass" ? bass : null;
+    // Melody routes through the piano soundfont for now — matches the legacy
+    // historical behaviour (lead line on SplendidGrandPiano). A dedicated
+    // melody-volume key still wins over piano's so the lead can be mixed
+    // independently.
+    const inst =
+      ev.instrument === "piano" ? piano :
+      ev.instrument === "bass"  ? bass  :
+      ev.instrument === "melody" ? piano :
+      null;
     if (!inst) return;
 
     const vol = config.volume?.[ev.instrument] ?? 1;
@@ -421,6 +483,7 @@ export function createBackingPlayer(
     setConfig,
     dispose,
     ctxNow() { return ctx?.currentTime ?? 0; },
+    getCtx() { return ctx; },
     on(ev, cb) {
       callbacks[ev] = cb as never;
     },

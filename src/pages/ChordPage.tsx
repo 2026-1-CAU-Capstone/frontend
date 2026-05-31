@@ -17,7 +17,7 @@ import { buildChordContext } from '../api/chordContext';
 import { leadSheetToChart } from '../lib/backing';
 import { useGlobalPlayer, type ChartInput } from '../lib/player';
 import { BUILTIN_STYLE, type StyleSelectorChoice } from '../components/yamaha-sty/StyleSelector';
-import { getPlayerSettings, inferPlayStyle, setPlayerSetting, subscribePlayerSettings, TRANSPOSING_INSTRUMENT_OFFSET } from '../lib/note/playerSettings';
+import { getPlayerSettings, inferGenre, inferPlayStyle, setPlayerSetting, subscribePlayerSettings, TRANSPOSING_INSTRUMENT_OFFSET } from '../lib/note/playerSettings';
 import { GenreSelect, MetronomeToggle, BpmControl, RepeatControl, TransportButtons, BackingMixer, type EngineBackend } from '../components/backing/BackingPlayerBar';
 import { useIsNativeUi } from '../contexts/AppPreviewContext';
 import { withLeadSheetSelectionIds } from '../lib/leadSheetSelection';
@@ -987,6 +987,13 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     const inferred = inferPlayStyle(chart.defaultStyle ?? sheet.style);
     if (inferred && inferred !== getPlayerSettings().style) {
       setPlayerSetting('style', inferred);
+    }
+    // Mirror the richer genre label into the transport dropdown. Prefer the
+    // raw iReal style string (e.g. "Bossa Nova", "Bebop") over the normalized
+    // StyleId so genres the engine collapses to swing/bossa still display.
+    const inferredGenre = inferGenre(sheet.style ?? chart.defaultStyle);
+    if (inferredGenre && inferredGenre !== getPlayerSettings().genre) {
+      setPlayerSetting('genre', inferredGenre);
     }
   }, [sheet]);
 

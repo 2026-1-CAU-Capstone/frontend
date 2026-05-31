@@ -180,7 +180,8 @@ export type InstrumentId =
   | "drums"       // shorthand — engine picks which pieces to trigger
   | "guitar"
   | "vibes"
-  | "horns";      // melody voice for unisons
+  | "horns"       // melody voice for unisons
+  | "melody";     // dedicated lead-line track (NoteSheet melody, etc.)
 
 /** Fine-grained drum pieces for precise figure/unison targeting. */
 export type DrumPiece =
@@ -310,6 +311,18 @@ export interface BackingConfig {
    *  precedence over `loop`: the song plays exactly this many times then fires
    *  `onDone`. Undefined → fall back to `loop` (infinite). */
   repeatCount?: number;
+  /** Optional melody track. When set, the BackingPlayer threads it into the
+   *  engine via `RenderOptions.melody` so the lead line is scheduled alongside
+   *  bass/piano/drums. Typed loosely to avoid a circular dep with the adapter
+   *  module; runtime shape is `MelodyNote[]` from
+   *  `lib/backing/adapters/noteSheetToChart`. */
+  melody?: Array<{
+    midi: number;
+    beatOffset: number;
+    durationBeats: number;
+    velocity?: number;
+    tie?: boolean;
+  }>;
 }
 
 /* ─── Player lifecycle callbacks ─────────────────────────────────────── */
@@ -317,10 +330,15 @@ export interface BackingConfig {
 export interface BackingPlayerCallbacks {
   /** Fires when the playhead enters a new bar (flat index across sections). */
   onBar?: (barIndex: number) => void;
+  /** Fires when a melody note is dispatched. `mi` is the source bar index
+   *  (matches `NoteEvent.bar`), `ni` is the 0-based running index of the
+   *  melody note within that bar. Used by NoteSheet pages to highlight the
+   *  current lead-line note. Only emitted when `config.melody` is set. */
+  onNote?: (mi: number, ni: number) => void;
   /** Fires when playback finishes naturally. */
   onDone?: () => void;
   /** Fires when a loop-kit drum file fails to load and the player falls back
-   *  to per-hit synth drums. Mirrors NotePlayer.onDrumKitError semantics:
+   *  to per-hit synth drums. `null` clears a previously-reported error:
    *  passes `null` to clear a previous warning (called on successful load). */
   onDrumKitError?: (msg: string | null) => void;
 }
@@ -343,6 +361,11 @@ export interface BackingPlayer {
   /** Audio-context time (sec). Returns 0 if ctx has not been created yet —
    *  call `preload()` first for a stable clock. */
   ctxNow(): number;
+  /** The underlying AudioContext (creating it lazily if needed). Exposed so
+   *  auxiliary players (e.g. AnacrusisPlayer for pickup notes) can share the
+   *  same clock as `ctxNow()` — otherwise schedule times computed from
+   *  `ctxNow()` won't align with the auxiliary player's own clock. */
+  getCtx(): AudioContext | null;
   /** Attach / replace a callback. */
   on<K extends keyof BackingPlayerCallbacks>(ev: K, cb: BackingPlayerCallbacks[K]): void;
 }

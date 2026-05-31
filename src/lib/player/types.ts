@@ -4,7 +4,7 @@
  * This file defines the public surface of the unified player layer
  * (Approach B in the Unified Player Architecture design doc). The
  * orchestrator (`GlobalPlayer`) wraps the two concrete engines —
- * `NotePlayer` (`lib/note/notePlayer.ts`) and the `BackingPlayer` family
+ * the `BackingPlayer` family
  * (`lib/backing/player.ts`, `lib/yamaha-sty/sty-backing-player.ts`,
  * `lib/yamaha-sty/hybrid-backing-player.ts`) — and exposes a single
  * uniform API to React pages.
@@ -19,9 +19,9 @@
  *     kinds, `onBar`/`onChord` for the chart kind).
  *
  * Migration callers (page-level):
- *   • Pages that previously did `new NotePlayer({ lickMode: true })` →
+ *   • Pages that previously instantiated a per-page lick player →
  *     `play({ kind: 'lick', data: sheetData })`.
- *   • Pages that previously did `new NotePlayer()` →
+ *   • Pages that previously instantiated a per-page melody player →
  *     `play({ kind: 'sheet', data: sheetData })`.
  *   • Pages with hand-rolled Soundfont schedulers (EditorPage,
  *     SoloGeneratorPage, Lick12KeyPage) →
@@ -32,7 +32,7 @@
  *
  * Out of scope for this Core layer (see design Section 7):
  *   • `PianoKeyboard.playMidi()` single-note audition — stays as-is.
- *   • Cross-engine simultaneous playback (NotePlayer melody atop
+ *   • Cross-engine simultaneous playback (melody engine atop
  *     BackingPlayer chart) — both engines own their own AudioContext.
  *   • Unifying `soundfont-player` vs `smplr` piano libraries.
  * ──────────────────────────────────────────────────────────────────── */
@@ -45,7 +45,6 @@ import type {
   StyleId,
   FeelId,
 } from "../backing/types";
-import type { NotePlayer } from "../note/notePlayer";
 import type { PlayerSettings } from "../note/playerSettings";
 
 /* ─── Engine backend selector ────────────────────────────────────────── */
@@ -65,7 +64,7 @@ export type EngineBackend = "rule" | "sty" | "hybrid";
 
 /**
  * Sheet kind — full notation playback with melody + comp + bass + drums.
- * The active engine is `NotePlayer` (no lickMode).
+ * The active engine is the melody-side BackingPlayer (no lickMode).
  */
 export interface SheetInput {
   kind: "sheet";
@@ -75,7 +74,8 @@ export interface SheetInput {
 /**
  * Lick kind — audition mode: melody is boosted, rhythm section is
  * silenced, piano reverb is maxed so the line sits over a soft pad.
- * The active engine is `NotePlayer({ lickMode: true })`.
+ * The active engine is the melody-side BackingPlayer with lick-mode mix
+ * (rhythm section silenced).
  */
 export interface LickInput {
   kind: "lick";
@@ -83,14 +83,14 @@ export interface LickInput {
 }
 
 /**
- * Solo kind — same engine as `sheet` (full rhythm section) but signals
- * to consumers that this is a generated/edited transcription. Reserved
- * for `EditorPage` / `SoloGeneratorPage` migrations: those pages may
- * later want to differentiate solo defaults (e.g., metronome on,
- * different starting BPM) without affecting normal sheet playback.
- * Currently the orchestrator routes `solo` to the same NotePlayer
- * instance as `sheet`, but with the `solo` flag preserved on
- * `currentInput.kind` so downstream callbacks can branch.
+ * Solo kind — same engine path as `sheet` (full rhythm section, piano
+ * melody) but signals to consumers that this is a generated/edited
+ * transcription. Reserved for `EditorPage` / `SoloGeneratorPage`
+ * migrations: those pages may later want to differentiate solo defaults
+ * (e.g., metronome on, different starting BPM) without affecting normal
+ * sheet playback. The orchestrator caches a separate BackingPlayer
+ * instance for `solo` so future solo-specific config can be applied
+ * without disturbing sheet playback.
  */
 export interface SoloInput {
   kind: "solo";
@@ -147,7 +147,7 @@ export interface ChordSymbol {
  *
  *  - `bpm` / `style` / `feel` / `loop` / `repeatCount`
  *      → routed to the active inner engine (BackingPlayer.setConfig
- *        for chart kind, or NotePlayer playerSettings + replay for
+ *        for chart kind, or playerSettings + replay for
  *        sheet/lick/solo kinds).
  *
  *  - `mixer`
@@ -206,7 +206,7 @@ export interface AnacrusisNote {
  *  - `note(mi, ni)`       — fires for sheet/lick/solo only (chart has no
  *                           melody track). `mi` is the source-measure
  *                           index, `ni` the note index within the
- *                           measure. Mirrors `NotePlayer.onNote`.
+ *                           measure.
  *  - `done()`             — natural end of playback (no auto-loop).
  *  - `error(err)`         — engine failure (asset load, audio context, …).
  *  - `drumKitError(err)`  — drum-kit asset load failure surfaced from an
@@ -239,7 +239,7 @@ export interface GlobalPlayerEvents {
  *  - `pause()`         — pause the currently active engine. No-op if not
  *                        playing.
  *  - `stop()`          — stop and reset the active engine.
- *  - `seekToMeasure()` — sheet/lick/solo only (delegates to NotePlayer).
+ *  - `seekToMeasure()` — sheet/lick/solo only (delegates to the melody engine).
  *                        No-op for chart.
  *  - `setConfig()`     — apply config patch (see GlobalPlayerConfig).
  *  - `ctxNow()`        — current AudioContext time of the active engine
@@ -264,8 +264,8 @@ export interface GlobalPlayer {
   ctxNow(): number;
   /**
    * Schedule anacrusis (pickup) notes for melody playback. Delegates to
-   * an internal `NotePlayer` instance so pages no longer need to construct
-   * their own `NotePlayer` just for pickup scheduling. Notes are routed
+   * an internal `AnacrusisPlayer` instance so pages no longer need to
+   * construct their own player just for pickup scheduling. Notes are routed
    * through the same melody instrument as `play({ kind: 'sheet' | 'lick'
    * | 'solo' })`. Schedule before the main `play()` call begins.
    */
@@ -290,7 +290,6 @@ export interface GlobalPlayer {
  * `GlobalPlayerConfig` / `GlobalPlayerEvents`.
  */
 export type {
-  NotePlayer,
   BackingPlayer,
   BackingConfig,
   StyleId,

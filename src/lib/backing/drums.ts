@@ -75,24 +75,27 @@ export function mediumSwingBar(opts: DrumBarOptions, bpm: number): DrumEvent[] {
     });
   };
 
-  // Ride — quarters with slight accent on 1 & 3
-  push(0, "ride", 0.72);
-  push(1, "ride", 0.62);
-  push(2, "ride", 0.70);
-  push(3, "ride", 0.62);
+  // Ride — quarters (beat 2 leads), velocities sampled from iReal Pro's
+  // medium-swing track. The swung "&" of 2 & 4 sit fuller than the old
+  // ghosted value, matching iReal's prominent spang-a-lang.
+  push(0, "ride", 0.65);
+  push(1, "ride", 0.70);
+  push(2, "ride", 0.65);
+  push(3, "ride", 0.68);
   // Swung 8ths — the "a" of 2 and 4
-  push(1.5, "ride", 0.48);
-  push(3.5, "ride", 0.48);
+  push(1.5, "ride", 0.64);
+  push(3.5, "ride", 0.61);
 
-  // PHH on backbeats (2 & 4)
-  push(1, "hihat-foot", 0.95);
-  push(3, "hihat-foot", 0.95);
+  // PHH on backbeats (2 & 4) — iReal keeps the foot soft (~0.50), not the
+  // hard chick the old value implied.
+  push(1, "hihat-foot", 0.50);
+  push(3, "hihat-foot", 0.50);
 
-  // Feathered kick on every beat (1 & 3)
-  push(0, "kick", 0.45);
-  push(1, "kick", 0.38);
-  push(2, "kick", 0.45);
-  push(3, "kick", 0.38);
+  // Feathered kick on every beat — barely-there in iReal (~0.24).
+  push(0, "kick", 0.25);
+  push(1, "kick", 0.24);
+  push(2, "kick", 0.24);
+  push(3, "kick", 0.24);
 
   // Snare comping
   const snarePattern = SNARE_PATTERNS[barIndex % SNARE_PATTERNS.length];
@@ -132,18 +135,21 @@ export function balladBar(opts: DrumBarOptions): DrumEvent[] {
     });
   };
 
-  // Soft kick + tom-low pulse on every beat — felt more than heard.
-  // GM 35 = kick (already mapped), GM 41 = Low Floor Tom → "tom-low".
+  // iReal's ballad has a very soft kick (~0.20) doubled by a Low Floor Tom
+  // (~0.55) on every beat — felt more than heard.
   for (let b = 0; b < 4; b++) {
-    push(b, "kick", 0.42);
-    push(b, "tom-low", 0.38);
+    push(b, "kick", 0.20);
+    push(b, "tom-low", 0.55);
   }
 
-  // Hand-clap on the "a" of 2 and 4 (GM 39 → currently mapped to "clap"
-  // which is outside the DrumPiece union — fall back to "rim" so the
-  // type stays sound until a clap voice exists).
-  push(1.75, "rim", 0.55);
-  push(3.75, "rim", 0.55);
+  // PHH foot on 2 & 4.
+  push(1, "hihat-foot", 0.39);
+  push(3, "hihat-foot", 0.39);
+
+  // Brush/hand-clap comp on the swung "&" of 2 and 4 (GM 39 clap → "rim",
+  // the closest voice in our piece set).
+  push(1.5, "rim", 0.39);
+  push(3.5, "rim", 0.39);
 
   return events;
 }
@@ -171,21 +177,24 @@ export function upTempoBar(opts: DrumBarOptions): DrumEvent[] {
     });
   };
 
-  // Ride quarters + swung 8ths
-  push(0, "ride", 0.72);
-  push(1, "ride", 0.62);
-  push(2, "ride", 0.70);
-  push(3, "ride", 0.62);
-  push(1.5, "ride", 0.50);
-  push(3.5, "ride", 0.50);
+  // Ride quarters + swung 8ths — iReal's up-tempo ride sits a touch lower
+  // than medium swing; the swung "&" still rings clearly.
+  push(0, "ride", 0.62);
+  push(1, "ride", 0.64);
+  push(2, "ride", 0.61);
+  push(3, "ride", 0.64);
+  push(1.5, "ride", 0.57);
+  push(3.5, "ride", 0.59);
 
-  // PHH on 2 & 4
-  push(1, "hihat-foot", 0.92);
-  push(3, "hihat-foot", 0.92);
+  // PHH on 2 & 4 — soft foot (iReal ~0.50).
+  push(1, "hihat-foot", 0.50);
+  push(3, "hihat-foot", 0.50);
 
-  // Lighter feathered kick at fast tempos
-  push(0, "kick", 0.38);
-  push(2, "kick", 0.38);
+  // Feathered kick on every beat (iReal keeps all four, barely audible).
+  push(0, "kick", 0.24);
+  push(1, "kick", 0.24);
+  push(2, "kick", 0.24);
+  push(3, "kick", 0.24);
 
   // Snare comping (same library, rotates with bar index)
   const snarePattern = SNARE_PATTERNS[barIndex % SNARE_PATTERNS.length];
@@ -199,15 +208,21 @@ export function upTempoBar(opts: DrumBarOptions): DrumEvent[] {
 /* ─── New Orleans Swing (straight 8ths, second-line snare) ─────────────── */
 
 /**
- * New Orleans / second-line — the snare drives every beat (GM 38) with a
- * doubled hit at +0.75 to imitate the parade-style drag. PHH on 2 & 4.
- * Straight subdivision (1.0).
+ * New Orleans / second-line — transcribed from iReal Pro's "New Orleans
+ * Swing" track. It's a *swung* feel (ride spang-a-lang), not the straight
+ * pattern the old version used. Signature elements:
+ *   • Swing ride on the quarters + swung "&" of 2 & 4.
+ *   • "Big-four" kick: strong on beat 1, the swung "& of 2", and beat 4,
+ *     with feathered taps on 2 & 3.
+ *   • Continuous second-line snare across the beats and swung "&"s.
+ *   • PHH on 2 & 4.
  */
-export function newOrleansBar(opts: DrumBarOptions): DrumEvent[] {
+export function newOrleansBar(opts: DrumBarOptions, bpm: number): DrumEvent[] {
   const { secPerBeat, barStart, beatsInBar, barIndex } = opts;
   if (beatsInBar !== 4) return [];
 
-  const beatToSec = makeBeatToSec(secPerBeat, 0.5); // straight
+  const swingRatio = getSwingRatio(bpm, "medium-swing");
+  const beatToSec = makeBeatToSec(secPerBeat, swingRatio);
 
   const events: DrumEvent[] = [];
   const push = (beat: number, piece: DrumPiece, velocity: number) => {
@@ -220,19 +235,35 @@ export function newOrleansBar(opts: DrumBarOptions): DrumEvent[] {
     });
   };
 
-  // Snare every beat + +0.75 second-line drag
-  for (let b = 0; b < 4; b++) {
-    push(b, "snare", 0.62);
-    push(b + 0.75, "snare", 0.48);
-  }
+  // Swing ride
+  push(0, "ride", 0.66);
+  push(1, "ride", 0.70);
+  push(2, "ride", 0.66);
+  push(3, "ride", 0.68);
+  push(1.5, "ride", 0.64);
+  push(3.5, "ride", 0.63);
 
-  // PHH on backbeats
-  push(1, "hihat-foot", 0.88);
-  push(3, "hihat-foot", 0.88);
+  // PHH on 2 & 4
+  push(1, "hihat-foot", 0.54);
+  push(3, "hihat-foot", 0.54);
 
-  // Kick on 1 & 3
-  push(0, "kick", 0.55);
-  push(2, "kick", 0.52);
+  // Big-four kick: beat 1, the swung "& of 2" (the accent, iReal hits 127),
+  // beat 4; beats 2 & 3 feathered.
+  push(0,   "kick", 0.74);
+  push(1.5, "kick", 0.95);
+  push(3,   "kick", 0.76);
+  push(1,   "kick", 0.24);
+  push(2,   "kick", 0.24);
+
+  // Second-line snare — beats + swung "&"s, backbeat (2 & 4) accented.
+  push(0,   "snare", 0.55);
+  push(0.5, "snare", 0.50);
+  push(1,   "snare", 0.64);
+  push(1.5, "snare", 0.62);
+  push(2,   "snare", 0.55);
+  push(2.5, "snare", 0.58);
+  push(3,   "snare", 0.64);
+  push(3.5, "snare", 0.50);
 
   return events;
 }
@@ -260,19 +291,22 @@ export function even8thsBar(opts: DrumBarOptions): DrumEvent[] {
     });
   };
 
-  // Ride on every 8th
-  for (let i = 0; i < 8; i++) {
-    const beat = i * 0.5;
-    const onDownbeat = i % 2 === 0;
-    push(beat, "ride", onDownbeat ? 0.68 : 0.50);
-    push(beat, "hihat-foot", onDownbeat ? 0.45 : 0.32);
-  }
+  // Ride on every 8th — iReal keeps these fairly even (~0.55) with only a
+  // slight downbeat lean.
+  const RIDE_VEL = [0.60, 0.55, 0.55, 0.50, 0.58, 0.54, 0.50, 0.55];
+  for (let i = 0; i < 8; i++) push(i * 0.5, "ride", RIDE_VEL[i]);
 
-  // Kick on 1 & 3, snare on 2 & 4
-  push(0, "kick", 0.78);
-  push(2, "kick", 0.78);
+  // PHH on the quarters only (not every 8th), soft foot.
+  push(0, "hihat-foot", 0.31);
+  push(1, "hihat-foot", 0.31);
+  push(2, "hihat-foot", 0.31);
+  push(3, "hihat-foot", 0.31);
+
+  // Kick on 1 and the "& of 3"; snare backbeat on 2 & 4.
+  push(0,   "kick", 0.69);
+  push(2.5, "kick", 0.66);
   push(1, "snare", 0.72);
-  push(3, "snare", 0.72);
+  push(3, "snare", 0.74);
 
   return events;
 }
@@ -280,8 +314,13 @@ export function even8thsBar(opts: DrumBarOptions): DrumEvent[] {
 /* ─── Bossa Nova (re-implemented w/ ride + sidestick + clave) ──────────── */
 
 /**
- * Bossa Nova — ride (GM 71) straight 8ths, kick on the surdo pattern, and
- * a 2-bar clave-flavoured side-stick (GM 37 → "rim" in our piece set).
+ * Bossa Nova — transcribed bar-for-bar from iReal Pro's own bossa backing
+ * track (its GM export of "Autumn Leaves / Jazz-Bossa Nova", drum track on
+ * GM channel 10, ticks quantized to 16ths). Four voices:
+ *   • Ride (GM 71)      — straight 8ths with iReal's velocity contour.
+ *   • Surdo kick (GM 35)— 1, "&2", 3, "&4"; beat 3 is the strongest hit.
+ *   • Pedal hi-hat (44) — soft chick on 2 & 4.
+ *   • Cross-stick (37→"rim") — the 2-bar bossa clave (2-side then 3-side).
  */
 export function bossaBar(opts: DrumBarOptions): DrumEvent[] {
   const { secPerBeat, barStart, beatsInBar, barIndex } = opts;
@@ -300,30 +339,33 @@ export function bossaBar(opts: DrumBarOptions): DrumEvent[] {
     });
   };
 
-  // Ride straight 8ths
-  for (let i = 0; i < 8; i++) {
-    const beat = i * 0.5;
-    const onDownbeat = i % 2 === 0;
-    push(beat, "ride", onDownbeat ? 0.58 : 0.42);
-  }
+  // Ride — straight 8ths. Velocity contour sampled from iReal Pro: beats 1 & 3
+  // lead, the "&" of 2 & 4 next, beats 2 & 4 mid, the "&" of 1 & 3 softest.
+  const RIDE_VEL = [0.63, 0.43, 0.52, 0.59, 0.64, 0.42, 0.52, 0.58];
+  for (let i = 0; i < 8; i++) push(i * 0.5, "ride", RIDE_VEL[i]);
 
-  // Surdo-style kick
-  push(0,   "kick", 0.78);
-  push(1.5, "kick", 0.62);
-  push(2,   "kick", 0.78);
-  push(3.5, "kick", 0.62);
+  // Surdo kick — iReal accents beat 3 (122) hardest, then "&2" (111),
+  // beat 1 (100), and "&4" (82) lightest.
+  push(0,   "kick", 0.79);
+  push(1.5, "kick", 0.87);
+  push(2,   "kick", 0.96);
+  push(3.5, "kick", 0.65);
 
-  // Side-stick (rim) — 2-bar clave alternation
-  const evenBar = barIndex % 2 === 0;
-  if (evenBar) {
-    push(0,   "rim", 0.7);
-    push(1.5, "rim", 0.72);
-    push(2.5, "rim", 0.72);
+  // Pedal hi-hat — soft foot chick on 2 & 4.
+  push(1, "hihat-foot", 0.34);
+  push(3, "hihat-foot", 0.34);
+
+  // Cross-stick clave (rim) — 2-bar bossa clave. iReal's track opens on the
+  // 2-side, so even bars play the 2-side and odd bars the 3-side.
+  if (barIndex % 2 === 0) {
+    // 2-side: beat 2 and the "&" of 3
+    push(1,   "rim", 0.66);
+    push(2.5, "rim", 0.66);
   } else {
-    push(0,   "rim", 0.7);
-    push(1,   "rim", 0.68);
-    push(2.5, "rim", 0.72);
-    push(3,   "rim", 0.68);
+    // 3-side: beat 1, the "&" of 2, and beat 4
+    push(0,   "rim", 0.66);
+    push(1.5, "rim", 0.66);
+    push(3,   "rim", 0.66);
   }
 
   return events;
@@ -332,9 +374,14 @@ export function bossaBar(opts: DrumBarOptions): DrumEvent[] {
 /* ─── Latin (paired ride bell + conga emulation) ───────────────────────── */
 
 /**
- * Latin — paired ride-bell (GM 53) and ride2 (GM 59) on a cha-cha-flavoured
- * rhythm. LowTom (GM 45 → "tom-low") + HiFloorTom (GM 43 → "tom-low") play
- * the conga part. SideStick (GM 37 → "rim") plays the clave. Straight 1.0.
+ * Latin — transcribed from iReal Pro's "Latin" track (a mambo/bossa-latin
+ * groove). Voices:
+ *   • Bell — ride-bell doubled by a quieter ride, on a 2-bar bell pattern.
+ *   • Surdo kick on beat 1 and the "& of 2".
+ *   • Cross-stick (GM 37 SideStick → "rim") on beat 2.
+ *   • Pedal hi-hat on 2 & 4.
+ *   • Conga (toms → "tom-low") tumbao: high taps mid-bar, low slaps on 4.
+ * Straight subdivision (1.0).
  */
 export function latinBar(opts: DrumBarOptions): DrumEvent[] {
   const { secPerBeat, barStart, beatsInBar, barIndex } = opts;
@@ -353,24 +400,33 @@ export function latinBar(opts: DrumBarOptions): DrumEvent[] {
     });
   };
 
-  // Paired ride-bell + ride — cha-cha pulse on every 8th, accent every beat
-  for (let i = 0; i < 8; i++) {
-    const beat = i * 0.5;
-    const onDownbeat = i % 2 === 0;
-    push(beat, "ride-bell", onDownbeat ? 0.62 : 0.40);
-    push(beat, "ride",      onDownbeat ? 0.50 : 0.32);
+  // Bell pattern (ride-bell + quieter ride doubling) — 2-bar. iReal opens the
+  // odd bar on the downbeat and the even bar on the "& of 1".
+  const bell = barIndex % 2 === 0
+    ? [0.5, 1.0, 2.0, 2.5, 3.5]
+    : [0.0, 1.0, 2.0, 2.5, 3.5];
+  for (const b of bell) {
+    push(b, "ride-bell", 0.42);
+    push(b, "ride",      0.32);
   }
 
-  // Conga-style toms — open conga on 1 & 3, slap on the "and" of 2 & 4
-  push(0,   "tom-low", 0.62);
-  push(2,   "tom-low", 0.62);
-  push(1.5, "tom-low", 0.48);
-  push(3.5, "tom-low", 0.48);
+  // Surdo kick — beat 1 and the "& of 2".
+  push(0,   "kick", 0.71);
+  push(1.5, "kick", 0.71);
 
-  // Side-stick clave
-  push(0,   "rim", 0.62);
-  push(1.5, "rim", 0.62);
-  push(2.5, "rim", 0.62);
+  // Cross-stick on beat 2.
+  push(1, "rim", 0.50);
+
+  // Pedal hi-hat on 2 & 4.
+  push(1, "hihat-foot", 0.46);
+  push(3, "hihat-foot", 0.46);
+
+  // Conga tumbao — high taps on the "& of 2" and beat 3, low slaps on beat 4
+  // and its "&".
+  push(1.5, "tom-low", 0.43);
+  push(2.0, "tom-low", 0.43);
+  push(3.0, "tom-low", 0.61);
+  push(3.5, "tom-low", 0.56);
 
   return events;
 }
@@ -465,7 +521,7 @@ export function renderDrumBar(
     case "up-tempo-swing":
       return upTempoBar(opts);
     case "new-orleans-swing":
-      return newOrleansBar(opts);
+      return newOrleansBar(opts, bpm);
     case "even-8ths":
     case "straight-8":
     case "straight-16":

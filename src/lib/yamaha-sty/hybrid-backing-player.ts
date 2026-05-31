@@ -80,6 +80,7 @@ export function createHybridBackingPlayer(
       styEngine.dispose();
     },
     ctxNow() { return styEngine.ctxNow(); },
+    getCtx() { return styEngine.getCtx(); },
     on(ev, cb) { callbacks[ev] = cb as never; },
   };
 }

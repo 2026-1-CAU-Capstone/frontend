@@ -46,7 +46,7 @@ export interface BackingInstruments {
   bass: TriggerableInstrument;
   drums: TriggerableInstrument;
   /** Gain node that feeds the piano's wet-reverb send. Adjust to tune the
-   * piano's apparent room size live (matches NotePlayer.setPianoReverb). */
+   * piano's apparent room size live. */
   pianoReverbSend: GainNode;
 }
 
@@ -126,9 +126,12 @@ export async function loadInstruments(ctx: AudioContext): Promise<BackingInstrum
   bassAmp.connect(ctx.destination);
 
   const piano = new SplendidGrandPiano(ctx, { destination: pianoAmp });
+  /* Bass: MusyngKite (smplr's high-quality kit) replaces the older FluidR3_GM
+   * samples. MusyngKite has richer low end and more natural attack for jazz
+   * walking bass — the FluidR3 set was the weakest link in the mix. */
   const bass = new Soundfont(ctx, {
     instrument: "acoustic_bass",
-    kit: "FluidR3_GM",
+    kit: "MusyngKite",
     destination: bassAmp,
   });
 
