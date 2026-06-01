@@ -1,11 +1,30 @@
 {
-  "model": "claude-sonnet-4-20250514",
+  "models": [
+    {
+      "id": "haiku",
+      "model": "claude-haiku-4-5-20251001"
+    },
+    {
+      "id": "sonnet",
+      "model": "claude-sonnet-4-6"
+    }
+  ],
+  "judge": "claude-sonnet-4-6",
+  "rag": {
+    "enabled": true,
+    "base": "http://127.0.0.1:8001",
+    "n": 5,
+    "min_score": 0
+  },
+  "timestamp": "2026-06-01T09:12:06.712Z",
   "responses": [
     {
       "task": "A",
       "id": "p01-cmaj-251",
-      "condition": "Raw",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\"]}\n```",
+      "model": "haiku",
+      "condition": "raw",
+      "label": "haiku/raw",
+      "reply": "```json\n{\n  \"key\": \"C major\",\n  \"iiVi\": [[0, 1, 2]],\n  \"romans\": [\"ii7\", \"V7\", \"Imaj7\"]\n}\n```",
       "score": {
         "id": "p01-cmaj-251",
         "keyHit": 1,
@@ -21,8 +40,10 @@
     {
       "task": "A",
       "id": "p01-cmaj-251",
+      "model": "haiku",
       "condition": "+Rule",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\"]}\n```",
+      "label": "haiku/+Rule",
+      "reply": "```json\n{\n  \"key\": \"C major\",\n  \"iiVi\": [[0, 1, 2]],\n  \"romans\": [\"ii-7\", \"V7\", \"Imaj7\"]\n}\n```",
       "score": {
         "id": "p01-cmaj-251",
         "keyHit": 1,
@@ -38,8 +59,10 @@
     {
       "task": "A",
       "id": "p01-cmaj-251",
-      "condition": "+RAG",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\"]}\n```",
+      "model": "haiku",
+      "condition": "+Rule+RAG",
+      "label": "haiku/+Rule+RAG",
+      "reply": "```json\n{\n  \"key\": \"C major\",\n  \"iiVi\": [[0, 1, 2]],\n  \"romans\": [\"ii-7\", \"V7\", \"Imaj7\"]\n}\n```",
       "score": {
         "id": "p01-cmaj-251",
         "keyHit": 1,
@@ -55,8 +78,48 @@
     {
       "task": "A",
       "id": "p01-cmaj-251",
+      "model": "sonnet",
+      "condition": "raw",
+      "label": "sonnet/raw",
+      "reply": "{\"key\":\"C major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\"]}",
+      "score": {
+        "id": "p01-cmaj-251",
+        "keyHit": 1,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "romanAcc": 1,
+        "tp": 1,
+        "predN": 1,
+        "goldN": 1
+      }
+    },
+    {
+      "task": "A",
+      "id": "p01-cmaj-251",
+      "model": "sonnet",
+      "condition": "+Rule",
+      "label": "sonnet/+Rule",
+      "reply": "{\"key\":\"C major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii-7\",\"V7\",\"Imaj7\"]}",
+      "score": {
+        "id": "p01-cmaj-251",
+        "keyHit": 1,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "romanAcc": 1,
+        "tp": 1,
+        "predN": 1,
+        "goldN": 1
+      }
+    },
+    {
+      "task": "A",
+      "id": "p01-cmaj-251",
+      "model": "sonnet",
       "condition": "+Rule+RAG",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\"]}\n```",
+      "label": "sonnet/+Rule+RAG",
+      "reply": "{\"key\":\"C major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\"]}",
       "score": {
         "id": "p01-cmaj-251",
         "keyHit": 1,
@@ -72,8 +135,10 @@
     {
       "task": "A",
       "id": "p02-gmaj-251",
-      "condition": "Raw",
-      "reply": "```json\n{\"key\":\"G major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\"]}\n```",
+      "model": "haiku",
+      "condition": "raw",
+      "label": "haiku/raw",
+      "reply": "```json\n{\n  \"key\": \"G major\",\n  \"iiVi\": [[0, 1, 2]],\n  \"romans\": [\"ii7\", \"V7\", \"Imaj7\"]\n}\n```",
       "score": {
         "id": "p02-gmaj-251",
         "keyHit": 1,
@@ -89,8 +154,10 @@
     {
       "task": "A",
       "id": "p02-gmaj-251",
+      "model": "haiku",
       "condition": "+Rule",
-      "reply": "```json\n{\"key\":\"G major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\"]}\n```",
+      "label": "haiku/+Rule",
+      "reply": "```json\n{\n  \"key\": \"G major\",\n  \"iiVi\": [[0, 1, 2]],\n  \"romans\": [\"ii-7\", \"V7\", \"Imaj7\"]\n}\n```",
       "score": {
         "id": "p02-gmaj-251",
         "keyHit": 1,
@@ -106,25 +173,10 @@
     {
       "task": "A",
       "id": "p02-gmaj-251",
-      "condition": "+RAG",
-      "reply": "```json\n{\"key\":\"G major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p02-gmaj-251",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p02-gmaj-251",
+      "model": "haiku",
       "condition": "+Rule+RAG",
-      "reply": "```json\n{\"key\":\"G major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\"]}\n```",
+      "label": "haiku/+Rule+RAG",
+      "reply": "```json\n{\n  \"key\": \"G major\",\n  \"iiVi\": [[0, 1, 2]],\n  \"romans\": [\"ii-7\", \"V7\", \"Imaj7\"]\n}\n```",
       "score": {
         "id": "p02-gmaj-251",
         "keyHit": 1,
@@ -139,11 +191,13 @@
     },
     {
       "task": "A",
-      "id": "p03-bbmaj-251",
-      "condition": "Raw",
-      "reply": "```json\n{\"key\":\"Bb\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\"]}\n```",
+      "id": "p02-gmaj-251",
+      "model": "sonnet",
+      "condition": "raw",
+      "label": "sonnet/raw",
+      "reply": "{\"key\":\"G major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\"]}",
       "score": {
-        "id": "p03-bbmaj-251",
+        "id": "p02-gmaj-251",
         "keyHit": 1,
         "precision": 1,
         "recall": 1,
@@ -156,11 +210,13 @@
     },
     {
       "task": "A",
-      "id": "p03-bbmaj-251",
+      "id": "p02-gmaj-251",
+      "model": "sonnet",
       "condition": "+Rule",
-      "reply": "```json\n{\"key\":\"Bb major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\"]}\n```",
+      "label": "sonnet/+Rule",
+      "reply": "{\"key\":\"G major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii-7\",\"V7\",\"Imaj7\"]}",
       "score": {
-        "id": "p03-bbmaj-251",
+        "id": "p02-gmaj-251",
         "keyHit": 1,
         "precision": 1,
         "recall": 1,
@@ -173,26 +229,125 @@
     },
     {
       "task": "A",
-      "id": "p03-bbmaj-251",
-      "condition": "+RAG",
-      "reply": "```json\n{\"key\":\"Bb major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p03-bbmaj-251",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p03-bbmaj-251",
+      "id": "p02-gmaj-251",
+      "model": "sonnet",
       "condition": "+Rule+RAG",
-      "reply": "```json\n{\"key\":\"Bb major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\"]}\n```",
+      "label": "sonnet/+Rule+RAG",
+      "reply": "{\"key\":\"G major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\"]}",
+      "score": {
+        "id": "p02-gmaj-251",
+        "keyHit": 1,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "romanAcc": 1,
+        "tp": 1,
+        "predN": 1,
+        "goldN": 1
+      }
+    },
+    {
+      "task": "A",
+      "id": "p03-bbmaj-251",
+      "model": "haiku",
+      "condition": "raw",
+      "label": "haiku/raw",
+      "reply": "```json\n{\n  \"key\": \"Bb major\",\n  \"iiVi\": [[0, 1, 2]],\n  \"romans\": [\"ii7\", \"V7\", \"Imaj7\"]\n}\n```",
+      "score": {
+        "id": "p03-bbmaj-251",
+        "keyHit": 1,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "romanAcc": 1,
+        "tp": 1,
+        "predN": 1,
+        "goldN": 1
+      }
+    },
+    {
+      "task": "A",
+      "id": "p03-bbmaj-251",
+      "model": "haiku",
+      "condition": "+Rule",
+      "label": "haiku/+Rule",
+      "reply": "```json\n{\n  \"key\": \"Bb major\",\n  \"iiVi\": [[0, 1, 2]],\n  \"romans\": [\"ii-7\", \"V7\", \"Imaj7\"]\n}\n```",
+      "score": {
+        "id": "p03-bbmaj-251",
+        "keyHit": 1,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "romanAcc": 1,
+        "tp": 1,
+        "predN": 1,
+        "goldN": 1
+      }
+    },
+    {
+      "task": "A",
+      "id": "p03-bbmaj-251",
+      "model": "haiku",
+      "condition": "+Rule+RAG",
+      "label": "haiku/+Rule+RAG",
+      "reply": "```json\n{\n  \"key\": \"Bb major\",\n  \"iiVi\": [[0, 1, 2]],\n  \"romans\": [\"ii-7\", \"V7\", \"Imaj7\"]\n}\n```",
+      "score": {
+        "id": "p03-bbmaj-251",
+        "keyHit": 1,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "romanAcc": 1,
+        "tp": 1,
+        "predN": 1,
+        "goldN": 1
+      }
+    },
+    {
+      "task": "A",
+      "id": "p03-bbmaj-251",
+      "model": "sonnet",
+      "condition": "raw",
+      "label": "sonnet/raw",
+      "reply": "{\"key\":\"Bb major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\"]}",
+      "score": {
+        "id": "p03-bbmaj-251",
+        "keyHit": 1,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "romanAcc": 1,
+        "tp": 1,
+        "predN": 1,
+        "goldN": 1
+      }
+    },
+    {
+      "task": "A",
+      "id": "p03-bbmaj-251",
+      "model": "sonnet",
+      "condition": "+Rule",
+      "label": "sonnet/+Rule",
+      "reply": "{\"key\":\"Bb major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii-7\",\"V7\",\"Imaj7\"]}",
+      "score": {
+        "id": "p03-bbmaj-251",
+        "keyHit": 1,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "romanAcc": 1,
+        "tp": 1,
+        "predN": 1,
+        "goldN": 1
+      }
+    },
+    {
+      "task": "A",
+      "id": "p03-bbmaj-251",
+      "model": "sonnet",
+      "condition": "+Rule+RAG",
+      "label": "sonnet/+Rule+RAG",
+      "reply": "{\"key\":\"Bb major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii-7\",\"V7\",\"Imaj7\"]}",
       "score": {
         "id": "p03-bbmaj-251",
         "keyHit": 1,
@@ -208,8 +363,10 @@
     {
       "task": "A",
       "id": "p04-dmin-251",
-      "condition": "Raw",
-      "reply": "```json\n{\"key\":\"D minor\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii°7\",\"V7\",\"i7\"]}\n```",
+      "model": "haiku",
+      "condition": "raw",
+      "label": "haiku/raw",
+      "reply": "```json\n{\n  \"key\": \"D minor\",\n  \"iiVi\": [[0, 1, 2]],\n  \"romans\": [\"ii°7\", \"V7\", \"i7\"]\n}\n```",
       "score": {
         "id": "p04-dmin-251",
         "keyHit": 1,
@@ -225,25 +382,10 @@
     {
       "task": "A",
       "id": "p04-dmin-251",
+      "model": "haiku",
       "condition": "+Rule",
-      "reply": "```json\n{\"key\":\"D minor\",\"iiVi\":[[0,1,2]],\"romans\":[\"iiø7\",\"V7\",\"i7\"]}\n```",
-      "score": {
-        "id": "p04-dmin-251",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p04-dmin-251",
-      "condition": "+RAG",
-      "reply": "```json\n{\"key\":\"Dm\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii∅7\",\"V7\",\"i7\"]}\n```",
+      "label": "haiku/+Rule",
+      "reply": "```json\n{\n  \"key\": \"D minor\",\n  \"iiVi\": [[0, 1, 2]],\n  \"romans\": [\"iiø7\", \"V7alt\", \"i-7\"]\n}\n```",
       "score": {
         "id": "p04-dmin-251",
         "keyHit": 1,
@@ -259,8 +401,67 @@
     {
       "task": "A",
       "id": "p04-dmin-251",
+      "model": "haiku",
       "condition": "+Rule+RAG",
-      "reply": "```json\n{\"key\":\"D minor\",\"iiVi\":[[0,1,2]],\"romans\":[\"iiø7\",\"V7\",\"i7\"]}\n```",
+      "label": "haiku/+Rule+RAG",
+      "reply": "```json\n{\n  \"key\": \"D minor\",\n  \"iiVi\": [[0, 1, 2]],\n  \"romans\": [\"iiø7\", \"V7\", \"i7\"]\n}\n```",
+      "score": {
+        "id": "p04-dmin-251",
+        "keyHit": 1,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "romanAcc": 1,
+        "tp": 1,
+        "predN": 1,
+        "goldN": 1
+      }
+    },
+    {
+      "task": "A",
+      "id": "p04-dmin-251",
+      "model": "sonnet",
+      "condition": "raw",
+      "label": "sonnet/raw",
+      "reply": "{\"key\":\"Dm\",\"iiVi\":[[0,1,2]],\"romans\":[\"iiø7\",\"V7\",\"i7\"]}",
+      "score": {
+        "id": "p04-dmin-251",
+        "keyHit": 1,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "romanAcc": 1,
+        "tp": 1,
+        "predN": 1,
+        "goldN": 1
+      }
+    },
+    {
+      "task": "A",
+      "id": "p04-dmin-251",
+      "model": "sonnet",
+      "condition": "+Rule",
+      "label": "sonnet/+Rule",
+      "reply": "{\"key\":\"D minor\",\"iiVi\":[[0,1,2]],\"romans\":[\"iiø7\",\"V7\",\"i7\"]}",
+      "score": {
+        "id": "p04-dmin-251",
+        "keyHit": 1,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "romanAcc": 1,
+        "tp": 1,
+        "predN": 1,
+        "goldN": 1
+      }
+    },
+    {
+      "task": "A",
+      "id": "p04-dmin-251",
+      "model": "sonnet",
+      "condition": "+Rule+RAG",
+      "label": "sonnet/+Rule+RAG",
+      "reply": "{\"key\":\"D minor\",\"iiVi\":[[0,1,2]],\"romans\":[\"iiø7\",\"V7\",\"i7\"]}",
       "score": {
         "id": "p04-dmin-251",
         "keyHit": 1,
@@ -276,8 +477,10 @@
     {
       "task": "A",
       "id": "p05-modulating-two-251",
-      "condition": "Raw",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[0,1,2],[3,4,5]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"ii7\",\"V7\",\"Imaj7\"]}\n```",
+      "model": "haiku",
+      "condition": "raw",
+      "label": "haiku/raw",
+      "reply": "```json\n{\n  \"key\": \"C major, B♭ major\",\n  \"iiVi\": [[0, 1, 2], [3, 4, 5]],\n  \"romans\": [\"ii7\", \"V7\", \"Imaj7\", \"ii7\", \"V7\", \"Imaj7\"]\n}\n```",
       "score": {
         "id": "p05-modulating-two-251",
         "keyHit": 0,
@@ -293,8 +496,10 @@
     {
       "task": "A",
       "id": "p05-modulating-two-251",
+      "model": "haiku",
       "condition": "+Rule",
-      "reply": "```json\n{\"key\":\"C major, Bb major\",\"iiVi\":[[0,1,2],[3,4,5]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"ii7\",\"V7\",\"Imaj7\"]}\n```",
+      "label": "haiku/+Rule",
+      "reply": "```json\n{\n  \"key\": \"C major, Bb major\",\n  \"iiVi\": [[0, 1, 2], [3, 4, 5]],\n  \"romans\": [\"ii-7\", \"V7\", \"Imaj7\", \"ii-7\", \"V7\", \"Imaj7\"]\n}\n```",
       "score": {
         "id": "p05-modulating-two-251",
         "keyHit": 1,
@@ -310,11 +515,13 @@
     {
       "task": "A",
       "id": "p05-modulating-two-251",
-      "condition": "+RAG",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[0,1,2],[3,4,5]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"ii7\",\"V7\",\"Imaj7\"]}\n```",
+      "model": "haiku",
+      "condition": "+Rule+RAG",
+      "label": "haiku/+Rule+RAG",
+      "reply": "```json\n{\n  \"key\": \"C major, Bb major\",\n  \"iiVi\": [[0, 1, 2], [3, 4, 5]],\n  \"romans\": [\"ii-7\", \"V7\", \"Imaj7\", \"ii-7\", \"V7\", \"Imaj7\"]\n}\n```",
       "score": {
         "id": "p05-modulating-two-251",
-        "keyHit": 0,
+        "keyHit": 1,
         "precision": 1,
         "recall": 1,
         "f1": 1,
@@ -327,8 +534,48 @@
     {
       "task": "A",
       "id": "p05-modulating-two-251",
+      "model": "sonnet",
+      "condition": "raw",
+      "label": "sonnet/raw",
+      "reply": "{\"key\":\"C major, Bb major\",\"iiVi\":[[0,1,2],[3,4,5]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"ii7\",\"V7\",\"Imaj7\"]}",
+      "score": {
+        "id": "p05-modulating-two-251",
+        "keyHit": 1,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "romanAcc": 1,
+        "tp": 2,
+        "predN": 2,
+        "goldN": 2
+      }
+    },
+    {
+      "task": "A",
+      "id": "p05-modulating-two-251",
+      "model": "sonnet",
+      "condition": "+Rule",
+      "label": "sonnet/+Rule",
+      "reply": "```json\n{\"key\":\"C major, Bb major\",\"iiVi\":[[0,1,2],[3,4,5]],\"romans\":[\"ii-7\",\"V7\",\"Imaj7\",\"ii-7\",\"V7\",\"Imaj7\"]}\n```",
+      "score": {
+        "id": "p05-modulating-two-251",
+        "keyHit": 1,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "romanAcc": 1,
+        "tp": 2,
+        "predN": 2,
+        "goldN": 2
+      }
+    },
+    {
+      "task": "A",
+      "id": "p05-modulating-two-251",
+      "model": "sonnet",
       "condition": "+Rule+RAG",
-      "reply": "```json\n{\n  \"key\": \"C major, Bb major\",\n  \"iiVi\": [[0,1,2], [3,4,5]],\n  \"romans\": [\"ii7\", \"V7\", \"Imaj7\", \"ii7\", \"V7\", \"Imaj7\"]\n}\n```",
+      "label": "sonnet/+Rule+RAG",
+      "reply": "{\"key\":\"C major, Bb major\",\"iiVi\":[[0,1,2],[3,4,5]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"ii7\",\"V7\",\"Imaj7\"]}",
       "score": {
         "id": "p05-modulating-two-251",
         "keyHit": 1,
@@ -344,8 +591,10 @@
     {
       "task": "A",
       "id": "p06-251-plus-vi",
-      "condition": "Raw",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"VI7\"]}\n```",
+      "model": "haiku",
+      "condition": "raw",
+      "label": "haiku/raw",
+      "reply": "```json\n{\n  \"key\": \"C major\",\n  \"iiVi\": [[0, 1, 2]],\n  \"romans\": [\"ii7\", \"V7\", \"Imaj7\", \"VI7\"]\n}\n```",
       "score": {
         "id": "p06-251-plus-vi",
         "keyHit": 1,
@@ -361,8 +610,10 @@
     {
       "task": "A",
       "id": "p06-251-plus-vi",
+      "model": "haiku",
       "condition": "+Rule",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"VI7\"]}\n```",
+      "label": "haiku/+Rule",
+      "reply": "```json\n{\n  \"key\": \"C major\",\n  \"iiVi\": [[0, 1, 2]],\n  \"romans\": [\"ii-7\", \"V7\", \"Imaj7\", \"VI7\"]\n}\n```",
       "score": {
         "id": "p06-251-plus-vi",
         "keyHit": 1,
@@ -378,25 +629,67 @@
     {
       "task": "A",
       "id": "p06-251-plus-vi",
-      "condition": "+RAG",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"VI7\"]}\n```",
-      "score": {
-        "id": "p06-251-plus-vi",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p06-251-plus-vi",
+      "model": "haiku",
       "condition": "+Rule+RAG",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"VI7\"]}\n```",
+      "label": "haiku/+Rule+RAG",
+      "reply": "```json\n{\n  \"key\": \"C major\",\n  \"iiVi\": [[0, 1, 2]],\n  \"romans\": [\"ii-7\", \"V7\", \"Imaj7\", \"VI7\"]\n}\n```",
+      "score": {
+        "id": "p06-251-plus-vi",
+        "keyHit": 1,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "romanAcc": 1,
+        "tp": 1,
+        "predN": 1,
+        "goldN": 1
+      }
+    },
+    {
+      "task": "A",
+      "id": "p06-251-plus-vi",
+      "model": "sonnet",
+      "condition": "raw",
+      "label": "sonnet/raw",
+      "reply": "{\"key\":\"C major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"VI7\"]}",
+      "score": {
+        "id": "p06-251-plus-vi",
+        "keyHit": 1,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "romanAcc": 1,
+        "tp": 1,
+        "predN": 1,
+        "goldN": 1
+      }
+    },
+    {
+      "task": "A",
+      "id": "p06-251-plus-vi",
+      "model": "sonnet",
+      "condition": "+Rule",
+      "label": "sonnet/+Rule",
+      "reply": "{\"key\":\"C major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"VI7\"]}",
+      "score": {
+        "id": "p06-251-plus-vi",
+        "keyHit": 1,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "romanAcc": 1,
+        "tp": 1,
+        "predN": 1,
+        "goldN": 1
+      }
+    },
+    {
+      "task": "A",
+      "id": "p06-251-plus-vi",
+      "model": "sonnet",
+      "condition": "+Rule+RAG",
+      "label": "sonnet/+Rule+RAG",
+      "reply": "{\"key\":\"C major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"VI7\"]}",
       "score": {
         "id": "p06-251-plus-vi",
         "keyHit": 1,
@@ -412,8 +705,67 @@
     {
       "task": "A",
       "id": "p07-autumn-leaves",
-      "condition": "Raw",
-      "reply": "```json\n{\"key\":\"Bb major\",\"iiVi\":[[0,1,2],[4,5,6]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"IVmaj7\",\"vii7b5\",\"V7/vi\",\"vi7\"]}\n```",
+      "model": "haiku",
+      "condition": "raw",
+      "label": "haiku/raw",
+      "reply": "```json\n{\n  \"key\": \"Bb major\",\n  \"iiVi\": [[0, 1, 2], [4, 5, 6]],\n  \"romans\": [\"ii7\", \"V7\", \"Imaj7\", \"IVmaj7\", \"ii°7\", \"V7\", \"i7\"]\n}\n```",
+      "score": {
+        "id": "p07-autumn-leaves",
+        "keyHit": 0,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "romanAcc": 0.8571428571428571,
+        "tp": 2,
+        "predN": 2,
+        "goldN": 2
+      }
+    },
+    {
+      "task": "A",
+      "id": "p07-autumn-leaves",
+      "model": "haiku",
+      "condition": "+Rule",
+      "label": "haiku/+Rule",
+      "reply": "```json\n{\n  \"key\": \"Bb major, G minor\",\n  \"iiVi\": [[0, 1, 2], [4, 5, 6]],\n  \"romans\": [\"ii-7\", \"V7\", \"Imaj7\", \"IVmaj7\", \"iiø7\", \"V7\", \"i-7\"]\n}\n```",
+      "score": {
+        "id": "p07-autumn-leaves",
+        "keyHit": 1,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "romanAcc": 1,
+        "tp": 2,
+        "predN": 2,
+        "goldN": 2
+      }
+    },
+    {
+      "task": "A",
+      "id": "p07-autumn-leaves",
+      "model": "haiku",
+      "condition": "+Rule+RAG",
+      "label": "haiku/+Rule+RAG",
+      "reply": "```json\n{\n  \"key\": \"Bb major, G minor\",\n  \"iiVi\": [[0, 1, 2], [4, 5, 6]],\n  \"romans\": [\"ii-7\", \"V7\", \"Imaj7\", \"IVmaj7\", \"iiø7\", \"V7\", \"i-7\"]\n}\n```",
+      "score": {
+        "id": "p07-autumn-leaves",
+        "keyHit": 1,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "romanAcc": 1,
+        "tp": 2,
+        "predN": 2,
+        "goldN": 2
+      }
+    },
+    {
+      "task": "A",
+      "id": "p07-autumn-leaves",
+      "model": "sonnet",
+      "condition": "raw",
+      "label": "sonnet/raw",
+      "reply": "{\"key\":\"Bb major\",\"iiVi\":[[0,1,2],[4,5,6]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"IVmaj7\",\"vi∅7\",\"V7/vi\",\"vi7\"]}",
       "score": {
         "id": "p07-autumn-leaves",
         "keyHit": 0,
@@ -429,7 +781,9 @@
     {
       "task": "A",
       "id": "p07-autumn-leaves",
+      "model": "sonnet",
       "condition": "+Rule",
+      "label": "sonnet/+Rule",
       "reply": "```json\n{\"key\":\"Bb major, G minor\",\"iiVi\":[[0,1,2],[4,5,6]],\"romans\":[\"ii-7\",\"V7\",\"Imaj7\",\"IVmaj7\",\"iiø7\",\"V7\",\"i-7\"]}\n```",
       "score": {
         "id": "p07-autumn-leaves",
@@ -446,45 +800,70 @@
     {
       "task": "A",
       "id": "p07-autumn-leaves",
-      "condition": "+RAG",
-      "reply": "```json\n{\"key\":\"Bb major\",\"iiVi\":[[0,1,2],[4,5,6]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"IVmaj7\",\"vii7b5\",\"V7/vi\",\"vi7\"]}\n```",
+      "model": "sonnet",
+      "condition": "+Rule+RAG",
+      "label": "sonnet/+Rule+RAG",
+      "reply": "{\"key\":\"Bb major, G minor\",\"iiVi\":[[0,1,2],[4,5,6]],\"romans\":[\"ii-7\",\"V7\",\"Imaj7\",\"IVmaj7\",\"iiø7\",\"V7\",\"i-7\"]}",
       "score": {
         "id": "p07-autumn-leaves",
+        "keyHit": 1,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "romanAcc": 1,
+        "tp": 2,
+        "predN": 2,
+        "goldN": 2
+      }
+    },
+    {
+      "task": "A",
+      "id": "p08-blues-no-251",
+      "model": "haiku",
+      "condition": "raw",
+      "label": "haiku/raw",
+      "reply": "```json\n{\n  \"key\": \"F\",\n  \"iiVi\": [],\n  \"romans\": [\"I7\", \"IV7\", \"I7\", \"I7\"]\n}\n```",
+      "score": {
+        "id": "p08-blues-no-251",
+        "keyHit": 1,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "romanAcc": 1,
+        "tp": 0,
+        "predN": 0,
+        "goldN": 0
+      }
+    },
+    {
+      "task": "A",
+      "id": "p08-blues-no-251",
+      "model": "haiku",
+      "condition": "+Rule",
+      "label": "haiku/+Rule",
+      "reply": "```json\n{\n  \"key\": \"F major (blues)\",\n  \"iiVi\": [],\n  \"romans\": [\"I7\", \"IV7\", \"I7\", \"I7\"]\n}\n```",
+      "score": {
+        "id": "p08-blues-no-251",
         "keyHit": 0,
         "precision": 1,
         "recall": 1,
         "f1": 1,
-        "romanAcc": 0.5714285714285714,
-        "tp": 2,
-        "predN": 2,
-        "goldN": 2
+        "romanAcc": 1,
+        "tp": 0,
+        "predN": 0,
+        "goldN": 0
       }
     },
     {
       "task": "A",
-      "id": "p07-autumn-leaves",
+      "id": "p08-blues-no-251",
+      "model": "haiku",
       "condition": "+Rule+RAG",
-      "reply": "```json\n{\"key\":\"Bb major, G minor\",\"iiVi\":[[0,1,2],[4,5,6]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"IVmaj7\",\"iiø7\",\"V7\",\"i7\"]}\n```",
-      "score": {
-        "id": "p07-autumn-leaves",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 2,
-        "predN": 2,
-        "goldN": 2
-      }
-    },
-    {
-      "task": "A",
-      "id": "p08-blues-no-251",
-      "condition": "Raw",
-      "reply": "```json\n{\"key\":\"F\",\"iiVi\":[],\"romans\":[\"I7\",\"IV7\",\"I7\",\"I7\"]}\n```",
+      "label": "haiku/+Rule+RAG",
+      "reply": "```json\n{\n  \"key\": \"F major (blues)\",\n  \"iiVi\": [],\n  \"romans\": [\"I7\", \"IV7\", \"I7\", \"I7\"]\n}\n```",
       "score": {
         "id": "p08-blues-no-251",
-        "keyHit": 1,
+        "keyHit": 0,
         "precision": 1,
         "recall": 1,
         "f1": 1,
@@ -497,25 +876,10 @@
     {
       "task": "A",
       "id": "p08-blues-no-251",
-      "condition": "+Rule",
-      "reply": "```json\n{\"key\":\"F major\",\"iiVi\":[],\"romans\":[\"I7\",\"IV7\",\"I7\",\"I7\"]}\n```",
-      "score": {
-        "id": "p08-blues-no-251",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 0,
-        "predN": 0,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p08-blues-no-251",
-      "condition": "+RAG",
-      "reply": "```json\n{\"key\":\"Bb\",\"iiVi\":[],\"romans\":[\"V7\",\"I7\",\"V7\",\"V7\"]}\n```",
+      "model": "sonnet",
+      "condition": "raw",
+      "label": "sonnet/raw",
+      "reply": "{\"key\":\"Bb major\",\"iiVi\":[],\"romans\":[\"IV7\",\"I7\",\"IV7\",\"IV7\"]}",
       "score": {
         "id": "p08-blues-no-251",
         "keyHit": 0,
@@ -531,2066 +895,39 @@
     {
       "task": "A",
       "id": "p08-blues-no-251",
-      "condition": "+Rule+RAG",
-      "reply": "```json\n{\"key\":\"F major\",\"iiVi\":[],\"romans\":[\"I7\",\"IV7\",\"I7\",\"I7\"]}\n```",
+      "model": "sonnet",
+      "condition": "+Rule",
+      "label": "sonnet/+Rule",
+      "reply": "{\"key\":\"F major (blues)\",\"iiVi\":[],\"romans\":[\"I7\",\"IV7\",\"I7\",\"I7\"]}",
       "score": {
         "id": "p08-blues-no-251",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 0,
-        "predN": 0,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p09-fmaj-251",
-      "condition": "Raw",
-      "reply": "```json\n{\"key\":\"F major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p09-fmaj-251",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p09-fmaj-251",
-      "condition": "+Rule",
-      "reply": "```json\n{\"key\":\"F major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p09-fmaj-251",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p09-fmaj-251",
-      "condition": "+RAG",
-      "reply": "```json\n{\"key\":\"F major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p09-fmaj-251",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p09-fmaj-251",
-      "condition": "+Rule+RAG",
-      "reply": "```json\n{\"key\":\"F major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p09-fmaj-251",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p10-static-vamp",
-      "condition": "Raw",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[],\"romans\":[\"Imaj7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p10-static-vamp",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 0,
-        "predN": 0,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p10-static-vamp",
-      "condition": "+Rule",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[],\"romans\":[\"Imaj7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p10-static-vamp",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 0,
-        "predN": 0,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p10-static-vamp",
-      "condition": "+RAG",
-      "reply": "```json\n{\"key\":\"C\",\"iiVi\":[],\"romans\":[\"Imaj7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p10-static-vamp",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 0,
-        "predN": 0,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p10-static-vamp",
-      "condition": "+Rule+RAG",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[],\"romans\":[\"Imaj7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p10-static-vamp",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 0,
-        "predN": 0,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p11-secondary-dom-chain",
-      "condition": "Raw",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[2,3,4]],\"romans\":[\"Imaj7\",\"V7/ii\",\"ii7\",\"V7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p11-secondary-dom-chain",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 0.8,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p11-secondary-dom-chain",
-      "condition": "+Rule",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[2,3,4]],\"romans\":[\"Imaj7\",\"VI7\",\"ii7\",\"V7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p11-secondary-dom-chain",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p11-secondary-dom-chain",
-      "condition": "+RAG",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[2,3,4]],\"romans\":[\"Imaj7\",\"VI7\",\"ii7\",\"V7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p11-secondary-dom-chain",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p11-secondary-dom-chain",
-      "condition": "+Rule+RAG",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[2,3,4]],\"romans\":[\"Imaj7\",\"VI7\",\"ii7\",\"V7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p11-secondary-dom-chain",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p12-modal-interchange-backdoor",
-      "condition": "Raw",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[],\"romans\":[\"Imaj7\",\"ivm7\",\"bVII7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p12-modal-interchange-backdoor",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 0.75,
-        "tp": 0,
-        "predN": 0,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p12-modal-interchange-backdoor",
-      "condition": "+Rule",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[],\"romans\":[\"Imaj7\",\"iv7\",\"bVII7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p12-modal-interchange-backdoor",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 0,
-        "predN": 0,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p12-modal-interchange-backdoor",
-      "condition": "+RAG",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[1,2,3]],\"romans\":[\"Imaj7\",\"ivm7\",\"bVII7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p12-modal-interchange-backdoor",
-        "keyHit": 1,
-        "precision": 0,
-        "recall": 0,
-        "f1": 0,
-        "romanAcc": 0.75,
-        "tp": 0,
-        "predN": 1,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p12-modal-interchange-backdoor",
-      "condition": "+Rule+RAG",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[],\"romans\":[\"Imaj7\",\"iv7\",\"bVII7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p12-modal-interchange-backdoor",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 0,
-        "predN": 0,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p13-coltrane-ii-v-fragment",
-      "condition": "Raw",
-      "reply": "```json\n{\"key\":\"G major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"bIII7\"]}\n```",
-      "score": {
-        "id": "p13-coltrane-ii-v-fragment",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": null,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p13-coltrane-ii-v-fragment",
-      "condition": "+Rule",
-      "reply": "```json\n{\"key\":\"G major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"bIII7\"]}\n```",
-      "score": {
-        "id": "p13-coltrane-ii-v-fragment",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": null,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p13-coltrane-ii-v-fragment",
-      "condition": "+RAG",
-      "reply": "```json\n{\"key\":\"G major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"bIII7\"]}\n```",
-      "score": {
-        "id": "p13-coltrane-ii-v-fragment",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": null,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p13-coltrane-ii-v-fragment",
-      "condition": "+Rule+RAG",
-      "reply": "```json\n{\"key\":\"G major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"bIII7\"]}\n```",
-      "score": {
-        "id": "p13-coltrane-ii-v-fragment",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": null,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p14-dorian-vamp",
-      "condition": "Raw",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[],\"romans\":[\"ii7\",\"iii7\",\"ii7\",\"iii7\"]}\n```",
-      "score": {
-        "id": "p14-dorian-vamp",
-        "keyHit": 0,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": null,
-        "tp": 0,
-        "predN": 0,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p14-dorian-vamp",
-      "condition": "+Rule",
-      "reply": "```json\n{\"key\":\"D dorian\",\"iiVi\":[],\"romans\":[\"i7\",\"ii7\",\"i7\",\"ii7\"]}\n```",
-      "score": {
-        "id": "p14-dorian-vamp",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": null,
-        "tp": 0,
-        "predN": 0,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p14-dorian-vamp",
-      "condition": "+RAG",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[],\"romans\":[\"ii7\",\"iii7\",\"ii7\",\"iii7\"]}\n```",
-      "score": {
-        "id": "p14-dorian-vamp",
-        "keyHit": 0,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": null,
-        "tp": 0,
-        "predN": 0,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p14-dorian-vamp",
-      "condition": "+Rule+RAG",
-      "reply": "```json\n{\"key\":\"D dorian\",\"iiVi\":[],\"romans\":[\"i7\",\"ii7\",\"i7\",\"ii7\"]}\n```",
-      "score": {
-        "id": "p14-dorian-vamp",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": null,
-        "tp": 0,
-        "predN": 0,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p15-attya-opening",
-      "condition": "Raw",
-      "reply": "```json\n{\"key\":\"Ab major\",\"iiVi\":[[0,1,2],[4,5,6]],\"romans\":[\"vi7\",\"ii7\",\"V7\",\"I\",\"IV\",\"V7/vi\",\"vi\"]}\n```",
-      "score": {
-        "id": "p15-attya-opening",
-        "keyHit": 0,
-        "precision": 0,
-        "recall": 0,
-        "f1": 0,
-        "romanAcc": null,
-        "tp": 0,
-        "predN": 2,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p15-attya-opening",
-      "condition": "+Rule",
-      "reply": "```json\n{\"key\":\"Ab major\",\"iiVi\":[[1,2,3]],\"romans\":[\"vi7\",\"ii7\",\"V7\",\"Imaj7\",\"IVmaj7\",\"V7/V\",\"Vmaj7\"]}\n```",
-      "score": {
-        "id": "p15-attya-opening",
-        "keyHit": 0,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": null,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p15-attya-opening",
-      "condition": "+RAG",
-      "reply": "```json\n{\"key\":\"Ab major\",\"iiVi\":[[1,2,3]],\"romans\":[\"vi7\",\"ii7\",\"V7\",\"Imaj7\",\"IVmaj7\",\"V7/vi\",\"vi7\"]}\n```",
-      "score": {
-        "id": "p15-attya-opening",
-        "keyHit": 0,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": null,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p15-attya-opening",
-      "condition": "+Rule+RAG",
-      "reply": "```json\n{\n  \"key\": \"Ab major, C major\",\n  \"iiVi\": [[1,2,3]],\n  \"romans\": [\"vi7\", \"ii7\", \"V7\", \"Imaj7\", \"IVmaj7\", \"V7\", \"Imaj7\"]\n}\n```",
-      "score": {
-        "id": "p15-attya-opening",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": null,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p16-tritone-sub",
-      "condition": "Raw",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"bII7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p16-tritone-sub",
-        "keyHit": 1,
-        "precision": 0,
-        "recall": 0,
-        "f1": 0,
-        "romanAcc": 1,
-        "tp": 0,
-        "predN": 1,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p16-tritone-sub",
-      "condition": "+Rule",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[],\"romans\":[\"ii7\",\"bII7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p16-tritone-sub",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 0,
-        "predN": 0,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p16-tritone-sub",
-      "condition": "+RAG",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"bII7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p16-tritone-sub",
-        "keyHit": 1,
-        "precision": 0,
-        "recall": 0,
-        "f1": 0,
-        "romanAcc": 1,
-        "tp": 0,
-        "predN": 1,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p16-tritone-sub",
-      "condition": "+Rule+RAG",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[],\"romans\":[\"ii7\",\"bII7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p16-tritone-sub",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 0,
-        "predN": 0,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p17-cmin-251",
-      "condition": "Raw",
-      "reply": "```json\n{\"key\":\"Cm\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii°7\",\"V7\",\"i7\"]}\n```",
-      "score": {
-        "id": "p17-cmin-251",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 0.6666666666666666,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p17-cmin-251",
-      "condition": "+Rule",
-      "reply": "```json\n{\"key\":\"C minor\",\"iiVi\":[[0,1,2]],\"romans\":[\"iiø7\",\"V7\",\"i7\"]}\n```",
-      "score": {
-        "id": "p17-cmin-251",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p17-cmin-251",
-      "condition": "+RAG",
-      "reply": "```json\n{\"key\":\"Cm\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii∅7\",\"V7\",\"i7\"]}\n```",
-      "score": {
-        "id": "p17-cmin-251",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 0.6666666666666666,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p17-cmin-251",
-      "condition": "+Rule+RAG",
-      "reply": "```json\n{\"key\":\"C minor\",\"iiVi\":[[0,1,2]],\"romans\":[\"iiø7\",\"V7\",\"i7\"]}\n```",
-      "score": {
-        "id": "p17-cmin-251",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p18-modulating-g-f",
-      "condition": "Raw",
-      "reply": "```json\n{\"key\":\"G major, F major\",\"iiVi\":[[0,1,2],[3,4,5]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"ii7\",\"V7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p18-modulating-g-f",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 2,
-        "predN": 2,
-        "goldN": 2
-      }
-    },
-    {
-      "task": "A",
-      "id": "p18-modulating-g-f",
-      "condition": "+Rule",
-      "reply": "```json\n{\"key\":\"G major, F major\",\"iiVi\":[[0,1,2],[3,4,5]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"ii7\",\"V7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p18-modulating-g-f",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 2,
-        "predN": 2,
-        "goldN": 2
-      }
-    },
-    {
-      "task": "A",
-      "id": "p18-modulating-g-f",
-      "condition": "+RAG",
-      "reply": "```json\n{\"key\":\"G major\",\"iiVi\":[[0,1,2],[3,4,5]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"ii7\",\"V7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p18-modulating-g-f",
         "keyHit": 0,
         "precision": 1,
         "recall": 1,
         "f1": 1,
         "romanAcc": 1,
-        "tp": 2,
-        "predN": 2,
-        "goldN": 2
+        "tp": 0,
+        "predN": 0,
+        "goldN": 0
       }
     },
     {
       "task": "A",
-      "id": "p18-modulating-g-f",
+      "id": "p08-blues-no-251",
+      "model": "sonnet",
       "condition": "+Rule+RAG",
-      "reply": "```json\n{\n  \"key\": \"G major, F major\",\n  \"iiVi\": [[0,1,2],[3,4,5]],\n  \"romans\": [\"ii7\",\"V7\",\"Imaj7\",\"ii7\",\"V7\",\"Imaj7\"]\n}\n```",
+      "label": "sonnet/+Rule+RAG",
+      "reply": "{\"key\":\"F major (blues)\",\"iiVi\":[],\"romans\":[\"I7\",\"IV7\",\"I7\",\"I7\"]}",
       "score": {
-        "id": "p18-modulating-g-f",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 2,
-        "predN": 2,
-        "goldN": 2
-      }
-    },
-    {
-      "task": "A",
-      "id": "p19-251-plus-backdoor",
-      "condition": "Raw",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[0,1,2],[3,4,5]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"iv7\",\"bVII7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p19-251-plus-backdoor",
-        "keyHit": 1,
-        "precision": 0.5,
-        "recall": 1,
-        "f1": 0.6666666666666666,
-        "romanAcc": 1,
-        "tp": 1,
-        "predN": 2,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p19-251-plus-backdoor",
-      "condition": "+Rule",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"iv7\",\"bVII7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p19-251-plus-backdoor",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p19-251-plus-backdoor",
-      "condition": "+RAG",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"iv7\",\"bVII7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p19-251-plus-backdoor",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p19-251-plus-backdoor",
-      "condition": "+Rule+RAG",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[0,1,2]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"iv7\",\"bVII7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p19-251-plus-backdoor",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 1,
-        "predN": 1,
-        "goldN": 1
-      }
-    },
-    {
-      "task": "A",
-      "id": "p20-aeolian-vamp",
-      "condition": "Raw",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[],\"romans\":[\"vi7\",\"ii7\",\"vi7\",\"ii7\"]}\n```",
-      "score": {
-        "id": "p20-aeolian-vamp",
+        "id": "p08-blues-no-251",
         "keyHit": 0,
         "precision": 1,
         "recall": 1,
         "f1": 1,
-        "romanAcc": null,
-        "tp": 0,
-        "predN": 0,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p20-aeolian-vamp",
-      "condition": "+Rule",
-      "reply": "```json\n{\"key\":\"A minor\",\"iiVi\":[],\"romans\":[\"i7\",\"iv7\",\"i7\",\"iv7\"]}\n```",
-      "score": {
-        "id": "p20-aeolian-vamp",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": null,
-        "tp": 0,
-        "predN": 0,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p20-aeolian-vamp",
-      "condition": "+RAG",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[],\"romans\":[\"vi7\",\"ii7\",\"vi7\",\"ii7\"]}\n```",
-      "score": {
-        "id": "p20-aeolian-vamp",
-        "keyHit": 0,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": null,
-        "tp": 0,
-        "predN": 0,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p20-aeolian-vamp",
-      "condition": "+Rule+RAG",
-      "reply": "```json\n{\"key\":\"A minor\",\"iiVi\":[],\"romans\":[\"i7\",\"iv7\",\"i7\",\"iv7\"]}\n```",
-      "score": {
-        "id": "p20-aeolian-vamp",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": null,
-        "tp": 0,
-        "predN": 0,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p21-coltrane-v-i-cell",
-      "condition": "Raw",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[],\"romans\":[\"Imaj7\",\"bIII7\",\"bVImaj7\",\"VII7\",\"IIImaj7\"]}\n```",
-      "score": {
-        "id": "p21-coltrane-v-i-cell",
-        "keyHit": 0,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": null,
-        "tp": 0,
-        "predN": 0,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p21-coltrane-v-i-cell",
-      "condition": "+Rule",
-      "reply": "```json\n{\"key\":\"C,Ab,E\",\"iiVi\":[],\"romans\":[\"Imaj7\",\"bIII7\",\"Imaj7\",\"bVI7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p21-coltrane-v-i-cell",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": null,
-        "tp": 0,
-        "predN": 0,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p21-coltrane-v-i-cell",
-      "condition": "+RAG",
-      "reply": "```json\n{\"key\":\"C\",\"iiVi\":[],\"romans\":[\"Imaj7\",\"bIII7\",\"bVImaj7\",\"VII7\",\"IIImaj7\"]}\n```",
-      "score": {
-        "id": "p21-coltrane-v-i-cell",
-        "keyHit": 0,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": null,
-        "tp": 0,
-        "predN": 0,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p21-coltrane-v-i-cell",
-      "condition": "+Rule+RAG",
-      "reply": "```json\n{\"key\":\"C,Ab,E\",\"iiVi\":[],\"romans\":[\"Imaj7\",\"bIII7\",\"Imaj7\",\"V7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p21-coltrane-v-i-cell",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": null,
-        "tp": 0,
-        "predN": 0,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p22-turnaround-no-i",
-      "condition": "Raw",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[2,3,0]],\"romans\":[\"Imaj7\",\"V7/ii\",\"ii7\",\"V7\"]}\n```",
-      "score": {
-        "id": "p22-turnaround-no-i",
-        "keyHit": 1,
-        "precision": 0,
-        "recall": 0,
-        "f1": 0,
-        "romanAcc": 0.75,
-        "tp": 0,
-        "predN": 1,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p22-turnaround-no-i",
-      "condition": "+Rule",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[],\"romans\":[\"Imaj7\",\"VI7\",\"ii7\",\"V7\"]}\n```",
-      "score": {
-        "id": "p22-turnaround-no-i",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
         "romanAcc": 1,
         "tp": 0,
         "predN": 0,
         "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p22-turnaround-no-i",
-      "condition": "+RAG",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[2,3,0]],\"romans\":[\"Imaj7\",\"V7/ii\",\"ii7\",\"V7\"]}\n```",
-      "score": {
-        "id": "p22-turnaround-no-i",
-        "keyHit": 1,
-        "precision": 0,
-        "recall": 0,
-        "f1": 0,
-        "romanAcc": 0.75,
-        "tp": 0,
-        "predN": 1,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p22-turnaround-no-i",
-      "condition": "+Rule+RAG",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[],\"romans\":[\"Imaj7\",\"VI7\",\"ii7\",\"V7\"]}\n```",
-      "score": {
-        "id": "p22-turnaround-no-i",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 0,
-        "predN": 0,
-        "goldN": 0
-      }
-    },
-    {
-      "task": "A",
-      "id": "p23-two-251-same-key",
-      "condition": "Raw",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[0,1,2],[4,5,6]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"vi7\",\"ii7\",\"V7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p23-two-251-same-key",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 2,
-        "predN": 2,
-        "goldN": 2
-      }
-    },
-    {
-      "task": "A",
-      "id": "p23-two-251-same-key",
-      "condition": "+Rule",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[0,1,2],[4,5,6]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"vi7\",\"ii7\",\"V7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p23-two-251-same-key",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 2,
-        "predN": 2,
-        "goldN": 2
-      }
-    },
-    {
-      "task": "A",
-      "id": "p23-two-251-same-key",
-      "condition": "+RAG",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[0,1,2],[4,5,6]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"vi7\",\"ii7\",\"V7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p23-two-251-same-key",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 2,
-        "predN": 2,
-        "goldN": 2
-      }
-    },
-    {
-      "task": "A",
-      "id": "p23-two-251-same-key",
-      "condition": "+Rule+RAG",
-      "reply": "```json\n{\"key\":\"C major\",\"iiVi\":[[0,1,2],[4,5,6]],\"romans\":[\"ii7\",\"V7\",\"Imaj7\",\"vi7\",\"ii7\",\"V7\",\"Imaj7\"]}\n```",
-      "score": {
-        "id": "p23-two-251-same-key",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 1,
-        "tp": 2,
-        "predN": 2,
-        "goldN": 2
-      }
-    },
-    {
-      "task": "A",
-      "id": "p24-amin-251-with-VI",
-      "condition": "Raw",
-      "reply": "```json\n{\"key\":\"Am\",\"iiVi\":[[0,1,2],[4,5,6]],\"romans\":[\"ii°7\",\"V7\",\"i7\",\"♭VI\",\"ii°7\",\"V7\",\"i7\"]}\n```",
-      "score": {
-        "id": "p24-amin-251-with-VI",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 0.5714285714285714,
-        "tp": 2,
-        "predN": 2,
-        "goldN": 2
-      }
-    },
-    {
-      "task": "A",
-      "id": "p24-amin-251-with-VI",
-      "condition": "+Rule",
-      "reply": "```json\n{\"key\":\"A minor\",\"iiVi\":[[0,1,2],[4,5,6]],\"romans\":[\"iiø7\",\"V7\",\"i7\",\"♭VImaj7\",\"iiø7\",\"V7\",\"i7\"]}\n```",
-      "score": {
-        "id": "p24-amin-251-with-VI",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 0.8571428571428571,
-        "tp": 2,
-        "predN": 2,
-        "goldN": 2
-      }
-    },
-    {
-      "task": "A",
-      "id": "p24-amin-251-with-VI",
-      "condition": "+RAG",
-      "reply": "```json\n{\"key\":\"Am\",\"iiVi\":[[0,1,2],[4,5,6]],\"romans\":[\"ii∅7\",\"V7\",\"i7\",\"♭VImaj7\",\"ii∅7\",\"V7\",\"i7\"]}\n```",
-      "score": {
-        "id": "p24-amin-251-with-VI",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 0.5714285714285714,
-        "tp": 2,
-        "predN": 2,
-        "goldN": 2
-      }
-    },
-    {
-      "task": "A",
-      "id": "p24-amin-251-with-VI",
-      "condition": "+Rule+RAG",
-      "reply": "```json\n{\"key\":\"A minor\",\"iiVi\":[[0,1,2],[4,5,6]],\"romans\":[\"iiø7\",\"V7\",\"i7\",\"♭VImaj7\",\"iiø7\",\"V7\",\"i7\"]}\n```",
-      "score": {
-        "id": "p24-amin-251-with-VI",
-        "keyHit": 1,
-        "precision": 1,
-        "recall": 1,
-        "f1": 1,
-        "romanAcc": 0.8571428571428571,
-        "tp": 2,
-        "predN": 2,
-        "goldN": 2
-      }
-    },
-    {
-      "task": "B",
-      "id": "b01",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"Db7\"}",
-      "score": {
-        "id": "b01",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b01",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"Db7\"}",
-      "score": {
-        "id": "b01",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b02",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"C minor\"}",
-      "score": {
-        "id": "b02",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b02",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"C minor\"}",
-      "score": {
-        "id": "b02",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b03",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"C altered scale (C Db Eb E Gb Ab Bb)\"}",
-      "score": {
-        "id": "b03",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b03",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"C altered scale (C Db Eb E Gb Ab Bb)\"}",
-      "score": {
-        "id": "b03",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b04",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"C, E, G, B\"}",
-      "score": {
-        "id": "b04",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b04",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"C, E, G, B\"}",
-      "score": {
-        "id": "b04",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b05",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"A7 (A-C#-E-G)\"}",
-      "score": {
-        "id": "b05",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b05",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"A7 (A-C#-E-G)\"}",
-      "score": {
-        "id": "b05",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b06",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"G#\"}",
-      "score": {
-        "id": "b06",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b06",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"G#\"}",
-      "score": {
-        "id": "b06",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b07",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"Mixolydian\"}",
-      "score": {
-        "id": "b07",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b07",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"Mixolydian\"}",
-      "score": {
-        "id": "b07",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b08",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"G7\"}",
-      "score": {
-        "id": "b08",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b08",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"G7\"}",
-      "score": {
-        "id": "b08",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b09",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"C major\"}",
-      "score": {
-        "id": "b09",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b09",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"C major\"}",
-      "score": {
-        "id": "b09",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b10",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"Locrian mode (7th mode of major scale)\"}",
-      "score": {
-        "id": "b10",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b10",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"Locrian mode (7th mode of major scale)\"}",
-      "score": {
-        "id": "b10",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b11",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"Cm7 (C-Eb-G-Bb)\"}",
-      "score": {
-        "id": "b11",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b11",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"Cm7 (C-Eb-G-Bb)\"}",
-      "score": {
-        "id": "b11",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b12",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"F#\"}",
-      "score": {
-        "id": "b12",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b12",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"F#\"}",
-      "score": {
-        "id": "b12",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b13",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"The 7th mode of the melodic minor scale is the altered (super Locrian) scale\"}",
-      "score": {
-        "id": "b13",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b13",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"The 7th mode of the melodic minor scale is the altered (super Locrian) scale\"}",
-      "score": {
-        "id": "b13",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b14",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"4th mode\"}",
-      "score": {
-        "id": "b14",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b14",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"4th mode\"}",
-      "score": {
-        "id": "b14",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b15",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"F# major triad\"}",
-      "score": {
-        "id": "b15",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b15",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"F# major triad\"}",
-      "score": {
-        "id": "b15",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b16",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"A7 altered scale (or harmonic minor scale from the target key)\"}",
-      "score": {
-        "id": "b16",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b16",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"A7 altered scale (or harmonic minor scale from the target key)\"}",
-      "score": {
-        "id": "b16",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b17",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"Bb7 - the bVII7 chord that resolves to Cmaj7 through smooth voice leading, with the Bb moving down to A and F moving down to E\"}",
-      "score": {
-        "id": "b17",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b17",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"Bb7 - the bVII7 chord that resolves to Cmaj7 through smooth voice leading, with the Bb moving down to A and F moving down to E\"}",
-      "score": {
-        "id": "b17",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b18",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"Diminished scale (whole-half or half-whole pattern)\"}",
-      "score": {
-        "id": "b18",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b18",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"Diminished scale (whole-half or half-whole pattern)\"}",
-      "score": {
-        "id": "b18",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b19",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"Eb minor\"}",
-      "score": {
-        "id": "b19",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b19",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"Eb minor\"}",
-      "score": {
-        "id": "b19",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b20",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"C minor\"}",
-      "score": {
-        "id": "b20",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b20",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"C minor\"}",
-      "score": {
-        "id": "b20",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b21",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"Phrygian dominant\"}",
-      "score": {
-        "id": "b21",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b21",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"Phrygian dominant\"}",
-      "score": {
-        "id": "b21",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b22",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"The 6th mode (6th degree) of the melodic minor scale is the half-diminished scale (Locrian natural 2)\"}",
-      "score": {
-        "id": "b22",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b22",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"The 6th mode (6th degree) of the melodic minor scale is the half-diminished scale (Locrian natural 2)\"}",
-      "score": {
-        "id": "b22",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b23",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"D7\"}",
-      "score": {
-        "id": "b23",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b23",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"D7\"}",
-      "score": {
-        "id": "b23",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b24",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"Bmaj7\"}",
-      "score": {
-        "id": "b24",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b24",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"Bmaj7\"}",
-      "score": {
-        "id": "b24",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b25",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"D♭\"}",
-      "score": {
-        "id": "b25",
-        "hit": 0
-      }
-    },
-    {
-      "task": "B",
-      "id": "b25",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"D♭\"}",
-      "score": {
-        "id": "b25",
-        "hit": 0
-      }
-    },
-    {
-      "task": "B",
-      "id": "b26",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"3rd mode\"}",
-      "score": {
-        "id": "b26",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b26",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"3rd mode\"}",
-      "score": {
-        "id": "b26",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b27",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"B# (the seventh degree of C# harmonic minor)\"}",
-      "score": {
-        "id": "b27",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b27",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"B# (the seventh degree of C# harmonic minor)\"}",
-      "score": {
-        "id": "b27",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b28",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"B7\"}",
-      "score": {
-        "id": "b28",
-        "hit": 0
-      }
-    },
-    {
-      "task": "B",
-      "id": "b28",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"B7\"}",
-      "score": {
-        "id": "b28",
-        "hit": 0
-      }
-    },
-    {
-      "task": "B",
-      "id": "b29",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"Cm7 - F7 - BbMaj7\"}",
-      "score": {
-        "id": "b29",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b29",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"Cm7 - F7 - BbMaj7\"}",
-      "score": {
-        "id": "b29",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b30",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"4th degree (F)\"}",
-      "score": {
-        "id": "b30",
-        "hit": 1
-      }
-    },
-    {
-      "task": "B",
-      "id": "b30",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"4th degree (F)\"}",
-      "score": {
-        "id": "b30",
-        "hit": 1
-      }
-    },
-    {
-      "task": "C",
-      "id": "c01",
-      "condition": "Raw",
-      "reply": "A tritone substitution works because the substitute chord (Db7) shares the two most important notes with the original dominant chord (G7) - the 3rd and 7th, which form the tritone that creates the dominant's characteristic tension. In G7, the 3rd is B and the 7th is F. In Db7, the 3rd is F and the 7th is Cb (enharmonically B). These are the exact same pitches, just with their roles reversed! Since these two notes create the essential dissonance that demands resolution, both chords function identically in pulling toward the tonic (C). The tritone substitution also creates smooth voice leading, as Db moves down by half-step to C (compared to G's leap of a fifth), while maintaining that crucial tritone tension that makes dominant chords so effective.",
-      "score": {
-        "id": "c01",
-        "score5": 4
-      }
-    },
-    {
-      "task": "C",
-      "id": "c01",
-      "condition": "+RAG",
-      "reply": "A tritone substitution works because the substitute chord (Db7) shares the two most important notes with the original dominant chord (G7) - the 3rd and 7th, which form the tritone that creates the dominant's characteristic tension. In G7, the 3rd is B and the 7th is F. In Db7, the 3rd is F and the 7th is Cb (enharmonically B). These are the exact same pitches, just with their roles reversed! Since these two notes create the essential dissonance that demands resolution, both chords function identically in pulling toward the tonic (C). The tritone substitution also creates smooth voice leading, as Db moves down by half-step to C (compared to G's leap of a fifth), while maintaining that crucial tritone tension that makes dominant chords want to resolve.",
-      "score": {
-        "id": "c01",
-        "score5": 4
-      }
-    },
-    {
-      "task": "C",
-      "id": "c02",
-      "condition": "Raw",
-      "reply": "The backdoor ii-V is a sophisticated harmonic progression that approaches a major chord from a half-step above, creating a smooth and unexpected resolution. In the example Fm7–Bb7→Cmaj7, the Fm7 functions as a ii chord and Bb7 as a V7 chord, but they're borrowed from the key of Eb major (where Fm7 is ii and Bb7 is V7). The magic happens when the Bb7 resolves down by half-step to Cmaj7 instead of resolving to Eb as expected. This works because the Bb7 can be reinterpreted as a bVII7 chord in the key of C, and the voice leading is particularly smooth—the F in Fm7 moves down to E (the 3rd of Cmaj7), while the Bb in the bass drops chromatically to C. This progression is beloved in jazz for its sophisticated sound and appears frequently in standards, offering an elegant alternative to the traditional ii-V-I progression.",
-      "score": {
-        "id": "c02",
-        "score5": 5
-      }
-    },
-    {
-      "task": "C",
-      "id": "c02",
-      "condition": "+RAG",
-      "reply": "The backdoor ii-V is a chromatic approach to a major chord that uses the bVII7 chord as the dominant, creating a smoother voice-leading alternative to the traditional V7. In your example (Fm7–Bb7–Cmaj7), the Fm7 functions as ii7 of Bb, and Bb7 acts as bVII7 of C major. This progression works because Bb7 contains the notes Bb-D-F-Ab, where the Ab (b7 of Bb7) resolves down by half-step to G (the 5th of Cmaj7), while D moves down to C (the root). This creates a particularly smooth resolution compared to the traditional G7–Cmaj7, where the B natural in G7 creates a more dramatic leading-tone resolution. The backdoor ii-V is especially popular in jazz ballads and provides a more subdued, sophisticated sound while maintaining strong harmonic motion through the cycle of fifths (Fm to Bb) before the chromatic resolution to the target chord.",
-      "score": {
-        "id": "c02",
-        "score5": 4
-      }
-    },
-    {
-      "task": "C",
-      "id": "c03",
-      "condition": "Raw",
-      "reply": "The altered scale (also called the super Locrian or diminished whole-tone scale) is an excellent choice over V7alt chords because it contains all the essential altered tensions that define the chord's sound. When playing G7alt resolving to C, the G altered scale (G-Ab-Bb-B-Db-Eb-F) provides the b9 (Ab), #9 (Bb), #11 (Db), and b13 (Eb) - all the \"outside\" tensions that create maximum harmonic tension and demand resolution to the tonic. This scale omits the natural 5th and natural 9th, avoiding any consonant intervals that might weaken the chord's pull toward resolution. The altered scale's symmetrical construction and abundance of tritones create a highly unstable, chromatic sound that perfectly captures the restless, unresolved quality composers and improvisers seek in dominant chords, making the eventual resolution to the tonic chord sound particularly satisfying and inevitable.",
-      "score": {
-        "id": "c03",
-        "score5": 5
-      }
-    },
-    {
-      "task": "C",
-      "id": "c03",
-      "condition": "+RAG",
-      "reply": "The altered scale (also called the super Locrian or diminished whole-tone scale) is an excellent choice over V7alt chords because it contains all the essential altered tensions that define the chord's sound. Built on the 7th degree of melodic minor, the altered scale provides the chord tones (root, 3rd, b7th) plus all four possible altered extensions: b9, #9, #11, and b13. When playing G7alt resolving to C, this scale (G-Ab-Bb-B-Db-Eb-F) creates maximum harmonic tension through its abundance of chromatic alterations, which then resolve satisfyingly to the stable tones of the tonic chord. The scale's inherent instability—containing both a diminished 5th and augmented 5th—perfectly captures the restless, unresolved quality that makes altered dominants so effective at driving toward resolution.",
-      "score": {
-        "id": "c03",
-        "score5": 5
-      }
-    },
-    {
-      "task": "C",
-      "id": "c04",
-      "condition": "Raw",
-      "reply": "Modal interchange, also known as borrowed chords, occurs when you temporarily \"borrow\" chords from the parallel minor key (or other modes) while remaining in a major key context. This creates richer harmonic color and emotional depth by introducing chords that contain notes outside the original key signature.\n\nA classic example is borrowing the iv chord (minor four) in a major key. In C major, instead of using the diatonic IV chord (F major: F-A-C), you would borrow the iv chord from C minor, giving you F minor (F-Ab-C). The Ab note creates a distinctive, slightly melancholic sound that contrasts beautifully with the brightness of the major key. You might hear this in a progression like C - Am - Fm - G - C, where that Fm chord adds unexpected emotional weight. This borrowed iv chord is extremely common in popular music and jazz, often appearing just before returning to the tonic, creating a poignant \"pull\" back home.",
-      "score": {
-        "id": "c04",
-        "score5": 5
-      }
-    },
-    {
-      "task": "C",
-      "id": "c04",
-      "condition": "+RAG",
-      "reply": "Modal interchange, also known as borrowed chords, occurs when you temporarily \"borrow\" chords from the parallel minor key (or other modes) while remaining in a major key context. This creates richer harmonic color and emotional depth by introducing chords that contain notes outside the original key signature.\n\nA classic example is borrowing the iv chord (minor four) in a major key. In C major, instead of using the diatonic IV chord (F major: F-A-C), you would borrow the iv chord from C minor, giving you F minor (F-Ab-C). The Ab note creates a distinctive, slightly melancholic sound that contrasts beautifully with the brightness of the major key. You might hear this in a progression like C - Am - Fm - G - C, where that Fm chord adds unexpected emotional weight. This borrowed iv often appears in popular music, classical compositions, and jazz standards, creating a brief \"shadow\" over the major tonality before resolving back to more stable major key harmony.",
-      "score": {
-        "id": "c04",
-        "score5": 5
-      }
-    },
-    {
-      "task": "C",
-      "id": "c05",
-      "condition": "Raw",
-      "reply": "A secondary dominant is a dominant seventh chord that temporarily tonicizes a chord other than the home key's tonic, creating the sound of briefly \"visiting\" a new key center. For example, V7/V (five-seven of five) is the dominant seventh chord of the dominant, which creates a strong pull toward the V chord rather than back to the original tonic. This generates forward motion through two key mechanisms: first, it introduces chromatic notes that create tension and demand resolution, and second, it establishes a temporary dominant-tonic relationship that pulls the harmony away from the home key. The tritone within the secondary dominant (between the 3rd and 7th of the chord) creates harmonic instability that strongly wants to resolve, while the chromatic voice leading—particularly the raised notes that weren't in the original key—adds momentum that propels the music forward rather than allowing it to settle back into the home key too quickly.",
-      "score": {
-        "id": "c05",
-        "score5": 4
-      }
-    },
-    {
-      "task": "C",
-      "id": "c05",
-      "condition": "+RAG",
-      "reply": "A secondary dominant is a dominant seventh chord that temporarily tonicizes a chord other than the home key's tonic, creating the sound of briefly \"visiting\" a new key center. For example, V7/V (five-seven of five) is the dominant seventh chord of the dominant, which creates a strong pull toward the V chord rather than back to the original tonic. This generates forward motion through two key mechanisms: first, it introduces chromatic alterations (notes outside the home key) that create harmonic tension demanding resolution, and second, it establishes a temporary dominant-tonic relationship with its target chord, making that chord sound like a momentary new \"home.\" The tritone within the secondary dominant's structure creates particularly strong voice-leading tendencies—the 3rd wants to resolve up and the 7th wants to resolve down—that propel the harmony forward with greater momentum than diatonic progressions alone. This technique allows composers to create more dynamic harmonic rhythm and a sense of journey through multiple tonal centers while remaining anchored in the original key.",
-      "score": {
-        "id": "c05",
-        "score5": 4
-      }
-    },
-    {
-      "task": "C",
-      "id": "c06",
-      "condition": "Raw",
-      "reply": "Coltrane changes move by major thirds because they create a cycle that divides the octave into three equal parts (4 semitones each), allowing Coltrane to systematically explore all 12 chromatic tones while maintaining strong harmonic motion through dominant-tonic relationships. In \"Giant Steps,\" each major third leap (B-G-Eb-B) is connected by ii-V-I progressions that tonicize each new key center. This creates a constantly shifting tonal landscape that's challenging to improvise over because traditional scalar approaches break down—musicians can't rely on staying in one key or using familiar patterns. The rapid harmonic rhythm (often changing every 1-2 beats) demands that improvisers either think in terms of chord tones and arpeggios, use chromatic/intervallic approaches, or develop new scalar concepts that can navigate the frequent modulations. The changes essentially force musicians to abandon comfortable diatonic thinking and develop more advanced harmonic awareness and technical facility.",
-      "score": {
-        "id": "c06",
-        "score5": 5
-      }
-    },
-    {
-      "task": "C",
-      "id": "c06",
-      "condition": "+RAG",
-      "reply": "Coltrane changes move by major thirds because they create a cycle that divides the octave into three equal parts (4 semitones each), allowing Coltrane to systematically explore all 12 chromatic tones while maintaining strong harmonic motion through dominant-tonic relationships. In \"Giant Steps,\" the three key centers (B, G, and Eb major) are equidistant, and each is approached by its dominant chord, creating the progression's characteristic sound. These changes are notoriously difficult to improvise over because they move so quickly (often two chords per measure) through distant key centers, requiring musicians to rapidly shift their thinking between three different tonal areas while maintaining melodic coherence. The harmonic rhythm is relentless, and traditional scalar approaches often fall short—players must think in terms of chord tones, arpeggios, and chromatic voice-leading rather than staying in one key, demanding exceptional technical facility and harmonic knowledge to navigate smoothly.",
-      "score": {
-        "id": "c06",
-        "score5": 5
-      }
-    },
-    {
-      "task": "C",
-      "id": "c07",
-      "condition": "Raw",
-      "reply": "In a major key ii-V-I, the ii chord is minor 7 (built on the 2nd degree), the V is dominant 7, and the I is major 7. For example, in C major: Dm7-G7-Cmaj7. The scales typically used are Dorian for the ii chord, Mixolydian for the V, and Ionian (major) for the I.\n\nIn a minor key ii-V-i, the ii chord is minor 7♭5 (half-diminished), the V is still dominant 7 (often with altered extensions), and the i is minor (maj7 or m6). For example, in C minor: Dm7♭5-G7-Cm(maj7). The scales commonly used are Locrian for the ii chord, harmonic minor (or altered scales) for the V chord, and harmonic or natural minor for the i chord. The key difference is that the minor ii-V-i creates a darker, more tension-filled sound due to the half-diminished ii chord and the resolution to a minor tonic.",
-      "score": {
-        "id": "c07",
-        "score5": 5
-      }
-    },
-    {
-      "task": "C",
-      "id": "c07",
-      "condition": "+RAG",
-      "reply": "In a major key ii-V-I, the ii chord is minor 7 (built on the 2nd degree), the V is dominant 7, and the I is major 7. For example, in C major: Dm7-G7-Cmaj7. The scales typically used are Dorian for the ii chord, Mixolydian for the V, and Ionian (major) for the I.\n\nIn a minor key ii-V-i, the ii chord is minor 7♭5 (half-diminished), the V is still dominant 7 (often with altered extensions), and the i is minor (maj7 or m6). For example, in C minor: Dm7♭5-G7-Cm(maj7). The scales commonly used are Locrian for the ii chord, harmonic minor (or altered scales) for the V chord, and harmonic or natural minor for the i chord. The key difference is that the minor ii-V-i uses the half-diminished ii chord and resolves to a minor tonic, creating a darker, more tension-filled sound compared to the brighter major ii-V-I progression.",
-      "score": {
-        "id": "c07",
-        "score5": 5
-      }
-    },
-    {
-      "task": "C",
-      "id": "c08",
-      "condition": "Raw",
-      "reply": "In a dominant 7th chord, the tritone interval between the 3rd and 7th creates a powerful sense of harmonic tension that demands resolution. For example, in a G7 chord (G-B-D-F), the tritone exists between B (the 3rd) and F (the 7th). This dissonant interval creates instability because the tritone divides the octave exactly in half, making it harmonically ambiguous. The tension resolves naturally when the chord moves to its tonic - typically the B resolves upward by half-step to C, while the F resolves downward by half-step to E, landing on the root and 3rd of the C major chord. This voice-leading motion, where the tritone expands outward to a stable consonance, is fundamental to tonal harmony and explains why dominant 7th chords have such a strong pull toward their resolution.",
-      "score": {
-        "id": "c08",
-        "score5": 5
-      }
-    },
-    {
-      "task": "C",
-      "id": "c08",
-      "condition": "+RAG",
-      "reply": "In a dominant 7th chord, the tritone interval between the 3rd and 7th creates a powerful sense of harmonic tension that demands resolution. For example, in a G7 chord (G-B-D-F), the tritone exists between B (the 3rd) and F (the 7th). This dissonant interval creates instability because the tritone divides the octave exactly in half, making it harmonically ambiguous. The tension resolves naturally when the chord moves to its tonic - typically the B resolves upward by half-step to C, while the F resolves downward by half-step to E, both moving to chord tones of the C major triad. This voice-leading motion, where the tritone resolves inward by half-steps, is fundamental to tonal harmony and explains why dominant 7th chords have such a strong pull toward their resolution, making them essential for establishing key centers and creating satisfying harmonic progressions.",
-      "score": {
-        "id": "c08",
-        "score5": 5
-      }
-    },
-    {
-      "task": "E",
-      "id": "e01",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"Em7b5\"}",
-      "score": {
-        "id": "e01",
-        "hit": 1
-      }
-    },
-    {
-      "task": "E",
-      "id": "e01",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"Em7b5\"}",
-      "score": {
-        "id": "e01",
-        "hit": 1
-      }
-    },
-    {
-      "task": "E",
-      "id": "e02",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"Have You Met Miss Jones의 브릿지는 장3도 간격으로 키 센터가 이동합니다. F major → A major → D♭ major → F major 순서로 진행되어 각각 장3도씩 상행하는 패턴을 보입니다.\"}",
-      "score": {
-        "id": "e02",
-        "hit": 1
-      }
-    },
-    {
-      "task": "E",
-      "id": "e02",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"Have You Met Miss Jones의 브릿지는 장3도 간격으로 키 센터가 이동합니다. F major → A major → D♭ major → F major 순서로 진행되며, 각 키 센터 간의 간격이 장3도입니다.\"}",
-      "score": {
-        "id": "e02",
-        "hit": 1
-      }
-    },
-    {
-      "task": "E",
-      "id": "e03",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"Db7\"}",
-      "score": {
-        "id": "e03",
-        "hit": 1
-      }
-    },
-    {
-      "task": "E",
-      "id": "e03",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"Db7\"}",
-      "score": {
-        "id": "e03",
-        "hit": 1
-      }
-    },
-    {
-      "task": "E",
-      "id": "e04",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"C major\"}",
-      "score": {
-        "id": "e04",
-        "hit": 1
-      }
-    },
-    {
-      "task": "E",
-      "id": "e04",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"C major\"}",
-      "score": {
-        "id": "e04",
-        "hit": 1
-      }
-    },
-    {
-      "task": "E",
-      "id": "e05",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"8\"}",
-      "score": {
-        "id": "e05",
-        "hit": 1
-      }
-    },
-    {
-      "task": "E",
-      "id": "e05",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"8\"}",
-      "score": {
-        "id": "e05",
-        "hit": 1
-      }
-    },
-    {
-      "task": "E",
-      "id": "e06",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"plagal cadence (플라갈 케이던스)\"}",
-      "score": {
-        "id": "e06",
-        "hit": 1
-      }
-    },
-    {
-      "task": "E",
-      "id": "e06",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"plagal cadence (플라갈 케이던스)\"}",
-      "score": {
-        "id": "e06",
-        "hit": 1
-      }
-    },
-    {
-      "task": "E",
-      "id": "e07",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"C minor\"}",
-      "score": {
-        "id": "e07",
-        "hit": 1
-      }
-    },
-    {
-      "task": "E",
-      "id": "e07",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"C minor\"}",
-      "score": {
-        "id": "e07",
-        "hit": 1
-      }
-    },
-    {
-      "task": "E",
-      "id": "e08",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"G minor\"}",
-      "score": {
-        "id": "e08",
-        "hit": 1
-      }
-    },
-    {
-      "task": "E",
-      "id": "e08",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"G minor\"}",
-      "score": {
-        "id": "e08",
-        "hit": 1
-      }
-    },
-    {
-      "task": "E",
-      "id": "e09",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"4/4박자\"}",
-      "score": {
-        "id": "e09",
-        "hit": 0
-      }
-    },
-    {
-      "task": "E",
-      "id": "e09",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"4/4박자\"}",
-      "score": {
-        "id": "e09",
-        "hit": 0
-      }
-    },
-    {
-      "task": "E",
-      "id": "e10",
-      "condition": "Raw",
-      "reply": "{\"answer\":\"6도(vi)\"}",
-      "score": {
-        "id": "e10",
-        "hit": 0
-      }
-    },
-    {
-      "task": "E",
-      "id": "e10",
-      "condition": "+RAG",
-      "reply": "{\"answer\":\"6도(vi)\"}",
-      "score": {
-        "id": "e10",
-        "hit": 0
       }
     }
   ]

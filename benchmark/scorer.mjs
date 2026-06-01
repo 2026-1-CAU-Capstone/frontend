@@ -176,6 +176,61 @@ export function explanatoryCardMarkdown(byCondition) {
   return md;
 }
 
+/* ── Task G: consistency (multi-sample self-consistency) ────────────────────
+ * Each score is computed from K samples of the SAME structural question at
+ * temperature>0. We canonicalize each sample's {key, ii-V-I} answer and measure:
+ *   allAgree   — all K samples produced the identical canonical answer (1/0)
+ *   agreement  — size of the largest agreeing cluster / K (majority share)
+ * Rule context should pin the answer (high agreement); raw wavers. RAG is
+ * largely irrelevant here — this isolates the Rule layer's determinism. */
+export function aggregateConsistency(scores) {
+  const n = scores.length || 1;
+  return {
+    items: scores.length,
+    allAgreeRate: scores.reduce((s, x) => s + (x.allAgree || 0), 0) / n,
+    meanAgreement: scores.reduce((s, x) => s + (x.agreement || 0), 0) / n,
+  };
+}
+
+export function consistencyCardMarkdown(byCondition) {
+  let md = '| 조건 | 완전일치율 (모든 샘플 동일) | 평균 일치도 (최대 군집/K) |\n|---|---|---|\n';
+  for (const [name, a] of Object.entries(byCondition)) md += `| ${name} | ${pct(a.allAgreeRate)} | ${pct(a.meanAgreement)} |\n`;
+  return md;
+}
+
+/* ── Task F: song-deep rubric (LLM-judge, multi-dimension 1-5) ──────────────
+ * Each score carries up to five dimensions, all 1-5:
+ *   coverage     — how many expected key points are correctly covered
+ *   specificity  — concrete & song-specific (names exact chords/scales) vs generic
+ *   pedagogy     — clear, organized, actionable like a real jazz teacher
+ *   groundedness — claims musically correct & consistent with key points (no fabrication)
+ *   faithfulness — answer's claims supported by the PROVIDED RAG context
+ *                  (null when no context was injected — i.e. raw / +Rule cells)
+ * `overall5` averages the four core dims (faithfulness excluded — it's RAG-only
+ * and would unfairly penalize the no-context conditions). */
+export function aggregateRubric(scores) {
+  const meanOf = (k) => {
+    const xs = scores.map((s) => s[k]).filter((v) => v != null);
+    return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+  };
+  const out = { items: scores.length };
+  for (const d of ['coverage5', 'specificity5', 'pedagogy5', 'groundedness5', 'faithfulness5']) out[d] = meanOf(d);
+  const core = ['coverage5', 'specificity5', 'pedagogy5', 'groundedness5'].map((d) => out[d]).filter((v) => v != null);
+  out.overall5 = core.length ? core.reduce((a, b) => a + b, 0) / core.length : null;
+  out.normalized = out.overall5 != null ? (out.overall5 - 1) / 4 : null;
+  return out;
+}
+
+export function rubricCardMarkdown(byCondition) {
+  const f = (x) => (x == null ? '  —  ' : x.toFixed(2));
+  let md = '| 조건 | 종합(1-5) | 정규화 | coverage | specificity | pedagogy | groundedness | faithfulness(RAG) |\n';
+  md += '|---|---|---|---|---|---|---|---|\n';
+  for (const [name, a] of Object.entries(byCondition)) {
+    md += `| ${name} | ${f(a.overall5)} | ${pct(a.normalized)} | ${f(a.coverage5)} | ${f(a.specificity5)} | ${f(a.pedagogy5)} | ${f(a.groundedness5)} | ${f(a.faithfulness5)} |\n`;
+  }
+  return md;
+}
+
 /** Render a markdown scorecard from { conditionName: aggregate } map. */
 export function scorecardMarkdown(byCondition) {
   const rows = Object.entries(byCondition);

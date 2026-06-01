@@ -20,6 +20,7 @@
 
 import type { NoteSheetData } from '../data/sampleMelody';
 import type { OMRMetadata } from './licks';
+import { authFetch } from './auth';
 
 const API_BASE = 'https://jazzify.p-e.kr/api';
 
@@ -184,7 +185,7 @@ async function readApiError(res: Response): Promise<string> {
 /* ── Create / Update ───────────────────────────────────────────────────────── */
 
 export async function createSolo(draft: SoloDraft): Promise<SoloResponse> {
-  const res = await fetch(`${API_BASE}/v1/solos`, {
+  const res = await authFetch(`${API_BASE}/v1/solos`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(buildBody(draft)),
@@ -198,7 +199,7 @@ export async function createSolo(draft: SoloDraft): Promise<SoloResponse> {
 }
 
 export async function updateSolo(publicId: string, draft: SoloDraft): Promise<SoloResponse> {
-  const res = await fetch(`${API_BASE}/v1/solos/${encodeURIComponent(publicId)}`, {
+  const res = await authFetch(`${API_BASE}/v1/solos/${encodeURIComponent(publicId)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(buildBody(draft)),
@@ -225,10 +226,9 @@ export async function createSoloViaOMR(file: File, metadata: OMRMetadata = {}): 
   const metaBlob = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
   form.append('metadata', metaBlob);
 
-  const res = await fetch(`${API_BASE}/v1/solos/omr`, {
+  const res = await authFetch(`${API_BASE}/v1/solos/omr`, {
     method: 'POST',
     body: form,
-    credentials: 'include',
   });
   if (!res.ok) {
     let detail = '';
@@ -335,7 +335,7 @@ export async function fetchAllSolos(): Promise<SoloResponse[]> {
 /* ── Delete ────────────────────────────────────────────────────────────────── */
 
 export async function deleteSolo(publicId: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/v1/solos/${encodeURIComponent(publicId)}`, {
+  const res = await authFetch(`${API_BASE}/v1/solos/${encodeURIComponent(publicId)}`, {
     method: 'DELETE',
   });
   if (!res.ok && res.status !== 204) {
@@ -354,7 +354,7 @@ export interface SoloVideoPayload {
 }
 
 export async function updateSoloVideo(publicId: string, video: SoloVideoPayload): Promise<void> {
-  const res = await fetch(`${API_BASE}/v1/solos/${encodeURIComponent(publicId)}/video`, {
+  const res = await authFetch(`${API_BASE}/v1/solos/${encodeURIComponent(publicId)}/video`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(video),
@@ -366,7 +366,7 @@ export async function updateSoloVideo(publicId: string, video: SoloVideoPayload)
 }
 
 export async function deleteSoloVideo(publicId: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/v1/solos/${encodeURIComponent(publicId)}/video`, {
+  const res = await authFetch(`${API_BASE}/v1/solos/${encodeURIComponent(publicId)}/video`, {
     method: 'DELETE',
   });
   if (!res.ok && res.status !== 204) {

@@ -17,6 +17,8 @@ import {
   aggregateTheory as aggBE,
   aggregateExplanatory as aggC,
   aggregateHallucination as aggD,
+  aggregateRubric as aggF,
+  aggregateConsistency as aggG,
 } from './scorer.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -28,6 +30,8 @@ const gold = {
   C: tryRead(join(HERE, 'gold/explanatory.json')),
   D: tryRead(join(HERE, 'gold/hallucination.json')),
   E: tryRead(join(HERE, 'gold/song-grounded.json')),
+  F: tryRead(join(HERE, 'gold/song-deep.json')),
+  G: tryRead(join(HERE, 'gold/structural.json')),   // consistency reuses A's progressions
 };
 const data = tryRead(join(HERE, 'results/responses.json')) || { responses: [] };
 const responses = data.responses;
@@ -78,7 +82,7 @@ function extractJson(text) {
 
 /* Aggregate every (task, label). */
 const agg = {};
-for (const t of ['A', 'B', 'C', 'D', 'E']) {
+for (const t of ['A', 'B', 'C', 'D', 'E', 'F', 'G']) {
   if (!gold[t]) continue;
   agg[t] = {};
   for (const lbl of orderedLabels(t)) {
@@ -86,6 +90,8 @@ for (const t of ['A', 'B', 'C', 'D', 'E']) {
     if (t === 'A') agg[t][lbl] = aggA(items);
     else if (t === 'C') agg[t][lbl] = aggC(items);
     else if (t === 'D') agg[t][lbl] = aggD(items);
+    else if (t === 'F') agg[t][lbl] = aggF(items);
+    else if (t === 'G') agg[t][lbl] = aggG(items);
     else agg[t][lbl] = aggBE(items);   // B and E share the {hit} schema
   }
 }
@@ -131,6 +137,28 @@ function aggrowsForTask(t) {
       <td>${pct(agg.D[lbl].controlAcc)}</td>
     </tr>`).join('');
   }
+  if (t === 'F') {
+    return labels.map((lbl) => {
+      const a = agg.F[lbl];
+      return `<tr>
+        <th>${labelChip(lbl)}</th>
+        <td><b>${num(a.overall5, 2)}</b> / 5</td>
+        <td>${pct(a.normalized)}</td>
+        <td>${num(a.coverage5, 2)}</td>
+        <td>${num(a.specificity5, 2)}</td>
+        <td>${num(a.pedagogy5, 2)}</td>
+        <td>${num(a.groundedness5, 2)}</td>
+        <td>${num(a.faithfulness5, 2)}</td>
+      </tr>`;
+    }).join('');
+  }
+  if (t === 'G') {
+    return labels.map((lbl) => `<tr>
+      <th>${labelChip(lbl)}</th>
+      <td><b>${pct(agg.G[lbl].allAgreeRate)}</b></td>
+      <td>${pct(agg.G[lbl].meanAgreement)}</td>
+    </tr>`).join('');
+  }
   /* B / E */
   return labels.map((lbl) => `<tr>
     <th>${labelChip(lbl)}</th>
@@ -142,6 +170,8 @@ function aggHeaderForTask(t) {
   if (t === 'A') return `<tr><th>조건</th><th>key</th><th>ii-V-I F1</th><th>P</th><th>R</th><th>Roman</th></tr>`;
   if (t === 'C') return `<tr><th>조건</th><th>평균 점수</th><th>정규화</th></tr>`;
   if (t === 'D') return `<tr><th>조건</th><th>할루시네이션율</th><th>컨트롤 정확도</th></tr>`;
+  if (t === 'F') return `<tr><th>조건</th><th>종합</th><th>정규화</th><th>coverage</th><th>specificity</th><th>pedagogy</th><th>groundedness</th><th>faithfulness</th></tr>`;
+  if (t === 'G') return `<tr><th>조건</th><th>완전일치율</th><th>평균 일치도</th></tr>`;
   return `<tr><th>조건</th><th>정확도</th><th>N</th></tr>`;
 }
 
@@ -279,17 +309,76 @@ function renderTaskD() {
   return html;
 }
 
+function renderTaskF() {
+  const labels = orderedLabels('F');
+  const dimChip = (s) => {
+    if (!s) return '<span class="score">—</span>';
+    const d = (k) => (s[k] == null ? '—' : s[k]);
+    return `<span class="score">cov ${d('coverage5')} · spec ${d('specificity5')} · ped ${d('pedagogy5')} · grnd ${d('groundedness5')}${s.faithfulness5 != null ? ` · faith ${s.faithfulness5}` : ''}</span>`;
+  };
+  let html = '';
+  for (const item of gold.F.items) {
+    const rows = labels.map((lbl) => {
+      const r = byKey[`F::${item.id}::${lbl}`];
+      return `<div class="creply">
+        <div class="head">${labelChip(lbl)}${dimChip(r?.score)}</div>
+        <pre class="long">${r ? escHTML(r.reply) : '<i>응답 없음</i>'}</pre>
+      </div>`;
+    }).join('');
+    html += `<details class="item">
+      <summary><span class="id">${escHTML(item.id)}</span><span class="q">${escHTML(item.q)}</span></summary>
+      <div class="body">
+        <p class="gold"><b>${escHTML(item.song)}</b> · <span class="src">${escHTML(item.source || '')}</span>${item.corpusOnly === false ? ' · <span class="badge control">대조군</span>' : ''} · <code>${escHTML(item.sourceChunkId || '')}</code></p>
+        <p class="gold"><b>Key points (judge 기준):</b></p>
+        <ul>${(item.points || []).map((p) => `<li>${escHTML(p)}</li>`).join('')}</ul>
+        ${rows}
+      </div>
+    </details>`;
+  }
+  return html;
+}
+
+function renderTaskG() {
+  const labels = orderedLabels('G');
+  let html = '';
+  for (const item of gold.G.items) {
+    const rows = labels.map((lbl) => {
+      const r = byKey[`G::${item.id}::${lbl}`];
+      const reps = r?.replies || (r?.reply ? [r.reply] : []);
+      const agreeTxt = r?.score ? `${r.score.allAgree ? '완전일치' : '불일치'} · ${Math.round((r.score.agreement || 0) * 100)}%` : '—';
+      const samples = reps.length
+        ? reps.map((rp, i) => { const j = extractJson(rp) || {}; return `<div class="sample">#${i + 1} key=<code>${escHTML(Array.isArray(j.key) ? j.key.join(',') : (j.key ?? ''))}</code> · iiVi=<code>${escJson(j.iiVi ?? [])}</code></div>`; }).join('')
+        : '<i>응답 없음</i>';
+      return `<div class="creply">
+        <div class="head">${labelChip(lbl)}<span class="score ${r?.score?.allAgree ? 'ok' : 'bad'}">${agreeTxt}</span></div>
+        <div class="samples">${samples}</div>
+      </div>`;
+    }).join('');
+    html += `<details class="item">
+      <summary><span class="id">${escHTML(item.id)}</span><span class="q">${escHTML(item.chords.join('  '))}</span></summary>
+      <div class="body">
+        <p class="gold"><b>Gold:</b> 키 ${escHTML(JSON.stringify(item.keys))} · ii-V-I ${escHTML(JSON.stringify(item.iiVi))} <span class="src">(K=4 샘플 @ temp 0.8 — 일치할수록 deterministic)</span></p>
+        ${rows}
+      </div>
+    </details>`;
+  }
+  return html;
+}
+
 /* ── HTML page ───────────────────────────────────────────────────────── */
 const taskMeta = {
-  A: { label: '구조 분석', n: gold.A?.items.length ?? 0, body: () => renderTaskA() },
-  B: { label: '이론 팩트', n: gold.B?.items.length ?? 0, body: () => renderTaskBE('B') },
-  C: { label: '설명',     n: gold.C?.items.length ?? 0, body: () => renderTaskC() },
-  D: { label: '할루시네이션', n: gold.D?.items.length ?? 0, body: () => renderTaskD() },
-  E: { label: '곡 특화 (RAG-favored)', n: gold.E?.items.length ?? 0, body: () => renderTaskBE('E') },
+  A: { label: '구조 분석', contrib: '정확성 → Rule', n: gold.A?.items.length ?? 0, body: () => renderTaskA() },
+  G: { label: '일관성 (self-consistency)', contrib: '일관성 → Rule', n: gold.G?.items.length ?? 0, body: () => renderTaskG() },
+  F: { label: '곡 심층 분석 (rubric)', contrib: '설명품질·근거제시 → RAG', n: gold.F?.items.length ?? 0, body: () => renderTaskF() },
+  C: { label: '설명',     contrib: '설명품질 → RAG', n: gold.C?.items.length ?? 0, body: () => renderTaskC() },
+  B: { label: '이론 팩트', contrib: '사실성 (포화)', n: gold.B?.items.length ?? 0, body: () => renderTaskBE('B') },
+  D: { label: '할루시네이션', contrib: '거부 (포화)', n: gold.D?.items.length ?? 0, body: () => renderTaskD() },
+  E: { label: '곡 특화 (RAG-favored)', contrib: '근거제시 → RAG', n: gold.E?.items.length ?? 0, body: () => renderTaskBE('E') },
 };
 
 const summaryRows = Object.entries(taskMeta).map(([t, m]) => `<tr>
   <td><a href="#task-${t}"><b>${t}</b> · ${m.label}</a></td>
+  <td>${m.contrib || ''}</td>
   <td>${m.n}</td>
   <td>${orderedLabels(t).map((lbl) => labelChip(lbl)).join(' ') || '<i>응답 없음</i>'}</td>
 </tr>`).join('');
@@ -399,7 +488,7 @@ footer code { background: rgba(0,0,0,0.04); padding: 1px 6px; border-radius: 4px
 <section class="summary">
   <h2>요약</h2>
   <table>
-    <thead><tr><th>태스크</th><th>문항 수</th><th>측정된 조건</th></tr></thead>
+    <thead><tr><th>태스크</th><th>기여 분해 (A=raw · B=+Rule · C=+Rule+RAG)</th><th>문항 수</th><th>측정된 조건</th></tr></thead>
     <tbody>${summaryRows}</tbody>
   </table>
 </section>

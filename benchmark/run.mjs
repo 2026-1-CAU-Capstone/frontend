@@ -32,6 +32,8 @@ import {
   scoreTheory, aggregateTheory, theoryCardMarkdown,
   aggregateHallucination, hallucinationCardMarkdown,
   aggregateExplanatory, explanatoryCardMarkdown,
+  aggregateRubric, rubricCardMarkdown,
+  aggregateConsistency, consistencyCardMarkdown,
 } from './scorer.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -52,6 +54,7 @@ const taskArg = (process.argv.find((a) => a.startsWith('--task=')) || '').split(
 const TASK_FILTER = taskArg ? taskArg.split(',').map((s) => s.trim().toUpperCase()) : null;
 const modelArg = (process.argv.find((a) => a.startsWith('--model=')) || '').split('=')[1];
 const MODEL_FILTER = modelArg ? modelArg.split(',').map((s) => s.trim().toLowerCase()) : null;
+const LIMIT = Math.max(0, parseInt((process.argv.find((a) => a.startsWith('--limit=')) || '').split('=')[1] || '0', 10)) || 0;
 
 const MODELS = [
   { id: 'haiku',  model: 'claude-haiku-4-5-20251001' },
@@ -84,19 +87,19 @@ function extractJson(text) {
   return null;
 }
 
-async function anthropic(model, system, user, maxTokens) {
+async function anthropic(model, system, user, maxTokens, temperature = 0) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model, max_tokens: maxTokens, temperature: 0, system, messages: [{ role: 'user', content: user }] }),
+    body: JSON.stringify({ model, max_tokens: maxTokens, temperature, system, messages: [{ role: 'user', content: user }] }),
   });
   if (!res.ok) throw new Error(`Anthropic ${res.status} (${model}): ${(await res.text()).slice(0, 160)}`);
   const data = await res.json();
   return data.content?.map((b) => b.text).join('') ?? '';
 }
 
-async function judge(system, user) {
-  const reply = await anthropic(JUDGE_MODEL, system, user, 80);
+async function judge(system, user, maxTokens = 80) {
+  const reply = await anthropic(JUDGE_MODEL, system, user, maxTokens);
   return { json: extractJson(reply) || {}, raw: reply };
 }
 
@@ -165,6 +168,58 @@ async function judgeC(item, answer) {
   return { id: item.id, score5: Math.max(1, Math.min(5, s)) };
 }
 
+/* Task F — multi-dimension rubric judge for song-deep answers. Scores the
+ * "human-like deep answer" qualities RAG is supposed to enable. faithfulness
+ * is only scored when RAG context was injected (ragCtx non-empty); for raw /
+ * +Rule cells it returns null so it doesn't unfairly drag those down. */
+async function judgeF(item, answer, ragCtx) {
+  const pts = (item.points || []).map((p, i) => `${i + 1}. ${p}`).join('\n');
+  const hasCtx = typeof ragCtx === 'string' && ragCtx.trim().length > 0;
+  const dimList = ['coverage', 'specificity', 'pedagogy', 'groundedness', ...(hasCtx ? ['faithfulness'] : [])];
+  const system =
+    'You are a strict jazz-pedagogy grader for song-specific deep questions. Score the teacher answer on each dimension 1-5 (5=excellent, 1=poor/empty/wrong):\n' +
+    '- coverage: how many of the EXPECTED KEY POINTS are correctly covered.\n' +
+    '- specificity: concrete and song-specific (names the exact chords / functions / scales) vs generic textbook boilerplate.\n' +
+    '- pedagogy: clear, well-organized, actionable like a real jazz teacher.\n' +
+    '- groundedness: claims are musically correct and consistent with the expected key points; no fabrication.\n' +
+    (hasCtx ? '- faithfulness: the answer\'s specific claims are actually supported by the PROVIDED REFERENCE material below (not merely plausible).\n' : '') +
+    `Output JSON only: {${dimList.map((d) => `"${d}": <1-5>`).join(', ')}}.`;
+  const ctxBlk = hasCtx ? `\n\n[Provided reference (retrieved)]\n${ragCtx}\n` : '';
+  const user = `Question: ${item.q}\n곡: ${item.song}\n\nExpected key points:\n${pts}${ctxBlk}\n\nModel answer:\n${answer}\n\nScore each dimension 1-5. JSON only.`;
+  const v = await judge(system, user, 120);
+  const g = v.json || {};
+  const cl = (x) => { const n = Number(x); return Number.isFinite(n) ? Math.max(1, Math.min(5, n)) : null; };
+  return {
+    id: item.id,
+    coverage5: cl(g.coverage),
+    specificity5: cl(g.specificity),
+    pedagogy5: cl(g.pedagogy),
+    groundedness5: cl(g.groundedness),
+    faithfulness5: hasCtx ? cl(g.faithfulness) : null,
+  };
+}
+
+/* Task G — canonicalize a structural reply's {key, ii-V-I} into a stable string
+ * so K samples can be compared for agreement. (No judge; pure extraction.) */
+function canonStructural(reply) {
+  const j = extractJson(reply) || {};
+  const keys = (Array.isArray(j.key) ? j.key : String(j.key ?? '').split(/[,/&]|\band\b|\bor\b/i))
+    .map((s) => String(s).toLowerCase().replace(/major|maj|\s|-/g, '').trim()).filter(Boolean).sort();
+  const iiVi = (Array.isArray(j.iiVi) ? j.iiVi : []).filter((t) => Array.isArray(t) && t.length === 3)
+    .map((t) => t.join('-')).sort();
+  return JSON.stringify({ keys, iiVi });
+}
+
+/* pred.replies = K samples. Score = how tightly they agree. */
+function scoreConsistency(pred, item) {
+  const reps = (pred.replies || []).filter((r) => r && r.trim());
+  if (reps.length === 0) return { id: item.id, allAgree: 0, agreement: 0, n: 0 };
+  const counts = {};
+  for (const r of reps) { const c = canonStructural(r); counts[c] = (counts[c] || 0) + 1; }
+  const top = Math.max(...Object.values(counts));
+  return { id: item.id, allAgree: top === reps.length ? 1 : 0, agreement: top / reps.length, n: reps.length };
+}
+
 /* ── task registry ─────────────────────────────────────────────────────── */
 
 const TASKS = {
@@ -230,6 +285,43 @@ const TASKS = {
     parse: (r) => { const j = extractJson(r); return { answer: j?.answer ?? r }; },
     score: scoreTheory, aggregate: aggregateTheory, card: theoryCardMarkdown,
   },
+  F: {
+    /* Song-DEEP analysis — RAG-exclusive. Unlike E (short factual), these ask
+     * for the corpus's specific teacher reasoning about a specific song that a
+     * base LLM only answers generically. Judged on coverage of the corpus-
+     * specific key points (reuses C's judge/aggregate/card). raw vs +Rule+RAG
+     * isolates RAG lift (the rule engine has no song-deep content, so
+     * +Rule ≈ raw here). gold carries provenance (sourceChunkId) for retrieval
+     * ablation + faithfulness measurement. */
+    name: 'F · 곡 심층 분석 (LLM-judge)', gold: () => loadGold('song-deep.json'), maxTokens: 500,
+    minScore: 0.50,        // song-grounded retrieval; same threshold as E
+    sourceType: 'standard',// restrict to song-specific standard chunks
+    system: 'You are an expert jazz teacher. Answer in Korean: be specific to the named song and concrete (name the exact chords, functions, scales). Avoid generic textbook boilerplate that ignores the song.',
+    ragQuery: (it) => `${it.song} ${it.q}`,
+    ruleCtx: () => RULE_PREAMBLE_THEORY,
+    buildUser: (it, { ruleCtx, ragCtx }) => ctxBlock(ruleCtx, ragCtx) + it.q,
+    parse: (r) => ({ answer: r }),
+    score: (pred, item) => judgeF(item, pred.answer, pred._ragCtx), aggregate: aggregateRubric, card: rubricCardMarkdown,
+  },
+  G: {
+    /* Consistency — same structural question sampled K times at temperature>0.
+     * Measures whether the answer is STABLE. Isolates the Rule layer: raw
+     * wavers on ambiguous progressions, +Rule pins the answer (deterministic).
+     * Reuses Task A's structural gold + prompt; only the execution (K samples)
+     * and scoring (agreement, not correctness) differ. */
+    name: 'G · 일관성 (self-consistency)', gold: () => loadGold('structural.json'), maxTokens: 700,
+    samples: 4, temperature: 0.8,   // K=4 samples per cell at temp 0.8
+    minScore: 0.70,
+    system: 'You are a precise jazz harmony analyst. Answer with STRICT JSON only.',
+    ragQuery: (it) => `jazz harmony: ${it.chords.join(' ')} — key, ii-V-I, Roman numerals`,
+    ruleCtx: (it) => it.ruleContext,
+    buildUser: (it, { ruleCtx, ragCtx }) =>
+      ctxBlock(ruleCtx, ragCtx) +
+      `Chord progression (0-indexed):\n${it.chords.map((c, i) => `${i}:${c}`).join('  ')}\n\n` +
+      `Identify: 1) key; 2) every ii-V-I/ii-V-i as [ii,V,I] index triples; 3) Roman numeral per chord.\n\n` +
+      `Return ONLY JSON: {"key":"<key or comma-separated>","iiVi":[[i,j,k]],"romans":["..."]}`,
+    score: scoreConsistency, aggregate: aggregateConsistency, card: consistencyCardMarkdown,
+  },
 };
 
 /* Conditions: 3 per task — raw / +Rule / +Rule+RAG. */
@@ -276,6 +368,7 @@ async function main() {
   for (const id of ids) {
     const task = TASKS[id];
     const gold = task.gold();
+    if (LIMIT > 0) gold.items = gold.items.slice(0, LIMIT);   // --limit=N: cost-capped smoke
     /* Build condition list: 6 cells (each model × each cond), skipping rag-only cells if RAG down. */
     const cells = [];
     for (const m of MODELS) {
@@ -299,17 +392,35 @@ async function main() {
       for (const cell of cells) {
         const ruleCtx = cell.rule ? task.ruleCtx?.(item) : null;
         const user = task.buildUser(item, { ruleCtx, ragCtx: cell.rag ? ragCtx : null });
+        const K = task.samples ?? 1;
+        const temp = task.temperature ?? 0;
         let reply = '';
-        try { reply = await anthropic(cell.model, task.system, user, task.maxTokens); }
-        catch (e) { console.error(`${item.id}/${cell.label}: ${e.message}`); }
-        const pred = task.parse(reply);
+        let pred;
+        if (K > 1) {
+          // Multi-sample (Task G consistency): K draws at temperature>0.
+          const replies = [];
+          for (let k = 0; k < K; k++) {
+            try { replies.push(await anthropic(cell.model, task.system, user, task.maxTokens, temp)); }
+            catch (e) { console.error(`${item.id}/${cell.label} sample${k}: ${e.message}`); }
+          }
+          reply = replies[0] ?? '';
+          pred = { replies };
+        } else {
+          try { reply = await anthropic(cell.model, task.system, user, task.maxTokens, temp); }
+          catch (e) { console.error(`${item.id}/${cell.label}: ${e.message}`); }
+          pred = task.parse(reply);
+        }
+        // Expose the RAG context the model actually saw to the scorer so the
+        // rubric judge (Task F) can grade faithfulness against it. Null for
+        // raw / +Rule cells (no context injected).
+        pred._ragCtx = cell.rag ? ragCtx : null;
         /* Wrap score() — it may invoke the LLM judge which can fail. Treat
          * a judge failure as "skip this score" rather than abort the run. */
         let s = null;
         try { s = await task.score(pred, item); }
         catch (e) { console.error(`${item.id}/${cell.label} score/judge: ${e.message}`); }
         if (s) scoresByLabel[cell.label].push(s);
-        allResponses.push({ task: id, id: item.id, model: cell.modelId, condition: cell.condName, label: cell.label, reply, score: s });
+        allResponses.push({ task: id, id: item.id, model: cell.modelId, condition: cell.condName, label: cell.label, reply, replies: K > 1 ? pred.replies : undefined, score: s });
       }
       process.stdout.write('.');
     }

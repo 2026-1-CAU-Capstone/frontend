@@ -1,5 +1,6 @@
 import type { LickEntry } from '../data/lickData';
 import type { NoteSheetData } from '../data/sampleMelody';
+import { authFetch } from './auth';
 
 const API_BASE = 'https://jazzify.p-e.kr/api';
 
@@ -132,7 +133,7 @@ export async function createLick(entry: LickEntry): Promise<LickEntry> {
     durationClasses: entry.durationClasses,
   };
 
-  const res = await fetch(`${API_BASE}/v1/licks`, {
+  const res = await authFetch(`${API_BASE}/v1/licks`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -180,7 +181,7 @@ export async function updateLick(publicId: string, entry: LickEntry): Promise<Li
     durationClasses: entry.durationClasses,
   };
 
-  const res = await fetch(`${API_BASE}/v1/licks/${encodeURIComponent(publicId)}`, {
+  const res = await authFetch(`${API_BASE}/v1/licks/${encodeURIComponent(publicId)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -207,7 +208,7 @@ export interface LickVideoPayload {
 }
 
 export async function updateLickVideo(publicId: string, video: LickVideoPayload): Promise<void> {
-  const res = await fetch(`${API_BASE}/v1/licks/${encodeURIComponent(publicId)}/video`, {
+  const res = await authFetch(`${API_BASE}/v1/licks/${encodeURIComponent(publicId)}/video`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(video),
@@ -249,10 +250,9 @@ export async function createLickViaOMR(file: File, metadata: OMRMetadata = {}): 
   const metaBlob = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
   form.append('metadata', metaBlob);
 
-  const res = await fetch(`${API_BASE}/v1/licks/omr`, {
+  const res = await authFetch(`${API_BASE}/v1/licks/omr`, {
     method: 'POST',
     body: form,
-    credentials: 'include',
   });
   if (!res.ok) {
     let detail = '';
@@ -271,7 +271,7 @@ export async function createLickViaOMR(file: File, metadata: OMRMetadata = {}): 
 /* ── Delete ───────────────────────────────────────────────────────────────── */
 
 export async function deleteLick(publicId: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/v1/licks/${encodeURIComponent(publicId)}`, {
+  const res = await authFetch(`${API_BASE}/v1/licks/${encodeURIComponent(publicId)}`, {
     method: 'DELETE',
   });
   if (!res.ok && res.status !== 204) {
