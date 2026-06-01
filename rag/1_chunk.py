@@ -207,8 +207,10 @@ def chunk_youtube(root_dir: str) -> list[dict]:
         return []
     chunks: list[dict] = []
     for channel in sorted(os.listdir(root_dir)):
-        if channel == "easyonejazz":
-            continue  # handled via explanation/이지원재즈/*.txt (chunk_eoj)
+        # easyonejazz is sourced from its Whisper transcript JSONs (which carry
+        # per-segment start/end times) so retrieval can deep-link to the exact
+        # moment. (Previously it was routed through chunk_eoj's plain .txt,
+        # which has no timestamps — every chunk landed at 0:00.)
         tdir = os.path.join(root_dir, channel, "transcripts")
         if not os.path.isdir(tdir):
             continue
@@ -438,10 +440,12 @@ def main():
     else:
         print(f"  (no folder) {LESSONS_DIR}")
 
-    if os.path.isdir(EOJ_DIR):
-        all_chunks.extend(chunk_eoj(EOJ_DIR))
-    else:
-        print(f"  (no folder) {EOJ_DIR}")
+    # NOTE: easyonejazz now comes from chunk_youtube (timestamped transcript
+    # JSONs), so chunk_eoj's plain-.txt path is disabled to avoid duplicate,
+    # timestamp-less copies of the same videos. Re-enable only if you have EOJ
+    # .txt content that has no corresponding transcript JSON.
+    # if os.path.isdir(EOJ_DIR):
+    #     all_chunks.extend(chunk_eoj(EOJ_DIR))
 
     if os.path.isdir(YOUTUBE_ROOT):
         all_chunks.extend(chunk_youtube(YOUTUBE_ROOT))

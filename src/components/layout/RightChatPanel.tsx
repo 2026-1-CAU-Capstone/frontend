@@ -536,10 +536,17 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
 
     /* When the user is logged in, route through the Jazzify backend so the
      * conversation is saved (and shows up in the sidebar list). Falls back
-     * to the local RAG/Claude path on error or when not logged in. */
+     * to the local RAG/Claude path on error or when not logged in.
+     *
+     * EXCEPTION: lick-recommendation and AI-score-generation queries MUST use
+     * the local path — the backend chat only receives the raw user text, so it
+     * never gets `textForLLM` (the [LICK:id] / ```glick instructions) and never
+     * engages HarmoRAG. Sending those through the backend produced the
+     * "no RAG + no VexFlow lick card + slow" bug. These queries are ephemeral
+     * suggestions, so skipping backend persistence is an acceptable trade-off. */
     let finalText = '';
     let backendOk = false;
-    if (loggedIn) {
+    if (loggedIn && !isLickQuery && !isGenQuery) {
       try {
         /* DB에 영속화되는 message 필드는 항상 raw user text만. textForLLM에
          * 부착되는 `[내부 지시 — 유저에게 보이지 않음:` 블록을 그대로 보내면
@@ -710,7 +717,7 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
         {messages.map((msg) => (
           <div key={msg.id}>
             {msg.ragDebug && <RagDebugPanel info={msg.ragDebug} />}
-            <ChatMessage message={msg} suppressChart={!!chordContext} songTempo={songTempo} />
+            <ChatMessage message={msg} suppressChart={!!chordContext} songTempo={songTempo} citations={msg.ragDebug?.chunks} />
           </div>
         ))}
 

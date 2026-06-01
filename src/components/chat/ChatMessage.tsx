@@ -1,8 +1,9 @@
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useContext } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
 import type { ChatMessage as ChatMessageType } from '../../data/types';
+import type { RagChunk } from '../../api/harmorag';
 import type { LickMatch } from '../../lib/lickMatcher';
 import { formatChordsInText } from './chordFormat';
 import { LickRecommendMessage, LickRecommendList, jsonToLickEntry } from './LickRecommendMessage';
@@ -61,6 +62,114 @@ function inlineSectionTags(text: string, keyPrefix = 'sec'): React.ReactNode[] {
   }
   if (lastIdx < text.length) out.push(text.slice(lastIdx));
   return out;
+}
+
+/* ── Inline source citations ([1], [2], …) ────────────────────────────────
+ * The RAG server numbers the retrieved sources ([1], [2], …) in the injected
+ * context and instructs the LLM to append the matching [n] after any sentence
+ * built on a source. We render each [n] as a small superscript chip that
+ * resolves to message.ragDebug.chunks[n-1] (provided via CitationsContext).
+ * For YouTube-sourced chunks the chip becomes a deep-link to the exact moment
+ * (video_url / video_id + start_sec) and shows mm:ss. */
+const CitationsContext = React.createContext<RagChunk[] | undefined>(undefined);
+
+// Bare [n] not immediately followed by '(' (so markdown links [t](url) are left alone).
+const CITE_RE = /\[(\d{1,2})\](?!\()/g;
+
+const fmtMMSS = (sec: number): string => {
+  const s = Math.max(0, Math.floor(sec));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+
+const CiteBadge = styled.sup`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.05em;
+  height: 1.05em;
+  padding: 0 0.28em;
+  margin: 0 0.12em;
+  font-size: 0.62em;
+  font-weight: 700;
+  line-height: 1;
+  color: #2b6cb0;
+  background: #e9f1fb;
+  border: 1px solid #cfe0f5;
+  border-radius: 999px;
+  vertical-align: super;
+  cursor: help;
+  user-select: none;
+`;
+
+const CiteVideoLink = styled.a`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2em;
+  padding: 0.05em 0.4em;
+  margin: 0 0.14em;
+  font-size: 0.72em;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #b3261e;
+  background: #fdecea;
+  border: 1px solid #f6c9c4;
+  border-radius: 999px;
+  text-decoration: none;
+  vertical-align: baseline;
+  white-space: nowrap;
+  &:hover { background: #fbddd9; }
+`;
+
+/** A single [n] citation. Resolves the source from context; falls back to the
+ *  literal "[n]" text when no matching source exists (so content is preserved). */
+function CitationChip({ n }: { n: number }) {
+  const chunks = useContext(CitationsContext);
+  const chunk = chunks?.[n - 1];
+  if (!chunk) return <>{`[${n}]`}</>;
+
+  const label = chunk.song ? `${chunk.song} — ${chunk.title}` : chunk.title;
+  const isVideo = !!(chunk.video_id || chunk.video_url) && chunk.start_sec != null;
+
+  if (isVideo) {
+    const ts = Math.floor(chunk.start_sec ?? 0);
+    const url = chunk.video_url
+      || `https://www.youtube.com/watch?v=${chunk.video_id}&t=${ts}s`;
+    const mmss = fmtMMSS(ts);
+    const title = `${chunk.channel ? chunk.channel + ' · ' : ''}${label} · ${mmss}`;
+    return (
+      <CiteVideoLink href={url} target="_blank" rel="noopener noreferrer" title={title}>
+        ▶ {mmss}
+      </CiteVideoLink>
+    );
+  }
+  return <CiteBadge title={label}>{n}</CiteBadge>;
+}
+
+/** Split a plain-text fragment on [n] citations, chord-formatting the text
+ *  between them and replacing each [n] with a CitationChip. */
+function renderCitationFragment(text: string, keyHint: string): React.ReactNode {
+  CITE_RE.lastIndex = 0;
+  if (!CITE_RE.test(text)) {
+    CITE_RE.lastIndex = 0;
+    return <>{formatChordsInText(text)}</>;
+  }
+  CITE_RE.lastIndex = 0;
+  const out: React.ReactNode[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let i = 0;
+  while ((m = CITE_RE.exec(text)) !== null) {
+    if (m.index > last) {
+      out.push(<React.Fragment key={`ct-${keyHint}-${i}`}>{formatChordsInText(text.slice(last, m.index))}</React.Fragment>);
+    }
+    out.push(<CitationChip key={`cc-${keyHint}-${i}`} n={parseInt(m[1], 10)} />);
+    last = m.index + m[0].length;
+    i++;
+  }
+  if (last < text.length) {
+    out.push(<React.Fragment key={`ct-${keyHint}-tail`}>{formatChordsInText(text.slice(last))}</React.Fragment>);
+  }
+  return <>{out}</>;
 }
 
 // Lick ids can be numeric (legacy frontend JSON) OR UUID strings (backend
@@ -132,17 +241,23 @@ interface ChatMessageProps {
    */
   suppressChart?: boolean;
   songTempo?: number;
+  /** RAG source chunks for THIS message (message.ragDebug?.chunks), used to
+   *  resolve inline [n] citation chips to their source / video timestamp. */
+  citations?: RagChunk[];
 }
 
-/** Format a single string: chord symbols → typography, [SEC:X] → square tag. */
+/** Format a single string: [SEC:X] → square tag, [n] → citation chip, chord
+ *  symbols → typography. */
 function formatStringNode(text: string, keyHint = 'k'): React.ReactNode {
-  // First inline any [SEC:X] tags, then format chord symbols inside the
-  // remaining text fragments. Section tags are kept as JSX as-is.
+  // First inline any [SEC:X] tags, then within each remaining text fragment
+  // replace [n] citations and format chord symbols. Section tags stay as JSX.
   const parts = inlineSectionTags(text, keyHint);
   return (
     <>
       {parts.map((p, i) =>
-        typeof p === 'string' ? <span key={`s-${keyHint}-${i}`}>{formatChordsInText(p)}</span> : p,
+        typeof p === 'string'
+          ? <span key={`s-${keyHint}-${i}`}>{renderCitationFragment(p, `${keyHint}-${i}`)}</span>
+          : p,
       )}
     </>
   );
@@ -301,7 +416,7 @@ const mdComponents: Components = {
   },
 };
 
-export function ChatMessage({ message, suppressChart = false, songTempo }: ChatMessageProps) {
+export function ChatMessage({ message, suppressChart = false, songTempo, citations }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
   const selectedChords = message.role === 'user' ? message.selectedChords ?? [] : [];
   const userImages = message.role === 'user' ? message.images ?? [] : [];
@@ -501,7 +616,9 @@ export function ChatMessage({ message, suppressChart = false, songTempo }: ChatM
             </AssistantIcon>
           </AssistantHeader>
         )}
-        {message.role === 'assistant' ? content : (
+        {message.role === 'assistant' ? (
+          <CitationsContext.Provider value={citations}>{content}</CitationsContext.Provider>
+        ) : (
           <>
             {selectedChords.length > 0 && (
               <UserSelectedContext>

@@ -101,6 +101,14 @@ def search(
             "topic_tags":     (meta.get("topic_tags") or "").split(","),
             "source":         meta.get("source", ""),
             "analyzed_songs": meta.get("analyzed_songs", ""),
+            # YouTube deep-link fields (empty for standard/lesson). Surfaced so
+            # the frontend can render an inline citation that jumps to the exact
+            # moment in the source video.
+            "video_id":       meta.get("video_id", ""),
+            "video_url":      meta.get("video_url", ""),
+            "channel":        meta.get("channel", ""),
+            "start_sec":      meta.get("start_sec", 0.0),
+            "end_sec":        meta.get("end_sec", 0.0),
         })
 
     return chunks

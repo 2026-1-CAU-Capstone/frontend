@@ -154,6 +154,14 @@ function ChunkItem({ chunk }: { chunk: RagChunk }) {
   const pct = chunk.score;
   const matchCount = chunk.matched_queries?.length ?? 1;
 
+  // YouTube 출처면 정확한 시점(mm:ss)으로 가는 딥링크를 만든다.
+  const isVideo = !!(chunk.video_id || chunk.video_url) && chunk.start_sec != null;
+  const ts = Math.max(0, Math.floor(chunk.start_sec ?? 0));
+  const videoUrl = isVideo
+    ? (chunk.video_url || `https://www.youtube.com/watch?v=${chunk.video_id}&t=${ts}s`)
+    : '';
+  const mmss = `${Math.floor(ts / 60)}:${String(ts % 60).padStart(2, '0')}`;
+
   return (
     <ChunkCard>
       <ChunkHeader onClick={() => setOpen(v => !v)}>
@@ -191,6 +199,15 @@ function ChunkItem({ chunk }: { chunk: RagChunk }) {
           <div style={{ color: '#888', fontSize: 10, marginBottom: 4 }}>
             id: {chunk.id}
           </div>
+          {isVideo && (
+            <div style={{ fontSize: 10, marginBottom: 6 }}>
+              🎬{' '}
+              <a href={videoUrl} target="_blank" rel="noopener noreferrer"
+                 style={{ color: '#b3261e', fontWeight: 600 }}>
+                {chunk.channel ? `${chunk.channel} · ` : ''}영상 {mmss} 지점 열기
+              </a>
+            </div>
+          )}
           {chunk.matched_queries && chunk.matched_queries.length > 0 && (
             <div style={{ color: '#888', fontSize: 10, marginBottom: 6 }}>
               회수한 sub-query ({chunk.matched_queries.length}개):

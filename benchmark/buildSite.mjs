@@ -550,6 +550,8 @@ document.querySelectorAll('input[data-only-fail]').forEach((el) => {
 </body></html>
 `;
 
-const out = join(HERE, 'index.html');
+// index.html is the hand-designed NSR-Bench showcase; the auto-generated data
+// browser goes to data-browser.html so re-running this never clobbers it.
+const out = join(HERE, 'data-browser.html');
 writeFileSync(out, html);
 console.log(`Wrote ${out} — ${html.length.toLocaleString()} chars`);

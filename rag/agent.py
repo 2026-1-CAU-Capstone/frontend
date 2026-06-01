@@ -228,6 +228,14 @@ def build_context(
                 "matched_query":    r.get("matched_query", ""),
                 "matched_queries":  r.get("matched_queries", []),
                 "response":         r["response"][:400],   # 미리보기용
+                # 인라인 인용([n])이 출처/영상 시점으로 연결되도록 전달.
+                # YouTube 청크가 아니면 비어 있음.
+                "source_type":      r.get("source_type", "standard"),
+                "video_id":         r.get("video_id", ""),
+                "video_url":        r.get("video_url", ""),
+                "channel":          r.get("channel", ""),
+                "start_sec":        r.get("start_sec", 0.0),
+                "end_sec":          r.get("end_sec", 0.0),
             }
             for r in top_results
         ],

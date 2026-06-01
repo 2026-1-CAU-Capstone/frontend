@@ -293,7 +293,11 @@ export async function fetchAllLicks(): Promise<LickEntry[]> {
   let isLast = false;
 
   while (!isLast) {
-    const res = await fetch(
+    // GET /v1/licks requires auth (returns 401 unauthenticated). All callers
+    // (chat lick pool on /chord, /licks page) sit behind ProtectedRoute, so a
+    // token is always present — use authFetch so the Bearer header is attached
+    // (otherwise the lick pool silently loads empty → no recommendation cards).
+    const res = await authFetch(
       `${API_BASE}/v1/licks?page=${page}&size=${PAGE_SIZE}&sort=createdAt,desc`,
     );
     if (!res.ok) throw new Error(`licks API ${res.status}`);
