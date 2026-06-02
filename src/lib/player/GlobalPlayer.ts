@@ -193,7 +193,6 @@ export function createGlobalPlayer(
   // so the orchestrator routes to the right one without re-checking
   // currentInput on every call.
   let active: BackingPlayer | null = null;
-  let activeKind: PlayerInput["kind"] | null = null;
   let currentInput: PlayerInput | null = null;
   let barChordTable: (ChordSymbol | null)[] = [];
 
@@ -445,12 +444,10 @@ export function createGlobalPlayer(
         input as { kind: "sheet" | "lick" | "solo"; data: NoteSheetData },
       );
       active = bp;
-      activeKind = input.kind;
       return { engine: bp, unifiedMelody: true };
     }
     const bp = ensureBackingPlayer(input);
     active = bp;
-    activeKind = input.kind;
     return { engine: bp };
   }
 
@@ -682,7 +679,6 @@ export function createGlobalPlayer(
     backingPlayerMelody = null;
     backingPlayerMelodySig = null;
     active = null;
-    activeKind = null;
     currentInput = null;
     for (const k of Object.keys(listeners) as (keyof GlobalPlayerEvents)[]) {
       listeners[k].clear();
