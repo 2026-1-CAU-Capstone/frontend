@@ -79,7 +79,11 @@ async function checkServer(): Promise<boolean> {
   try {
     const res = await fetch(`${RAG_SERVER}/health`, {
       headers: authHeaders(),
-      signal: AbortSignal.timeout(1500),
+      /* 5s — cloudflared quick tunnels often take ~1s for cold preflight
+       *  + GET on first request, well over the previous 1.5s timeout.
+       *  Subsequent requests are fast (preflight cached, edge warm), so
+       *  this only affects the first health check. */
+      signal: AbortSignal.timeout(5000),
     });
     serverAlive = res.ok;
   } catch {
