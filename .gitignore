@@ -74,6 +74,9 @@ data/youtube/
 # Local DB backups & bak files
 rag/db.old-*/
 rag/*.bak
+rag/*.bak-*
+rag/*.bak.*
+rag/*.tgz
 
 # Analysis scratch (added 2026-05)
 data/*.py
