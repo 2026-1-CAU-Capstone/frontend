@@ -2524,9 +2524,9 @@ export function LeadSheet({
 
           // Right edge: mirror yellow ii-V-I exactly.
           //   - single-row 1-chord bar: 0.5  (yellow line ~2323)
-          //   - cross-row last-row I:  0.46 (yellow I_CHORD_END_FRACTION)
+          //   - cross-row last-row I:  0.5  (yellow I_CHORD_END_FRACTION, line ~2978)
           const SINGLE_BAR_END_FRACTION = 0.5;
-          const I_CHORD_END_FRACTION   = 0.46;
+          const I_CHORD_END_FRACTION   = 0.5;
           const lastBar = resolvedData.systems[systemIndex]?.bars[maxBi];
           const lastChords = lastBar?.chords ?? [];
           const realChordCount = lastChords.filter(c => c.root).length;
