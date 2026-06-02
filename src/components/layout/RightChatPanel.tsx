@@ -21,7 +21,7 @@ import {
   findLicksByProgression,
   detectProgressionKeyword,
 } from '../../lib/lickMatcher';
-import { loadLicks, loadUserLicksSync } from '../../data/lickData';
+import { loadLicks, loadUserLicksSync, loadBackupLicks } from '../../data/lickData';
 import type { LickEntry } from '../../data/lickData';
 import {
   PanelContainer,
@@ -250,16 +250,22 @@ export function RightChatPanel({
     return unsub;
   }, [setChatPublicId]);
 
-  /* 릭 추천 풀: 백엔드 lick DB (jazzify.p-e.kr/api/v1/licks)만 유일 소스.
-   * 정적 frontend 풀(public/data/licks/licks.json)은 폴백으로도 쓰지 않음 —
-   * 채팅 추천 결과의 권위성은 백엔드 curated 릭으로 단일화. 백엔드가 비어
-   * 있으면 채팅 추천도 비는 게 정상 동작. */
+  /* 릭 추천 풀: 1순위 백엔드 lick DB (jazzify.p-e.kr/api/v1/licks). 백엔드가
+   * 인증 만료/다운 등으로 실패하면 번들된 백업 스냅샷(public/data/licks/
+   * backend_backup_licks.json, 백엔드 wipe 직전 145개)으로 폴백해 추천이
+   * 빈손이 되지 않게 한다. (이전엔 폴백을 막아둬서 백엔드 401 시 풀이
+   * 영영 비었음.) */
   useEffect(() => {
     loadLicks()
-      .then((licks) => { allLicksRef.current = licks; })
+      .then((licks) => {
+        if (licks.length > 0) { allLicksRef.current = licks; return; }
+        return loadBackupLicks().then((b) => { allLicksRef.current = b; });
+      })
       .catch((err) => {
-        console.warn('[RightChatPanel] 백엔드 lick DB 로드 실패 — 릭 추천 비활성:', err);
-        allLicksRef.current = [];
+        console.warn('[RightChatPanel] 백엔드 lick DB 로드 실패 → 백업 스냅샷 폴백:', err);
+        loadBackupLicks()
+          .then((b) => { allLicksRef.current = b; })
+          .catch(() => { allLicksRef.current = []; });
       });
   }, []);
 
@@ -546,7 +552,14 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
      * suggestions, so skipping backend persistence is an acceptable trade-off. */
     let finalText = '';
     let backendOk = false;
-    if (loggedIn && !isLickQuery && !isGenQuery) {
+    /* RAG-everywhere (user decision): route EVERY chord-analysis question
+     * through the local RAG path so HarmoRAG + inline citations engage on all
+     * questions — not just lick/score-gen. This bypasses backend chat-history
+     * persistence (sidebar list). To restore persistence, set this flag true
+     * (normal questions then lose RAG again unless the Spring backend itself
+     * calls HarmoRAG). */
+    const BACKEND_CHAT_PERSIST = false;
+    if (BACKEND_CHAT_PERSIST && loggedIn) {
       try {
         /* DB에 영속화되는 message 필드는 항상 raw user text만. textForLLM에
          * 부착되는 `[내부 지시 — 유저에게 보이지 않음:` 블록을 그대로 보내면

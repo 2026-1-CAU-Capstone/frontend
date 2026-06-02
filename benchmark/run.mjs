@@ -87,15 +87,33 @@ function extractJson(text) {
   return null;
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 async function anthropic(model, system, user, maxTokens, temperature = 0) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model, max_tokens: maxTokens, temperature, system, messages: [{ role: 'user', content: user }] }),
-  });
-  if (!res.ok) throw new Error(`Anthropic ${res.status} (${model}): ${(await res.text()).slice(0, 160)}`);
-  const data = await res.json();
-  return data.content?.map((b) => b.text).join('') ?? '';
+  // Up to 5 attempts with exponential backoff. Retries transient network
+  // errors ("fetch failed") and 429/5xx — a single blip mid-run no longer
+  // poisons dozens of items (the f53 partial-run failure mode).
+  let lastErr;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model, max_tokens: maxTokens, temperature, system, messages: [{ role: 'user', content: user }] }),
+      });
+      if (!res.ok) {
+        const body = (await res.text()).slice(0, 160);
+        if ((res.status === 429 || res.status >= 500) && attempt < 4) { await sleep(1500 * (attempt + 1)); continue; }
+        throw new Error(`Anthropic ${res.status} (${model}): ${body}`);
+      }
+      const data = await res.json();
+      return data.content?.map((b) => b.text).join('') ?? '';
+    } catch (e) {
+      lastErr = e;
+      if (attempt < 4) { await sleep(1000 * (attempt + 1)); continue; }
+    }
+  }
+  throw lastErr;
 }
 
 async function judge(system, user, maxTokens = 80) {

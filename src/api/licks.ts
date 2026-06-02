@@ -1,6 +1,6 @@
 import type { LickEntry } from '../data/lickData';
 import type { NoteSheetData } from '../data/sampleMelody';
-import { authFetch } from './auth';
+import { authFetch, getAccessToken } from './auth';
 
 const API_BASE = 'https://jazzify.p-e.kr/api';
 
@@ -292,13 +292,17 @@ export async function fetchAllLicks(): Promise<LickEntry[]> {
   let page = 0;
   let isLast = false;
 
+  // GET /v1/licks requires auth (401 unauthenticated). Attach the Bearer token
+  // if we have one (soft auth) — but DON'T use authFetch here: this is a
+  // background pool load, and authFetch's refresh-then-redirect-to-/login on
+  // failure would be disruptive. On 401 we just throw so the caller can fall
+  // back to the bundled backup snapshot.
+  const token = getAccessToken();
+  const authHeader: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
   while (!isLast) {
-    // GET /v1/licks requires auth (returns 401 unauthenticated). All callers
-    // (chat lick pool on /chord, /licks page) sit behind ProtectedRoute, so a
-    // token is always present — use authFetch so the Bearer header is attached
-    // (otherwise the lick pool silently loads empty → no recommendation cards).
-    const res = await authFetch(
+    const res = await fetch(
       `${API_BASE}/v1/licks?page=${page}&size=${PAGE_SIZE}&sort=createdAt,desc`,
+      { headers: authHeader, credentials: 'include' },
     );
     if (!res.ok) throw new Error(`licks API ${res.status}`);
     const json: ApiResponse<LickResponse> = await res.json();
