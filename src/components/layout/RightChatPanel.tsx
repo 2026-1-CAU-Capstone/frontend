@@ -376,7 +376,13 @@ export function RightChatPanel({
 
     // "만들어줘", "생성해줘" 등 명시적 창작 요청만 AI 생성 모드
     const CREATE_KEYWORDS = /만들어|생성|작성|직접|그려줘?|generate|compose|짜봐|짜줘|써줘/i;
-    const LICK_QUERY_KEYWORDS = /릭|라인|line|lick|솔로.*예시|예시.*솔로|연주.*예|거장|추천.*솔로/i;
+    /* "처럼" — almost always "X처럼 연주" (imitate musician X) which wants
+     *  lick examples. "어떻게.*(연주|솔로|라인)" — "how to play" requests.
+     *  "스타일로" — "in the style of" similarly implies example licks.
+     *  "방식" — playing approach. Combined with the original keywords
+     *  (릭/라인/lick/거장/etc.) this should cover the common ways users
+     *  ask "show me how this person would play". */
+    const LICK_QUERY_KEYWORDS = /릭|라인|line|lick|솔로.*예시|예시.*솔로|연주.*예|거장|추천.*솔로|처럼|스타일로|어떻게.*(연주|솔로|라인)|방식.*연주/i;
     const isGenQuery = CREATE_KEYWORDS.test(text);
     const isLickQuery = !isGenQuery && LICK_QUERY_KEYWORDS.test(text);
 

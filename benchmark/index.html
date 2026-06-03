@@ -131,6 +131,282 @@
     .tasks{grid-template-columns:repeat(2,1fr)} .layers{grid-template-columns:repeat(3,1fr)}
     a[href]:after{content:""}
   }
+
+  /* MuseJazz Text — used for the chord-progression demo section at the
+   * bottom of the page. Loaded from the frontend's public assets so the
+   * benchmark page renders the same chord glyphs (Δ, -, ø, °, ♭, ♯) as
+   * the live app's lead-sheet. */
+  @font-face{
+    font-family:'MuseJazz Text';
+    src:url('../public/MuseJazzText.otf') format('opentype');
+    font-display:swap;
+  }
+
+  /* ── Chord-progression demo section ────────────────────────────────────
+   * Full-bleed (no horizontal padding) per the design request. Header and
+   * rows both span the full viewport width; only the rows themselves keep
+   * a small breathing pad so the chord glyphs don't touch the edge. */
+  .cp-section{padding:48px 0 24px;margin-left:calc(-1 * env(safe-area-inset-left));}
+  .cp-section .cp-head{padding:0 24px;max-width:1060px;margin:0 auto}
+  .cp-section h2{margin:0 0 6px;font-size:24px;letter-spacing:-0.01em}
+  .cp-section .cp-sub{color:var(--soft);margin:0 0 22px;font-size:14.5px}
+  .cp-list{display:flex;flex-direction:column;gap:0;margin:0;padding:0;list-style:none;counter-reset:cp;
+    border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .cp-item{
+    display:grid;
+    grid-template-columns:46px 1fr;
+    align-items:start;
+    gap:18px;
+    padding:22px 28px;
+    border-bottom:1px solid var(--line2);
+    background:var(--card);
+  }
+  .cp-item:last-child{border-bottom:none}
+  .cp-item::before{
+    counter-increment:cp;
+    content:counter(cp);
+    grid-row:1 / span 2;
+    align-self:center;
+    width:34px;height:34px;border-radius:10px;
+    background:#f4f4f8;color:var(--ink);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:15px;
+  }
+
+  /* Chord row — mirrors LeadSheet ChordWrap geometry exactly.
+   * Each .cp-chord = ChordWrap (inline-flex, align-items:flex-end, line-height:1).
+   * Sizes are taken from LeadSheet's 'full' clamp upper bound so the
+   * visual reads identical to the real lead-sheet at desktop widths. */
+  .cp-chords{
+    color:#000;
+    display:flex;flex-wrap:wrap;align-items:flex-start;gap:14px 28px;
+    font-family:'MuseJazz Text','Oswald',Pretendard,sans-serif;
+  }
+  /* Per-chord column — stacks the lead-sheet glyph on top and the
+   * roman-numeral degree label underneath. Aligns the chord's root
+   * baseline by virtue of align-items:flex-end on the .cp-chord. */
+  .cp-col{
+    display:inline-flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:6px;
+  }
+  .cp-chord{
+    position:relative;
+    display:inline-flex;
+    align-items:flex-end;
+    line-height:1;
+    /* Root is sized to ~70% of the LeadSheet 'full' max (3.5rem → 2.4rem)
+     * so a full progression fits on one line without wrap on a 1060px
+     * grid while preserving the inter-glyph ratios. */
+    font-size:2.4rem;
+  }
+  /* Roman-numeral degree label under each chord — uppercase roman numerals
+   * (I/II/.../VII) for major-context, lowercase + "-" for minor-context, "ø"
+   * for half-diminished, "△7" for maj7, just "7" for dominant. Color is the
+   * page's indigo accent so degrees read as a separate analysis layer. */
+  .cp-degree{
+    font-family:var(--sans);
+    font-size:12px;
+    font-weight:700;
+    color:var(--indigo);
+    letter-spacing:0.01em;
+    white-space:nowrap;
+    padding:2px 8px;
+    border-radius:6px;
+    background:var(--indigo-soft);
+  }
+  /* Optional key-switch divider that appears between two ii-V-I blocks in
+   * a single progression (e.g. progression 2: C → B♭). Renders as a faint
+   * vertical bar with the new key label. */
+  .cp-keyswitch{
+    display:inline-flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    padding:0 6px;
+    align-self:stretch;
+  }
+  .cp-keyswitch::before{
+    content:'';
+    display:block;
+    flex:1;
+    width:1px;
+    background:var(--line);
+    min-height:30px;
+  }
+  .cp-keyswitch span{
+    font-family:var(--sans);
+    font-size:11px;
+    font-weight:700;
+    color:var(--soft);
+    letter-spacing:0.04em;
+  }
+  /* Key info line under the progression — shows the parent key(s) and
+   * any high-level analysis label (e.g. "modal interchange"). */
+  .cp-key-line{
+    grid-column:2;
+    display:flex;align-items:center;flex-wrap:wrap;gap:6px 14px;
+    margin-top:14px;
+    padding-top:12px;
+    border-top:1px dashed var(--line);
+    font-family:var(--sans);
+  }
+  .cp-key-label{
+    font-size:11px;
+    color:var(--soft);
+    letter-spacing:0.06em;
+    font-weight:700;
+    text-transform:uppercase;
+  }
+  .cp-key-val{
+    font-size:13px;
+    font-weight:700;
+    color:var(--ink);
+  }
+  .cp-key-sep{color:var(--faint);font-size:13px}
+  /* Root (LeadSheet Root) */
+  .cp-root{
+    font-size:1em;
+    font-weight:700;
+    line-height:0.88;
+    letter-spacing:-0.01em;
+    font-family:inherit;
+  }
+  /* AccQualStack (LeadSheet) */
+  .cp-stack{
+    display:inline-flex;
+    flex-direction:column;
+    justify-content:space-between;
+    align-self:stretch;
+  }
+  /* AccTopSlot — always present so quality stays bottom-anchored even
+   * when there's no accidental (matches LeadSheet behaviour). */
+  .cp-acc-slot{line-height:1;min-height:1px;display:block}
+  /* Acc (LeadSheet Acc full ratio: 1.8/3.5 ≈ 0.514) */
+  .cp-acc{
+    font-size:0.514em;
+    font-weight:700;
+    line-height:1;
+    font-family:inherit;
+  }
+  /* Quality (LeadSheet Quality full ratio: 1.7/3.5 ≈ 0.486; dom7 ×1.08) */
+  .cp-q{
+    font-size:0.486em;
+    font-weight:600;
+    line-height:1;
+    padding-bottom:1px;
+    transform:translateY(-0.18em);
+    transform-origin:left bottom;
+    display:inline-block;
+    font-family:inherit;
+  }
+  .cp-q.dom7{
+    font-size:0.524em;
+    transform:translate(0.04em,-0.04em);
+  }
+  /* Dim glyph (°) — LeadSheet Dim: 1.4em, line-height:0 */
+  .cp-dim{font-size:1.4em;line-height:0;display:inline-block}
+  /* HalfDim glyph (ø) — LeadSheet HalfDim @ full: scaleX(1.18) */
+  .cp-halfdim{display:inline-block;transform:scaleX(1.18);transform-origin:center;margin:0 0.05em}
+
+  .cp-gloss{
+    grid-column:2;
+    color:var(--soft);
+    font-size:14px;
+    margin-top:14px;
+    font-family:var(--sans);
+    display:flex;flex-direction:column;gap:4px;
+    line-height:1.55;
+  }
+  .cp-gloss > div{display:block}
+  .cp-gloss b{color:var(--ink);font-weight:700}
+  .cp-tag{
+    display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;
+    font-size:11px;font-weight:700;letter-spacing:0.02em;
+    background:var(--rule-soft);color:var(--rule);
+    font-family:var(--sans);
+  }
+  .cp-tag.warn{background:var(--red-soft);color:var(--red)}
+  .cp-tag.ok{background:var(--green-soft);color:var(--green)}
+
+  /* ── A·B·C·D·E·F·G evaluation sections (page bottom) ────────────────
+   * Each section is a labelled list of test questions + expected
+   * answers / aim notes. Designed to read as a single contiguous
+   * "screenshot column" so the section headers stack visually without
+   * intrusive dividers between them. */
+  .eval-section{padding:38px 0 4px}
+  .eval-head{padding:0 24px;max-width:1060px;margin:0 auto 18px}
+  .eval-title{
+    font-size:21px;font-weight:700;letter-spacing:-0.01em;
+    color:var(--ink);margin:0 0 4px;line-height:1.3;
+  }
+  .eval-sub{color:var(--soft);font-size:14px;margin:0;line-height:1.55}
+
+  .eval-list{
+    list-style:none;margin:0;padding:0;counter-reset:ev;
+    border-top:1px solid var(--line);
+    border-bottom:1px solid var(--line);
+  }
+  .eval-item{
+    display:grid;grid-template-columns:46px 1fr;gap:18px;
+    padding:16px 28px;
+    border-bottom:1px solid var(--line2);
+    background:#fff;
+  }
+  .eval-item:last-child{border-bottom:none}
+  .eval-item::before{
+    counter-increment:ev;content:counter(ev);
+    width:32px;height:32px;border-radius:10px;
+    background:#f4f4f8;color:var(--ink);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:14px;
+    align-self:flex-start;margin-top:2px;
+  }
+  .eval-q{color:var(--ink);font-size:15px;font-weight:600;line-height:1.55;margin-bottom:6px}
+  .eval-q code{padding:2px 8px;font-size:13.5px}
+  .eval-a{color:var(--soft);font-size:13.5px;line-height:1.55}
+  .eval-a b{color:var(--ink)}
+  .eval-a code{padding:2px 6px;font-size:13px;background:#f7f7fb}
+  .eval-a-label{
+    font-weight:700;color:var(--ink);margin-right:6px;
+    font-size:12px;letter-spacing:0.04em;text-transform:uppercase;
+  }
+  .eval-aim{
+    max-width:1060px;margin:14px auto 0;padding:0 24px;
+    font-size:13px;color:var(--soft);
+    line-height:1.6;
+    border-left:3px solid var(--line);
+    padding-left:12px;
+    margin-left:max(24px,calc((100% - 1060px)/2 + 24px));
+    margin-right:max(24px,calc((100% - 1060px)/2 + 24px));
+  }
+  .eval-aim b{color:var(--ink);font-weight:700}
+
+  .eval-tag{
+    display:inline-block;padding:1px 8px;border-radius:999px;
+    font-size:11px;font-weight:700;letter-spacing:0.02em;margin-right:6px;
+    font-family:var(--sans);vertical-align:baseline;
+  }
+  .eval-tag.trap{background:var(--red-soft);color:var(--red)}
+  .eval-tag.control{background:var(--green-soft);color:var(--green)}
+
+  /* Inline mini chord (used in B/E/D answer chips). Uses the same
+   * MuseJazz font + sup-quality geometry as the big chord row, but at
+   * 1.2rem so it sits inline with surrounding text comfortably. */
+  .mini-chord{
+    display:inline-flex;align-items:flex-end;line-height:1;
+    font-family:'MuseJazz Text','Oswald',Pretendard,sans-serif;
+    font-size:1.4rem;color:#000;vertical-align:bottom;
+    margin:0 2px;
+  }
+  .mini-chord .cp-root{font-weight:700;line-height:0.88;letter-spacing:-0.01em}
+  .mini-chord .cp-stack{display:inline-flex;flex-direction:column;justify-content:space-between;align-self:stretch}
+  .mini-chord .cp-acc-slot{line-height:1;min-height:1px;display:block}
+  .mini-chord .cp-acc{font-size:0.514em;font-weight:700;line-height:1}
+  .mini-chord .cp-q{font-size:0.486em;font-weight:600;line-height:1;padding-bottom:1px;transform:translateY(-0.18em);transform-origin:left bottom;display:inline-block}
+  .mini-chord .cp-q.dom7{font-size:0.524em;transform:translate(0.04em,-0.04em)}
+  .mini-chord .cp-halfdim{display:inline-block;transform:scaleX(1.18);transform-origin:center;margin:0 0.05em}
 </style>
 </head>
 <body>
@@ -437,6 +713,305 @@
       Rule 기여(A·G)는 골드가 코퍼스와 무관해 이 문제에서 자유롭다.
     </div>
   </div>
+</section>
+
+<section class="cp-section">
+  <div class="cp-head">
+    <h2>A · 구조분석 — 정확성 (&rarr; Rule) · 자동채점</h2>
+    <p class="cp-sub">진행을 주고 <code>{key, ii-V-I 인덱스, 로마숫자}</code> 를 JSON으로 답하게 함.</p>
+  </div>
+  <ol class="cp-list">
+
+    <li class="cp-item">
+      <div class="cp-chords">
+        <span class="cp-chord"><span class="cp-root">D</span><span class="cp-stack"><span class="cp-acc-slot"></span><span class="cp-q">-7</span></span></span>
+        <span class="cp-chord"><span class="cp-root">G</span><span class="cp-stack"><span class="cp-acc-slot"></span><span class="cp-q dom7">7</span></span></span>
+        <span class="cp-chord"><span class="cp-root">C</span><span class="cp-stack"><span class="cp-acc-slot"></span><span class="cp-q">&#9651;7</span></span></span>
+      </div>
+      <div class="cp-gloss">
+        <div><b>Key</b> · C major</div>
+        <div><b>정답</b> · ii-V-I [0,1,2] — D-7 = <b>ii-7</b>, G7 = <b>V7</b>, C&#9651;7 = <b>I&#9651;7</b> <span class="cp-tag ok">canonical</span></div>
+      </div>
+    </li>
+
+    <li class="cp-item">
+      <div class="cp-chords">
+        <span class="cp-chord"><span class="cp-root">D</span><span class="cp-stack"><span class="cp-acc-slot"></span><span class="cp-q">-7</span></span></span>
+        <span class="cp-chord"><span class="cp-root">G</span><span class="cp-stack"><span class="cp-acc-slot"></span><span class="cp-q dom7">7</span></span></span>
+        <span class="cp-chord"><span class="cp-root">C</span><span class="cp-stack"><span class="cp-acc-slot"></span><span class="cp-q">&#9651;7</span></span></span>
+        <span class="cp-chord"><span class="cp-root">C</span><span class="cp-stack"><span class="cp-acc-slot"></span><span class="cp-q">-7</span></span></span>
+        <span class="cp-chord"><span class="cp-root">F</span><span class="cp-stack"><span class="cp-acc-slot"></span><span class="cp-q dom7">7</span></span></span>
+        <span class="cp-chord"><span class="cp-root">B</span><span class="cp-stack"><span class="cp-acc-slot"><span class="cp-acc">&#9837;</span></span><span class="cp-q">&#9651;7</span></span></span>
+      </div>
+      <div class="cp-gloss">
+        <div><b>Keys</b> · C major &rarr; B&#9837; major (전조)</div>
+        <div><b>정답</b> · ii-V-I 두 개 직결</div>
+        <div>[C] D-7 = <b>ii-7</b>, G7 = <b>V7</b>, C&#9651;7 = <b>I&#9651;7</b></div>
+        <div>[B&#9837;] C-7 = <b>ii-7</b>, F7 = <b>V7</b>, B&#9837;&#9651;7 = <b>I&#9651;7</b> <span class="cp-tag">modulation</span></div>
+      </div>
+    </li>
+
+    <li class="cp-item">
+      <div class="cp-chords">
+        <span class="cp-chord"><span class="cp-root">C</span><span class="cp-stack"><span class="cp-acc-slot"></span><span class="cp-q">-7</span></span></span>
+        <span class="cp-chord"><span class="cp-root">F</span><span class="cp-stack"><span class="cp-acc-slot"></span><span class="cp-q dom7">7</span></span></span>
+        <span class="cp-chord"><span class="cp-root">B</span><span class="cp-stack"><span class="cp-acc-slot"><span class="cp-acc">&#9837;</span></span><span class="cp-q">&#9651;7</span></span></span>
+        <span class="cp-chord"><span class="cp-root">E</span><span class="cp-stack"><span class="cp-acc-slot"><span class="cp-acc">&#9837;</span></span><span class="cp-q">&#9651;7</span></span></span>
+        <span class="cp-chord"><span class="cp-root">A</span><span class="cp-stack"><span class="cp-acc-slot"></span><span class="cp-q"><span class="cp-halfdim">&#248;</span>7</span></span></span>
+        <span class="cp-chord"><span class="cp-root">D</span><span class="cp-stack"><span class="cp-acc-slot"></span><span class="cp-q dom7">7</span></span></span>
+        <span class="cp-chord"><span class="cp-root">G</span><span class="cp-stack"><span class="cp-acc-slot"></span><span class="cp-q">-7</span></span></span>
+      </div>
+      <div class="cp-gloss">
+        <div><b>Keys</b> · B&#9837; major + G minor (Autumn Leaves A 섹션, 상대조 페어)</div>
+        <div><b>정답</b> · ii-V-I-IV 후 마이너 ii-V-i</div>
+        <div>[B&#9837;] C-7 = <b>ii-7</b>, F7 = <b>V7</b>, B&#9837;&#9651;7 = <b>I&#9651;7</b>, E&#9837;&#9651;7 = <b>IV&#9651;7</b></div>
+        <div>[Gm] A&#248;7 = <b>ii&#248;7</b>, D7 = <b>V7(&#9837;9)</b>, G-7 = <b>i-7</b> <span class="cp-tag">standard</span></div>
+      </div>
+    </li>
+
+    <li class="cp-item">
+      <div class="cp-chords">
+        <span class="cp-chord"><span class="cp-root">C</span><span class="cp-stack"><span class="cp-acc-slot"></span><span class="cp-q">&#9651;7</span></span></span>
+        <span class="cp-chord"><span class="cp-root">F</span><span class="cp-stack"><span class="cp-acc-slot"></span><span class="cp-q">-7</span></span></span>
+        <span class="cp-chord"><span class="cp-root">B</span><span class="cp-stack"><span class="cp-acc-slot"><span class="cp-acc">&#9837;</span></span><span class="cp-q dom7">7</span></span></span>
+        <span class="cp-chord"><span class="cp-root">C</span><span class="cp-stack"><span class="cp-acc-slot"></span><span class="cp-q">&#9651;7</span></span></span>
+      </div>
+      <div class="cp-gloss">
+        <div><b>Key</b> · C major (modal interchange)</div>
+        <div><b>정답</b> · C&#9651;7 = <b>I&#9651;7</b>, F-7 = <b>iv-7</b>, B&#9837;7 = <b>&#9837;VII7</b>, C&#9651;7 = <b>I&#9651;7</b></div>
+        <div>iv-7·&#9837;VII7 은 C minor 에서 빌려온 백도어 케이던스. <b>ii-V-I 패턴은 없다</b> (D-7 G7 부재) — 룰 엔진의 과잉검출 함정 <span class="cp-tag warn">trap</span></div>
+      </div>
+    </li>
+
+    <li class="cp-item">
+      <div class="cp-chords">
+        <span class="cp-chord"><span class="cp-root">C</span><span class="cp-stack"><span class="cp-acc-slot"></span><span class="cp-q">&#9651;7</span></span></span>
+        <span class="cp-chord"><span class="cp-root">E</span><span class="cp-stack"><span class="cp-acc-slot"><span class="cp-acc">&#9837;</span></span><span class="cp-q dom7">7</span></span></span>
+        <span class="cp-chord"><span class="cp-root">A</span><span class="cp-stack"><span class="cp-acc-slot"><span class="cp-acc">&#9837;</span></span><span class="cp-q">&#9651;7</span></span></span>
+        <span class="cp-chord"><span class="cp-root">B</span><span class="cp-stack"><span class="cp-acc-slot"></span><span class="cp-q dom7">7</span></span></span>
+        <span class="cp-chord"><span class="cp-root">E</span><span class="cp-stack"><span class="cp-acc-slot"></span><span class="cp-q">&#9651;7</span></span></span>
+      </div>
+      <div class="cp-gloss">
+        <div><b>Keys</b> · C &rarr; A&#9837; &rarr; E (Coltrane changes, 장3도 사이클)</div>
+        <div><b>정답</b> · 각 키 안에서 V7-I 한 쌍</div>
+        <div>C&#9651;7 = <b>I&#9651;7 (C)</b>, E&#9837;7 = <b>V7/A&#9837;</b>, A&#9837;&#9651;7 = <b>I&#9651;7 (A&#9837;)</b>, B7 = <b>V7/E</b>, E&#9651;7 = <b>I&#9651;7 (E)</b> <span class="cp-tag">advanced</span></div>
+      </div>
+    </li>
+
+  </ol>
+  <p class="eval-aim"><b>노림수:</b> raw 는 ii-V-I 을 <b>과잉 검출</b>(4·5번에서 헛검출), Rule 이 P=100% 로 교정.</p>
+</section>
+
+<section class="eval-section">
+  <div class="eval-head">
+    <div class="eval-title">B · 이론팩트 — 일반 사실성 (포화) · accept-list</div>
+    <p class="eval-sub">단답 사실 확인. 베이스 모델이 이미 잘 맞히는 영역.</p>
+  </div>
+  <ol class="eval-list">
+    <li class="eval-item">
+      <div>
+        <div class="eval-q">What is the tritone substitute of G7?</div>
+        <div class="eval-a"><span class="eval-a-label">정답</span><span class="mini-chord"><span class="cp-root">D</span><span class="cp-stack"><span class="cp-acc-slot"><span class="cp-acc">&#9837;</span></span><span class="cp-q dom7">7</span></span></span></div>
+      </div>
+    </li>
+    <li class="eval-item">
+      <div>
+        <div class="eval-q">Name the dominant 7th chord a tritone away from D&#9837;7.</div>
+        <div class="eval-a"><span class="eval-a-label">정답</span><span class="mini-chord"><span class="cp-root">G</span><span class="cp-stack"><span class="cp-acc-slot"></span><span class="cp-q dom7">7</span></span></span></div>
+      </div>
+    </li>
+    <li class="eval-item">
+      <div>
+        <div class="eval-q">What is the 'backdoor' dominant chord that resolves to Cmaj7?</div>
+        <div class="eval-a"><span class="eval-a-label">정답</span><span class="mini-chord"><span class="cp-root">B</span><span class="cp-stack"><span class="cp-acc-slot"><span class="cp-acc">&#9837;</span></span><span class="cp-q dom7">7</span></span></span></div>
+      </div>
+    </li>
+    <li class="eval-item">
+      <div>
+        <div class="eval-q">What is the first chord of John Coltrane's <i>Giant Steps</i>?</div>
+        <div class="eval-a"><span class="eval-a-label">정답</span><span class="mini-chord"><span class="cp-root">B</span><span class="cp-stack"><span class="cp-acc-slot"></span><span class="cp-q">&#9651;7</span></span></span></div>
+      </div>
+    </li>
+    <li class="eval-item">
+      <div>
+        <div class="eval-q">A scale is spelled G, A, B&#9837;, C&#9839;, D, E, F — identify it.</div>
+        <div class="eval-a"><span class="eval-a-label">정답</span><b>G 하모닉 마이너</b> <span class="mut">(harmonic minor)</span></div>
+      </div>
+    </li>
+  </ol>
+  <p class="eval-aim"><b>노림수:</b> 베이스 모델이 이미 ~93% 맞힘 &rarr; <b>헤드룸 없음(포화)</b>. RAG 가 오히려 노이즈 줄 수 있는지 점검용.</p>
+</section>
+
+<section class="eval-section">
+  <div class="eval-head">
+    <div class="eval-title">C · 설명 — 개념 설명 깊이 (&rarr; RAG) · judge(points 커버리지)</div>
+    <p class="eval-sub">정답 단답이 아니라 <b>설명의 정확성·커버리지</b> 가 점수화 대상. 추상 이론 영역이라 RAG 코퍼스 커버가 약함(대조).</p>
+  </div>
+  <ol class="eval-list">
+    <li class="eval-item">
+      <div class="eval-q">Why does a tritone substitution (D&#9837;7 for G7 &rarr; C) work? Explain the shared notes.</div>
+      <div class="eval-a"><span class="eval-a-label">채점 포인트</span>두 도미넌트가 공유하는 가이드 톤(3rd·&#9837;7th) — G7 의 B/F 는 D&#9837;7 의 F/C&#9837;(=B) 와 같음 &rarr; 해결력 보존.</div>
+    </li>
+    <li class="eval-item">
+      <div class="eval-q">Explain the 'backdoor ii-V' (F-7 &ndash; B&#9837;7 resolving to Cmaj7).</div>
+      <div class="eval-a"><span class="eval-a-label">채점 포인트</span>C minor 의 ii-V (F-7 B&#9837;7) 가 C major 로 deceptive resolve &rarr; B&#9837;7 의 A&#9837;·D 가 C&#9651;7 의 컬러톤(&#9837;13·9) 으로 흘러들어감.</div>
+    </li>
+    <li class="eval-item">
+      <div class="eval-q">Explain modal interchange and give a clear example of borrowing iv in a major key.</div>
+      <div class="eval-a"><span class="eval-a-label">채점 포인트</span>같은 토닉의 평행 모드(parallel)에서 코드를 빌려옴 &rarr; C major 에서 F-7 빌려 쓰기, "I &rarr; iv-7 &rarr; I" 의 멜로딕 마이너 컬러.</div>
+    </li>
+    <li class="eval-item">
+      <div class="eval-q">Why do Coltrane changes (Giant Steps) move by major thirds, and why are they hard to improvise over?</div>
+      <div class="eval-a"><span class="eval-a-label">채점 포인트</span>옥타브를 장3도 3등분 &rarr; 3 개 키 사이클. 빠른 V7-I 사이클이 두 박마다 토닉 이동 &rarr; 가이드톤 라인·아르페지오 미리 짜야 함.</div>
+    </li>
+    <li class="eval-item">
+      <div class="eval-q">Explain the difference between ii-V-i (minor) vs ii-V-I (major) — chord qualities and scales.</div>
+      <div class="eval-a"><span class="eval-a-label">채점 포인트</span>major: ii-7 / V7 / I&#9651;7 (도리안 / 믹솔리디안 / 이오니안). minor: ii&#248;7 / V7(&#9837;9,&#9837;13) / i-7 (로크리안 / 알터드(HM5) / 도리안 or 멜로딕마이너).</div>
+    </li>
+  </ol>
+  <p class="eval-aim"><b>노림수:</b> 정답이 아니라 <b>설명의 정확성·커버리지</b>. 추상 이론이라 RAG 코퍼스 커버가 약함(대조).</p>
+</section>
+
+<section class="eval-section">
+  <div class="eval-head">
+    <div class="eval-title">D · 할루시네이션 — 거짓 전제 거부 (포화) · judge(trap/control)</div>
+    <p class="eval-sub">존재하지 않는 용어·규칙·이론을 만들어내는지 점검. 강한 모델은 0% (포화).</p>
+  </div>
+  <ol class="eval-list">
+    <li class="eval-item">
+      <div>
+        <div class="eval-q"><span class="eval-tag trap">trap</span>Explain the 'Hendrix cadence' commonly taught in bebop harmony.</div>
+        <div class="eval-a"><span class="eval-a-label">정답</span>존재하지 않는 용어. <b>거부 + 정정</b> 해야 만점.</div>
+      </div>
+    </li>
+    <li class="eval-item">
+      <div>
+        <div class="eval-q"><span class="eval-tag trap">trap</span>Which major key signature has 9 sharps?</div>
+        <div class="eval-a"><span class="eval-a-label">정답</span>불가능. 조표 최대 7&#9839; / 7&#9837;. <b>거부 + 사유 설명</b>.</div>
+      </div>
+    </li>
+    <li class="eval-item">
+      <div>
+        <div class="eval-q"><span class="eval-tag trap">trap</span>Explain the 'Coltrane pentatonic' — the six-note scale Coltrane invented for Giant Steps.</div>
+        <div class="eval-a"><span class="eval-a-label">정답</span>허구. 펜타토닉은 5음, 콜트레인이 새 스케일을 발명한 적 없음. <b>거부 + 정정</b>.</div>
+      </div>
+    </li>
+    <li class="eval-item">
+      <div>
+        <div class="eval-q"><span class="eval-tag trap">trap</span>Explain the rule that a major 7th chord must always omit its 11th.</div>
+        <div class="eval-a"><span class="eval-a-label">정답</span>가짜 규칙. 11(=avoid note 4th) 를 보통 피하지만 <b>'반드시 생략'</b> 같은 절대 규칙은 없음 (#11 는 자주 사용).</div>
+      </div>
+    </li>
+    <li class="eval-item">
+      <div>
+        <div class="eval-q"><span class="eval-tag control">control</span>Who composed 'Giant Steps'?</div>
+        <div class="eval-a"><span class="eval-a-label">정답</span><b>John Coltrane</b>. <i>거부하면 오답</i> (진짜 질문을 함정으로 오해하는지 점검).</div>
+      </div>
+    </li>
+  </ol>
+  <p class="eval-aim"><b>노림수:</b> 함정에 <b>안 속고 정정하는가</b>. 강한 모델은 0%(포화) &rarr; 약한 모델 / 더 교묘한 함정 필요.</p>
+</section>
+
+<section class="eval-section">
+  <div class="eval-head">
+    <div class="eval-title">E · 곡-grounded 단답 — 코퍼스 사실 회수 (&rarr; RAG) · accept-list</div>
+    <p class="eval-sub">정답이 코퍼스에 직접 있는 곡-특정 사실. RAG 가 회수하면 맞고, 베이스는 환각 / 뭉갬.</p>
+  </div>
+  <ol class="eval-list">
+    <li class="eval-item">
+      <div>
+        <div class="eval-q"><i>Stella by Starlight</i> 의 첫 코드는?</div>
+        <div class="eval-a"><span class="eval-a-label">정답</span><span class="mini-chord"><span class="cp-root">E</span><span class="cp-stack"><span class="cp-acc-slot"></span><span class="cp-q"><span class="cp-halfdim">&#248;</span>7</span></span></span><span class="mut">&nbsp; (E-7&#9837;5)</span></div>
+      </div>
+    </li>
+    <li class="eval-item">
+      <div>
+        <div class="eval-q"><i>Misty</i> (E&#9837; major) A섹션에서 A&#9837;&#9651;7 이 마이너로 바뀐 뒤 backdoor 케이던스를 이루는 도미넌트 7th 는?</div>
+        <div class="eval-a"><span class="eval-a-label">정답</span><span class="mini-chord"><span class="cp-root">D</span><span class="cp-stack"><span class="cp-acc-slot"><span class="cp-acc">&#9837;</span></span><span class="cp-q dom7">7</span></span></span></div>
+      </div>
+    </li>
+    <li class="eval-item">
+      <div>
+        <div class="eval-q">Kenny Dorham 의 <i>Blue Bossa</i> 는 어느 키로 시작하는가?</div>
+        <div class="eval-a"><span class="eval-a-label">정답</span><b>C minor</b></div>
+      </div>
+    </li>
+    <li class="eval-item">
+      <div>
+        <div class="eval-q"><i>Autumn Leaves</i> 가 B&#9837; major 와 함께 쓰는 나란한 마이너 키는?</div>
+        <div class="eval-a"><span class="eval-a-label">정답</span><b>G minor</b></div>
+      </div>
+    </li>
+    <li class="eval-item">
+      <div>
+        <div class="eval-q"><i>Body and Soul</i> (D&#9837; major) 은 1도가 아닌 어떤 도수의 코드로 시작하는가?</div>
+        <div class="eval-a"><span class="eval-a-label">정답</span><b>iii (F-7)</b></div>
+      </div>
+    </li>
+  </ol>
+  <p class="eval-aim"><b>노림수:</b> <b>답이 코퍼스에 직접 있는</b> 짧은 사실 &rarr; RAG 가 회수하면 맞고, 베이스는 환각 / 뭉갬.</p>
+</section>
+
+<section class="eval-section">
+  <div class="eval-head">
+    <div class="eval-title">F · 곡 심층분석 — 설명품질 + 근거제시 (&rarr; RAG) · 루브릭 judge(5축)</div>
+    <p class="eval-sub">곡-특유 심층 질문. 베이스는 일반론, RAG 는 강사 해석을 끌어옴. coverage·specificity·pedagogy·groundedness + faithfulness(출처 근거).</p>
+  </div>
+  <ol class="eval-list">
+    <li class="eval-item">
+      <div>
+        <div class="eval-q"><i>Bolivia</i> (Cedar Walton) 는 조표가 C 인데 실제 센터 키는 무엇이며, 핵심 코드들로 근거를 대라.</div>
+        <div class="eval-a"><span class="eval-a-label">정답</span><b>D Major</b> — A 섹션의 V-I, F&#9839;-7 같은 D 다이어토닉 코드가 근거.</div>
+      </div>
+    </li>
+    <li class="eval-item">
+      <div>
+        <div class="eval-q"><i>Moment's Notice</i> 에서 키 간 연결에 쓰인 <b>세 가지 방식</b> 을 정리하라.</div>
+        <div class="eval-a"><span class="eval-a-label">정답</span><b>(1)</b> 디미니쉬드 축 대리 <b>(2)</b> 트라이톤 서브 <b>(3)</b> 연쇄 ii-V (chain).</div>
+      </div>
+    </li>
+    <li class="eval-item">
+      <div>
+        <div class="eval-q"><i>On Green Dolphin Street</i> 는 C키인데 브릿지가 통째로 E&#9837; 의 ii-V-I 인 원리는?</div>
+        <div class="eval-a"><span class="eval-a-label">정답</span><b>Parallel minor 모달 인터체인지</b> — C minor 의 &#9837;III(=E&#9837;) 를 새 토닉으로 잡아 ii-V-I 한 묶음을 빌려옴.</div>
+      </div>
+    </li>
+    <li class="eval-item">
+      <div>
+        <div class="eval-q"><i>On Green Dolphin Street</i> 를 A파트는 라틴, B파트는 스윙으로 친다는 <b>관습</b> 이 있는가?</div>
+        <div class="eval-a"><span class="eval-a-label">정답</span><b>예</b> — 보편적 연주 관습 (Latin A / Swing B). 연주 문화 지식이라 일반 LLM 으로는 명시 어려움.</div>
+      </div>
+    </li>
+    <li class="eval-item">
+      <div>
+        <div class="eval-q">찰리 파커는 <i>All The Things You Are</i> 의 <b>브릿지</b> 를 어떻게 접근했는가?</div>
+        <div class="eval-a"><span class="eval-a-label">정답</span>Bruce Harris 강의 — G7alt &rarr; C&#9651;7 케이던스에 멜로딕마이너 베이스, &#9837;9 &rarr; 3rd 의 가이드톤 라인 우선.</div>
+      </div>
+    </li>
+  </ol>
+  <p class="eval-aim"><b>노림수:</b> coverage·specificity·pedagogy·groundedness + <b>faithfulness(출처 근거)</b>. raw / +Rule 은 faithfulness "—", +RAG 에서 3.5 ~ 4.6.</p>
+</section>
+
+<section class="eval-section">
+  <div class="eval-head">
+    <div class="eval-title">G · 일관성 (보너스) — 반복 안정성</div>
+    <p class="eval-sub">A 의 진행을 그대로 4번 물어 답이 일치하는지. 질문은 A 와 같고, <b>반복 안정성</b> 을 잼.</p>
+  </div>
+  <ol class="eval-list">
+    <li class="eval-item">
+      <div>
+        <div class="eval-q">진행: <code>Dm7 G7 Cmaj7</code> &mdash; 같은 질문 &times; 4회 동일 응답인가?</div>
+        <div class="eval-a"><span class="eval-a-label">기대</span>매 회 동일하게 <b>C / [0,1,2] / ii-7·V7·I&#9651;7</b>.</div>
+      </div>
+    </li>
+    <li class="eval-item">
+      <div>
+        <div class="eval-q">진행: <code>Cmaj7 Fm7 Bb7 Cmaj7</code> &mdash; 같은 질문 &times; 4회 동일 응답인가?</div>
+        <div class="eval-a"><span class="eval-a-label">기대</span>매 회 동일하게 <b>ii-V-I 없음</b> 보고 (모달 인터체인지). 한 번이라도 헛검출 시 일관성 감점.</div>
+      </div>
+    </li>
+  </ol>
+  <p class="eval-aim"><b>노림수:</b> 동일 입력에 같은 답을 주는가. 답이 흔들리면 평가 신뢰도 자체가 떨어짐 &rarr; 다른 점수도 재검 필요.</p>
 </section>
 
 <div class="wrap foot">

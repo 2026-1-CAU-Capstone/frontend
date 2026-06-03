@@ -101,24 +101,57 @@ const CiteBadge = styled.sup`
   user-select: none;
 `;
 
+/* YouTube-source citation pill. White pill chrome with the official YouTube
+ * red rounded-rectangle logo on the left, monospace timestamp on the right.
+ * The logo is rendered as inline SVG so it scales crisply with em-based
+ * sizing (the citation lives inside chat body text). */
 const CiteVideoLink = styled.a`
   display: inline-flex;
   align-items: center;
-  gap: 0.2em;
-  padding: 0.05em 0.4em;
+  gap: 0.42em;
+  padding: 0.18em 0.6em 0.18em 0.45em;
   margin: 0 0.14em;
-  font-size: 0.72em;
-  font-weight: 700;
-  line-height: 1.3;
-  color: #b3261e;
-  background: #fdecea;
-  border: 1px solid #f6c9c4;
+  font-size: 0.78em;
+  font-weight: 600;
+  line-height: 1;
+  color: #1f1f1f;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 999px;
   text-decoration: none;
   vertical-align: baseline;
   white-space: nowrap;
-  &:hover { background: #fbddd9; }
+  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+  &:hover {
+    background: #fafafa;
+    border-color: rgba(0, 0, 0, 0.22);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  }
 `;
+
+const CiteVideoTime = styled.span`
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  color: #404040;
+`;
+
+/* Official YouTube-style logo glyph: red rounded rectangle with a white
+ * play triangle. Sized in em so it sits nicely next to the timestamp text. */
+function YoutubeLogo() {
+  return (
+    <svg
+      width="1.45em"
+      height="1em"
+      viewBox="0 0 28 20"
+      fill="none"
+      aria-hidden
+      style={{ display: 'block', flex: 'none' }}
+    >
+      <rect width="28" height="20" rx="5.5" fill="#FF0000" />
+      <path d="M11.5 6 L11.5 14 L18 10 Z" fill="#fff" />
+    </svg>
+  );
+}
 
 /** A single [n] citation. Resolves the source from context; falls back to the
  *  literal "[n]" text when no matching source exists (so content is preserved). */
@@ -138,7 +171,8 @@ function CitationChip({ n }: { n: number }) {
     const title = `${chunk.channel ? chunk.channel + ' · ' : ''}${label} · ${mmss}`;
     return (
       <CiteVideoLink href={url} target="_blank" rel="noopener noreferrer" title={title}>
-        ▶ {mmss}
+        <YoutubeLogo />
+        <CiteVideoTime>{mmss}</CiteVideoTime>
       </CiteVideoLink>
     );
   }
