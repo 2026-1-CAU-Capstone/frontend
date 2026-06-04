@@ -6,6 +6,7 @@ import { type ClaudeMessage, type ClaudeImage } from '../../api/claude';
 import { streamWithRAG, type RagDebugInfo } from '../../api/harmorag';
 import {
   streamChat as backendStreamChat,
+  streamRagChat as backendStreamRagChat,
   getChat as backendGetChat,
   onActiveChatChange,
   setActiveChat,
@@ -20,6 +21,7 @@ import {
   selectionProgressionLabel,
   findLicksByProgression,
   detectProgressionKeyword,
+  findLicksByPerformer,
 } from '../../lib/lickMatcher';
 import { loadLicks, loadUserLicksSync, loadBackupLicks } from '../../data/lickData';
 import type { LickEntry } from '../../data/lickData';
@@ -382,7 +384,7 @@ export function RightChatPanel({
      *  "방식" — playing approach. Combined with the original keywords
      *  (릭/라인/lick/거장/etc.) this should cover the common ways users
      *  ask "show me how this person would play". */
-    const LICK_QUERY_KEYWORDS = /릭|라인|line|lick|솔로.*예시|예시.*솔로|연주.*예|거장|추천.*솔로|처럼|스타일로|어떻게.*(연주|솔로|라인)|방식.*연주/i;
+    const LICK_QUERY_KEYWORDS = /릭|라인|line|lick|솔로.*예시|예시.*솔로|연주.*예|거장|추천.*솔로|솔로.*(추천|알려|보여|들려|골라|줘)|처럼|스타일로|어떻게.*(연주|솔로|라인)|방식.*연주/i;
     const isGenQuery = CREATE_KEYWORDS.test(text);
     const isLickQuery = !isGenQuery && LICK_QUERY_KEYWORDS.test(text);
 
@@ -405,6 +407,12 @@ export function RightChatPanel({
       const detectedProg = detectProgressionKeyword(text);
       if (lickMatchesForMsg.length === 0 && detectedProg) {
         lickMatchesForMsg = findLicksByProgression(detectedProg, allLicksRef.current, 5);
+      }
+
+      // 코드 선택도 진행 키워드도 없지만 연주자를 언급한 경우 (예: "파커 솔로 추천").
+      // DB 에 그 연주자가 없으면 빈 배열 → 아래 useGlickGen 폴백으로 흘러간다.
+      if (lickMatchesForMsg.length === 0) {
+        lickMatchesForMsg = findLicksByPerformer(text, allLicksRef.current, 5);
       }
 
       // LickRecommendList 패널(VexFlow + 저장/플레이/정지) 렌더 트리거.
@@ -558,49 +566,82 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
      * suggestions, so skipping backend persistence is an acceptable trade-off. */
     let finalText = '';
     let backendOk = false;
-    /* RAG-everywhere (user decision): route EVERY chord-analysis question
-     * through the local RAG path so HarmoRAG + inline citations engage on all
-     * questions — not just lick/score-gen. This bypasses backend chat-history
-     * persistence (sidebar list). To restore persistence, set this flag true
-     * (normal questions then lose RAG again unless the Spring backend itself
-     * calls HarmoRAG). */
-    const BACKEND_CHAT_PERSIST = false;
-    if (BACKEND_CHAT_PERSIST && loggedIn) {
-      try {
-        /* DB에 영속화되는 message 필드는 항상 raw user text만. textForLLM에
-         * 부착되는 `[내부 지시 — 유저에게 보이지 않음:` 블록을 그대로 보내면
-         * 백엔드가 user 메시지로 저장 → 사이드바 재로드 시 유저에게 그대로
-         * 노출되는 누출이 발생함. 백엔드 LLM은 message + chordContext + history
-         * 만 받게 되므로 [LICK:id] / ```glick 같은 클라 전용 지시는 백엔드
-         * 경로에서 작동하지 않음(이미 회귀 중인 기능이므로 의도된 트레이드오프). */
-        finalText = await backendStreamChat(
-          {
-            message: text,
-            history: toBackendHistory(historyRef.current),
-            chordContext: contextForModel || undefined,
-            songTitle: songTitle || undefined,
-            images: toBackendImages(images),
-            chatPublicId: chatPublicIdRef.current ?? undefined,
-          },
-          (accumulated) => {
-            setMessages((prev) =>
-              prev.map((m) => (m.id === aiMsgId ? { ...m, content: accumulated } : m)),
-            );
-          },
-          (newId) => {
-            /* First message of a brand-new chat → server assigned an id.
-             * Save it for continuation + sync the sidebar selection so the
-             * new chat shows up highlighted as it appears in the list. */
-            if (newId !== chatPublicIdRef.current) {
-              setChatPublicId(newId);
-              setActiveChat(newId);
-            }
-          },
+    /* Logged-in path → route through the Spring backend so the chat is
+     * persisted (sidebar list) AND chatPublicId travels with every turn.
+     *
+     *   - No images: POST /v1/rag/chat — backend runs multi-query + RRF
+     *     RAG and streams the LLM reply. RAG-everywhere is preserved
+     *     without bypassing persistence.
+     *   - With images: POST /v1/chat/stream — RAG path has no image
+     *     field, so vision questions go through the non-RAG endpoint
+     *     (image grounding > corpus retrieval for these turns anyway).
+     *
+     * Anonymous users fall through to the HarmoRAG direct path below
+     * (no persistence, no auth token required).
+     *
+     * The message field always carries the RAW user text. textForLLM with
+     * its `[내부 지시 — 유저에게 보이지 않음: …]` block is intentionally
+     * NOT sent to the backend — historically the backend persisted it as
+     * a user message and re-exposed it via the sidebar. Client-only
+     * tricks ([LICK:id] / ```glick) therefore don't fire on the backend
+     * path (regression accepted while we stabilise persistence). */
+    if (loggedIn) {
+      const hasImages = !!toBackendImages(images);
+      const onChunk = (accumulated: string) => {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === aiMsgId ? { ...m, content: accumulated } : m)),
         );
+      };
+      const onNewId = (newId: string) => {
+        if (newId !== chatPublicIdRef.current) {
+          setChatPublicId(newId);
+          setActiveChat(newId);
+        }
+      };
+      try {
+        if (hasImages) {
+          finalText = await backendStreamChat(
+            {
+              message: text,
+              history: toBackendHistory(historyRef.current),
+              chordContext: contextForModel || undefined,
+              songTitle: songTitle || undefined,
+              images: toBackendImages(images),
+              chatPublicId: chatPublicIdRef.current ?? undefined,
+            },
+            onChunk,
+            onNewId,
+          );
+        } else {
+          finalText = await backendStreamRagChat(
+            {
+              message: text,
+              history: toBackendHistory(historyRef.current),
+              chordContextText: contextForModel || undefined,
+              songTitle: songTitle || undefined,
+              suppressInlineChart: !!contextForModel,
+              chatPublicId: chatPublicIdRef.current ?? undefined,
+            },
+            onChunk,
+            onNewId,
+            /* RAG debug block — backend prefixes the stream with a
+             * \x00RAG_DEBUG\x00 … \x00END_DEBUG\x00 envelope; streamRagChat
+             * parses it and hands the structured payload back here so the
+             * existing RagDebugPanel (rendered per-message via msg.ragDebug)
+             * lights up the same way the HarmoRAG direct path does. */
+            (debugInfo) => {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === aiMsgId ? { ...m, ragDebug: debugInfo as RagDebugInfo } : m,
+                ),
+              );
+            },
+          );
+        }
         backendOk = true;
         notifyChatListChanged();
       } catch (e) {
-        console.warn('[chat] backend stream failed, falling back to local:', e);
+        console.warn('[chat] backend stream failed, falling back to local HarmoRAG:', e);
       }
     }
     if (!backendOk) {

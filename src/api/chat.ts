@@ -210,6 +210,124 @@ export async function streamChat(
   return accumulated;
 }
 
+/** Request body for POST /v1/rag/chat. Backend runs multi-query + RRF
+ *  retrieval and streams the LLM reply as text/plain — same envelope as
+ *  /v1/chat/stream, but the body shape includes a structured chordContext
+ *  object + chordContextText and a suppressInlineChart hint instead of the
+ *  image-attach field. `chatPublicId` is again omitted on first message
+ *  (server returns X-Chat-Public-Id header) and echoed back to continue. */
+export interface RagChatStreamRequest {
+  message: string;
+  history?: { role: string; content: string }[];
+  chordContext?: Record<string, unknown>;
+  chordContextText?: string;
+  songTitle?: string;
+  suppressInlineChart?: boolean;
+  chatPublicId?: string;
+}
+
+/* RAG debug-block markers — same protocol the HarmoRAG FastAPI server uses,
+ * mirrored on the Spring `/v1/rag/chat` backend so the existing debug panel
+ * keeps working regardless of which RAG path served the request. */
+const RAG_OPEN  = '\x00RAG_DEBUG\x00';
+const RAG_CLOSE = '\x00END_DEBUG\x00';
+
+/** POST /v1/rag/chat — RAG-enhanced streaming chat. Same response envelope
+ *  as streamChat (text/plain stream + X-Chat-Public-Id header) so call
+ *  sites only need to swap the request body.
+ *
+ *  Response stream layout:
+ *
+ *     \x00RAG_DEBUG\x00 {json:RagDebugInfo} \x00END_DEBUG\x00 …assistant text…
+ *
+ *  The leading debug block is extracted, parsed into the RagDebugInfo
+ *  shape and surfaced via `onDebug`. Everything after the closing marker
+ *  is the actual LLM reply that streams into `onChunk(accumulated)`.
+ *
+ *  When the user is logged in the backend persists this chat in /v1/chat
+ *  the same way /v1/chat/stream does, so the sidebar list picks it up.
+ *  Pass back the returned id on follow-ups to append to the same session
+ *  instead of creating a new chat each turn. */
+export async function streamRagChat(
+  req: RagChatStreamRequest,
+  onChunk: (accumulated: string) => void,
+  onChatPublicId?: (id: string) => void,
+  onDebug?: (info: unknown) => void,
+): Promise<string> {
+  const res = await authFetch(`${API_BASE}/v1/rag/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) {
+    throw new Error(`rag stream ${res.status} ${await readApiError(res)}`.trim());
+  }
+  const newPublicId = res.headers.get('X-Chat-Public-Id') || res.headers.get('x-chat-public-id');
+  if (newPublicId && onChatPublicId) onChatPublicId(newPublicId);
+
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error('rag stream: no body reader');
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let accumulated = '';
+  let debugParsed = false;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    /* Debug block (if any) sits at the very start of the stream. Parse it
+     * exactly once — once parsed, every later chunk is plain reply text. */
+    if (!debugParsed) {
+      const openIdx  = buffer.indexOf(RAG_OPEN);
+      const closeIdx = buffer.indexOf(RAG_CLOSE);
+      if (openIdx !== -1 && closeIdx !== -1 && closeIdx > openIdx) {
+        const jsonStr = buffer.slice(openIdx + RAG_OPEN.length, closeIdx);
+        try {
+          const info = JSON.parse(jsonStr);
+          onDebug?.(info);
+        } catch { /* malformed json — skip, still strip the markers */ }
+        buffer = buffer.slice(closeIdx + RAG_CLOSE.length);
+        debugParsed = true;
+      } else if (openIdx === -1) {
+        /* Stream started without any debug marker — no block to wait for. */
+        debugParsed = true;
+      } else {
+        /* Opening marker present but closing not yet arrived — keep
+         * buffering, don't flush to onChunk yet (we'd leak the marker). */
+        continue;
+      }
+    }
+
+    if (buffer) {
+      accumulated += buffer;
+      buffer = '';
+      onChunk(accumulated);
+    }
+  }
+
+  /* Flush any remaining bytes from the decoder's internal multi-byte
+   * buffer. If the debug block never closed (server crashed mid-write?)
+   * surface whatever text we collected — better than swallowing the
+   * partial reply. */
+  const tail = decoder.decode();
+  if (tail) buffer += tail;
+  if (!debugParsed) {
+    /* Debug block was opened but never closed. Strip the open marker so
+     * the user at least sees clean text, even if debug info is lost. */
+    const openIdx = buffer.indexOf(RAG_OPEN);
+    if (openIdx !== -1) buffer = buffer.slice(0, openIdx);
+  }
+  if (buffer) {
+    accumulated += buffer;
+    onChunk(accumulated);
+  }
+
+  return accumulated;
+}
+
 /* ── Helpers for adapting existing call sites ─────────────────────────── */
 
 /** ClaudeMessage[] → backend history[] shape (just trims to {role, content}). */

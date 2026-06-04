@@ -448,8 +448,19 @@ const SectionLabel = styled.div`
   font-size: clamp(1rem, 2.4cqi, 1.5rem);
   font-weight: 800;
   line-height: 1;
-  padding: 3px 7px 3px 6px;
-  letter-spacing: 0.02em;
+  /* Square badge: min-width === height so single-letter labels (A, B) render
+   * a perfect 1:1 square. Two-glyph labels (A') still fit inside the square
+   * (they're narrower than the box), and any longer label grows horizontally
+   * via min-width rather than clipping. letter-spacing removed so the glyph
+   * stays optically centered. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 1.5em;
+  height: 1.5em;
+  padding: 0 0.25em;
+  letter-spacing: 0;
   z-index: 3;
 `;
 

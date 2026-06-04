@@ -42,6 +42,11 @@ type ItemKind = 'video' | 'file' | 'image' | 'sheet';
  * stays a placeholder until per-user persistence lands. */
 const SHEET_ANALYZED_ID = 'sheet-all-of-me';
 
+/* Prefix for the temporary client-side id assigned to an optimistic
+ * "uploading" chord-project card. The OMR-status poller skips ids with this
+ * prefix (they don't exist on the server yet). */
+const UPLOADING_ID_PREFIX = '__uploading__';
+
 interface FolderNode {
   id: string;
   parentId: string | null;
@@ -236,9 +241,13 @@ export default function MyChordChartsPage() {
   useEffect(() => { void reloadProjects(); }, [reloadProjects]);
 
   useEffect(() => {
-    const active = projects.filter((p) => p.omrStatus === 'PENDING' || p.omrStatus === 'PROCESSING');
+    // 서버에 실제로 존재하는(=temp 아님) PENDING/PROCESSING 프로젝트만 폴링.
+    const active = projects.filter(
+      (p) => !p.publicId.startsWith(UPLOADING_ID_PREFIX)
+        && (p.omrStatus === 'PENDING' || p.omrStatus === 'PROCESSING'),
+    );
     if (active.length === 0) return;
-    const timer = window.setInterval(() => {
+    const pollOnce = () => {
       active.forEach((project) => {
         getChordProjectOmrStatus(project.publicId)
           .then((status) => {
@@ -255,7 +264,10 @@ export default function MyChordChartsPage() {
           })
           .catch(() => { /* best-effort polling */ });
       });
-    }, 3500);
+    };
+    // 즉시 한 번 + 이후 2초 간격 — 진행률이 빠르게 반영되도록.
+    pollOnce();
+    const timer = window.setInterval(pollOnce, 2000);
     return () => window.clearInterval(timer);
   }, [projects]);
 
@@ -358,13 +370,41 @@ export default function MyChordChartsPage() {
 
   /* ── actions ───────────────────────────────────────────────────────── */
 
-  const addImageUpload = async (file: File): Promise<void> => {
+  /* Optimistic OMR upload. The server's POST /v1/chord-projects/omr returns
+   * immediately with omrStatus=PENDING, but the multipart file upload itself
+   * still takes time over the wire — during which the user would otherwise
+   * stare at an unchanged grid. So we insert a placeholder card RIGHT AWAY
+   * (temp id, PENDING, 0%), then swap it for the real project once the POST
+   * resolves. On failure we drop the placeholder and surface the error.
+   * The temp id is prefixed so the OMR-status poller skips it. */
+  const uploadOmrFile = async (file: File): Promise<void> => {
     setProjectError(null);
+    const tempId = `${UPLOADING_ID_PREFIX}${newId()}`;
+    const title = file.name.replace(/\.[^.]+$/, '');
+    const nowIso = new Date().toISOString();
+    const placeholder: ChordProject = {
+      publicId: tempId,
+      title,
+      keySignature: '',
+      timeSignature: '4/4',
+      omrStatus: 'PENDING',
+      omrProgress: 0,
+      omrFailureReason: null,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+    // 즉시 카드 노출 (업로드 중 표시)
+    setProjects((prev) => [placeholder, ...prev]);
     try {
-      const title = file.name.replace(/\.[^.]+$/, '');
       const created = await createChordProjectFromOmr(file, { title });
-      setProjects((prev) => [created.project, ...prev.filter((p) => p.publicId !== created.project.publicId)]);
+      // 플레이스홀더를 실제 프로젝트로 교체 (중복 제거 포함)
+      setProjects((prev) => [
+        created.project,
+        ...prev.filter((p) => p.publicId !== tempId && p.publicId !== created.project.publicId),
+      ]);
     } catch (e) {
+      // 실패 시 플레이스홀더 제거
+      setProjects((prev) => prev.filter((p) => p.publicId !== tempId));
       setProjectError(e instanceof Error ? e.message : '이미지 업로드 실패');
     }
   };
@@ -432,16 +472,8 @@ export default function MyChordChartsPage() {
     }
   };
 
-  const handleOmrFile = async (file: File): Promise<void> => {
-    setProjectError(null);
-    try {
-      const title = file.name.replace(/\.[^.]+$/, '');
-      const created = await createChordProjectFromOmr(file, { title });
-      setProjects((prev) => [created.project, ...prev.filter((p) => p.publicId !== created.project.publicId)]);
-    } catch (e) {
-      setProjectError(e instanceof Error ? e.message : '코드 프로젝트 OMR 생성 실패');
-    }
-  };
+  // 파일/이미지 업로드 모두 동일한 OMR 경로를 쓰므로 uploadOmrFile 로 통합.
+  const handleOmrFile = uploadOmrFile;
 
   const moveTo = (itemId: string, targetParentId: string | null): void => {
     setStore((s) => ({
@@ -854,8 +886,13 @@ export default function MyChordChartsPage() {
               draggable={!selectMode}
               onDragStart={onItemDragStart(file.id)}
               onClick={() => {
-                if (selectMode) toggleSelect(file.id);
-                else if (file.kind === 'sheet') navigate(`/mychord?project=${encodeURIComponent(file.id)}`);
+                if (selectMode) { toggleSelect(file.id); return; }
+                if (file.kind !== 'sheet') return;
+                // OMR 처리 중(또는 업로드 중 placeholder)인 카드는 아직 코드
+                // 데이터가 없으므로 분석 페이지로 이동하지 않는다.
+                if (file.omrStatus === 'PENDING' || file.omrStatus === 'PROCESSING') return;
+                if (file.id.startsWith(UPLOADING_ID_PREFIX)) return;
+                navigate(`/mychord?project=${encodeURIComponent(file.id)}`);
               }}
               $selected={selectMode && selectedIds.has(file.id)}
               $sheet={file.kind === 'sheet'}
@@ -1023,8 +1060,13 @@ export default function MyChordChartsPage() {
               draggable={!selectMode}
               onDragStart={onItemDragStart(file.id)}
               onClick={() => {
-                if (selectMode) toggleSelect(file.id);
-                else if (file.kind === 'sheet') navigate(`/mychord?project=${encodeURIComponent(file.id)}`);
+                if (selectMode) { toggleSelect(file.id); return; }
+                if (file.kind !== 'sheet') return;
+                // OMR 처리 중(또는 업로드 중 placeholder)인 카드는 아직 코드
+                // 데이터가 없으므로 분석 페이지로 이동하지 않는다.
+                if (file.omrStatus === 'PENDING' || file.omrStatus === 'PROCESSING') return;
+                if (file.id.startsWith(UPLOADING_ID_PREFIX)) return;
+                navigate(`/mychord?project=${encodeURIComponent(file.id)}`);
               }}
               $selected={selectMode && selectedIds.has(file.id)}
             >
@@ -1080,7 +1122,7 @@ export default function MyChordChartsPage() {
           accept="image/*"
           onChange={(e) => {
             const f = e.target.files?.[0];
-            if (f) void addImageUpload(f);
+            if (f) void uploadOmrFile(f);
             e.target.value = '';
           }}
         />
@@ -2056,6 +2098,19 @@ const SheetThumbScaler = styled.div`
   }
 `;
 
+/* 처리 중(OMR 진행 중) 카드 가운데에서 도는 로딩 스피너. */
+const Spinner = styled.div`
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 3px solid rgba(0, 0, 0, 0.12);
+  border-top-color: rgba(0, 0, 0, 0.45);
+  animation: spin 0.8s linear infinite;
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+`;
+
 const ProjectPreviewState = styled.div`
   height: 100%;
   display: flex;
@@ -2151,7 +2206,7 @@ function SheetPreview({ project }: { project?: ChordProject }) {
         </SheetThumbScaler>
       ) : (
         <ProjectPreviewState>
-          <ChordGridIcon />
+          {previewState === 'loading' ? <Spinner /> : <ChordGridIcon />}
           <span>
             {previewState === 'failed'
               ? 'OMR 실패'

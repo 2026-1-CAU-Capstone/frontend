@@ -533,3 +533,87 @@ export function selectionProgressionLabel(chords: ChordOverlay[]): string {
   }
   return syms;
 }
+
+/* ── performer-name lick lookup ──────────────────────────────────────────── */
+
+/**
+ * 한글(또는 로마자) 연주자명 → 영어 performer 이름 조각.
+ * 매칭은 lick.performer 에 대한 부분 문자열 비교라, 성(姓) 조각("parker")만
+ * 있어도 "Charlie Parker" 가 잡힌다. DB 에 실재하는 연주자 위주로 채우되,
+ * 자주 묻는 거장(콜트레인·마일스 등 — 현재 DB 에 없을 수 있음)도 넣어둔다.
+ * 없는 연주자는 매칭 0건 → 호출부에서 glick(AI 생성) 폴백으로 흘러간다.
+ */
+const PERFORMER_ALIASES: Record<string, string> = {
+  '찰리 파커': 'charlie parker', '찰리파커': 'charlie parker', '파커': 'parker',
+  '버드 파웰': 'bud powell', '버드파웰': 'bud powell', '파웰': 'powell',
+  '레드 갈란드': 'red garland', '갈란드': 'garland', '갈랜드': 'garland',
+  '소니 스팃': 'sonny stitt', '스팃': 'stitt', '스티트': 'stitt',
+  '윈튼 켈리': 'wynton kelly', '켈리': 'kelly',
+  '오스카 피터슨': 'oscar peterson', '피터슨': 'peterson',
+  '클리포드 브라운': 'clifford brown',
+  '배리 해리스': 'barry harris',
+  '캐넌볼 애덜리': 'cannonball adderley', '캐논볼': 'adderley', '애덜리': 'adderley',
+  '웨스 몽고메리': 'wes montgomery', '몽고메리': 'montgomery',
+  '케니 가렛': 'kenny garrett', '가렛': 'garrett',
+  '행크 모블리': 'hank mobley', '모블리': 'mobley',
+  '조지 벤슨': 'george benson', '벤슨': 'benson',
+  '팻 마티노': 'pat martino', '마티노': 'martino',
+  '조 패스': 'joe pass',
+  '덱스터 고든': 'dexter gordon',
+  '필 우즈': 'phil woods',
+  '크리스 포터': 'chris potter',
+  '폴 데스몬드': 'paul desmond', '데스몬드': 'desmond',
+  '재키 맥린': 'jackie mclean', '맥린': 'mclean',
+  '토미 플래너건': 'tommy flanagan', '플래너건': 'flanagan',
+  '러스티 브라이언트': 'rusty bryant', '브라이언트': 'bryant',
+  '멀그루 밀러': 'mulgrew miller',
+  '블루 미첼': 'blue mitchell',
+  // 자주 묻지만 현재 DB 에 없을 수 있는 거장 (매칭 0 → glick 폴백)
+  '마일스 데이비스': 'miles davis', '마일스': 'miles davis',
+  '존 콜트레인': 'john coltrane', '콜트레인': 'coltrane', '콜트래인': 'coltrane',
+  '디지 길레스피': 'dizzy gillespie', '길레스피': 'gillespie',
+  '쳇 베이커': 'chet baker',
+};
+
+/**
+ * 사용자가 연주자명을 언급했을 때 그 연주자의 릭을 찾는다.
+ * (예: "마일스 데이비스 솔로 추천", "파커 라인 보여줘")
+ * 코드 선택·진행 키워드가 없을 때의 또 다른 폴백. 이조하지 않고 원본 키로
+ * 반환한다(tier 3). 언급한 연주자가 DB 에 없으면 빈 배열을 돌려주어,
+ * 호출부가 glick(AI 생성) 폴백으로 자연스럽게 넘어가게 한다.
+ */
+export function findLicksByPerformer(
+  text: string,
+  allLicks: LickEntry[],
+  maxResults = 5,
+): LickMatch[] {
+  const lower = text.toLowerCase();
+
+  // 1) 사용자가 가리킨 영어 performer 이름 조각 모으기
+  const targets = new Set<string>();
+  // 1a) 한글/로마자 alias
+  for (const [alias, en] of Object.entries(PERFORMER_ALIASES)) {
+    if (lower.includes(alias.toLowerCase())) targets.add(en);
+  }
+  // 1b) 영어 직접 언급 — DB 의 실제 이름(풀네임) 또는 성(姓, 단어 경계)이 텍스트에
+  for (const lick of allLicks) {
+    const perf = lick.performer.toLowerCase().trim();
+    if (!perf || perf === 'unknown' || perf === '?') continue;
+    if (lower.includes(perf)) { targets.add(perf); continue; }
+    const last = perf.split(/\s+/).pop() ?? '';
+    if (last.length >= 4 && new RegExp(`\\b${last}\\b`).test(lower)) targets.add(last);
+  }
+  if (targets.size === 0) return [];
+
+  // 2) performer 가 타깃 조각 중 하나를 포함하는 릭 수집 (AI 생성 릭 제외)
+  const matched = allLicks.filter((l) => {
+    const perf = l.performer.toLowerCase();
+    if (!perf || perf === 'ai 생성') return false;
+    return [...targets].some((t) => perf.includes(t));
+  });
+  if (matched.length === 0) return [];
+
+  // 3) 같은 연주자 릭이 많으면 셔플로 다양성 확보 후 상위 N
+  const shuffled = [...matched].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, maxResults).map((lick) => ({ lick, tier: 3 as const }));
+}

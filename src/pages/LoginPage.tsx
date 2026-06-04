@@ -3,16 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 import { login, getCachedUser } from '../api/auth';
 
-type Step = 'username' | 'password';
-
-const BG = '#f0ece4';
-
-const ROTATING = [
-  '나만의 재즈 라이브러리를 만들어가는',
-  '화성학의 깊이를 탐구하는',
-  '릭과 솔로를 저장하고 연습하는',
-  '코드 진행을 분석하고 이해하는',
-];
+const BG = '#f5f1e9';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -27,35 +18,16 @@ export default function LoginPage() {
     if (getCachedUser()) navigate(fromPath, { replace: true });
   }, [navigate, fromPath]);
 
-  const [step, setStep] = useState<Step>('username');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const usernameRef = useRef<HTMLInputElement>(null);
-  const pwRef = useRef<HTMLInputElement>(null);
-
-  const [rtIdx, setRtIdx] = useState(0);
-  const [rtVisible, setRtVisible] = useState(true);
 
   useEffect(() => {
-    const iv = setInterval(() => {
-      setRtVisible(false);
-      const t = setTimeout(() => {
-        setRtIdx((i) => (i + 1) % ROTATING.length);
-        setRtVisible(true);
-      }, 420);
-      return () => clearTimeout(t);
-    }, 3600);
-    return () => clearInterval(iv);
-  }, []);
-
-  useEffect(() => {
-    const t = setTimeout(() => {
-      (step === 'username' ? usernameRef : pwRef).current?.focus();
-    }, 80);
+    const t = setTimeout(() => usernameRef.current?.focus(), 80);
     return () => clearTimeout(t);
-  }, [step]);
+  }, []);
 
   const handleSocial = (name: string) => {
     setError(`${name} 로그인은 곧 지원됩니다.`);
@@ -64,12 +36,7 @@ export default function LoginPage() {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (step === 'username') {
-      if (!username.trim()) return;
-      setStep('password');
-      return;
-    }
-    if (!password) return;
+    if (!username.trim() || !password) return;
     setSubmitting(true);
     try {
       await login(username.trim(), password);
@@ -81,110 +48,60 @@ export default function LoginPage() {
     }
   };
 
+  const canSubmit = !!username.trim() && !!password && !submitting;
+
   return (
     <Page>
-      <Nav>
-        <NavBrand onClick={() => navigate('/')}>
-          <NavLogo src="/jazzifylogo.png" alt="" />
-          <NavName>Jazzify</NavName>
-        </NavBrand>
-      </Nav>
+      <Brand onClick={() => navigate('/')}>
+        <BrandLogo src="/jazzifylogo.png" alt="" />
+        <BrandName>Jazzify</BrandName>
+      </Brand>
 
-      <Body>
-        <LeftPanel>
-          <LeftContent>
-            <Headline>
-              재즈를 더 깊이,
-              <br />더 빠르게 배우세요
-            </Headline>
-            <HeadSub>화성학, 코드 분석, 릭 라이브러리를 모두 여기서</HeadSub>
+      <Center>
+        <Headline>
+          더 깊이 듣고,
+          <br />더 빠르게 배우세요
+        </Headline>
+        <SubHead>채팅으로 분석하고, 라이브러리로 연습하세요</SubHead>
 
-            <Card>
-              <SocialBtn type="button" onClick={() => handleSocial('Google')}>
-                <GoogleIcon />
-                <span>Google 계정으로 계속하기</span>
-              </SocialBtn>
-              <SocialBtn type="button" onClick={() => handleSocial('Apple')}>
-                <AppleIcon />
-                <span>Apple 계정으로 계속하기</span>
-              </SocialBtn>
+        <Card>
+          <SocialBtn type="button" onClick={() => handleSocial('Google')}>
+            <GoogleIcon />
+            <span>Google로 계속하기</span>
+          </SocialBtn>
 
-              <DividerRow>
-                <Line />
-                <DividerLabel>또는</DividerLabel>
-                <Line />
-              </DividerRow>
+          <OrLabel>또는</OrLabel>
 
-              <Form onSubmit={submit}>
-                <Field>
-                  <input
-                    ref={usernameRef}
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="아이디 (username)"
-                    autoComplete="username"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    disabled={submitting || step === 'password'}
-                  />
-                </Field>
-                {step === 'password' && (
-                  <Field>
-                    <input
-                      ref={pwRef}
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="비밀번호"
-                      autoComplete="current-password"
-                      disabled={submitting}
-                    />
-                  </Field>
-                )}
-                {error && <ErrorMsg>{error}</ErrorMsg>}
-                <ContinueBtn
-                  type="submit"
-                  disabled={
-                    submitting ||
-                    (step === 'username' ? !username.trim() : !password)
-                  }
-                  aria-busy={submitting}
-                >
-                  {submitting ? (
-                    <Spinner aria-label="로딩 중" />
-                  ) : step === 'username' ? (
-                    '아이디로 계속하기'
-                  ) : (
-                    '로그인'
-                  )}
-                </ContinueBtn>
-                {step === 'password' && (
-                  <BackLink
-                    type="button"
-                    onClick={() => {
-                      setStep('username');
-                      setPassword('');
-                      setError(null);
-                    }}
-                  >
-                    ← 아이디 다시 입력
-                  </BackLink>
-                )}
-              </Form>
-            </Card>
+          <Form onSubmit={submit}>
+            <input
+              ref={usernameRef}
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="아이디를 입력하세요"
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              disabled={submitting}
+            />
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="비밀번호를 입력하세요"
+              autoComplete="current-password"
+              disabled={submitting}
+            />
+            {error && <ErrorMsg>{error}</ErrorMsg>}
+            <ContinueBtn type="submit" disabled={!canSubmit} aria-busy={submitting}>
+              {submitting ? <Spinner aria-label="로딩 중" /> : '로그인'}
+            </ContinueBtn>
+          </Form>
+        </Card>
 
-            <HomeLink onClick={() => navigate('/')}>← 홈으로 돌아가기</HomeLink>
-          </LeftContent>
-        </LeftPanel>
-
-        <PanelDivider />
-
-        <RightPanel>
-          <RightText $visible={rtVisible}>{ROTATING[rtIdx]}</RightText>
-        </RightPanel>
-      </Body>
+        <HomeLink onClick={() => navigate('/')}>← 홈으로 돌아가기</HomeLink>
+      </Center>
     </Page>
   );
 }
@@ -197,15 +114,6 @@ const GoogleIcon = () => (
     <path fill="#34A853" d="M9 18c2.43 0 4.46-.81 5.95-2.18l-2.9-2.26c-.81.54-1.83.86-3.05.86-2.34 0-4.33-1.58-5.04-3.71H.96v2.33C2.44 15.98 5.48 18 9 18z" />
     <path fill="#FBBC05" d="M3.96 10.71c-.18-.54-.28-1.12-.28-1.71s.1-1.17.28-1.71V4.96H.96A8.997 8.997 0 0 0 0 9c0 1.45.35 2.83.96 4.04l3-2.33z" />
     <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.96l3 2.33C4.67 5.16 6.66 3.58 9 3.58z" />
-  </svg>
-);
-
-const AppleIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
-    <path
-      fill="currentColor"
-      d="M17.5 12.6c0-2.4 2-3.5 2.1-3.6-1.2-1.7-3-1.9-3.6-1.9-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.9-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3 0 1.8-.8 3.3-.8 1.6 0 2 .8 3.3.8 1.4 0 2.2-1.2 3-2.5.5-.8.9-1.6 1.2-2.5-2-.7-2.5-3.4-2.5-4.8zM15.3 4.6c.7-.8 1.1-2 1-3.2-1 0-2.3.7-3 1.5-.7.8-1.2 2-1.1 3.1 1.1.1 2.3-.6 3.1-1.4z"
-    />
   </svg>
 );
 
@@ -245,18 +153,13 @@ const Page = styled.div`
   background: ${BG};
   display: flex;
   flex-direction: column;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Pretendard', sans-serif;
 `;
 
-const Nav = styled.nav`
-  height: 60px;
-  display: flex;
-  align-items: center;
-  padding: 0 36px;
-  flex-shrink: 0;
-`;
-
-const NavBrand = styled.button`
+const Brand = styled.button`
+  position: absolute;
+  top: 28px;
+  left: 36px;
   display: flex;
   align-items: center;
   gap: 9px;
@@ -264,80 +167,73 @@ const NavBrand = styled.button`
   background: transparent;
   cursor: pointer;
   padding: 0;
+
+  @media (max-width: 600px) {
+    top: 20px;
+    left: 20px;
+  }
 `;
 
-const NavLogo = styled.img`
+const BrandLogo = styled.img`
   width: 30px;
   height: 30px;
   border-radius: 7px;
   object-fit: cover;
 `;
 
-const NavName = styled.span`
-  font-size: 1.05rem;
-  font-weight: 700;
+const BrandName = styled.span`
+  font-size: 1.4rem;
+  font-weight: 600;
   color: #1a1a1a;
   letter-spacing: -0.01em;
 `;
 
-const Body = styled.div`
+const Center = styled.div`
   flex: 1;
   display: flex;
-  min-height: 0;
-
-  @media (max-width: 768px) {
-    flex-direction: column;
-  }
-`;
-
-const LeftPanel = styled.div`
-  width: 42%;
-  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px 48px;
-
-  @media (max-width: 768px) {
-    width: 100%;
-    padding: 32px 24px 48px;
-  }
-`;
-
-const LeftContent = styled.div`
-  width: 100%;
-  max-width: 420px;
+  padding: 96px 24px 48px;
+  box-sizing: border-box;
 `;
 
 const Headline = styled.h1`
-  font-size: clamp(2rem, 3.2vw, 3rem);
-  font-weight: 700;
+  font-size: clamp(2.2rem, 4.4vw, 3.6rem);
+  font-weight: 400;
   color: #1a1a1a;
-  letter-spacing: -0.025em;
-  line-height: 1.12;
-  margin: 0 0 14px;
+  letter-spacing: -0.02em;
+  line-height: 1.18;
+  text-align: center;
+  margin: 0 0 18px;
 `;
 
-const HeadSub = styled.p`
-  font-size: 1rem;
-  color: rgba(0, 0, 0, 0.52);
-  margin: 0 0 28px;
-  line-height: 1.5;
+const SubHead = styled.p`
+  font-size: clamp(1rem, 1.6vw, 1.2rem);
+  font-weight: 600;
+  color: #1a1a1a;
+  text-align: center;
+  margin: 0 0 36px;
+  letter-spacing: -0.01em;
 `;
 
 const Card = styled.div`
-  background: #fff;
-  border-radius: 18px;
-  padding: 22px 22px 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
+  width: 100%;
+  max-width: 460px;
+  background: rgba(255, 255, 255, 0.42);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 20px;
+  padding: 26px 26px 28px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
+  box-sizing: border-box;
 `;
 
 const SocialBtn = styled.button`
   width: 100%;
-  height: 50px;
-  border-radius: 999px;
+  height: 54px;
+  border-radius: 12px;
   border: 1px solid rgba(0, 0, 0, 0.14);
   background: #fff;
   color: #1a1a1a;
@@ -347,69 +243,56 @@ const SocialBtn = styled.button`
   gap: 10px;
   cursor: pointer;
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 600;
   font-family: inherit;
   transition: background 0.1s, border-color 0.1s, transform 0.06s;
 
-  &:hover { background: rgba(0, 0, 0, 0.025); border-color: rgba(0, 0, 0, 0.22); }
+  &:hover { background: rgba(0, 0, 0, 0.02); border-color: rgba(0, 0, 0, 0.2); }
   &:active { transform: scale(0.99); }
 `;
 
-const DividerRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 2px 0;
-`;
-
-const Line = styled.span`
-  flex: 1;
-  height: 1px;
-  background: rgba(0, 0, 0, 0.1);
-`;
-
-const DividerLabel = styled.span`
-  font-size: 13px;
-  color: rgba(0, 0, 0, 0.4);
+const OrLabel = styled.div`
+  text-align: center;
+  font-size: 13.5px;
+  color: rgba(0, 0, 0, 0.42);
+  margin: 0;
 `;
 
 const Form = styled.form`
   display: flex;
   flex-direction: column;
   gap: 10px;
-`;
 
-const Field = styled.div`
   input {
     width: 100%;
-    height: 50px;
-    border: 1px solid rgba(0, 0, 0, 0.16);
-    border-radius: 999px;
+    height: 54px;
+    border: 1px solid rgba(0, 0, 0, 0.14);
+    border-radius: 12px;
     background: #fff;
-    padding: 0 22px;
+    padding: 0 18px;
     font-size: 15px;
     font-family: inherit;
     color: #1a1a1a;
     outline: none;
     box-sizing: border-box;
-    transition: border-color 0.12s;
+    transition: border-color 0.12s, box-shadow 0.12s;
 
-    &::placeholder { color: rgba(0, 0, 0, 0.38); }
-    &:focus { border-color: rgba(0, 0, 0, 0.42); }
+    &::placeholder { color: rgba(0, 0, 0, 0.4); }
+    &:focus { border-color: rgba(0, 0, 0, 0.5); box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.04); }
     &:disabled { background: #fafafa; color: rgba(0, 0, 0, 0.5); }
   }
 `;
 
 const ErrorMsg = styled.div`
-  padding: 2px 12px;
+  padding: 0 4px;
   font-size: 12.5px;
   color: #c0392b;
 `;
 
 const ContinueBtn = styled.button`
   width: 100%;
-  height: 50px;
-  border-radius: 999px;
+  height: 54px;
+  border-radius: 12px;
   border: none;
   background: #1a1a1a;
   color: #fff;
@@ -426,75 +309,18 @@ const ContinueBtn = styled.button`
   &:hover:not(:disabled) { opacity: 0.88; }
   &:active:not(:disabled) { transform: scale(0.99); }
   &:disabled { cursor: default; }
-  &[aria-busy='true'] { background: rgba(0, 0, 0, 0.18); opacity: 1; }
-  &:disabled:not([aria-busy='true']) { opacity: 0.35; }
-`;
-
-const BackLink = styled.button`
-  border: none;
-  background: transparent;
-  font-size: 13px;
-  color: rgba(0, 0, 0, 0.5);
-  cursor: pointer;
-  text-align: center;
-  font-family: inherit;
-  padding: 4px;
-  &:hover { color: #000; }
+  &[aria-busy='true'] { background: rgba(0, 0, 0, 0.22); opacity: 1; }
+  &:disabled:not([aria-busy='true']) { opacity: 0.32; }
 `;
 
 const HomeLink = styled.button`
-  display: block;
-  margin-top: 18px;
+  margin-top: 24px;
   border: none;
   background: transparent;
-  font-size: 13px;
+  font-size: 13.5px;
   color: rgba(0, 0, 0, 0.45);
   cursor: pointer;
   font-family: inherit;
-  padding: 0;
+  padding: 6px;
   &:hover { color: #000; }
-`;
-
-const PanelDivider = styled.div`
-  width: 1px;
-  align-self: stretch;
-  background: rgba(0, 0, 0, 0.1);
-  flex-shrink: 0;
-
-  @media (max-width: 768px) {
-    display: none;
-  }
-`;
-
-const RightPanel = styled.div`
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 64px;
-
-  @media (max-width: 768px) {
-    display: none;
-  }
-`;
-
-const textFade = keyframes`
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
-`;
-
-const RightText = styled.p<{ $visible: boolean }>`
-  font-family: Georgia, 'Nanum Myeongjo', 'Noto Serif KR', serif;
-  font-size: clamp(2.4rem, 4.2vw, 4.8rem);
-  font-weight: 400;
-  color: #1a1a1a;
-  letter-spacing: -0.025em;
-  line-height: 1.15;
-  text-align: center;
-  margin: 0;
-  max-width: 640px;
-  opacity: ${({ $visible }) => ($visible ? 1 : 0)};
-  transform: ${({ $visible }) => ($visible ? 'translateY(0)' : 'translateY(10px)')};
-  transition: opacity 0.42s ease, transform 0.42s ease;
-  animation: ${textFade} 0.5s ease both;
 `;
