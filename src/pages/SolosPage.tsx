@@ -954,7 +954,7 @@ export default function SolosPage() {
                           <RowMain>
                             <RowTitle title={s.title}>{s.title}</RowTitle>
                             <RowSub>
-                              {(s.performer ?? '—')} · {s.instrument} · {formatKeyDisplay(toWeimarKey(s.key ?? s.sheetData.key ?? 'C') ?? 'C-maj')}
+                              {(s.performer ?? '—')} · {s.instrument} · {formatKeyDisplay(toWeimarKey(s.key ?? s.sheetData?.key ?? 'C') ?? 'C-maj')}
                             </RowSub>
                           </RowMain>
                           {!mergeMode && (
