@@ -274,6 +274,12 @@ export interface NoteEvent {
   velocity: number;
   /** Source bar index (flat, across sections) for UI sync. */
   bar: number;
+  /** Melody only: source measure index for note-highlight sync. */
+  srcMi?: number;
+  /** Melody only: source note index within the measure for note-highlight
+   *  sync. Lets the renderer map the sounding note to the exact StaveNote
+   *  regardless of rests / ties / chords / grace notes. */
+  srcNi?: number;
 }
 
 export interface DrumEvent {
@@ -344,12 +350,20 @@ export interface BackingConfig {
     durationBeats: number;
     velocity?: number;
     tie?: boolean;
+    srcMi: number;
+    srcNi: number;
   }>;
   /** Melody lead-line instrument. 'piano' (default) routes the lead through the
    *  SplendidGrandPiano; any other value is a General-MIDI soundfont name
    *  (flute / alto_sax / trumpet / …) loaded on demand. Matches
    *  `PlayerSettings.melodyInstrument`. */
   melodyInstrument?: string;
+  /** Break Editor "stop-time" rests. Each entry silences the BACKING
+   *  (piano/bass/drums — NOT melody, NOT metronome) from `beat` (1-based) to
+   *  the end of that `bar` (flat index), keeping the clock running. The
+   *  backing is hard-cut at the break start so sustains don't bleed. Read
+   *  live by the scheduler each tick — changing it doesn't force a rebuild. */
+  breakBeats?: Array<{ bar: number; beat: number }>;
 }
 
 /* ─── Player lifecycle callbacks ─────────────────────────────────────── */

@@ -234,7 +234,7 @@ export function createStyBackingPlayer(
       const mainStylePart = pickStylePart(style, section.label);
       if (!mainStylePart) {
         // No usable StylePart — skip the section silently (still tick barIndex).
-        for (const _ of section.bars) {
+        for (let b = 0; b < section.bars.length; b++) {
           const idx = barIndex;
           const delay = Math.max(0, (absoluteTime - ctx.currentTime) * 1000);
           barTimers.push(setTimeout(() => callbacks.onBar?.(idx), delay));
@@ -440,6 +440,10 @@ export function createStyBackingPlayer(
     // per-bar seek — click-to-seek is only wired on the main BackingPlayer path.
     seekToBar() { /* unsupported on the .sty path */ },
     setConfig(next) { config = { ...config, ...next }; },
+    // Swap the chart for the next play()/preload(). The scheduler reads `chart`
+    // lazily at schedule time, so the new chart takes effect on the next start
+    // (mirrors the main BackingPlayer's setChart).
+    setChart(next) { chart = next; },
     dispose,
     ctxNow() { return ctx?.currentTime ?? 0; },
     getCtx() { return ctx; },

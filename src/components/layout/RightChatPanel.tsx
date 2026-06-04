@@ -1,18 +1,17 @@
-import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode } from 'react';
+import styled from 'styled-components';
 import type { ChatMessage as ChatMessageType, ChordOverlay } from '../../data/types';
 import { ChatMessage } from '../chat/ChatMessage';
 import { IntroChatInput } from '../chat/IntroChatInput';
 import { type ClaudeMessage, type ClaudeImage } from '../../api/claude';
-import { streamWithRAG, type RagDebugInfo } from '../../api/harmorag';
+import { type RagDebugInfo } from '../../api/harmorag';
 import {
-  streamChat as backendStreamChat,
   getChat as backendGetChat,
   onActiveChatChange,
   setActiveChat,
   notifyChatListChanged,
-  toBackendHistory,
-  toBackendImages,
 } from '../../api/chat';
+import { runChatStream } from '../../lib/chat/runChatStream';
 import { getCachedUser, onAuthChange } from '../../api/auth';
 import { RagDebugPanel } from '../chat/RagDebugPanel';
 import {
@@ -20,7 +19,7 @@ import {
   selectionProgressionLabel,
   findLicksByProgression,
   detectProgressionKeyword,
-  findLicksByPerformer,
+  findLicksByPerformerAndProgression,
 } from '../../lib/lickMatcher';
 import { loadLicks, loadUserLicksSync, loadBackupLicks } from '../../data/lickData';
 import type { LickEntry } from '../../data/lickData';
@@ -37,6 +36,120 @@ import {
   ChatLoadingState,
   ChatLoadingSpinner,
 } from './RightChatPanel.styles';
+
+/* ── Export / share helpers ─────────────────────────────────────────────
+ * Frontend-only export: serialise the visible chat messages to a Markdown
+ * document, then either download as .md or copy to clipboard. The chat is
+ * a sequence of user/assistant turns; lick-recommend cards and other
+ * structured payloads are best-effort summarised (their `content` is
+ * empty so they appear as "(릭 추천 카드)" stubs in the export). */
+function messagesToMarkdown(
+  msgs: Array<{ role: string; content: string; timestamp?: number }>,
+  songTitle: string,
+): string {
+  const header = `# ${songTitle || 'Jazzify'} 대화 기록\n\n_내보낸 시각: ${new Date().toLocaleString('ko-KR')}_\n\n---\n\n`;
+  const body = msgs
+    .filter((m) => m.role === 'user' || m.role === 'assistant')
+    .map((m) => {
+      const label = m.role === 'user' ? '🧑 사용자' : '🎷 Jazzify AI';
+      const ts = m.timestamp ? `  \n_${new Date(m.timestamp).toLocaleString('ko-KR')}_` : '';
+      const body = m.content?.trim() || '_(빈 메시지)_';
+      return `## ${label}${ts}\n\n${body}\n`;
+    })
+    .join('\n---\n\n');
+  return header + body + '\n';
+}
+
+function exportChatAsMarkdown(
+  msgs: Array<{ role: string; content: string; timestamp?: number }>,
+  songTitle: string,
+): void {
+  const md = messagesToMarkdown(msgs, songTitle);
+  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  /* Filename: jazzify-<song>-<YYYYMMDD-hhmm>.md (slugified song title). */
+  const slug = (songTitle || 'chat').replace(/[^\w가-힣]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+  const d = new Date();
+  const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}-${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
+  a.download = `jazzify-${slug || 'chat'}-${stamp}.md`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+async function copyChatToClipboard(
+  msgs: Array<{ role: string; content: string; timestamp?: number }>,
+  songTitle: string,
+): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(messagesToMarkdown(msgs, songTitle));
+  } catch (e) {
+    console.warn('[chat export] clipboard copy failed:', e);
+  }
+}
+
+const ExportRow = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+`;
+
+/* "이전 메시지 N개 더 보기" affordance shown at the top of MessagesArea
+ * when the virtual-window has trimmed older turns out of the DOM.
+ * Click expands the window by VISIBLE_STEP. */
+const RevealOlderBtn = styled.button`
+  align-self: center;
+  margin: 8px 0 4px;
+  padding: 6px 14px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 999px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  &:hover {
+    background: rgba(0, 0, 0, 0.04);
+    color: #1a1a1a;
+    border-color: rgba(0, 0, 0, 0.2);
+  }
+`;
+const ExportBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.7);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  &:hover { background: rgba(0, 0, 0, 0.04); color: #1a1a1a; border-color: rgba(0, 0, 0, 0.18); }
+  svg { width: 14px; height: 14px; }
+`;
+const ExportIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M12 3v12" />
+    <path d="M7 8l5-5 5 5" />
+    <path d="M5 21h14" />
+  </svg>
+);
+const CopyShareIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <rect x="9" y="9" width="13" height="13" rx="2" />
+    <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+  </svg>
+);
 
 /** Read an attached image File into a Claude vision block (base64, no prefix).
  *  Non-image files (e.g. PDFs) return null and are skipped. */
@@ -111,6 +224,13 @@ const NOTE_LEVEL_KEYWORDS =
 
 interface MessageWithDebug extends ChatMessageType {
   ragDebug?: RagDebugInfo;
+  /** User aborted the stream — keep whatever text we got, show a "중단됨" badge. */
+  aborted?: boolean;
+  /** Set when the stream errored out completely — drives the inline retry UI. */
+  error?: string;
+  /** Original user prompt for the failed turn (used by the Retry button). */
+  retryPrompt?: string;
+  retryImages?: ClaudeImage[];
 }
 
 function buildSelectedChordContext(selectedChords: ChordOverlay[]): string {
@@ -168,11 +288,39 @@ export function RightChatPanel({
   onMessagesChange,
 }: RightChatPanelProps) {
   const [messages, setMessages] = useState<MessageWithDebug[]>([]);
+  /* Mirror of the latest messages so regenerate/edit handlers (which are
+   * memoised with a [] deps array because they call into handleSend)
+   * can read the current array without grabbing a stale closure copy. */
+  const messagesRef = useRef<MessageWithDebug[]>([]);
+  messagesRef.current = messages;
 
   useEffect(() => {
     onMessagesChange?.(messages.length);
   }, [messages.length, onMessagesChange]);
   const [loading, setLoading] = useState(false);
+  /* Mirror of `loading` for sync access inside handlers that were
+   * memoised with stale-state captures. Used by the message queue to
+   * decide whether the new send should go straight through or wait. */
+  const loadingRef = useRef(false);
+  useEffect(() => { loadingRef.current = loading; }, [loading]);
+
+  /* Pending-message queue. While a stream is in-flight, additional sends
+   * (Enter in the textarea while the dark circle shows STOP) get pushed
+   * here; once the current turn finishes we shift the next one off and
+   * fire handleSend recursively. Matches the ChatGPT "you can keep
+   * typing" UX. Cap loosely so a runaway paste doesn't pile up forever. */
+  const queueRef = useRef<Array<{ text: string; files?: File[] }>>([]);
+  const QUEUE_CAP = 8;
+
+  /* Abort controller for the in-flight stream. Set when a message is sent;
+   * cleared when the stream ends (success / error / user-abort). The Send
+   * button on the input row toggles to a Stop button while this is set —
+   * clicking Stop calls .abort() and the stream cleanup leaves whatever
+   * text was already received in the message bubble. */
+  const abortRef = useRef<AbortController | null>(null);
+  const stopGeneration = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
   /* True while a sidebar-triggered GET /v1/chat/{id} is in flight, so the
    * empty MessagesArea can show a "채팅 불러오는 중…" placeholder instead of
    * looking frozen. */
@@ -358,6 +506,13 @@ export function RightChatPanel({
   }, [handleRequestLicks]);
 
   const handleSend = useCallback(async (text: string, files?: File[]) => {
+    /* Queue path — a previous turn is still streaming. Stash this send
+     * and bail out; the in-flight turn's tail will pick it up. */
+    if (loadingRef.current) {
+      if (queueRef.current.length >= QUEUE_CAP) return;
+      queueRef.current.push({ text, files });
+      return;
+    }
     isScrolledUpRef.current = false;
 
     // 첨부 이미지 → Claude 비전 블록(base64). 비이미지(PDF 등)는 건너뜀.
@@ -398,29 +553,21 @@ export function RightChatPanel({
       const keyMatch = chordContext?.match(/Key:\s*([A-G][b#♭]?)/);
       const songKey = (keyMatch ? keyMatch[1] : 'C').replace('♭', 'b');
       const chordsForMatch = selectedChords.length > 0 ? selectedChords : [];
-      lickMatchesForMsg = findMatchingLicks(chordsForMatch, songTitle, songKey, allLicksRef.current, 5);
-
-      // 코드를 직접 선택하지 않고 "2-5-1 추천" / "ii-V-I lick" 같은 키워드만 던진
-      // 경우엔 findMatchingLicks 가 빈 배열을 반환. 진행 키워드를 감지해서 DB
-      // 전체에서 해당 진행을 포함하는 릭을 샘플링한다.
       const detectedProg = detectProgressionKeyword(text);
+
+      // 우선순위: 1) 선택한 코드  2) 연주자(+진행)  3) 진행만.
+      lickMatchesForMsg = findMatchingLicks(chordsForMatch, songTitle, songKey, allLicksRef.current, 5);
+      if (lickMatchesForMsg.length === 0) {
+        // "찰리파커 2-5-1" 류 — 그 연주자의 해당 진행 릭 우선, 부족하면 같은 진행의
+        // 다른 거장으로 보완. (연주자만 언급했고 진행이 없으면 연주자 릭 그대로.)
+        lickMatchesForMsg = findLicksByPerformerAndProgression(text, detectedProg, allLicksRef.current, 5);
+      }
       if (lickMatchesForMsg.length === 0 && detectedProg) {
         lickMatchesForMsg = findLicksByProgression(detectedProg, allLicksRef.current, 5);
       }
 
-      // 코드 선택도 진행 키워드도 없지만 연주자를 언급한 경우 (예: "파커 솔로 추천").
-      // DB 에 그 연주자가 없으면 빈 배열 → 아래 useGlickGen 폴백으로 흘러간다.
-      if (lickMatchesForMsg.length === 0) {
-        lickMatchesForMsg = findLicksByPerformer(text, allLicksRef.current, 5);
-      }
-
-      // LickRecommendList 패널(VexFlow + 저장/플레이/정지) 렌더 트리거.
-      // ChatMessage 는 lickProgressionLabel 이 설정된 경우에만 패널을 띄우고,
-      // 그렇지 않으면 LLM 본문에서 [LICK:id] 인라인 태그가 나오길 기대한다.
-      // 백엔드 경로에서는 LLM 이 내부 지시를 받지 못하므로 항상 패널 모드로
-      // 렌더되도록 label 을 항상 세팅한다. (로컬 경로에서 LLM 이 인라인
-      // 태그를 박는다면 ChatMessage 가 그 경우 패널을 자동으로 숨긴다.)
       if (lickMatchesForMsg.length > 0) {
+        // 인라인 소개줄에 쓸 진행 라벨.
         const PROG_LABELS: Record<string, string> = {
           'ii-V-I': 'ii-V-I',
           'ii-V': 'ii-V',
@@ -431,47 +578,38 @@ export function RightChatPanel({
         };
         lickProgressionLabelForMsg =
           (detectedProg && PROG_LABELS[detectedProg]) ||
-          (chordsForMatch.length > 0 ? selectionProgressionLabel(chordsForMatch) : '추천 릭');
+          (chordsForMatch.length > 0 ? selectionProgressionLabel(chordsForMatch) : undefined);
+
         const savedPool = loadUserLicksSync();
         const savedRaw = chordsForMatch.length > 0
           ? findMatchingLicks(chordsForMatch, songTitle, songKey, savedPool, 5)
           : (detectedProg ? findLicksByProgression(detectedProg, savedPool, 5) : []);
         if (savedRaw.length > 0) savedLickMatchesForMsg = savedRaw;
-      }
 
-      if (lickMatchesForMsg.length > 0) {
-        const lickList = lickMatchesForMsg.map((m) => {
+        // 각 릭 사이사이에 LLM 의 짧은 설명을 넣는다: 인트로 → (설명 + [LICK:id]) 반복.
+        // [LICK:id] 는 프론트에서 해당 DB 릭의 VexFlow 악보 카드로 자동 치환된다.
+        // 태그를 못 받은 릭은 ChatMessage 가 스트림 종료 후 결정적으로 보충하므로
+        // (lickInline 안전망) 설명이 없더라도 카드는 무조건 표시된다.
+        const lickList = lickMatchesForMsg.map((m, i) => {
           const l = m.lick;
-          const chordsStr = l.chords.slice(0, 4).join(' → ');
-          return `  [LICK:${l.id}] 연주자: ${l.performer} | 곡: ${l.title} | 키: ${l.key} | 진행: ${chordsStr}`;
+          const chordsStr = (l.chords ?? []).slice(0, 4).join(' → ');
+          return `  ${i + 1}. [LICK:${l.id}] — ${l.performer} / ${l.title} / 키 ${m.originalKey ?? l.key}${chordsStr ? ` / ${chordsStr}` : ''}`;
         }).join('\n');
-
+        const progPhrase = lickProgressionLabelForMsg ? ` ${lickProgressionLabelForMsg}` : '';
+        const leadPerformer = lickMatchesForMsg[0].lick.performer;
         textForLLM = `${text}
 
-[내부 지시 — 유저에게 보이지 않음: 릭 카드 삽입]
-아래는 DB에서 매칭된 실제 릭 목록입니다. 답변 안에서 각 릭을 자연스럽게 소개하면서 \`[LICK:아이디]\` 태그를 해당 위치에 삽입하세요. 이 태그는 자동으로 악보 카드로 렌더링됩니다.
+[내부 지시 — 유저에게 보이지 않음: 릭 카드 + 설명]
+아래는 DB에서 매칭된 실제 릭 목록이다. 각 릭을 사이사이 짧은 설명과 함께 소개하라. \`[LICK:아이디]\` 태그는 그 자리에서 자동으로 악보 카드로 렌더링된다.
+
+작성 규칙:
+1. 먼저 자연스러운 대화체 한국어 인트로 1~2문장으로 운을 띄워라. (예: "${leadPerformer}의${progPhrase} 라인 몇 개 골라봤어요 🎷")
+2. 그 다음 목록의 릭을 위에서부터 순서대로, 각각 **누구의 어떤 곡인지 + 주목할 점(어프로치/텐션/리듬 등)을 1~2문장으로 간략히 설명한 뒤**, 다음 줄에 그 릭의 \`[LICK:아이디]\` 태그를 단독으로 놓아라. 가능한 한 목록의 릭을 모두 다뤄라.
+3. 메시지를 절대 [LICK:id] 태그로 시작하지 마라(반드시 설명 문장이 먼저).
+4. 위 목록에 없는 id를 쓰지 마라. **음표·악보·ASCII 탭(예: "F E D C B♭ A")·\`\`\`glick·\`\`\`chart 를 만들지 마라. 존재하지 않는 가짜 릭/라인을 지어내지 마라** — 악보는 오직 [LICK:id] 태그로만 표시된다.
 
 사용 가능한 릭:
-${lickList}
-
-엄격한 규칙:
-1. **메시지를 절대 [LICK:id] 태그로 시작하지 마세요.** 반드시 자연스러운 대화체 한국어 문장으로 먼저 운을 띄우세요. (예: "오, 그 진행이라면 좋은 예시가 하나 떠오르네요." / "이런 라인은 어떠세요?")
-2. 각 릭을 소개할 때는 **먼저 글로 누구의 어떤 곡인지, 왜 참고할 만한지 짧게 설명한 뒤**, 그 다음 줄에 \`[LICK:id]\` 태그를 단독으로 놓으세요. 절대 설명 전에 태그를 먼저 두지 마세요.
-3. 태그 뒤에는 그 릭에서 주목할 포인트(어떤 어프로치, 텐션, 리듬 등)를 한두 문장으로 덧붙여 자연스럽게 다음 흐름으로 이어가세요.
-4. 위 목록에 없는 id는 사용하지 마세요. 모든 릭을 다 보여줄 필요는 없습니다 — 문맥상 가장 어울리는 1~3개만 골라 소개하세요.
-
-이상적인 응답 흐름 예시:
-"그 진행이라면 거장들의 라인을 한번 참고해보면 좋을 것 같아요.
-
-먼저, [연주자]가 [곡]에서 연주한 라인인데, [어떤 점이 좋은지 한 줄] —
-
-[LICK:아이디]
-
-여기서 특히 [어떤 부분]이 인상적이에요. 비슷한 느낌으로는 [다른 연주자]의 솔로도 있는데요,
-
-[LICK:아이디]
-
-이쪽은 [어떤 차이점]이 있어서 또 다른 맛이 있죠. 한번 들어보시고 느낌이 어떤지 알려주세요!"`;
+${lickList}`;
       }
     }
 
@@ -534,8 +672,11 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
       role: 'assistant',
       content: '',
       timestamp: Date.now(),
-      ...(lickMatchesForMsg.length > 0 ? { lickMatches: lickMatchesForMsg } : {}),
-      ...(lickProgressionLabelForMsg ? { lickProgressionLabel: lickProgressionLabelForMsg } : {}),
+      // 채팅 타이핑 경로: 릭 카드를 결정적으로 인라인 렌더(lickInline). 💡 버튼
+      // 경로(handleRequestLicks)만 lickProgressionLabel + 하단 탭 패널을 쓴다.
+      ...(lickMatchesForMsg.length > 0
+        ? { lickMatches: lickMatchesForMsg, lickInline: true, lickInlineLabel: lickProgressionLabelForMsg }
+        : {}),
       ...(savedLickMatchesForMsg ? { savedLickMatches: savedLickMatchesForMsg } : {}),
     };
     setMessages((prev) => [...prev, userMsg, aiMsg]);
@@ -553,121 +694,230 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
       contextForModel = [contextForModel, notesContext].filter(Boolean).join('\n\n');
     }
 
-    /* When the user is logged in, route through the Jazzify backend so the
-     * conversation is saved (and shows up in the sidebar list). Falls back
-     * to the local RAG/Claude path on error or when not logged in.
-     *
-     * EXCEPTION: lick-recommendation and AI-score-generation queries MUST use
-     * the local path — the backend chat only receives the raw user text, so it
-     * never gets `textForLLM` (the [LICK:id] / ```glick instructions) and never
-     * engages HarmoRAG. Sending those through the backend produced the
-     * "no RAG + no VexFlow lick card + slow" bug. These queries are ephemeral
-     * suggestions, so skipping backend persistence is an acceptable trade-off. */
-    let finalText = '';
-    let backendOk = false;
-    /* Logged-in path → route through the Spring backend so the chat is
-     * persisted (sidebar list) AND chatPublicId travels with every turn.
-     *
-     *   - No images: POST /v1/rag/chat — backend runs multi-query + RRF
-     *     RAG and streams the LLM reply. RAG-everywhere is preserved
-     *     without bypassing persistence.
-     *   - With images: POST /v1/chat/stream — RAG path has no image
-     *     field, so vision questions go through the non-RAG endpoint
-     *     (image grounding > corpus retrieval for these turns anyway).
-     *
-     * Anonymous users fall through to the HarmoRAG direct path below
-     * (no persistence, no auth token required).
-     *
-     * The message field always carries the RAW user text. textForLLM with
-     * its `[내부 지시 — 유저에게 보이지 않음: …]` block is intentionally
-     * NOT sent to the backend — historically the backend persisted it as
-     * a user message and re-exposed it via the sidebar. Client-only
-     * tricks ([LICK:id] / ```glick) therefore don't fire on the backend
-     * path (regression accepted while we stabilise persistence). */
-    if (loggedIn) {
-      const hasImages = !!toBackendImages(images);
-      const onChunk = (accumulated: string) => {
+    /* Fresh abort controller for this turn. Stop button calls .abort(). */
+    const ac = new AbortController();
+    abortRef.current = ac;
+
+    /* Lick-recommendation and glick-generation turns MUST use the local
+     * HarmoRAG path: only that path sends `textForLLM` (the grounding
+     * that suppresses hallucinated licks + tells the model the DB cards
+     * render automatically). The backend chat only persists the raw
+     * `text`, so routing these through it reproduces the "할루시네이션
+     * 릭" bug. Ephemeral suggestion turns → skipping persistence is OK. */
+    const forceLocalForLicks = lickMatchesForMsg.length > 0 || useGlickGen;
+
+    /* Delegate the actual transport (backend with auto-fallback to local)
+     * to runChatStream. Callbacks below patch the in-flight assistant
+     * bubble + RAG debug panel as bytes arrive; the result object tells
+     * us how to finalise the message (commit / abort badge / error). */
+    const { finalText, aborted, error: streamError } = await runChatStream({
+      text,
+      textForLLM,
+      images,
+      contextForModel,
+      songTitle,
+      history: historyRef.current,
+      chatPublicId: chatPublicIdRef.current,
+      loggedIn,
+      signal: ac.signal,
+      forceLocal: forceLocalForLicks,
+      onChunk: (accumulated) => {
         setMessages((prev) =>
           prev.map((m) => (m.id === aiMsgId ? { ...m, content: accumulated } : m)),
         );
-      };
-      const onNewId = (newId: string) => {
+      },
+      onDebug: (debugInfo) => {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === aiMsgId ? { ...m, ragDebug: debugInfo as RagDebugInfo } : m,
+          ),
+        );
+      },
+      onNewChatPublicId: (newId) => {
         if (newId !== chatPublicIdRef.current) {
           setChatPublicId(newId);
           setActiveChat(newId);
         }
-      };
-      try {
-        /* Single endpoint: POST /v1/chat/stream. `useRag` turns RAG on (the
-         * default for text turns — RAG-everywhere). Vision turns set it off:
-         * the backend grounds on the image, so corpus retrieval is skipped and
-         * the image is attached. The RAG debug block (when present) is parsed by
-         * streamChat and handed back here so the per-message RagDebugPanel lights
-         * up exactly as the HarmoRAG direct path does. */
-        finalText = await backendStreamChat(
-          {
-            message: text,
-            history: toBackendHistory(historyRef.current),
-            chordContextText: contextForModel || undefined,
-            songTitle: songTitle || undefined,
-            images: toBackendImages(images),
-            useRag: !hasImages,
-            suppressInlineChart: !!contextForModel,
-            chatPublicId: chatPublicIdRef.current ?? undefined,
-          },
-          onChunk,
-          onNewId,
-          (debugInfo) => {
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === aiMsgId ? { ...m, ragDebug: debugInfo as RagDebugInfo } : m,
-              ),
-            );
-          },
-        );
-        backendOk = true;
         notifyChatListChanged();
-      } catch (e) {
-        console.warn('[chat] backend stream failed, falling back to local HarmoRAG:', e);
-      }
-    }
-    if (!backendOk) {
-      finalText = await streamWithRAG(
-        textForLLM,
-        historyRef.current,
-        contextForModel,
-        songTitle,
-        (accumulated) => {
-          setMessages((prev) =>
-            prev.map((m) => (m.id === aiMsgId ? { ...m, content: accumulated } : m)),
-          );
-        },
-        // RAG 디버그 정보 수신 → 해당 메시지에 attach
-        (debugInfo) => {
-          setMessages((prev) =>
-            prev.map((m) => (m.id === aiMsgId ? { ...m, ragDebug: debugInfo } : m)),
-          );
-        },
-        images,
+      },
+    });
+
+    /* Only commit to history when we actually produced an answer (no abort,
+     * no error). On abort the partial reply stays visible but isn't fed
+     * back into the LLM context. On error we surface a retry affordance. */
+    if (!aborted && !streamError) {
+      historyRef.current.push(
+        { role: 'user', content: text },
+        { role: 'assistant', content: finalText },
       );
     }
 
-    historyRef.current.push(
-      { role: 'user', content: text },
-      { role: 'assistant', content: finalText },
-    );
-
     setMessages((prev) =>
-      prev.map((m) => (m.id === aiMsgId ? { ...m, content: finalText } : m)),
+      prev.map((m) => {
+        if (m.id !== aiMsgId) return m;
+        if (aborted) {
+          /* Keep whatever streamed in; mark so ChatMessage can show a
+           * "사용자가 중단함" badge / regenerate affordance. */
+          return { ...m, content: finalText || m.content, aborted: true };
+        }
+        if (streamError) {
+          /* No usable reply — attach error + the failed prompt so the
+           * inline Retry button can re-send the exact same turn. */
+          return {
+            ...m,
+            content: '',
+            error: streamError.message || '응답을 받지 못했습니다.',
+            retryPrompt: text,
+            retryImages: images,
+          };
+        }
+        return { ...m, content: finalText };
+      }),
     );
     setLoading(false);
+    loadingRef.current = false;
+    abortRef.current = null;
+
+    /* Dispatch the next queued message (if any). Done in a microtask so
+     * any setMessages from this turn flushes first. Uses the ref-mirror
+     * of handleSend so the recursive call always points at the latest
+     * memoised body (no stale closure). */
+    if (queueRef.current.length > 0) {
+      const next = queueRef.current.shift()!;
+      queueMicrotask(() => { void handleSendRef.current?.(next.text, next.files); });
+    }
   }, [chordContext, selectedChords, songTitle, notesContext]);
+
+  /* Ref mirror of handleSend so the queue dispatch above can call the
+   * latest function reference without putting handleSend in its own
+   * useCallback deps (which would either create a cycle or do nothing). */
+  const handleSendRef = useRef(handleSend);
+  useEffect(() => { handleSendRef.current = handleSend; }, [handleSend]);
+
+  /* Rebuild historyRef from the currently-visible messages, preserving
+   * only clean user / assistant turns (skips error / aborted bubbles and
+   * messages without textual content like the lick-recommend card).
+   * Called from regenerate + edit-and-resend after slicing the array
+   * so the LLM context stays in sync with what the user actually sees. */
+  const rebuildHistoryFromMessages = useCallback((msgs: MessageWithDebug[]) => {
+    const next: ClaudeMessage[] = [];
+    for (const m of msgs) {
+      if (m.role !== 'user' && m.role !== 'assistant') continue;
+      if (m.error) continue;
+      if (m.aborted) continue;
+      if (!m.content) continue;
+      next.push({ role: m.role, content: m.content });
+    }
+    historyRef.current = next;
+  }, []);
+
+  /* Regenerate the last assistant turn. ChatMessage's onRegenerate handler
+   * passes the assistant message id; we look up the preceding user
+   * message, drop both bubbles, rebuild history, then re-run handleSend
+   * with the same prompt. Bound to the LAST clean assistant message only
+   * (see `lastRegenerableAssistantId` below) — regenerating mid-
+   * conversation would orphan downstream turns. */
+  const handleRegenerate = useCallback((assistantMsgId: string): void => {
+    if (loading) return;
+    const msgs = messagesRef.current;
+    const idx = msgs.findIndex((m) => m.id === assistantMsgId);
+    if (idx < 0) return;
+    const prevUser = idx > 0 && msgs[idx - 1].role === 'user' ? msgs[idx - 1] : null;
+    if (!prevUser) return;
+    const prompt = prevUser.content;
+    const sliced = msgs.slice(0, idx - 1);
+    setMessages(sliced);
+    rebuildHistoryFromMessages(sliced);
+    void handleSend(prompt);
+  }, [handleSend, loading, rebuildHistoryFromMessages]);
+
+  /* Edit-a-past-user-message → branch. Drops the edited message + every
+   * message after it (the conversation forks there), then re-sends the
+   * new content as if the user just typed it. Mirrors Claude/ChatGPT
+   * "edit message" semantics — older turns above stay visible. */
+  const handleEditAndResend = useCallback((userMsgId: string, newContent: string): void => {
+    if (loading) return;
+    const trimmed = newContent.trim();
+    if (!trimmed) return;
+    const msgs = messagesRef.current;
+    const idx = msgs.findIndex((m) => m.id === userMsgId);
+    if (idx < 0) return;
+    const sliced = msgs.slice(0, idx);
+    setMessages(sliced);
+    rebuildHistoryFromMessages(sliced);
+    void handleSend(trimmed);
+  }, [handleSend, loading, rebuildHistoryFromMessages]);
+
+  /* Id of the most recent CLEAN assistant message — drives where the
+   * Regenerate icon renders. Only the last clean turn gets the button
+   * so mid-conversation regenerate (which would orphan downstream
+   * messages) stays out of reach. */
+  const lastRegenerableAssistantId = useMemo(() => {
+    if (loading) return null;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.role === 'assistant' && !m.error && !m.aborted && m.content) return m.id;
+    }
+    return null;
+  }, [messages, loading]);
+
+  /* ── Virtual scroll (lightweight) ─────────────────────────────────────
+   * Keeps only the most-recent VISIBLE_TAIL messages mounted in the DOM;
+   * older turns collapse into a single "이전 메시지 N개 더 보기" affordance
+   * that re-mounts the next batch on click. Avoids a full react-window
+   * dependency while still preventing 200-turn chats from re-rendering
+   * the world on every stream tick.
+   *
+   * - `revealOlder` adds VISIBLE_STEP more turns to the visible window.
+   * - Resets to the tail whenever a new chat is opened (messages
+   *   reference identity changes via sidebar load).
+   * - For chats under VISIBLE_TAIL turns nothing changes — visibleMessages
+   *   === messages. */
+  const VISIBLE_TAIL = 60;
+  const VISIBLE_STEP = 60;
+  const [windowEnd, setWindowEnd] = useState(VISIBLE_TAIL);
+  /* Pin the window to the tail whenever messages array shrinks (new
+   * chat loaded, edit-and-resend, etc.) so we don't sit on a stale
+   * offset that's larger than the new total. */
+  useEffect(() => {
+    if (messages.length < windowEnd) setWindowEnd(Math.max(VISIBLE_TAIL, messages.length));
+  }, [messages.length, windowEnd]);
+  const hiddenCount = Math.max(0, messages.length - windowEnd);
+  const visibleMessages = hiddenCount > 0 ? messages.slice(-windowEnd) : messages;
+  const revealOlder = () => setWindowEnd((n) => n + VISIBLE_STEP);
 
   return (
     <PanelContainer>
       {!hideHeader && (
         <PanelHeader>
-          🎵 {songTitle || 'Jazzify AI'}
+          <span>🎵 {songTitle || 'Jazzify AI'}</span>
+          {/* Export row is ALWAYS mounted so the header height doesn't jump
+           *  when the first message arrives. When the chat is empty the
+           *  buttons are visually hidden + non-interactive but still
+           *  occupy their natural space. */}
+          <ExportRow
+            style={messages.length === 0
+              ? { visibility: 'hidden', pointerEvents: 'none' }
+              : undefined}
+            aria-hidden={messages.length === 0}
+          >
+            <ExportBtn
+              type="button"
+              title="대화를 Markdown 파일로 내보내기"
+              tabIndex={messages.length === 0 ? -1 : 0}
+              onClick={() => exportChatAsMarkdown(messages, songTitle)}
+            >
+              <ExportIcon /> 내보내기
+            </ExportBtn>
+            <ExportBtn
+              type="button"
+              title="대화를 클립보드에 복사"
+              tabIndex={messages.length === 0 ? -1 : 0}
+              onClick={() => void copyChatToClipboard(messages, songTitle)}
+            >
+              <CopyShareIcon /> 복사
+            </ExportBtn>
+          </ExportRow>
         </PanelHeader>
       )}
 
@@ -676,6 +926,8 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
           <IntroChatInput
             onSend={handleSend}
             disabled={loading}
+            isStreaming={loading}
+            onStop={stopGeneration}
             compact
             isSelectionMode={isSelectionMode}
             onToggleSelectionMode={onToggleSelectionMode}
@@ -755,16 +1007,72 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
             <IntroChatInput
               onSend={handleSend}
               disabled={loading}
+              isStreaming={loading}
+              onStop={stopGeneration}
               placeholder={inputPlaceholder}
               autoFocus={autoFocusInput}
             />
           </IntroInputSlot>
         )}
 
-        {messages.map((msg) => (
+        {hiddenCount > 0 && (
+          <RevealOlderBtn type="button" onClick={revealOlder}>
+            이전 메시지 {hiddenCount}개 더 보기
+          </RevealOlderBtn>
+        )}
+        {visibleMessages.map((msg, msgIdx) => (
           <div key={msg.id}>
             {msg.ragDebug && <RagDebugPanel info={msg.ragDebug} />}
-            <ChatMessage message={msg} suppressChart={!!chordContext} songTempo={songTempo} citations={msg.ragDebug?.chunks} />
+            <ChatMessage
+              message={msg}
+              suppressChart={!!chordContext}
+              songTempo={songTempo}
+              /* The streaming reply is always the last assistant bubble while
+               * `loading`. ChatMessage uses this to hold the deterministic
+               * lick-card fallback until the stream finishes (so cards don't
+               * flicker bottom→inline as [LICK:id] tags arrive). */
+              isStreaming={loading && msgIdx === visibleMessages.length - 1 && msg.role === 'assistant'}
+              citations={msg.ragDebug?.chunks}
+              /* Inline retry — wired only on the errored assistant
+               * message (ChatMessage hides the button otherwise). Re-runs
+               * the original turn with the cached prompt + images. */
+              onRetry={
+                msg.role === 'assistant' && msg.error && msg.retryPrompt
+                  ? () => {
+                      const prompt = msg.retryPrompt!;
+                      const imgs = msg.retryImages;
+                      /* Drop the failed bubbles (the user msg + the
+                       * errored assistant placeholder) so the retry adds
+                       * fresh ones, not a "second attempt below the
+                       * first" double-up. */
+                      setMessages((prev) => {
+                        const idx = prev.findIndex((m) => m.id === msg.id);
+                        if (idx < 0) return prev;
+                        /* The matching user message sits immediately
+                         * before the errored assistant one (they were
+                         * pushed in pairs by handleSend). */
+                        const start = idx > 0 && prev[idx - 1].role === 'user' ? idx - 1 : idx;
+                        return prev.slice(0, start).concat(prev.slice(idx + 1));
+                      });
+                      void handleSend(prompt, imgs as unknown as File[] | undefined);
+                    }
+                  : undefined
+              }
+              /* Regenerate icon shows only on the most-recent clean
+               * assistant turn (avoid orphaning downstream messages). */
+              onRegenerate={
+                msg.role === 'assistant' && msg.id === lastRegenerableAssistantId
+                  ? () => handleRegenerate(msg.id)
+                  : undefined
+              }
+              /* Hover-edit on user messages — saving forks the chat
+               * there and re-sends the new content. */
+              onEditUserMessage={
+                msg.role === 'user' && !loading
+                  ? (next: string) => handleEditAndResend(msg.id, next)
+                  : undefined
+              }
+            />
           </div>
         ))}
 
@@ -794,8 +1102,10 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
           <IntroChatInput
             onSend={handleSend}
             disabled={loading}
+            isStreaming={loading}
+            onStop={stopGeneration}
             placeholder={
-              messages.length === 0 ? inputPlaceholder : 'Claude에게 응답하기'
+              messages.length === 0 ? inputPlaceholder : 'Jazzify AI에게 응답하기'
             }
             autoFocus={messages.length === 0 ? autoFocusInput : false}
           />
@@ -810,6 +1120,8 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
           <IntroChatInput
             onSend={handleSend}
             disabled={loading}
+            isStreaming={loading}
+            onStop={stopGeneration}
             placeholder={inputPlaceholder}
             compact
           />
@@ -827,6 +1139,8 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
           <IntroChatInput
             onSend={handleSend}
             disabled={loading}
+            isStreaming={loading}
+            onStop={stopGeneration}
             compact
             isSelectionMode={isSelectionMode}
             onToggleSelectionMode={onToggleSelectionMode}

@@ -148,7 +148,14 @@ function parallelTranspose(
   srcRoot: number,
   destRoot: number,
 ): SourceNoteEvent[] {
-  const delta = ((destRoot - srcRoot) % 12 + 12) % 12;
+  // Closest-octave shift: fold 7..11 down to -5..-1 so the whole phrase moves
+  // by the NEAREST octave (as the docstring promises) instead of always jumping
+  // UP by as much as +11 semitones. e.g. C→Bb is delta 10 → fold to -2 (down a
+  // step), not up a minor 7th — otherwise every intro/ending bass+lead leaps an
+  // octave-ish at the cadence. All notes share one signed delta to keep the
+  // recorded phrase's shape intact (parallel transposition).
+  let delta = ((destRoot - srcRoot) % 12 + 12) % 12;
+  if (delta > 6) delta -= 12;
   return phrase.notes.map((n) => ({
     ...n,
     pitch: Math.max(0, Math.min(127, n.pitch + delta)),

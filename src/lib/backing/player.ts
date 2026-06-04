@@ -107,6 +107,10 @@ export function createBackingPlayer(
   let disposed = false;
 
   let events: BackingEvent[] = [];
+  // Time-sorted melody notes for visual highlight sync, built in build().
+  // Each entry carries the SOURCE (mi, ni) so the renderer maps it to the
+  // exact StaveNote regardless of rests / ties / chords / grace notes.
+  let melodyTimeline: { time: number; mi: number; ni: number }[] = [];
   let origin = 0;
   let elapsed = 0;
   let nextIdx = 0;
@@ -118,9 +122,15 @@ export function createBackingPlayer(
   // tick loops (double audio + a leaked RAF chain). `starting` closes the gap.
   let starting = false;
   let lastBarFired = -2;
+  let lastNoteIdx = -1;  // index into melodyTimeline of the last highlighted note
   let loopCount = 0;  // completed song passes this play() session (for repeatCount)
   let secPerBar = 0;
+  let beatsPerBar = 0;
   let totalBars = 0;
+  // Break Editor: true while the playhead is inside a backing "rest" region.
+  // Used to fire a single hard-cut (stopAll on piano/bass/drums) right when a
+  // break begins, instead of every tick.
+  let wasInBreak = false;
   // Pending teardown timer for the reverberant ending tail (see finishWithTail).
   let endingTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -316,25 +326,64 @@ export function createBackingPlayer(
       feel: config.feel,
       melody: config.melody,
     });
-    const beatsPerBar = chart.timeSig[0];
+    beatsPerBar = chart.timeSig[0];
     secPerBar = beatsPerBar * (60 / bpm);
     totalBars = chart.sections.reduce((s, sec) => s + sec.bars.length, 0);
-    // Build a parallel (bar, niInBar) index for melody events so dispatch()
-    // can fire `onNote(mi, ni)` without an extra scan. Resets on every build.
-    melodyNiByEventIdx.clear();
-    const niCounter = new Map<number, number>();
-    for (let i = 0; i < events.length; i++) {
-      const ev = events[i];
+    // Build a time-sorted melody timeline for highlight sync. Carries each
+    // event's SOURCE note index (srcMi/srcNi) so the renderer maps it to the
+    // exact StaveNote — counting by position drifts on rests/ties/chords/graces.
+    melodyTimeline = [];
+    for (const ev of events) {
       if (ev.kind === "note" && ev.instrument === "melody") {
-        const ni = niCounter.get(ev.bar) ?? 0;
-        melodyNiByEventIdx.set(i, ni);
-        niCounter.set(ev.bar, ni + 1);
+        melodyTimeline.push({
+          time: ev.time,
+          mi: ev.srcMi ?? ev.bar,
+          ni: ev.srcNi ?? 0,
+        });
       }
     }
+    melodyTimeline.sort((a, b) => a.time - b.time);
   }
 
-  /** Maps event-array index → note-index-within-bar for melody events. */
-  const melodyNiByEventIdx = new Map<number, number>();
+  /* ── Break Editor gating ─────────────────────────────────────────── */
+
+  /** Backing = everything the break silences: drums + all pitched parts
+   *  EXCEPT the melody lead-line (which always plays through a break). */
+  function isBackingEvent(ev: BackingEvent): boolean {
+    return ev.kind === "drum" || ev.instrument !== "melody";
+  }
+
+  /** 1-based beat index of an event within its own bar (rounded to the grid
+   *  so humanization offsets don't tip it into the wrong beat). */
+  function beatOfTime(time: number, bar: number): number {
+    if (secPerBar <= 0 || beatsPerBar <= 0) return 1;
+    const secPerBeat = secPerBar / beatsPerBar;
+    const within = time - bar * secPerBar;
+    return Math.floor(within / secPerBeat + 0.5) + 1;
+  }
+
+  /** A backing event is gated (silenced) when its bar has a break and the
+   *  event sits at/after the break's start beat. */
+  function isGated(ev: BackingEvent): boolean {
+    const breaks = config.breakBeats;
+    if (!breaks || breaks.length === 0 || !isBackingEvent(ev)) return false;
+    const bp = breaks.find((p) => p.bar === ev.bar);
+    if (!bp) return false;
+    return beatOfTime(ev.time, ev.bar) >= bp.beat;
+  }
+
+  /** Is the playhead (pass-relative seconds) currently inside a break rest? */
+  function inBreakNow(now: number): boolean {
+    const breaks = config.breakBeats;
+    if (!breaks || breaks.length === 0 || secPerBar <= 0 || beatsPerBar <= 0) return false;
+    const bar = Math.floor(now / secPerBar);
+    const bp = breaks.find((p) => p.bar === bar);
+    if (!bp) return false;
+    const secPerBeat = secPerBar / beatsPerBar;
+    const within = now - bar * secPerBar;
+    const beat = Math.floor(within / secPerBeat) + 1;
+    return beat >= bp.beat;
+  }
 
   /* ── scheduler loop ──────────────────────────────────────────────── */
 
@@ -342,22 +391,21 @@ export function createBackingPlayer(
     if (!playing || !ctx) return;
     const now = ctx.currentTime - origin;
 
+    // Break Editor: hard-cut the backing the instant the playhead enters a
+    // rest region (stop ringing piano/bass/drums voices). Melody is left
+    // alone so the lead line plays straight through the break.
+    const breakNow = inBreakNow(now);
+    if (breakNow && !wasInBreak) {
+      try { piano?.stopAll(); bass?.stopAll(); drums?.stopAll(); } catch { /* noop */ }
+    }
+    wasInBreak = breakNow;
+
     // Schedule upcoming events inside the lookahead window
     while (nextIdx < events.length) {
       const ev = events[nextIdx];
       if (ev.time > now + LOOKAHEAD_SEC) break;
-      if (ev.time >= now - TICK_TOLERANCE_SEC) {
+      if (ev.time >= now - TICK_TOLERANCE_SEC && !isGated(ev)) {
         dispatch(ev);
-        // Emit per-note callback for melody events so pages can highlight the
-        // current lead-line note. `mi` = source bar index, `ni` = 0-based
-        // melody-note index within that bar (precomputed in build()).
-        // TODO: this fires at lookahead schedule time, ~LOOKAHEAD_SEC before
-        // the audio actually sounds. Pages relying on tight visual sync may
-        // want a defer/setTimeout wrapper keyed off ev.time vs ctx.currentTime.
-        if (ev.kind === "note" && ev.instrument === "melody") {
-          const ni = melodyNiByEventIdx.get(nextIdx);
-          if (ni != null) callbacks.onNote?.(ev.bar, ni);
-        }
       }
       nextIdx++;
     }
@@ -374,45 +422,79 @@ export function createBackingPlayer(
       callbacks.onBar?.(currentBar);
     }
 
+    // Highlight the current melody note off the SAME elapsed-time clock as the
+    // bar highlight above — so note + measure highlights stay locked together
+    // and land exactly when the note sounds, not LOOKAHEAD_SEC early (the old
+    // schedule-time emission drifted ahead of the audio and the bar box).
+    if (melodyTimeline.length > 0) {
+      let idx = lastNoteIdx;
+      // Monotonic forward scan; seek/stop reset lastNoteIdx to -1 so a backward
+      // jump simply re-scans from the start on the next tick.
+      while (idx + 1 < melodyTimeline.length
+        && melodyTimeline[idx + 1].time <= now + TICK_TOLERANCE_SEC) {
+        idx++;
+      }
+      if (idx !== lastNoteIdx) {
+        lastNoteIdx = idx;
+        if (idx >= 0) {
+          const e = melodyTimeline[idx];
+          callbacks.onNote?.(e.mi, e.ni);
+        }
+      }
+    }
+
     // Done? — wrap if looping, otherwise stop.
     if (nextIdx >= events.length) {
-      const last = events[events.length - 1];
-      if (last && now > last.time + 0.5) {
-        // repeatCount (>=1) wins over `loop`: play exactly N times. Otherwise
-        // fall back to the boolean loop (infinite).
-        const reps = config.repeatCount;
-        const wantMore = reps != null && reps >= 1
-          ? loopCount + 1 < reps
-          : (config.loop ?? true);
-        if (wantMore && totalBars > 0 && secPerBar > 0) {
-          // Advance origin by one song length so song-time goes back to 0,
-          // and rewind nextIdx to the first event. Events keep firing
-          // continuously on the AudioContext clock with no gap.
-          const songLength = totalBars * secPerBar;
-          origin += songLength;
-          nextIdx = 0;
-          lastBarFired = -2;
-          loopCount += 1;
-          // drumLoop already loops internally (it's an audio-buffer loop),
-          // so no need to restart it here.
-        } else if (config.endingTail === false) {
-          // Short-phrase (lick) ending: no song-style reverb bloom. End the
-          // transport immediately so the UI flips Stop→Play the moment the
-          // phrase completes, and fire onDone now. We deliberately DON'T
-          // killActiveNodes() — the last note keeps ringing on its own envelope.
-          playing = false;
-          cancelAnimationFrame(rafHandle);
-          elapsed = 0;
-          nextIdx = 0;
-          lastBarFired = -2;
-          callbacks.onBar?.(-1);
-          callbacks.onDone?.();
-          return;
-        } else {
-          // Final pass finished — don't hard-cut. Re-strike the closing chord
-          // and let it bloom into the reverb tail before teardown.
-          finishWithTail();
-          return;
+      // repeatCount (>=1) wins over `loop`: play exactly N times. Otherwise
+      // fall back to the boolean loop (infinite).
+      const reps = config.repeatCount;
+      const wantMore = reps != null && reps >= 1
+        ? loopCount + 1 < reps
+        : (config.loop ?? true);
+      if (wantMore && totalBars > 0 && secPerBar > 0) {
+        // Wrap PROACTIVELY — the instant the whole pass is scheduled (already
+        // ~LOOKAHEAD_SEC before the last event even sounds), NOT after a
+        // post-roll delay. The old `now > last.time + 0.5` gate waited until
+        // real-time had crossed the song boundary, so the next chorus's
+        // downbeat events (song-time ≈ 0) were already in the PAST and the
+        // scheduler's `ev.time >= now - tol` guard silently dropped them —
+        // killing the comp/bass/melody "1" of every looped chorus (the drum
+        // buffer loops internally, which masked the gap). Advancing origin by
+        // exactly one song length keeps absolute-time continuity (drum loop
+        // stays phase-locked) while the rewound events now sit in the FUTURE
+        // and fire on the grid, so the seam is sample-accurate.
+        const songLength = totalBars * secPerBar;
+        origin += songLength;
+        nextIdx = 0;
+        lastBarFired = -2;
+        lastNoteIdx = -1;
+        wasInBreak = false;
+        loopCount += 1;
+      } else {
+        // Not looping (or final pass of a repeatCount): let the last note ring
+        // a beat before teardown so the ending isn't hard-cut.
+        const last = events[events.length - 1];
+        if (last && now > last.time + 0.5) {
+          if (config.endingTail === false) {
+            // Short-phrase (lick) ending: no song-style reverb bloom. End the
+            // transport immediately so the UI flips Stop→Play the moment the
+            // phrase completes, and fire onDone now. We deliberately DON'T
+            // killActiveNodes() — the last note keeps ringing on its own envelope.
+            playing = false;
+            cancelAnimationFrame(rafHandle);
+            elapsed = 0;
+            nextIdx = 0;
+            lastBarFired = -2;
+            lastNoteIdx = -1;
+            callbacks.onBar?.(-1);
+            callbacks.onDone?.();
+            return;
+          } else {
+            // Final pass finished — don't hard-cut. Re-strike the closing chord
+            // and let it bloom into the reverb tail before teardown.
+            finishWithTail();
+            return;
+          }
         }
       }
     }
@@ -583,6 +665,7 @@ export function createBackingPlayer(
     build();
     playing = true;
     lastBarFired = -2;
+    lastNoteIdx = -1;
     loopCount = 0;
     // Lead the origin slightly so the first event (time=0) is strictly in
     // the future. Two cases:
@@ -661,6 +744,8 @@ export function createBackingPlayer(
       if (events[i].time >= target - TICK_TOLERANCE_SEC) { nextIdx = i; break; }
     }
     lastBarFired = -2;
+    lastNoteIdx = -1;
+    wasInBreak = false;
     // Re-phase the drum loop to the new position (killActiveNodes stopped it).
     if (config.drumMode === "loop" && drumLoop) {
       drumLoop.start(origin + target, opts().bpm, target);
@@ -682,6 +767,8 @@ export function createBackingPlayer(
     elapsed = 0;
     nextIdx = 0;
     lastBarFired = -2;
+    lastNoteIdx = -1;
+    wasInBreak = false;
     killActiveNodes();
     callbacks.onBar?.(-1);
   }

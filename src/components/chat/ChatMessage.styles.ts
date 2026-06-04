@@ -58,6 +58,110 @@ export const Bubble = styled.div<{ $role: 'user' | 'assistant' }>`
   `}
 
   color: ${({ theme }) => theme.colors.textPrimary};
+
+  /* Hover-only edit pencil + timestamp on user bubbles. Hidden by
+   * default; opacity:1 when the bubble itself is hovered. The
+   * .user-edit-pencil / .user-timestamp classes are set on the JSX
+   * sites below. */
+  &:hover .user-edit-pencil,
+  &:hover .user-timestamp { opacity: 1; }
+`;
+
+/* ── Edit user message (inline) ──────────────────────────────────────
+ * Replaces the bubble's question text when the user clicks the pencil.
+ * Layout: vertically stacked textarea + actions row. Sits inside Bubble
+ * so the surrounding rounded-rect frame stays — the bubble grows to fit
+ * the textarea, matching Claude's inline-edit look. */
+export const EditUserRow = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  min-width: 280px;
+`;
+
+export const EditUserTextarea = styled.textarea`
+  width: 100%;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 15.5px;
+  line-height: 1.55;
+  background: #fff;
+  color: ${({ theme }) => theme.colors.textPrimary};
+  resize: vertical;
+  outline: none;
+  &:focus { border-color: rgba(0, 0, 0, 0.35); }
+`;
+
+export const EditUserActions = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+`;
+
+export const EditUserGhostBtn = styled.button`
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.75);
+  cursor: pointer;
+  &:hover { background: rgba(0, 0, 0, 0.04); }
+`;
+
+export const EditUserPrimaryBtn = styled.button`
+  border: none;
+  background: #1a1a1a;
+  color: #fff;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.12s;
+  &:hover:not(:disabled) { opacity: 0.9; }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+`;
+
+/* Pencil button — absolutely positioned just OUTSIDE the user bubble's
+ * left edge so it doesn't disturb the bubble's text. Becomes visible
+ * via Bubble:hover (see above). */
+export const EditUserPencilBtn = styled.button`
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 6px);
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.12s, color 0.12s;
+  &:hover { background: rgba(0, 0, 0, 0.08); color: ${({ theme }) => theme.colors.textPrimary}; }
+  &:focus-visible { opacity: 1; outline: 2px solid rgba(43, 138, 239, 0.5); outline-offset: 2px; }
+`;
+
+/* Hover-only timestamp chip below the user bubble — small grey text,
+ * fades in with the pencil so the bubble stays clean at rest. */
+export const TimestampHint = styled.div`
+  font-size: 11px;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  margin-top: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  text-align: right;
 `;
 
 /* Assistant message action row — sits BELOW the message body as a transparent
@@ -95,6 +199,115 @@ export const ActionBtn = styled.button`
 /* Legacy export retained so any other place that still imports CopyButton
  * keeps compiling. New code should use ActionBtn inside MessageActions. */
 export const CopyButton = ActionBtn;
+
+/* ── Error / aborted state ────────────────────────────────────────────
+ * Inline banners that replace the empty assistant bubble when the stream
+ * fails or is interrupted. ErrorBanner is for hard failures (with retry
+ * affordance); AbortedBadge is the subtler "user pressed Stop" hint. */
+export const ErrorBanner = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  padding: 10px 12px;
+  background: #fdeeec;
+  border: 1px solid #f5c4be;
+  border-radius: 10px;
+  color: #8a2a1f;
+  font-size: 13.5px;
+  line-height: 1.4;
+`;
+
+export const ErrorText = styled.span`
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  word-break: break-word;
+`;
+
+export const RetryBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  border: 1px solid #d96e62;
+  background: #fff;
+  color: #8a2a1f;
+  border-radius: 999px;
+  padding: 5px 11px;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.12s;
+  &:hover { background: #fbe4e0; }
+  svg { width: 14px; height: 14px; }
+`;
+
+/* Fenced-code-block chrome — small header strip with the detected
+ * language on the left and a hover-revealed copy chip on the right.
+ * The inner <pre> from ReactMarkdown keeps its native styling; we just
+ * wrap it in a rounded container with the header. */
+export const CodeBlockShell = styled.div`
+  position: relative;
+  margin: 8px 0;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f6f6f8;
+  & > pre {
+    margin: 0;
+    padding: 12px 14px;
+    background: transparent;
+    overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13.5px;
+    line-height: 1.55;
+  }
+  & > pre > code { background: transparent; border: none; padding: 0; }
+`;
+
+export const CodeBlockHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  background: rgba(0, 0, 0, 0.035);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+`;
+
+export const CodeBlockLang = styled.span`
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(0, 0, 0, 0.5);
+  text-transform: uppercase;
+`;
+
+export const CodeBlockCopy = styled.button`
+  border: none;
+  background: transparent;
+  color: rgba(0, 0, 0, 0.55);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  &:hover { background: rgba(0, 0, 0, 0.06); color: ${({ theme }) => theme.colors.textPrimary}; }
+  &[data-copied="1"] > span::after { content: '됨'; margin-left: 2px; }
+`;
+
+export const AbortedBadge = styled.div`
+  margin-top: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  opacity: 0.75;
+  font-style: italic;
+`;
 
 export const AssistantHeader = styled.div`
   display: flex;

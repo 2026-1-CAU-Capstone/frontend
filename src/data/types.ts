@@ -60,4 +60,11 @@ export interface ChatMessage {
   lickMatches?: import('../lib/lickMatcher').LickMatch[];
   savedLickMatches?: import('../lib/lickMatcher').LickMatch[];
   lickProgressionLabel?: string;
+  /** Chat-typed lick request (e.g. "찰리파커 2-5-1 릭 추천"): render each
+   *  matched DB lick INLINE (numbered intro line + VexFlow card), deterministically,
+   *  without depending on the LLM emitting [LICK:id] tags. The 💡-button path
+   *  uses lickProgressionLabel + the tab panel instead. */
+  lickInline?: boolean;
+  /** Per-lick intro lines for the inline mode (templated, parallel to lickMatches). */
+  lickInlineLabel?: string;
 }

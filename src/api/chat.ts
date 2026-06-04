@@ -207,11 +207,13 @@ export async function streamChat(
   onChunk: (accumulated: string) => void,
   onChatPublicId?: (id: string) => void,
   onDebug?: (info: unknown) => void,
+  signal?: AbortSignal,
 ): Promise<string> {
   const res = await authFetch(`${API_BASE}/v1/chat/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(req),
+    signal,
   });
   if (!res.ok) {
     throw new Error(`stream ${res.status} ${await readApiError(res)}`.trim());

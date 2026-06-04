@@ -26,6 +26,7 @@
  * ──────────────────────────────────────────────────────────────────── */
 
 import { createPiano, type SoundfontPlayerLike, type SmplrPlayHandle } from "../note/smplrAdapter";
+import { registerAudioStopper } from "./audioStopRegistry";
 
 export interface GlobalKeyboard {
   /** Plays a single note. Returns a handle for early stop, or null if
@@ -46,6 +47,15 @@ let _ctx: AudioContext | null = null;
 let _piano: SoundfontPlayerLike | null = null;
 let _loadPromise: Promise<void> | null = null;
 let _instance: GlobalKeyboard | null = null;
+
+/* Join the process-wide audio kill switch the moment this module loads
+ * (which only happens once a page actually imports the keyboard, so smplr
+ * stays out of the startup chunk). Stable fn; no-ops until the piano has
+ * sounded a note. Lets the app shell stop click-to-hear / lick playback on
+ * route change, crash, or app exit. */
+registerAudioStopper(() => {
+  try { _piano?.stop(); } catch { /* */ }
+});
 
 function getOrCreateCtx(): AudioContext {
   if (!_ctx) _ctx = new AudioContext();

@@ -1848,10 +1848,17 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
         voice.draw(ctx, stave);
         beams.forEach((bm) => bm.setContext(ctx).draw());
 
-        // Store SVG elements for note highlighting
+        // Store SVG elements for note highlighting. Key by the SOURCE note
+        // index (measure.notes), NOT the vfNotes array index, so it lines up
+        // with the playback highlight events (srcNi) regardless of rests, ties,
+        // chords or grace notes — vfNotes includes rests/tie-continuations and
+        // excludes graces, so a positional index would drift out of sync.
         for (let ni = 0; ni < vfNotes.length; ni++) {
           const svgNode = vfNotes[ni].getSVGElement();
-          if (svgNode) noteElMapRef.current.set(`${m}-${ni}`, svgNode as SVGElement);
+          if (svgNode) {
+            const srcNi = measureIdxOfVf[ni];
+            noteElMapRef.current.set(`${m}-${srcNi}`, svgNode as SVGElement);
+          }
         }
 
         // ── Tuplet brackets — any N-tuplet (3, 5, 6, 7, …). Walk measure.notes but

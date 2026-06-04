@@ -78,6 +78,10 @@ export function createHybridBackingPlayer(
       ruleEngine.setConfig(next);
       styEngine.setConfig(next);
     },
+    setChart(next) {
+      ruleEngine.setChart(next);
+      styEngine.setChart(next);
+    },
     dispose() {
       ruleEngine.dispose();
       styEngine.dispose();

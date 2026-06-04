@@ -6,6 +6,8 @@ import { GlobalPlayerProvider } from './lib/player';
 import { BottomTabBar } from './components/layout/BottomTabBar';
 import HomePage from './pages/HomePage';
 import { IntroScreen } from './components/common/IntroScreen';
+import { AudioErrorBoundary } from './components/common/AudioErrorBoundary';
+import { AudioLifecycleGuard } from './components/common/AudioLifecycleGuard';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
 /* Sheet-music tab pages — split out of the initial bundle so that vexflow
@@ -75,6 +77,8 @@ export default function App() {
         <NotificationProvider>
         <AppPreviewProvider>
         <GlobalPlayerProvider>
+        <AudioLifecycleGuard />
+        <AudioErrorBoundary>
         <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/" element={<HomePage />} />
@@ -115,6 +119,7 @@ export default function App() {
           <Route path="/lick-input" element={<Navigate to="/editor?mode=lick" replace />} />
         </Routes>
         </Suspense>
+        </AudioErrorBoundary>
         {/* Native-only 5-tab bottom navigation. No-ops on web; the component
          *  reads useIsNativeUi() which is also true under /preview/*. */}
         <BottomTabBar />

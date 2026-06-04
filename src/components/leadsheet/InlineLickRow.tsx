@@ -186,14 +186,14 @@ export function InlineLickRow({
         new Formatter().joinVoices([voice]).formatToStave([voice], stave);
         voice.draw(ctx, stave);
         beams.forEach((b) => b.setContext(ctx).draw());
-        // Map each non-rest note to its SVG element (ni counts non-rests only,
-        // matching the player's onNote note index).
-        let ni = 0;
+        // Map each non-rest note to its SVG element, keyed by SOURCE note index
+        // (measure.notes index) so it matches the player's onNote srcNi — which
+        // identifies notes by source position, not by non-rest ordinal. Keying
+        // by a non-rest counter drifts the moment a measure contains a rest.
         for (let idx = 0; idx < vfNotes.length; idx++) {
           if (measure.notes[idx]?.duration?.endsWith('r')) continue;
           const svgEl = (vfNotes[idx] as unknown as { getSVGElement?: () => SVGElement }).getSVGElement?.();
-          if (svgEl) noteElsRef.current.set(`${m}-${ni}`, svgEl);
-          ni++;
+          if (svgEl) noteElsRef.current.set(`${m}-${idx}`, svgEl);
         }
       } catch { /* a malformed measure shouldn't kill the whole row */ }
     }

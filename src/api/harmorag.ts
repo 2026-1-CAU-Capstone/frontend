@@ -101,6 +101,7 @@ export async function streamWithRAG(
   onChunk: (accumulated: string) => void,
   onDebug?: (info: RagDebugInfo) => void,
   images?: ClaudeImage[],
+  signal?: AbortSignal,
 ): Promise<string> {
   // Image attachments → skip RAG (text retrieval is meaningless for an image)
   // and go straight to Claude's vision call so it can read the picture/score.
@@ -143,6 +144,7 @@ export async function streamWithRAG(
         // by stripping chart blocks for the in-context song.
         suppress_inline_chart: !!chordContextText,
       }),
+      signal,
     });
 
     if (!res.ok) throw new Error(`서버 오류 ${res.status}`);

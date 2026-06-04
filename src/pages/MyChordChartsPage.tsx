@@ -221,6 +221,12 @@ export default function MyChordChartsPage() {
   const sortWrapRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const kebabMenuRef = useRef<HTMLDivElement>(null);
+  /* Tracks which projects we've already auto-analyzed after OMR completion
+   * (the backend doesn't run analyze automatically after OMR; ChordInfo
+   * lands but no AnalysisResult, so GET /analysis returns CHORD_PROJECT_005
+   * until we POST /analyze once). Set-based de-dup prevents the same poll
+   * cycle from firing analyze twice if the COMPLETED status flicks through. */
+  const analyzedOmrIdsRef = useRef<Set<string>>(new Set());
 
   /* ── Onboarding "새 프로젝트 생성" modal (replaces the old 신규 dropdown) ── */
   const [onboardOpen, setOnboardOpen] = useState(false);
@@ -262,7 +268,7 @@ export default function MyChordChartsPage() {
     const pollOnce = () => {
       active.forEach((project) => {
         getChordProjectOmrStatus(project.publicId)
-          .then((status) => {
+          .then(async (status) => {
             setProjects((prev) => prev.map((p) => (
               p.publicId === project.publicId
                 ? {
@@ -273,6 +279,34 @@ export default function MyChordChartsPage() {
                 }
                 : p
             )));
+            /* OMR just finished → kick off analysis once. ChordInfo is in
+             * the DB at this point, but no AnalysisResult exists yet — the
+             * SheetPreview's GET /analysis would 400 (CHORD_PROJECT_005)
+             * until /analyze runs. Best-effort: failure is recoverable
+             * via the per-card retry in SheetPreview (path B). */
+            if (
+              status.status === 'COMPLETED'
+              && !analyzedOmrIdsRef.current.has(project.publicId)
+            ) {
+              analyzedOmrIdsRef.current.add(project.publicId);
+              try {
+                await analyzeChordProject(project.publicId);
+                /* Bump updatedAt so SheetPreview's effect (keyed off the
+                 * `project` reference) re-fires and pulls the freshly-
+                 * computed analysis. */
+                setProjects((prev) => prev.map((p) => (
+                  p.publicId === project.publicId
+                    ? { ...p, updatedAt: new Date().toISOString() }
+                    : p
+                )));
+              } catch (e) {
+                console.warn('[chord-project] auto-analyze after OMR failed:', e);
+                /* Clear the de-dup so the next poll cycle can retry, in
+                 * case the failure was transient (network blip, backend
+                 * restart, etc.). */
+                analyzedOmrIdsRef.current.delete(project.publicId);
+              }
+            }
           })
           .catch(() => { /* best-effort polling */ });
       });
@@ -2159,7 +2193,38 @@ function SheetPreview({ project }: { project?: ChordProject }) {
     }
     let cancelled = false;
     setPreviewState('loading');
-    getChordProjectAnalysis(project.publicId)
+
+    /* GET /analysis surfaces CHORD_PROJECT_005 when no analysis has run yet
+     * for this project — common right after OMR completes, since the
+     * backend doesn't auto-analyze. Treat that one code as a soft miss:
+     * POST /analyze once, then retry GET /analysis. Any other error (auth,
+     * 5xx, network) falls straight through to empty. */
+    const isMissingAnalysisError = (e: unknown): boolean => {
+      const msg = e instanceof Error ? e.message : String(e);
+      return msg.includes('CHORD_PROJECT_005') || msg.includes('분석 결과가 없습니다');
+    };
+
+    const fetchAnalysisWithRecovery = async () => {
+      try {
+        const analysis = await getChordProjectAnalysis(project.publicId);
+        return analysis;
+      } catch (e) {
+        if (!isMissingAnalysisError(e)) throw e;
+        /* Self-heal — analyze runs synchronously on the server and returns
+         * the result, so we don't even need a second GET in the happy
+         * path. Fall back to GET on the off-chance /analyze returns a
+         * subset shape vs /analysis. */
+        try {
+          return await analyzeChordProject(project.publicId);
+        } catch (analyzeErr) {
+          /* Analyze itself failed — surface empty preview, no more
+           * recovery attempts (don't loop). */
+          throw analyzeErr;
+        }
+      }
+    };
+
+    fetchAnalysisWithRecovery()
       .then((analysis) => {
         if (cancelled) return;
         const sheet = analysisToLeadSheet(analysis, project);

@@ -631,3 +631,40 @@ export function findLicksByPerformer(
   const shuffled = [...matched].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, maxResults).map((lick) => ({ lick, tier: 3 as const }));
 }
+
+/**
+ * 연주자 + 진행을 함께 언급한 요청("찰리파커 2-5-1 릭 추천")용 매칭.
+ * 우선순위:
+ *   1. 그 연주자의 릭 중 해당 진행을 담은 것 (예: Charlie Parker 의 ii-V-I)
+ *   2. 부족하면 다른 거장의 같은 진행 릭으로 보완 (각 카드가 연주자명을 표시하므로
+ *      자연히 구분됨)
+ *   3. 그 연주자가 해당 진행 릭을 하나도 안 가졌으면, 진행을 풀고 연주자 릭으로 폴백
+ * 연주자가 감지되지 않으면 빈 배열을 반환 → 호출부가 다음 폴백으로 진행.
+ */
+export function findLicksByPerformerAndProgression(
+  text: string,
+  progression: ProgressionKey | null,
+  allLicks: LickEntry[],
+  maxResults = 5,
+): LickMatch[] {
+  // 연주자가 언급됐는지 + 그 연주자의 전체 릭 풀 확보 (maxResults 로 자르지 않도록 크게).
+  const performerMatches = findLicksByPerformer(text, allLicks, allLicks.length);
+  if (performerMatches.length === 0) return [];        // 연주자 미감지 → 폴백에 위임
+  if (!progression) return performerMatches.slice(0, maxResults);
+
+  const performerPool = performerMatches.map((m) => m.lick);
+  // 1) 연주자 ∩ 진행
+  const performerProg = findLicksByProgression(progression, performerPool, maxResults);
+  if (performerProg.length === 0) {
+    // 그 연주자는 이 진행 릭이 없음 → 연주자 릭으로 폴백 (진행 무시)
+    return performerMatches.slice(0, maxResults);
+  }
+  if (performerProg.length >= maxResults) return performerProg;
+
+  // 2) 부족분을 다른 연주자의 같은 진행 릭으로 보완
+  const usedIds = new Set(performerProg.map((m) => m.lick.id));
+  const fill = findLicksByProgression(progression, allLicks, maxResults * 3)
+    .filter((m) => !usedIds.has(m.lick.id))
+    .slice(0, maxResults - performerProg.length);
+  return [...performerProg, ...fill];
+}

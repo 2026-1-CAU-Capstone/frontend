@@ -31,6 +31,7 @@ import { findMatchingLicks, leadingPickupBars, type LickMatch } from '../lib/lic
 import { SavedLicksModal } from '../components/leadsheet/SavedLicksModal';
 import { useCountInIntro } from '../hooks/useCountInIntro';
 import { chordToInputString, parseChordInput, loadChartEdit, saveChartEdit } from '../lib/leadSheetChordEdit';
+import { loadBreakPoints, saveBreakPoints, toggleBreakPoint, type BreakPoint } from '../lib/breakPoints';
 import { useTransitionState } from '../hooks/useTransitionState';
 
 const ANALYZED_SONG_ID = '__analyzed_all-of-me__';
@@ -978,6 +979,11 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   const [editMode, setEditMode] = useState(() => searchParams.get('edit') === '1');
   const editValuesRef = useRef<Map<string, string>>(new Map());
 
+  /* Break Editor (고급 기능). Per-song break points, persisted to localStorage
+   * keyed by songId. breakEditMode toggles the per-beat marker overlay. */
+  const [breakEditMode, setBreakEditMode] = useState(false);
+  const [breakPoints, setBreakPoints] = useState<BreakPoint[]>([]);
+
   const { player: globalPlayer } = useGlobalPlayer();
   const [isPlaying, setIsPlaying] = useState(false);
   /* How many times Play repeats the chart before stopping (default 3). */
@@ -1204,6 +1210,23 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   useEffect(() => {
     globalPlayer.setConfig({ bpm: tempo });
   }, [globalPlayer, tempo]);
+
+  // Load this song's saved break points whenever the song changes.
+  useEffect(() => {
+    setBreakPoints(loadBreakPoints(songId));
+  }, [songId]);
+
+  // Push break points into the live player config + persist per-song. Read
+  // live by the scheduler, so edits take effect on the next bar without a
+  // restart.
+  useEffect(() => {
+    globalPlayer.setConfig({ breakBeats: breakPoints });
+    saveBreakPoints(songId, breakPoints);
+  }, [globalPlayer, breakPoints, songId]);
+
+  const handleToggleBreak = useCallback((bar: number, beat: number) => {
+    setBreakPoints((prev) => toggleBreakPoint(prev, bar, beat));
+  }, []);
 
   const countIn = useCountInIntro();
 
@@ -1705,6 +1728,9 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
               selectedKey={editMode ? chartOriginalKey : writtenKey}
               editMode={editMode}
               onChordEdit={handleChordEdit}
+              breakEditMode={breakEditMode}
+              breakPoints={breakPoints}
+              onToggleBreak={handleToggleBreak}
               activeBar={activeBar}
               bpm={tempo}
               onChordClick={handleChordClick}
@@ -1815,6 +1841,8 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
                 styleChoice,
                 onStyleChange: setStyleChoice,
               }}
+              breakEditMode={breakEditMode}
+              onToggleBreakEdit={() => setBreakEditMode((v) => !v)}
             />
           ) : (
             <RightChatPanel
@@ -2085,6 +2113,8 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
                   styleChoice,
                   onStyleChange: setStyleChoice,
                 }}
+                breakEditMode={breakEditMode}
+                onToggleBreakEdit={() => setBreakEditMode((v) => !v)}
               />
             </SheetBody>
           </SheetCard>

@@ -226,9 +226,45 @@ import {
   UserQuestionText,
   MessageActions,
   ActionBtn,
+  ErrorBanner,
+  ErrorText,
+  RetryBtn,
+  AbortedBadge,
+  EditUserRow,
+  EditUserTextarea,
+  EditUserActions,
+  EditUserGhostBtn,
+  EditUserPrimaryBtn,
+  EditUserPencilBtn,
+  TimestampHint,
+  CodeBlockShell,
+  CodeBlockHeader,
+  CodeBlockLang,
+  CodeBlockCopy,
 } from './ChatMessage.styles';
 
 const ICON_STROKE = 1.7;
+
+/* Relative-time hint shown under user messages on hover. Buckets:
+ *   < 60s  → "방금"
+ *   < 60m  → "N분 전"
+ *   < 24h  → "N시간 전"
+ *   < 7d   → "N일 전"
+ *   else   → "YYYY. M. D."   (full locale string sits in the title attr).
+ * Kept short on purpose — the chip is small + only visible on hover. */
+function formatTimestamp(ts: number): string {
+  const diff = Math.max(0, Date.now() - ts);
+  const sec = Math.floor(diff / 1000);
+  if (sec < 60) return '방금';
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}분 전`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}시간 전`;
+  const day = Math.floor(hr / 24);
+  if (day < 7) return `${day}일 전`;
+  const d = new Date(ts);
+  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}.`;
+}
 
 const CopyIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={ICON_STROKE} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -237,17 +273,20 @@ const CopyIcon = () => (
   </svg>
 );
 
-const ThumbUpIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={ICON_STROKE} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M7 10v12" />
-    <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H7a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L15 0a3 3 0 0 1 3 3z" />
+/* Pencil — hover-only edit affordance on user messages. */
+const PencilIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={ICON_STROKE} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M4 20h4l10-10-4-4L4 16v4z" />
+    <path d="M14 6l4 4" />
   </svg>
 );
 
-const ThumbDownIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={ICON_STROKE} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M17 14V2" />
-    <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H17a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L9 24a3 3 0 0 1-3-3z" />
+/* Inline error/warning triangle for the ErrorBanner. */
+const ErrorIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M12 9v4" />
+    <path d="M12 17h.01" />
+    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
   </svg>
 );
 
@@ -278,6 +317,25 @@ interface ChatMessageProps {
   /** RAG source chunks for THIS message (message.ragDebug?.chunks), used to
    *  resolve inline [n] citation chips to their source / video timestamp. */
   citations?: RagChunk[];
+  /** Optional retry handler — when set on an errored assistant message,
+   *  ChatMessage renders an inline "다시 시도" button next to the error
+   *  banner. RightChatPanel wires this to re-run handleSend with the
+   *  original prompt + images. */
+  onRetry?: () => void;
+  /** Optional regenerate handler — when set on a successful assistant
+   *  message (no error, not streaming), ChatMessage shows the "다시 생성"
+   *  icon in the action row. Removed when omitted so we don't render a
+   *  fake/no-op button. */
+  onRegenerate?: () => void;
+  /** Edit-and-resend handler for user messages. When set, hover over a
+   *  user bubble exposes a pencil — clicking flips the bubble into an
+   *  inline textarea; saving forks the chat at that point (drops the
+   *  message + everything after, then re-sends the new content). */
+  onEditUserMessage?: (newContent: string) => void;
+  /** True while THIS message is the one currently streaming. Used to hold the
+   *  deterministic inline-lick fallback until the stream finishes (so DB lick
+   *  cards don't flicker as the model's [LICK:id] tags arrive mid-stream). */
+  isStreaming?: boolean;
 }
 
 /** Format a single string: [SEC:X] → square tag, [n] → citation chip, chord
@@ -342,13 +400,39 @@ const ThinkingWrap = styled.div`
 const SAX_FRAME_COUNT = 6;
 const SAX_FRAME_MS = 140;     // ~7fps cycle; tweak for faster/slower swing
 
-const SaxFrameImg = styled.img`
+/* Fixed 44×44 stage; all six frames are stacked absolutely inside it and we
+ * toggle which one is visible via opacity. Swapping a single <img>'s `src` at
+ * 7fps made the ~200KB PNGs re-fetch/re-decode each tick, so on the first (or
+ * a fast) "thinking" window the flipbook stuttered or appeared frozen on
+ * frame 0. Mounting all six up-front (and preloading at module load) means the
+ * cycle is just a CSS opacity flip — no network, no decode, always smooth. */
+const SaxStage = styled.div`
+  position: relative;
   width: 44px;
   height: 44px;
   flex-shrink: 0;
+`;
+
+const SaxFrameImg = styled.img<{ $active: boolean }>`
+  position: absolute;
+  inset: 0;
+  width: 44px;
+  height: 44px;
   display: block;
   object-fit: contain;
+  opacity: ${({ $active }) => ($active ? 1 : 0)};
 `;
+
+const SAX_FRAME_SRCS = Array.from(
+  { length: SAX_FRAME_COUNT },
+  (_, i) => `/dynamic/sax-${i}.png`,
+);
+
+/* Preload all frames once at module load so they're decoded before the first
+ * thinking bubble ever mounts. */
+if (typeof Image !== 'undefined') {
+  SAX_FRAME_SRCS.forEach((src) => { const img = new Image(); img.src = src; });
+}
 
 function SaxFrame() {
   const [frame, setFrame] = useState(0);
@@ -360,11 +444,11 @@ function SaxFrame() {
     return () => clearInterval(t);
   }, []);
   return (
-    <SaxFrameImg
-      src={`/dynamic/sax-${frame}.png`}
-      alt="Jazzify 생각중"
-      draggable={false}
-    />
+    <SaxStage aria-label="Jazzify 생각중" role="img">
+      {SAX_FRAME_SRCS.map((src, i) => (
+        <SaxFrameImg key={i} src={src} $active={i === frame} alt="" draggable={false} />
+      ))}
+    </SaxStage>
   );
 }
 
@@ -420,6 +504,50 @@ function GeneratingScoreMessage() {
 }
 
 /** Custom markdown renderers that apply chord formatting to all text */
+/* Block-code renderer with a header strip (language label + copy button) —
+ * matches the Claude / ChatGPT pattern where each fenced ```python block
+ * has its own hover-revealed copy chip. Inline code (no class) keeps the
+ * default <code> rendering since wrapping it in a chrome row breaks
+ * flow-of-text. */
+function CodeBlockWrapper({ children }: { children: React.ReactNode }) {
+  /* Extract the <code> child's text + language. ReactMarkdown emits
+   * <pre><code class="language-X">…</code></pre> for fenced blocks. */
+  const child = React.Children.toArray(children).find(
+    (c) => React.isValidElement(c) && (c.type === 'code' || (c.props as { className?: string })?.className?.startsWith('language-')),
+  ) as React.ReactElement<{ children?: React.ReactNode; className?: string }> | undefined;
+  const className = child?.props.className ?? '';
+  const langMatch = className.match(/language-([\w-]+)/);
+  const lang = langMatch ? langMatch[1] : 'text';
+  /* Skip the chrome for `glick` blocks — they're handled below as embedded
+   * VexFlow lick cards, not source code. */
+  if (lang === 'glick') return <>{children}</>;
+  const codeText = React.Children.toArray(child?.props.children ?? '')
+    .map((n) => (typeof n === 'string' ? n : ''))
+    .join('');
+  return (
+    <CodeBlockShell>
+      <CodeBlockHeader>
+        <CodeBlockLang>{lang}</CodeBlockLang>
+        <CodeBlockCopy
+          type="button"
+          title="복사"
+          aria-label="코드 블록 복사"
+          onClick={(e) => {
+            const btn = e.currentTarget;
+            void navigator.clipboard.writeText(codeText).then(() => {
+              btn.dataset.copied = '1';
+              window.setTimeout(() => { delete btn.dataset.copied; }, 1500);
+            });
+          }}
+        >
+          <span>복사</span>
+        </CodeBlockCopy>
+      </CodeBlockHeader>
+      {children}
+    </CodeBlockShell>
+  );
+}
+
 const mdComponents: Components = {
   p: ({ children }) => <p>{formatChildChords(children)}</p>,
   li: ({ children }) => <li>{formatChildChords(children)}</li>,
@@ -433,6 +561,7 @@ const mdComponents: Components = {
   h6: ({ children }) => <h6>{formatChildChords(children)}</h6>,
   th: ({ children }) => <th>{formatChildChords(children)}</th>,
   td: ({ children }) => <td>{formatChildChords(children)}</td>,
+  pre: ({ children }) => <CodeBlockWrapper>{children}</CodeBlockWrapper>,
   code: ({ children, className }) => {
     // glick 코드 블록 → AI 생성 릭 악보로 렌더링
     if (className === 'language-glick') {
@@ -450,7 +579,30 @@ const mdComponents: Components = {
   },
 };
 
-export function ChatMessage({ message, suppressChart = false, songTempo, citations }: ChatMessageProps) {
+function ChatMessageImpl({
+  message,
+  suppressChart = false,
+  songTempo,
+  citations,
+  onRetry,
+  onRegenerate,
+  onEditUserMessage,
+  isStreaming = false,
+}: ChatMessageProps) {
+  /* User-message edit state — toggled by the pencil button rendered on
+   * hover. Initial value mirrors message.content; save calls
+   * onEditUserMessage(next) which forks the conversation. */
+  const [isEditingUser, setIsEditingUser] = useState(false);
+  const [editDraft, setEditDraft] = useState('');
+  const beginEdit = () => {
+    setEditDraft(message.content);
+    setIsEditingUser(true);
+  };
+  const cancelEdit = () => setIsEditingUser(false);
+  const saveEdit = () => {
+    setIsEditingUser(false);
+    onEditUserMessage?.(editDraft);
+  };
   const [copied, setCopied] = useState(false);
   const selectedChords = message.role === 'user' ? message.selectedChords ?? [] : [];
   const userImages = message.role === 'user' ? message.images ?? [] : [];
@@ -603,6 +755,54 @@ export function ChatMessage({ message, suppressChart = false, songTempo, citatio
     // 태그가 아직 안 나온 초반에 모든 릭이 뭉텅이로 뜨지 않도록 fallback을 막는다.
     const hasTaggedLicks = LICK_TAG_RE.test(raw);
     LICK_TAG_RE.lastIndex = 0;
+
+    // 채팅 타이핑 경로(lickInline) 안전망. LLM 이 [LICK:id] 태그로 소개한 릭은 위에서
+    // 이미 설명과 함께 인라인 렌더됐다. 여기서는 태그를 못 받은 릭만 — 스트림이 끝난
+    // 뒤(!isStreaming) — "연주자 — 곡 · 키 · 진행" 소개줄 + 카드로 보충한다. 이렇게:
+    //   (a) LLM 설명이 릭 사이사이에 들어가고,
+    //   (b) LLM 이 일부/전부를 빠뜨려도 카드는 무조건 표시되며,
+    //   (c) 스트리밍 중엔 보충을 미뤄 카드가 하단→인라인으로 튀는 깜빡임이 없다.
+    if (
+      message.lickInline &&
+      !isStreaming &&
+      message.lickMatches &&
+      message.lickMatches.length > 0
+    ) {
+      const taggedIds = new Set<string>();
+      let tm: RegExpExecArray | null;
+      LICK_TAG_RE.lastIndex = 0;
+      while ((tm = LICK_TAG_RE.exec(raw)) !== null) taggedIds.add(tm[1].trim());
+      LICK_TAG_RE.lastIndex = 0;
+
+      const untagged = message.lickMatches.filter((m) => !taggedIds.has(String(m.lick.id)));
+      if (untagged.length > 0) {
+        // LLM 이 일부라도 태그를 달았으면 자연스럽게 잇는 안내 한 줄.
+        if (taggedIds.size > 0) {
+          segments.push(
+            <MarkdownBody key="lick-more-head">
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{'이런 라인들도 함께 참고해보세요 👇'}</ReactMarkdown>
+            </MarkdownBody>,
+          );
+        }
+        untagged.forEach((m, i) => {
+          const l = m.lick;
+          const meta = [l.key, message.lickInlineLabel].filter(Boolean).join(' · ');
+          const introMd = `**${l.performer} — ${l.title}**${meta ? `  ·  ${meta}` : ''}`;
+          segments.push(
+            <MarkdownBody key={`lick-intro-${l.id}-${i}`}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>{introMd}</ReactMarkdown>
+            </MarkdownBody>,
+          );
+          segments.push(
+            <LickRecommendMessage key={`lick-inline-${l.id}-${i}`} match={m} tempoOverride={songTempo} />,
+          );
+        });
+      }
+    }
+
+    // 💡 버튼으로 온 lickMatches (lickProgressionLabel이 설정된 경우)만 탭 패널로 표시.
+    // LLM 스트리밍 응답에서는 lickMatches가 [LICK:id] 태그 매핑용으로만 쓰이므로,
+    // 태그가 아직 안 나온 초반에 모든 릭이 뭉텅이로 뜨지 않도록 fallback을 막는다.
     if (
       !hasTaggedLicks &&
       message.lickMatches &&
@@ -621,9 +821,18 @@ export function ChatMessage({ message, suppressChart = false, songTempo, citatio
     }
 
     return <>{segments}</>;
-  }, [message.content, message.role, message.lickMatches, message.savedLickMatches, message.lickProgressionLabel, suppressChart]);
+  }, [message.content, message.role, message.lickMatches, message.savedLickMatches, message.lickProgressionLabel, message.lickInline, message.lickInlineLabel, isStreaming, suppressChart]);
 
-  const isThinking = message.role === 'assistant' && !(message.content ?? '').trim();
+  /* Thinking placeholder (saxophone flipbook) only shows for assistant
+   * bubbles that are STILL streaming — empty content alone isn't enough:
+   * an aborted-with-zero-tokens turn or an errored turn also has empty
+   * content but should never display the spinner. Those cases render
+   * AbortedBadge / ErrorBanner instead. */
+  const isThinking =
+    message.role === 'assistant'
+    && !(message.content ?? '').trim()
+    && !(message as { aborted?: boolean }).aborted
+    && !(message as { error?: string }).error;
 
   return (
     <MessageRow $role={message.role}>
@@ -667,29 +876,112 @@ export function ChatMessage({ message, suppressChart = false, songTempo, citatio
                 </UserSelectedChordRow>
               </UserSelectedContext>
             )}
-            <UserQuestionText>{message.content}</UserQuestionText>
+            {isEditingUser ? (
+              /* Inline edit mode — replaces the bubble text with a
+               * textarea + Save/Cancel. Saving forks the conversation
+               * at this turn (handled by the parent's onEditUserMessage,
+               * which slices the message list and re-runs handleSend). */
+              <EditUserRow>
+                <EditUserTextarea
+                  value={editDraft}
+                  onChange={(e) => setEditDraft(e.target.value)}
+                  autoFocus
+                  rows={Math.min(8, Math.max(2, editDraft.split('\n').length))}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+                    /* Cmd/Ctrl+Enter saves — newline-only Enter keeps
+                     * multiline editing working for long prompts. */
+                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                      e.preventDefault(); saveEdit();
+                    }
+                  }}
+                />
+                <EditUserActions>
+                  <EditUserGhostBtn type="button" onClick={cancelEdit}>취소</EditUserGhostBtn>
+                  <EditUserPrimaryBtn type="button" onClick={saveEdit} disabled={!editDraft.trim()}>
+                    저장 후 전송
+                  </EditUserPrimaryBtn>
+                </EditUserActions>
+              </EditUserRow>
+            ) : (
+              <UserQuestionText>{message.content}</UserQuestionText>
+            )}
+            {/* Hover-only pencil — rendered absolutely just outside the
+             * bubble's right edge (see styles). Only when the parent
+             * supplied onEditUserMessage AND we're not already editing. */}
+            {onEditUserMessage && !isEditingUser && (
+              <EditUserPencilBtn
+                type="button"
+                className="user-edit-pencil"
+                aria-label="메시지 편집"
+                title="편집"
+                onClick={beginEdit}
+              >
+                <PencilIcon />
+              </EditUserPencilBtn>
+            )}
+            {/* Hover-only timestamp under the user bubble. Native locale
+             *  full string in the title attribute (browser tooltip) so a
+             *  long-hover reveals the absolute time, while the inline text
+             *  stays compact ("5분 전" / "방금" / "어제 오후 2:31"). */}
+            {message.timestamp && !isEditingUser && (
+              <TimestampHint className="user-timestamp" title={new Date(message.timestamp).toLocaleString('ko-KR')}>
+                {formatTimestamp(message.timestamp)}
+              </TimestampHint>
+            )}
           </>
         )}
-        {/* Assistant-only action row sits below the message body — copy /
-         *  thumbs up/down / regenerate, transparent icon buttons (ChatGPT style).
-         *  Thumbs and regenerate are visual-only for now; copy works. */}
-        {message.role === 'assistant' && !isThinking && (
+        {/* Error banner — replaces the empty bubble when the stream
+         *  failed before producing any text. Inline retry button re-runs
+         *  the same turn (parent wires onRetry → handleSend with the
+         *  cached prompt + images). */}
+        {message.role === 'assistant' && (message as { error?: string }).error && (
+          <ErrorBanner>
+            <ErrorIcon />
+            <ErrorText>{(message as { error?: string }).error}</ErrorText>
+            {onRetry && (
+              <RetryBtn type="button" onClick={onRetry}>
+                <RegenerateIcon /> 다시 시도
+              </RetryBtn>
+            )}
+          </ErrorBanner>
+        )}
+
+        {/* "중단됨" badge — user pressed Stop. The partial reply (whatever
+         *  streamed in before .abort()) stays visible above. */}
+        {message.role === 'assistant' && (message as { aborted?: boolean }).aborted && (
+          <AbortedBadge>응답이 중단되었습니다.</AbortedBadge>
+        )}
+
+        {/* Assistant-only action row: copy is always shown. Regenerate
+         *  ONLY appears when the parent passes onRegenerate (no fake
+         *  no-op buttons). Thumbs up/down removed entirely until a real
+         *  feedback endpoint exists. */}
+        {message.role === 'assistant'
+          && !isThinking
+          && !(message as { error?: string }).error
+          && (
           <MessageActions>
             <ActionBtn onClick={handleCopy} title={copied ? '복사됨' : '복사'} aria-label="복사">
               {copied ? <CheckIcon /> : <CopyIcon />}
             </ActionBtn>
-            <ActionBtn title="좋아요" aria-label="좋아요">
-              <ThumbUpIcon />
-            </ActionBtn>
-            <ActionBtn title="별로예요" aria-label="별로예요">
-              <ThumbDownIcon />
-            </ActionBtn>
-            <ActionBtn title="다시 생성" aria-label="다시 생성">
-              <RegenerateIcon />
-            </ActionBtn>
+            {onRegenerate && (
+              <ActionBtn onClick={onRegenerate} title="다시 생성" aria-label="다시 생성">
+                <RegenerateIcon />
+              </ActionBtn>
+            )}
           </MessageActions>
         )}
       </Bubble>
     </MessageRow>
   );
 }
+
+/* React.memo skips re-renders when message identity (object reference) is
+ * unchanged — critical for long conversations because setMessages re-emits
+ * a fresh array on every streaming tick but the unchanged messages keep
+ * their original references. For 50+ turn chats this turns N²-ish render
+ * work into N. Callback props (onRetry / onRegenerate / onEditUserMessage)
+ * may still differ per render; the parent passes `undefined` for inactive
+ * rows so most messages still hit the memo cache cleanly. */
+export const ChatMessage = React.memo(ChatMessageImpl);

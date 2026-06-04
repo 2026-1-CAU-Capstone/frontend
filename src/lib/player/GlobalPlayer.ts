@@ -63,6 +63,7 @@
  * ──────────────────────────────────────────────────────────────────── */
 
 import { AnacrusisPlayer } from "./anacrusisPlayer";
+import { registerAudioStopper } from "./audioStopRegistry";
 import { setPlayerSettings } from "../note/playerSettings";
 import { createBackingPlayer } from "../backing/player";
 import { leadSheetToChart } from "../backing/adapters/leadSheetToChart";
@@ -73,6 +74,8 @@ import {
 } from "../backing/adapters/noteSheetToChart";
 import { createStyBackingPlayer } from "../../lib/yamaha-sty/sty-backing-player";
 import { createHybridBackingPlayer } from "../../lib/yamaha-sty/hybrid-backing-player";
+import { swungBeats } from "../note/swing";
+import { melodySwingRatio } from "../backing/engine";
 import type { Chart, BackingPlayer, BackingConfig } from "../backing/types";
 import type { LeadSheetData } from "../../data/leadSheetTypes";
 import type { NoteSheetData } from "../../data/sampleMelody";
@@ -323,6 +326,7 @@ export function createGlobalPlayer(
     if (config.loop !== undefined) seed.loop = config.loop;
     if (config.repeatCount !== undefined) seed.repeatCount = config.repeatCount;
     if (config.melody !== undefined) seed.melody = config.melody;
+    if (config.breakBeats !== undefined) seed.breakBeats = config.breakBeats;
 
     const styOpts = {
       styleUrl: input.styleUrl,
@@ -370,11 +374,26 @@ export function createGlobalPlayer(
     }
 
     const chart: Chart = noteSheetToChart(input.data);
-    const melody: MelodyNote[] = extractMelody(input.data);
 
     // Seed BackingConfig with orchestrator state. Tempo precedence matches
     // the legacy path: explicit config.bpm > sheet.tempo > chart.bpm default.
     const tempo = config.bpm ?? input.data.tempo ?? chart.bpm;
+
+    // Pre-swing the lead line to the song's feel so it locks with the swung
+    // rhythm section (bass/drums/comp swing via the engine's swingRatio; a
+    // straight melody flams against them on every off-beat 8th). We pre-shape
+    // the offsets here — the same pattern ChordPage's inline-lick path uses —
+    // so the engine's "melody arrives already-swung by the caller" contract
+    // holds for sheet/lick/solo too. `melodySwingRatio` mirrors the engine's
+    // exact feel resolution, and `swungBeats` is a no-op at ratio 0.5
+    // (bossa/latin/straight) so those feels stay straight. Onset AND end are
+    // both mapped so each note keeps its written length in swung time.
+    const swingRatio = melodySwingRatio(chart, { bpm: tempo, style: config.style, feel: config.feel });
+    const melody: MelodyNote[] = extractMelody(input.data).map((m) => {
+      const onset = swungBeats(m.beatOffset, swingRatio);
+      const end = swungBeats(m.beatOffset + m.durationBeats, swingRatio);
+      return { ...m, beatOffset: onset, durationBeats: Math.max(0.05, end - onset) };
+    });
 
     // ── Fast path: REUSE the live engine when only the CONTENT changed within
     // the same kind (browsing lick→lick, sheet→sheet). Swap the chart + melody
@@ -618,6 +637,10 @@ export function createGlobalPlayer(
     if ("feel" in patch) bpPatch.feel = patch.feel;
     if ("loop" in patch) bpPatch.loop = patch.loop;
     if ("repeatCount" in patch) bpPatch.repeatCount = patch.repeatCount;
+    // breakBeats go to BOTH engines — chart (Chord Analysis) and melody
+    // (Note Analysis). The engine's gate excludes melody events, so the lead
+    // line keeps playing; only the backing rests.
+    if ("breakBeats" in patch) bpPatch.breakBeats = patch.breakBeats;
     // Melody only goes to the CHART engine — it's the inline-lick-over-chord-
     // chart track. The melody engine (sheet/lick/solo) gets its melody from its
     // own NoteSheetData seed, not from here.
@@ -798,6 +821,16 @@ export function createGlobalPlayer(
 /* ─── Process-wide singleton (for non-React callers / tests) ─────────── */
 
 let _singleton: GlobalPlayer | null = null;
+
+/* Register the singleton with the process-wide audio kill switch so the
+ * app shell (route change / error boundary / page-hide) can cut its sound
+ * without importing this smplr-heavy module. The fn is stable and no-ops
+ * whenever the singleton is absent or nothing is playing — cancelAnacrusis
+ * also kills any scheduled-but-not-yet-sounding pickup notes. */
+registerAudioStopper(() => {
+  try { _singleton?.cancelAnacrusis(); } catch { /* */ }
+  try { _singleton?.stop(); } catch { /* */ }
+});
 
 /**
  * Lazy process-wide singleton. The React provider in

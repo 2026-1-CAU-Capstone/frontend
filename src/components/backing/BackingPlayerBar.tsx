@@ -318,9 +318,13 @@ export interface BackingMixerProps {
   /** "분석 보기" master toggle, lifted out of the old FilterBar. Omit to hide. */
   analysisOn?: boolean;
   onToggleAnalysis?: () => void;
+  /** Break Editor (고급 기능). When the host wires these, an Advanced section
+   *  with a "Break Editor" toggle appears at the very bottom of the mixer. */
+  breakEditMode?: boolean;
+  onToggleBreakEdit?: () => void;
 }
 
-export function BackingMixer({ engine, analysisOn, onToggleAnalysis }: BackingMixerProps) {
+export function BackingMixer({ engine, analysisOn, onToggleAnalysis, breakEditMode, onToggleBreakEdit }: BackingMixerProps) {
   const [settings, setSettings] = useState<PlayerSettings>(() => getPlayerSettings());
   useEffect(() => subscribePlayerSettings(setSettings), []);
 
@@ -459,6 +463,22 @@ export function BackingMixer({ engine, analysisOn, onToggleAnalysis }: BackingMi
           <AttribLine>{DRUM_KIT_PRESETS[drumKit].attribution}</AttribLine>
         )}
       </MixerSection>
+
+      {/* ── 고급 기능 (Advanced) — pinned at the very bottom ── */}
+      {onToggleBreakEdit && (
+        <MixerSection $accent='#8a5cf0'>
+          <MixerSectionTitle>🎬 고급 기능</MixerSectionTitle>
+          <MixerRow>
+            <MixerLabel>Break Editor</MixerLabel>
+            <MetroToggle $on={!!breakEditMode} onClick={onToggleBreakEdit}>
+              {breakEditMode ? 'ON' : 'OFF'}
+            </MetroToggle>
+          </MixerRow>
+          <AttribLine>
+            마디 위 음표를 클릭해 그 박부터 백킹을 멈춥니다 (멜로디·메트로놈은 유지).
+          </AttribLine>
+        </MixerSection>
+      )}
     </MixerScroll>
   );
 }

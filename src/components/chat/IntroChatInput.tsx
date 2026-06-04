@@ -19,9 +19,22 @@ import {
   QuickActionButton,
 } from './ChatInput.styles';
 
-/** Files we accept as attachments: images + PDF (악보/사진). */
-const ATTACH_ACCEPT = 'image/*,application/pdf,.pdf';
+/** Files we accept as attachments: images (LLM vision), PDF (악보), audio.
+ *  Only image attachments are forwarded to the LLM today — PDF and audio
+ *  ride along as visual chips so the user can stage them now while
+ *  backend support is wired up (the chip shows a "전송 안 됨" hint so the
+ *  user knows the file isn't part of the prompt yet). */
+const ATTACH_ACCEPT = 'image/*,application/pdf,.pdf,audio/*,.mp3,.wav,.m4a,.ogg';
 const MAX_VISIBLE_CHIPS = 6;
+
+/** Classify an attachment so chip rendering can decorate it (and so the
+ *  send path can split "delivered to LLM" from "staged only"). */
+function attachmentKind(file: File): 'image' | 'pdf' | 'audio' | 'other' {
+  if (file.type.startsWith('image/')) return 'image';
+  if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) return 'pdf';
+  if (file.type.startsWith('audio/') || /\.(mp3|wav|m4a|ogg|flac)$/i.test(file.name)) return 'audio';
+  return 'other';
+}
 
 /* Intro-mode chat input — pixel-matched to the Claude apps:
  *   - Desktop (web): tall white box, soft border, large textarea, floating
@@ -50,6 +63,12 @@ interface Props {
   /** Open the "+" menu upward (drop-up) instead of down. Used by the bottom-
    *  pinned chord/note inputs so the menu stays on-screen without scrolling. */
   dropUpMenu?: boolean;
+  /** Set while the assistant is streaming a reply. When true the dark
+   *  send/voice circle becomes a STOP button (white square on dark bg);
+   *  clicking it calls `onStop`. Matches the Claude / ChatGPT send↔stop
+   *  toggle so the user can interrupt a runaway answer. */
+  isStreaming?: boolean;
+  onStop?: () => void;
 }
 
 interface MenuEntry {
@@ -83,6 +102,8 @@ export function IntroChatInput({
   onRequestLicks,
   hideSelectionQuickAction,
   dropUpMenu,
+  isStreaming,
+  onStop,
 }: Props) {
   const [value, setValue] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -255,14 +276,23 @@ export function IntroChatInput({
       {attachments.length > 0 && (
         <AttachRow $compact={compact}>
           {attachments.map((f, i) => {
-            const isImg = f.type.startsWith('image/') && previews[i];
+            const kind = attachmentKind(f);
+            const isImg = kind === 'image' && previews[i];
+            /* PDF/audio aren't sent to the LLM yet — surface that in the
+             * chip tooltip so the user knows they're staged only. */
+            const stagedOnly = kind !== 'image';
+            const tip = stagedOnly
+              ? `${f.name} · 현재는 LLM에 전송되지 않습니다 (UI에만 표시)`
+              : f.name;
             return (
-              <AttachThumb key={`${f.name}-${i}`} title={f.name}>
+              <AttachThumb key={`${f.name}-${i}`} title={tip}>
                 {isImg ? (
                   <ThumbImg src={previews[i]!} alt={f.name} />
                 ) : (
-                  <DocThumb>
-                    <DocFileIcon />
+                  <DocThumb data-kind={kind}>
+                    {kind === 'audio' ? <AudioGlyph /> :
+                     kind === 'pdf' ? <PdfGlyph /> :
+                     <DocFileIcon />}
                     <DocName>{f.name}</DocName>
                   </DocThumb>
                 )}
@@ -274,6 +304,10 @@ export function IntroChatInput({
           })}
         </AttachRow>
       )}
+      {/* While the assistant is streaming we keep the textarea ENABLED so
+       *  the user can start typing the next message — Send only fires once
+       *  the current turn finishes (the dark circle is in STOP mode until
+       *  then). Mirrors the ChatGPT / Claude "pre-type next prompt" UX. */}
       <TA
         ref={ref}
         $compact={compact}
@@ -281,7 +315,7 @@ export function IntroChatInput({
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={onKey}
         placeholder={placeholder}
-        disabled={disabled}
+        disabled={disabled && !isStreaming}
         rows={1}
       />
       <BottomRow>
@@ -345,14 +379,26 @@ export function IntroChatInput({
           <MicBtn type="button" aria-label="Voice">
             <MicIcon />
           </MicBtn>
-          {/* Dark circle — waveform when idle, send arrow when typing. */}
+          {/* Dark circle — three states:
+           *  streaming  → STOP square (interrupts the in-flight reply)
+           *  has text   → SEND arrow
+           *  idle empty → voice waveform
+           * The STOP state takes precedence over text so the user can
+           * always interrupt mid-stream even while continuing to type
+           * the next message (queued via the parent on send). */}
           <DarkCircle
             type="button"
-            onClick={hasText ? send : undefined}
-            disabled={disabled && hasText}
-            aria-label={hasText ? 'Send' : 'Voice mode'}
+            onClick={
+              isStreaming ? onStop :
+              hasText ? send :
+              undefined
+            }
+            disabled={!isStreaming && disabled && hasText}
+            aria-label={isStreaming ? 'Stop generating' : hasText ? 'Send' : 'Voice mode'}
           >
-            {hasText ? <ArrowUpIcon /> : <WaveformIcon />}
+            {isStreaming ? <StopSquareIcon /> :
+             hasText ? <ArrowUpIcon /> :
+             <WaveformIcon />}
           </DarkCircle>
         </RightCluster>
       </BottomRow>
@@ -493,6 +539,15 @@ const ArrowUpIcon = () => (
   </svg>
 );
 
+/* White square — the STOP affordance while a reply is streaming. Slightly
+ * smaller than the send arrow so the dark circle's perimeter still reads
+ * as a button rather than a uniform block. */
+const StopSquareIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden>
+    <rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor" />
+  </svg>
+);
+
 /* Big document-with-plus glyph for the drag-over overlay (Claude style). */
 const DocPlusIcon = () => (
   <svg width="46" height="46" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -513,6 +568,26 @@ const DocFileIcon = () => (
       stroke="#8a8a8a" strokeWidth="1.5" strokeLinejoin="round"
     />
     <path d="M14 3v5h5" stroke="#8a8a8a" strokeWidth="1.5" strokeLinejoin="round" />
+  </svg>
+);
+
+/* PDF-specific glyph — sheet of paper with PDF letters. Visually
+ * distinct from the generic doc icon so the user can tell at a glance
+ * what they staged. */
+const PdfGlyph = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden>
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" stroke="#c0392b" strokeWidth="1.5" strokeLinejoin="round" />
+    <path d="M14 3v5h5" stroke="#c0392b" strokeWidth="1.5" strokeLinejoin="round" />
+    <text x="6.5" y="17" fontSize="5" fontWeight="800" fill="#c0392b" fontFamily="ui-monospace, monospace">PDF</text>
+  </svg>
+);
+
+/* Audio waveform — speaker + sound waves. */
+const AudioGlyph = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden>
+    <path d="M5 9v6h3l5 4V5L8 9H5z" stroke="#2a73d9" strokeWidth="1.5" strokeLinejoin="round" fill="#2a73d9" fillOpacity="0.15" />
+    <path d="M16 8a5 5 0 0 1 0 8" stroke="#2a73d9" strokeWidth="1.5" strokeLinecap="round" />
+    <path d="M18.5 6a8 8 0 0 1 0 12" stroke="#2a73d9" strokeWidth="1.5" strokeLinecap="round" />
   </svg>
 );
 

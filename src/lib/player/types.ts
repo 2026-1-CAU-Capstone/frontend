@@ -175,6 +175,11 @@ export interface GlobalPlayerConfig {
    *  beatOffsets (already shifted to the lick's position in the chart). Set to
    *  [] / undefined to clear. */
   melody?: MelodyNote[];
+  /** Break Editor "stop-time" rests. Forwarded to BOTH inner backing engines
+   *  (chart + melody) so the backing is silenced on Chord Analysis and Note
+   *  Analysis alike, while each page's melody/metronome play straight through.
+   *  Each entry = { bar (flat index), beat (1-based) }. */
+  breakBeats?: Array<{ bar: number; beat: number }>;
   /** Bypass path — writes through to the global `playerSettings` store. */
   mixer?: Partial<PlayerSettings>;
 }

@@ -3,6 +3,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import type { MutableRefObject } from 'react';
 import styled from 'styled-components';
 import {
   Renderer, Stave, StaveNote, Voice, Formatter, Beam,
@@ -195,6 +196,8 @@ const KEY_SIG_SHARPS = ['f', 'c', 'g', 'd', 'a', 'e', 'b'];
 
 const LINE_H = 150;
 const MARGIN = { top: 32, left: 6, right: 6, bottom: 20 };
+const MEASURE_HL_COLOR = 'rgba(100, 181, 246, 0.13)';
+const BLUE_NOTE = '#1565c0';
 
 export function toVexKey(key: string): string {
   const p = key.split('-');
@@ -275,8 +278,16 @@ export function buildBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
 
 /* ── score renderer ───────────────────────────────────────────────────────── */
 
-function renderScore(el: HTMLDivElement, lick: LickEntry, availW: number) {
+function renderScore(
+  el: HTMLDivElement,
+  lick: LickEntry,
+  availW: number,
+  measureRectsRef: MutableRefObject<{ x: number; y: number; w: number }[]>,
+  noteElMapRef: MutableRefObject<Map<string, SVGElement>>,
+) {
   el.innerHTML = '';
+  measureRectsRef.current = [];
+  noteElMapRef.current = new Map();
   const data = lick.sheetData;
   if (!data.measures.length) return;
   const [numBeats, beatValue] = data.timeSignature.split('/').map(Number);
@@ -302,10 +313,13 @@ function renderScore(el: HTMLDivElement, lick: LickEntry, availW: number) {
   const ctx = renderer.getContext();
 
   let x = MARGIN.left;
+  const rects: { x: number; y: number; w: number }[] = [];
+  const noteMap = new Map<string, SVGElement>();
 
   for (let m = 0; m < data.measures.length; m++) {
     const measure = data.measures[m];
     const w = m === 0 ? measW[m] + DECOR : measW[m];
+    rects[m] = { x, y: MARGIN.top, w };
     const stave = new Stave(x, MARGIN.top, w);
     if (m === 0) {
       stave.addClef('treble');
@@ -323,6 +337,11 @@ function renderScore(el: HTMLDivElement, lick: LickEntry, availW: number) {
     new Formatter().joinVoices([voice]).formatToStave([voice], stave);
     voice.draw(ctx, stave);
     beams.forEach((b) => b.setContext(ctx).draw());
+
+    for (let ni = 0; ni < vfNotes.length; ni++) {
+      const svgNode = vfNotes[ni].getSVGElement?.() as SVGElement | undefined;
+      if (svgNode) noteMap.set(`${m}-${ni}`, svgNode);
+    }
 
     // 투플렛 — 3, 5, 6, 7 ... 모든 N-tuplet 처리
     let ti = 0;
@@ -360,6 +379,9 @@ function renderScore(el: HTMLDivElement, lick: LickEntry, availW: number) {
     x += w;
   }
 
+  measureRectsRef.current = rects;
+  noteElMapRef.current = noteMap;
+
   // SVG viewBox로 비율 유지 축소
   const svgEl = el.querySelector('svg') as SVGElement | null;
   if (svgEl) {
@@ -391,6 +413,10 @@ export function LickRecommendMessage({ match, tempoOverride, onShowInline, inlin
   const { lick, originalKey } = match;
   const wrapperRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<HTMLDivElement>(null);
+  const measureRectsRef = useRef<{ x: number; y: number; w: number }[]>([]);
+  const noteElMapRef = useRef<Map<string, SVGElement>>(new Map());
+  const prevNoteKeyRef = useRef<string | null>(null);
+  const playUnsubsRef = useRef<Array<() => void>>([]);
   const { player } = useGlobalPlayer();
   const [playing, setPlaying] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
@@ -408,7 +434,8 @@ export function LickRecommendMessage({ match, tempoOverride, onShowInline, inlin
     const doRender = () => {
       const availW = wrapper.clientWidth;
       if (availW < 60) return;
-      renderScore(el, lick, Math.max(availW - 2, 100));
+      renderScore(el, lick, Math.max(availW - 2, 100), measureRectsRef, noteElMapRef);
+      prevNoteKeyRef.current = null;
     };
 
     doRender();
@@ -417,6 +444,73 @@ export function LickRecommendMessage({ match, tempoOverride, onShowInline, inlin
     return () => ro.disconnect();
   }, [lick]);
 
+  const colorNote = useCallback((key: string, color: string) => {
+    const el = noteElMapRef.current.get(key);
+    if (!el) return;
+    const apply = (e: Element) => { (e as SVGElement).style.fill = color; };
+    apply(el);
+    el.querySelectorAll('*').forEach(apply);
+    let parent = el.parentElement;
+    while (parent && parent.tagName !== 'svg') {
+      const cls = parent.getAttribute('class') || '';
+      if (cls.includes('vf-stavenote') || cls.includes('vf-stemmablenote')) {
+        apply(parent);
+        parent.querySelectorAll('*').forEach(apply);
+        break;
+      }
+      parent = parent.parentElement;
+    }
+  }, []);
+
+  const clearNoteHighlight = useCallback(() => {
+    const prev = prevNoteKeyRef.current;
+    if (prev) colorNote(prev, '');
+    prevNoteKeyRef.current = null;
+  }, [colorNote]);
+
+  const highlightNote = useCallback((mi: number, ni: number) => {
+    clearNoteHighlight();
+    if (mi < 0) return;
+    const key = `${mi}-${ni}`;
+    colorNote(key, BLUE_NOTE);
+    prevNoteKeyRef.current = key;
+  }, [clearNoteHighlight, colorNote]);
+
+  const drawMeasureHL = useCallback((idx: number) => {
+    const svg = svgRef.current?.querySelector('svg');
+    if (!svg) return;
+    svg.querySelector('.m-hl')?.remove();
+    const r = measureRectsRef.current[idx];
+    if (idx < 0 || !r) return;
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('class', 'm-hl');
+    rect.setAttribute('x', String(r.x));
+    rect.setAttribute('y', String(r.y + 8));
+    rect.setAttribute('width', String(r.w));
+    rect.setAttribute('height', String(LINE_H - 16));
+    rect.setAttribute('fill', MEASURE_HL_COLOR);
+    rect.setAttribute('stroke', 'none');
+    rect.setAttribute('rx', '4');
+    svg.insertBefore(rect, svg.firstChild);
+  }, []);
+
+  const clearPlaybackHighlight = useCallback(() => {
+    clearNoteHighlight();
+    drawMeasureHL(-1);
+  }, [clearNoteHighlight, drawMeasureHL]);
+
+  const clearPlaySubscriptions = useCallback(() => {
+    playUnsubsRef.current.forEach((fn) => fn());
+    playUnsubsRef.current = [];
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      clearPlaySubscriptions();
+      clearPlaybackHighlight();
+    };
+  }, [clearPlaySubscriptions, clearPlaybackHighlight]);
+
   const countIn = useCountInIntro();
 
   const togglePlay = useCallback(async () => {
@@ -424,6 +518,8 @@ export function LickRecommendMessage({ match, tempoOverride, onShowInline, inlin
       player.stop();
       countIn.cancel();
       setPlaying(false);
+      clearPlaySubscriptions();
+      clearPlaybackHighlight();
       return;
     }
     const bpm = tempoOverride ?? lick.tempo ?? 200;
@@ -436,14 +532,29 @@ export function LickRecommendMessage({ match, tempoOverride, onShowInline, inlin
       prepare: player.preload({ kind: 'lick', data: lick.sheetData }),
     });
     if (!cin.ok) { setPlaying(false); return; }
+    clearPlaySubscriptions();
+    playUnsubsRef.current = [
+      player.on('bar', (barIndex) => drawMeasureHL(barIndex)),
+      player.on('note', (mi, ni) => highlightNote(mi, ni)),
+      player.on('done', () => {
+        setPlaying(false);
+        clearPlaybackHighlight();
+        clearPlaySubscriptions();
+      }),
+    ];
     player.setConfig({ bpm });
     player.play({ kind: 'lick', data: lick.sheetData }, { startAt: player.ctxNow() + cin.downbeatInSec });
-  }, [lick, tempoOverride, countIn, player, playing]);
-
-  useEffect(() => {
-    const unsub = player.on('done', () => setPlaying(false));
-    return unsub;
-  }, [player]);
+  }, [
+    lick,
+    tempoOverride,
+    countIn,
+    player,
+    playing,
+    clearPlaySubscriptions,
+    clearPlaybackHighlight,
+    drawMeasureHL,
+    highlightNote,
+  ]);
 
   const handleToggleSave = useCallback(() => {
     if (saved) {

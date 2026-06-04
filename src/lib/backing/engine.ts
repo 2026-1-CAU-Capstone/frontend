@@ -253,6 +253,21 @@ function rollTickToSec(tickOffset: number, secPerBeat: number): number {
 
 /* ─── main render ────────────────────────────────────────────────────── */
 
+/**
+ * The 8th-note swing ratio the rhythm section will use for this chart+config —
+ * exposed so melody callers (GlobalPlayer's sheet/lick/solo path) can pre-swing
+ * the lead line to the IDENTICAL feel, locking it to the comp/bass/drums.
+ * Mirrors the `style → resolveFeel → getSwingRatio` chain inside renderChart().
+ */
+export function melodySwingRatio(
+  chart: Chart,
+  opts: { bpm: number; style?: StyleId; feel?: FeelId },
+): number {
+  const style = opts.style ?? chart.defaultStyle;
+  const feel = resolveFeel(style, opts.feel ?? chart.defaultFeel);
+  return getSwingRatio(opts.bpm, feel);
+}
+
 export function renderChart(chart: Chart, opts: RenderOptions): BackingEvent[] {
   const secPerBeat = 60 / opts.bpm;
   const beatsPerBar = chart.timeSig[0];
@@ -390,6 +405,8 @@ export function renderChart(chart: Chart, opts: RenderOptions): BackingEvent[] {
         duration: m.durationBeats * secPerBeat,
         velocity: m.velocity ?? 0.85,
         bar: Math.floor(m.beatOffset / beatsPerBar),
+        srcMi: m.srcMi,
+        srcNi: m.srcNi,
       });
     }
     console.log("[unified] melody track →", { count: opts.melody.length });

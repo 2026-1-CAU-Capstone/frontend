@@ -15,6 +15,7 @@ import { useCompactLayout } from '../../hooks/useCompactLayout';
 import { useIsNativeLandscape } from '../../hooks/useIsNativeLandscape';
 import { usePlayerBarPosition } from '../../contexts/PlayerBarPositionContext';
 import { chordToInputString } from '../../lib/leadSheetChordEdit';
+import { breakBeatForBar, type BreakPoint } from '../../lib/breakPoints';
 import { getModalInterchangeTemplate } from '../../lib/modalInterchangeTemplates';
 import { ModalInterchangePopup } from './ModalInterchangePopup';
 import { SubVPopup } from './SubVPopup';
@@ -516,6 +517,65 @@ const BarCell = styled.div<{ $endPad?: number }>`
   }
 `;
 
+/* ── Break Editor: per-beat markers + label ─────────────────────────────
+ * The marker row floats above the chord area of a bar (only in break-edit
+ * mode). Each cell holds a clickable quarter-note glyph; the active beat
+ * (break start) is rendered solid, the rest faint, hover in between. */
+const BeatMarkerRow = styled.div`
+  position: absolute;
+  top: -6px;
+  left: ${BARLINE_PAD}px;
+  right: 6px;
+  height: 22px;
+  display: grid;
+  z-index: 5;
+  pointer-events: auto;
+`;
+
+const BeatMarker = styled.button<{ $active?: boolean }>`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  color: #1a1a1a;
+  opacity: ${({ $active }) => ($active ? 1 : 0.26)};
+  transition: opacity 0.12s, transform 0.06s;
+  &:hover { opacity: ${({ $active }) => ($active ? 1 : 0.6)}; }
+  &:active { transform: scale(0.9); }
+`;
+
+/* Real quarter note — filled notehead + stem, drawn as inline SVG so it's
+ * crisp at any size and doesn't depend on a music font being present. */
+function QuarterNoteGlyph() {
+  return (
+    <svg width="11" height="20" viewBox="0 0 11 20" aria-hidden style={{ display: 'block' }}>
+      <ellipse cx="3.6" cy="15.4" rx="3.6" ry="2.7" fill="currentColor" transform="rotate(-20 3.6 15.4)" />
+      <rect x="6.5" y="2" width="1.3" height="13.2" fill="currentColor" />
+    </svg>
+  );
+}
+
+/* Break label shown on a marked bar outside edit mode, e.g. "Break (2/4)". */
+const BreakLabel = styled.div`
+  position: absolute;
+  top: -10px;
+  left: ${BARLINE_PAD}px;
+  z-index: 5;
+  background: #1a1a1a;
+  color: #fff;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  pointer-events: none;
+  white-space: nowrap;
+`;
+
 /* Barline decoration area — sits inside the BARLINE_PAD space on the left.
    BARLINE_GAP creates white space above and below so barlines don't touch
    across rows — giving the classic lead-sheet "floating bar" look.       */
@@ -919,53 +979,59 @@ function resolveRepeats(data: LeadSheetData): LeadSheetData {
 
 /* ─── degree label (rule-based analysis) ─────────────────────────────────── */
 
-const ChordColumn = styled.div<{ $selected?: boolean; $selectable?: boolean }>`
+const ChordColumn = styled.div<{ $selected?: boolean; $selectable?: boolean; $editable?: boolean }>`
   position: relative;
   display: inline-flex;
   align-items: flex-end;
   min-width: 0;
   z-index: 2;
-  cursor: ${({ $selectable }) => $selectable ? 'crosshair' : 'default'};
+  cursor: ${({ $selectable, $editable }) => $selectable ? 'crosshair' : $editable ? 'pointer' : 'default'};
   touch-action: ${({ $selectable }) => $selectable ? 'none' : 'auto'};
   user-select: none;
+
+  /* Edit-mode affordance: a faint rounded highlight on hover so the user
+   * knows the chord is clickable. Uses a negative-inset pseudo so it never
+   * changes the glyph's footprint (no layout shift, no size change). */
+  ${({ $editable }) => $editable && `
+    &::before {
+      content: '';
+      position: absolute;
+      inset: -3px -5px;
+      border-radius: 5px;
+      background: transparent;
+      transition: background 0.12s;
+      pointer-events: none;
+      z-index: -1;
+    }
+    &:hover::before { background: rgba(66, 133, 244, 0.1); }
+  `}
 `;
 
-/* Edit mode — each chord becomes an inline text input that mirrors the chord's
- * displayed size/weight/position. The input auto-sizes to its content
- * (field-sizing) so it occupies the same footprint as the chord it replaces and
- * neighbouring chords don't shift. A thin underline is the only edit affordance
- * so the box itself doesn't visually move the chord. */
-const ChordEditInput = styled.input<{ $size?: ChordSize }>`
-  /* Hug the typed text so the input takes the same room as the chord. */
-  field-sizing: content;
-  /* Fallback for browsers without field-sizing — same fixed em widths as before. */
-  width: ${({ $size }) => ($size === 'four' ? '3.4em' : '4.4em')};
-  min-width: 1.4em;
-  max-width: 100%;
-  box-sizing: border-box;
-  text-align: center;
-  font-family: ${CHORD_FONT};
-  /* Match the display Root sizes (cqi-based) so chords don't shrink when the
-   * pencil/edit mode is toggled — the input keeps the chord's original size. */
+/* Edit-mode inline input — replaces the chord glyph IN PLACE while editing,
+ * rendered at the chord's own font-size (matched to <Root>) so you type
+ * directly over the chord rather than in a separate popover box. Width grows
+ * with the text via the `size` attribute (set on change). */
+const ChordInlineInput = styled.input<{ $size?: ChordSize }>`
   font-size: ${({ $size }) =>
     $size === 'four'    ? 'clamp(1.45rem, 5.15cqi, 3.1rem)' :
     $size === 'compact' ? 'clamp(1.0rem, 3.7cqi, 2.2rem)' :
     $size === 'split'   ? 'clamp(1.2rem, 4.5cqi, 2.8rem)' :
                           'clamp(1.5rem, 5.8cqi, 3.5rem)'};
-  /* Mirror Root's weight/line-height so the glyph sits where the chord did. */
   font-weight: 700;
-  line-height: 0.88;
   letter-spacing: -0.01em;
+  font-family: ${CHORD_FONT};
+  line-height: 0.88;
   color: #1a1a1a;
-  background: transparent;
+  text-align: center;
+  background: rgba(66, 133, 244, 0.1);
   border: none;
-  border-bottom: 2px solid rgba(66, 133, 244, 0.7);
-  border-radius: 0;
-  padding: 0;
+  border-bottom: 2px solid rgba(66, 133, 244, 0.75);
+  border-radius: 4px 4px 0 0;
+  box-sizing: content-box;
+  min-width: 1ch;
+  padding: 0 0.1em;
+  margin: 0;
   outline: none;
-  &:focus {
-    border-bottom-color: #1a73e8;
-  }
 `;
 
 /* ── SubV (tritone substitution) decoration: green highlight + label band ── */
@@ -1068,20 +1134,12 @@ function ChordSymbol({
   editMode = false,
   onEdit,
 }: ChordSymbolProps) {
-  if (editMode) {
-    return (
-      <ChordColumn>
-        <ChordEditInput
-          $size={size}
-          defaultValue={chordToInputString(chord)}
-          spellCheck={false}
-          aria-label="코드 수정"
-          onClick={(e) => e.stopPropagation()}
-          onChange={(e) => onEdit?.(e.target.value)}
-        />
-      </ChordColumn>
-    );
-  }
+  /* Edit mode: clicking a chord swaps its glyph for an inline text input
+   * rendered at the same font-size, so you type the new value directly in
+   * place (no separate popover). The rule-based analysis decorations stay
+   * off via filters while editing. */
+  const [editing, setEditing] = useState(false);
+  useEffect(() => { if (!editMode) setEditing(false); }, [editMode]);
 
   const isNonDiatonic = showColors && chord.isDiatonic === false;
   const isModal = showColors && !!chord.analysis?.modalInterchange;
@@ -1116,9 +1174,14 @@ function ChordSymbol({
     <ChordColumn
       $selected={selected}
       $selectable={selectionMode}
-      onClick={selectionMode ? undefined : onClick}
-      onPointerDown={selectionMode && selectionTarget ? (event) => onSelectionPointerDown?.(selectionTarget, event) : undefined}
-      onPointerEnter={selectionMode && selectionTarget ? () => onSelectionPointerEnter?.(selectionTarget) : undefined}
+      $editable={editMode}
+      onClick={
+        editMode
+          ? (e) => { e.stopPropagation(); setEditing(true); }
+          : selectionMode ? undefined : onClick
+      }
+      onPointerDown={!editMode && selectionMode && selectionTarget ? (event) => onSelectionPointerDown?.(selectionTarget, event) : undefined}
+      onPointerEnter={!editMode && selectionMode && selectionTarget ? () => onSelectionPointerEnter?.(selectionTarget) : undefined}
     >
       {isSubV && subVLabel && (
         <>
@@ -1131,6 +1194,31 @@ function ChordSymbol({
           at the LeadSheet level (so they're vertically centered in the
           band via flex/translateY rather than via per-chord pixel
           offsets that varied with chord-cell height). */}
+      {editMode && editing ? (
+        <ChordInlineInput
+          $size={size}
+          autoFocus
+          spellCheck={false}
+          aria-label="코드 수정"
+          placeholder="Cmaj7"
+          defaultValue={chordToInputString(chord)}
+          size={Math.max(chordToInputString(chord).length, 2)}
+          onClick={(e) => e.stopPropagation()}
+          onFocus={(e) => e.currentTarget.select()}
+          onChange={(e) => {
+            onEdit?.(e.target.value);
+            e.currentTarget.size = Math.max(e.target.value.length, 2);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === 'Escape') {
+              e.preventDefault();
+              setEditing(false);
+              e.currentTarget.blur();
+            }
+          }}
+          onBlur={() => setEditing(false)}
+        />
+      ) : (
       <ChordWrap
         $nonDiatonic={isNonDiatonic && !isSubV}
         $modal={isModal}
@@ -1183,6 +1271,7 @@ function ChordSymbol({
           </SlashBass>
         )}
       </ChordWrap>
+      )}
     </ChordColumn>
   );
 }
@@ -1283,6 +1372,11 @@ interface SystemRowProps {
   hoveredIiviChordKeys?: Set<string>;
   editMode?: boolean;
   onChordEdit?: (systemIndex: number, barIndex: number, chordIndex: number, value: string) => void;
+  /** Flat bar index of this system's first bar (across all prior systems). */
+  barIndexBase: number;
+  breakEditMode?: boolean;
+  breakPoints?: BreakPoint[];
+  onToggleBreak?: (bar: number, beat: number) => void;
 }
 
 function SystemRowComponent({
@@ -1309,8 +1403,13 @@ function SystemRowComponent({
   hoveredIiviChordKeys,
   editMode = false,
   onChordEdit,
+  barIndexBase,
+  breakEditMode = false,
+  breakPoints,
+  onToggleBreak,
 }: SystemRowProps) {
   const [top, bot] = timeSignature.split('/');
+  const beatsPerBar = parseInt(top, 10) || 4;
 
   // Determine left barline style for the first bar of this row
   const firstBarlineKind: LeftBarlineKind =
@@ -1419,6 +1518,9 @@ function SystemRowComponent({
             : endBarlineType === 'final' ? 12
             : undefined;
 
+          const flatBar = barIndexBase + i;
+          const breakBeat = breakBeatForBar(breakPoints ?? [], flatBar);
+
           return (
             <BarCell key={i} data-bar-cell={`${systemIndex}-${i}`} $endPad={endPad}>
               {/* Left barline — skip for empty trailing bars */}
@@ -1426,6 +1528,34 @@ function SystemRowComponent({
                 <BarlineArea>
                   <LeftBarline kind={kind} />
                 </BarlineArea>
+              )}
+
+              {/* Break Editor: per-beat quarter-note markers above the bar.
+                  Click to set/move/clear the break-start beat for this bar. */}
+              {breakEditMode && (
+                <BeatMarkerRow style={{ gridTemplateColumns: `repeat(${beatsPerBar}, 1fr)` }}>
+                  {Array.from({ length: beatsPerBar }, (_, b) => {
+                    const beat = b + 1;
+                    return (
+                      <BeatMarker
+                        key={beat}
+                        type="button"
+                        $active={breakBeat === beat}
+                        aria-label={`${flatBar + 1}번째 마디 ${beat}박 Break`}
+                        onClick={(e) => { e.stopPropagation(); onToggleBreak?.(flatBar, beat); }}
+                      >
+                        <QuarterNoteGlyph />
+                      </BeatMarker>
+                    );
+                  })}
+                </BeatMarkerRow>
+              )}
+
+              {/* Break label (shown when a break exists; in edit mode the active
+                  marker already indicates it, so only show the label out of edit
+                  mode to avoid clutter). */}
+              {breakBeat != null && !breakEditMode && (
+                <BreakLabel>Break ({breakBeat}/{beatsPerBar})</BreakLabel>
               )}
 
               {/* End barline */}
@@ -1559,6 +1689,14 @@ interface LeadSheetProps {
   editMode?: boolean;
   /** Fired on each keystroke while editing a chord, with its source indices. */
   onChordEdit?: (systemIndex: number, barIndex: number, chordIndex: number, value: string) => void;
+  /** Break Editor mode: show a row of clickable per-beat quarter-note markers
+   *  above every bar. Independent of `editMode`. */
+  breakEditMode?: boolean;
+  /** Active break points (flat bar index + 1-based beat). Renders a `Break
+   *  (K/4)` label on marked bars and fills the active marker. */
+  breakPoints?: BreakPoint[];
+  /** Toggle a break at (flat bar index, 1-based beat). */
+  onToggleBreak?: (bar: number, beat: number) => void;
 }
 
 interface ActiveBarRect {
@@ -2073,6 +2211,9 @@ export function LeadSheet({
   styleSlot,
   editMode = false,
   onChordEdit,
+  breakEditMode = false,
+  breakPoints,
+  onToggleBreak,
 }: LeadSheetProps) {
   // Resolve filters: prefer analysisFilters, fall back to legacy showAnalysis prop
   const af = analysisFilters ?? (showAnalysis === false
@@ -3606,6 +3747,10 @@ export function LeadSheet({
               isFirst={i === 0}
               isLast={i === resolvedData.systems.length - 1}
               systemIndex={i}
+              barIndexBase={resolvedData.systems.slice(0, i).reduce((n, s) => n + s.bars.length, 0)}
+              breakEditMode={breakEditMode}
+              breakPoints={breakPoints}
+              onToggleBreak={onToggleBreak}
               compact={compactRows[i]}
               timeSignature={resolvedData.timeSignature}
               registerChordEl={registerChordEl}

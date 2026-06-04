@@ -6,6 +6,7 @@ import { BrandLogoImage } from '../common/BrandLogoImage';
 import { getCachedUser, onAuthChange, type AuthUser } from '../../api/auth';
 import { UserMenu } from '../auth/UserMenu';
 import { RecentChatsList } from './RecentChatsList';
+import { ChatSearchModal } from '../chat/ChatSearchModal';
 import { setActiveChat } from '../../api/chat';
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -726,6 +727,10 @@ export function IconSidebar({
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [authUser, setAuthUser] = useState<AuthUser | null>(() => getCachedUser());
+  /* Chat-search overlay — opened by the "검색" NavBtn (both expanded
+   * and collapsed sidebar variants). Closing it returns focus to the
+   * sidebar. Cmd/Ctrl+K is also bound as a global shortcut. */
+  const [searchOpen, setSearchOpen] = useState(false);
   const [expanded, setExpanded] = useState<boolean>(() => {
     /* Tablet / desktop widths: always start expanded on launch. Users can
      * still toggle it closed within a session via the panel button, but
@@ -789,8 +794,22 @@ export function IconSidebar({
     };
   }, [adminOpen]);
 
+  /* Cmd/Ctrl+K toggles the chat-search modal globally — matches the
+   * familiar shortcut from Claude / ChatGPT / Linear / VSCode. */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setSearchOpen((v) => !v);
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+
   return (
     <>
+      <ChatSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
       <Rail $expanded={expanded}>
       <TopRow $expanded={expanded}>
         {expanded ? (
@@ -819,7 +838,7 @@ export function IconSidebar({
             <NewChatIcon />
             <NavLabel $expanded={true}>새 채팅</NavLabel>
           </NavBtn>
-          <NavBtn $expanded={true} onClick={() => { /* TODO: open search overlay */ }}>
+          <NavBtn $expanded={true} onClick={() => setSearchOpen(true)}>
             <SearchIcon />
             <NavLabel $expanded={true}>검색</NavLabel>
           </NavBtn>
@@ -845,7 +864,7 @@ export function IconSidebar({
             <NavTooltip>새 채팅</NavTooltip>
           </NavBtnWrap>
           <NavBtnWrap>
-            <NavBtn $expanded={false} title="검색">
+            <NavBtn $expanded={false} title="검색" onClick={() => setSearchOpen(true)}>
               <SearchIcon />
             </NavBtn>
             <NavTooltip>검색</NavTooltip>

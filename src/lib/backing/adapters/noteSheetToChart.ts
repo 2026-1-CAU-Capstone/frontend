@@ -39,6 +39,12 @@ export interface MelodyNote {
   durationBeats: number;
   /** 0..1; defaults to undefined (caller supplies a default). */
   velocity?: number;
+  /** Source measure index this note was extracted from (for highlight sync). */
+  srcMi: number;
+  /** Source note index within `measure.notes` (for highlight sync). A chord's
+   *  tones all share the same srcNi; tie-continuations carry the originating
+   *  note's srcNi so the held note keeps its highlight. */
+  srcNi: number;
 }
 
 /**
@@ -119,7 +125,8 @@ export function extractMelody(sheet: NoteSheetData): MelodyNote[] {
   sheet.measures.forEach((measure, mi) => {
     const barStartBeat = mi * beatsPerBar;
     let intra = 0; // beats elapsed from the start of THIS measure
-    for (const note of measure.notes) {
+    for (let srcNi = 0; srcNi < measure.notes.length; srcNi++) {
+      const note = measure.notes[srcNi];
       const beats = noteBeats(note);
 
       if (note.ottavaStart === "8va") ottavaShift = 12;
@@ -150,6 +157,8 @@ export function extractMelody(sheet: NoteSheetData): MelodyNote[] {
               midi,
               beatOffset: barStartBeat + intra,
               durationBeats: beats,
+              srcMi: mi,
+              srcNi,
             });
             if (note.tie) nextOpen.set(midi, idx);
           }
