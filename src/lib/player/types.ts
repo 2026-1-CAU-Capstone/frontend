@@ -39,6 +39,7 @@
 
 import type { NoteSheetData } from "../../data/sampleMelody";
 import type { LeadSheetData } from "../../data/leadSheetTypes";
+import type { MelodyNote } from "../backing/adapters/noteSheetToChart";
 import type {
   BackingPlayer,
   BackingConfig,
@@ -169,6 +170,11 @@ export interface GlobalPlayerConfig {
   loop?: boolean;
   repeatCount?: number;
   countInBeats?: number;
+  /** Optional melody track injected into the CHART engine — used to play an
+   *  inline lick over the chord chart at its anchor bars. Notes carry absolute
+   *  beatOffsets (already shifted to the lick's position in the chart). Set to
+   *  [] / undefined to clear. */
+  melody?: MelodyNote[];
   /** Bypass path — writes through to the global `playerSettings` store. */
   mixer?: Partial<PlayerSettings>;
 }

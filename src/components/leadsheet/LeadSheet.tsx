@@ -1543,6 +1543,10 @@ interface LeadSheetProps {
     systemIndex: number;
     anchorBar: number;
     sheet: NoteSheetData;
+    /** Leading pickup measures in the lick (bars before the chord progression).
+     *  The lick's first chord-bearing bar is aligned to `anchorBar`; the pickup
+     *  bar(s) are dropped (not rendered). Defaults to 0. */
+    pickupBars?: number;
   };
   onInlineLickClose?: () => void;
   /** Controlled transpose key. When provided the host owns the key — e.g.
@@ -3631,20 +3635,43 @@ export function LeadSheet({
               if (!inlineLick || i < inlineLick.systemIndex) return null;
               const S = inlineLick.systemIndex;
               const B = inlineLick.anchorBar;
-              const M = inlineLick.sheet.measures.length;
               const barsOf = (k: number) => resolvedData.systems[k]?.bars.length ?? 0;
-              let measureOffset = 0;
-              for (let k = S; k < i; k++) measureOffset += barsOf(k) - (k === S ? B : 0);
-              if (measureOffset >= M) return null;
-              const colStart = i === S ? B : 0;
-              const colCount = Math.min(M - measureOffset, Math.max(0, barsOf(i) - colStart));
+              // Render ONLY the lick's chord-bearing part (the ii-V-I, e.g.
+              // D-7 → onward). Leading no-chord pickup measures are DROPPED, and
+              // the first chord-bearing bar lands exactly on `anchorBar`.
+              const start = inlineLick.pickupBars ?? 0;   // first chord-bearing measure
+              const M = inlineLick.sheet.measures.length;
+              const chordBars = M - start;
+              if (chordBars <= 0) return null;
+              // The chord-bearing part occupies continuous columns
+              // [B, B + chordBars - 1] (measured from the start of system S);
+              // intersect with this row's columns.
+              let rowStartCont = 0;
+              for (let k = S; k < i; k++) rowStartCont += barsOf(k);
+              const lo = Math.max(B, rowStartCont);
+              const hi = Math.min(B + chordBars - 1, rowStartCont + barsOf(i) - 1);
+              if (hi < lo) return null;
+              const colStart = lo - rowStartCont;       // column within this row
+              const measureOffset = start + (lo - B);    // lick measure index at column lo
+              const colCount = hi - lo + 1;
               if (colCount <= 0) return null;
+              // Global flat bar index of this segment's first column — lets the
+              // segment map the player's onNote(globalBar) to its local column
+              // for the blue current-note / current-measure highlight.
+              let firstGlobalBar = colStart;
+              for (let k = 0; k < i; k++) firstGlobalBar += barsOf(k);
+              // Does THIS chart row carry a ii-V bracket below its chords? If so
+              // the lick drops a bit so it doesn't collide with the bracket;
+              // clean (bracket-less) rows keep the tight height.
+              const rowHasBracket = bracketSpecs.some((b) => Number(b.chordId1.split('-')[0]) === i);
               return (
                 <InlineLickRow
                   sheet={inlineLick.sheet}
                   measureOffset={measureOffset}
                   colStart={colStart}
                   colCount={colCount}
+                  firstGlobalBar={firstGlobalBar}
+                  rowHasBracket={rowHasBracket}
                   showClose={i === S}
                   onClose={onInlineLickClose}
                 />

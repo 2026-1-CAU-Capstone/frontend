@@ -873,6 +873,12 @@ interface NoteSheetProps {
    *  parent renders its own transport (NotePage) and drives this NoteSheet
    *  via the imperative handle below. */
   hideTransport?: boolean;
+  /** Skip the mount-time instrument warmup. Set on static thumbnails/previews
+   *  (e.g. 내 악보 차트 cards) that render the score but never play. Without it,
+   *  every card mounts and preloads the full piano/bass/drum sample banks,
+   *  flooding the network with hundreds of .ogg fetches and slowing the page.
+   *  Instruments still load lazily if the user ever does press play. */
+  noPreload?: boolean;
   /** Fires whenever the internal player transitions play/stop/pause, so
    *  the parent transport can mirror the playing state. */
   onPlayingChange?: (playing: boolean) => void;
@@ -892,7 +898,7 @@ export interface NoteSheetHandle {
 export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function NoteSheet({
   data, selectedKey, allKeys, onKeyChange, selectable, selectedRanges, onSelectionChange,
   showMeasureNumbers, lineStartMeasureNumbers, forceAutoStem,
-  hideTransport, onPlayingChange, onTempoChange,
+  hideTransport, noPreload, onPlayingChange, onTempoChange,
 }, ref) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<HTMLDivElement>(null);
@@ -1002,8 +1008,9 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
   // needed), so by play time everything is decoded and the count-in starts
   // instantly instead of stalling ~2s on a cold first play.
   useEffect(() => {
+    if (noPreload) return; // static thumbnail/preview — never plays, so don't load sample banks
     void player.preload({ kind: 'sheet', data }).catch(() => { /* retry at play time */ });
-  }, [player, data]);
+  }, [player, data, noPreload]);
 
   const togglePlay = useCallback(async () => {
     const p = player;

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 import { login, getCachedUser } from '../api/auth';
+import { BrandLogoImage } from '../components/common/BrandLogoImage';
 
 const BG = '#f5f1e9';
 
@@ -53,8 +54,7 @@ export default function LoginPage() {
   return (
     <Page>
       <Brand onClick={() => navigate('/')}>
-        <BrandLogo src="/jazzifylogo.png" alt="" />
-        <BrandName>Jazzify</BrandName>
+        <BrandLogoImage height={34} scaleX={1.05} />
       </Brand>
 
       <Center>
@@ -172,20 +172,6 @@ const Brand = styled.button`
     top: 20px;
     left: 20px;
   }
-`;
-
-const BrandLogo = styled.img`
-  width: 30px;
-  height: 30px;
-  border-radius: 7px;
-  object-fit: cover;
-`;
-
-const BrandName = styled.span`
-  font-size: 1.4rem;
-  font-weight: 600;
-  color: #1a1a1a;
-  letter-spacing: -0.01em;
 `;
 
 const Center = styled.div`

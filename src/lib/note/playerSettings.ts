@@ -94,6 +94,9 @@ export interface PlayerSettings {
   /** Chord-chart transposing instrument (display only — shifts the written
    *  chart by a fixed interval). 'C' = concert pitch. */
   transposingInstrument: TransposingInstrument;
+  /** Play the inline lick's melody over the chord chart when one is shown.
+   *  Off = the lick is still drawn under the bars but stays silent. */
+  playInlineLick: boolean;
 }
 
 const DEFAULTS: PlayerSettings = {
@@ -118,6 +121,7 @@ const DEFAULTS: PlayerSettings = {
   genre: 'Medium Swing',
   loop: true,
   transposingInstrument: 'C',
+  playInlineLick: true,
 };
 
 const LS_KEY = 'jazzify_player_settings_v1';

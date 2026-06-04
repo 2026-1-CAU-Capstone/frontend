@@ -6,7 +6,6 @@ import { type ClaudeMessage, type ClaudeImage } from '../../api/claude';
 import { streamWithRAG, type RagDebugInfo } from '../../api/harmorag';
 import {
   streamChat as backendStreamChat,
-  streamRagChat as backendStreamRagChat,
   getChat as backendGetChat,
   onActiveChatChange,
   setActiveChat,
@@ -599,45 +598,33 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
         }
       };
       try {
-        if (hasImages) {
-          finalText = await backendStreamChat(
-            {
-              message: text,
-              history: toBackendHistory(historyRef.current),
-              chordContext: contextForModel || undefined,
-              songTitle: songTitle || undefined,
-              images: toBackendImages(images),
-              chatPublicId: chatPublicIdRef.current ?? undefined,
-            },
-            onChunk,
-            onNewId,
-          );
-        } else {
-          finalText = await backendStreamRagChat(
-            {
-              message: text,
-              history: toBackendHistory(historyRef.current),
-              chordContextText: contextForModel || undefined,
-              songTitle: songTitle || undefined,
-              suppressInlineChart: !!contextForModel,
-              chatPublicId: chatPublicIdRef.current ?? undefined,
-            },
-            onChunk,
-            onNewId,
-            /* RAG debug block — backend prefixes the stream with a
-             * \x00RAG_DEBUG\x00 … \x00END_DEBUG\x00 envelope; streamRagChat
-             * parses it and hands the structured payload back here so the
-             * existing RagDebugPanel (rendered per-message via msg.ragDebug)
-             * lights up the same way the HarmoRAG direct path does. */
-            (debugInfo) => {
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === aiMsgId ? { ...m, ragDebug: debugInfo as RagDebugInfo } : m,
-                ),
-              );
-            },
-          );
-        }
+        /* Single endpoint: POST /v1/chat/stream. `useRag` turns RAG on (the
+         * default for text turns — RAG-everywhere). Vision turns set it off:
+         * the backend grounds on the image, so corpus retrieval is skipped and
+         * the image is attached. The RAG debug block (when present) is parsed by
+         * streamChat and handed back here so the per-message RagDebugPanel lights
+         * up exactly as the HarmoRAG direct path does. */
+        finalText = await backendStreamChat(
+          {
+            message: text,
+            history: toBackendHistory(historyRef.current),
+            chordContextText: contextForModel || undefined,
+            songTitle: songTitle || undefined,
+            images: toBackendImages(images),
+            useRag: !hasImages,
+            suppressInlineChart: !!contextForModel,
+            chatPublicId: chatPublicIdRef.current ?? undefined,
+          },
+          onChunk,
+          onNewId,
+          (debugInfo) => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === aiMsgId ? { ...m, ragDebug: debugInfo as RagDebugInfo } : m,
+              ),
+            );
+          },
+        );
         backendOk = true;
         notifyChatListChanged();
       } catch (e) {

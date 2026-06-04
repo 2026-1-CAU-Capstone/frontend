@@ -326,6 +326,13 @@ export interface BackingConfig {
    *  precedence over `loop`: the song plays exactly this many times then fires
    *  `onDone`. Undefined → fall back to `loop` (infinite). */
   repeatCount?: number;
+  /** Whether the final pass ends with the reverberant "button" tail (re-strike
+   *  the closing chord, bloom the reverb, defer `onDone` ~6s). Default true —
+   *  good for songs. Set false for short phrases (licks) so playback ends the
+   *  instant the last note finishes and `onDone` fires immediately (the UI can
+   *  flip Stop→Play right away); the last note still rings out on its own
+   *  envelope (not hard-cut). */
+  endingTail?: boolean;
   /** Optional melody track. When set, the BackingPlayer threads it into the
    *  engine via `RenderOptions.melody` so the lead line is scheduled alongside
    *  bass/piano/drums. Typed loosely to avoid a circular dep with the adapter

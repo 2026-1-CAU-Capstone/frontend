@@ -18,7 +18,9 @@
 import { authFetch } from './auth';
 import type { ClaudeMessage, ClaudeImage } from './claude';
 
-const API_BASE = import.meta.env.DEV ? '/api' : 'https://jazzify.p-e.kr/api';
+/* Paths are RELATIVE here on purpose — authFetch() owns the base URL
+ * (DEV: '/api' Vite proxy → first-party RefreshToken cookie; PROD: absolute
+ * backend URL). Prefixing a base here too produced a doubled '/api/api/…'. */
 
 /* ── Types (mirror the Swagger schemas) ──────────────────────────────── */
 
@@ -53,10 +55,19 @@ export interface ChatDetail extends ChatSummary {
 export interface ChatStreamRequest {
   message: string;
   history?: { role: string; content: string }[];
-  chordContext?: string;
+  /** Structured chord-context object (used by the RAG path). */
+  chordContext?: Record<string, unknown>;
+  /** Plain-text chord context rendered into the prompt. */
+  chordContextText?: string;
   category?: ChatCategory;
   songTitle?: string;
   images?: { mediaType: string; data: string }[];
+  /** When true the backend attaches RAG (multi-query + RRF over the corpus)
+   *  and prefixes the stream with a \x00RAG_DEBUG\x00 … \x00END_DEBUG\x00
+   *  block; otherwise it returns a plain Anthropic stream. */
+  useRag?: boolean;
+  /** Ask the backend NOT to emit an inline chord chart in the reply. */
+  suppressInlineChart?: boolean;
   chatPublicId?: string;
 }
 
@@ -142,7 +153,7 @@ export async function listChats(opts: { page?: number; size?: number; sort?: str
   params.set('page', String(opts.page ?? 0));
   params.set('size', String(opts.size ?? 30));
   params.set('sort', opts.sort ?? 'updatedAt,desc');
-  const res = await authFetch(`${API_BASE}/v1/chat?${params.toString()}`);
+  const res = await authFetch(`/v1/chat?${params.toString()}`);
   if (!res.ok) throw new Error(`chat list ${res.status} ${await readApiError(res)}`.trim());
   const json: { data: Page<ChatSummary> } = await res.json();
   const page = json.data;
@@ -154,7 +165,7 @@ export async function listChats(opts: { page?: number; size?: number; sort?: str
  *  are sanitized through stripInternalInstructions on the way out so any
  *  legacy DB rows with leaked `[내부 지시 ...]` blocks do not reach the UI. */
 export async function getChat(publicId: string): Promise<ChatDetail> {
-  const res = await authFetch(`${API_BASE}/v1/chat/${encodeURIComponent(publicId)}`);
+  const res = await authFetch(`/v1/chat/${encodeURIComponent(publicId)}`);
   if (!res.ok) throw new Error(`chat get ${res.status} ${await readApiError(res)}`.trim());
   const json: { data: ChatDetail } = await res.json();
   const detail = json.data;
@@ -167,27 +178,36 @@ export async function getChat(publicId: string): Promise<ChatDetail> {
 /** DELETE /v1/chat/{publicId} — delete a chat session and its message history.
  *  Returns 204 No Content on success. */
 export async function deleteChat(publicId: string): Promise<void> {
-  const res = await authFetch(`${API_BASE}/v1/chat/${encodeURIComponent(publicId)}`, {
+  const res = await authFetch(`/v1/chat/${encodeURIComponent(publicId)}`, {
     method: 'DELETE',
   });
   if (!res.ok) throw new Error(`chat delete ${res.status} ${await readApiError(res)}`.trim());
 }
 
-/** POST /v1/chat/stream — text/plain stream of the assistant reply.
- *  X-Chat-Public-Id response header identifies the chat. Streams the body
- *  via TextDecoder; on each tick, calls onChunk(accumulated). Returns the
- *  final accumulated text.
+/* RAG debug-block markers — when `useRag` is set the backend prefixes the
+ * stream with `\x00RAG_DEBUG\x00 {json} \x00END_DEBUG\x00` before the reply. */
+const RAG_OPEN  = '\x00RAG_DEBUG\x00';
+const RAG_CLOSE = '\x00END_DEBUG\x00';
+
+/** POST /v1/chat/stream — single streaming chat endpoint.
  *
- *  When `req.chatPublicId` is omitted, the server creates a NEW chat and
- *  the returned X-Chat-Public-Id is the brand-new id. Pass it back on the
- *  next call to continue the same chat.
+ *  `req.useRag=true` → backend attaches RAG context and prefixes the stream
+ *  with a `\x00RAG_DEBUG\x00 … \x00END_DEBUG\x00` block (parsed out and handed
+ *  to `onDebug`); otherwise it's a plain Anthropic stream. Either way the body
+ *  is text/plain, streamed via TextDecoder → `onChunk(accumulated)`.
+ *
+ *  The `X-Chat-Public-Id` response header identifies the chat. When
+ *  `req.chatPublicId` is omitted the server creates a NEW chat and returns its
+ *  id here (via `onChatPublicId`); pass it back on the next turn to continue
+ *  the same session. Returns the final accumulated reply text.
  */
 export async function streamChat(
   req: ChatStreamRequest,
   onChunk: (accumulated: string) => void,
   onChatPublicId?: (id: string) => void,
+  onDebug?: (info: unknown) => void,
 ): Promise<string> {
-  const res = await authFetch(`${API_BASE}/v1/chat/stream`, {
+  const res = await authFetch(`/v1/chat/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(req),
@@ -202,82 +222,6 @@ export async function streamChat(
   if (!reader) throw new Error('stream: no body reader');
 
   const decoder = new TextDecoder();
-  let accumulated = '';
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    accumulated += decoder.decode(value, { stream: true });
-    onChunk(accumulated);
-  }
-  // final flush — decoder may hold a partial multi-byte sequence
-  const tail = decoder.decode();
-  if (tail) {
-    accumulated += tail;
-    onChunk(accumulated);
-  }
-
-  return accumulated;
-}
-
-/** Request body for POST /v1/rag/chat. Backend runs multi-query + RRF
- *  retrieval and streams the LLM reply as text/plain — same envelope as
- *  /v1/chat/stream, but the body shape includes a structured chordContext
- *  object + chordContextText and a suppressInlineChart hint instead of the
- *  image-attach field. `chatPublicId` is again omitted on first message
- *  (server returns X-Chat-Public-Id header) and echoed back to continue. */
-export interface RagChatStreamRequest {
-  message: string;
-  history?: { role: string; content: string }[];
-  chordContext?: Record<string, unknown>;
-  chordContextText?: string;
-  songTitle?: string;
-  suppressInlineChart?: boolean;
-  chatPublicId?: string;
-}
-
-/* RAG debug-block markers — same protocol the HarmoRAG FastAPI server uses,
- * mirrored on the Spring `/v1/rag/chat` backend so the existing debug panel
- * keeps working regardless of which RAG path served the request. */
-const RAG_OPEN  = '\x00RAG_DEBUG\x00';
-const RAG_CLOSE = '\x00END_DEBUG\x00';
-
-/** POST /v1/rag/chat — RAG-enhanced streaming chat. Same response envelope
- *  as streamChat (text/plain stream + X-Chat-Public-Id header) so call
- *  sites only need to swap the request body.
- *
- *  Response stream layout:
- *
- *     \x00RAG_DEBUG\x00 {json:RagDebugInfo} \x00END_DEBUG\x00 …assistant text…
- *
- *  The leading debug block is extracted, parsed into the RagDebugInfo
- *  shape and surfaced via `onDebug`. Everything after the closing marker
- *  is the actual LLM reply that streams into `onChunk(accumulated)`.
- *
- *  When the user is logged in the backend persists this chat in /v1/chat
- *  the same way /v1/chat/stream does, so the sidebar list picks it up.
- *  Pass back the returned id on follow-ups to append to the same session
- *  instead of creating a new chat each turn. */
-export async function streamRagChat(
-  req: RagChatStreamRequest,
-  onChunk: (accumulated: string) => void,
-  onChatPublicId?: (id: string) => void,
-  onDebug?: (info: unknown) => void,
-): Promise<string> {
-  const res = await authFetch(`${API_BASE}/v1/rag/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(req),
-  });
-  if (!res.ok) {
-    throw new Error(`rag stream ${res.status} ${await readApiError(res)}`.trim());
-  }
-  const newPublicId = res.headers.get('X-Chat-Public-Id') || res.headers.get('x-chat-public-id');
-  if (newPublicId && onChatPublicId) onChatPublicId(newPublicId);
-
-  const reader = res.body?.getReader();
-  if (!reader) throw new Error('rag stream: no body reader');
-
-  const decoder = new TextDecoder();
   let buffer = '';
   let accumulated = '';
   let debugParsed = false;
@@ -287,25 +231,22 @@ export async function streamRagChat(
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
 
-    /* Debug block (if any) sits at the very start of the stream. Parse it
-     * exactly once — once parsed, every later chunk is plain reply text. */
+    /* Optional RAG debug block sits at the very start of the stream. Parse it
+     * exactly once — once parsed (or proven absent), the rest is reply text. */
     if (!debugParsed) {
       const openIdx  = buffer.indexOf(RAG_OPEN);
       const closeIdx = buffer.indexOf(RAG_CLOSE);
       if (openIdx !== -1 && closeIdx !== -1 && closeIdx > openIdx) {
         const jsonStr = buffer.slice(openIdx + RAG_OPEN.length, closeIdx);
-        try {
-          const info = JSON.parse(jsonStr);
-          onDebug?.(info);
-        } catch { /* malformed json — skip, still strip the markers */ }
+        try { onDebug?.(JSON.parse(jsonStr)); } catch { /* malformed — still strip markers */ }
         buffer = buffer.slice(closeIdx + RAG_CLOSE.length);
         debugParsed = true;
       } else if (openIdx === -1) {
-        /* Stream started without any debug marker — no block to wait for. */
+        /* Stream started without any debug marker — nothing to wait for. */
         debugParsed = true;
       } else {
-        /* Opening marker present but closing not yet arrived — keep
-         * buffering, don't flush to onChunk yet (we'd leak the marker). */
+        /* Opening marker present but closing not yet arrived — keep buffering,
+         * don't flush to onChunk yet (we'd leak the marker). */
         continue;
       }
     }
@@ -317,15 +258,12 @@ export async function streamRagChat(
     }
   }
 
-  /* Flush any remaining bytes from the decoder's internal multi-byte
-   * buffer. If the debug block never closed (server crashed mid-write?)
-   * surface whatever text we collected — better than swallowing the
-   * partial reply. */
+  /* Flush any remaining bytes from the decoder's internal multi-byte buffer.
+   * If the debug block never closed (server crashed mid-write?) strip the open
+   * marker so the user still sees clean text rather than the raw marker. */
   const tail = decoder.decode();
   if (tail) buffer += tail;
   if (!debugParsed) {
-    /* Debug block was opened but never closed. Strip the open marker so
-     * the user at least sees clean text, even if debug info is lost. */
     const openIdx = buffer.indexOf(RAG_OPEN);
     if (openIdx !== -1) buffer = buffer.slice(0, openIdx);
   }

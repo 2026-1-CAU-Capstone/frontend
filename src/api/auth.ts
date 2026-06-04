@@ -223,6 +223,12 @@ export async function login(username: string, password: string): Promise<AuthUse
     credentials: 'include',
     body: JSON.stringify({ username, password }),
   });
+  // A 502 (Bad Gateway) means the backend is down/unreachable, not a bad
+  // credential — surface a clear "server problem" message in-place instead of a
+  // raw "HTTP 502". The login UIs render thrown error messages in their form.
+  if (res.status === 502) {
+    throw new Error('서버에 문제가 생겼습니다. 잠시 후 다시 시도해 주세요.');
+  }
   const data = await rawJson<TokenResponse>(res);
   setAccessToken(data.accessToken);
   const user: AuthUser = { publicId: data.publicId, username: data.username };

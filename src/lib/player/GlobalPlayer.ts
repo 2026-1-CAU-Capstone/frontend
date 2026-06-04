@@ -242,6 +242,12 @@ export function createGlobalPlayer(
       const chord = barChordTable[barIndex];
       if (chord) emit("chord", chord, barIndex);
     });
+    // Chart playback historically had no melody, so onNote was never forwarded.
+    // It does now when an inline lick is injected over the chord chart — forward
+    // it so InlineLickRow can highlight the current note in real time.
+    bp.on("onNote", (mi: number, ni: number) => {
+      emit("note", mi, ni);
+    });
     bp.on("onDone", () => {
       emit("done");
     });
@@ -311,6 +317,7 @@ export function createGlobalPlayer(
     if (config.feel !== undefined) seed.feel = config.feel;
     if (config.loop !== undefined) seed.loop = config.loop;
     if (config.repeatCount !== undefined) seed.repeatCount = config.repeatCount;
+    if (config.melody !== undefined) seed.melody = config.melody;
 
     const styOpts = {
       styleUrl: input.styleUrl,
@@ -378,12 +385,19 @@ export function createGlobalPlayer(
     if (config.loop !== undefined) seed.loop = config.loop;
     if (config.repeatCount !== undefined) seed.repeatCount = config.repeatCount;
 
-    // Lick mode: silence rhythm section, boost the lead (preserves the
-    // legacy `lickMode: true` preset behavior). Volume keys hit the
-    // BackingPlayer.dispatch lookup (config.volume[ev.instrument]) directly.
+    // Lick mode:
+    //  - play ONCE through (no infinite loop / no repeats),
+    //  - pin the lead line to piano (don't follow the global sax/flute setting),
+    //  - keep the rhythm section AUDIBLE so the lick sits over a swing groove
+    //    (drums/bass/piano comp at the user's mixer volumes — no longer muted).
     if (input.kind === "lick") {
-      seed.volume = { drums: 0, bass: 0, piano: 0, melody: 1.0 };
+      seed.loop = false;
+      seed.repeatCount = 1;
+      seed.melodyInstrument = "piano";
       seed.pianoReverb = 0.5;
+      // End the instant the phrase finishes (no 6s reverb tail) so the card's
+      // Stop button flips back to Play right when one pass completes.
+      seed.endingTail = false;
     }
 
     backingPlayerMelody = factories.createBackingPlayer(chart, seed);
@@ -393,12 +407,13 @@ export function createGlobalPlayer(
   }
 
   function computeMelodySig(input: { kind: string; data: NoteSheetData }): string {
-    // Cheap identity proxy — same convention as computeBackingSig. The kind
-    // is part of the signature so toggling sheet↔lick (different volume
-    // preset) forces a rebuild. `key` is included so TRANSPOSING the sheet
-    // busts the cache: without it, a transposed solo (same title + measure
-    // count) reused the cached melody engine built for the original key and
-    // played back in the wrong key.
+    // Identity proxy — same convention as computeBackingSig. The kind is part
+    // of the signature so toggling sheet↔lick forces a rebuild. `key` busts the
+    // cache on transpose. A content hash of the actual notes/chords is included
+    // because title + key + measure count ALONE collide badly for licks — the
+    // lick database has many short, same-length, untitled fragments, so two
+    // different licks produced an identical signature and the second one reused
+    // the FIRST lick's cached engine (→ playing the wrong/previous lick).
     const d = input.data;
     return (
       input.kind +
@@ -407,8 +422,29 @@ export function createGlobalPlayer(
       "/" +
       (d.key ?? "?") +
       "/" +
-      (d.measures?.length ?? 0)
+      (d.measures?.length ?? 0) +
+      "/" +
+      hashMeasures(d.measures)
     );
+  }
+
+  /** Cheap rolling hash over a sheet's note/chord content — enough to tell two
+   *  distinct phrases apart in the melody-engine cache key. */
+  function hashMeasures(measures: NoteSheetData["measures"] | undefined): string {
+    let h = 0;
+    const mix = (s: string | undefined) => {
+      if (!s) return;
+      for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0;
+    };
+    for (const m of measures ?? []) {
+      mix(m.chord);
+      for (const n of m.notes ?? []) {
+        mix(n.duration);
+        for (const k of n.keys ?? []) mix(k);
+      }
+      h = (Math.imul(h, 31) + 1) | 0; // measure boundary marker
+    }
+    return (h >>> 0).toString(36);
   }
 
   function computeBackingSig(input: ChartInput): string {
@@ -556,9 +592,19 @@ export function createGlobalPlayer(
     if ("feel" in patch) bpPatch.feel = patch.feel;
     if ("loop" in patch) bpPatch.loop = patch.loop;
     if ("repeatCount" in patch) bpPatch.repeatCount = patch.repeatCount;
+    // Melody only goes to the CHART engine — it's the inline-lick-over-chord-
+    // chart track. The melody engine (sheet/lick/solo) gets its melody from its
+    // own NoteSheetData seed, not from here.
+    if ("melody" in patch) bpPatch.melody = patch.melody;
     if (Object.keys(bpPatch).length > 0) {
       backingPlayer?.setConfig(bpPatch);
-      backingPlayerMelody?.setConfig(bpPatch);
+      // Don't forward `melody` to the melody engine (it owns its own track).
+      if ("melody" in bpPatch && backingPlayerMelody) {
+        const { melody: _drop, ...rest } = bpPatch;
+        if (Object.keys(rest).length > 0) backingPlayerMelody.setConfig(rest);
+      } else {
+        backingPlayerMelody?.setConfig(bpPatch);
+      }
     }
   }
 

@@ -14,8 +14,11 @@ import type { LeadSheetData } from '../data/leadSheetTypes';
 import type { ChordOverlay } from '../data/types';
 import { getSongIndex, getSong, type SongEntry } from '../lib/ireal/irealLoader';
 import { buildChordContext } from '../api/chordContext';
-import { addChordProjectChords, analyzeChordProject, createChordProject } from '../api/chordProjects';
+import { addChordProjectChords, analyzeChordProject, createChordProject, getChordProject, getChordProjectAnalysis } from '../api/chordProjects';
+import { analysisToLeadSheet } from '../lib/chordProjectToLeadSheet';
 import { leadSheetToChart } from '../lib/backing';
+import { extractMelody } from '../lib/backing/adapters/noteSheetToChart';
+import { getSwingRatio } from '../lib/note/swing';
 import { useGlobalPlayer, type ChartInput } from '../lib/player';
 import { BUILTIN_STYLE, type StyleSelectorChoice } from '../components/yamaha-sty/StyleSelector';
 import { getPlayerSettings, inferGenre, inferPlayStyle, setPlayerSetting, subscribePlayerSettings, TRANSPOSING_INSTRUMENT_OFFSET } from '../lib/note/playerSettings';
@@ -24,7 +27,7 @@ import { useIsNativeUi } from '../contexts/AppPreviewContext';
 import { withLeadSheetSelectionIds } from '../lib/leadSheetSelection';
 import type { LeadSheetChordSelection } from '../components/leadsheet/LeadSheet';
 import { loadUserLicksSync, type LickEntry } from '../data/lickData';
-import { findMatchingLicks, type LickMatch } from '../lib/lickMatcher';
+import { findMatchingLicks, leadingPickupBars, type LickMatch } from '../lib/lickMatcher';
 import { SavedLicksModal } from '../components/leadsheet/SavedLicksModal';
 import { useCountInIntro } from '../hooks/useCountInIntro';
 import { chordToInputString, parseChordInput, loadChartEdit, saveChartEdit } from '../lib/leadSheetChordEdit';
@@ -37,6 +40,10 @@ const ANALYZED_SONG_ID = '__analyzed_all-of-me__';
  * chord slots; combined with `?edit=1` the chart opens straight into edit
  * mode so the user can type chord symbols immediately. */
 const EMPTY_SONG_ID = '__empty__';
+/* `songId` prefix for a saved ChordProject (opened via `/mychord?project=<id>`).
+ * Distinguishes a backend project publicId from iReal numeric ids and the two
+ * sentinels above, so the loader fetches the saved chart. */
+const PROJECT_ID_PREFIX = 'project:';
 const EMPTY_BARS_PER_SYSTEM = 4;
 const EMPTY_SYSTEM_COUNT = 4;
 function makeEmptySheet(): LeadSheetData {
@@ -939,12 +946,19 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   const [songIndex, setSongIndex] = useState<SongEntry[]>([]);
   const [songId, setSongIdRaw] = useState(() => {
     if (mychordMode && searchParams.get('empty') === '1') return EMPTY_SONG_ID;
+    // A saved "내 코드 차트" opens via `/mychord?project=<publicId>`. Tag it with
+    // a `project:` prefix so the loader fetches that chart instead of falling
+    // through to the All Of Me default.
+    const proj = searchParams.get('project');
+    if (proj) return `${PROJECT_ID_PREFIX}${proj}`;
     return mychordMode ? ANALYZED_SONG_ID : (searchParams.get('song') ?? ANALYZED_SONG_ID);
   });
 
   const setSongId = useCallback((id: string) => {
     setSongIdRaw(id);
-    if (id === ANALYZED_SONG_ID) {
+    if (id.startsWith(PROJECT_ID_PREFIX)) {
+      setSearchParams({ project: id.slice(PROJECT_ID_PREFIX.length) }, { replace: true });
+    } else if (id === ANALYZED_SONG_ID) {
       setSearchParams({}, { replace: true });
     } else {
       setSearchParams({ song: id }, { replace: true });
@@ -1010,6 +1024,9 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     systemIndex: number;
     anchorBar: number;
   } | null>(null);
+  // Mixer toggle: whether the inline lick's melody plays over the chord chart.
+  const [playInlineLick, setPlayInlineLick] = useState(() => getPlayerSettings().playInlineLick);
+  useEffect(() => subscribePlayerSettings((s) => setPlayInlineLick(s.playInlineLick)), []);
   const [saveConfirmOpen, setSaveConfirmOpen] = useState(false);
   const [saveProjectTitle, setSaveProjectTitle] = useState('새 코드 차트');
   const [saveProjectError, setSaveProjectError] = useState<string | null>(null);
@@ -1132,6 +1149,48 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     void globalPlayer.preload(chartInput).catch(() => { /* retry at play time */ });
   }, [globalPlayer, chartInput]);
 
+  // Inline lick → chart melody track. When a lick is shown inline, inject its
+  // notes (shifted to the lick's anchor bar) into the chord-chart engine so it
+  // plays over exactly those bars. setConfig({melody}) takes effect mid-play
+  // (BackingPlayer re-renders in place) and loops with the chart. Cleared to []
+  // when the lick is closed.
+  useEffect(() => {
+    // Off via the mixer toggle, or no lick shown → silence the chart melody.
+    if (!inlineLick || !sheet || !playInlineLick) { globalPlayer.setConfig({ melody: [] }); return; }
+    const lickSheet = inlineLick.lick.sheetData;
+    const beatsPerBar = parseInt((sheet.timeSignature || '4/4').split('/')[0], 10) || 4;
+    // Global flat bar index of the anchor = bars in earlier systems + anchorBar.
+    let globalBar = inlineLick.anchorBar;
+    for (let k = 0; k < inlineLick.systemIndex; k++) globalBar += sheet.systems[k]?.bars.length ?? 0;
+    // Align the lick's FIRST CHORD-BEARING bar (its ii / D-7) to the anchor —
+    // NOT its pickup bar. Shift the whole lick left by the pickup count so the
+    // pickup plays in the bar(s) before; drop any note pushed before the start.
+    // Only the chord-bearing part (the ii-V-I, D-7 →) plays — leading no-chord
+    // pickup measures are DROPPED, and the first chord-bearing bar (D-7) is
+    // aligned to the anchor bar.
+    const pickupBars = leadingPickupBars(lickSheet.measures);
+    const startBeat = pickupBars * beatsPerBar;
+    const offsetBeats = (globalBar - pickupBars) * beatsPerBar;
+    // Swing the lick's eighth-note grid (offbeat eighths land late) so it sits
+    // in the jazz pocket. Done here — not in the engine — so ONLY the inline
+    // lick swings, leaving note-analysis sheet/solo melodies untouched.
+    const r = getSwingRatio(tempo, 'medium-swing');
+    const swing = (b: number) => {
+      const beat = Math.floor(b);
+      const f = b - beat;
+      const wf = f <= 0.5 ? f * 2 * r : r + (f - 0.5) * 2 * (1 - r);
+      return beat + wf;
+    };
+    const melody = extractMelody(lickSheet)
+      .filter((m) => m.beatOffset >= startBeat)
+      .map((m) => {
+        const onset = swing(m.beatOffset);
+        const end = swing(m.beatOffset + m.durationBeats);
+        return { ...m, beatOffset: onset + offsetBeats, durationBeats: Math.max(0.05, end - onset) };
+      });
+    globalPlayer.setConfig({ melody });
+  }, [globalPlayer, inlineLick, sheet, tempo, playInlineLick]);
+
   // Stop the GlobalPlayer when this page unmounts so the engine doesn't
   // keep firing bar events into a stale activeBar setter. (Engines are
   // singletons; we just need to halt playback on teardown.)
@@ -1194,6 +1253,31 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
       setLoading(false);
       setError(null);
       return;
+    }
+
+    if (songId.startsWith(PROJECT_ID_PREFIX)) {
+      // A saved "내 코드 차트" — fetch the project + its analysis and render it
+      // exactly as MyChordChartsPage's preview does. Local unsaved edits (keyed
+      // by this songId) win, matching the other branches.
+      const edited = loadChartEdit(songId);
+      if (edited) { setSheet(edited); setLoading(false); setError(null); return; }
+      const publicId = songId.slice(PROJECT_ID_PREFIX.length);
+      let cancelled = false;
+      setLoading(true);
+      setError(null);
+      Promise.all([getChordProject(publicId), getChordProjectAnalysis(publicId)])
+        .then(([project, analysis]) => {
+          if (cancelled) return;
+          setSheet(withLeadSheetSelectionIds(analysisToLeadSheet(analysis, project), songId));
+        })
+        .catch((err) => {
+          if (!cancelled) {
+            setError(err instanceof Error ? err.message : 'Failed to load chord chart.');
+            setSheet(null);
+          }
+        })
+        .finally(() => { if (!cancelled) setLoading(false); });
+      return () => { cancelled = true; };
     }
 
     const idx = parseInt(songId, 10);
@@ -1632,6 +1716,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
                 systemIndex: inlineLick.systemIndex,
                 anchorBar: inlineLick.anchorBar,
                 sheet: inlineLick.lick.sheetData,
+                pickupBars: leadingPickupBars(inlineLick.lick.sheetData.measures),
               } : undefined}
               onInlineLickClose={() => setInlineLick(null)}
               onSavedLickBadgeClick={(barNum, spanLabel) => {

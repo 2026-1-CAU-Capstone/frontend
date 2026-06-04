@@ -5,7 +5,7 @@ import { mq } from '../styles/theme';
 import { IconSidebar } from '../components/layout/IconSidebar';
 import { LeadSheet } from '../components/leadsheet/LeadSheet';
 import type { LeadSheetData } from '../data/leadSheetTypes';
-import { parseChordInput } from '../lib/leadSheetChordEdit';
+import { analysisToLeadSheet } from '../lib/chordProjectToLeadSheet';
 import { saveOmrSourceImage, getOmrSourceImage, deleteOmrSourceImage } from '../lib/omrImageStore';
 import { ConfirmDeleteModal } from '../components/common/ConfirmDeleteModal';
 import {
@@ -19,12 +19,9 @@ import {
   getChordProjectOmrStatus,
   listChordProjects,
   updateChordProject,
-  type ChordAnalysisResult,
   type ChordProject,
   type ChordProjectKey,
 } from '../api/chordProjects';
-import { uploadStorageFile } from '../api/storageFiles';
-import { createSheetProject } from '../api/sheetProjects';
 import { ProjectCreateModal, type ProjectCreatePayload } from '../components/common/ProjectCreateModal';
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -427,21 +424,16 @@ export default function MyChordChartsPage() {
     }
   };
 
-  /** Onboarding modal submit — route by chosen type. Chord → OMR into this
-   *  page's list; Sheet → SheetProject, then jump to 내 악보 차트. */
+  /** Onboarding modal submit. On 내 코드 차트 we ALWAYS create a chord chart via
+   *  OMR and keep the result on THIS page — regardless of the modal's type
+   *  selector. (Previously "악보" routed to a SheetProject and navigated away to
+   *  내 악보 차트, which surprised users who just wanted a card here.) */
   const handleOnboardCreate = async (p: ProjectCreatePayload): Promise<void> => {
     setOnboardCreating(true);
     setOnboardError(null);
     try {
-      if (p.type === 'chord') {
-        setOnboardOpen(false);
-        await uploadOmrFile(p.file, p.title);   // placeholder card + OMR (own error handling)
-      } else {
-        const stored = await uploadStorageFile(p.file, p.file.name);
-        await createSheetProject({ title: p.title, key: p.key, storageFileIds: [stored.publicId] });
-        setOnboardOpen(false);
-        navigate('/my-sheets');
-      }
+      setOnboardOpen(false);
+      await uploadOmrFile(p.file, p.title);   // placeholder card + OMR (own error handling)
     } catch (e) {
       setOnboardError(e instanceof Error ? e.message : '생성 실패');
     } finally {
@@ -1189,7 +1181,7 @@ export default function MyChordChartsPage() {
 
         <ProjectCreateModal
           open={onboardOpen}
-          defaultType="sheet"
+          defaultType="chord"
           initialFile={onboardFile}
           creating={onboardCreating}
           error={onboardError}
@@ -2248,47 +2240,6 @@ function SheetPreview({ project }: { project?: ChordProject }) {
   );
 }
 
-function analysisToLeadSheet(analysis: ChordAnalysisResult, project: ChordProject): LeadSheetData {
-  const byBar = new Map<number, typeof analysis.chords>();
-  for (const chord of analysis.chords ?? []) {
-    const bar = Number(chord.bar || 1);
-    const list = byBar.get(bar) ?? [];
-    list.push(chord);
-    byBar.set(bar, list);
-  }
-  const maxBar = Math.max(0, ...Array.from(byBar.keys()));
-  const bars = Array.from({ length: maxBar }, (_, index) => {
-    const measureNumber = index + 1;
-    const chords = (byBar.get(measureNumber) ?? [])
-      .sort((a, b) => Number(a.beat) - Number(b.beat))
-      .map((info) => ({
-        ...parseChordInput(info.chord),
-        id: info.publicId,
-        isDiatonic: typeof info.analysis?.isDiatonic === 'boolean' ? info.analysis.isDiatonic : undefined,
-        analysis: info.analysis ? {
-          degree: typeof info.analysis.degree === 'string' ? info.analysis.degree : undefined,
-          normalizedQuality: typeof info.analysis.normalizedQuality === 'string' ? info.analysis.normalizedQuality : undefined,
-          isDiatonic: typeof info.analysis.isDiatonic === 'boolean' ? info.analysis.isDiatonic : undefined,
-          ambiguityScore: typeof info.analysis.ambiguityScore === 'number' ? info.analysis.ambiguityScore : undefined,
-        } : undefined,
-      }));
-    return { measureNumber, chords: chords.length > 0 ? chords : [{}] };
-  });
-
-  const systems = [];
-  for (let i = 0; i < bars.length; i += 4) {
-    systems.push({ bars: bars.slice(i, i + 4) });
-  }
-  return {
-    id: project.publicId,
-    title: analysis.title || project.title,
-    style: '',
-    composer: '',
-    key: musicKeyToDisplay(analysis.keySignature || project.keySignature),
-    timeSignature: analysis.timeSignature || project.timeSignature || '4/4',
-    systems,
-  };
-}
 
 /* Checkbox overlay shown in the top-left of every card in select mode. */
 const CardCheckbox = styled.button<{ $checked?: boolean }>`

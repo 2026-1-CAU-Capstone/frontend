@@ -134,29 +134,61 @@ export function createBackingPlayer(
    *  `ensureCtx()` (called from play(), which runs inside the click gesture).
    *  This is what makes the count-in start instantly instead of stalling ~2s
    *  on a cold first play. */
+  /** Drop every instrument/node bound to the current ctx so a fresh ctx
+   *  reloads them. Called when we recreate a dead/poisoned AudioContext. */
+  function disposeCtxGraph(): void {
+    try { piano?.stopAll(); bass?.stopAll(); drums?.stopAll(); melody?.stopAll(); } catch { /* noop */ }
+    piano = null; bass = null; drums = null; melody = null;
+    pianoReverbSend = null; melodyDestination = null; melodyInstId = null;
+    loading = null; melodyLoading = null;
+    try { drumLoop?.dispose(); } catch { /* noop */ }
+    drumLoop = null; drumLoopUrl = null; drumLoopLoading = null;
+  }
+
+  function newCtx(): void {
+    ctx = new AudioContext();
+    // Recover from transient audio-device / renderer errors. When the OS audio
+    // device glitches (Bluetooth/output switch, sample-rate change, app
+    // backgrounding) Chrome logs "The AudioContext encountered an error from
+    // the audio device or the WebAudio renderer." and the context can drop to
+    // 'interrupted'/'suspended'. Auto-resume so playback recovers.
+    ctx.addEventListener("statechange", () => {
+      const st = ctx?.state as string | undefined;
+      if (playing && (st === "interrupted" || st === "suspended")) {
+        ctx?.resume().catch(() => { /* will retry on next gesture/play */ });
+      }
+    });
+  }
+
   function getCtx(): AudioContext {
     if (disposed) throw new Error("BackingPlayer has been disposed.");
-    if (!ctx) {
-      ctx = new AudioContext();
-      // Recover from transient audio-device / renderer errors. When the OS
-      // audio device glitches (Bluetooth/output switch, sample-rate change,
-      // app backgrounding) Chrome logs "The AudioContext encountered an error
-      // from the audio device or the WebAudio renderer." and the context can
-      // drop to 'interrupted'/'suspended'. Auto-resume so playback recovers
-      // without a page reload.
-      ctx.addEventListener("statechange", () => {
-        const st = ctx?.state as string | undefined;
-        if (playing && (st === "interrupted" || st === "suspended")) {
-          ctx?.resume().catch(() => { /* will retry on next gesture/play */ });
-        }
-      });
+    // Recreate if missing or the previous context was closed/poisoned.
+    if (!ctx || ctx.state === "closed") {
+      if (ctx) disposeCtxGraph();
+      newCtx();
     }
-    return ctx;
+    return ctx!;
   }
 
   async function ensureCtx(): Promise<AudioContext> {
     getCtx();
-    if (ctx!.state === "suspended") await ctx!.resume();
+    try {
+      if (ctx!.state === "suspended") await ctx!.resume();
+    } catch {
+      // resume() rejected — the context is poisoned (warmup created it before a
+      // gesture, or the audio device errored). Recreate a fresh one and reload
+      // instruments on it so playback ALWAYS starts (the whole point of the
+      // count-in → play handoff).
+      try { await ctx!.close(); } catch { /* noop */ }
+      disposeCtxGraph();
+      newCtx();
+      try { await ctx!.resume(); } catch { /* last resort: leave suspended */ }
+    }
+    // If resume resolved but the context still isn't running (some browsers
+    // leave it 'suspended' until a fresh gesture), one more attempt is cheap.
+    if (ctx!.state === "suspended") {
+      try { await ctx!.resume(); } catch { /* noop */ }
+    }
     return ctx!;
   }
 
@@ -363,6 +395,19 @@ export function createBackingPlayer(
           loopCount += 1;
           // drumLoop already loops internally (it's an audio-buffer loop),
           // so no need to restart it here.
+        } else if (config.endingTail === false) {
+          // Short-phrase (lick) ending: no song-style reverb bloom. End the
+          // transport immediately so the UI flips Stop→Play the moment the
+          // phrase completes, and fire onDone now. We deliberately DON'T
+          // killActiveNodes() — the last note keeps ringing on its own envelope.
+          playing = false;
+          cancelAnimationFrame(rafHandle);
+          elapsed = 0;
+          nextIdx = 0;
+          lastBarFired = -2;
+          callbacks.onBar?.(-1);
+          callbacks.onDone?.();
+          return;
         } else {
           // Final pass finished — don't hard-cut. Re-strike the closing chord
           // and let it bloom into the reverb tail before teardown.
@@ -655,6 +700,7 @@ export function createBackingPlayer(
 
     const melodyInstChanged =
       "melodyInstrument" in next && prevMelodyInst !== config.melodyInstrument;
+    const melodyChanged = "melody" in next;
 
     if (playing) {
       // Mid-playback drum-kit / loop-URL / BPM / style / feel / melody-instrument
@@ -683,6 +729,10 @@ export function createBackingPlayer(
         const drumVol = config.volume?.drums ?? 1;
         drumLoop.setGain((config.drumLoop?.gain ?? 1) * drumVol);
       }
+      // Melody-only change (e.g. an inline lick toggled over the chord chart):
+      // re-render the event stream in place WITHOUT touching the transport
+      // clock, so the new melody starts at its bars with no stop/restart.
+      if (melodyChanged) rebuildEventsInPlace();
       return;
     }
 
@@ -690,6 +740,19 @@ export function createBackingPlayer(
     // doesn't stall on the sample fetch.
     if (melodyInstChanged) {
       ensureMelodyInstrument().catch(() => { /* logged in loader */ });
+    }
+  }
+
+  /** Re-render `events` from the current config (e.g. after a mid-play melody
+   *  change) and re-aim `nextIdx` at the live playhead so already-passed notes
+   *  aren't replayed and the AudioContext clock/origin stay continuous. */
+  function rebuildEventsInPlace(): void {
+    if (!ctx || !playing) return;
+    build();
+    const now = ctx.currentTime - origin;
+    nextIdx = events.length;
+    for (let i = 0; i < events.length; i++) {
+      if (events[i].time >= now - TICK_TOLERANCE_SEC) { nextIdx = i; break; }
     }
   }
 

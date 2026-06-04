@@ -29,7 +29,8 @@ export interface ProjectCreatePayload {
 
 interface Props {
   open: boolean;
-  /** Default type for this entry point (내 코드 차트 → 'sheet' per spec). */
+  /** Default type for this entry point — each page sets its own:
+   *  내 코드 차트 → 'chord', 내 악보 차트 → 'sheet'. */
   defaultType?: ProjectType;
   /** Pre-loaded file (e.g. dropped onto the page) — opens with it attached. */
   initialFile?: File | null;

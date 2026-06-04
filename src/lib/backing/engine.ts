@@ -378,6 +378,9 @@ export function renderChart(chart: Chart, opts: RenderOptions): BackingEvent[] {
   // line without rebuilding the chart.
   const playMelody = opts.playMelody ?? (opts.melody != null);
   if (playMelody && opts.melody && opts.melody.length > 0) {
+    // Melody beatOffsets arrive already-shaped by the caller (the inline-lick
+    // path pre-swings them in ChordPage so only the lick swings — not the
+    // note-analysis sheet/solo melodies that share this loop).
     for (const m of opts.melody) {
       events.push({
         kind: "note",

@@ -327,7 +327,7 @@ export function BackingMixer({ engine, analysisOn, onToggleAnalysis }: BackingMi
   const {
     melodyVolume, melodyInstrument, pianoVolume, pianoReverb,
     bassVolume, bassMode,
-    drumVolume, drumKit,
+    drumVolume, drumKit, playInlineLick,
   } = settings;
 
   return (
@@ -339,6 +339,21 @@ export function BackingMixer({ engine, analysisOn, onToggleAnalysis }: BackingMi
             <MixerLabel>{analysisOn ? 'ON' : 'OFF'}</MixerLabel>
             <MetroToggle $on={analysisOn} onClick={onToggleAnalysis}>
               {analysisOn ? 'ON' : 'OFF'}
+            </MetroToggle>
+          </MixerRow>
+        </MixerSection>
+      )}
+
+      {engine && (
+        <MixerSection $accent='#d98b4a'>
+          <MixerSectionTitle>🎷 인라인 릭</MixerSectionTitle>
+          <MixerRow>
+            <MixerLabel>릭 재생하기</MixerLabel>
+            <MetroToggle
+              $on={playInlineLick}
+              onClick={() => setPlayerSetting('playInlineLick', !playInlineLick)}
+            >
+              {playInlineLick ? 'ON' : 'OFF'}
             </MetroToggle>
           </MixerRow>
         </MixerSection>

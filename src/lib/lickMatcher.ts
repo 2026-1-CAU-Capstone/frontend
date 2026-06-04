@@ -9,6 +9,20 @@ import type { LickEntry } from '../data/lickData';
 import type { MeasureInfo, NoteInfo } from '../data/sampleMelody';
 import type { ChordOverlay } from '../data/types';
 
+/**
+ * Count leading "pickup" measures in a lick — bars BEFORE the chord progression
+ * starts (no chord label). A ii-V-I lick's progression begins at the first
+ * measure that carries a chord; this is the count of leading no-chord bars to
+ * DROP so the first chord-bearing bar (the ii) aligns to the chart's anchor bar
+ * (the dropped pickup is neither rendered nor played). Returns 0 when no measure
+ * carries a chord (we then can't locate where the progression starts).
+ */
+export function leadingPickupBars(measures: MeasureInfo[]): number {
+  let n = 0;
+  while (n < measures.length && !measures[n]?.chord?.trim()) n++;
+  return n >= measures.length ? 0 : n;
+}
+
 /* ── pitch constants ─────────────────────────────────────────────────────── */
 
 const NOTE_TO_PC: Record<string, number> = {

@@ -678,7 +678,7 @@ function SheetPreview({ song }: { song: NoteSongEntry }) {
     <ScoreThumbWrap ref={wrapRef}>
       {data ? (
         <ScoreThumbScaler ref={scalerRef} style={{ transform: `scale(${scale})` }}>
-          <NoteSheet data={data} hideTransport forceAutoStem lineStartMeasureNumbers />
+          <NoteSheet data={data} hideTransport noPreload forceAutoStem lineStartMeasureNumbers />
         </ScoreThumbScaler>
       ) : (
         <ScoreSkeleton>
