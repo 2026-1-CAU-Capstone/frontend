@@ -389,6 +389,9 @@ export interface BackingPlayer {
    *  play() starts there. No-op before the first play() (no timeline built). */
   seekToBar(bar: number): void;
   setConfig(next: Partial<BackingConfig>): void;
+  /** Swap the chart in place (reuse this engine's AudioContext + loaded
+   *  instruments for new content). Takes effect on the next play()/build(). */
+  setChart(chart: Chart): void;
   dispose(): void;
   /** Audio-context time (sec). Returns 0 if ctx has not been created yet —
    *  call `preload()` first for a stable clock. */

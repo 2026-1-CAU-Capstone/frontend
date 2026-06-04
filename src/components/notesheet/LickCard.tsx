@@ -739,7 +739,12 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
     const unsub = [
       player.on('bar', (barIndex) => drawMeasureHL(barIndex)),
       player.on('note', (mi, ni) => highlightNote(mi, ni)),
-      player.on('done', () => { setPlaying(false); unsub.forEach((fn) => fn()); }),
+      player.on('done', () => {
+        setPlaying(false);
+        clearNoteHighlight();   // 재생 끝나면 파란 음표/마디 하이라이트 제거
+        drawMeasureHL(-1);
+        unsub.forEach((fn) => fn());
+      }),
     ];
 
     player.setConfig({ bpm });

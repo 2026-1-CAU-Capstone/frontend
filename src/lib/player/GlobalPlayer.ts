@@ -185,6 +185,11 @@ export function createGlobalPlayer(
   // melody kind.
   let backingPlayerMelody: BackingPlayer | null = null;
   let backingPlayerMelodySig: string | null = null;
+  // The `kind` the melody engine was last built for. When the next content is
+  // the SAME kind (e.g. browsing lick→lick) we reuse the engine — swap its
+  // chart/melody but keep the warmed AudioContext + soundfonts — so playback
+  // starts instantly. A kind change rebuilds with that kind's full preset.
+  let backingPlayerMelodyKind: string | null = null;
   let backingPlayerMelodyOffset = 0;
 
   /* ── Active engine pointer ───────────────────────────────────────── */
@@ -363,12 +368,6 @@ export function createGlobalPlayer(
     if (backingPlayerMelody && backingPlayerMelodySig === sig) {
       return backingPlayerMelody;
     }
-    if (backingPlayerMelody) {
-      if (active === backingPlayerMelody) active = null;
-      backingPlayerMelody.dispose();
-      backingPlayerMelody = null;
-      backingPlayerMelodySig = null;
-    }
 
     const chart: Chart = noteSheetToChart(input.data);
     const melody: MelodyNote[] = extractMelody(input.data);
@@ -376,6 +375,32 @@ export function createGlobalPlayer(
     // Seed BackingConfig with orchestrator state. Tempo precedence matches
     // the legacy path: explicit config.bpm > sheet.tempo > chart.bpm default.
     const tempo = config.bpm ?? input.data.tempo ?? chart.bpm;
+
+    // ── Fast path: REUSE the live engine when only the CONTENT changed within
+    // the same kind (browsing lick→lick, sheet→sheet). Swap the chart + melody
+    // + tempo but keep the warmed AudioContext + loaded soundfonts, so the next
+    // play() rebuilds events INSTANTLY. Reloading the engine (dispose → new ctx
+    // → re-decode piano/bass/drums) overran the count-in, which is why playback
+    // lagged a beat behind "1 2 3 4". Same-kind ⇒ the per-kind preset (lick
+    // loop/repeat/piano-lead/no-tail) is already applied, so only bpm+melody
+    // need updating.
+    if (backingPlayerMelody && backingPlayerMelodyKind === input.kind) {
+      backingPlayerMelody.stop();
+      backingPlayerMelody.setChart(chart);
+      backingPlayerMelody.setConfig({ bpm: tempo, melody });
+      backingPlayerMelodySig = sig;
+      return backingPlayerMelody;
+    }
+
+    // Different kind (or first build) → (re)create with that kind's full preset.
+    if (backingPlayerMelody) {
+      if (active === backingPlayerMelody) active = null;
+      backingPlayerMelody.dispose();
+      backingPlayerMelody = null;
+      backingPlayerMelodySig = null;
+      backingPlayerMelodyKind = null;
+    }
+
     const seed: BackingConfig = {
       bpm: tempo,
       melody,
@@ -402,6 +427,7 @@ export function createGlobalPlayer(
 
     backingPlayerMelody = factories.createBackingPlayer(chart, seed);
     backingPlayerMelodySig = sig;
+    backingPlayerMelodyKind = input.kind;
     wireBackingPlayerMelody(backingPlayerMelody);
     return backingPlayerMelody;
   }

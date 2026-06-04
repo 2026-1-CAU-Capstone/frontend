@@ -173,7 +173,15 @@ async function refreshAccessToken(): Promise<string> {
 /** Authenticated fetch — attaches Bearer token and refreshes once on 401.
  *  Other code can import this to call any protected endpoint. */
 export async function authFetch(input: string, init: RequestInit = {}): Promise<Response> {
-  const url = input.startsWith('http') ? input : `${API_BASE}${input}`;
+  // Resolve the URL. `input` may be:
+  //   - absolute ('http…')                         → use as-is
+  //   - already base-prefixed ('/api/v1/…' in dev) → use as-is (callers that
+  //     build `${API_BASE}${path}` themselves) — DON'T re-prepend or we'd get
+  //     a doubled '/api/api/…' that 500s through the dev proxy
+  //   - a bare path ('/v1/…')                       → prepend API_BASE
+  const isComplete =
+    input.startsWith('http') || input === API_BASE || input.startsWith(`${API_BASE}/`);
+  const url = isComplete ? input : `${API_BASE}${input}`;
   const token = getAccessToken();
   const headers = new Headers(init.headers);
   if (token) headers.set('Authorization', `Bearer ${token}`);

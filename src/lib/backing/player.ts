@@ -686,6 +686,14 @@ export function createBackingPlayer(
     callbacks.onBar?.(-1);
   }
 
+  /** Swap the chart WITHOUT tearing down the AudioContext / instruments. Lets
+   *  the orchestrator reuse one warmed engine across many sheets/licks so the
+   *  next play() rebuilds events instantly instead of reloading soundfonts.
+   *  The new chart takes effect on the next build() (i.e. the next play()). */
+  function setChart(next: Chart): void {
+    chart = next;
+  }
+
   function setConfig(next: Partial<BackingConfig>): void {
     const prevMode = config.drumMode;
     const prevUrl = config.drumLoop?.url;
@@ -807,6 +815,7 @@ export function createBackingPlayer(
     stop,
     seekToBar,
     setConfig,
+    setChart,
     dispose,
     ctxNow() { return ctx?.currentTime ?? 0; },
     getCtx() { return ctx; },

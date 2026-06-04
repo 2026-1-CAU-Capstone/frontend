@@ -18,9 +18,10 @@
 import { authFetch } from './auth';
 import type { ClaudeMessage, ClaudeImage } from './claude';
 
-/* Paths are RELATIVE here on purpose — authFetch() owns the base URL
- * (DEV: '/api' Vite proxy → first-party RefreshToken cookie; PROD: absolute
- * backend URL). Prefixing a base here too produced a doubled '/api/api/…'. */
+/* Same base convention as solos.ts / licks.ts. authFetch() detects an
+ * already-base-prefixed URL and does NOT re-prepend, so this stays a single
+ * '/api/…' in dev (no '/api/api/…' double). */
+const API_BASE = import.meta.env.DEV ? '/api' : 'https://jazzify.p-e.kr/api';
 
 /* ── Types (mirror the Swagger schemas) ──────────────────────────────── */
 
@@ -153,7 +154,7 @@ export async function listChats(opts: { page?: number; size?: number; sort?: str
   params.set('page', String(opts.page ?? 0));
   params.set('size', String(opts.size ?? 30));
   params.set('sort', opts.sort ?? 'updatedAt,desc');
-  const res = await authFetch(`/v1/chat?${params.toString()}`);
+  const res = await authFetch(`${API_BASE}/v1/chat?${params.toString()}`);
   if (!res.ok) throw new Error(`chat list ${res.status} ${await readApiError(res)}`.trim());
   const json: { data: Page<ChatSummary> } = await res.json();
   const page = json.data;
@@ -165,7 +166,7 @@ export async function listChats(opts: { page?: number; size?: number; sort?: str
  *  are sanitized through stripInternalInstructions on the way out so any
  *  legacy DB rows with leaked `[내부 지시 ...]` blocks do not reach the UI. */
 export async function getChat(publicId: string): Promise<ChatDetail> {
-  const res = await authFetch(`/v1/chat/${encodeURIComponent(publicId)}`);
+  const res = await authFetch(`${API_BASE}/v1/chat/${encodeURIComponent(publicId)}`);
   if (!res.ok) throw new Error(`chat get ${res.status} ${await readApiError(res)}`.trim());
   const json: { data: ChatDetail } = await res.json();
   const detail = json.data;
@@ -178,7 +179,7 @@ export async function getChat(publicId: string): Promise<ChatDetail> {
 /** DELETE /v1/chat/{publicId} — delete a chat session and its message history.
  *  Returns 204 No Content on success. */
 export async function deleteChat(publicId: string): Promise<void> {
-  const res = await authFetch(`/v1/chat/${encodeURIComponent(publicId)}`, {
+  const res = await authFetch(`${API_BASE}/v1/chat/${encodeURIComponent(publicId)}`, {
     method: 'DELETE',
   });
   if (!res.ok) throw new Error(`chat delete ${res.status} ${await readApiError(res)}`.trim());
@@ -207,7 +208,7 @@ export async function streamChat(
   onChatPublicId?: (id: string) => void,
   onDebug?: (info: unknown) => void,
 ): Promise<string> {
-  const res = await authFetch(`/v1/chat/stream`, {
+  const res = await authFetch(`${API_BASE}/v1/chat/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(req),
