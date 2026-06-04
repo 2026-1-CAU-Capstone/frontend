@@ -2660,6 +2660,17 @@ export default function EditorPage() {
         navigated = true;
         navigate('/solos');
       } else {
+        // A solo is NOT a lick. A "lick" is a short phrase (a few bars); a full
+        // chorus / solo must never be persisted to the lick store (it would
+        // pollute the saved-licks modal, where a long Giant Steps solo matches
+        // every ii-V-I via the sliding-window matcher). Block it and tell the
+        // user to use Solo mode instead.
+        const LICK_MAX_BARS = 8;
+        if (allMeasures.length > LICK_MAX_BARS) {
+          setSaveError(`${allMeasures.length}마디는 릭이 아니라 솔로입니다 — Solo 모드로 저장하세요.`);
+          setTimeout(() => setSaveError(null), 4000);
+          return; // `finally` restores the saving flag
+        }
         // Lick mode — save via the lick API.
         const totalN = allMeasures.reduce((s, m) => s + m.notes.filter((n) => !n.duration.endsWith('r')).length, 0);
         const entry: LickEntry = {

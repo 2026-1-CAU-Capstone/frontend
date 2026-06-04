@@ -436,6 +436,9 @@ export function createStyBackingPlayer(
     preload,
     pause,
     stop,
+    // The .sty engine ticks through the style's own bar structure and has no
+    // per-bar seek — click-to-seek is only wired on the main BackingPlayer path.
+    seekToBar() { /* unsupported on the .sty path */ },
     setConfig(next) { config = { ...config, ...next }; },
     dispose,
     ctxNow() { return ctx?.currentTime ?? 0; },

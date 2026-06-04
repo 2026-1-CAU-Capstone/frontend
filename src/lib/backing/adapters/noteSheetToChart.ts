@@ -39,8 +39,6 @@ export interface MelodyNote {
   durationBeats: number;
   /** 0..1; defaults to undefined (caller supplies a default). */
   velocity?: number;
-  /** True when this note ties INTO the next note (sustained, no re-attack). */
-  tie?: boolean;
 }
 
 /**
@@ -94,35 +92,76 @@ export function noteSheetToChart(sheet: NoteSheetData): Chart {
  */
 export function extractMelody(sheet: NoteSheetData): MelodyNote[] {
   const out: MelodyNote[] = [];
-  let beatCursor = 0;
   let ottavaShift = 0; // ±12 while inside an 8va/8vb bracket
+  // Apply the sheet's key signature to bare notes so playback pitch matches
+  // what the rendered key signature makes the reader see/hear.
+  const keySig = keySigAccidentals(sheet.key);
+  // Pin every measure to the engine's fixed bar grid: bar `mi` starts at
+  // `mi * beatsPerBar`, mirroring renderChart's `barStart = bi * secPerBar`.
+  // Globally accumulating note durations instead (the old behaviour) let any
+  // measure whose notes don't sum to a full bar — a pickup, an OMR slip, a
+  // tuplet rounding — shove the ENTIRE rest of the lead line off the chord/
+  // drum grid, which is what caused the melody to progressively drift out of
+  // sync. Resetting to the grid each measure keeps a malformed bar's error
+  // local instead of compounding it across the whole tune.
+  const beatsPerBar = Number.parseInt((sheet.timeSignature || "4/4").split("/")[0], 10) || 4;
 
-  for (const measure of sheet.measures) {
+  // Ties opened by the immediately-preceding note: midi → index in `out` of the
+  // note that should ABSORB a same-pitch continuation (extend its duration)
+  // instead of letting the continuation re-attack. Only the directly-following
+  // note may consume a tie; it may then re-open one to chain across 3+ notes.
+  // This is keyed on `tie` (always set on every tie-start note, including the
+  // middle of a chain) rather than `tieContinuation` (only set on a pure
+  // tie-stop), so middle-of-chain notes no longer get re-struck. The map
+  // persists across measures so ties spanning a barline still resolve.
+  let openTies = new Map<number, number>();
+
+  sheet.measures.forEach((measure, mi) => {
+    const barStartBeat = mi * beatsPerBar;
+    let intra = 0; // beats elapsed from the start of THIS measure
     for (const note of measure.notes) {
       const beats = noteBeats(note);
 
       if (note.ottavaStart === "8va") ottavaShift = 12;
       else if (note.ottavaStart === "8vb") ottavaShift = -12;
 
+      const nextOpen = new Map<number, number>();
       const isRest = isRestNote(note);
-      if (!isRest && !note.tieContinuation) {
+      if (!isRest) {
         for (let i = 0; i < note.keys.length; i++) {
-          const midi = vexKeyToMidi(note.keys[i], note.accidentals?.[i]);
-          if (midi == null) continue;
-          out.push({
-            midi: midi + ottavaShift,
-            beatOffset: beatCursor,
-            durationBeats: beats,
-            tie: note.tie,
-          });
+          const raw = vexKeyToMidi(
+            note.keys[i],
+            effectiveAccidental(note.keys[i], note.accidentals?.[i], keySig),
+          );
+          if (raw == null) continue;
+          const midi = raw + ottavaShift;
+
+          const absorbIdx = openTies.get(midi);
+          if (absorbIdx != null) {
+            // Tied-into note: sustain the originating note through it; no re-attack.
+            out[absorbIdx].durationBeats += beats;
+            if (note.tie) nextOpen.set(midi, absorbIdx); // chain continues
+          } else if (note.tieContinuation) {
+            // Orphan continuation (no matching tie-start, e.g. hand-authored
+            // data): preserve the legacy "skip, don't re-attack" behavior.
+          } else {
+            const idx = out.length;
+            out.push({
+              midi,
+              beatOffset: barStartBeat + intra,
+              durationBeats: beats,
+            });
+            if (note.tie) nextOpen.set(midi, idx);
+          }
         }
       }
 
-      beatCursor += beats;
+      intra += beats;
+      openTies = nextOpen;
 
       if (note.ottavaEnd) ottavaShift = 0;
     }
-  }
+  });
   return out;
 }
 
@@ -270,4 +309,48 @@ function vexKeyToMidi(
   const oct = parseInt(octStr, 10);
   // MIDI convention: C4 = 60.
   return (oct + 1) * 12 + pc + semitones;
+}
+
+/* ─── key signature → playback pitch ──────────────────────────────────────
+ * The NoteSheet renderer draws a key signature (via VexFlow's addKeySignature),
+ * so a bare note letter on the staff SOUNDS altered (e.g. a plain "b/4" in B♭
+ * major reads/sounds as B♭). Playback must apply the same alteration or the
+ * melody comes out in the wrong key. Mirrors NoteSheet's `keySigAccidentals`. */
+const KS_FLAT_ORDER = ["b", "e", "a", "d", "g", "c", "f"];
+const KS_SHARP_ORDER = ["f", "c", "g", "d", "a", "e", "b"];
+const KS_FLAT_COUNT: Record<string, number> = {
+  F: 1, Bb: 2, Eb: 3, Ab: 4, Db: 5, Gb: 6, Cb: 7,
+  Dm: 1, Gm: 2, Cm: 3, Fm: 4, Bbm: 5, Ebm: 6, Abm: 7,
+};
+const KS_SHARP_COUNT: Record<string, number> = {
+  G: 1, D: 2, A: 3, E: 4, B: 5, "F#": 6, "C#": 7,
+  Em: 1, Bm: 2, "F#m": 3, "C#m": 4, "G#m": 5, "D#m": 6, "A#m": 7,
+};
+
+/** Letters a key signature alters, e.g. "Bb"/"Bb-maj"/"B♭ major" → {b:'b', e:'b'}. */
+function keySigAccidentals(rawKey: string | undefined): Map<string, "b" | "#"> {
+  const map = new Map<string, "b" | "#">();
+  if (!rawKey) return map;
+  let k = rawKey.trim().replace(/♭/g, "b").replace(/♯/g, "#");
+  const dash = k.match(/^([A-G][b#]?)-(maj|min)$/i);
+  if (dash) k = dash[2].toLowerCase().startsWith("min") ? `${dash[1]}m` : dash[1];
+  else k = k.replace(/\s*(major|maj)$/i, "").replace(/\s*(minor|min)$/i, "m").trim();
+  const nF = KS_FLAT_COUNT[k];
+  if (nF) { for (let i = 0; i < nF; i++) map.set(KS_FLAT_ORDER[i], "b"); return map; }
+  const nS = KS_SHARP_COUNT[k];
+  if (nS) { for (let i = 0; i < nS; i++) map.set(KS_SHARP_ORDER[i], "#"); }
+  return map;
+}
+
+/** Effective accidental for a note key: an explicit override wins; a baked
+ *  accidental in the key string ("bb/4", "f#/5") is already absolute; a bare
+ *  letter takes the key signature's alteration (what makes it match the eye). */
+function effectiveAccidental(
+  keyStr: string,
+  explicit: "#" | "b" | "n" | "##" | "bb" | undefined,
+  keySig: Map<string, "b" | "#">,
+): "#" | "b" | "n" | "##" | "bb" | undefined {
+  if (explicit) return explicit;
+  if (/^[a-gA-G](#{1,2}|b{1,2}|n)\//.test(keyStr)) return undefined; // baked
+  return keySig.get(keyStr[0]?.toLowerCase());
 }

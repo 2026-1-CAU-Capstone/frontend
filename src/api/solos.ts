@@ -22,7 +22,7 @@ import type { NoteSheetData } from '../data/sampleMelody';
 import type { OMRMetadata } from './licks';
 import { authFetch } from './auth';
 
-const API_BASE = 'https://jazzify.p-e.kr/api';
+const API_BASE = import.meta.env.DEV ? '/api' : 'https://jazzify.p-e.kr/api';
 
 /* ── enums ─────────────────────────────────────────────────────────────────── */
 
@@ -240,20 +240,75 @@ export async function createSoloViaOMR(file: File, metadata: OMRMetadata = {}): 
     } catch { /* ignore */ }
     throw new Error(`OMR 실패 (${res.status}${code ? ' · ' + code : ''}) ${detail}`.trim());
   }
-  const json: { data: SoloResponse } = await res.json();
-  return json.data;
+  // Usually wrapped in { data }, but tolerate an unwrapped Solo body too so a
+  // shape mismatch on the OMR endpoint doesn't yield `undefined` (which then
+  // crashed the caller after it had closed the modal).
+  const json = await res.json() as { data?: SoloResponse } & Partial<SoloResponse>;
+  return (json.data ?? (json as unknown as SoloResponse));
 }
 
 /* ── Read ──────────────────────────────────────────────────────────────────── */
 
 export async function getSolo(publicId: string): Promise<SoloResponse> {
-  const res = await fetch(`${API_BASE}/v1/solos/${encodeURIComponent(publicId)}`);
+  const res = await authFetch(`${API_BASE}/v1/solos/${encodeURIComponent(publicId)}`);
   if (!res.ok) {
     const detail = await readApiError(res);
     throw new Error(`Solo 조회 실패 (${res.status}) ${detail}`.trim());
   }
   const json: { data: SoloResponse } = await res.json();
   return json.data;
+}
+
+/* ── Async OMR status ────────────────────────────────────────────────────── */
+
+export type SoloOmrStatusValue = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | string;
+
+export interface SoloOmrStatus {
+  publicId: string;
+  status: SoloOmrStatusValue;
+  progress: number;             // 0..100 (0 when the backend doesn't report it)
+  failureReason: string | null;
+}
+
+/** True once OMR has stopped running (succeeded or failed) — poll until this. */
+export function isSoloOmrTerminal(s: SoloOmrStatus): boolean {
+  return s.status === 'COMPLETED' || s.status === 'FAILED';
+}
+
+/** GET /v1/solos/{publicId}/omr-status — poll async OMR progress.
+ *  Tolerates two backend shapes: a `status` enum string, or the OMR-callback
+ *  style `{ completed, failed, error }` booleans. Mirrors the chord/sheet
+ *  project omr-status convention. */
+export async function getSoloOmrStatus(publicId: string): Promise<SoloOmrStatus> {
+  const res = await authFetch(
+    `${API_BASE}/v1/solos/${encodeURIComponent(publicId)}/omr-status`,
+  );
+  if (!res.ok) {
+    const detail = await readApiError(res);
+    throw new Error(`Solo OMR 상태 조회 실패 (${res.status}) ${detail}`.trim());
+  }
+  const raw = await res.json() as Record<string, unknown>;
+  const d = (raw.data ?? raw) as Record<string, unknown>;
+
+  let status: SoloOmrStatusValue;
+  if (typeof d.status === 'string' && d.status) {
+    status = d.status;
+  } else if (d.failed === true) {
+    status = 'FAILED';
+  } else if (d.completed === true) {
+    status = 'COMPLETED';
+  } else {
+    status = 'PROCESSING';
+  }
+
+  return {
+    publicId: typeof d.publicId === 'string' ? d.publicId : publicId,
+    status,
+    progress: typeof d.progress === 'number' ? d.progress : 0,
+    failureReason:
+      (typeof d.failureReason === 'string' ? d.failureReason : null) ??
+      (typeof d.error === 'string' ? d.error : null),
+  };
 }
 
 interface SoloPage {
@@ -280,7 +335,7 @@ export async function listSolos(opts: {
   params.set('size', String(opts.size ?? 50));
   params.set('sort', opts.sort ?? 'createdAt,desc');
   if (opts.performer) params.set('performer', opts.performer);
-  const res = await fetch(`${API_BASE}/v1/solos?${params.toString()}`);
+  const res = await authFetch(`${API_BASE}/v1/solos?${params.toString()}`);
   if (!res.ok) throw new Error(`solos list ${res.status}`);
   const json: { data: SoloPage } = await res.json();
   return json.data;
@@ -299,7 +354,7 @@ export async function listSoloPerformers(composer?: string): Promise<SoloFacet[]
   const params = new URLSearchParams();
   if (composer) params.set('composer', composer);
   const qs = params.toString();
-  const res = await fetch(`${API_BASE}/v1/solos/performers${qs ? `?${qs}` : ''}`);
+  const res = await authFetch(`${API_BASE}/v1/solos/performers${qs ? `?${qs}` : ''}`);
   if (!res.ok) throw new Error(`solo performers ${res.status}`);
   const json: { data: SoloFacet[] } = await res.json();
   return json.data ?? [];
@@ -311,7 +366,7 @@ export async function listSoloComposers(performer?: string): Promise<SoloFacet[]
   const params = new URLSearchParams();
   if (performer) params.set('performer', performer);
   const qs = params.toString();
-  const res = await fetch(`${API_BASE}/v1/solos/composers${qs ? `?${qs}` : ''}`);
+  const res = await authFetch(`${API_BASE}/v1/solos/composers${qs ? `?${qs}` : ''}`);
   if (!res.ok) throw new Error(`solo composers ${res.status}`);
   const json: { data: SoloFacet[] } = await res.json();
   return json.data ?? [];

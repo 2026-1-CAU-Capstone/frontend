@@ -293,6 +293,7 @@ export function createGlobalPlayer(
       return backingPlayer;
     }
     if (backingPlayer) {
+      if (active === backingPlayer) active = null;
       backingPlayer.dispose();
       backingPlayer = null;
       backingPlayerSig = null;
@@ -356,6 +357,7 @@ export function createGlobalPlayer(
       return backingPlayerMelody;
     }
     if (backingPlayerMelody) {
+      if (active === backingPlayerMelody) active = null;
       backingPlayerMelody.dispose();
       backingPlayerMelody = null;
       backingPlayerMelodySig = null;
@@ -393,12 +395,17 @@ export function createGlobalPlayer(
   function computeMelodySig(input: { kind: string; data: NoteSheetData }): string {
     // Cheap identity proxy — same convention as computeBackingSig. The kind
     // is part of the signature so toggling sheet↔lick (different volume
-    // preset) forces a rebuild.
+    // preset) forces a rebuild. `key` is included so TRANSPOSING the sheet
+    // busts the cache: without it, a transposed solo (same title + measure
+    // count) reused the cached melody engine built for the original key and
+    // played back in the wrong key.
     const d = input.data;
     return (
       input.kind +
       "|" +
       (d.title ?? "?") +
+      "/" +
+      (d.key ?? "?") +
       "/" +
       (d.measures?.length ?? 0)
     );
@@ -466,10 +473,12 @@ export function createGlobalPlayer(
         const bp = ensureBackingPlayerForSheet(
           input as { kind: "sheet" | "lick" | "solo"; data: NoteSheetData },
         );
+        if (!active) active = bp;
         await bp.preload();
         return;
       }
       const bp = ensureBackingPlayer(input);
+      if (!active) active = bp;
       await bp.preload();
     } catch (err) {
       emit("error", err instanceof Error ? err : new Error(String(err)));
@@ -513,11 +522,13 @@ export function createGlobalPlayer(
     }
   }
 
-  function seekToMeasure(_mi: number): void {
+  function seekToMeasure(mi: number): void {
     if (!active) return;
-    // BackingPlayer has no per-measure seek API — silently ignore. All
-    // melody/chart playback now routes through BackingPlayer, so this
-    // method is currently a no-op kept for API compatibility.
+    // `mi` is a DISPLAYED measure index. Anacrusis songs strip the pickup bar
+    // and bias bar/note events by `backingPlayerMelodyOffset` (see
+    // wireBackingPlayerMelody), so translate back to the backing chart's bar
+    // index before seeking.
+    active.seekToBar(mi - backingPlayerMelodyOffset);
   }
 
   function setConfig(patch: Partial<GlobalPlayerConfig>): void {
@@ -529,14 +540,16 @@ export function createGlobalPlayer(
       setPlayerSettings(patch.mixer);
     }
 
-    // Fan out chart-engine fields (bpm/style/feel/loop/repeatCount) to the
-    // chart BackingPlayer *instance* directly — NOT gated on `active`. The
-    // user typically sets these (e.g. the "3x" repeat control) before pressing
-    // play, when `active` is still null; gating on `active` silently dropped
-    // the value and the player fell back to its default (infinite loop).
-    // Targeting the instance keeps its config in sync so the next play()
-    // honours it. The mixer-store comment above still holds for melody BPM.
-    if (!backingPlayer) return;
+    // Fan out engine fields (bpm/style/feel/loop/repeatCount) to BOTH inner
+    // engine instances directly — NOT gated on `active`. The user typically
+    // sets these (e.g. the "3x" repeat control, or a sheet's tempo) before
+    // pressing play, when `active` is still null; gating on `active` silently
+    // dropped the value. Crucially we must reach `backingPlayerMelody` too:
+    // the note-analysis (sheet/lick/solo) path plays through that instance,
+    // and its tempo is seeded as `config.bpm ?? data.tempo` — so a stale
+    // orchestrator bpm from a previously-played song would override the new
+    // song's own tempo (e.g. Confirmation @208 playing back at the prior
+    // song's ~120) unless this setConfig actually propagates to it.
     const bpPatch: Partial<BackingConfig> = {};
     if ("bpm" in patch) bpPatch.bpm = patch.bpm;
     if ("style" in patch) bpPatch.style = patch.style;
@@ -544,7 +557,8 @@ export function createGlobalPlayer(
     if ("loop" in patch) bpPatch.loop = patch.loop;
     if ("repeatCount" in patch) bpPatch.repeatCount = patch.repeatCount;
     if (Object.keys(bpPatch).length > 0) {
-      backingPlayer.setConfig(bpPatch);
+      backingPlayer?.setConfig(bpPatch);
+      backingPlayerMelody?.setConfig(bpPatch);
     }
   }
 
@@ -553,7 +567,7 @@ export function createGlobalPlayer(
   }
 
   function ctxNow(): number {
-    return active?.ctxNow() ?? 0;
+    return active?.ctxNow() ?? backingPlayerMelody?.ctxNow() ?? backingPlayer?.ctxNow() ?? 0;
   }
 
   /* ── Anacrusis (pickup-note) scheduling ──────────────────────────── */

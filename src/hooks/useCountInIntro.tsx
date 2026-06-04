@@ -21,6 +21,15 @@ interface RunOptions {
   bpm: number;
   /** 명시하면 그 패턴 강제. 미지정 시 bpm 에 따라 자동 선택 (simple/medium/fast). */
   pattern?: Pattern;
+  /** Async work (typically instrument preload) to run CONCURRENTLY with the
+   *  count-in instead of blocking before it. The "1 2 3 4" clicks start
+   *  immediately; this promise is awaited only AFTER the clicks finish, right
+   *  before `downbeatInSec` is computed — so play({ startAt }) stays accurate
+   *  even on a cold first play where the work outruns the count-in (the delta
+   *  re-reads the clock post-await, clamping to ≥0; the player's SAFE_LEAD then
+   *  absorbs any overrun). Rejections are swallowed — the caller's play() path
+   *  retries the load. */
+  prepare?: Promise<unknown>;
 }
 
 export interface CountInResult {
@@ -80,8 +89,9 @@ export function useCountInIntro(options: HookOptions = {}) {
   }, [clearAll]);
 
   const run = useCallback(
-    async ({ bpm, pattern: patternOverride }: RunOptions): Promise<CountInResult> => {
+    async ({ bpm, pattern: patternOverride, prepare }: RunOptions): Promise<CountInResult> => {
       if (!Number.isFinite(bpm) || bpm <= 0) {
+        if (prepare) { try { await prepare; } catch { /* retried at play time */ } }
         return { ok: true, startAt: getCountInTime(), downbeatInSec: 0 };
       }
       const chosenPattern = patternOverride ?? selectPattern(bpm);
@@ -143,6 +153,11 @@ export function useCountInIntro(options: HookOptions = {}) {
       });
 
       const cancelled = cancelRef.current;
+      // Await concurrent prep (instrument preload) only now — the clicks have
+      // already played. In the warm/common case this resolved during the
+      // count-in and returns instantly; on a cold first play it may add a
+      // little time, which is why downbeatInSec is re-read from the clock below.
+      if (!cancelled && prepare) { try { await prepare; } catch { /* retried at play time */ } }
       setActive(false);
       setCurrentBeat(0);
       scheduledRef.current = [];

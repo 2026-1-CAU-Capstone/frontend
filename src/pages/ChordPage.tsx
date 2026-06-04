@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../styles/theme';
 import { IconSidebar } from '../components/layout/IconSidebar';
@@ -14,6 +14,7 @@ import type { LeadSheetData } from '../data/leadSheetTypes';
 import type { ChordOverlay } from '../data/types';
 import { getSongIndex, getSong, type SongEntry } from '../lib/ireal/irealLoader';
 import { buildChordContext } from '../api/chordContext';
+import { addChordProjectChords, analyzeChordProject, createChordProject } from '../api/chordProjects';
 import { leadSheetToChart } from '../lib/backing';
 import { useGlobalPlayer, type ChartInput } from '../lib/player';
 import { BUILTIN_STYLE, type StyleSelectorChoice } from '../components/yamaha-sty/StyleSelector';
@@ -22,11 +23,11 @@ import { GenreSelect, MetronomeToggle, BpmControl, RepeatControl, TransportButto
 import { useIsNativeUi } from '../contexts/AppPreviewContext';
 import { withLeadSheetSelectionIds } from '../lib/leadSheetSelection';
 import type { LeadSheetChordSelection } from '../components/leadsheet/LeadSheet';
-import { loadUserLicksSync } from '../data/lickData';
+import { loadUserLicksSync, type LickEntry } from '../data/lickData';
 import { findMatchingLicks, type LickMatch } from '../lib/lickMatcher';
 import { SavedLicksModal } from '../components/leadsheet/SavedLicksModal';
 import { useCountInIntro } from '../hooks/useCountInIntro';
-import { parseChordInput, loadChartEdit, saveChartEdit } from '../lib/leadSheetChordEdit';
+import { chordToInputString, parseChordInput, loadChartEdit, saveChartEdit } from '../lib/leadSheetChordEdit';
 import { useTransitionState } from '../hooks/useTransitionState';
 
 const ANALYZED_SONG_ID = '__analyzed_all-of-me__';
@@ -56,6 +57,33 @@ function makeEmptySheet(): LeadSheetData {
       })),
     })),
   };
+}
+
+function displayKeyToProjectKey(key: string): string {
+  const minor = isMinorKey(key);
+  const root = key.replace(/m$/, '').replace(/-$/, '');
+  const normalizedRoot = root
+    .replace('#', '_SHARP')
+    .replace('b', '_FLAT')
+    .replace(/^([A-G])$/, '$1');
+  return `${normalizedRoot}_${minor ? 'MINOR' : 'MAJOR'}`.toUpperCase();
+}
+
+function leadSheetToProgression(data: LeadSheetData): string {
+  const bars = data.systems.flatMap((system) =>
+    system.bars.map((bar) => {
+      const symbols = bar.chords
+        .map(chordToInputString)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      return symbols.length > 0 ? symbols.join(' ') : 'N.C.';
+    }),
+  );
+
+  while (bars.length > 1 && bars[bars.length - 1] === 'N.C.') {
+    bars.pop();
+  }
+  return bars.join(' | ') || 'N.C.';
 }
 
 /* Rule-based analysis is forced off while editing the chart. */
@@ -509,6 +537,73 @@ const ModalSub = styled.p`
   color: #888;
 `;
 
+const ModalInput = styled.input`
+  width: 100%;
+  height: 38px;
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 0.9rem;
+  color: #222;
+  box-sizing: border-box;
+  outline: none;
+
+  &:focus {
+    border-color: #1f6feb;
+    box-shadow: 0 0 0 2px rgba(31, 111, 235, 0.12);
+  }
+`;
+
+const ProgressionPreview = styled.pre`
+  margin: 12px 0 0;
+  max-height: 120px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border: 1px solid #ececec;
+  border-radius: 8px;
+  background: #fafafa;
+  padding: 10px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #444;
+`;
+
+const ModalError = styled.div`
+  margin-top: 10px;
+  border-radius: 8px;
+  background: #fff1f0;
+  border: 1px solid #ffccc7;
+  color: #a8071a;
+  padding: 8px 10px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+`;
+
+const ModalActions = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+`;
+
+const ModalButton = styled.button<{ $primary?: boolean }>`
+  height: 36px;
+  border: 1px solid ${({ $primary }) => ($primary ? '#1f6feb' : '#d9d9d9')};
+  border-radius: 8px;
+  padding: 0 14px;
+  background: ${({ $primary }) => ($primary ? '#1f6feb' : '#fff')};
+  color: ${({ $primary }) => ($primary ? '#fff' : '#333')};
+  font-weight: 700;
+  font-size: 0.86rem;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.58;
+    cursor: default;
+  }
+`;
+
 const ToggleRow = styled.label<{ $disabled?: boolean }>`
   display: flex;
   align-items: center;
@@ -837,6 +932,7 @@ const ResizeDivider = styled.div`
 
 export default function ChordPage({ mychordMode = false }: { mychordMode?: boolean }) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { filters, effective, toggleFilter } = useAnalysisFilters();
   /* Gate for Capacitor-app-only UI (native shell OR /preview/* route). */
   const isNativeUi = useIsNativeUi();
@@ -903,7 +999,22 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   const analysisModalT = useTransitionState(analysisMenuOpen);
   // ★ 저장된 릭 있는 마디 번호 세트
   const [savedLickBarNums, setSavedLickBarNums] = useState<Set<number>>(new Set());
-  const [savedLicksModal, setSavedLicksModal] = useState<{ label: string; matches: LickMatch[] } | null>(null);
+  const [savedLicksModal, setSavedLicksModal] = useState<{
+    label: string;
+    matches: LickMatch[];
+    anchorSystem: number;
+    anchorBar: number;
+  } | null>(null);
+  const [inlineLick, setInlineLick] = useState<{
+    lick: LickEntry;
+    systemIndex: number;
+    anchorBar: number;
+  } | null>(null);
+  const [saveConfirmOpen, setSaveConfirmOpen] = useState(false);
+  const [saveProjectTitle, setSaveProjectTitle] = useState('새 코드 차트');
+  const [saveProjectError, setSaveProjectError] = useState<string | null>(null);
+  const [pendingSaveSheet, setPendingSaveSheet] = useState<LeadSheetData | null>(null);
+  const [savingProject, setSavingProject] = useState(false);
   const analysisMenuRef = useRef<HTMLDivElement>(null);
   const lightMenuRef = useRef<HTMLDivElement>(null);
 
@@ -946,6 +1057,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   useEffect(() => {
     setSelectedChordIds([]);
     setSelectedChordsData([]);
+    setInlineLick(null);
   }, [sheet?.id]);
 
   // Mixer state (volumes, drumKit, reverb, bassMode) lives in the global
@@ -1045,13 +1157,14 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
       return;
     }
     setIsPlaying(true);
-    // 카운트인과 병렬로 instruments + drum 자원 로드 — 첫 재생 지연 제거.
     globalPlayer.setConfig({ repeatCount });
-    const preload = globalPlayer.preload(chartInput);
-    const cin = await countIn.run({ bpm: tempo });
-    if (!cin.ok) { setIsPlaying(false); return; }
     try {
-      await preload;
+      // Load instruments/drums CONCURRENTLY with the count-in so "1 2 3 4"
+      // starts the instant the button is pressed (no multi-second stall on a
+      // cold first play). The hook awaits this prepare promise after the clicks
+      // finish and re-reads the clock, so the downbeat stays accurate.
+      const cin = await countIn.run({ bpm: tempo, prepare: globalPlayer.preload(chartInput) });
+      if (!cin.ok) { setIsPlaying(false); return; }
       await globalPlayer.play(chartInput, { startAt: globalPlayer.ctxNow() + cin.downbeatInSec });
     } catch (err) {
       console.error('[backing] play failed:', err);
@@ -1247,6 +1360,9 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     [],
   );
   const writtenKey = shiftKey(chartKey, instrumentOffset);
+  useEffect(() => {
+    setInlineLick(null);
+  }, [writtenKey]);
   const setWrittenKey = useCallback(
     (k: string) => setChartKey(shiftKey(k, -instrumentOffset)),
     [instrumentOffset],
@@ -1276,10 +1392,50 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
       next.systems[s].bars[b].chords[c] = { ...parseChordInput(value), id: chord.id };
     });
     setSheet(next);
+
+    if (mychordMode && songId === EMPTY_SONG_ID) {
+      setPendingSaveSheet(next);
+      setSaveProjectTitle(next.title?.trim() || '새 코드 차트');
+      setSaveProjectError(null);
+      setSaveConfirmOpen(true);
+      return;
+    }
+
     saveChartEdit(songId, next);
     editValuesRef.current.clear();
     setEditMode(false);
-  }, [sheet, songId]);
+  }, [mychordMode, sheet, songId]);
+
+  const handleConfirmDirectInputSave = useCallback(async () => {
+    if (!pendingSaveSheet || savingProject) return;
+    const title = saveProjectTitle.trim() || pendingSaveSheet.title?.trim() || '새 코드 차트';
+    const progression = leadSheetToProgression(pendingSaveSheet);
+
+    setSavingProject(true);
+    setError(null);
+    setSaveProjectError(null);
+    try {
+      const created = await createChordProject({
+        title,
+        key: displayKeyToProjectKey(chartKey || pendingSaveSheet.key || 'C'),
+        timeSignature: pendingSaveSheet.timeSignature || '4/4',
+      });
+      await addChordProjectChords(created.publicId, progression);
+      await analyzeChordProject(created.publicId);
+
+      editValuesRef.current.clear();
+      setEditMode(false);
+      setSaveConfirmOpen(false);
+      setPendingSaveSheet(null);
+      navigate('/my-charts');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '코드 차트 저장 실패';
+      setError(message);
+      setSaveProjectError(message);
+    } finally {
+      setSavingProject(false);
+    }
+  }, [chartKey, navigate, pendingSaveSheet, saveProjectTitle, savingProject]);
 
   /* Which instrument the player is using this chart with. Display-only for now;
    * instrument-specific behaviours (vocal lyrics, sax transpose, drum sections)
@@ -1472,11 +1628,26 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
               selectedChordIds={selectedChordIds}
               selectionMode={!editMode && isSelectionMode}
               savedLickBarNums={savedLickBarNums.size > 0 ? savedLickBarNums : undefined}
+              inlineLick={inlineLick ? {
+                systemIndex: inlineLick.systemIndex,
+                anchorBar: inlineLick.anchorBar,
+                sheet: inlineLick.lick.sheetData,
+              } : undefined}
+              onInlineLickClose={() => setInlineLick(null)}
               onSavedLickBadgeClick={(barNum, spanLabel) => {
+                const anchorSystem = sheet?.systems.findIndex((system) =>
+                  system.bars.some((bar) => bar.measureNumber === barNum),
+                ) ?? -1;
+                const anchorBar = anchorSystem >= 0
+                  ? sheet?.systems[anchorSystem]?.bars.findIndex((bar) => bar.measureNumber === barNum) ?? -1
+                  : -1;
+                if (anchorSystem < 0 || anchorBar < 0) return;
                 const saved = loadUserLicksSync();
-                if (saved.length === 0) { setSavedLicksModal({ label: spanLabel, matches: [] }); return; }
-                const keyMatch = chordContext?.match(/Key:\s*([A-G][b#]?)/);
-                const songKey = keyMatch ? keyMatch[1] : 'C';
+                if (saved.length === 0) {
+                  setSavedLicksModal({ label: spanLabel, matches: [], anchorSystem, anchorBar });
+                  return;
+                }
+                const songKey = writtenKey;
                 if (!sheet) return;
 
                 // spanLabel 예: "C Major 2-5-1" / "F minor 2-5-1" → 토닉 + 모드 추출
@@ -1526,7 +1697,12 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
                 const all = findMatchingLicks(overlays, sheet.title, songKey, saved, 50);
                 // tier 3은 임의 전조 결과라 제외, tier 1/2만 표시 (없으면 전체)
                 const direct = all.filter((m) => m.tier <= 2);
-                setSavedLicksModal({ label: spanLabel, matches: direct.length > 0 ? direct : all });
+                setSavedLicksModal({
+                  label: spanLabel,
+                  matches: direct.length > 0 ? direct : all,
+                  anchorSystem,
+                  anchorBar,
+                });
               }}
             />
           ) : (
@@ -1621,12 +1797,81 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
         </div>
       )}
 
+      {saveConfirmOpen && (
+        <ModalOverlay
+          $entered
+          onClick={() => {
+            if (savingProject) return;
+            setSaveConfirmOpen(false);
+            setPendingSaveSheet(null);
+            setSaveProjectError(null);
+          }}
+        >
+          <ModalCard $entered onClick={(e) => e.stopPropagation()}>
+            <ModalTitle>코드 차트 저장</ModalTitle>
+            <ModalSub>입력한 코드를 내 코드 차트에 저장할까요?</ModalSub>
+            <ModalInput
+              value={saveProjectTitle}
+              onChange={(e) => setSaveProjectTitle(e.target.value)}
+              placeholder="차트 제목"
+              disabled={savingProject}
+            />
+            <ProgressionPreview>
+              {pendingSaveSheet ? leadSheetToProgression(pendingSaveSheet) : ''}
+            </ProgressionPreview>
+            {saveProjectError && <ModalError>{saveProjectError}</ModalError>}
+            <ModalActions>
+              <ModalButton
+                type="button"
+                disabled={savingProject}
+                onClick={() => {
+                  setSaveConfirmOpen(false);
+                  setPendingSaveSheet(null);
+                  setSaveProjectError(null);
+                }}
+              >
+                취소
+              </ModalButton>
+              <ModalButton
+                type="button"
+                $primary
+                disabled={savingProject}
+                onClick={handleConfirmDirectInputSave}
+              >
+                {savingProject ? '저장 중...' : '저장'}
+              </ModalButton>
+            </ModalActions>
+          </ModalCard>
+        </ModalOverlay>
+      )}
+
       {savedLicksModal && (
         <SavedLicksModal
           spanLabel={savedLicksModal.label}
           matches={savedLicksModal.matches}
           onClose={() => setSavedLicksModal(null)}
           songTempo={tempo}
+          onShowInline={(lick) => {
+            setInlineLick((prev) => (
+              prev &&
+              prev.lick.id === lick.id &&
+              prev.systemIndex === savedLicksModal.anchorSystem &&
+              prev.anchorBar === savedLicksModal.anchorBar
+                ? null
+                : {
+                  lick,
+                  systemIndex: savedLicksModal.anchorSystem,
+                  anchorBar: savedLicksModal.anchorBar,
+                }
+            ));
+          }}
+          activeInlineLickId={
+            inlineLick &&
+            inlineLick.systemIndex === savedLicksModal.anchorSystem &&
+            inlineLick.anchorBar === savedLicksModal.anchorBar
+              ? inlineLick.lick.id
+              : undefined
+          }
         />
       )}
 

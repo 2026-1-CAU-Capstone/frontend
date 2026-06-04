@@ -42,9 +42,11 @@ function genreToStyleId(genre: string, fallback: "swing" | "bossa"): StyleId {
     case "Bebop":          return "up-swing";
     case "Bossa Nova":     return "bossa";
     case "Samba":          return "samba";
-    case "Latin":          return "samba";
+    case "Latin":          return "latin";
+    case "Latin Swing":    return "latin-swing";
     case "Funk":           return "funk";
     case "Jazz Waltz":     return "waltz-jazz";
+    case "New Orleans Swing": return "new-orleans";
     default:               return fallback === "bossa" ? "bossa" : "medium-swing";
   }
 }
@@ -102,6 +104,7 @@ export function createBackingPlayer(
   // racing a parallel fetch (whose late-arriving result would otherwise clobber
   // the newer selection).
   let drumLoopLoading: Promise<void> | null = null;
+  let disposed = false;
 
   let events: BackingEvent[] = [];
   let origin = 0;
@@ -109,6 +112,11 @@ export function createBackingPlayer(
   let nextIdx = 0;
   let rafHandle = 0;
   let playing = false;
+  // Synchronous re-entrancy guard: `playing` is only set true AFTER play()'s
+  // awaits (ensureCtx/ensureInstruments/…), so two play() calls landing during
+  // that window would both pass the `if (playing)` check and start duplicate
+  // tick loops (double audio + a leaked RAF chain). `starting` closes the gap.
+  let starting = false;
   let lastBarFired = -2;
   let loopCount = 0;  // completed song passes this play() session (for repeatCount)
   let secPerBar = 0;
@@ -118,16 +126,52 @@ export function createBackingPlayer(
 
   /* ── audio context / instruments ─────────────────────────────────── */
 
-  async function ensureCtx(): Promise<AudioContext> {
-    if (!ctx) ctx = new AudioContext();
-    if (ctx.state === "suspended") await ctx.resume();
+  /** Create (but DON'T resume) the AudioContext. A freshly-created context
+   *  starts "suspended"; that's fine for warmup — `fetch` + `decodeAudioData`
+   *  (and smplr's sample loading) all work on a suspended context, so we can
+   *  preload every instrument/sample on mount WITHOUT a user gesture. Only
+   *  actual playback needs the context running, so `resume()` is deferred to
+   *  `ensureCtx()` (called from play(), which runs inside the click gesture).
+   *  This is what makes the count-in start instantly instead of stalling ~2s
+   *  on a cold first play. */
+  function getCtx(): AudioContext {
+    if (disposed) throw new Error("BackingPlayer has been disposed.");
+    if (!ctx) {
+      ctx = new AudioContext();
+      // Recover from transient audio-device / renderer errors. When the OS
+      // audio device glitches (Bluetooth/output switch, sample-rate change,
+      // app backgrounding) Chrome logs "The AudioContext encountered an error
+      // from the audio device or the WebAudio renderer." and the context can
+      // drop to 'interrupted'/'suspended'. Auto-resume so playback recovers
+      // without a page reload.
+      ctx.addEventListener("statechange", () => {
+        const st = ctx?.state as string | undefined;
+        if (playing && (st === "interrupted" || st === "suspended")) {
+          ctx?.resume().catch(() => { /* will retry on next gesture/play */ });
+        }
+      });
+    }
     return ctx;
+  }
+
+  async function ensureCtx(): Promise<AudioContext> {
+    getCtx();
+    if (ctx!.state === "suspended") await ctx!.resume();
+    return ctx!;
   }
 
   function ensureInstruments(): Promise<void> {
     if (piano && bass && drums) return ensureMelodyInstrument();
     if (loading) return loading;
-    loading = ensureCtx().then(loadInstruments).then((inst) => {
+    // Load on the (possibly suspended) context — no resume needed, so this
+    // can run during mount-time warmup before any user gesture.
+    loading = loadInstruments(getCtx()).then((inst) => {
+      if (disposed) {
+        inst.piano.stopAll();
+        inst.bass.stopAll();
+        inst.drums.stopAll();
+        return;
+      }
       piano = inst.piano;
       bass = inst.bass;
       drums = inst.drums;
@@ -153,6 +197,10 @@ export function createBackingPlayer(
     melodyLoading = (async () => {
       try {
         const inst = await loadMelodyInstrument(ctx!, dest, want);
+        if (disposed) {
+          inst.stopAll();
+          return;
+        }
         // Config may have changed during the fetch — drop a stale result.
         if ((config.melodyInstrument ?? "piano") !== want) return;
         melody?.stopAll();
@@ -195,8 +243,12 @@ export function createBackingPlayer(
     drumLoopUrl = null;
     drumLoopLoading = (async () => {
       try {
-        const c = await ensureCtx();
+        const c = getCtx();   // fetch+decode the loop on a suspended ctx (warmup, no gesture)
         const player = await loadDrumLoopPlayer(c, c.destination, cfg);
+        if (disposed) {
+          player.dispose();
+          return;
+        }
         // Config may have flipped during the fetch — drop a stale result.
         if (config.drumLoop?.url !== targetUrl) {
           player.dispose();
@@ -456,13 +508,19 @@ export function createBackingPlayer(
    *  호출하지만 모두 idempotent (캐시) 라 카운트인과 병렬로 호출해두면 첫 재생
    *  지연이 사라진다. */
   async function preload(): Promise<void> {
-    await ensureCtx();
+    // Warmup must NOT resume the context (that needs a user gesture and would
+    // stall on mount). Just create it suspended and load all samples on it —
+    // play() resumes later inside the click gesture, by which point everything
+    // is already decoded so the count-in starts instantly.
+    getCtx();
     await ensureInstruments();
     await ensureDrumLoop();
   }
 
   async function play(playOpts: { startAt?: number } = {}): Promise<void> {
-    if (playing) return;
+    if (playing || starting) return;
+    starting = true;
+    try {
     // A previous ending tail may still be ringing (playing===false but the
     // teardown timer pending). Cancel it so its stop()/onDone can't fire into
     // this fresh playback, and reset the reverb send.
@@ -520,6 +578,9 @@ export function createBackingPlayer(
     }
 
     tick();
+    } finally {
+      starting = false;
+    }
   }
 
   function opts() {
@@ -532,6 +593,33 @@ export function createBackingPlayer(
     cancelAnimationFrame(rafHandle);
     elapsed = ctx.currentTime - origin;
     killActiveNodes();
+  }
+
+  /** Jump to the start of `bar`. While playing, re-aims the live scheduler
+   *  (mirrors play()'s resume math); while paused/idle, just seeds `elapsed`
+   *  so the next play() resumes there. Needs a timeline — no-op until the
+   *  first play() has run build(). */
+  function seekToBar(bar: number): void {
+    if (secPerBar <= 0 || totalBars <= 0 || events.length === 0) return;
+    const clamped = Math.min(Math.max(0, Math.floor(bar)), totalBars - 1);
+    const target = clamped * secPerBar;
+    elapsed = target;
+    if (!playing || !ctx) return;  // paused/idle: elapsed seeded for next play()
+
+    // Live jump: cut sounding notes, rebase the transport clock so song-time
+    // `target` lands just ahead of now, and re-aim the scheduler.
+    killActiveNodes();
+    const SAFE_LEAD = 0.05;
+    origin = ctx.currentTime + SAFE_LEAD - target;
+    nextIdx = 0;
+    for (let i = 0; i < events.length; i++) {
+      if (events[i].time >= target - TICK_TOLERANCE_SEC) { nextIdx = i; break; }
+    }
+    lastBarFired = -2;
+    // Re-phase the drum loop to the new position (killActiveNodes stopped it).
+    if (config.drumMode === "loop" && drumLoop) {
+      drumLoop.start(origin + target, opts().bpm, target);
+    }
   }
 
   function stop(): void {
@@ -606,13 +694,18 @@ export function createBackingPlayer(
   }
 
   function dispose(): void {
+    if (disposed) return;
+    disposed = true;
     stop();
     unsubSettings?.();
     unsubSettings = null;
     drumLoop?.dispose();
     drumLoop = null;
     drumLoopUrl = null;
-    ctx?.close();
+    const closeCtx = ctx;
+    const pendingLoads = [loading, melodyLoading, drumLoopLoading].filter(
+      (p): p is Promise<void> => !!p,
+    );
     ctx = null;
     piano = null;
     bass = null;
@@ -620,9 +713,20 @@ export function createBackingPlayer(
     melody = null;
     melodyDestination = null;
     melodyInstId = null;
-    melodyLoading = null;
     pianoReverbSend = null;
     loading = null;
+    melodyLoading = null;
+    drumLoopLoading = null;
+    if (closeCtx) {
+      const close = () => {
+        if (closeCtx.state !== "closed") closeCtx.close().catch(() => {});
+      };
+      if (pendingLoads.length > 0) {
+        Promise.allSettled(pendingLoads).finally(close);
+      } else {
+        close();
+      }
+    }
   }
 
   // Subscribe to the global mixer store so every player instance picks up
@@ -638,6 +742,7 @@ export function createBackingPlayer(
     preload,
     pause,
     stop,
+    seekToBar,
     setConfig,
     dispose,
     ctxNow() { return ctx?.currentTime ?? 0; },

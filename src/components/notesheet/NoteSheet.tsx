@@ -265,12 +265,19 @@ const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.
 /** Pitch helpers for scheduling anacrusis pickup notes during the count-in. */
 const PITCH_SEMI: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
 function noteToMidi(key: string, acc?: '#' | 'b' | 'n' | '##' | 'bb'): number {
-  const [n, o] = key.split('/');
-  let s = PITCH_SEMI[n] ?? 0;
-  if (acc === '#')  s += 1;
-  else if (acc === 'b')  s -= 1;
-  else if (acc === '##') s += 2;
-  else if (acc === 'bb') s -= 2;
+  const [np, o] = key.split('/');
+  const letter = np[0].toLowerCase();
+  // The accidental may be BAKED into the key string ("eb/5") — e.g. transposed
+  // notes whose accidental is implied by the key signature. The explicit `acc`
+  // arg wins; otherwise fall back to the baked one. (PITCH_SEMI is keyed by
+  // bare letter, so the old `PITCH_SEMI["eb"]` lookup silently returned C.)
+  const baked = np.slice(1);
+  const a = acc ?? (baked || undefined);
+  let s = PITCH_SEMI[letter] ?? 0;
+  if (a === '#')  s += 1;
+  else if (a === 'b')  s -= 1;
+  else if (a === '##') s += 2;
+  else if (a === 'bb') s -= 2;
   return (parseInt(o) + 1) * 12 + s;
 }
 
@@ -990,6 +997,14 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
 
   const countIn = useCountInIntro();
 
+  // Warm up instruments/samples as soon as the sheet is known, BEFORE the user
+  // presses play. preload() loads on a suspended AudioContext (no user gesture
+  // needed), so by play time everything is decoded and the count-in starts
+  // instantly instead of stalling ~2s on a cold first play.
+  useEffect(() => {
+    void player.preload({ kind: 'sheet', data }).catch(() => { /* retry at play time */ });
+  }, [player, data]);
+
   const togglePlay = useCallback(async () => {
     const p = player;
     if (playing || countIn.active) {
@@ -1024,16 +1039,19 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     const hasAnacrusis = !!firstMeas
       && (firstMeas.anacrusis || (firstBeats > 0 && firstBeats < tsNum - 0.001));
 
-    await preload;
     const beatDur = 60 / tempo;
-    // Anchor: when the count-in's first click will sound, in the PLAYER's
-    // ctx clock. Count-in clicks live in a separate AudioContext but both
-    // contexts advance at wall-clock rate, so reading both at the same JS
-    // tick gives us a stable offset (the +0.06 mirrors the internal lead
-    // inside useCountInIntro).
-    const cinStart = p.ctxNow() + 0.06;
 
     if (hasAnacrusis) {
+      // Pickup notes SOUND during the count-in via the player's soundfont, so
+      // the instruments must already be loaded before the clicks start — here
+      // (and only here) we still await preload up front.
+      await preload;
+      // Anchor: when the count-in's first click will sound, in the PLAYER's
+      // ctx clock. Count-in clicks live in a separate AudioContext but both
+      // contexts advance at wall-clock rate, so reading both at the same JS
+      // tick gives us a stable offset (the +0.06 mirrors the internal lead
+      // inside useCountInIntro).
+      const cinStart = p.ctxNow() + 0.06;
       const anacrusisBeats = firstBeats;
       // Pickup notes sound during count-in's last `anacrusisBeats` beats.
       // They start at the (tsNum - anacrusisBeats)'th beat of the count-in
@@ -1069,7 +1087,12 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
       p.setConfig({ bpm: tempo });
       await p.play({ kind: 'sheet', data: strippedData }, { startAt: songStart, measureOffset: 1 });
     } else {
-      const cin = await countIn.run({ bpm: tempo });
+      // No pickup → nothing sounds during the count-in, so load instruments
+      // CONCURRENTLY with the clicks. Capture the anchor right before run() so
+      // it aligns with the count-in's first click; the hook awaits `preload`
+      // after the clicks and re-reads the clock for an accurate downbeat.
+      const cinStart = p.ctxNow() + 0.06;
+      const cin = await countIn.run({ bpm: tempo, prepare: preload });
       if (!cin.ok) { setPlaying(false); return; }
       p.setConfig({ bpm: tempo });
       await p.play({ kind: 'sheet', data }, { startAt: cinStart + tsNum * beatDur });
@@ -1235,12 +1258,15 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     return () => { (svg as SVGSVGElement).removeEventListener('click', handler); };
   }, [selectable, selectedRanges, onSelectionChange, data]);
 
-  /* ── click → seek during playback (when not in selection mode) ───── */
+  /* ── click → seek to measure (playing OR paused; not in selection mode) ── */
   useEffect(() => {
     const svg = svgRef.current?.querySelector('svg');
     if (!svg || selectable) return;
     const handler = (e: MouseEvent) => {
-      if (!player.playing) return;
+      // Seek only when there's a live timeline: actively playing (live jump)
+      // or paused (re-seats the resume point for the next play()). Ignored
+      // when fully stopped — there's nothing to seek into.
+      if (!player.playing && !paused) return;
       const pt = (svg as SVGSVGElement).createSVGPoint();
       pt.x = e.clientX;
       pt.y = e.clientY;
@@ -1261,7 +1287,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     };
     (svg as SVGSVGElement).addEventListener('click', handler);
     return () => { (svg as SVGSVGElement).removeEventListener('click', handler); };
-  }, [selectable, data, player]);
+  }, [selectable, data, player, paused]);
 
   /* ── auto-scroll to active measure ────────────────────────────────── */
   useEffect(() => {

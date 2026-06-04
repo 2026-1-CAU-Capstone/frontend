@@ -167,23 +167,34 @@ function resolveFeel(style: StyleId, defaultFeel: FeelId): FeelId {
     case "bossa":
       return "bossa";
     case "samba":
+      // Samba has its own surdo+caixa groove — distinct from the generic latin.
+      return "samba";
+    case "latin":
     case "mambo":
     case "songo":
     case "cha-cha":
     case "afro-cuban-68":
       return "latin";
+    case "latin-swing":
+      return "latin-swing";
     case "ballad-swing":
     case "slow-swing":
       return "ballad-swing";
     case "up-swing":
       return "up-tempo-swing";
+    case "new-orleans":
+      return "new-orleans-swing";
     case "funk":
+      // Funk has its own straight-16 backbeat — distinct from plain even-8ths.
+      return "funk";
     case "rock":
     case "pop-ballad":
       return "even-8ths";
+    case "waltz-jazz":
+      // 3/4 swung waltz (own renderer; falls back to swing off-3 meter).
+      return "waltz";
     case "medium-swing":
     case "rubato":
-    case "waltz-jazz":
     case "none":
       return defaultFeel ?? "medium-swing";
     default:
@@ -223,6 +234,8 @@ function pickRoll(feel: FeelId, voicingLen: number, randDraw: number): number[] 
     feel === "even-8ths" ||
     feel === "bossa" ||
     feel === "latin" ||
+    feel === "samba" ||
+    feel === "funk" ||
     feel === "new-orleans-swing"
   ) {
     // Block chord — no spread.
@@ -252,7 +265,7 @@ export function renderChart(chart: Chart, opts: RenderOptions): BackingEvent[] {
   // 2-feel bass + blocked/legacy piano comping (the per-feel comping helpers
   // below already special-case feel==='latin' the same way). Keyed off `feel`
   // so samba/mambo/songo/cha-cha/afro-cuban all route here, not just bossa.
-  const isBossa = feel === "bossa" || feel === "latin";
+  const isBossa = feel === "bossa" || feel === "latin" || feel === "samba";
 
   // Flatten all bars across sections (no repeat expansion yet).
   const flatBars: Bar[] = [];
@@ -542,7 +555,7 @@ function renderLegacyPianoComping(
   const voicing = fullVoicing.slice(0, 3).map((n: MidiNote) => n + octaveShift);
   if (voicing.length === 0) return fullVoicing;
 
-  const isBossa = feel === "bossa" || feel === "latin";
+  const isBossa = feel === "bossa" || feel === "latin" || feel === "samba";
   const pattern = selectCompingPattern(chord.beats, bi, ci, feel);
   const isSingleHit = pattern.length === 1;
 
@@ -630,7 +643,7 @@ function selectCompingPattern(
   chordIdx: number,
   feel: FeelId,
 ): Array<[number, number]> {
-  const isBossa = feel === "bossa" || feel === "latin";
+  const isBossa = feel === "bossa" || feel === "latin" || feel === "samba";
 
   if (beats >= 4) {
     if (isBossa) {

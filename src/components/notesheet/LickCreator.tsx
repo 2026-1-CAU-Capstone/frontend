@@ -674,11 +674,14 @@ export function LickCreator({ width, onSave, onCancel }: LickCreatorProps) {
     }
     if (measures.length > 0) {
       setPlaying(true);
-      const preload = player.preload({ kind: 'lick', data: sheetData });
+      // 샘플 로드를 카운트인과 병렬로 → "1234" 즉시 시작, 다운비트 직전에 로드 완료 대기.
       // 릭 재생: BPM 무관하게 SIMPLE 카운트인.
-      const cin = await countIn.run({ bpm: 120, pattern: PATTERN_SIMPLE });
+      const cin = await countIn.run({
+        bpm: 120,
+        pattern: PATTERN_SIMPLE,
+        prepare: player.preload({ kind: 'lick', data: sheetData }),
+      });
       if (!cin.ok) { setPlaying(false); return; }
-      await preload;
       await player.play({ kind: 'lick', data: sheetData }, { startAt: player.ctxNow() + cin.downbeatInSec });
     }
   }, [measures, sheetData, playing, player]);

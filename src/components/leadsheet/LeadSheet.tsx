@@ -5,6 +5,7 @@ import type {
   LeadSheetSystem,
   LeadSheetChord,
 } from '../../data/leadSheetTypes';
+import type { NoteSheetData } from '../../data/sampleMelody';
 import { FullscreenButton } from '../common/FullscreenButton';
 import { CompactButton } from '../common/CompactButton';
 import { ZoomControls, useZoom } from '../common/ZoomControls';
@@ -17,6 +18,7 @@ import { chordToInputString } from '../../lib/leadSheetChordEdit';
 import { getModalInterchangeTemplate } from '../../lib/modalInterchangeTemplates';
 import { ModalInterchangePopup } from './ModalInterchangePopup';
 import { SubVPopup } from './SubVPopup';
+import { InlineLickRow } from './InlineLickRow';
 import { mq } from '../../styles/theme';
 
 /* ─── constants ──────────────────────────────────────────────────────────────
@@ -1536,6 +1538,13 @@ interface LeadSheetProps {
   /** 저장된 릭이 있는 ii-V-I 시작 마디 번호 세트 */
   savedLickBarNums?: Set<number>;
   onSavedLickBadgeClick?: (bar: number, spanLabel: string) => void;
+  /** One expanded lick row rendered directly below the target chart system. */
+  inlineLick?: {
+    systemIndex: number;
+    anchorBar: number;
+    sheet: NoteSheetData;
+  };
+  onInlineLickClose?: () => void;
   /** Controlled transpose key. When provided the host owns the key — e.g.
    *  ChordPage renders the transpose control in the player transport.
    *  Omit for the standalone uncontrolled (original-key) display. */
@@ -2052,7 +2061,10 @@ export function LeadSheet({
   onChordRangeSelect,
   selectedChordIds,
   selectionMode = false,
+  savedLickBarNums,
   onSavedLickBadgeClick,
+  inlineLick,
+  onInlineLickClose,
   selectedKey: selectedKeyProp,
   styleSlot,
   editMode = false,
@@ -2636,7 +2648,7 @@ export function LeadSheet({
       observer.disconnect();
       window.removeEventListener('resize', measureSelectionHighlights);
     };
-  }, [visibleSelectionChordIds, selectionTargetByKey, resolvedData, effectiveScale]);
+  }, [visibleSelectionChordIds, selectionTargetByKey, resolvedData, effectiveScale, inlineLick]);
 
   useLayoutEffect(() => {
     const pageEl = pageRef.current;
@@ -3177,7 +3189,7 @@ export function LeadSheet({
       observer.disconnect();
       window.removeEventListener('resize', measure);
     };
-  }, [arrowSpecs, bracketSpecs, iiviSpans, modalChordLabels, resolvedData, effectiveScale]);
+  }, [arrowSpecs, bracketSpecs, iiviSpans, modalChordLabels, resolvedData, effectiveScale, inlineLick]);
 
   /* ── Per-beat chord advance within the active bar ─────────────────────
    * A bar with 2+ chords advances the playback highlight chord-by-chord in
@@ -3276,7 +3288,7 @@ export function LeadSheet({
       observer.disconnect();
       window.removeEventListener('resize', measureActiveBar);
     };
-  }, [activeBar, activeChordIndex, resolvedData, effectiveScale]);
+  }, [activeBar, activeChordIndex, resolvedData, effectiveScale, inlineLick]);
 
   const registerChordEl = (id: string, el: HTMLSpanElement | null) => {
     chordElsRef.current[id] = el;
@@ -3584,46 +3596,76 @@ export function LeadSheet({
         </MetaRow>
 
         {resolvedData.systems.map((system, i) => (
-          <SystemRowComponent
-            key={i}
-            system={system}
-            isFirst={i === 0}
-            isLast={i === resolvedData.systems.length - 1}
-            systemIndex={i}
-            compact={compactRows[i]}
-            timeSignature={resolvedData.timeSignature}
-            registerChordEl={registerChordEl}
-            registerSystemEl={registerSystemEl}
-            registerGridEl={registerGridEl}
-            showColors={af.showColors}
-            showIIVI={af.showIIVI}
-            onModalClick={setMiPopupChord}
-            onSubVClick={setSubVPopupChord}
-            onChordClick={onChordClick}
-            onSelectionPointerDown={handleSelectionPointerDown}
-            onSelectionPointerEnter={handleSelectionPointerEnter}
-            selectedChordIds={selectedChordIds}
-            dragPreviewChordIds={dragPreviewChordIds}
-            selectionTargetByKey={selectionTargetByKey}
-            selectionMode={selectionMode}
-            hoveredIiviChordKeys={hoveredIiviChordKeys}
-            editMode={editMode}
-            onChordEdit={onChordEdit}
-          />
+          <div key={i}>
+            <SystemRowComponent
+              system={system}
+              isFirst={i === 0}
+              isLast={i === resolvedData.systems.length - 1}
+              systemIndex={i}
+              compact={compactRows[i]}
+              timeSignature={resolvedData.timeSignature}
+              registerChordEl={registerChordEl}
+              registerSystemEl={registerSystemEl}
+              registerGridEl={registerGridEl}
+              showColors={af.showColors}
+              showIIVI={af.showIIVI}
+              onModalClick={setMiPopupChord}
+              onSubVClick={setSubVPopupChord}
+              onChordClick={onChordClick}
+              onSelectionPointerDown={handleSelectionPointerDown}
+              onSelectionPointerEnter={handleSelectionPointerEnter}
+              selectedChordIds={selectedChordIds}
+              dragPreviewChordIds={dragPreviewChordIds}
+              selectionTargetByKey={selectionTargetByKey}
+              selectionMode={selectionMode}
+              hoveredIiviChordKeys={hoveredIiviChordKeys}
+              editMode={editMode}
+              onChordEdit={onChordEdit}
+            />
+            {(() => {
+              // Inline lick rendered under EVERY chart row it flows through —
+              // the lick's measures map to consecutive chart bars starting at
+              // (anchorSystem, anchorBar), wrapping row by row. This is what
+              // lets a cross-row 2-5-1 lick draw its I under the I bar on the
+              // next line (not just the 2-5 on the anchor row).
+              if (!inlineLick || i < inlineLick.systemIndex) return null;
+              const S = inlineLick.systemIndex;
+              const B = inlineLick.anchorBar;
+              const M = inlineLick.sheet.measures.length;
+              const barsOf = (k: number) => resolvedData.systems[k]?.bars.length ?? 0;
+              let measureOffset = 0;
+              for (let k = S; k < i; k++) measureOffset += barsOf(k) - (k === S ? B : 0);
+              if (measureOffset >= M) return null;
+              const colStart = i === S ? B : 0;
+              const colCount = Math.min(M - measureOffset, Math.max(0, barsOf(i) - colStart));
+              if (colCount <= 0) return null;
+              return (
+                <InlineLickRow
+                  sheet={inlineLick.sheet}
+                  measureOffset={measureOffset}
+                  colStart={colStart}
+                  colCount={colCount}
+                  showClose={i === S}
+                  onClose={onInlineLickClose}
+                />
+              );
+            })()}
+          </div>
         ))}
 
         {/* ── Event capture layer (above text, transparent) ──
             Hover shows the tooltip; click opens the saved-licks modal for
             this ii-V-I span (replaces the old "★ 저장 릭" pill badge). */}
         {af.showIIVI && highlights.map((hl) => {
+          if (!onSavedLickBadgeClick) return null;
+          const spanIdx = Number(hl.spanKey.replace('span-', ''));
+          const span = iiviSpans[spanIdx];
+          if (!span) return null;
+          const [siStr, biStr] = span.chordKeys[0].split('-');
+          const bar = resolvedData.systems[Number(siStr)]?.bars[Number(biStr)];
+          const barNum = bar?.measureNumber ?? -1;
+          if (savedLickBarNums && !savedLickBarNums.has(barNum)) return null;
           const handleSpanClick = () => {
-            if (!onSavedLickBadgeClick) return;
-            const spanIdx = Number(hl.spanKey.replace('span-', ''));
-            const span = iiviSpans[spanIdx];
-            if (!span) return;
-            const [siStr, biStr] = span.chordKeys[0].split('-');
-            const bar = resolvedData.systems[Number(siStr)]?.bars[Number(biStr)];
-            const barNum = bar?.measureNumber ?? -1;
             onSavedLickBadgeClick(barNum, hl.label);
           };
           return (

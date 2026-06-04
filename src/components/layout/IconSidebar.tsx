@@ -133,9 +133,28 @@ export const PanelToggleIcon = () => (
 export const SIDEBAR_STORAGE_KEY = 'iconSidebar.expanded';
 
 /* Spacer that pushes the avatar block to the very bottom of the rail. */
-const RailSpacer = styled.div`
-  flex: 1;
-  min-height: 12px;
+/* Scrollable middle region — everything from the "새 채팅" quick-nav down
+ * through the recent-chats list scrolls together, so a long chat history no
+ * longer squashes the rows. TopRow (brand) stays pinned above; AdminBlock /
+ * UserMenu stay pinned below. flex:1 also takes over RailSpacer's old job of
+ * filling the gap and pushing the bottom cluster down when content is short. */
+const ScrollArea = styled.div<{ $expanded: boolean }>`
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  /* Mirror Rail's cross-axis alignment so collapsed-mode icons stay centered. */
+  align-items: ${({ $expanded }) => ($expanded ? 'stretch' : 'center')};
+  gap: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
+
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); border-radius: 3px; }
+  &::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.28); }
+
+  ${mq.phone} { align-items: center; }
 `;
 
 const NavBtn = styled.button<{ $active?: boolean; $expanded?: boolean; disabled?: boolean }>`
@@ -792,6 +811,7 @@ export function IconSidebar({
         )}
       </TopRow>
 
+      <ScrollArea $expanded={expanded}>
       {/* Chat quick-nav — expanded layout */}
       {expanded && (
         <ChatNavBlock>
@@ -926,10 +946,9 @@ export function IconSidebar({
       {/* "최근 채팅" — per-user chat history list (Jazzify backend /v1/chat).
        * Click an item → RightChatPanel loads that chat. Only renders in
        * expanded mode + when logged in; otherwise it self-mounts to null and
-       * RailSpacer fills the gap. */}
+       * the ScrollArea's flex:1 fills the gap. */}
       <RecentChatsList expanded={expanded} loggedIn={loggedIn} />
-
-      <RailSpacer />
+      </ScrollArea>
 
       {/* Admin drop-up — clicking opens a popover ABOVE the button that
        * contains the legacy tool nav (Chord / Note / Lick / Solo / Editor /

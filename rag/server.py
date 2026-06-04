@@ -9,7 +9,7 @@ STEP 5: FastAPI 서버
 import os
 import json
 import anthropic
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -33,6 +33,21 @@ app.add_middleware(
 )
 
 claude = anthropic.Anthropic(api_key=os.getenv("VITE_ANTHROPIC_API_KEY"))
+
+# ── Bearer-token auth ─────────────────────────────────────────────────────────
+# The frontend sends `Authorization: Bearer <VITE_RAG_TOKEN>`; it must match
+# RAG_AUTH_TOKEN (injected by the launchd service / .env). This is what makes
+# it safe to expose the server publicly (e.g. via a Tailscale Funnel) — without
+# it, anyone could hit /chat and burn the Anthropic API key. When RAG_AUTH_TOKEN
+# is unset the server stays open (local dev). /health is always public.
+RAG_AUTH_TOKEN = (os.getenv("RAG_AUTH_TOKEN") or "").strip()
+
+
+def require_auth(authorization: str | None = Header(default=None)):
+    if not RAG_AUTH_TOKEN:
+        return
+    if authorization != f"Bearer {RAG_AUTH_TOKEN}":
+        raise HTTPException(status_code=401, detail="invalid or missing RAG token")
 
 
 # ── 요청 스키마 ────────────────────────────────────────────────────────────────
@@ -113,7 +128,7 @@ chart 블록 규칙:
 
 # ── 엔드포인트 ─────────────────────────────────────────────────────────────────
 
-@app.post("/chat")
+@app.post("/chat", dependencies=[Depends(require_auth)])
 async def chat(req: ChatRequest):
     """
     HarmoRAG 컨텍스트를 주입한 Claude 스트리밍 응답
@@ -163,7 +178,7 @@ async def chat(req: ChatRequest):
     return StreamingResponse(stream(), media_type="text/plain")
 
 
-@app.get("/search")
+@app.get("/search", dependencies=[Depends(require_auth)])
 async def search_rag(q: str, level: int | None = None, n: int = 5, source_type: str | None = None):
     """
     직접 RAG 검색 테스트용 엔드포인트

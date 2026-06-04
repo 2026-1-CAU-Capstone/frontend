@@ -58,8 +58,8 @@ function useOutsideClose(
 
 /** Mock genre list for the (non-functional) genre dropdown. */
 const GENRES = [
-  'Ballad', 'Medium Swing', 'Up-Tempo Swing', 'Bossa Nova',
-  'Samba', 'Latin', 'Funk', 'Jazz Waltz', 'Bebop',
+  'Ballad', 'Medium Swing', 'Up-Tempo Swing', 'Bebop', 'New Orleans Swing',
+  'Bossa Nova', 'Samba', 'Latin', 'Latin Swing', 'Funk', 'Jazz Waltz',
 ] as const;
 
 /** The engine supports two feels; map the (richer) genre menu onto them.

@@ -5,19 +5,23 @@ import { mq } from '../styles/theme';
 import { exportScoreSvgToPdf } from '../lib/note/scoreToPdf';
 import { IconSidebar } from '../components/layout/IconSidebar';
 import { TopToolbar } from '../components/layout/TopToolbar';
-import { NoteSheet } from '../components/notesheet/NoteSheet';
+import { NoteSheet, type NoteSheetHandle } from '../components/notesheet/NoteSheet';
+import { BpmControl, TransportButtons } from '../components/backing/BackingPlayerBar';
 import {
   deleteSolo,
   listSolos,
   listSoloPerformers,
+  getSolo,
   updateSolo,
   createSolo,
   createSoloViaOMR,
+  getSoloOmrStatus,
   toWeimarKey,
   type SoloDraft,
   type SoloFacet,
   type SoloResponse,
 } from '../api/solos';
+import { useNotification } from '../contexts/NotificationContext';
 import { buildMergedSoloDraft } from '../lib/mergeSolos';
 import { OMRUploadModal } from '../components/common/OMRUploadModal';
 import {
@@ -391,6 +395,7 @@ const ErrorBanner = styled.div`
 
 export default function SolosPage() {
   const navigate = useNavigate();
+  const { notify } = useNotification();
   /* selectedPerformer: '' = none chosen → show the performer directory.
    * Clicking a performer fetches that performer's solos. */
   const [performers, setPerformers] = useState<SoloFacet[]>([]);
@@ -426,6 +431,16 @@ export default function SolosPage() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [previewKey, setPreviewKey] = useState('C');
+  /* Solo preview playback — count-in + global player live inside NoteSheet;
+   * we drive it via its imperative handle and mirror its play/tempo state so
+   * the transport (Play/Stop + BPM) can sit in the preview header (same wiring
+   * NotePage uses; NoteSheet's own floating bar is hidden via hideTransport). */
+  const noteSheetRef = useRef<NoteSheetHandle | null>(null);
+  const [soloPlaying, setSoloPlaying] = useState(false);
+  const [soloTempo, setSoloTempo] = useState(120);
+  const handleSoloPlayPause = useCallback(() => { noteSheetRef.current?.togglePlay(); }, []);
+  const handleSoloStop = useCallback(() => { noteSheetRef.current?.stop(); }, []);
+  const handleSoloTempo = useCallback((n: number) => { noteSheetRef.current?.setTempo(n); }, []);
   const [busy, setBusy] = useState<string | null>(null);
   const [pdfBusy, setPdfBusy] = useState<string | null>(null);
   const [omrOpen, setOmrOpen] = useState(false);
@@ -564,16 +579,117 @@ export default function SolosPage() {
    * immediately, mirroring the lick OMR flow. (Same prefill shape as the row
    * "Edit" button — composer overridden with performer so re-save updates the
    * same solo rather than creating an "Unknown" copy.) */
-  const handleSoloOMRCreated = useCallback((solo: SoloResponse) => {
-    setOmrOpen(false);
-    const prefill = {
-      ...solo.sheetData,
-      composer: solo.performer ?? solo.sheetData.composer ?? '',
-      tempo: solo.tempo ?? solo.sheetData.tempo,
-      key: solo.sheetData.key,
-    };
-    navigate('/editor?mode=solo', { state: { prefillSheet: prefill } });
+  /** Open a fully-loaded solo in the Editor (solo mode), prefilled so re-save
+   *  updates the same record. (composer ← performer mirrors the row Edit btn.) */
+  const openSoloInEditor = useCallback((full: SoloResponse) => {
+    const sheet = full.sheetData;
+    navigate('/editor?mode=solo', {
+      state: {
+        prefillSheet: {
+          ...sheet,
+          composer: full.performer ?? sheet.composer ?? '',
+          tempo: full.tempo ?? sheet.tempo,
+          key: sheet.key,
+        },
+      },
+    });
   }, [navigate]);
+
+  /** Fetch a solo by id and open it; surfaces a toast on failure. Used by the
+   *  "열기" action on the OMR-complete notification. */
+  const fetchAndOpenSolo = useCallback(async (publicId: string) => {
+    try {
+      const full = await getSolo(publicId);
+      if (!full?.sheetData?.measures?.length) {
+        notify({ kind: 'error', title: '열기 실패', message: '악보 데이터를 받지 못했어요.' });
+        return;
+      }
+      openSoloInEditor(full);
+    } catch (e) {
+      notify({
+        kind: 'error',
+        title: '열기 실패',
+        message: e instanceof Error ? e.message : '솔로를 불러오지 못했어요.',
+      });
+    }
+  }, [notify, openSoloInEditor]);
+
+  /** Poll /v1/solos/{id}/omr-status in the background until OMR finishes, then
+   *  raise a top-right toast. Fire-and-forget: the notification provider lives
+   *  at the app root, so the toast still appears even if the user has navigated
+   *  away from this page. Gives up after MAX_MS so a stuck job can't poll
+   *  forever. */
+  const pollSoloOmr = useCallback((publicId: string) => {
+    const INTERVAL_MS = 2500;
+    const MAX_MS = 5 * 60_000;
+    const startedAt = Date.now();
+    const tick = async () => {
+      try {
+        const st = await getSoloOmrStatus(publicId);
+        if (st.status === 'COMPLETED') {
+          notify({
+            kind: 'success',
+            title: 'OMR 완료',
+            message: '솔로 악보 인식이 끝났어요.',
+            action: { label: '열기', onClick: () => void fetchAndOpenSolo(publicId) },
+          });
+          return;
+        }
+        if (st.status === 'FAILED') {
+          notify({
+            kind: 'error',
+            title: 'OMR 실패',
+            message: st.failureReason ?? '악보 인식에 실패했어요.',
+          });
+          return;
+        }
+      } catch {
+        /* best-effort — keep polling unless we've exceeded MAX_MS */
+      }
+      if (Date.now() - startedAt > MAX_MS) {
+        notify({
+          kind: 'info',
+          title: 'OMR 지연',
+          message: '처리가 오래 걸리고 있어요. 잠시 후 목록에서 확인해 주세요.',
+        });
+        return;
+      }
+      window.setTimeout(() => void tick(), INTERVAL_MS);
+    };
+    void tick();
+  }, [notify, fetchAndOpenSolo]);
+
+  const handleSoloOMRCreated = useCallback(async (solo: SoloResponse) => {
+    setOmrOpen(false);
+    // The OMR 201 response may be minimal (no sheetData yet) — either because
+    // the response is trimmed OR because OMR is still running asynchronously on
+    // the server. Re-fetch once by publicId to catch the "done, just trimmed"
+    // case; if it's still empty, OMR is in flight → poll omr-status and toast
+    // when it lands (no blocking alert).
+    let full = solo;
+    if ((!full?.sheetData || !full.sheetData.measures?.length) && solo?.publicId) {
+      try {
+        full = await getSolo(solo.publicId);
+      } catch (e) {
+        console.error('[solo OMR] getSolo로 전체 솔로 조회 실패:', e);
+      }
+    }
+    if (full?.sheetData && full.sheetData.measures?.length) {
+      openSoloInEditor(full);
+      return;
+    }
+    if (!solo?.publicId) {
+      notify({ kind: 'error', title: 'OMR 오류', message: '서버 응답에 식별자가 없어 진행 상태를 확인할 수 없어요.' });
+      return;
+    }
+    // Still processing — let the user keep working; notify when finished.
+    notify({
+      kind: 'info',
+      title: 'OMR 처리 중',
+      message: '솔로 악보를 인식하고 있어요. 완료되면 알려드릴게요.',
+    });
+    pollSoloOmr(solo.publicId);
+  }, [notify, openSoloInEditor, pollSoloOmr]);
 
   const toggleMergePick = useCallback((id: string) => {
     setMergeIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -917,16 +1033,28 @@ export default function SolosPage() {
                       <PreviewMeta>
                         {(selected.performer ?? '—')} · {selected.instrument} · original {originalDisplayKey} · {selected.sheetData.measures.length} bars
                       </PreviewMeta>
+                      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <BpmControl tempo={soloTempo} onTempoChange={handleSoloTempo} />
+                        <TransportButtons
+                          playing={soloPlaying}
+                          onPlayPause={handleSoloPlayPause}
+                          onStop={handleSoloStop}
+                        />
+                      </div>
                     </PreviewHeader>
                     <PreviewBody ref={previewBodyRef}>
                       {previewSheet && (
                         <NoteSheet
+                          ref={noteSheetRef}
                           data={previewSheet}
                           selectedKey={previewKey}
                           allKeys={allKeys}
                           onKeyChange={setPreviewKey}
                           lineStartMeasureNumbers
                           forceAutoStem
+                          hideTransport
+                          onPlayingChange={setSoloPlaying}
+                          onTempoChange={setSoloTempo}
                         />
                       )}
                     </PreviewBody>

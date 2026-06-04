@@ -77,9 +77,10 @@ export type StyleId =
   // Swing family (Phase 0)
   | "medium-swing" | "up-swing" | "ballad-swing" | "slow-swing"
   // Latin family (Phase 1)
-  | "bossa" | "samba" | "afro-cuban-68" | "mambo" | "songo" | "cha-cha"
+  | "bossa" | "samba" | "latin" | "afro-cuban-68" | "mambo" | "songo" | "cha-cha"
+  | "latin-swing"
   // Other (Phase 1+)
-  | "funk" | "rock" | "pop-ballad" | "rubato" | "waltz-jazz"
+  | "funk" | "rock" | "pop-ballad" | "rubato" | "waltz-jazz" | "new-orleans"
   // Fallback
   | "none";
 
@@ -117,7 +118,11 @@ export type FeelId =
   // Stage-1 additions — latin flavors
   | "bossa"
   | "latin"
-  | "latin-swing";
+  | "latin-swing"
+  // Stage-2 additions — distinct grooves (own drum renderers)
+  | "samba"
+  | "funk"
+  | "waltz";
 
 /* ─── Chart instructions (bar-level behaviors) ───────────────────────── */
 
@@ -371,6 +376,11 @@ export interface BackingPlayer {
   preload(): Promise<void>;
   pause(): void;
   stop(): void;
+  /** Jump the transport to the start of `bar` (0-based). While playing the jump
+   *  is live — sounding notes are cut and the scheduler re-aims from the new
+   *  position. While paused/idle it just seeds the resume point so the next
+   *  play() starts there. No-op before the first play() (no timeline built). */
+  seekToBar(bar: number): void;
   setConfig(next: Partial<BackingConfig>): void;
   dispose(): void;
   /** Audio-context time (sec). Returns 0 if ctx has not been created yet —

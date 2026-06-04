@@ -6,6 +6,8 @@ import { IconSidebar } from '../components/layout/IconSidebar';
 import { LeadSheet } from '../components/leadsheet/LeadSheet';
 import type { LeadSheetData } from '../data/leadSheetTypes';
 import { parseChordInput } from '../lib/leadSheetChordEdit';
+import { saveOmrSourceImage, getOmrSourceImage, deleteOmrSourceImage } from '../lib/omrImageStore';
+import { ConfirmDeleteModal } from '../components/common/ConfirmDeleteModal';
 import {
   CHORD_PROJECT_KEYS,
   addChordProjectChords,
@@ -21,6 +23,9 @@ import {
   type ChordProject,
   type ChordProjectKey,
 } from '../api/chordProjects';
+import { uploadStorageFile } from '../api/storageFiles';
+import { createSheetProject } from '../api/sheetProjects';
+import { ProjectCreateModal, type ProjectCreatePayload } from '../components/common/ProjectCreateModal';
 
 /* ─────────────────────────────────────────────────────────────────────────
  * MyChordChartsPage — document grid for "내 코드 차트".
@@ -31,8 +36,8 @@ import {
  *
  *   - Breadcrumbs (홈 › Jazz › 이지원재즈) appear when inside a folder
  *   - A dashed "drag here to move up" zone sits between breadcrumbs + grid
- *   - The "신규" tile opens a dropdown: 파일 업로드 / YouTube 링크 /
- *     이미지 업로드 / (divider) / 폴더 생성
+ *   - The "신규" tile opens a dropdown: 직접 입력하기 /
+ *     코드 차트 업로드 / (divider) / 폴더 생성
  *   - Cards are draggable; drop on a folder card or on the parent-drop zone
  * ──────────────────────────────────────────────────────────────────────── */
 
@@ -208,6 +213,8 @@ export default function MyChordChartsPage() {
     { id: string; kind: 'folder' | 'file'; name: string } | null
   >(null);
   const [renameInput, setRenameInput] = useState('');
+  /* Confirm-delete modal target for a chord chart (file). `null` = closed. */
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
 
   /* Multi-select mode: checkbox overlay on every card + bottom action bar. */
   const [selectMode, setSelectMode] = useState(false);
@@ -216,8 +223,16 @@ export default function MyChordChartsPage() {
   const newWrapRef = useRef<HTMLDivElement>(null);
   const sortWrapRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
   const kebabMenuRef = useRef<HTMLDivElement>(null);
+
+  /* ── Onboarding "새 프로젝트 생성" modal (replaces the old 신규 dropdown) ── */
+  const [onboardOpen, setOnboardOpen] = useState(false);
+  const [onboardFile, setOnboardFile] = useState<File | null>(null);
+  const [onboardCreating, setOnboardCreating] = useState(false);
+  const [onboardError, setOnboardError] = useState<string | null>(null);
+  const [pageDragOver, setPageDragOver] = useState(false);
+
+  const openCreateModal = () => { setOnboardFile(null); setOnboardError(null); setOnboardOpen(true); };
 
   const projectSort = useMemo(() => {
     if (sortBy === 'old') return 'createdAt,asc';
@@ -377,10 +392,10 @@ export default function MyChordChartsPage() {
    * (temp id, PENDING, 0%), then swap it for the real project once the POST
    * resolves. On failure we drop the placeholder and surface the error.
    * The temp id is prefixed so the OMR-status poller skips it. */
-  const uploadOmrFile = async (file: File): Promise<void> => {
+  const uploadOmrFile = async (file: File, titleOverride?: string): Promise<void> => {
     setProjectError(null);
     const tempId = `${UPLOADING_ID_PREFIX}${newId()}`;
-    const title = file.name.replace(/\.[^.]+$/, '');
+    const title = titleOverride?.trim() || file.name.replace(/\.[^.]+$/, '');
     const nowIso = new Date().toISOString();
     const placeholder: ChordProject = {
       publicId: tempId,
@@ -397,6 +412,9 @@ export default function MyChordChartsPage() {
     setProjects((prev) => [placeholder, ...prev]);
     try {
       const created = await createChordProjectFromOmr(file, { title });
+      // 업로드한 원본 악보 이미지를 publicId 로 로컬(IndexedDB) 보관 → 카드에서
+      // "원본" 토글로 다시 볼 수 있게. best-effort: 실패해도 업로드는 성공 처리.
+      void saveOmrSourceImage(created.project.publicId, file);
       // 플레이스홀더를 실제 프로젝트로 교체 (중복 제거 포함)
       setProjects((prev) => [
         created.project,
@@ -405,8 +423,48 @@ export default function MyChordChartsPage() {
     } catch (e) {
       // 실패 시 플레이스홀더 제거
       setProjects((prev) => prev.filter((p) => p.publicId !== tempId));
-      setProjectError(e instanceof Error ? e.message : '이미지 업로드 실패');
+      setProjectError(e instanceof Error ? e.message : '코드 차트 업로드 실패');
     }
+  };
+
+  /** Onboarding modal submit — route by chosen type. Chord → OMR into this
+   *  page's list; Sheet → SheetProject, then jump to 내 악보 차트. */
+  const handleOnboardCreate = async (p: ProjectCreatePayload): Promise<void> => {
+    setOnboardCreating(true);
+    setOnboardError(null);
+    try {
+      if (p.type === 'chord') {
+        setOnboardOpen(false);
+        await uploadOmrFile(p.file, p.title);   // placeholder card + OMR (own error handling)
+      } else {
+        const stored = await uploadStorageFile(p.file, p.file.name);
+        await createSheetProject({ title: p.title, key: p.key, storageFileIds: [stored.publicId] });
+        setOnboardOpen(false);
+        navigate('/my-sheets');
+      }
+    } catch (e) {
+      setOnboardError(e instanceof Error ? e.message : '생성 실패');
+    } finally {
+      setOnboardCreating(false);
+    }
+  };
+
+  /* ── Page-level drag-drop: dropping a file anywhere opens the onboarding
+   *  modal with the file pre-loaded (per spec — not an immediate upload). ── */
+  const onPageDragOver = (e: DragEvent) => {
+    if (e.dataTransfer?.types?.includes('Files')) { e.preventDefault(); setPageDragOver(true); }
+  };
+  const onPageDragLeave = (e: DragEvent) => {
+    if (e.currentTarget === e.target) setPageDragOver(false);
+  };
+  const onPageDrop = (e: DragEvent) => {
+    const f = e.dataTransfer?.files?.[0];
+    if (!f) return;
+    e.preventDefault();
+    setPageDragOver(false);
+    setOnboardError(null);
+    setOnboardFile(f);
+    setOnboardOpen(true);
   };
 
   const addFolder = (name: string): void => {
@@ -442,7 +500,7 @@ export default function MyChordChartsPage() {
 
   // Legacy modal entry — kept while the create-project modal still exists
   // (now unused by the new-menu after the dropdown was re-aligned with the
-  // 직접 입력하기 / 파일·이미지 업로드 / 폴더 생성 set).
+  // 직접 입력하기 / 코드 차트 업로드 / 폴더 생성 set).
   const _openCreateProject = (): void => {
     resetCreateProject();
     setCreateProjectOpen(true);
@@ -472,7 +530,7 @@ export default function MyChordChartsPage() {
     }
   };
 
-  // 파일/이미지 업로드 모두 동일한 OMR 경로를 쓰므로 uploadOmrFile 로 통합.
+  // 코드 차트 업로드는 OMR 경로로 처리.
   const handleOmrFile = uploadOmrFile;
 
   const moveTo = (itemId: string, targetParentId: string | null): void => {
@@ -516,6 +574,7 @@ export default function MyChordChartsPage() {
       setProjectError(null);
       try {
         await deleteChordProject(id);
+        void deleteOmrSourceImage(id); // drop the locally-cached source image
         setProjects((prev) => prev.filter((p) => p.publicId !== id));
         setSelectedIds((prev) => {
           const next = new Set(prev);
@@ -588,6 +647,7 @@ export default function MyChordChartsPage() {
       setProjectError(null);
       try {
         await Promise.all(projectIds.map((id) => deleteChordProject(id)));
+        projectIds.forEach((id) => void deleteOmrSourceImage(id));
         setProjects((prev) => prev.filter((p) => !selectedIds.has(p.publicId)));
         exitSelect();
       } catch (e) {
@@ -669,10 +729,14 @@ export default function MyChordChartsPage() {
   return (
     <Page>
       <IconSidebar />
-      <PageBody>
+      <PageBody onDragOver={onPageDragOver} onDragLeave={onPageDragLeave} onDrop={onPageDrop}>
+        {pageDragOver && <PageDropOverlay>여기에 놓으면 새 프로젝트로 추가됩니다</PageDropOverlay>}
         <Header>
           <Title>내 코드 차트</Title>
           <HeaderActions>
+            {!selectMode && (
+              <PillBtn type="button" onClick={() => setCreateFolderOpen(true)}>새 폴더</PillBtn>
+            )}
             {selectMode ? (
               <PillBtn type="button" onClick={exitSelect}>취소</PillBtn>
             ) : (
@@ -780,43 +844,10 @@ export default function MyChordChartsPage() {
         {viewMode === 'grid' ? (
         <Grid>
           <NewCardWrap ref={newWrapRef}>
-            <NewCard type="button" onClick={() => setNewMenuOpen((v) => !v)}>
+            <NewCard type="button" onClick={openCreateModal}>
               <PlusIcon />
               <NewLabel>신규</NewLabel>
             </NewCard>
-            {newMenuOpen && (
-              <NewMenu role="menu">
-                <NewMenuItem
-                  type="button"
-                  onClick={() => { setNewMenuOpen(false); navigate('/mychord?empty=1&edit=1'); }}
-                >
-                  <MenuIco><PencilIcon /></MenuIco>
-                  <span>직접 입력하기</span>
-                </NewMenuItem>
-                <NewMenuItem
-                  type="button"
-                  onClick={() => { setNewMenuOpen(false); fileInputRef.current?.click(); }}
-                >
-                  <MenuIco><FileUpIcon /></MenuIco>
-                  <span>파일 업로드</span>
-                </NewMenuItem>
-                <NewMenuItem
-                  type="button"
-                  onClick={() => { setNewMenuOpen(false); imageInputRef.current?.click(); }}
-                >
-                  <MenuIco><ImageIcon /></MenuIco>
-                  <span>이미지 업로드</span>
-                </NewMenuItem>
-                <MenuDivider />
-                <NewMenuItem
-                  type="button"
-                  onClick={() => { setNewMenuOpen(false); setFolderName(''); setCreateFolderOpen(true); }}
-                >
-                  <MenuIco><FolderPlusIcon /></MenuIco>
-                  <span>폴더 생성</span>
-                </NewMenuItem>
-              </NewMenu>
-            )}
           </NewCardWrap>
 
           {currentFolders.map((folder) => (
@@ -965,7 +996,7 @@ export default function MyChordChartsPage() {
                     <KebabMenuIcon><MoveIcon /></KebabMenuIcon>
                     <span>이동</span>
                   </KebabMenuItem>
-                  <KebabMenuItem type="button" $danger onClick={() => { setKebabMenuId(null); deleteItem(file.id, 'file'); }}>
+                  <KebabMenuItem type="button" $danger onClick={() => { setKebabMenuId(null); setDeleteTarget({ id: file.id, title: file.title }); }}>
                     <KebabMenuIcon><TrashIcon /></KebabMenuIcon>
                     <span>삭제</span>
                   </KebabMenuItem>
@@ -977,46 +1008,13 @@ export default function MyChordChartsPage() {
         ) : (
         <List>
           <ListNewRowWrap ref={newWrapRef}>
-            <ListNewRow type="button" onClick={() => setNewMenuOpen((v) => !v)}>
+            <ListNewRow type="button" onClick={openCreateModal}>
               <ListThumb $tone="new"><PlusIcon /></ListThumb>
               <ListMain>
                 <ListTitle>신규</ListTitle>
-                <ListSubtitle>파일·YouTube·이미지·폴더 추가</ListSubtitle>
+                <ListSubtitle>새 프로젝트 생성</ListSubtitle>
               </ListMain>
             </ListNewRow>
-            {newMenuOpen && (
-              <NewMenu role="menu">
-                <NewMenuItem
-                  type="button"
-                  onClick={() => { setNewMenuOpen(false); navigate('/mychord?empty=1&edit=1'); }}
-                >
-                  <MenuIco><PencilIcon /></MenuIco>
-                  <span>직접 입력하기</span>
-                </NewMenuItem>
-                <NewMenuItem
-                  type="button"
-                  onClick={() => { setNewMenuOpen(false); fileInputRef.current?.click(); }}
-                >
-                  <MenuIco><FileUpIcon /></MenuIco>
-                  <span>파일 업로드</span>
-                </NewMenuItem>
-                <NewMenuItem
-                  type="button"
-                  onClick={() => { setNewMenuOpen(false); imageInputRef.current?.click(); }}
-                >
-                  <MenuIco><ImageIcon /></MenuIco>
-                  <span>이미지 업로드</span>
-                </NewMenuItem>
-                <MenuDivider />
-                <NewMenuItem
-                  type="button"
-                  onClick={() => { setNewMenuOpen(false); setFolderName(''); setCreateFolderOpen(true); }}
-                >
-                  <MenuIco><FolderPlusIcon /></MenuIco>
-                  <span>폴더 생성</span>
-                </NewMenuItem>
-              </NewMenu>
-            )}
           </ListNewRowWrap>
 
           {currentFolders.map((folder) => (
@@ -1103,7 +1101,7 @@ export default function MyChordChartsPage() {
         </List>
         )}
 
-        {/* Hidden file inputs driven by the dropdown items. */}
+        {/* Hidden file input driven by the dropdown item. */}
         <input
           ref={fileInputRef}
           type="file"
@@ -1112,17 +1110,6 @@ export default function MyChordChartsPage() {
           onChange={(e) => {
             const f = e.target.files?.[0];
             if (f) void handleOmrFile(f);
-            e.target.value = '';
-          }}
-        />
-        <input
-          ref={imageInputRef}
-          type="file"
-          hidden
-          accept="image/*"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void uploadOmrFile(f);
             e.target.value = '';
           }}
         />
@@ -1200,6 +1187,17 @@ export default function MyChordChartsPage() {
           </ModalBackdrop>
         )}
 
+        <ProjectCreateModal
+          open={onboardOpen}
+          defaultType="sheet"
+          initialFile={onboardFile}
+          creating={onboardCreating}
+          error={onboardError}
+          onManualEntry={() => { setOnboardOpen(false); navigate('/mychord?empty=1&edit=1'); }}
+          onClose={() => setOnboardOpen(false)}
+          onCreate={handleOnboardCreate}
+        />
+
         {renameTarget && (
           <ModalBackdrop onClick={() => setRenameTarget(null)}>
             <ModalCard onClick={(e) => e.stopPropagation()}>
@@ -1221,6 +1219,18 @@ export default function MyChordChartsPage() {
             </ModalCard>
           </ModalBackdrop>
         )}
+
+        <ConfirmDeleteModal
+          open={!!deleteTarget}
+          title="코드 차트 삭제"
+          body="이 코드 차트를 삭제하시겠습니까?"
+          onConfirm={async () => {
+            if (!deleteTarget) return;
+            await deleteItem(deleteTarget.id, 'file');
+            setDeleteTarget(null);
+          }}
+          onCancel={() => setDeleteTarget(null)}
+        />
 
         {selectMode && (
           <SelectionBar>
@@ -1317,15 +1327,6 @@ const DropIcon = () => (
   </svg>
 );
 
-const FileUpIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
-    <polyline points="14 3 14 9 20 9" />
-    <polyline points="9 13 12 10 15 13" />
-    <line x1="12" y1="10" x2="12" y2="18" />
-  </svg>
-);
-
 const ChordGridIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
     <rect x="4" y="5" width="16" height="14" rx="1.8" />
@@ -1400,6 +1401,23 @@ const PageBody = styled.div`
   flex-direction: column;
   overflow: hidden;
   min-width: 0;
+  position: relative;
+`;
+
+const PageDropOverlay = styled.div`
+  position: absolute;
+  inset: 10px;
+  z-index: 50;
+  border: 2px dashed #B8860B;
+  border-radius: 14px;
+  background: rgba(253, 246, 231, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: #7a5b00;
+  pointer-events: none;
 `;
 
 const Header = styled.div`
@@ -1701,57 +1719,6 @@ const NewLabel = styled.div`
 
 /* Larger, bolder "신규" dropdown — matches the design mock (big rows,
  * generous padding, ~24 px icons). Anchored under the NewCard. */
-const NewMenu = styled.div`
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  min-width: 196px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 12px;
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.04),
-    0 12px 32px rgba(0, 0, 0, 0.10);
-  padding: 5px;
-  z-index: 50;
-  animation: menuIn 0.12s ease both;
-
-  @keyframes menuIn {
-    from { opacity: 0; transform: translateY(-3px) scale(0.985); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
-  }
-`;
-
-const NewMenuItem = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 8px 10px;
-  border: none;
-  background: transparent;
-  border-radius: 8px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  color: #1a1a1a;
-  text-align: left;
-  transition: background 0.1s;
-  &:hover { background: rgba(0, 0, 0, 0.05); }
-`;
-
-const MenuIco = styled.span`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  color: rgba(0, 0, 0, 0.7);
-  flex-shrink: 0;
-  svg { width: 16px; height: 16px; }
-`;
-
 /* Video / file card. $selected highlights the card in multi-select mode.
  * $sheet drops the 1:1 lock and opts out of the grid's default `stretch`
  * align (which was pulling the card to whatever the tallest sibling row
@@ -2124,12 +2091,63 @@ const ProjectPreviewState = styled.div`
   text-align: center;
 `;
 
+/* Locally-cached original upload, shown in place of the generated chart when
+ * the user toggles "원본". `contain` so the whole page is visible un-cropped. */
+const OriginalImg = styled.img`
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #fff;
+`;
+
+/* The card preview sets pointer-events:none; re-enable on the toggle so it's
+ * clickable, and stopPropagation in the handler so it doesn't open the card. */
+const PreviewToggle = styled.button`
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  pointer-events: auto;
+  border: none;
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+`;
+
 function SheetPreview({ project }: { project?: ChordProject }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const scalerRef = useRef<HTMLDivElement>(null);
   const [previewScale, setPreviewScale] = useState({ x: 0.13, y: 0.13 });
   const [data, setData] = useState<LeadSheetData | null>(null);
   const [previewState, setPreviewState] = useState<'loading' | 'ready' | 'empty' | 'failed'>('loading');
+  // Original uploaded sheet image (IndexedDB, this device only) + toggle.
+  const [imgUrl, setImgUrl] = useState<string | null>(null);
+  const [showOriginal, setShowOriginal] = useState(false);
+
+  useEffect(() => {
+    if (!project) return;
+    let cancelled = false;
+    let url: string | null = null;
+    getOmrSourceImage(project.publicId).then((blob) => {
+      if (cancelled) return;
+      url = blob ? URL.createObjectURL(blob) : null;
+      setImgUrl(url);
+      if (!blob) setShowOriginal(false);
+    });
+    // Revoke on unmount; the object URL only needs to live as long as the card.
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [project]);
 
   useEffect(() => {
     if (!project) {
@@ -2197,7 +2215,17 @@ function SheetPreview({ project }: { project?: ChordProject }) {
 
   return (
     <SheetThumbWrap ref={wrapRef}>
-      {data ? (
+      {imgUrl && (
+        <PreviewToggle
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setShowOriginal((v) => !v); }}
+        >
+          {showOriginal ? '차트' : '원본'}
+        </PreviewToggle>
+      )}
+      {showOriginal && imgUrl ? (
+        <OriginalImg src={imgUrl} alt="업로드한 원본 악보" />
+      ) : data ? (
         <SheetThumbScaler
           ref={scalerRef}
           style={{ transform: `scale(${previewScale.x}, ${previewScale.y})` }}
@@ -2738,45 +2766,3 @@ function RenameIcon() {
   );
 }
 
-/* Pencil icon used by the "직접 입력하기" entry in the new-menu. Larger
- * size (24) since MenuIco scales SVGs to that footprint via its CSS. */
-function PencilIcon() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M4 20h4l10-10-4-4L4 16v4z" />
-      <path d="M14 6l4 4" />
-    </svg>
-  );
-}
-
-/* Picture/image upload icon — frame with mountain + sun glyph and a tiny
- * up-arrow to suggest upload. Used by "이미지 업로드". */
-function ImageIcon() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <rect x="3" y="4" width="18" height="14" rx="2" />
-      <circle cx="8.5" cy="9" r="1.4" />
-      <path d="M21 15l-5-5-7 7" />
-      <path d="M12 22v-4" />
-      <path d="M10 20l2-2 2 2" />
-    </svg>
-  );
-}
-
-/* Folder-with-plus icon for "폴더 생성". */
-function FolderPlusIcon() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
-      <line x1="12" y1="11" x2="12" y2="17" />
-      <line x1="9" y1="14" x2="15" y2="14" />
-    </svg>
-  );
-}
-
-/* Thin divider rendered between upload items and 폴더 생성 in the new-menu. */
-const MenuDivider = styled.div`
-  height: 1px;
-  background: rgba(0, 0, 0, 0.06);
-  margin: 4px 6px;
-`;

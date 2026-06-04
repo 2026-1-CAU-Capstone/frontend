@@ -1,6 +1,7 @@
 import { useState, lazy, Suspense } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppPreviewProvider } from './contexts/AppPreviewContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import { GlobalPlayerProvider } from './lib/player';
 import { BottomTabBar } from './components/layout/BottomTabBar';
 import HomePage from './pages/HomePage';
@@ -71,6 +72,7 @@ export default function App() {
     <>
       {showIntro && <IntroScreen onDone={handleIntroDone} />}
       <HashRouter>
+        <NotificationProvider>
         <AppPreviewProvider>
         <GlobalPlayerProvider>
         <Suspense fallback={<RouteFallback />}>
@@ -118,6 +120,7 @@ export default function App() {
         <BottomTabBar />
         </GlobalPlayerProvider>
         </AppPreviewProvider>
+        </NotificationProvider>
       </HashRouter>
     </>
   );

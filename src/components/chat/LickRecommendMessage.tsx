@@ -196,14 +196,14 @@ const KEY_SIG_SHARPS = ['f', 'c', 'g', 'd', 'a', 'e', 'b'];
 const LINE_H = 150;
 const MARGIN = { top: 32, left: 6, right: 6, bottom: 20 };
 
-function toVexKey(key: string): string {
+export function toVexKey(key: string): string {
   const p = key.split('-');
   const root = p[0] || 'C';
   const mode = p[1] || '';
   return (mode === 'min' || mode === 'minor') ? root + 'm' : root;
 }
 
-function keySigAcc(vexKey: string): Map<string, 'b' | '#'> {
+export function keySigAcc(vexKey: string): Map<string, 'b' | '#'> {
   const m = new Map<string, 'b' | '#'>();
   const nF = FLAT_KEYS[vexKey]; if (nF) for (let i = 0; i < nF; i++) m.set(KEY_SIG_FLATS[i], 'b');
   const nS = SHARP_KEYS[vexKey]; if (nS) for (let i = 0; i < nS; i++) m.set(KEY_SIG_SHARPS[i], '#');
@@ -224,7 +224,7 @@ function buildDur(dur: string, dotted?: boolean) {
   return dotted ? (dur.endsWith('r') ? dur.slice(0, -1) + 'd' + 'r' : dur + 'd') : dur;
 }
 
-function buildVfNotes(measure: MeasureInfo, kAcc: Map<string, 'b' | '#'>): StaveNote[] {
+export function buildVfNotes(measure: MeasureInfo, kAcc: Map<string, 'b' | '#'>): StaveNote[] {
   // Letter-scoped accidental memory: once a letter (e.g. 'b') has been
   // altered in this measure, the next bare same-letter note — regardless of
   // octave — prints with a cautionary ♮ so the reader sees "this Bb is now B".
@@ -247,7 +247,7 @@ function buildVfNotes(measure: MeasureInfo, kAcc: Map<string, 'b' | '#'>): Stave
   });
 }
 
-function buildBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
+export function buildBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
   const beams: Beam[] = [];
   let grp: StaveNote[] = [];
   let beatPos = 0;
@@ -379,9 +379,15 @@ function renderScore(el: HTMLDivElement, lick: LickEntry, availW: number) {
 interface Props {
   match: LickMatch;
   tempoOverride?: number;
+  /** When provided, an extra "↓" button renders the lick inline under the chord
+   *  chart (measure-aligned). Receives the (already transpose-matched) lick. */
+  onShowInline?: (lick: LickEntry) => void;
+  /** True when this lick is the one currently shown inline — flips the ↓ button
+   *  into an active/collapse state (the toggle is one-at-a-time). */
+  inlineActive?: boolean;
 }
 
-export function LickRecommendMessage({ match, tempoOverride }: Props) {
+export function LickRecommendMessage({ match, tempoOverride, onShowInline, inlineActive }: Props) {
   const { lick, originalKey } = match;
   const wrapperRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<HTMLDivElement>(null);
@@ -422,11 +428,14 @@ export function LickRecommendMessage({ match, tempoOverride }: Props) {
     }
     const bpm = tempoOverride ?? lick.tempo ?? 200;
     setPlaying(true);
-    const preload = player.preload({ kind: 'lick', data: lick.sheetData });
+    // 샘플 로드를 카운트인과 병렬로 → "1234" 즉시 시작, 다운비트 직전에 로드 완료 대기.
     // 릭 재생: BPM 무관하게 SIMPLE 카운트인.
-    const cin = await countIn.run({ bpm, pattern: PATTERN_SIMPLE });
+    const cin = await countIn.run({
+      bpm,
+      pattern: PATTERN_SIMPLE,
+      prepare: player.preload({ kind: 'lick', data: lick.sheetData }),
+    });
     if (!cin.ok) { setPlaying(false); return; }
-    await preload;
     player.setConfig({ bpm });
     player.play({ kind: 'lick', data: lick.sheetData }, { startAt: player.ctxNow() + cin.downbeatInSec });
   }, [lick, tempoOverride, countIn, player, playing]);
@@ -472,6 +481,19 @@ export function LickRecommendMessage({ match, tempoOverride }: Props) {
         >
           {playing ? '■' : '▶'}
         </CircleBtn>
+        {onShowInline && (
+          <CircleBtn
+            $color={inlineActive ? '#B8860B' : '#1a1a1a'}
+            onClick={() => onShowInline(lick)}
+            title={inlineActive ? '코드차트 아래 표시 끄기' : '코드차트 마디 아래에 표시'}
+          >
+            {/* down-into-chart arrow */}
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M12 4v13" />
+              <path d="M6 11l6 6 6-6" />
+            </svg>
+          </CircleBtn>
+        )}
         <CircleBtn
           $color={saved ? '#388e3c' : '#1a1a1a'}
           onClick={handleToggleSave}

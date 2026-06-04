@@ -723,15 +723,18 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
       return;
     }
     setPlaying(true);
-    // 카운트인과 병렬로 인스트루먼트 로딩 — 첫 재생 지연 제거.
-    const preload = player.preload({ kind: 'lick', data: lick.sheetData });
+    // 샘플 로드를 카운트인과 병렬로 → "1234" 가 버튼 누르는 즉시 시작.
+    // 훅이 클릭 종료 후 prepare 를 await 하고 클럭을 재측정하므로 다운비트는 정확.
     // 릭 재생은 BPM과 무관하게 항상 SIMPLE (1 2 3 4) 카운트인 사용.
-    const cin = await countIn.run({ bpm, pattern: PATTERN_SIMPLE });
+    const cin = await countIn.run({
+      bpm,
+      pattern: PATTERN_SIMPLE,
+      prepare: player.preload({ kind: 'lick', data: lick.sheetData }),
+    });
     if (!cin.ok) {
       setPlaying(false);
       return;
     }
-    await preload;
 
     const unsub = [
       player.on('bar', (barIndex) => drawMeasureHL(barIndex)),

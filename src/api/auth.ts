@@ -13,7 +13,10 @@
  *   - On final auth failure it clears the cached token and notifies any
  *     subscribers via `onAuthChange` so the UI can drop back to logged-out. */
 
-const API_BASE = 'https://jazzify.p-e.kr/api';
+/* dev: Vite proxy(/api → jazzify.p-e.kr)를 거쳐 same-origin 으로 요청 →
+ * RefreshToken HTTP-only 쿠키가 first-party 로 저장/전송된다.
+ * prod: 빌드 결과는 절대 URL 로 백엔드를 직접 호출. */
+const API_BASE = import.meta.env.DEV ? '/api' : 'https://jazzify.p-e.kr/api';
 const ACCESS_TOKEN_KEY = 'jazzify.auth.accessToken';
 const USER_CACHE_KEY = 'jazzify.auth.userCache';
 

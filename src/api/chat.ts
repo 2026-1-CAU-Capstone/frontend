@@ -18,7 +18,7 @@
 import { authFetch } from './auth';
 import type { ClaudeMessage, ClaudeImage } from './claude';
 
-const API_BASE = 'https://jazzify.p-e.kr/api';
+const API_BASE = import.meta.env.DEV ? '/api' : 'https://jazzify.p-e.kr/api';
 
 /* ── Types (mirror the Swagger schemas) ──────────────────────────────── */
 
@@ -162,6 +162,15 @@ export async function getChat(publicId: string): Promise<ChatDetail> {
     m.role === 'user' ? { ...m, content: stripInternalInstructions(m.content) } : m,
   );
   return detail;
+}
+
+/** DELETE /v1/chat/{publicId} — delete a chat session and its message history.
+ *  Returns 204 No Content on success. */
+export async function deleteChat(publicId: string): Promise<void> {
+  const res = await authFetch(`${API_BASE}/v1/chat/${encodeURIComponent(publicId)}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error(`chat delete ${res.status} ${await readApiError(res)}`.trim());
 }
 
 /** POST /v1/chat/stream — text/plain stream of the assistant reply.

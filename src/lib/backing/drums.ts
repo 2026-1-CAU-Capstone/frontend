@@ -525,6 +525,140 @@ const SNARE_PATTERNS: Array<Array<[number, number]>> = [
   [[1.0, 0.55], [2.5, 0.70]],  // beat-2 tap + "& of 3"
 ];
 
+/* ─── Samba (distinct from `latin` — fast surdo 2-feel + 16th caixa) ────── */
+
+/**
+ * Samba — a true samba groove, NOT the generic `latin` (mambo-ish) bell pattern.
+ * Voices (straight 16ths):
+ *   • Surdo (kick) — the 2-feel pulse: beats 2 & 4 carry it, beat 4 (the
+ *     surdo's strong "1") loudest; beats 1 & 3 ghosted.
+ *   • Caixa (snare) — continuous low 16ths with the samba accent contour
+ *     (the 'e' and 'a' lifted) → brush-roll texture under the kit.
+ *   • Agogô / ride-bell — telecoteco-flavoured 8th figure (offbeats accented).
+ *   • Pedal hi-hat on 2 & 4.
+ */
+export function sambaBar(opts: DrumBarOptions): DrumEvent[] {
+  const { secPerBeat, barStart, beatsInBar, barIndex } = opts;
+  if (beatsInBar !== 4) return [];
+
+  const beatToSec = makeBeatToSec(secPerBeat, 0.5);
+
+  const events: DrumEvent[] = [];
+  const push = (beat: number, piece: DrumPiece, velocity: number) => {
+    events.push({ kind: "drum", piece, time: barStart + beatToSec(beat), velocity, bar: barIndex });
+  };
+
+  // Surdo (kick) — 2-feel; beat 4 is the strong surdo, beat 2 the answer.
+  push(0, "kick", 0.30);
+  push(1, "kick", 0.82);
+  push(2, "kick", 0.32);
+  push(3, "kick", 0.95);
+
+  // Caixa (snare) — continuous 16ths, ghosts on the beats, the 'e/a' lifted.
+  const CAIXA = [
+    0.30, 0.22, 0.44, 0.50,
+    0.30, 0.22, 0.44, 0.54,
+    0.30, 0.22, 0.44, 0.50,
+    0.34, 0.26, 0.48, 0.60,
+  ];
+  for (let i = 0; i < 16; i++) push(i * 0.25, "snare", CAIXA[i]);
+
+  // Agogô / ride-bell — telecoteco 8th figure, offbeats accented.
+  for (const b of [0, 0.5, 1.5, 2, 2.5, 3.5]) push(b, "ride-bell", 0.5);
+
+  // Pedal hi-hat on 2 & 4.
+  push(1, "hihat-foot", 0.40);
+  push(3, "hihat-foot", 0.40);
+
+  return events;
+}
+
+/* ─── Funk (straight-16 backbeat + ghost notes + syncopated kick) ──────── */
+
+/**
+ * Funk — a real backbeat groove rather than the generic `even-8ths` ride. Kept
+ * deliberately simple/clean (one-bar): closed-hat 16ths, hard snare backbeat
+ * on 2 & 4 with ghost-note fills, and a syncopated kick (1, the 'a of 1', the
+ * '& of 3', and a pickup 'a of 4'). Straight subdivision (0.5).
+ */
+export function funkBar(opts: DrumBarOptions): DrumEvent[] {
+  const { secPerBeat, barStart, beatsInBar, barIndex } = opts;
+  if (beatsInBar !== 4) return [];
+
+  const beatToSec = makeBeatToSec(secPerBeat, 0.5);
+
+  const events: DrumEvent[] = [];
+  const push = (beat: number, piece: DrumPiece, velocity: number) => {
+    events.push({ kind: "drum", piece, time: barStart + beatToSec(beat), velocity, bar: barIndex });
+  };
+
+  // Closed hi-hat — straight 16ths, downbeats accented, the rest even.
+  const HH = [
+    0.56, 0.30, 0.44, 0.30,
+    0.50, 0.30, 0.44, 0.32,
+    0.56, 0.30, 0.44, 0.30,
+    0.50, 0.30, 0.48, 0.34,
+  ];
+  for (let i = 0; i < 16; i++) push(i * 0.25, "hihat-closed", HH[i]);
+
+  // Snare — hard backbeat on 2 & 4, ghost taps before each for the funk lilt.
+  push(1, "snare", 0.92);
+  push(3, "snare", 0.95);
+  push(0.75, "snare", 0.26);
+  push(1.75, "snare", 0.24);
+  push(2.75, "snare", 0.30);
+
+  // Kick — syncopated funk pocket.
+  push(0,    "kick", 0.92);
+  push(0.75, "kick", 0.58);
+  push(2.5,  "kick", 0.86);
+  if (barIndex % 2 === 1) push(3.75, "kick", 0.50);
+
+  return events;
+}
+
+/* ─── Jazz Waltz (3/4 swung ride) ──────────────────────────────────────── */
+
+/**
+ * Jazz waltz — 3/4 swung ride: beat 1, then beats 2 & 3 each get a "quarter +
+ * swung 8th" (the '1, 2-let, 3-let' lilt), hi-hat foot on 2 & 3, feathered
+ * kick. Falls back to medium swing when the chart isn't actually in 3 (so
+ * picking "Jazz Waltz" on a 4/4 tune still grooves instead of going silent).
+ */
+export function waltzBar(opts: DrumBarOptions, bpm: number): DrumEvent[] {
+  const { secPerBeat, barStart, beatsInBar, barIndex } = opts;
+  if (beatsInBar !== 3) return mediumSwingBar(opts, bpm);
+
+  const swingRatio = getSwingRatio(bpm, "medium-swing");
+  const beatToSec = makeBeatToSec(secPerBeat, swingRatio);
+
+  const events: DrumEvent[] = [];
+  const push = (beat: number, piece: DrumPiece, velocity: number) => {
+    events.push({ kind: "drum", piece, time: barStart + beatToSec(beat), velocity, bar: barIndex });
+  };
+
+  // Ride — 1, then 2 + "a of 2", 3 + "a of 3".
+  push(0, "ride", 0.68);
+  push(1, "ride", 0.64);
+  push(1.5, "ride", 0.58);
+  push(2, "ride", 0.64);
+  push(2.5, "ride", 0.58);
+
+  // Hi-hat foot on 2 & 3 — the waltz "down-up-up" pulse.
+  push(1, "hihat-foot", 0.46);
+  push(2, "hihat-foot", 0.46);
+
+  // Feathered kick — strong 1, soft 2 & 3.
+  push(0, "kick", 0.30);
+  push(1, "kick", 0.22);
+  push(2, "kick", 0.22);
+
+  // Light cross-stick comp on the "a of 3" every other bar for motion.
+  if (barIndex % 2 === 1) push(2.5, "rim", 0.50);
+
+  return events;
+}
+
 /* ─── Style → drum renderer dispatcher ─────────────────────────────────── */
 
 /**
@@ -554,6 +688,12 @@ export function renderDrumBar(
       return latinBar(opts);
     case "latin-swing":
       return latinSwingBar(opts, bpm);
+    case "samba":
+      return sambaBar(opts);
+    case "funk":
+      return funkBar(opts);
+    case "waltz":
+      return waltzBar(opts, bpm);
     case "swing":
     case "medium-swing":
     case "medium-up-swing":

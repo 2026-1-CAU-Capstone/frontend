@@ -208,8 +208,11 @@ export function inferPlayStyle(raw: string | undefined | null): PlayStyle | null
 export function inferGenre(raw: string | undefined | null): string | null {
   if (!raw) return null;
   const s = raw.toLowerCase();
+  if (s.includes('new orleans') || s.includes('nola')) return 'New Orleans Swing';
   if (s.includes('bossa')) return 'Bossa Nova';
   if (s.includes('samba') || s.includes('calypso')) return 'Samba';
+  // "Latin:Swing" / "Latin Swing" alternates feel — check before plain latin.
+  if (s.includes('latin') && s.includes('swing')) return 'Latin Swing';
   if (
     s.includes('latin') || s.includes('afro') || s.includes('mambo') ||
     s.includes('songo') || s.includes('cha') || s.includes('6/8')

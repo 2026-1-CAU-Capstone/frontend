@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import styled from 'styled-components';
 import type { LickMatch } from '../../lib/lickMatcher';
+import type { LickEntry } from '../../data/lickData';
 import { LickRecommendMessage } from '../chat/LickRecommendMessage';
 
 interface Props {
@@ -8,6 +9,10 @@ interface Props {
   matches: LickMatch[];
   onClose: () => void;
   songTempo?: number;
+  /** Render the lick inline (measure-aligned) under the chord chart. */
+  onShowInline?: (lick: LickEntry) => void;
+  /** Lick id currently shown inline (for the ↓ button active state). */
+  activeInlineLickId?: string | number;
 }
 
 const Overlay = styled.div`
@@ -109,7 +114,7 @@ const Empty = styled.div`
   color: #aaa;
 `;
 
-export function SavedLicksModal({ spanLabel, matches, onClose, songTempo }: Props) {
+export function SavedLicksModal({ spanLabel, matches, onClose, songTempo, onShowInline, activeInlineLickId }: Props) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
@@ -133,7 +138,12 @@ export function SavedLicksModal({ spanLabel, matches, onClose, songTempo }: Prop
           ) : (
             matches.map((m) => (
               <ItemWrap key={m.lick.id}>
-                <LickRecommendMessage match={m} tempoOverride={songTempo} />
+                <LickRecommendMessage
+                  match={m}
+                  tempoOverride={songTempo}
+                  onShowInline={onShowInline}
+                  inlineActive={activeInlineLickId != null && m.lick.id === activeInlineLickId}
+                />
               </ItemWrap>
             ))
           )}

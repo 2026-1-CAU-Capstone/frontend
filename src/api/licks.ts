@@ -2,7 +2,7 @@ import type { LickEntry } from '../data/lickData';
 import type { NoteSheetData } from '../data/sampleMelody';
 import { authFetch, getAccessToken } from './auth';
 
-const API_BASE = 'https://jazzify.p-e.kr/api';
+const API_BASE = import.meta.env.DEV ? '/api' : 'https://jazzify.p-e.kr/api';
 
 /* ── API response types ───────────────────────────────────────────────────── */
 

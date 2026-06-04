@@ -19,11 +19,15 @@ import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import {
   listChats,
+  deleteChat,
   onChatListChange,
+  notifyChatListChanged,
   onActiveChatChange,
   setActiveChat,
+  getActiveChatId,
   type ChatSummary,
 } from '../../api/chat';
+import { ConfirmDeleteModal } from '../common/ConfirmDeleteModal';
 
 /* Sizes & paddings mirror NavBtn (expanded mode) so list rows visually flow
  * out of the nav cluster above. Constants kept inline to avoid sprinkling
@@ -36,19 +40,10 @@ const Wrap = styled.div`
   display: flex;
   flex-direction: column;
   gap: 2px;
-  /* Sits between the divider and the bottom UserMenu — limited height +
-   * scrollable so a long list doesn't push the avatar off-screen. */
-  flex: 1 1 auto;
-  min-height: 0;
-  max-height: 100%;
-  overflow-y: auto;
   padding: 4px 0;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
-
-  &::-webkit-scrollbar { width: 6px; }
-  &::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); border-radius: 3px; }
-  &::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.28); }
+  /* Natural height — the whole "새 채팅 → 최근 채팅" region scrolls together in
+   * IconSidebar's ScrollArea, so this list must NOT be its own scroll box
+   * (that would nest scrollbars and let flexbox squash the rows). */
 `;
 
 const SectionLabel = styled.div`
@@ -68,6 +63,12 @@ const Row = styled.div<{ $active?: boolean; $menuOpen?: boolean }>`
   display: flex;
   align-items: center;
   height: ${ROW_HEIGHT}px;
+  /* Keep full height instead of letting flexbox squash rows to cram the whole
+   * list into the available space — without this, many chats shrink each row
+   * below ROW_HEIGHT (so height tweaks look like no-ops) and the list never
+   * overflows, so Wrap's overflow-y:auto never produces a scrollbar. With it,
+   * rows stay full-size and the list scrolls down to the admin block. */
+  flex-shrink: 0;
   border-radius: 10px;
   background: ${({ $active, $menuOpen }) =>
     $menuOpen ? 'rgba(0, 0, 0, 0.06)' :
@@ -219,57 +220,6 @@ const TrashIcon = () => (
   </svg>
 );
 
-/* ── confirm-delete modal ───────────────────────────────────────────── */
-
-const ModalBackdrop = styled.div`
-  position: fixed;
-  inset: 0;
-  z-index: 1100;
-  background: rgba(20, 20, 20, 0.35);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-`;
-const ModalCard = styled.div`
-  background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.24);
-  padding: 22px 24px 18px;
-  width: 100%;
-  max-width: 420px;
-  font-family: ${({ theme }) => theme.fonts.ui};
-`;
-const ModalTitle = styled.h2`
-  margin: 0 0 6px;
-  font-size: 19px;
-  font-weight: 800;
-  color: #1a1a1a;
-  letter-spacing: -0.01em;
-`;
-const ModalBody = styled.p`
-  margin: 0 0 18px;
-  font-size: 14px;
-  color: rgba(0, 0, 0, 0.55);
-`;
-const ModalActions = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-`;
-const ModalBtn = styled.button<{ $variant?: 'ghost' | 'danger' }>`
-  border: 1px solid ${({ $variant }) => ($variant === 'danger' ? 'transparent' : 'rgba(0, 0, 0, 0.12)')};
-  border-radius: 10px;
-  padding: 9px 18px;
-  font-family: inherit;
-  font-size: 14.5px;
-  font-weight: 700;
-  cursor: pointer;
-  background: ${({ $variant }) => ($variant === 'danger' ? '#d44a3a' : '#fff')};
-  color: ${({ $variant }) => ($variant === 'danger' ? '#fff' : '#1a1a1a')};
-  transition: background 0.12s, opacity 0.12s;
-  &:hover { opacity: 0.92; }
-`;
 
 const Empty = styled.div`
   font-family: ${({ theme }) => theme.fonts.ui};
@@ -357,6 +307,25 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
     };
   }, [menuId]);
 
+  // Busy/dim state is owned by ConfirmDeleteModal; this just runs the delete
+  // and closes the modal (on success or failure — errors surface in ErrorRow).
+  const handleDelete = useCallback(async () => {
+    const target = deleteTarget;
+    if (!target) return;
+    try {
+      await deleteChat(target.publicId);
+      // Optimistically drop the row, clear the right panel if it was open,
+      // and broadcast so any other list listeners reconcile with the server.
+      setItems((prev) => prev.filter((c) => c.publicId !== target.publicId));
+      if (getActiveChatId() === target.publicId) setActiveChat(null);
+      notifyChatListChanged();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '대화 삭제에 실패했습니다.');
+    } finally {
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget]);
+
   if (!expanded || !loggedIn) return null;
 
   const openKebab = (id: string) => (e: React.MouseEvent) => {
@@ -432,22 +401,13 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
         );
       })}
 
-      {deleteTarget && (
-        <ModalBackdrop onClick={() => setDeleteTarget(null)}>
-          <ModalCard onClick={(e) => e.stopPropagation()}>
-            <ModalTitle>대화 삭제</ModalTitle>
-            <ModalBody>이 대화를 삭제하시겠습니까?</ModalBody>
-            <ModalActions>
-              <ModalBtn $variant="ghost" type="button" onClick={() => setDeleteTarget(null)}>
-                Cancel
-              </ModalBtn>
-              <ModalBtn $variant="danger" type="button" onClick={() => setDeleteTarget(null)}>
-                삭제
-              </ModalBtn>
-            </ModalActions>
-          </ModalCard>
-        </ModalBackdrop>
-      )}
+      <ConfirmDeleteModal
+        open={!!deleteTarget}
+        title="대화 삭제"
+        body="이 대화를 삭제하시겠습니까?"
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </Wrap>
   );
 }

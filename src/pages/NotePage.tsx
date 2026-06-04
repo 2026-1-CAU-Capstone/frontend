@@ -155,9 +155,16 @@ function transposeNoteData(data: NoteSheetData, targetKey: string): NoteSheetDat
         const noteName = newKey.split('/')[0].toUpperCase();
         const fullNote = newAcc ? `${noteName}${newAcc}` : noteName;
         let finalAcc: Record<number, '#' | 'b' | 'n'> | undefined;
+        let finalKey = newKey;
         if (newAcc && keySigNotes.has(fullNote)) {
-          // Accidental is part of key signature — don't show it explicitly
+          // Accidental is part of the key signature — don't DRAW it explicitly
+          // (the staff's key signature already implies it), but BAKE it into the
+          // key string so the audio path resolves the right pitch. extractMelody/
+          // vexKeyToMidi are key-signature-UNAWARE and read only the explicit
+          // accidental; without baking, e.g. Eb in Eb-major lost its flat and
+          // played back as E natural — transposed solos sounded a key off.
           finalAcc = undefined;
+          finalKey = `${noteName.toLowerCase()}${newAcc}/${newKey.split('/')[1]}`;
         } else if (newAcc) {
           finalAcc = { 0: newAcc };
         } else if (!newAcc && (keySigNotes.has(`${noteName}b`) || keySigNotes.has(`${noteName}#`))) {
@@ -166,7 +173,7 @@ function transposeNoteData(data: NoteSheetData, targetKey: string): NoteSheetDat
         }
         return {
           ...n,
-          keys: [newKey],
+          keys: [finalKey],
           accidentals: finalAcc,
         };
       }),

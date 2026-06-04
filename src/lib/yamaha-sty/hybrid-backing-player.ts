@@ -71,6 +71,9 @@ export function createHybridBackingPlayer(
       ruleEngine.stop();
       styEngine.stop();
     },
+    // Seek isn't supported on the .sty path — the two sub-engines tick on
+    // independent structures and a partial seek would desync them.
+    seekToBar() { /* unsupported on the .sty path */ },
     setConfig(next) {
       ruleEngine.setConfig(next);
       styEngine.setConfig(next);

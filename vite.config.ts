@@ -17,6 +17,20 @@ export default defineConfig({
       usePolling: true,
       interval: 300,
     },
+    /* dev-proxy: 프론트가 /api 상대경로로 요청하면 여기서 백엔드로 중계한다.
+     * 브라우저 입장에선 same-origin(first-party) 요청이라 RefreshToken
+     * HTTP-only 쿠키가 차단 없이 저장·전송된다. (cross-site 였다면 서드파티
+     * 쿠키로 막혀 refresh 가 실패했음)
+     *   - changeOrigin: Host 헤더를 target 으로 바꿔 백엔드 라우팅/TLS SNI 정상화
+     *   - cookieDomainRewrite '': Set-Cookie 의 Domain 속성을 제거해 쿠키를
+     *     현재 dev 호스트(localhost)에 바인딩 */
+    proxy: {
+      '/api': {
+        target: 'https://jazzify.p-e.kr',
+        changeOrigin: true,
+        cookieDomainRewrite: '',
+      },
+    },
   },
   optimizeDeps: {
     include: ['smplr'],

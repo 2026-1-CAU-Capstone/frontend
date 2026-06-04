@@ -1,7 +1,7 @@
 /* Migrated to smplr alongside the rest of the audio engine. Same warmup
  * intent — fetch + decode the piano sample bank before user clicks play so
  * the count-in doesn't stall on a cold cache. */
-import { SplendidGrandPiano } from 'smplr';
+import { SplendidGrandPiano, Soundfont } from 'smplr';
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Player asset warmup.
@@ -59,6 +59,11 @@ export function warmupPlayerAssets(): Promise<void> {
         // SplendidGrandPiano sample bank warmup — BackingPlayer (melody + chart)
         // both use this now (single library across the app).
         new SplendidGrandPiano(tmpCtx).load,
+        // Walking-bass soundfont — loadInstruments() ALWAYS loads this (even in
+        // lick mode, just muted), so it was the remaining cold asset that stalled
+        // the first count-in. Must mirror loadInstruments' instrument + kit so the
+        // CDN URL (→ HTTP cache) matches.
+        new Soundfont(tmpCtx, { instrument: 'acoustic_bass', kit: 'MusyngKite' }).load,
         // drum samples — 단순 fetch 로 HTTP 캐시만 채움 (decode 는 재생 시점 BackingPlayer 가)
         ...DRUM_SAMPLE_PATHS.map((p) =>
           fetch(p, { cache: 'force-cache' }).catch(() => undefined),

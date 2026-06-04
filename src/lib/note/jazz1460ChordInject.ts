@@ -40,11 +40,16 @@ export function injectChordsFromLeadSheet(
   lead: LeadSheetData,
 ): NoteSheetData {
   const flat = flattenLeadSheetChords(lead);
+  const n = flat.length;
   return {
     ...sheet,
+    // jazz1460 carries exactly ONE chorus of chords, but omnibook melodies run
+    // the head plus several solo choruses. Cycle the progression (i % n) so
+    // every chorus keeps its chord changes instead of going blank after the
+    // first. (Chorus-1 alignment is unchanged: for i < n, i % n === i.)
     measures: sheet.measures.map((m, i) => ({
       ...m,
-      chord: flat[i] ?? undefined,
+      chord: n > 0 ? flat[i % n] : undefined,
     })),
   };
 }
