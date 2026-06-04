@@ -554,15 +554,33 @@ export default function SolosPage() {
     return () => io.disconnect();
   }, [selectedPerformer, isLast, loading, page, loadPage]);
 
-  const originalDisplayKey = normalizeNoteKeyDisplay(selected?.sheetData.key ?? selected?.key ?? 'C');
+  const originalDisplayKey = normalizeNoteKeyDisplay(selected?.sheetData?.key ?? selected?.key ?? 'C');
   const allKeys = noteKeyIsMinor(originalDisplayKey) ? ALL_KEYS_MINOR : ALL_KEYS_MAJOR;
+
+  // The list endpoint returns metadata-only rows (no sheetData). When a solo is
+  // selected for preview, fetch the full record and merge it into `solos` so the
+  // preview/transpose has measures to work with. Re-running after the merge is a
+  // no-op (sheetData now present), so this self-terminates without a loop.
+  useEffect(() => {
+    if (!selected || (selected.sheetData?.measures?.length ?? 0) > 0) return;
+    let cancelled = false;
+    getSolo(selected.publicId)
+      .then((full) => {
+        if (cancelled || !full?.sheetData) return;
+        setSolos((prev) => prev.map((s) => (s.publicId === full.publicId ? full : s)));
+      })
+      .catch(() => { /* preview stays empty until retry; non-fatal */ });
+    return () => { cancelled = true; };
+  }, [selected]);
 
   useEffect(() => {
     setPreviewKey(originalDisplayKey);
   }, [selected?.publicId, originalDisplayKey]);
 
   const previewSheet = useMemo(() => {
-    if (!selected) return null;
+    // List items arrive metadata-only (no sheetData) — the selection effect
+    // below fetches the full solo and merges it in, after which this recomputes.
+    if (!selected?.sheetData) return null;
     const sheet = {
       ...selected.sheetData,
       title: selected.sheetData.title || selected.title,
@@ -590,6 +608,30 @@ export default function SolosPage() {
           composer: full.performer ?? sheet.composer ?? '',
           tempo: full.tempo ?? sheet.tempo,
           key: sheet.key,
+        },
+      },
+    });
+  }, [navigate]);
+
+  /** Row "Edit" — the row may be metadata-only (no sheetData), so fetch the
+   *  full solo first, then open the Editor prefilled (composer ← performer so
+   *  re-save updates the same record). */
+  const editRow = useCallback(async (row: SoloResponse) => {
+    let s = row;
+    if (!s.sheetData?.measures?.length) {
+      try {
+        const full = await getSolo(s.publicId);
+        if (full?.sheetData) s = full;
+      } catch { /* guarded below */ }
+    }
+    if (!s.sheetData) { alert('악보 데이터를 불러오지 못했습니다.'); return; }
+    navigate('/editor?mode=solo', {
+      state: {
+        prefillSheet: {
+          ...s.sheetData,
+          composer: s.performer ?? s.sheetData.composer ?? '',
+          tempo: s.tempo ?? s.sheetData.tempo,
+          key: s.sheetData.key,
         },
       },
     });
@@ -780,7 +822,16 @@ export default function SolosPage() {
     }
   }, [selectedId]);
 
-  const handleTranspose = useCallback(async (solo: SoloResponse) => {
+  const handleTranspose = useCallback(async (row: SoloResponse) => {
+    // Row may be metadata-only (no sheetData) — fetch the full solo first.
+    let solo = row;
+    if (!solo.sheetData?.measures?.length) {
+      try {
+        const full = await getSolo(solo.publicId);
+        if (full?.sheetData) solo = full;
+      } catch { /* fall through — guarded below */ }
+    }
+    if (!solo.sheetData) { alert('악보 데이터를 불러오지 못했습니다.'); return; }
     const fromWeimar = toWeimarKey(solo.key ?? solo.sheetData.key ?? 'C') ?? 'C-maj';
     const currentDisplay = formatKeyDisplay(fromWeimar);
     const input = window.prompt(
@@ -961,29 +1012,7 @@ export default function SolosPage() {
                           <RowActions>
                             <RowBtn
                               $color="#1976d2"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                /* Hand the solo's NoteSheetData to EditorPage
-                                 * via location.state.prefillSheet.
-                                 *
-                                 * IMPORTANT: backend stores `performer` at the
-                                 * solo's top level, but its `sheetData.composer`
-                                 * may be null. EditorPage.handleSave matches
-                                 * existing solos by (sheetTitle + composer);
-                                 * if composer ends up empty the save creates a
-                                 * fresh "Unknown" copy instead of updating
-                                 * this row. Override composer with performer
-                                 * so re-save updates the SAME solo. */
-                                const prefill = {
-                                  ...s.sheetData,
-                                  composer: s.performer ?? s.sheetData.composer ?? '',
-                                  tempo: s.tempo ?? s.sheetData.tempo,
-                                  key: s.sheetData.key,
-                                };
-                                navigate('/editor?mode=solo', {
-                                  state: { prefillSheet: prefill },
-                                });
-                              }}
+                              onClick={(e) => { e.stopPropagation(); void editRow(s); }}
                               title="Open this solo in the Editor"
                             >
                               ✏ Edit
@@ -1031,7 +1060,7 @@ export default function SolosPage() {
                     <PreviewHeader>
                       <PreviewTitle title={selected.title}>{selected.title}</PreviewTitle>
                       <PreviewMeta>
-                        {(selected.performer ?? '—')} · {selected.instrument} · original {originalDisplayKey} · {selected.sheetData.measures.length} bars
+                        {(selected.performer ?? '—')} · {selected.instrument} · original {originalDisplayKey}{selected.sheetData?.measures?.length ? ` · ${selected.sheetData.measures.length} bars` : ''}
                       </PreviewMeta>
                       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
                         <BpmControl tempo={soloTempo} onTempoChange={handleSoloTempo} />
