@@ -558,12 +558,16 @@ function QuarterNoteGlyph() {
   );
 }
 
-/* Break label shown on a marked bar outside edit mode, e.g. "Break (2/4)". */
+/* Break label shown on a marked bar outside edit mode, e.g. "Break (2/4)".
+ * Sits ABOVE the roman-numeral / ii-V-I amber tab (which occupies roughly
+ * [-16px, +6px] from the bar-grid top) so the two never overlap: top:-34px
+ * places the label clear above that band, and a high z-index keeps it over
+ * the analysis overlay layer. */
 const BreakLabel = styled.div`
   position: absolute;
-  top: -10px;
+  top: -34px;
   left: ${BARLINE_PAD}px;
-  z-index: 5;
+  z-index: 30;
   background: #1a1a1a;
   color: #fff;
   font-family: 'Pretendard', sans-serif;
@@ -1531,7 +1535,10 @@ function SystemRowComponent({
               )}
 
               {/* Break Editor: per-beat quarter-note markers above the bar.
-                  Click to set/move/clear the break-start beat for this bar. */}
+                  Clicking a beat means "play THROUGH this beat, then rest" —
+                  so the rest starts on the NEXT beat. The active (filled)
+                  marker is therefore the last-played beat = breakBeat - 1
+                  (breakBeat is the stored rest-start). */}
               {breakEditMode && (
                 <BeatMarkerRow style={{ gridTemplateColumns: `repeat(${beatsPerBar}, 1fr)` }}>
                   {Array.from({ length: beatsPerBar }, (_, b) => {
@@ -1540,8 +1547,8 @@ function SystemRowComponent({
                       <BeatMarker
                         key={beat}
                         type="button"
-                        $active={breakBeat === beat}
-                        aria-label={`${flatBar + 1}번째 마디 ${beat}박 Break`}
+                        $active={breakBeat === beat + 1}
+                        aria-label={`${flatBar + 1}번째 마디 ${beat}박까지 연주 후 Break`}
                         onClick={(e) => { e.stopPropagation(); onToggleBreak?.(flatBar, beat); }}
                       >
                         <QuarterNoteGlyph />

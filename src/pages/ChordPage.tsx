@@ -1224,9 +1224,18 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     saveBreakPoints(songId, breakPoints);
   }, [globalPlayer, breakPoints, songId]);
 
-  const handleToggleBreak = useCallback((bar: number, beat: number) => {
-    setBreakPoints((prev) => toggleBreakPoint(prev, bar, beat));
-  }, []);
+  /* The marker the user clicks is the LAST beat that should PLAY; the rest
+   * begins on the next beat. So a click on beat K stores rest-start = K+1.
+   * Clicking the final beat (K+1 > beatsPerBar) means "play the whole bar" →
+   * clear any break on this bar. */
+  const handleToggleBreak = useCallback((bar: number, clickedBeat: number) => {
+    const beatsPerBar = parseInt((sheet?.timeSignature ?? '4/4').split('/')[0], 10) || 4;
+    const restStart = clickedBeat + 1;
+    setBreakPoints((prev) => {
+      if (restStart > beatsPerBar) return prev.filter((p) => p.bar !== bar);
+      return toggleBreakPoint(prev, bar, restStart);
+    });
+  }, [sheet]);
 
   const countIn = useCountInIntro();
 
@@ -1724,7 +1733,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
           {sheet && !loading ? (
             <LeadSheet
               data={sheet}
-              analysisFilters={editMode ? ANALYSIS_OFF : effective}
+              analysisFilters={editMode || breakEditMode ? ANALYSIS_OFF : effective}
               selectedKey={editMode ? chartOriginalKey : writtenKey}
               editMode={editMode}
               onChordEdit={handleChordEdit}

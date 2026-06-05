@@ -112,6 +112,7 @@ import type { NoteSheetData, MeasureInfo } from '../../data/sampleMelody';
 import { useGlobalPlayer } from '../../lib/player';
 import type { AnacrusisNote } from '../../lib/player';
 import { useCountInIntro } from '../../hooks/useCountInIntro';
+import { breakBeatForBar, type BreakPoint } from '../../lib/breakPoints';
 import {
   DRUM_KIT_PRESETS,
   type DrumKitId,
@@ -885,6 +886,14 @@ interface NoteSheetProps {
   /** Fires whenever the tempo changes (song load, BPM input, or external
    *  setTempo via the ref handle). */
   onTempoChange?: (tempo: number) => void;
+  /** Break Editor mode: overlay clickable per-beat quarter-note markers above
+   *  every measure (drawn into the SVG). */
+  breakEditMode?: boolean;
+  /** Active break points (flat measure index + 1-based rest-start beat). */
+  breakPoints?: BreakPoint[];
+  /** Toggle a break: passes the CLICKED beat (last played); the host maps it
+   *  to the rest-start beat (clicked + 1). */
+  onToggleBreak?: (bar: number, clickedBeat: number) => void;
 }
 
 /** Imperative handle exposed to parents that own an external transport.
@@ -899,6 +908,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
   data, selectedKey, allKeys, onKeyChange, selectable, selectedRanges, onSelectionChange,
   showMeasureNumbers, lineStartMeasureNumbers, forceAutoStem,
   hideTransport, noPreload, onPlayingChange, onTempoChange,
+  breakEditMode = false, breakPoints, onToggleBreak,
 }, ref) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<HTMLDivElement>(null);
@@ -1182,6 +1192,87 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
       svg.appendChild(txt);
     }
   }, [data, width, showMeasureNumbers]);
+
+  /* ── Break Editor markers (SVG overlay) ───────────────────────────────
+   * Mirrors the measure-highlight/number pattern: inject elements straight
+   * into the rendered SVG in user-space coords (they scale with the staff
+   * automatically). measureRectsRef is populated by the main render effect
+   * above; this runs after it and re-runs when break state changes.
+   *
+   * Measure index === flat chart bar index (noteSheetToChart maps 1 measure →
+   * 1 bar), so the (bar, beat) here matches the engine's break gate exactly.
+   *
+   * Clicking a beat = "play THROUGH this beat, rest after" → the host stores
+   * rest-start = clicked + 1; the active (filled) marker is breakBeat - 1. */
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  useEffect(() => {
+    const svg = svgRef.current?.querySelector('svg');
+    if (!svg) return;
+    svg.querySelectorAll('.brk-mk, .brk-lbl').forEach((n) => n.remove());
+
+    const beatsPerBar = parseInt((data.timeSignature || '4/4').split('/')[0], 10) || 4;
+    const rects = measureRectsRef.current;
+
+    for (let i = 0; i < rects.length; i++) {
+      const r = rects[i];
+      if (!r) continue;
+      const breakBeat = breakBeatForBar(breakPoints ?? [], i); // stored rest-start
+
+      if (breakEditMode) {
+        // One clickable quarter-note marker per beat, evenly across the bar.
+        for (let b = 0; b < beatsPerBar; b++) {
+          const beat = b + 1;
+          const cx = r.x + (r.w * (b + 0.5)) / beatsPerBar;
+          const cy = r.y + 2;
+          const active = breakBeat === beat + 1;
+
+          const g = document.createElementNS(SVG_NS, 'g');
+          g.setAttribute('class', 'brk-mk');
+          g.setAttribute('transform', `translate(${cx}, ${cy})`);
+          g.style.cursor = 'pointer';
+          g.setAttribute('opacity', active ? '1' : '0.26');
+
+          // Transparent hit area (bigger than the glyph) for easy clicking.
+          const hit = document.createElementNS(SVG_NS, 'rect');
+          hit.setAttribute('x', '-9'); hit.setAttribute('y', '-4');
+          hit.setAttribute('width', '18'); hit.setAttribute('height', '24');
+          hit.setAttribute('fill', 'transparent');
+          g.appendChild(hit);
+
+          // Filled notehead + stem (quarter note).
+          const head = document.createElementNS(SVG_NS, 'ellipse');
+          head.setAttribute('cx', '-1.5'); head.setAttribute('cy', '14');
+          head.setAttribute('rx', '3.4'); head.setAttribute('ry', '2.6');
+          head.setAttribute('fill', '#1a1a1a');
+          head.setAttribute('transform', 'rotate(-20 -1.5 14)');
+          g.appendChild(head);
+          const stem = document.createElementNS(SVG_NS, 'rect');
+          stem.setAttribute('x', '1.3'); stem.setAttribute('y', '1');
+          stem.setAttribute('width', '1.3'); stem.setAttribute('height', '12.5');
+          stem.setAttribute('fill', '#1a1a1a');
+          g.appendChild(stem);
+
+          g.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onToggleBreak?.(i, beat);
+          });
+          svg.appendChild(g);
+        }
+      } else if (breakBeat != null) {
+        // "Break (K/4)" label above the bar, out of edit mode.
+        const lbl = document.createElementNS(SVG_NS, 'text');
+        lbl.setAttribute('class', 'brk-lbl');
+        lbl.setAttribute('x', String(r.x + 2));
+        lbl.setAttribute('y', String(r.y - 2));
+        lbl.setAttribute('font-family', "'Pretendard', sans-serif");
+        lbl.setAttribute('font-size', '10.5');
+        lbl.setAttribute('font-weight', '700');
+        lbl.setAttribute('fill', '#1a1a1a');
+        lbl.textContent = `Break (${breakBeat}/${beatsPerBar})`;
+        svg.appendChild(lbl);
+      }
+    }
+  }, [data, width, breakEditMode, breakPoints, onToggleBreak]);
 
   /* ── selection highlight (admin region picker) ────────────────────── */
   useEffect(() => {

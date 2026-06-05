@@ -25,6 +25,8 @@ import { loadXmlMelody, loadMxlMelody } from '../lib/note/xmlMelodyParser';
 import { injectChordsFromLeadSheet } from '../lib/note/jazz1460ChordInject';
 import { getPlayerSettings, subscribePlayerSettings, TRANSPOSING_INSTRUMENT_OFFSET } from '../lib/note/playerSettings';
 import { getSong } from '../lib/ireal/irealLoader';
+import { useGlobalPlayer } from '../lib/player';
+import { loadBreakPoints, saveBreakPoints, toggleBreakPoint, type BreakPoint } from '../lib/breakPoints';
 
 const SAMPLE_ID = '__sample__';
 
@@ -669,6 +671,28 @@ export default function NotePage() {
   const [tempo, setTempo] = useState(sampleMelody.tempo ?? 120);
   const [repeatCount, setRepeatCount] = useState(3);  // UI-only — player plays once through.
   const [session, setSession] = useState<SessionInstrument>('piano');
+
+  /* Break Editor (고급 기능) — backing rests while the melody keeps playing.
+   * NoteSheet plays through the global player singleton, so we reach the same
+   * instance here to push breakBeats. Persisted per-song by songId. */
+  const { player: globalPlayer } = useGlobalPlayer();
+  const [breakEditMode, setBreakEditMode] = useState(false);
+  const [breakPoints, setBreakPoints] = useState<BreakPoint[]>([]);
+
+  useEffect(() => { setBreakPoints(loadBreakPoints(songId)); }, [songId]);
+  useEffect(() => {
+    globalPlayer.setConfig({ breakBeats: breakPoints });
+    saveBreakPoints(songId, breakPoints);
+  }, [globalPlayer, breakPoints, songId]);
+
+  const handleToggleBreak = useCallback((bar: number, clickedBeat: number) => {
+    const beatsPerBar = parseInt((sheet?.timeSignature ?? '4/4').split('/')[0], 10) || 4;
+    const restStart = clickedBeat + 1;
+    setBreakPoints((prev) => {
+      if (restStart > beatsPerBar) return prev.filter((p) => p.bar !== bar);
+      return toggleBreakPoint(prev, bar, restStart);
+    });
+  }, [sheet]);
   const [lightMenuOpen, setLightMenuOpen] = useState(false);
   const lightMenuRef = useRef<HTMLDivElement>(null);
 
@@ -970,6 +994,9 @@ export default function NotePage() {
               hideTransport
               onPlayingChange={setIsPlaying}
               onTempoChange={setTempo}
+              breakEditMode={breakEditMode}
+              breakPoints={breakPoints}
+              onToggleBreak={handleToggleBreak}
             />
           ) : (
             <LoadingState>
@@ -991,7 +1018,10 @@ export default function NotePage() {
              *  player (melody) that drives NotePage. The volume / reverb /
              *  bass-mode / drum-kit controls all still apply via global
              *  playerSettings, which the player subscribes to. */
-            <BackingMixer />
+            <BackingMixer
+              breakEditMode={breakEditMode}
+              onToggleBreakEdit={() => setBreakEditMode((v) => !v)}
+            />
           ) : (
             <RightChatPanel
               hideHeader
