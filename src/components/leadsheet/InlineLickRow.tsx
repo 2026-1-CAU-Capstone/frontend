@@ -84,7 +84,7 @@ const Region = styled.div`
 const Tab = styled.button`
   position: absolute;
   left: -3px;
-  top: 11px;           /* sits just above the staff (STAFF_TOP=30), nudged down */
+  top: 24px;           /* nudged further down toward the staff (STAFF_TOP=30) */
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -176,16 +176,55 @@ export function InlineLickRow({
       const measure = sheet.measures[measureOffset + m];
       const stave = new Stave(m * colW, STAFF_TOP, colW);
       stave.setContext(ctx).draw();
-      const vfNotes = buildVfNotes(measure, EMPTY_KACC);
-      if (vfNotes.length === 0) continue;
-      const beams = buildBeams(vfNotes, measure.notes);
-      const voice = new Voice({ numBeats: numBeats || 4, beatValue: beatValue || 4 });
-      voice.setStrict(false);
-      voice.addTickables(vfNotes);
       try {
+        // buildVfNotes / buildBeams / Voice creation live INSIDE the try: a
+        // single bad note (invalid VexFlow key/duration → `new StaveNote`
+        // throws) in ONE measure must only skip THAT measure, not blank the
+        // whole row. Previously these ran before the try, so one malformed
+        // measure threw out of the entire effect → the whole (long) lick
+        // rendered as empty staves. Long licks hit this far more often simply
+        // because they carry more notes.
+        const vfNotes = buildVfNotes(measure, EMPTY_KACC);
+        if (vfNotes.length === 0) continue;
+        const beams = buildBeams(vfNotes, measure.notes);
+        const voice = new Voice({ numBeats: numBeats || 4, beatValue: beatValue || 4 });
+        voice.setStrict(false);
+        voice.addTickables(vfNotes);
+        /* Dense-measure compression — Charlie-Parker-style 16th-note
+         * lines (10+ non-rest notes per bar, especially with chromatic
+         * accidentals) overflow a single chart-column-width stave and
+         * spill onto neighbours. Scale just the voice + beams (NOT the
+         * stave, which is already drawn) horizontally about the stave's
+         * left edge so notes squish into their own bar without changing
+         * the column grid. */
+        const noteCount = measure.notes.filter((n) => !n.duration?.endsWith('r')).length;
+        const sx =
+          noteCount >= 14 ? 0.74 :
+          noteCount >= 12 ? 0.82 :
+          noteCount >= 10 ? 0.88 :
+          noteCount >= 8  ? 0.94 : 1.0;
+        const anchorX = m * colW;
+        const compress = sx < 1.0;
+        /* RenderContext exposes translate/scale on its concrete SVGContext
+         * / CanvasContext subclasses but the abstract base type only
+         * advertises save/restore + setters. Cast to the concrete shape
+         * we know the runtime implements. */
+        const xctx = ctx as unknown as {
+          save: () => void;
+          restore: () => void;
+          translate: (x: number, y: number) => void;
+          scale: (x: number, y: number) => void;
+        };
+        if (compress) {
+          xctx.save();
+          xctx.translate(anchorX, 0);
+          xctx.scale(sx, 1);
+          xctx.translate(-anchorX, 0);
+        }
         new Formatter().joinVoices([voice]).formatToStave([voice], stave);
         voice.draw(ctx, stave);
         beams.forEach((b) => b.setContext(ctx).draw());
+        if (compress) xctx.restore();
         // Map each non-rest note to its SVG element, keyed by SOURCE note index
         // (measure.notes index) so it matches the player's onNote srcNi — which
         // identifies notes by source position, not by non-rest ordinal. Keying
@@ -195,7 +234,16 @@ export function InlineLickRow({
           const svgEl = (vfNotes[idx] as unknown as { getSVGElement?: () => SVGElement }).getSVGElement?.();
           if (svgEl) noteElsRef.current.set(`${m}-${idx}`, svgEl);
         }
-      } catch { /* a malformed measure shouldn't kill the whole row */ }
+      } catch (e) {
+        // One malformed measure is skipped (its empty staff stays) — the rest
+        // of the row still renders. Logged so we can pin down which note/measure
+        // VexFlow rejects if a lick still shows gaps.
+        console.warn('[InlineLickRow] measure render skipped', {
+          measureIndex: measureOffset + m,
+          chord: sheet.measures[measureOffset + m]?.chord,
+          error: e,
+        });
+      }
     }
 
     const svg = host.querySelector('svg');

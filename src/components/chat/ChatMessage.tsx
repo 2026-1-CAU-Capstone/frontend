@@ -24,20 +24,22 @@ const InlineSectionTag = styled.span`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.32em;
-  height: 1.32em;
+  /* Box ≈ the surrounding output glyph size (was ~0.92em of parent, which
+   * read too small). 1.3em of a 0.88em letter ≈ 1.14em of the parent line. */
+  width: 1.3em;
+  height: 1.3em;
   box-sizing: border-box;
   background: #000;
   color: #fff;
   font-family: 'Pretendard', 'Pretendard', sans-serif;
-  font-size: 0.7em;
+  font-size: 0.88em;
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0;
-  border-radius: 2px;
-  margin: 0 0.28em;
+  border-radius: 3px;
+  margin: 0 0.26em;
   padding-bottom: 0.04em;
-  vertical-align: -0.16em;
+  vertical-align: -0.26em;
 `;
 
 /* Pattern + helper used by the markdown component override below to inline

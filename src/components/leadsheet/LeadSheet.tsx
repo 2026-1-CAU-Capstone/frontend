@@ -523,9 +523,12 @@ const BarCell = styled.div<{ $endPad?: number }>`
  * (break start) is rendered solid, the rest faint, hover in between. */
 const BeatMarkerRow = styled.div`
   position: absolute;
-  top: -6px;
-  left: ${BARLINE_PAD}px;
-  right: 6px;
+  /* Sit slightly higher and a touch further left than before so the
+   * quarter-note glyphs read as floating ABOVE the chord band rather
+   * than crowding it from the top. */
+  top: -16px;
+  left: ${BARLINE_PAD - 10}px;
+  right: 16px;
   height: 22px;
   display: grid;
   z-index: 5;
@@ -1675,7 +1678,11 @@ interface LeadSheetProps {
   /** 저장된 릭이 있는 ii-V-I 시작 마디 번호 세트 */
   savedLickBarNums?: Set<number>;
   onSavedLickBadgeClick?: (bar: number, spanLabel: string) => void;
-  /** One expanded lick row rendered directly below the target chart system. */
+  /** Expanded lick row(s) rendered directly below the target chart system.
+   *  Multiple licks can be placed simultaneously — each lands on its own
+   *  (systemIndex, anchorBar) pair and renders independently. The legacy
+   *  single-object form is still accepted; the host can keep passing
+   *  `inlineLick={one}` and it'll be normalised to a 1-item array. */
   inlineLick?: {
     systemIndex: number;
     anchorBar: number;
@@ -1684,7 +1691,17 @@ interface LeadSheetProps {
      *  The lick's first chord-bearing bar is aligned to `anchorBar`; the pickup
      *  bar(s) are dropped (not rendered). Defaults to 0. */
     pickupBars?: number;
-  };
+    /** Trailing no-chord measures dropped from the tail end so the lick
+     *  doesn't bleed past the I resolution onto unrelated downstream chords. */
+    trailingPickupBars?: number;
+  } | null;
+  inlineLicks?: Array<{
+    systemIndex: number;
+    anchorBar: number;
+    sheet: NoteSheetData;
+    pickupBars?: number;
+    trailingPickupBars?: number;
+  }>;
   onInlineLickClose?: () => void;
   /** Controlled transpose key. When provided the host owns the key — e.g.
    *  ChordPage renders the transpose control in the player transport.
@@ -2213,6 +2230,7 @@ export function LeadSheet({
   savedLickBarNums,
   onSavedLickBadgeClick,
   inlineLick,
+  inlineLicks,
   onInlineLickClose,
   selectedKey: selectedKeyProp,
   styleSlot,
@@ -3779,55 +3797,62 @@ export function LeadSheet({
               onChordEdit={onChordEdit}
             />
             {(() => {
-              // Inline lick rendered under EVERY chart row it flows through —
-              // the lick's measures map to consecutive chart bars starting at
-              // (anchorSystem, anchorBar), wrapping row by row. This is what
-              // lets a cross-row 2-5-1 lick draw its I under the I bar on the
-              // next line (not just the 2-5 on the anchor row).
-              if (!inlineLick || i < inlineLick.systemIndex) return null;
-              const S = inlineLick.systemIndex;
-              const B = inlineLick.anchorBar;
+              // Inline lick(s) rendered under EVERY chart row each one flows
+              // through — each lick's measures map to consecutive chart bars
+              // starting at its (systemIndex, anchorBar), wrapping row by
+              // row. Multiple licks can land on the same chart simultaneously
+              // (e.g. one ii-V-I per A section); we iterate over the combined
+              // list of `inlineLicks` + a normalised entry for the legacy
+              // single-object `inlineLick` prop.
+              const allLicks = [
+                ...(inlineLicks ?? []),
+                ...(inlineLick ? [inlineLick] : []),
+              ];
+              if (allLicks.length === 0) return null;
               const barsOf = (k: number) => resolvedData.systems[k]?.bars.length ?? 0;
-              // Render ONLY the lick's chord-bearing part (the ii-V-I, e.g.
-              // D-7 → onward). Leading no-chord pickup measures are DROPPED, and
-              // the first chord-bearing bar lands exactly on `anchorBar`.
-              const start = inlineLick.pickupBars ?? 0;   // first chord-bearing measure
-              const M = inlineLick.sheet.measures.length;
-              const chordBars = M - start;
-              if (chordBars <= 0) return null;
-              // The chord-bearing part occupies continuous columns
-              // [B, B + chordBars - 1] (measured from the start of system S);
-              // intersect with this row's columns.
-              let rowStartCont = 0;
-              for (let k = S; k < i; k++) rowStartCont += barsOf(k);
-              const lo = Math.max(B, rowStartCont);
-              const hi = Math.min(B + chordBars - 1, rowStartCont + barsOf(i) - 1);
-              if (hi < lo) return null;
-              const colStart = lo - rowStartCont;       // column within this row
-              const measureOffset = start + (lo - B);    // lick measure index at column lo
-              const colCount = hi - lo + 1;
-              if (colCount <= 0) return null;
-              // Global flat bar index of this segment's first column — lets the
-              // segment map the player's onNote(globalBar) to its local column
-              // for the blue current-note / current-measure highlight.
-              let firstGlobalBar = colStart;
-              for (let k = 0; k < i; k++) firstGlobalBar += barsOf(k);
-              // Does THIS chart row carry a ii-V bracket below its chords? If so
-              // the lick drops a bit so it doesn't collide with the bracket;
-              // clean (bracket-less) rows keep the tight height.
               const rowHasBracket = bracketSpecs.some((b) => Number(b.chordId1.split('-')[0]) === i);
-              return (
-                <InlineLickRow
-                  sheet={inlineLick.sheet}
-                  measureOffset={measureOffset}
-                  colStart={colStart}
-                  colCount={colCount}
-                  firstGlobalBar={firstGlobalBar}
-                  rowHasBracket={rowHasBracket}
-                  showClose={i === S}
-                  onClose={onInlineLickClose}
-                />
-              );
+              const segments: React.ReactNode[] = [];
+              allLicks.forEach((lk, lickIdx) => {
+                if (i < lk.systemIndex) return;
+                const S = lk.systemIndex;
+                const B = lk.anchorBar;
+                // Render ONLY the lick's chord-bearing part (the ii-V-I, e.g.
+                // D-7 → onward). Leading no-chord pickup measures are DROPPED,
+                // the first chord-bearing bar lands exactly on `anchorBar`,
+                // AND trailing no-chord measures are dropped from the tail so
+                // the lick doesn't spill past the I resolution onto the next
+                // unrelated chord in the host chart.
+                const start = lk.pickupBars ?? 0;        // first chord-bearing measure
+                const tail = lk.trailingPickupBars ?? 0; // empty bars after the I
+                const M = lk.sheet.measures.length;
+                const chordBars = M - start - tail;
+                if (chordBars <= 0) return;
+                let rowStartCont = 0;
+                for (let k = S; k < i; k++) rowStartCont += barsOf(k);
+                const lo = Math.max(B, rowStartCont);
+                const hi = Math.min(B + chordBars - 1, rowStartCont + barsOf(i) - 1);
+                if (hi < lo) return;
+                const colStart = lo - rowStartCont;
+                const measureOffset = start + (lo - B);
+                const colCount = hi - lo + 1;
+                if (colCount <= 0) return;
+                let firstGlobalBar = colStart;
+                for (let k = 0; k < i; k++) firstGlobalBar += barsOf(k);
+                segments.push(
+                  <InlineLickRow
+                    key={`lick-${lickIdx}-${i}`}
+                    sheet={lk.sheet}
+                    measureOffset={measureOffset}
+                    colStart={colStart}
+                    colCount={colCount}
+                    firstGlobalBar={firstGlobalBar}
+                    rowHasBracket={rowHasBracket}
+                    showClose={i === S}
+                    onClose={onInlineLickClose}
+                  />,
+                );
+              });
+              return segments.length > 0 ? <>{segments}</> : null;
             })()}
           </div>
         ))}

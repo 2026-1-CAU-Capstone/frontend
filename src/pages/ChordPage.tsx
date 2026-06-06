@@ -27,7 +27,7 @@ import { useIsNativeUi } from '../contexts/AppPreviewContext';
 import { withLeadSheetSelectionIds } from '../lib/leadSheetSelection';
 import type { LeadSheetChordSelection } from '../components/leadsheet/LeadSheet';
 import { loadUserLicksSync, type LickEntry } from '../data/lickData';
-import { findMatchingLicks, leadingPickupBars, type LickMatch } from '../lib/lickMatcher';
+import { findMatchingLicks, leadingPickupBars, trailingPickupBars, type LickMatch } from '../lib/lickMatcher';
 import { SavedLicksModal } from '../components/leadsheet/SavedLicksModal';
 import { useCountInIntro } from '../hooks/useCountInIntro';
 import { chordToInputString, parseChordInput, loadChartEdit, saveChartEdit } from '../lib/leadSheetChordEdit';
@@ -1030,6 +1030,38 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     systemIndex: number;
     anchorBar: number;
   } | null>(null);
+
+  /* Anchors of every ii-V-I group present in the current chart, keyed by
+   * group type ("ii-V-I" / "minor-ii-V" / "ii-V"). When the user pins a
+   * lick at one anchor, we replicate it at every OTHER anchor of the same
+   * group type so the lick appears over every matching progression in the
+   * song (auto-multi-placement). The lick state itself stays a single
+   * record — only the rendering layer fans it out into LeadSheet's
+   * inlineLicks array. */
+  const allIiviAnchors = useMemo(() => {
+    if (!sheet) return [] as Array<{ systemIndex: number; anchorBar: number; groupKey: string }>;
+    const out: Array<{ systemIndex: number; anchorBar: number; groupKey: string }> = [];
+    /* Walk systems and read groupMemberships off each analyzed chord. For
+     * each unique groupId, find the role-ii bar (which is what anchorBar
+     * conventionally points at) and emit one anchor entry. groupKey is the
+     * groupType so the multi-placement fans out only within the same
+     * progression family (ii-V-I doesn't auto-place on a turnaround). */
+    const seen = new Set<number>();
+    sheet.systems.forEach((system, si) => {
+      system.bars.forEach((bar, bi) => {
+        for (const c of bar.chords) {
+          const mems = c?.analysis?.groupMemberships ?? [];
+          for (const g of mems) {
+            if (!g || seen.has(g.groupId)) continue;
+            if (g.role !== 'ii') continue; // anchor at the ii bar
+            seen.add(g.groupId);
+            out.push({ systemIndex: si, anchorBar: bi, groupKey: g.groupType });
+          }
+        }
+      });
+    });
+    return out;
+  }, [sheet]);
   // Mixer toggle: whether the inline lick's melody plays over the chord chart.
   const [playInlineLick, setPlayInlineLick] = useState(() => getPlayerSettings().playInlineLick);
   useEffect(() => subscribePlayerSettings((s) => setPlayInlineLick(s.playInlineLick)), []);
@@ -1747,12 +1779,43 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
               selectedChordIds={selectedChordIds}
               selectionMode={!editMode && isSelectionMode}
               savedLickBarNums={savedLickBarNums.size > 0 ? savedLickBarNums : undefined}
-              inlineLick={inlineLick ? {
-                systemIndex: inlineLick.systemIndex,
-                anchorBar: inlineLick.anchorBar,
-                sheet: inlineLick.lick.sheetData,
-                pickupBars: leadingPickupBars(inlineLick.lick.sheetData.measures),
-              } : undefined}
+              /* Multi-anchor fan-out: when the user pins a lick at one
+               *  ii-V-I anchor we ALSO display it at every other anchor in
+               *  the chart whose progression-type matches (the same lick
+               *  drawn at each occurrence). The originally-clicked anchor
+               *  is included as the first entry; remaining anchors are
+               *  whatever ii-V-I groups the analysis identified.
+               *  Falls back to the lone clicked anchor when no group-type
+               *  metadata is available. */
+              inlineLicks={inlineLick ? (() => {
+                const pickup = leadingPickupBars(inlineLick.lick.sheetData.measures);
+                const trail = trailingPickupBars(inlineLick.lick.sheetData.measures);
+                const primary = {
+                  systemIndex: inlineLick.systemIndex,
+                  anchorBar: inlineLick.anchorBar,
+                  sheet: inlineLick.lick.sheetData,
+                  pickupBars: pickup,
+                  trailingPickupBars: trail,
+                };
+                /* Identify the clicked anchor's group-type from the
+                 * pre-computed anchor list. If unknown (e.g. user pinned
+                 * from a non-ii-V-I context), just show the primary. */
+                const clicked = allIiviAnchors.find(
+                  (a) => a.systemIndex === inlineLick.systemIndex && a.anchorBar === inlineLick.anchorBar,
+                );
+                if (!clicked) return [primary];
+                const others = allIiviAnchors
+                  .filter((a) => a.groupKey === clicked.groupKey)
+                  .filter((a) => !(a.systemIndex === inlineLick.systemIndex && a.anchorBar === inlineLick.anchorBar))
+                  .map((a) => ({
+                    systemIndex: a.systemIndex,
+                    anchorBar: a.anchorBar,
+                    sheet: inlineLick.lick.sheetData,
+                    pickupBars: pickup,
+                    trailingPickupBars: trail,
+                  }));
+                return [primary, ...others];
+              })() : undefined}
               onInlineLickClose={() => setInlineLick(null)}
               onSavedLickBadgeClick={(barNum, spanLabel) => {
                 const anchorSystem = sheet?.systems.findIndex((system) =>

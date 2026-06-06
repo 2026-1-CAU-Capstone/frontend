@@ -156,12 +156,20 @@ export const EditUserPencilBtn = styled.button`
 /* Hover-only timestamp chip below the user bubble — small grey text,
  * fades in with the pencil so the bubble stays clean at rest. */
 export const TimestampHint = styled.div`
+  /* Absolutely positioned just BELOW the bubble so the hidden (opacity:0)
+   * timestamp doesn't reserve in-flow height — otherwise an empty ~18px gap
+   * sits under the user's question text. On hover it fades in below-right. */
+  position: absolute;
+  top: 100%;
+  right: 4px;
+  margin-top: 3px;
   font-size: 11px;
   color: ${({ theme }) => theme.colors.textSecondary};
-  margin-top: 4px;
   opacity: 0;
   transition: opacity 0.15s;
   text-align: right;
+  pointer-events: none;
+  white-space: nowrap;
 `;
 
 /* Assistant message action row — sits BELOW the message body as a transparent

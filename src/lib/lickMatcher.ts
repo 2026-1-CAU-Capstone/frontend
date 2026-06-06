@@ -23,6 +23,20 @@ export function leadingPickupBars(measures: MeasureInfo[]): number {
   return n >= measures.length ? 0 : n;
 }
 
+/* Mirror of leadingPickupBars for the TAIL of a lick. Some licks (esp.
+ * ones generated from a transcribed solo) carry trailing measures past
+ * the I resolution — e.g. a ii-V-I lick with an extra empty/repeat-tag
+ * measure after the I. Without trimming those, the inline-lick render
+ * spills past the chart's I bar onto whatever non-related chord comes
+ * after, which contradicts the "show notes only on chord-matched bars"
+ * spec. Counts back from the end, returning the number of trailing
+ * no-chord measures to drop. */
+export function trailingPickupBars(measures: MeasureInfo[]): number {
+  let n = 0;
+  while (n < measures.length && !measures[measures.length - 1 - n]?.chord?.trim()) n++;
+  return n >= measures.length ? 0 : n;
+}
+
 /* ── pitch constants ─────────────────────────────────────────────────────── */
 
 const NOTE_TO_PC: Record<string, number> = {

@@ -61,6 +61,7 @@ export function jsonToLickEntry(json: Record<string, unknown>): LickEntry {
 /* ── styled ───────────────────────────────────────────────────────────────── */
 
 const Wrapper = styled.div`
+  position: relative; /* anchors the scoped count-in overlay to THIS card */
   margin: 12px 0 14px;
   background: transparent;
   border: none;
@@ -511,7 +512,9 @@ export function LickRecommendMessage({ match, tempoOverride, onShowInline, inlin
     };
   }, [clearPlaySubscriptions, clearPlaybackHighlight]);
 
-  const countIn = useCountInIntro();
+  // scoped → 카운트인 "1 2 3 4" 오버레이를 전체 화면이 아니라 이 카드(Wrapper)
+  // 안에서만 표시. (Wrapper 가 position:relative 라 absolute inset:0 으로 갇힌다.)
+  const countIn = useCountInIntro({ scoped: true });
 
   const togglePlay = useCallback(async () => {
     if (playing || countIn.active) {
@@ -529,7 +532,14 @@ export function LickRecommendMessage({ match, tempoOverride, onShowInline, inlin
     const cin = await countIn.run({
       bpm,
       pattern: PATTERN_SIMPLE,
-      prepare: player.preload({ kind: 'lick', data: lick.sheetData }),
+      // IMPORTANT: attach the .catch HERE, at creation. This promise is created
+      // now but only awaited ~1.2s later inside run() (after the count-in). If
+      // preload rejects in that gap with no handler yet attached, the browser
+      // fires `unhandledrejection` — which AudioLifecycleGuard listens for and
+      // responds to with stopAllAudio(), killing the lick the instant the
+      // count-in ends ("1 2 3 4" then silence). Pre-catching keeps it handled;
+      // instruments are reloaded by play() anyway if the preload failed.
+      prepare: player.preload({ kind: 'lick', data: lick.sheetData }).catch(() => {}),
     });
     if (!cin.ok) { setPlaying(false); return; }
     clearPlaySubscriptions();
@@ -543,7 +553,16 @@ export function LickRecommendMessage({ match, tempoOverride, onShowInline, inlin
       }),
     ];
     player.setConfig({ bpm });
-    player.play({ kind: 'lick', data: lick.sheetData }, { startAt: player.ctxNow() + cin.downbeatInSec });
+    // Await + catch: an unhandled play() rejection would trip AudioLifecycleGuard's
+    // `unhandledrejection` → stopAllAudio() (killing this very playback), and on a
+    // real failure we want to reset the button/highlight back to idle (#4c).
+    try {
+      await player.play({ kind: 'lick', data: lick.sheetData }, { startAt: player.ctxNow() + cin.downbeatInSec });
+    } catch {
+      setPlaying(false);
+      clearPlaybackHighlight();
+      clearPlaySubscriptions();
+    }
   }, [
     lick,
     tempoOverride,
