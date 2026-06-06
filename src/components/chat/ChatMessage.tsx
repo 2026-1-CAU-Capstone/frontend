@@ -24,22 +24,32 @@ const InlineSectionTag = styled.span`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* Box ≈ the surrounding output glyph size (was ~0.92em of parent, which
-   * read too small). 1.3em of a 0.88em letter ≈ 1.14em of the parent line. */
-  width: 1.3em;
-  height: 1.3em;
+  /* em-based so the square scales with its context — bigger inside an h3,
+   * smaller inside body text — automatically. */
+  width: 1.42em;
+  height: 1.42em;
   box-sizing: border-box;
   background: #000;
   color: #fff;
-  font-family: 'Pretendard', 'Pretendard', sans-serif;
-  font-size: 0.88em;
+  /* ALWAYS gothic. !important + the descendant rule below defeat the recursive
+   * markdown formatter, which can otherwise wrap the section letter in a
+   * chord-typography (MuseJazz) span and flip the badge's font. */
+  font-family: 'Pretendard', sans-serif !important;
+  font-size: 0.92em;
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0;
   border-radius: 3px;
   margin: 0 0.26em;
   padding-bottom: 0.04em;
-  vertical-align: -0.26em;
+  /* Raised vs the old -0.26em — the badge sat too low in the line. */
+  vertical-align: -0.13em;
+
+  & * {
+    font-family: 'Pretendard', sans-serif !important;
+    font-size: inherit !important;
+    letter-spacing: 0 !important;
+  }
 `;
 
 /* Pattern + helper used by the markdown component override below to inline

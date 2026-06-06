@@ -6,10 +6,9 @@ import { IconSidebar } from '../components/layout/IconSidebar';
 import { LeadSheet } from '../components/leadsheet/LeadSheet';
 import type { LeadSheetData } from '../data/leadSheetTypes';
 import { analysisToLeadSheet } from '../lib/chordProjectToLeadSheet';
-import { saveOmrSourceImage, getOmrSourceImage, deleteOmrSourceImage } from '../lib/omrImageStore';
+import { saveOmrSourceImage, deleteOmrSourceImage } from '../lib/omrImageStore';
 import { ConfirmDeleteModal } from '../components/common/ConfirmDeleteModal';
 import {
-  CHORD_PROJECT_KEYS,
   addChordProjectChords,
   analyzeChordProject,
   createChordProject,
@@ -23,6 +22,7 @@ import {
   type ChordProjectKey,
 } from '../api/chordProjects';
 import { ProjectCreateModal, type ProjectCreatePayload } from '../components/common/ProjectCreateModal';
+import { KeyPicker } from '../components/common/KeyPicker';
 
 /* ─────────────────────────────────────────────────────────────────────────
  * MyChordChartsPage — document grid for "내 코드 차트".
@@ -214,6 +214,12 @@ export default function MyChordChartsPage() {
     { id: string; kind: 'folder' | 'file'; name: string } | null
   >(null);
   const [renameInput, setRenameInput] = useState('');
+  /* "정보 변경" modal for a chord chart (file) — edits title + key via PUT.
+   * timeSignature is intentionally absent (backend forbids editing it). */
+  const [editTarget, setEditTarget] = useState<{ id: string } | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editKey, setEditKey] = useState<string>('C_MAJOR');
+  const [editSaving, setEditSaving] = useState(false);
   /* Confirm-delete modal target for a chord chart (file). `null` = closed. */
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
 
@@ -390,7 +396,9 @@ export default function MyChordChartsPage() {
         parentId: null,
         kind: 'sheet' as const,
         title: project.title,
-        date: project.createdAt?.slice(0, 10) || today(),
+        /* 전체 ISO 를 그대로 — formatListDate 가 날짜+시각까지 보여준다.
+         * slice(0,10) 하면 시각이 잘려 항상 "오전 12:00"으로 죽었다. */
+        date: project.createdAt || today(),
         keySignature: project.keySignature,
         timeSignature: project.timeSignature,
         omrStatus: project.omrStatus,
@@ -428,15 +436,18 @@ export default function MyChordChartsPage() {
    * (temp id, PENDING, 0%), then swap it for the real project once the POST
    * resolves. On failure we drop the placeholder and surface the error.
    * The temp id is prefixed so the OMR-status poller skips it. */
-  const uploadOmrFile = async (file: File, titleOverride?: string): Promise<void> => {
+  const uploadOmrFile = async (file: File, titleOverride?: string, keyOverride?: string): Promise<void> => {
     setProjectError(null);
     const tempId = `${UPLOADING_ID_PREFIX}${newId()}`;
     const title = titleOverride?.trim() || file.name.replace(/\.[^.]+$/, '');
+    /* 온보딩에서 고른 조성을 placeholder 카드와 백엔드 양쪽에 그대로 반영한다.
+     * (지정 없이 파일만 드롭한 경로는 C 장조로 시작.) */
+    const key = keyOverride || 'C_MAJOR';
     const nowIso = new Date().toISOString();
     const placeholder: ChordProject = {
       publicId: tempId,
       title,
-      keySignature: '',
+      keySignature: key,
       timeSignature: '4/4',
       omrStatus: 'PENDING',
       omrProgress: 0,
@@ -447,9 +458,10 @@ export default function MyChordChartsPage() {
     // 즉시 카드 노출 (업로드 중 표시)
     setProjects((prev) => [placeholder, ...prev]);
     try {
-      const created = await createChordProjectFromOmr(file, { title });
-      // 업로드한 원본 악보 이미지를 publicId 로 로컬(IndexedDB) 보관 → 카드에서
-      // "원본" 토글로 다시 볼 수 있게. best-effort: 실패해도 업로드는 성공 처리.
+      const created = await createChordProjectFromOmr(file, { title, key });
+      // 업로드한 원본 악보 이미지를 publicId 로 로컬(IndexedDB) 보관.
+      // 카드의 "원본" 토글 UI는 일단 제거했지만(후순위), 데이터는 계속 저장해
+      // 두어 추후 토글을 되살릴 때 바로 쓸 수 있게 한다. best-effort.
       void saveOmrSourceImage(created.project.publicId, file);
       // 플레이스홀더를 실제 프로젝트로 교체 (중복 제거 포함)
       setProjects((prev) => [
@@ -472,7 +484,7 @@ export default function MyChordChartsPage() {
     setOnboardError(null);
     try {
       setOnboardOpen(false);
-      await uploadOmrFile(p.file, p.title);   // placeholder card + OMR (own error handling)
+      await uploadOmrFile(p.file, p.title, p.key);   // placeholder card + OMR (own error handling)
     } catch (e) {
       setOnboardError(e instanceof Error ? e.message : '생성 실패');
     } finally {
@@ -646,6 +658,29 @@ export default function MyChordChartsPage() {
     setKebabMenuId(null);
     setRenameTarget({ id, kind, name: currentName });
     setRenameInput(currentName);
+  };
+  /* Open the "정보 변경" modal seeded with the chart's current title + key. */
+  const openEdit = (id: string, title: string, key: string): void => {
+    setKebabMenuId(null);
+    setEditTarget({ id });
+    setEditTitle(title);
+    setEditKey(key || 'C_MAJOR');
+  };
+  const confirmEdit = async (): Promise<void> => {
+    if (!editTarget) return;
+    const title = editTitle.trim();
+    if (!title) return;
+    setEditSaving(true);
+    setProjectError(null);
+    try {
+      const updated = await updateChordProject(editTarget.id, { title, key: editKey });
+      setProjects((prev) => prev.map((p) => (p.publicId === editTarget.id ? updated : p)));
+      setEditTarget(null);
+    } catch (e) {
+      setProjectError(e instanceof Error ? e.message : '코드 프로젝트 수정 실패');
+    } finally {
+      setEditSaving(false);
+    }
   };
   const confirmRename = (): void => {
     if (!renameTarget) return;
@@ -972,7 +1007,8 @@ export default function MyChordChartsPage() {
               {file.kind === 'sheet' ? (
                 <SheetCardInner>
                   <SheetPreview project={file.project} />
-                  {!selectMode && (
+                  {!selectMode
+                    && file.omrStatus !== 'PENDING' && file.omrStatus !== 'PROCESSING' && (
                     <HoverOverlay className="sheet-hover-overlay" aria-hidden>
                       <HoverArrowBox><ArrowRightIcon /></HoverArrowBox>
                     </HoverOverlay>
@@ -990,38 +1026,38 @@ export default function MyChordChartsPage() {
               )}
               <CardMeta>
                 {file.kind === 'sheet' ? (
-                  <CardTitleRow>
-                    <CardTitle title={file.title} style={{ paddingRight: 0 }}>{file.title}</CardTitle>
-                    <KeyChip>{formatProjectKey(file.keySignature)}</KeyChip>
-                  </CardTitleRow>
+                  <>
+                    <CardTitle title={file.title}>{file.title}</CardTitle>
+                    <ChipRow>
+                      <KeyChip>{formatProjectKey(file.keySignature)}</KeyChip>
+                      <TimeChip>{displayTimeSig(file.timeSignature)}</TimeChip>
+                    </ChipRow>
+                    <MetaRow>
+                      <DateText>{formatListDate(file.date)}</DateText>
+                    </MetaRow>
+                  </>
                 ) : (
-                  <CardTitle title={file.title}>{file.title}</CardTitle>
-                )}
-                <MetaRow>
-                  {file.kind === 'sheet' ? (
-                    /* Chord-chart card: skip the badge/date pair and show the
-                     * composer line instead (mock — sourced from allOfMe). */
-                    <ComposerText>{formatProjectMeta(file)}</ComposerText>
-                  ) : (
-                    <>
+                  <>
+                    <CardTitle title={file.title}>{file.title}</CardTitle>
+                    <MetaRow>
                       <Badge $tone={file.kind === 'video' ? 'youtube' : 'folder'}>
                         {file.kind === 'video' ? 'YouTube'
                           : file.kind === 'image' ? '이미지'
                           : '파일'}
                       </Badge>
                       <DateText>{file.date}</DateText>
-                    </>
-                  )}
-                </MetaRow>
+                    </MetaRow>
+                  </>
+                )}
               </CardMeta>
               <Kebab aria-label="더보기" onClick={openKebab(file.id)}>
                 <KebabDot /><KebabDot /><KebabDot />
               </Kebab>
               {kebabMenuId === file.id && (
                 <KebabMenu ref={kebabMenuRef} role="menu" onClick={(e) => e.stopPropagation()}>
-                  <KebabMenuItem type="button" onClick={() => startRename(file.id, 'file', file.title)}>
+                  <KebabMenuItem type="button" onClick={() => openEdit(file.id, file.title, file.keySignature ?? 'C_MAJOR')}>
                     <KebabMenuIcon><RenameIcon /></KebabMenuIcon>
-                    <span>이름 변경</span>
+                    <span>정보 변경</span>
                   </KebabMenuItem>
                   <KebabMenuItem type="button" onClick={() => { setKebabMenuId(null); alert('이동: 추후 구현'); }}>
                     <KebabMenuIcon><MoveIcon /></KebabMenuIcon>
@@ -1163,11 +1199,7 @@ export default function MyChordChartsPage() {
               </ModalField>
               <ModalField>
                 <ModalLabel>조성</ModalLabel>
-                <ModalSelect value={newProjectKey} onChange={(e) => setNewProjectKey(e.target.value as ChordProjectKey)}>
-                  {CHORD_PROJECT_KEYS.map((key) => (
-                    <option key={key} value={key}>{formatProjectKey(key)}</option>
-                  ))}
-                </ModalSelect>
+                <KeyPicker value={newProjectKey} onChange={(k) => setNewProjectKey(k as ChordProjectKey)} />
               </ModalField>
               <ModalField>
                 <ModalLabel>박자</ModalLabel>
@@ -1190,6 +1222,34 @@ export default function MyChordChartsPage() {
                 <ModalBtn $variant="ghost" type="button" onClick={() => setCreateProjectOpen(false)} disabled={creatingProject}>취소</ModalBtn>
                 <ModalBtn $variant="primary" type="button" onClick={() => void handleCreateProject()} disabled={creatingProject || !newProjectTitle.trim()}>
                   {creatingProject ? '생성 중...' : '생성'}
+                </ModalBtn>
+              </ModalActions>
+            </ModalCard>
+          </ModalBackdrop>
+        )}
+
+        {editTarget && (
+          <ModalBackdrop onClick={() => !editSaving && setEditTarget(null)}>
+            <ModalCard onClick={(e) => e.stopPropagation()}>
+              <ModalTitle>정보 변경</ModalTitle>
+              <ModalField>
+                <ModalLabel>제목</ModalLabel>
+                <ModalInput
+                  autoFocus
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Escape') setEditTarget(null); }}
+                />
+              </ModalField>
+              <ModalField>
+                <ModalLabel>조성</ModalLabel>
+                <KeyPicker value={editKey} onChange={setEditKey} />
+              </ModalField>
+              <ModalHint>박자는 생성 후 변경할 수 없습니다.</ModalHint>
+              <ModalActions>
+                <ModalBtn $variant="ghost" type="button" onClick={() => setEditTarget(null)} disabled={editSaving}>취소</ModalBtn>
+                <ModalBtn $variant="primary" type="button" onClick={() => void confirmEdit()} disabled={editSaving || !editTitle.trim()}>
+                  {editSaving ? '저장 중...' : '저장'}
                 </ModalBtn>
               </ModalActions>
             </ModalCard>
@@ -1886,28 +1946,11 @@ const DateText = styled.span`
   color: rgba(0, 0, 0, 0.45);
 `;
 
-/* Composer credit shown under the title on chord-chart cards. Lighter weight
- * than the title so the eye reads "title → author" hierarchy at a glance. */
-const ComposerText = styled.span`
-  font-size: 12px;
-  font-weight: 500;
-  color: rgba(0, 0, 0, 0.55);
-  letter-spacing: -0.005em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-`;
-
-/* Flex row that puts the chord-chart key chip flush to the right of the
- * file title. min-width:0 lets the title ellipsis-clip if the filename is
- * long while the chip stays at its natural width. */
-const CardTitleRow = styled.div`
+/* 2번째 줄 — 키 칩 + 박자 칩을 제목 아래에 나란히. (제목/칩/날짜 3줄 레이아웃) */
+const ChipRow = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 0;
-  padding-right: 22px; /* room for the absolutely-positioned Kebab */
+  gap: 6px;
 `;
 
 /* Neutral grey pill showing the chord chart's key (e.g. "C", "Cm"). Sits
@@ -1921,10 +1964,48 @@ const KeyChip = styled.span`
   font-weight: 700;
   padding: 3px 9px;
   border-radius: 6px;
-  background: rgba(0, 0, 0, 0.07);
-  color: #3a3a3a;
+  background: rgba(214, 152, 18, 0.16);
+  color: #9a6800;
   letter-spacing: 0.01em;
 `;
+
+/* 박자(4/4) 칩 — 키 칩 바로 오른쪽. 키=노랑 / 박자=파랑으로 색을 갈라
+ * "조성 vs 박자"가 한눈에 구분되도록. */
+const TimeChip = styled.span`
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(43, 138, 239, 0.14);
+  color: #2570c8;
+  letter-spacing: 0.01em;
+`;
+
+/* OMR 진행 막대 — 썸네일 가운데 "N% 처리 중" 아래 0~100 채움 바. */
+const ProgressTrack = styled.div`
+  width: 70%;
+  max-width: 132px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+`;
+const ProgressFill = styled.div`
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2b8aef, #4aa3ff);
+  transition: width 0.45s ease;
+`;
+
+/* 박자표 방어 — OMR/백엔드가 "30" 같은 깨진 값을 timeSignature 로 주는 경우가
+ * 있어, "N/M" 형식이 아니면 기본 "4/4"로 폴백한다. (임시방편 — 근본 해결은
+ * 백엔드의 OMR time_signature → timeSignature 매핑 수정) */
+function displayTimeSig(ts: string | undefined): string {
+  return ts && /^\d+\/\d+$/.test(ts) ? ts : '4/4';
+}
 
 /* Normalise a key string into compact display form:
  *   "C", "C major", "Cmaj"   → "C"
@@ -1962,7 +2043,7 @@ function formatProjectKey(key: string | undefined): string {
 function formatProjectMeta(file: FileNode): string {
   const status = file.omrStatus;
   if (status === 'PENDING' || status === 'PROCESSING') {
-    return `OMR ${file.omrProgress ?? 0}% · ${file.timeSignature ?? '4/4'}`;
+    return `${file.omrProgress ?? 0}% 처리 중`;
   }
   if (status === 'FAILED') {
     return file.omrFailureReason ? `OMR 실패 · ${file.omrFailureReason}` : 'OMR 실패';
@@ -2086,13 +2167,10 @@ const SheetThumbScaler = styled.div`
     background: #fff !important;
     display: block !important;
   }
-  /* Big row-spacing bump — pushes the chord chart's natural height well
-   * above the thumb's height so the width-bound scale always FILLS the
-   * thumb (any excess gets clipped by overflow:hidden). Without this the
-   * scaled chart is shorter than the thumb and a white band appears at
-   * the bottom of every card, which reads visually as a row gap. */
-  & > div > div > div:nth-child(n+3) {
-    margin-top: 80px !important;
+  /* 미리보기 썸네일에서만 곡 제목(SheetTitle h1)을 크게 — 카드에서 곡명이
+   * 한눈에 읽히도록. 전체화면 LeadSheet 는 이 스케일러를 안 거치므로 영향 없음. */
+  & h1 {
+    font-size: 4rem !important;
   }
 `;
 
@@ -2122,63 +2200,30 @@ const ProjectPreviewState = styled.div`
   text-align: center;
 `;
 
-/* Locally-cached original upload, shown in place of the generated chart when
- * the user toggles "원본". `contain` so the whole page is visible un-cropped. */
-const OriginalImg = styled.img`
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  background: #fff;
-`;
-
-/* The card preview sets pointer-events:none; re-enable on the toggle so it's
- * clickable, and stopPropagation in the handler so it doesn't open the card. */
-const PreviewToggle = styled.button`
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  z-index: 2;
-  pointer-events: auto;
-  border: none;
-  border-radius: 999px;
-  padding: 3px 9px;
-  font-family: inherit;
-  font-size: 10px;
-  font-weight: 700;
-  cursor: pointer;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(2px);
-`;
-
 function SheetPreview({ project }: { project?: ChordProject }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const scalerRef = useRef<HTMLDivElement>(null);
-  const [previewScale, setPreviewScale] = useState({ x: 0.13, y: 0.13 });
+  const [previewScale, setPreviewScale] = useState({ scale: 0.13, offsetY: 0 });
   const [data, setData] = useState<LeadSheetData | null>(null);
   const [previewState, setPreviewState] = useState<'loading' | 'ready' | 'empty' | 'failed'>('loading');
-  // Original uploaded sheet image (IndexedDB, this device only) + toggle.
-  const [imgUrl, setImgUrl] = useState<string | null>(null);
-  const [showOriginal, setShowOriginal] = useState(false);
+  // Lazy-load gate: the expensive per-card analysis fetch (GET /analysis +
+  // possibly POST /analyze) is deferred until the card scrolls near the
+  // viewport, so opening a grid of 100 charts doesn't fire 100 analysis
+  // requests at once. Mirrors MySheetProjectsPage's SheetPreview.
+  const [shouldRender, setShouldRender] = useState(false);
 
   useEffect(() => {
-    if (!project) return;
-    let cancelled = false;
-    let url: string | null = null;
-    getOmrSourceImage(project.publicId).then((blob) => {
-      if (cancelled) return;
-      url = blob ? URL.createObjectURL(blob) : null;
-      setImgUrl(url);
-      if (!blob) setShowOriginal(false);
-    });
-    // Revoke on unmount; the object URL only needs to live as long as the card.
-    return () => {
-      cancelled = true;
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [project]);
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    const io = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setShouldRender(true);
+        io.disconnect();
+      }
+    }, { rootMargin: '600px' });
+    io.observe(wrap);
+    return () => io.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!project) {
@@ -2193,6 +2238,14 @@ function SheetPreview({ project }: { project?: ChordProject }) {
     }
     if (project.omrStatus === 'FAILED') {
       setPreviewState('failed');
+      setData(null);
+      return;
+    }
+    // COMPLETED — defer the (expensive) analysis fetch until the card is on
+    // screen. Until then it sits in 'loading' ("불러오는 중…"); the effect
+    // re-runs when `shouldRender` flips true and fetches then.
+    if (!shouldRender) {
+      setPreviewState('loading');
       setData(null);
       return;
     }
@@ -2243,7 +2296,7 @@ function SheetPreview({ project }: { project?: ChordProject }) {
         }
       });
     return () => { cancelled = true; };
-  }, [project]);
+  }, [project, shouldRender]);
 
   useEffect(() => {
     const wrap = wrapRef.current;
@@ -2259,9 +2312,14 @@ function SheetPreview({ project }: { project?: ChordProject }) {
           ? scalerRef.current.firstElementChild.offsetHeight
           : 0;
         if (cw <= 0 || ch <= 0 || naturalHeight <= 0) return;
-        const scaleX = cw / NOMINAL_PREVIEW_WIDTH;
-        const scaleY = Math.max(scaleX, ch / naturalHeight);
-        setPreviewScale({ x: scaleX, y: scaleY });
+        /* 가로 폭에 맞춰 "균등" 스케일(가로·세로 동일 배율)로 키운다 — 예전엔
+         * 세로를 따로 늘려(scaleY) 썸네일 높이를 억지로 채우다 보니 코드 글자가
+         * 길쭉하게 왜곡됐다. 균등 배율이라 짧은 차트는 세로가 남는데, 그 여백을
+         * 위아래로 나눠(offsetY) 세로 가운데 정렬한다. */
+        const scale = cw / NOMINAL_PREVIEW_WIDTH;
+        const scaledHeight = naturalHeight * scale;
+        const offsetY = Math.max(0, (ch - scaledHeight) / 2);
+        setPreviewScale({ scale, offsetY });
       });
     };
     measure();
@@ -2277,20 +2335,10 @@ function SheetPreview({ project }: { project?: ChordProject }) {
 
   return (
     <SheetThumbWrap ref={wrapRef}>
-      {imgUrl && (
-        <PreviewToggle
-          type="button"
-          onClick={(e) => { e.stopPropagation(); setShowOriginal((v) => !v); }}
-        >
-          {showOriginal ? '차트' : '원본'}
-        </PreviewToggle>
-      )}
-      {showOriginal && imgUrl ? (
-        <OriginalImg src={imgUrl} alt="업로드한 원본 악보" />
-      ) : data ? (
+      {data ? (
         <SheetThumbScaler
           ref={scalerRef}
-          style={{ transform: `scale(${previewScale.x}, ${previewScale.y})` }}
+          style={{ transform: `translateY(${previewScale.offsetY}px) scale(${previewScale.scale})` }}
         >
           <LeadSheet data={data} analysisFilters={PREVIEW_FILTERS} />
         </SheetThumbScaler>
@@ -2299,11 +2347,27 @@ function SheetPreview({ project }: { project?: ChordProject }) {
           {previewState === 'loading' ? <Spinner /> : <ChordGridIcon />}
           <span>
             {previewState === 'failed'
-              ? 'OMR 실패'
+              // OMR genuinely failed — surface the backend's reason so the user
+              // knows WHY (not just a bare "실패").
+              ? (project?.omrFailureReason
+                  ? `OMR 실패 · ${project.omrFailureReason}`
+                  : 'OMR 실패')
               : previewState === 'empty'
                 ? '코드 등록 필요'
-                : `${project?.omrProgress ?? 0}% 처리 중`}
+                // previewState==='loading' splits two very different cases:
+                //  - OMR still running  → "N% 처리 중"
+                //  - OMR done, we're just fetching the analysis to draw the
+                //    chart → "불러오는 중…". Showing "처리 중" here was the bug:
+                //    completed charts (omrProgress=100) all read "100% 처리 중".
+                : (project?.omrStatus === 'PENDING' || project?.omrStatus === 'PROCESSING')
+                  ? `${project?.omrProgress ?? 0}% 처리 중`
+                  : '불러오는 중…'}
           </span>
+          {(project?.omrStatus === 'PENDING' || project?.omrStatus === 'PROCESSING') && (
+            <ProgressTrack>
+              <ProgressFill style={{ width: `${Math.min(100, Math.max(0, project?.omrProgress ?? 0))}%` }} />
+            </ProgressTrack>
+          )}
         </ProjectPreviewState>
       )}
     </SheetThumbWrap>
@@ -2396,20 +2460,6 @@ const ModalTitle = styled.h2`
 `;
 
 const ModalInput = styled.input`
-  width: 100%;
-  height: 40px;
-  padding: 0 12px;
-  border: 1px solid rgba(0, 0, 0, 0.14);
-  border-radius: 9px;
-  background: #fff;
-  font-family: inherit;
-  font-size: 14.5px;
-  color: #1a1a1a;
-  outline: none;
-  &:focus { border-color: rgba(0, 0, 0, 0.4); }
-`;
-
-const ModalSelect = styled.select`
   width: 100%;
   height: 40px;
   padding: 0 12px;

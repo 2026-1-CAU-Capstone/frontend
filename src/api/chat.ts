@@ -104,6 +104,35 @@ export function notifyChatListChanged(): void {
   }
 }
 
+/* ── Pending new-chat placeholder ─────────────────────────────────────────
+ * When the user sends the first message of a brand-new chat, the backend
+ * creates the chat lazily — it isn't listable until the request commits. So
+ * the sidebar shows an optimistic placeholder (spinner) from send-start until
+ * a fresh listChats() returns the new row. RightChatPanel drives this; the
+ * Recent Chats list renders + clears it. */
+export interface PendingChatInfo {
+  songTitle: string | null;
+  kind: 'chord' | 'sheet' | null;
+}
+let _pendingChat: PendingChatInfo | null = null;
+const _pendingListeners = new Set<() => void>();
+
+export function onPendingChatChange(cb: () => void): () => void {
+  _pendingListeners.add(cb);
+  return () => { _pendingListeners.delete(cb); };
+}
+
+export function setPendingChat(p: PendingChatInfo | null): void {
+  _pendingChat = p;
+  for (const cb of _pendingListeners) {
+    try { cb(); } catch { /* swallow */ }
+  }
+}
+
+export function getPendingChat(): PendingChatInfo | null {
+  return _pendingChat;
+}
+
 /** Subscribe to "which chat is currently open in the right panel" changes.
  *  Sidebar items dispatch by calling setActiveChat(id); the right panel
  *  reacts by loading that chat's history (or clearing on null). Late
@@ -144,6 +173,28 @@ async function readApiError(res: Response): Promise<string> {
   } catch {
     return '';
   }
+}
+
+/* ── sidebar chat-list cache (localStorage) ──────────────────────────────
+ * The recent-chats sidebar fetches GET /v1/chat on every mount, so a refresh
+ * always flashed an empty "불러오는 중…" until the round-trip finished. We
+ * cache the first page so the list paints instantly from localStorage and the
+ * network result just reconciles it (stale-while-revalidate). */
+const CHAT_LIST_CACHE_KEY = 'jazzify.chat.listCache';
+
+export function getCachedChatList(): ChatSummary[] | null {
+  try {
+    const raw = window.localStorage.getItem(CHAT_LIST_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as ChatSummary[]) : null;
+  } catch { return null; }
+}
+
+export function setCachedChatList(list: ChatSummary[]): void {
+  try { window.localStorage.setItem(CHAT_LIST_CACHE_KEY, JSON.stringify(list)); } catch { /* quota/private mode */ }
+}
+
+export function clearCachedChatList(): void {
+  try { window.localStorage.removeItem(CHAT_LIST_CACHE_KEY); } catch { /* noop */ }
 }
 
 /** GET /v1/chat — paginated chat list (most recent first). Titles are

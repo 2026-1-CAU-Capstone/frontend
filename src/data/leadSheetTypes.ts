@@ -33,6 +33,11 @@ export interface LeadSheetChord {
   isRepeat?: boolean;
   isDiatonic?: boolean;
   analysis?: LeadSheetChordAnalysis;
+  /** Chord duration in beats within its bar (from OMR `durationBeats`). When
+   *  present, playback uses it instead of splitting the bar evenly across the
+   *  bar's chords. Lets a bar like `Dm(2) Bdim(1) Bb(1)` play with the right
+   *  lengths instead of three equal thirds. */
+  durationBeats?: number;
 }
 
 export interface LeadSheetBar {

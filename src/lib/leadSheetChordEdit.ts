@@ -19,9 +19,11 @@ export function chordToInputString(chord: LeadSheetChord): string {
 const ACC = (c?: string): 'b' | '#' | undefined =>
   c === '#' || c === '♯' ? '#' : c === 'b' || c === '♭' ? 'b' : undefined;
 
-/** Parse a typed chord symbol into a LeadSheetChord. Empty input → empty chord. */
-export function parseChordInput(raw: string): LeadSheetChord {
-  const s = raw.trim();
+/** Parse a typed chord symbol into a LeadSheetChord. Empty/null input → empty
+ *  chord. OMR analysis rows can carry `chord: null` for unrecognized slots, so
+ *  this must tolerate null/undefined rather than calling `.trim()` on it. */
+export function parseChordInput(raw: string | null | undefined): LeadSheetChord {
+  const s = (raw ?? '').trim();
   if (!s) return {};
 
   const [main, bassRaw] = s.split('/');

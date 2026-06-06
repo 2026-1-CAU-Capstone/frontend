@@ -6,6 +6,7 @@ import { IconSidebar } from '../components/layout/IconSidebar';
 import { TopToolbar } from '../components/layout/TopToolbar';
 import { RightChatPanel } from '../components/layout/RightChatPanel';
 import { MobileChatFab } from '../components/layout/MobileChatFab';
+import { setActiveChat } from '../api/chat';
 import { NoteSheet, type NoteSheetHandle } from '../components/notesheet/NoteSheet';
 import { SettingsGearButton } from '../components/auth/SettingsGearButton';
 import { KeyControl } from '../components/leadsheet/LeadSheet';
@@ -615,6 +616,11 @@ const ResizeDivider = styled.div`
 
 export default function NotePage() {
   const navigate = useNavigate();
+  // Entering a sheet/note chart starts a FRESH AI-chat session (song switches
+  // within the page are handled by RightChatPanel's songTitle effect).
+  useEffect(() => {
+    setActiveChat(null);
+  }, []);
   const { autoHighlight, toggleAutoHighlight } = useAutoHighlight(true);
   /* Mirror the toolbar's 분석 보기 toggle into the settings 디스플레이 tab. */
   const displaySettings = useMemo(() => [
@@ -1025,6 +1031,7 @@ export default function NotePage() {
           ) : (
             <RightChatPanel
               hideHeader
+              chartKind="sheet"
               selectedChords={noteSelectionData.selectedChords}
               groupExplanation={
                 noteSelectionData.selectedChords.length > 0
@@ -1044,6 +1051,7 @@ export default function NotePage() {
 
       <MobileChatFab
         songTitle={sheet?.title ?? 'Jazzify AI'}
+        chartKind="sheet"
         selectedChords={noteSelectionData.selectedChords}
         isSelectionMode={isNoteSelectionMode}
         onToggleSelectionMode={toggleNoteSelectionMode}

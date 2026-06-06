@@ -92,6 +92,12 @@ export async function runChatStream(args: RunChatStreamArgs): Promise<RunChatStr
           })),
           chordContextText: contextForModel || undefined,
           songTitle: songTitle || undefined,
+          // NOTE: do NOT send `category: chartKind` here. Posting an unknown
+          // category value ('chord'/'sheet') made the backend reject/branch the
+          // request so the chat was never persisted (it fell back to the local
+          // path → never appeared in Recent Chats). Chord/sheet origin is
+          // tracked client-side via chatChartMeta instead. Re-enable only once
+          // the backend explicitly accepts these category values.
           images: toBackendImages(images),
           /* Vision turns skip RAG — image grounding beats corpus retrieval
            * and the backend's image-stream endpoint is non-RAG. */

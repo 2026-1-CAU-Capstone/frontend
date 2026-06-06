@@ -214,11 +214,16 @@ function convertBarChords(
     return previousBarChords.map((c) => ({ ...c }));
   }
 
-  // Equal-beat distribution across the bar (Phase 0)
+  // Per-chord duration when the source carries `durationBeats` (OMR analysis),
+  // else equal-beat distribution across the bar (Phase 0 fallback). Lets a bar
+  // like `Dm(2) Bdim(1) Bb(1)` play with the right lengths.
   const beatsEach = beatsPerBar / real.length;
   const out: Chord[] = [];
   for (const src of real) {
-    const chord = convertChord(src, beatsEach);
+    const beats = typeof src.durationBeats === "number" && src.durationBeats > 0
+      ? src.durationBeats
+      : beatsEach;
+    const chord = convertChord(src, beats);
     if (chord) out.push(chord);
   }
   return out;

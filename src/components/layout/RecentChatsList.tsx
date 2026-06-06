@@ -16,7 +16,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 import {
   listChats,
   deleteChat,
@@ -25,9 +25,24 @@ import {
   onActiveChatChange,
   setActiveChat,
   getActiveChatId,
+  getCachedChatList,
+  setCachedChatList,
+  clearCachedChatList,
+  onPendingChatChange,
+  getPendingChat,
+  setPendingChat,
   type ChatSummary,
+  type PendingChatInfo,
 } from '../../api/chat';
+import { getCachedUser } from '../../api/auth';
 import { ConfirmDeleteModal } from '../common/ConfirmDeleteModal';
+import {
+  getChatChartMeta,
+  removeChatChartMeta,
+  listChatChartMeta,
+  onChatChartMetaChange,
+  type ChatChartKind,
+} from '../../lib/chatChartMeta';
 
 /* Sizes & paddings mirror NavBtn (expanded mode) so list rows visually flow
  * out of the nav cluster above. Constants kept inline to avoid sprinkling
@@ -100,6 +115,69 @@ const RowLabel = styled.button<{ $active?: boolean }>`
   overflow: hidden;
   text-overflow: ellipsis;
   &:hover { color: #1a1a1a; }
+`;
+
+/* Chart-origin square shown left of the song name for chord/sheet-chart chats.
+ * Color-coded: chord = gold, sheet = green (tonic). */
+const ChartBadge = styled.span<{ $kind: ChatChartKind }>`
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  color: #fff;
+  background: ${({ $kind, theme }) => ($kind === 'chord' ? theme.colors.gold : theme.colors.tonic)};
+`;
+const LabelText = styled.span`
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+/* Chord chart = 2×2 grid of chord boxes; Sheet = staff lines + a note head. */
+const ChordChartGlyph = () => (
+  <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3">
+    <rect x="1" y="1" width="10" height="10" rx="1.5" />
+    <path d="M6 1.5v9M1.5 6h9" />
+  </svg>
+);
+const SheetChartGlyph = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round">
+    <path d="M2 3h8M2 6h8M2 9h4" />
+    <circle cx="9" cy="9" r="1.4" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+/* Optimistic placeholder shown at the top of the list while a brand-new chat
+ * is being created on the backend — blank label + spinner until the GET lands. */
+const spin = keyframes`to { transform: rotate(360deg); }`;
+const PendingRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 12px 0 ${LABEL_INDENT}px;
+`;
+const SkeletonBar = styled.span`
+  flex: 1;
+  min-width: 0;
+  height: 9px;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.08);
+`;
+const Spinner = styled.span`
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.12);
+  border-top-color: ${({ theme }) => theme.colors.gold};
+  animation: ${spin} 0.7s linear infinite;
 `;
 
 const RowKebab = styled.button`
@@ -315,10 +393,13 @@ function bucketSortKey(label: string): number {
 
 export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactElement | null {
   const navigate = useNavigate();
-  const [items, setItems] = useState<ChatSummary[]>([]);
+  /* Seed from the localStorage cache so a refresh paints the list instantly
+   * instead of flashing the empty loading state. The network fetch below
+   * reconciles it (stale-while-revalidate). */
+  const [items, setItems] = useState<ChatSummary[]>(() => getCachedChatList() ?? []);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  const [loaded, setLoaded] = useState(() => getCachedChatList() != null);
 
   /* Pagination state — `page` is the NEXT page to fetch, `hasMore`
    * reflects the server's `last` flag. loadMore appends; refresh resets. */
@@ -340,10 +421,16 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   const refresh = useCallback(async () => {
-    if (!loggedIn) return;
+    /* Don't gate on `loggedIn` alone: bootstrapAuth() flips it true only after
+     * the /auth/me round-trip, which would serialize the chat fetch behind it.
+     * A cached user means a token is already in localStorage, so authFetch can
+     * fire now (and silently refresh on 401) — fetching in parallel with auth. */
+    if (!loggedIn && !getCachedUser()) return;
     try {
       const p = await listChats({ page: 0, size: PAGE_SIZE });
-      setItems(p.content ?? []);
+      const content = p.content ?? [];
+      setItems(content);
+      setCachedChatList(content);
       setPage(1);
       setHasMore(!p.last);
       setError(null);
@@ -378,17 +465,66 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
 
   // Initial fetch + refresh on global notifications.
   useEffect(() => {
-    if (!loggedIn) {
+    /* Genuine logged-out state = not logged in AND no cached user (the latter
+     * is cleared on explicit logout / failed refresh). Wipe the cache so the
+     * next account never sees the previous user's chats. */
+    if (!loggedIn && !getCachedUser()) {
       setItems([]);
       setLoaded(false);
       setPage(0);
       setHasMore(true);
+      clearCachedChatList();
       return;
     }
     void refresh();
     const unsub = onChatListChange(refresh);
     return () => { unsub(); };
   }, [loggedIn, refresh]);
+
+  /* ── Optimistic placeholder for a brand-new chat ───────────────────────
+   * RightChatPanel calls setPendingChat() the instant the user sends the first
+   * message. We show a spinner row, then poll listChats() until a NEW chat id
+   * appears (the backend creates it lazily) — only THEN swap the placeholder
+   * for the real row. Bounded so a failed creation can't spin forever. */
+  const [pending, setPending] = useState<PendingChatInfo | null>(() => getPendingChat());
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  useEffect(() => onPendingChatChange(() => setPending(getPendingChat())), []);
+
+  /* Bump on any local chart-meta change so the merged list below recomputes. */
+  const [metaVersion, setMetaVersion] = useState(0);
+  useEffect(() => onChatChartMetaChange(() => setMetaVersion((v) => v + 1)), []);
+
+  useEffect(() => {
+    if (!pending) return;
+    if (!loggedIn && !getCachedUser()) { setPendingChat(null); return; }
+    let cancelled = false;
+    let tries = 0;
+    const baseline = new Set(itemsRef.current.map((c) => c.publicId));
+    const tick = async () => {
+      if (cancelled) return;
+      tries += 1;
+      try {
+        const p = await listChats({ page: 0, size: PAGE_SIZE });
+        if (cancelled) return;
+        const content = p.content ?? [];
+        setItems(content);
+        setCachedChatList(content);
+        setPage(1);
+        setHasMore(!p.last);
+        if (content.some((c) => !baseline.has(c.publicId))) {
+          setPendingChat(null); // new chat is listed → drop the placeholder
+          return;
+        }
+      } catch {
+        /* keep polling */
+      }
+      if (tries >= 10) { setPendingChat(null); return; } // ~6s cap
+      window.setTimeout(tick, 600);
+    };
+    void tick();
+    return () => { cancelled = true; };
+  }, [pending, loggedIn]);
 
   /* Auto-load next page when the sentinel scrolls into view. Filter-active
    * mode disables this so typing doesn't grab the whole table by accident
@@ -432,6 +568,7 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
     if (!target) return;
     try {
       await deleteChat(target.publicId);
+      removeChatChartMeta(target.publicId); // drop the local chart-origin tag
       // Optimistically drop the row, clear the right panel if it was open,
       // and broadcast so any other list listeners reconcile with the server.
       setItems((prev) => prev.filter((c) => c.publicId !== target.publicId));
@@ -444,13 +581,48 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
     }
   }, [deleteTarget]);
 
+  /* Backend list + locally-mirrored chord/sheet chats. The mirror guarantees a
+   * chart chat shows the instant its id is known (and keeps showing it) even if
+   * the backend's chat list is slow to include it — or omits chart-context
+   * chats. Dedupe by publicId; the backend row wins when both exist. */
+  const mergedItems = useMemo<ChatSummary[]>(() => {
+    const byId = new Map(items.map((c) => [c.publicId, c]));
+    for (const e of listChatChartMeta()) {
+      if (byId.has(e.publicId)) continue;
+      const iso = new Date(e.updatedAt).toISOString();
+      byId.set(e.publicId, {
+        publicId: e.publicId,
+        type: 'direct',
+        title: e.songTitle,
+        songTitle: e.songTitle,
+        category: e.kind,
+        createdAt: iso,
+        updatedAt: iso,
+      });
+    }
+    return Array.from(byId.values());
+    // metaVersion forces recompute when the local mirror changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, metaVersion]);
+
+  /* Clear the pending placeholder the instant the new chat shows in the merged
+   * list (chord/sheet appear immediately via the mirror; general chats once the
+   * backend list/poll includes them). */
+  useEffect(() => {
+    if (!pending) return;
+    const activeId = getActiveChatId();
+    if (activeId && mergedItems.some((c) => c.publicId === activeId)) {
+      setPendingChat(null);
+    }
+  }, [pending, mergedItems]);
+
   /* Bucket the visible items by updatedAt date. Order: bucket priority
    * (BUCKET_ORDER) then most-recent first within each bucket. Title
    * filtering is now handled by ChatSearchModal — the sidebar list
    * shows every loaded chat. */
   const groupedItems = useMemo(() => {
     const groups = new Map<string, ChatSummary[]>();
-    for (const c of items) {
+    for (const c of mergedItems) {
       const k = bucketLabel(c.updatedAt);
       const arr = groups.get(k);
       if (arr) arr.push(c);
@@ -462,7 +634,7 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
         list: [...list].sort((a, b) => (b.updatedAt > a.updatedAt ? 1 : -1)),
       }))
       .sort((a, b) => bucketSortKey(a.label) - bucketSortKey(b.label));
-  }, [items]);
+  }, [mergedItems]);
 
   if (!expanded || !loggedIn) return null;
 
@@ -477,7 +649,18 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
       {/* Inline search input removed — moved to ChatSearchModal (opened
        *  from IconSidebar's "검색" NavBtn). */}
       {error && <ErrorRow>{error}</ErrorRow>}
-      {!error && loaded && items.length === 0 && (
+      {pending && (
+        <PendingRow aria-label="새 채팅을 만드는 중">
+          {pending.kind && (
+            <ChartBadge $kind={pending.kind} aria-hidden>
+              {pending.kind === 'chord' ? <ChordChartGlyph /> : <SheetChartGlyph />}
+            </ChartBadge>
+          )}
+          <SkeletonBar />
+          <Spinner aria-hidden />
+        </PendingRow>
+      )}
+      {!error && !pending && loaded && mergedItems.length === 0 && (
         <Empty>아직 채팅이 없습니다.</Empty>
       )}
       {groupedItems.map((group) => (
@@ -485,6 +668,16 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
           <BucketLabel>{group.label}</BucketLabel>
           {group.list.map((c) => {
         const isMenuOpen = menuId === c.publicId;
+        // Chord/sheet-chart chats render a colored square + the song name.
+        // Source: the local mirror first, falling back to the backend's
+        // `category` (when it persists/returns it for cross-device).
+        const meta = getChatChartMeta(c.publicId);
+        const chartKind: ChatChartKind | undefined =
+          meta?.kind
+          ?? (c.category === 'chord' || c.category === 'sheet' ? c.category : undefined);
+        const rowLabel = chartKind
+          ? (meta?.songTitle || c.songTitle || c.title || '제목 없음')
+          : (c.title || '제목 없음');
         return (
           <Row
             key={c.publicId}
@@ -494,7 +687,7 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
           >
             <RowLabel
               $active={c.publicId === activeId}
-              title={c.title}
+              title={rowLabel}
               onClick={() => {
                 /* Update active-chat pub-sub BEFORE navigating so the chat
                  * panel's listener fires with the new id during mount. */
@@ -502,7 +695,12 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
                 navigate('/');
               }}
             >
-              {c.title || '제목 없음'}
+              {chartKind && (
+                <ChartBadge $kind={chartKind} aria-hidden>
+                  {chartKind === 'chord' ? <ChordChartGlyph /> : <SheetChartGlyph />}
+                </ChartBadge>
+              )}
+              <LabelText>{rowLabel}</LabelText>
             </RowLabel>
             <RowKebab
               className="row-kebab"

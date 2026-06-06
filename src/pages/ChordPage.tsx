@@ -5,6 +5,7 @@ import { mq } from '../styles/theme';
 import { IconSidebar } from '../components/layout/IconSidebar';
 import { TopToolbar } from '../components/layout/TopToolbar';
 import { RightChatPanel } from '../components/layout/RightChatPanel';
+import { setActiveChat } from '../api/chat';
 import { MobileChatFab } from '../components/layout/MobileChatFab';
 import { LeadSheet, KeyControl, isMinorKey, shiftKey } from '../components/leadsheet/LeadSheet';
 import { SessionPicker, type SessionInstrument } from '../components/chord/SessionPicker';
@@ -942,6 +943,13 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { filters, effective, toggleFilter } = useAnalysisFilters();
+
+  // Entering a chord chart starts a FRESH AI-chat session (not a continuation
+  // of whatever general chat was last open). Runs once per page entry; song
+  // switches within the page are handled by RightChatPanel's songTitle effect.
+  useEffect(() => {
+    setActiveChat(null);
+  }, []);
   /* Gate for Capacitor-app-only UI (native shell OR /preview/* route). */
   const isNativeUi = useIsNativeUi();
   const [songIndex, setSongIndex] = useState<SongEntry[]>([]);
@@ -1919,6 +1927,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
           ) : (
             <RightChatPanel
             hideHeader
+            chartKind="chord"
             selectedChords={selectedChordsData}
             groupExplanation={selectedChordsData.length > 0 ? "이 구간이 다음 질문의 분석 대상으로 포함됩니다." : null}
             songTitle={sheet?.title ?? 'Jazzify AI'}
@@ -1938,6 +1947,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
         selectedChords={selectedChordsData}
         groupExplanation={selectedChordsData.length > 0 ? "이 구간이 다음 질문의 분석 대상으로 포함됩니다." : null}
         songTitle={sheet?.title ?? 'Jazzify AI'}
+        chartKind="chord"
         chordContext={chordContext}
         isSelectionMode={isSelectionMode}
         onToggleSelectionMode={toggleSelectionMode}
@@ -2151,6 +2161,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
             <ChatWindowBody>
               <RightChatPanel
                 hideHeader
+                chartKind="chord"
                 selectedChords={selectedChordsData}
                 groupExplanation={selectedChordsData.length > 0 ? '이 구간이 다음 질문의 분석 대상으로 포함됩니다.' : null}
                 songTitle={sheet?.title ?? 'Jazzify AI'}

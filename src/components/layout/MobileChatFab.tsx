@@ -78,6 +78,7 @@ interface MobileChatFabProps {
   selectedChords?: ChordOverlay[];
   groupExplanation?: string | null;
   songTitle: string;
+  chartKind?: 'chord' | 'sheet';
   chordContext?: string;
   isSelectionMode?: boolean;
   onToggleSelectionMode?: () => void;
@@ -89,6 +90,7 @@ export function MobileChatFab({
   selectedChords = [],
   groupExplanation = null,
   songTitle,
+  chartKind,
   chordContext,
   isSelectionMode = false,
   onToggleSelectionMode,
@@ -122,6 +124,7 @@ export function MobileChatFab({
               selectedChords={selectedChords}
               groupExplanation={groupExplanation}
               songTitle={songTitle}
+              chartKind={chartKind}
               chordContext={chordContext}
               isSelectionMode={isSelectionMode}
               onToggleSelectionMode={onToggleSelectionMode}

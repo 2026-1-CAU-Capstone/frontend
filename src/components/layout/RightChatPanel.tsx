@@ -10,8 +10,10 @@ import {
   onActiveChatChange,
   setActiveChat,
   notifyChatListChanged,
+  setPendingChat,
 } from '../../api/chat';
 import { runChatStream } from '../../lib/chat/runChatStream';
+import { setChatChartMeta } from '../../lib/chatChartMeta';
 import { getCachedUser, onAuthChange } from '../../api/auth';
 import { RagDebugPanel } from '../chat/RagDebugPanel';
 import {
@@ -20,6 +22,7 @@ import {
   findLicksByProgression,
   detectProgressionKeyword,
   findLicksByPerformerAndProgression,
+  type LickMatch,
 } from '../../lib/lickMatcher';
 import { loadLicks, loadUserLicksSync, loadBackupLicks } from '../../data/lickData';
 import type { LickEntry } from '../../data/lickData';
@@ -36,6 +39,36 @@ import {
   ChatLoadingState,
   ChatLoadingSpinner,
 } from './RightChatPanel.styles';
+
+/* ── Reload hydration ───────────────────────────────────────────────────
+ * The backend persists chat messages as raw `{role, content}` only — the
+ * ephemeral `lickMatches` (which carry each DB lick's VexFlow `sheetData`)
+ * are NOT stored. So on reload, [LICK:id] tags in the content resolve to
+ * nothing and the score cards vanish. Re-hydrate them: parse the [LICK:id]
+ * tags out of the persisted content and rebuild `lickMatches` from the
+ * loaded lick DB by id. (```glick blocks survive reload on their own since
+ * their JSON lives inline in the content.) */
+const LICK_TAG_RE_G = /\[LICK:([^\]]+)\]/g;
+function resolveLickMatchesFromContent(
+  content: string,
+  allLicks: LickEntry[],
+): LickMatch[] {
+  if (!content || allLicks.length === 0) return [];
+  const byId = new Map<string, LickEntry>();
+  for (const l of allLicks) byId.set(String(l.id), l);
+  const out: LickMatch[] = [];
+  const seen = new Set<string>();
+  let m: RegExpExecArray | null;
+  LICK_TAG_RE_G.lastIndex = 0;
+  while ((m = LICK_TAG_RE_G.exec(content)) !== null) {
+    const id = m[1].trim();
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const lick = byId.get(id);
+    if (lick) out.push({ lick, tier: 1 });
+  }
+  return out;
+}
 
 /* ── Export / share helpers ─────────────────────────────────────────────
  * Frontend-only export: serialise the visible chat messages to a Markdown
@@ -168,6 +201,10 @@ interface RightChatPanelProps {
   selectedChords: ChordOverlay[];
   groupExplanation: string | null;
   songTitle: string;
+  /** Set when this panel lives on a chord/sheet chart page. Tags any chat
+   *  started here so the Recent Chats sidebar shows the chart icon + song name,
+   *  and forces a fresh session on entry (see the mount effect below). */
+  chartKind?: 'chord' | 'sheet';
   chordContext?: string;
   isSelectionMode?: boolean;
   onToggleSelectionMode?: () => void;
@@ -270,6 +307,7 @@ function snapshotSelectedChords(selectedChords: ChordOverlay[]): ChordOverlay[] 
 export function RightChatPanel({
   selectedChords,
   songTitle,
+  chartKind,
   chordContext,
   isSelectionMode = false,
   onToggleSelectionMode,
@@ -331,6 +369,9 @@ export function RightChatPanel({
   const isScrolledUpRef = useRef(false);
   const historyRef = useRef<ClaudeMessage[]>([]);
   const allLicksRef = useRef<LickEntry[]>([]);
+  // Flips true once the lick DB has loaded — drives reload re-hydration of
+  // [LICK:id] score cards (see the effect below).
+  const [licksReady, setLicksReady] = useState(false);
   /* Tracks the songTitle that was active the LAST time we cleared the chat,
    * so we can skip the clear on the very first effect run (which would
    * otherwise stomp an activeChat that the sidebar just dispatched). */
@@ -380,12 +421,22 @@ export function RightChatPanel({
         const detail = await backendGetChat(id);
         const msgs: MessageWithDebug[] = (detail.messages || [])
           .filter((m) => m.role === 'user' || m.role === 'assistant')
-          .map((m) => ({
-            id: `db-${m.publicId}`,
-            role: m.role as 'user' | 'assistant',
-            content: m.content,
-            timestamp: new Date(m.createdAt).getTime() || Date.now(),
-          }));
+          .map((m) => {
+            const base: MessageWithDebug = {
+              id: `db-${m.publicId}`,
+              role: m.role as 'user' | 'assistant',
+              content: m.content,
+              timestamp: new Date(m.createdAt).getTime() || Date.now(),
+            };
+            // Rebuild lick score cards from [LICK:id] tags (see helper above).
+            // If the lick DB isn't loaded yet, the [licksReady] effect re-runs
+            // this once it is.
+            if (m.role === 'assistant') {
+              const lm = resolveLickMatchesFromContent(m.content, allLicksRef.current);
+              if (lm.length > 0) { base.lickMatches = lm; base.lickInline = true; }
+            }
+            return base;
+          });
         setChatPublicId(id);
         setMessages(msgs);
         historyRef.current = msgs.map((m) => ({ role: m.role, content: m.content }));
@@ -412,11 +463,30 @@ export function RightChatPanel({
       })
       .catch((err) => {
         console.warn('[RightChatPanel] 백엔드 lick DB 로드 실패 → 백업 스냅샷 폴백:', err);
-        loadBackupLicks()
+        return loadBackupLicks()
           .then((b) => { allLicksRef.current = b; })
           .catch(() => { allLicksRef.current = []; });
-      });
+      })
+      .finally(() => setLicksReady(true));
   }, []);
+
+  /* If a chat was loaded before the lick DB finished loading, its [LICK:id]
+   * tags couldn't resolve yet. Once the DB is ready, re-hydrate any already-
+   * displayed assistant messages that have lick tags but no cards. */
+  useEffect(() => {
+    if (!licksReady) return;
+    setMessages((prev) => {
+      let changed = false;
+      const next = prev.map((msg) => {
+        if (msg.role !== 'assistant' || msg.lickMatches) return msg;
+        const lm = resolveLickMatchesFromContent(msg.content, allLicksRef.current);
+        if (lm.length === 0) return msg;
+        changed = true;
+        return { ...msg, lickMatches: lm, lickInline: true };
+      });
+      return changed ? next : prev;
+    });
+  }, [licksReady]);
 
   const handleScroll = useCallback(() => {
     if (!messagesAreaRef.current) return;
@@ -663,8 +733,13 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
 
 권장 음역: b/3 ~ g/5
 반드시 4/4 박자 기준 각 마디 합계가 4박이 되도록 하세요.
-2~4 마디로 구성하세요.
-중요: 반드시 텍스트 설명을 먼저 완전히 작성하고, glick 블록은 답변 맨 마지막에만 넣으세요. JSON이 먼저 나오면 안 됩니다.`;
+각 \`\`\`glick 은 2~4 마디로 구성하세요.
+
+★ 가장 중요한 규칙 (어기면 사용자는 악보를 전혀 볼 수 없다):
+1. **악보로 보여주는 모든 라인은 반드시 네가 직접 만든 \`\`\`glick 블록이어야 한다.** 이 답변에는 \`\`\`glick 블록이 최소 1개, 여러 라인을 추천하면 라인마다 1개씩(최대 3개) 들어가야 한다. glick 없이 글로만 라인을 묘사하면 사용자 화면엔 악보가 안 나온다.
+2. **특정 연주자의 실제 솔로/녹음을 인용하거나 "들어보세요/느껴보세요" 식으로 있는 것처럼 설명하지 마라.** (예: "Bud Powell의 Celia에 나오는 라인" ❌) 너는 그 음원을 가져올 수 없다. "○○ 스타일로 만든 예시"처럼 네가 생성한 라인만 제시하고, 그 라인을 \`\`\`glick 으로 그려라.
+3. 각 라인은: 짧은 설명(스타일/어프로치/텐션 1~2문장) → 바로 다음 줄에 그 라인의 \`\`\`glick 블록, 순서로 작성하라.
+4. 텍스트 설명을 먼저, JSON(\`\`\`glick)이 답변 맨 앞에 오면 안 된다.`;
     }
 
     const aiMsg: MessageWithDebug = {
@@ -706,6 +781,16 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
      * 릭" bug. Ephemeral suggestion turns → skipping persistence is OK. */
     const forceLocalForLicks = lickMatchesForMsg.length > 0 || useGlickGen;
 
+    /* Brand-new BACKEND chat (logged in, persisted, no id yet)? Drop an
+     * optimistic spinner row into the sidebar now; the Recent Chats list polls
+     * listChats() and swaps it for the real row once the backend has committed
+     * the chat (it's created lazily on the first message, so it isn't listable
+     * until the request lands). */
+    const creatingNewChat = loggedIn && !forceLocalForLicks && !chatPublicIdRef.current;
+    if (creatingNewChat) {
+      setPendingChat({ songTitle, kind: chartKind ?? null });
+    }
+
     /* Delegate the actual transport (backend with auto-fallback to local)
      * to runChatStream. Callbacks below patch the in-flight assistant
      * bubble + RAG debug panel as bytes arrive; the result object tells
@@ -738,7 +823,14 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
           setChatPublicId(newId);
           setActiveChat(newId);
         }
-        notifyChatListChanged();
+        // Tag this brand-new chat as a chord/sheet-chart session so the Recent
+        // Chats sidebar renders its icon + song name (client-side mirror of the
+        // backend `category` we also send). The list REFRESH is deferred to
+        // after the stream completes (below) — refreshing now (the header
+        // arrives at stream start) races the backend's lazy chat commit.
+        if (chartKind) {
+          setChatChartMeta(newId, { kind: chartKind, songTitle, updatedAt: Date.now() });
+        }
       },
     });
 
@@ -778,6 +870,14 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
     loadingRef.current = false;
     abortRef.current = null;
 
+    /* Now that the stream has fully committed on the backend, refresh the
+     * sidebar: a brand-new chat becomes listable (its pending placeholder is
+     * swapped for the real row by the Recent Chats list's poll), and a
+     * continued chat re-sorts by updatedAt. */
+    if (loggedIn && !forceLocalForLicks) {
+      notifyChatListChanged();
+    }
+
     /* Dispatch the next queued message (if any). Done in a microtask so
      * any setMessages from this turn flushes first. Uses the ref-mirror
      * of handleSend so the recursive call always points at the latest
@@ -786,7 +886,7 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
       const next = queueRef.current.shift()!;
       queueMicrotask(() => { void handleSendRef.current?.(next.text, next.files); });
     }
-  }, [chordContext, selectedChords, songTitle, notesContext]);
+  }, [chordContext, selectedChords, songTitle, notesContext, chartKind, loggedIn, setChatPublicId]);
 
   /* Ref mirror of handleSend so the queue dispatch above can call the
    * latest function reference without putting handleSend in its own

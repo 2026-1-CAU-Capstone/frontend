@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
 import styled from 'styled-components';
-import { KEY_SIGNATURES } from '../../api/sheetProjects';
+import { KeyPicker } from './KeyPicker';
 
 /* ─────────────────────────────────────────────────────────────────────────
  * ProjectCreateModal — shared "새 프로젝트 생성" onboarding modal used by both
@@ -48,14 +48,6 @@ function isAccepted(f: File): boolean {
   return /^image\/(png|jpe?g)$/i.test(f.type) || f.type === 'application/pdf'
     || /\.(png|jpe?g|pdf)$/i.test(f.name);
 }
-/** KEY_SIGNATURES enum → root ("F_SHARP_MAJOR" → "F#") and 장조/단조, matching
- *  the chord-analysis key dropdown's display. */
-function keyRoot(k: string): string {
-  return k.replace(/_(MAJOR|MINOR)$/, '').replace('_SHARP', '#').replace('_FLAT', 'b');
-}
-function keyQual(k: string): string {
-  return k.endsWith('_MINOR') ? '단조' : '장조';
-}
 function titleFromFile(name: string): string {
   const dot = name.lastIndexOf('.');
   return dot > 0 ? name.slice(0, dot) : name;
@@ -70,19 +62,7 @@ export function ProjectCreateModal({
   const [type, setType] = useState<ProjectType>(defaultType);
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
-  const [keyOpen, setKeyOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const keyRef = useRef<HTMLDivElement>(null);
-
-  // Close the key dropdown on outside click (mirrors chord-analysis KeyControl).
-  useEffect(() => {
-    if (!keyOpen) return;
-    const close = (e: MouseEvent) => {
-      if (!keyRef.current?.contains(e.target as Node)) setKeyOpen(false);
-    };
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, [keyOpen]);
 
   // Reset/seed the form each time the modal opens (and adopt a dropped file).
   useEffect(() => {
@@ -145,27 +125,7 @@ export function ProjectCreateModal({
 
         <Field>
           <Label>조성</Label>
-          <KeyDropdownWrap ref={keyRef}>
-            <KeyButton type="button" onClick={() => setKeyOpen((v) => !v)}>
-              {keyRoot(key)}<KeyQual>{keyQual(key)}</KeyQual>
-            </KeyButton>
-            {keyOpen && (
-              <KeyMenu>
-                <KeyGrid>
-                  {KEY_SIGNATURES.map((k) => (
-                    <KeyOption
-                      key={k}
-                      type="button"
-                      $active={k === key}
-                      onClick={() => { setKey(k); setKeyOpen(false); }}
-                    >
-                      {keyRoot(k)}<KeyOptQual>{keyQual(k)}</KeyOptQual>
-                    </KeyOption>
-                  ))}
-                </KeyGrid>
-              </KeyMenu>
-            )}
-          </KeyDropdownWrap>
+          <KeyPicker value={key} onChange={setKey} />
         </Field>
 
         <Field>
@@ -245,33 +205,6 @@ const Input = styled.input`
   height: 38px; border: 1px solid #e0e0e6; border-radius: 9px; padding: 0 12px;
   font-size: 14px; outline: none; &:focus { border-color: #B8860B; }
 `;
-/* 조성 dropdown — mirrors the chord-analysis KeyControl (white button + ▾,
- * MuseJazz, root + small 장조/단조, dark-on-active key grid). */
-const KEY_FONT = "'MuseJazz Text', 'Pretendard', sans-serif";
-const KeyDropdownWrap = styled.div`position: relative;`;
-const KeyButton = styled.button`
-  height: 38px; box-sizing: border-box; width: 100%;
-  display: inline-flex; align-items: center; gap: 2px;
-  background: #fff; border: 1px solid #e0e0e6; border-radius: 9px; padding: 0 12px;
-  cursor: pointer; font-family: ${KEY_FONT}; font-size: 1.15rem; font-weight: 600; color: #222;
-  &:hover { border-color: #B8860B; }
-  &::after { content: '▾'; font-size: 0.66em; color: #999; margin-left: auto; }
-`;
-const KeyQual = styled.span`font-size: 0.6em; margin-left: 2px;`;
-const KeyMenu = styled.div`
-  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
-  background: #fff; border: 1px solid #ddd; border-radius: 10px; padding: 8px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.16); z-index: 100; max-height: 244px; overflow-y: auto;
-`;
-const KeyGrid = styled.div`display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px;`;
-const KeyOption = styled.button<{ $active?: boolean }>`
-  background: ${({ $active }) => $active ? '#333' : 'transparent'};
-  color: ${({ $active }) => $active ? '#fff' : '#333'};
-  border: none; border-radius: 5px; padding: 7px 6px; cursor: pointer;
-  font-family: ${KEY_FONT}; font-size: 1.05rem; font-weight: 600; text-align: center; white-space: nowrap;
-  &:hover { background: ${({ $active }) => $active ? '#333' : '#f0f0f1'}; }
-`;
-const KeyOptQual = styled.span`font-size: 0.58em; margin-left: 1px;`;
 const Segmented = styled.div`display: grid; grid-template-columns: 1fr 1fr; gap: 8px;`;
 const SegBtn = styled.button<{ $on: boolean }>`
   display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
