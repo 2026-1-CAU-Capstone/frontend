@@ -662,7 +662,7 @@ export default function SolosPage() {
    *  away from this page. Gives up after MAX_MS so a stuck job can't poll
    *  forever. */
   const pollSoloOmr = useCallback((publicId: string) => {
-    const INTERVAL_MS = 2500;
+    const INTERVAL_MS = 5000; // OMR takes tens of seconds — slow poll keeps the request rate low
     const MAX_MS = 5 * 60_000;
     const startedAt = Date.now();
     const tick = async () => {

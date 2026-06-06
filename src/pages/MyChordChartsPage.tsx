@@ -49,6 +49,10 @@ const SHEET_ANALYZED_ID = 'sheet-all-of-me';
  * prefix (they don't exist on the server yet). */
 const UPLOADING_ID_PREFIX = '__uploading__';
 
+/** OMR status polling interval (ms). OMR takes tens of seconds, so a slow poll
+ *  is plenty — keeps the GET /omr-status request rate low. */
+const OMR_POLL_INTERVAL_MS = 5000;
+
 interface FolderNode {
   id: string;
   parentId: string | null;
@@ -311,9 +315,10 @@ export default function MyChordChartsPage() {
           .catch(() => { /* best-effort polling */ });
       });
     };
-    // 즉시 한 번 + 이후 2초 간격 — 진행률이 빠르게 반영되도록.
+    // 즉시 한 번(마운트 시 진행 상태 바로 표시) + 이후 5초 간격. OMR은 보통
+    // 수십 초 걸려 2초 폴링은 서버에 과한 요청이었음 — 5초로 낮춤.
     pollOnce();
-    const timer = window.setInterval(pollOnce, 2000);
+    const timer = window.setInterval(pollOnce, OMR_POLL_INTERVAL_MS);
     return () => window.clearInterval(timer);
   }, [projects]);
 
