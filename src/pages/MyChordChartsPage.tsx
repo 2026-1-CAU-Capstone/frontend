@@ -1027,11 +1027,11 @@ export default function MyChordChartsPage() {
               <CardMeta>
                 {file.kind === 'sheet' ? (
                   <>
-                    <CardTitle title={file.title}>{file.title}</CardTitle>
-                    <ChipRow>
+                    <CardTitleRow>
+                      <CardTitle title={file.title} style={{ paddingRight: 0 }}>{file.title}</CardTitle>
                       <KeyChip>{formatProjectKey(file.keySignature)}</KeyChip>
                       <TimeChip>{displayTimeSig(file.timeSignature)}</TimeChip>
-                    </ChipRow>
+                    </CardTitleRow>
                     <MetaRow>
                       <DateText>{formatListDate(file.date)}</DateText>
                     </MetaRow>
@@ -1946,11 +1946,22 @@ const DateText = styled.span`
   color: rgba(0, 0, 0, 0.45);
 `;
 
-/* 2번째 줄 — 키 칩 + 박자 칩을 제목 아래에 나란히. (제목/칩/날짜 3줄 레이아웃) */
-const ChipRow = styled.div`
+/* 제목 + 키칩 + 박자칩을 한 줄에. 제목이 flex:1 로 남는 폭을 전부 먹고(길면
+ * ellipsis), 칩들은 flex-shrink:0 이라 절대 안 잘린다 → "제목은 최대한 길게,
+ * Am·4/4 는 항상 보이게". */
+const CardTitleRow = styled.div`
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  /* 케밥(⋮)은 우측 하단이라 이 줄과 안 겹친다 → 우측 여백을 최소화해
+   * 제목이 카드 끝까지 길어지고 Am·4/4 가 오른쪽 끝에 거의 닿게. */
+  padding-right: 2px;
+
+  & > ${CardTitle} {
+    flex: 1;
+    min-width: 0;
+  }
 `;
 
 /* Neutral grey pill showing the chord chart's key (e.g. "C", "Cm"). Sits
@@ -1960,10 +1971,10 @@ const KeyChip = styled.span`
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  font-size: 11px;
+  font-size: 9.5px;
   font-weight: 700;
-  padding: 3px 9px;
-  border-radius: 6px;
+  padding: 1px 5px;
+  border-radius: 4px;
   background: rgba(214, 152, 18, 0.16);
   color: #9a6800;
   letter-spacing: 0.01em;
@@ -1975,10 +1986,10 @@ const TimeChip = styled.span`
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  font-size: 11px;
+  font-size: 9.5px;
   font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 6px;
+  padding: 1px 5px;
+  border-radius: 4px;
   background: rgba(43, 138, 239, 0.14);
   color: #2570c8;
   letter-spacing: 0.01em;

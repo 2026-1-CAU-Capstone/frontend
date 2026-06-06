@@ -373,6 +373,7 @@ export default function MySheetProjectsPage() {
                   <CardTitleRow>
                     <CardTitle title={item.title}>{item.title}</CardTitle>
                     <KeyChip>{formatKeyLabel(item.key)}</KeyChip>
+                    <TimeChip>4/4</TimeChip>
                   </CardTitleRow>
                   <MetaRow>
                     <ComposerText>{item.fileName}</ComposerText>
@@ -428,6 +429,7 @@ export default function MySheetProjectsPage() {
                   <CardTitleRow>
                     <CardTitle title={song.title}>{song.title}</CardTitle>
                     <KeyChip>{extractKeyFromTitle(song.title)}</KeyChip>
+                    <TimeChip>4/4</TimeChip>
                   </CardTitleRow>
                   <MetaRow>
                     <ComposerText>{formatComposer(song.composer)}</ComposerText>
@@ -1141,12 +1143,19 @@ const CardMeta = styled.div`
   padding: 10px 12px 12px;
 `;
 
+/* 제목 + 키칩 + 박자칩 한 줄. 제목(div)이 flex:1 로 남는 폭 전부 차지(길면
+ * ellipsis), 칩(span)은 flex-shrink:0 이라 안 잘림. 내 코드 차트와 동일. */
 const CardTitleRow = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
-  padding-right: 22px;
+  padding-right: 2px;
+
+  & > div {
+    flex: 1;
+    min-width: 0;
+  }
 `;
 
 const CardTitle = styled.div`
@@ -1182,16 +1191,31 @@ const ComposerText = styled.span`
   min-width: 0;
 `;
 
+/* 키 칩(노랑) — 내 코드 차트와 동일 디자인 유지 (두 페이지 카드는 항상 같게). */
 const KeyChip = styled.span`
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  font-size: 11px;
+  font-size: 9.5px;
   font-weight: 700;
-  padding: 3px 9px;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.07);
-  color: #3a3a3a;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(214, 152, 18, 0.16);
+  color: #9a6800;
+  letter-spacing: 0.01em;
+`;
+
+/* 박자 칩(파랑) — 코드 차트와 동일. 악보엔 박자 데이터가 없어 4/4 고정. */
+const TimeChip = styled.span`
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(43, 138, 239, 0.14);
+  color: #2570c8;
   letter-spacing: 0.01em;
 `;
 
