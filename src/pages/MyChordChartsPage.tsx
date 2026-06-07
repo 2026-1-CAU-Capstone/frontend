@@ -51,7 +51,7 @@ const UPLOADING_ID_PREFIX = '__uploading__';
 
 /** OMR status polling interval (ms). OMR takes tens of seconds, so a slow poll
  *  is plenty — keeps the GET /omr-status request rate low. */
-const OMR_POLL_INTERVAL_MS = 5000;
+const OMR_POLL_INTERVAL_MS = 8000;
 
 interface FolderNode {
   id: string;
@@ -268,19 +268,29 @@ export default function MyChordChartsPage() {
 
   useEffect(() => { void reloadProjects(); }, [reloadProjects]);
 
+  /* 폴링 대상(서버에 존재하는 PENDING/PROCESSING) id 목록을 "정렬된 문자열"로
+   * 만들어 effect deps 로 쓴다. 진행률(omrProgress)만 갱신될 땐 이 문자열이
+   * 그대로라 effect 가 재실행되지 않으므로 setInterval 이 살아남아 "진짜 5초
+   * 간격"이 유지된다.
+   *   ⚠ 예전엔 deps 가 [projects] 였다 → 폴링→setProjects(진행률 갱신)→
+   *   projects 새 참조→effect 재실행→clearInterval+즉시 재폴링 의 루프가 돌아
+   *   5초 간격이 무력화되고 응답 오자마자 다시 요청(미친듯이 폴링)했다. */
+  const activePollIds = projects
+    .filter((p) => !p.publicId.startsWith(UPLOADING_ID_PREFIX)
+      && (p.omrStatus === 'PENDING' || p.omrStatus === 'PROCESSING'))
+    .map((p) => p.publicId)
+    .sort()
+    .join(',');
+
   useEffect(() => {
-    // 서버에 실제로 존재하는(=temp 아님) PENDING/PROCESSING 프로젝트만 폴링.
-    const active = projects.filter(
-      (p) => !p.publicId.startsWith(UPLOADING_ID_PREFIX)
-        && (p.omrStatus === 'PENDING' || p.omrStatus === 'PROCESSING'),
-    );
-    if (active.length === 0) return;
+    if (!activePollIds) return;
+    const ids = activePollIds.split(',');
     const pollOnce = () => {
-      active.forEach((project) => {
-        getChordProjectOmrStatus(project.publicId)
+      ids.forEach((id) => {
+        getChordProjectOmrStatus(id)
           .then(async (status) => {
             setProjects((prev) => prev.map((p) => (
-              p.publicId === project.publicId
+              p.publicId === id
                 ? {
                   ...p,
                   omrStatus: status.status,
@@ -294,39 +304,33 @@ export default function MyChordChartsPage() {
              * SheetPreview's GET /analysis would 400 (CHORD_PROJECT_005)
              * until /analyze runs. Best-effort: failure is recoverable
              * via the per-card retry in SheetPreview (path B). */
-            if (
-              status.status === 'COMPLETED'
-              && !analyzedOmrIdsRef.current.has(project.publicId)
-            ) {
-              analyzedOmrIdsRef.current.add(project.publicId);
+            if (status.status === 'COMPLETED' && !analyzedOmrIdsRef.current.has(id)) {
+              analyzedOmrIdsRef.current.add(id);
               try {
-                await analyzeChordProject(project.publicId);
+                await analyzeChordProject(id);
                 /* Bump updatedAt so SheetPreview's effect (keyed off the
                  * `project` reference) re-fires and pulls the freshly-
                  * computed analysis. */
                 setProjects((prev) => prev.map((p) => (
-                  p.publicId === project.publicId
-                    ? { ...p, updatedAt: new Date().toISOString() }
-                    : p
+                  p.publicId === id ? { ...p, updatedAt: new Date().toISOString() } : p
                 )));
               } catch (e) {
                 console.warn('[chord-project] auto-analyze after OMR failed:', e);
                 /* Clear the de-dup so the next poll cycle can retry, in
                  * case the failure was transient (network blip, backend
                  * restart, etc.). */
-                analyzedOmrIdsRef.current.delete(project.publicId);
+                analyzedOmrIdsRef.current.delete(id);
               }
             }
           })
           .catch(() => { /* best-effort polling */ });
       });
     };
-    // 즉시 한 번(마운트 시 진행 상태 바로 표시) + 이후 5초 간격. OMR은 보통
-    // 수십 초 걸려 2초 폴링은 서버에 과한 요청이었음 — 5초로 낮춤.
+    // 즉시 한 번(마운트 시 진행 상태 바로 표시) + 이후 5초 간격.
     pollOnce();
     const timer = window.setInterval(pollOnce, OMR_POLL_INTERVAL_MS);
     return () => window.clearInterval(timer);
-  }, [projects]);
+  }, [activePollIds]);
 
   // Persist on every change.
   useEffect(() => { saveStore(store); }, [store]);
