@@ -19,6 +19,9 @@ export interface ChatChartMeta {
   songTitle: string;
   /** ms epoch of the last activity — used to order the sidebar. */
   updatedAt: number;
+  /** In-app route of the originating chart (e.g. "/mychord?project=…") so the
+   *  sidebar can reopen that exact chart when the chat row is clicked. */
+  route?: string;
 }
 
 export interface ChatChartEntry extends ChatChartMeta {

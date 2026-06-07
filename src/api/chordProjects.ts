@@ -146,9 +146,24 @@ export async function addChordProjectChords(publicId: string, progression: strin
   return jsonOrThrow<ChordInfo[]>(res, '코드 프로젝트 코드 등록');
 }
 
+/* In-flight de-dup: the polling auto-analyze and the SheetPreview self-heal can
+ * fire POST /analyze for the SAME project at nearly the same time. Sharing one
+ * promise per publicId collapses those into a single backend call (avoids
+ * double-analyze / result races when the backend isn't idempotent). */
+const analyzeInFlight = new Map<string, Promise<ChordAnalysisResult>>();
 export async function analyzeChordProject(publicId: string): Promise<ChordAnalysisResult> {
-  const res = await authFetch(`/v1/chord-projects/${encodeURIComponent(publicId)}/analyze`, { method: 'POST' });
-  return jsonOrThrow<ChordAnalysisResult>(res, '코드 프로젝트 분석 실행');
+  const existing = analyzeInFlight.get(publicId);
+  if (existing) return existing;
+  const p = (async () => {
+    const res = await authFetch(`/v1/chord-projects/${encodeURIComponent(publicId)}/analyze`, { method: 'POST' });
+    return jsonOrThrow<ChordAnalysisResult>(res, '코드 프로젝트 분석 실행');
+  })();
+  analyzeInFlight.set(publicId, p);
+  try {
+    return await p;
+  } finally {
+    analyzeInFlight.delete(publicId);
+  }
 }
 
 export async function getChordProjectAnalysis(publicId: string): Promise<ChordAnalysisResult> {

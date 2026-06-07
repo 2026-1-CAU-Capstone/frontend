@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../styles/theme';
 import { IconSidebar } from '../components/layout/IconSidebar';
@@ -618,8 +618,14 @@ export default function NotePage() {
   const navigate = useNavigate();
   // Entering a sheet/note chart starts a FRESH AI-chat session (song switches
   // within the page are handled by RightChatPanel's songTitle effect).
+  // EXCEPTION: arriving via a Recent-Chats click (state.restoreChat) keeps that
+  // chat so its conversation reopens with this chart.
+  const location = useLocation();
+  const restoreChatOnMount = useRef<boolean>(
+    !!(location.state as { restoreChat?: string } | null)?.restoreChat,
+  );
   useEffect(() => {
-    setActiveChat(null);
+    if (!restoreChatOnMount.current) setActiveChat(null);
   }, []);
   const { autoHighlight, toggleAutoHighlight } = useAutoHighlight(true);
   /* Mirror the toolbar's 분석 보기 toggle into the settings 디스플레이 tab. */

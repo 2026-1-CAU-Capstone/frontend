@@ -237,6 +237,11 @@ export default function MyChordChartsPage() {
    * until we POST /analyze once). Set-based de-dup prevents the same poll
    * cycle from firing analyze twice if the COMPLETED status flicks through. */
   const analyzedOmrIdsRef = useRef<Set<string>>(new Set());
+  /* Per-id auto-analyze failure counter. We retry transient failures by
+   * clearing the de-dup, but cap it so a PERMANENTLY failing project (bad
+   * data, etc.) doesn't POST /analyze every poll cycle forever. */
+  const analyzeFailCountRef = useRef<Map<string, number>>(new Map());
+  const MAX_AUTO_ANALYZE_RETRIES = 3;
 
   /* ── Onboarding "새 프로젝트 생성" modal (replaces the old 신규 dropdown) ── */
   const [onboardOpen, setOnboardOpen] = useState(false);
@@ -316,10 +321,16 @@ export default function MyChordChartsPage() {
                 )));
               } catch (e) {
                 console.warn('[chord-project] auto-analyze after OMR failed:', e);
-                /* Clear the de-dup so the next poll cycle can retry, in
-                 * case the failure was transient (network blip, backend
-                 * restart, etc.). */
-                analyzedOmrIdsRef.current.delete(id);
+                /* Retry transient failures by clearing the de-dup — but only up
+                 * to MAX_AUTO_ANALYZE_RETRIES. Past that we leave the id in the
+                 * "analyzed" set so a permanently-failing project stops being
+                 * re-POSTed every 8s. (SheetPreview's on-demand retry still
+                 * exists as a manual fallback.) */
+                const n = (analyzeFailCountRef.current.get(id) ?? 0) + 1;
+                analyzeFailCountRef.current.set(id, n);
+                if (n < MAX_AUTO_ANALYZE_RETRIES) {
+                  analyzedOmrIdsRef.current.delete(id);
+                }
               }
             }
           })

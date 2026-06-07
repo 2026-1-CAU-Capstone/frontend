@@ -119,6 +119,26 @@ function notifyAuth(loggedIn: boolean, user: AuthUser | null) {
   listeners.forEach((cb) => { try { cb(loggedIn, user); } catch { /* swallow */ } });
 }
 
+/* ── user-scoped cache reset (account switch / logout / expiry) ──────────
+ * SECURITY: chat list + chart-meta caches are keyed by NOTHING (single
+ * localStorage entry), so without an explicit wipe at every auth transition
+ * one account could flash the previous account's chats. We clear the keys
+ * DIRECTLY here (works even on the login screen where no subscriber is
+ * mounted) and also fire onAuthReset so a mounted RecentChatsList drops its
+ * in-memory copy. */
+const authResetListeners = new Set<() => void>();
+export function onAuthReset(cb: () => void): () => void {
+  authResetListeners.add(cb);
+  return () => { authResetListeners.delete(cb); };
+}
+const USER_SCOPED_CACHE_KEYS = ['jazzify.chat.listCache', 'jazzify.chat.chartMeta'];
+function clearUserScopedCaches(): void {
+  for (const k of USER_SCOPED_CACHE_KEYS) {
+    try { window.localStorage.removeItem(k); } catch { /* private mode */ }
+  }
+  authResetListeners.forEach((cb) => { try { cb(); } catch { /* swallow */ } });
+}
+
 /* ── unauth → login redirect ─────────────────────────────── */
 
 /** When an auth-required call definitively fails (refresh exhausted),
@@ -241,6 +261,11 @@ export async function login(username: string, password: string): Promise<AuthUse
   setAccessToken(data.accessToken);
   const user: AuthUser = { publicId: data.publicId, username: data.username };
   setCachedUser(user);
+  /* Drop the prior account's caches BEFORE notifying — covers "switch account
+   * without logging out" (loggedIn stays true, so RecentChatsList's loggedIn
+   * effect wouldn't otherwise re-run). onAuthReset makes it refetch for the
+   * new user. */
+  clearUserScopedCaches();
   notifyAuth(true, user);
   return user;
 }
@@ -255,6 +280,7 @@ export async function logout(): Promise<void> {
   } catch { /* best-effort */ }
   setAccessToken(null);
   setCachedUser(null);
+  clearUserScopedCaches();
   notifyAuth(false, null);
 }
 
@@ -291,6 +317,7 @@ export async function bootstrapAuth(): Promise<AuthUser | null> {
       // Wipe any cached user so the UI drops to logged-out immediately.
       setAccessToken(null);
       setCachedUser(null);
+      clearUserScopedCaches();
       notifyAuth(false, null);
       return null;
     }
@@ -304,6 +331,7 @@ export async function bootstrapAuth(): Promise<AuthUser | null> {
     // — we'd rather show a logged-out UI than a stale logged-in one.
     setAccessToken(null);
     setCachedUser(null);
+    clearUserScopedCaches();
     notifyAuth(false, null);
     return null;
   }

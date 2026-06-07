@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import styled from 'styled-components';
 import { mq } from '../../styles/theme';
+import { useCompactLayout } from '../../hooks/useCompactLayout';
 import { RightChatPanel } from './RightChatPanel';
 import type { ChordOverlay } from '../../data/types';
 
@@ -97,7 +98,13 @@ export function MobileChatFab({
   onClearSelectedChords,
   notesContext,
 }: MobileChatFabProps) {
+  const isCompact = useCompactLayout();
   const [open, setOpen] = useState(false);
+
+  /* This surface only exists in compact layout; on desktop it renders nothing,
+   * so resizing back to a PC viewport can't strand the fullscreen mobile
+   * overlay over the desktop UI (the PC right-panel owns the chat there). */
+  if (!isCompact) return null;
 
   return (
     <>
@@ -109,31 +116,32 @@ export function MobileChatFab({
         </Fab>
       )}
 
-      {open && (
-        <Overlay>
-          <CloseBar>
-            <CloseBtn onClick={() => setOpen(false)}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
-              </svg>
-              뒤로
-            </CloseBtn>
-          </CloseBar>
-          <ChatArea>
-            <RightChatPanel
-              selectedChords={selectedChords}
-              groupExplanation={groupExplanation}
-              songTitle={songTitle}
-              chartKind={chartKind}
-              chordContext={chordContext}
-              isSelectionMode={isSelectionMode}
-              onToggleSelectionMode={onToggleSelectionMode}
-              onClearSelectedChords={onClearSelectedChords}
-              notesContext={notesContext}
-            />
-          </ChatArea>
-        </Overlay>
-      )}
+      {/* Kept MOUNTED (visibility toggled) instead of unmounted on close, so the
+       *  in-progress conversation survives backing out and reopening — and the
+       *  switch to/from PC — rather than being torn down and rebuilt empty. */}
+      <Overlay style={{ display: open ? 'flex' : 'none' }}>
+        <CloseBar>
+          <CloseBtn onClick={() => setOpen(false)}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
+            </svg>
+            뒤로
+          </CloseBtn>
+        </CloseBar>
+        <ChatArea>
+          <RightChatPanel
+            selectedChords={selectedChords}
+            groupExplanation={groupExplanation}
+            songTitle={songTitle}
+            chartKind={chartKind}
+            chordContext={chordContext}
+            isSelectionMode={isSelectionMode}
+            onToggleSelectionMode={onToggleSelectionMode}
+            onClearSelectedChords={onClearSelectedChords}
+            notesContext={notesContext}
+          />
+        </ChatArea>
+      </Overlay>
     </>
   );
 }

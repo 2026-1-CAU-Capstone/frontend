@@ -829,7 +829,12 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
         // after the stream completes (below) — refreshing now (the header
         // arrives at stream start) races the backend's lazy chat commit.
         if (chartKind) {
-          setChatChartMeta(newId, { kind: chartKind, songTitle, updatedAt: Date.now() });
+          // Capture the chart's in-app route (HashRouter → location.hash) so the
+          // sidebar can reopen this exact chart when the chat row is clicked.
+          const route = typeof window !== 'undefined' && window.location.hash
+            ? window.location.hash.replace(/^#/, '')
+            : undefined;
+          setChatChartMeta(newId, { kind: chartKind, songTitle, updatedAt: Date.now(), route });
         }
       },
     });

@@ -226,7 +226,15 @@ function fitOctaveRange(measures: MeasureInfo[]): MeasureInfo[] {
 
 /** Return a new LickEntry transposed by `semitones`. If 0, returns original. */
 function transposeLick(lick: LickEntry, semitones: number): LickEntry {
-  if (semitones === 0) return lick;
+  // Same key (no transpose) still needs octave fitting — an in-key lick stored
+  // high/low must be pulled onto the staff (sound preserved via the 8va/8vb
+  // bracket). fitOctaveRange returns the same array ref when nothing moved, so
+  // a lick already in range short-circuits back to the original untouched.
+  if (semitones === 0) {
+    const fitted = fitOctaveRange(lick.sheetData.measures);
+    if (fitted === lick.sheetData.measures) return lick;
+    return { ...lick, sheetData: { ...lick.sheetData, measures: fitted } };
+  }
 
   const targetPc = (rootPc(lick.key) + semitones + 12) % 12;
   const uf = useFlatsForPc(targetPc);

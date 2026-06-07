@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../styles/theme';
 import { IconSidebar } from '../components/layout/IconSidebar';
@@ -947,8 +947,14 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   // Entering a chord chart starts a FRESH AI-chat session (not a continuation
   // of whatever general chat was last open). Runs once per page entry; song
   // switches within the page are handled by RightChatPanel's songTitle effect.
+  // EXCEPTION: arriving via a Recent-Chats click (state.restoreChat) keeps that
+  // chat so its conversation reopens with this chart.
+  const location = useLocation();
+  const restoreChatOnMount = useRef<boolean>(
+    !!(location.state as { restoreChat?: string } | null)?.restoreChat,
+  );
   useEffect(() => {
-    setActiveChat(null);
+    if (!restoreChatOnMount.current) setActiveChat(null);
   }, []);
   /* Gate for Capacitor-app-only UI (native shell OR /preview/* route). */
   const isNativeUi = useIsNativeUi();
@@ -1337,7 +1343,21 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
       let cancelled = false;
       setLoading(true);
       setError(null);
-      Promise.all([getChordProject(publicId), getChordProjectAnalysis(publicId)])
+      /* GET /analysis 404s (CHORD_PROJECT_005) when the project hasn't been
+       * analyzed yet — common right after OMR, since the backend doesn't
+       * auto-analyze. Self-heal by running /analyze once, then use its result.
+       * (Mirror of MyChordChartsPage's fetchAnalysisWithRecovery — without
+       * this, opening a freshly-OMR'd chart here just shows an error.) */
+      const fetchAnalysis = async () => {
+        try {
+          return await getChordProjectAnalysis(publicId);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (!(msg.includes('CHORD_PROJECT_005') || msg.includes('분석 결과가 없습니다'))) throw e;
+          return await analyzeChordProject(publicId);
+        }
+      };
+      Promise.all([getChordProject(publicId), fetchAnalysis()])
         .then(([project, analysis]) => {
           if (cancelled) return;
           setSheet(withLeadSheetSelectionIds(analysisToLeadSheet(analysis, project), songId));

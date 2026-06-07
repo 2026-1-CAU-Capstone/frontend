@@ -34,7 +34,8 @@ import {
   type ChatSummary,
   type PendingChatInfo,
 } from '../../api/chat';
-import { getCachedUser } from '../../api/auth';
+import { getCachedUser, onAuthReset } from '../../api/auth';
+import { listChordProjects } from '../../api/chordProjects';
 import { ConfirmDeleteModal } from '../common/ConfirmDeleteModal';
 import {
   getChatChartMeta,
@@ -481,6 +482,18 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
     return () => { unsub(); };
   }, [loggedIn, refresh]);
 
+  /* Account switch / logout: auth.ts has already wiped the localStorage caches
+   * (clearUserScopedCaches). Drop our in-memory list too and refetch for the
+   * (possibly new) user — covers "switch account without logging out", where
+   * the loggedIn prop above doesn't change so its effect wouldn't re-run. */
+  useEffect(() => onAuthReset(() => {
+    setItems([]);
+    setLoaded(false);
+    setPage(0);
+    setHasMore(true);
+    void refresh();
+  }), [refresh]);
+
   /* ── Optimistic placeholder for a brand-new chat ───────────────────────
    * RightChatPanel calls setPendingChat() the instant the user sends the first
    * message. We show a spinner row, then poll listChats() until a NEW chat id
@@ -560,6 +573,35 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
       document.removeEventListener('keydown', onKey);
     };
   }, [menuId]);
+
+  /* Open a chat row. Chord/sheet-chart chats reopen their ORIGINATING chart
+   * with the conversation restored (`restoreChat` tells that page to keep this
+   * chat rather than starting fresh). Route comes from the local tag; if that's
+   * gone, a chord chat is matched back to its project by song title so the row
+   * still lands on the right chart. Plain chats open the home panel. */
+  const handleRowOpen = useCallback(async (
+    publicId: string,
+    route: string | undefined,
+    kind: ChatChartKind | undefined,
+    songName: string | null,
+  ) => {
+    setActiveChat(publicId);
+    if (route) {
+      navigate(route, { state: { restoreChat: publicId } });
+      return;
+    }
+    if (kind === 'chord' && songName) {
+      try {
+        const page = await listChordProjects({ size: 100, sort: 'updatedAt,desc' });
+        const proj = page.content?.find((p) => p.title === songName);
+        if (proj) {
+          navigate(`/mychord?project=${encodeURIComponent(proj.publicId)}`, { state: { restoreChat: publicId } });
+          return;
+        }
+      } catch { /* fall through */ }
+    }
+    navigate('/');
+  }, [navigate]);
 
   // Busy/dim state is owned by ConfirmDeleteModal; this just runs the delete
   // and closes the modal (on success or failure — errors surface in ErrorRow).
@@ -668,15 +710,19 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
           <BucketLabel>{group.label}</BucketLabel>
           {group.list.map((c) => {
         const isMenuOpen = menuId === c.publicId;
-        // Chord/sheet-chart chats render a colored square + the song name.
-        // Source: the local mirror first, falling back to the backend's
-        // `category` (when it persists/returns it for cross-device).
+        // A chat counts as a chord/sheet-chart chat ONLY when it was actually
+        // STARTED from a chart — signalled by the local mirror (or a backend
+        // `category`, when present). We do NOT infer it from `songTitle`: the
+        // raw home chat also sends a songTitle ("Jazzify"), so inferring would
+        // wrongly badge plain chats. Chart chats show the song name; everything
+        // else keeps the user's own question (the backend title).
         const meta = getChatChartMeta(c.publicId);
         const chartKind: ChatChartKind | undefined =
           meta?.kind
           ?? (c.category === 'chord' || c.category === 'sheet' ? c.category : undefined);
+        const songName = meta?.songTitle || c.songTitle || null;
         const rowLabel = chartKind
-          ? (meta?.songTitle || c.songTitle || c.title || '제목 없음')
+          ? (songName || c.title || '제목 없음')
           : (c.title || '제목 없음');
         return (
           <Row
@@ -688,12 +734,7 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
             <RowLabel
               $active={c.publicId === activeId}
               title={rowLabel}
-              onClick={() => {
-                /* Update active-chat pub-sub BEFORE navigating so the chat
-                 * panel's listener fires with the new id during mount. */
-                setActiveChat(c.publicId);
-                navigate('/');
-              }}
+              onClick={() => void handleRowOpen(c.publicId, meta?.route, chartKind, songName)}
             >
               {chartKind && (
                 <ChartBadge $kind={chartKind} aria-hidden>
