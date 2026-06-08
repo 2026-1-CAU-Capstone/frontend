@@ -376,12 +376,12 @@ export function loadUserLicksSync(): LickEntry[] {
 }
 
 export function saveUserLick(lick: LickEntry): void {
-  const existing = loadLocalLicks();
+  const existing = loadLocalLicks().filter((l) => String(l.id) !== String(lick.id));
   existing.unshift(lick);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
 }
 
 export function deleteUserLick(id: number | string): void {
-  const existing = loadLocalLicks().filter((l) => l.id !== id);
+  const existing = loadLocalLicks().filter((l) => String(l.id) !== String(id));
   localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
 }

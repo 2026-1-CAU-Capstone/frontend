@@ -48,6 +48,20 @@ import {
 /* Sizes & paddings mirror NavBtn (expanded mode) so list rows visually flow
  * out of the nav cluster above. Constants kept inline to avoid sprinkling
  * magic numbers across the file. */
+/* songTitle values that raw (non-chart) entry points send — the home chat
+ * sends "Jazzify"; chord/sheet pages fall back to "Jazzify AI" only when their
+ * sheet hasn't loaded. A chat whose backend songTitle is NONE of these is a
+ * real chart chat (so it stays badged even if the local tag was lost). */
+const PLACEHOLDER_SONG_TITLES = new Set(['Jazzify', 'Jazzify AI']);
+
+/* Append `?chat=<id>` (or `&chat=`) so the destination chart page restores that
+ * exact conversation. A query param is used (not router state) because it
+ * survives HashRouter quirks and a page refresh. */
+function appendChatParam(route: string, chatId: string): string {
+  const sep = route.includes('?') ? '&' : '?';
+  return `${route}${sep}chat=${encodeURIComponent(chatId)}`;
+}
+
 const ROW_HEIGHT = 38;     // = NavBtn expanded height
 const ROW_PAD_X = 10;      // = NavBtn expanded horizontal padding
 const LABEL_INDENT = ROW_PAD_X; // text starts where NavBtn icons start (left-aligned with icons above)
@@ -587,7 +601,7 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
   ) => {
     setActiveChat(publicId);
     if (route) {
-      navigate(route, { state: { restoreChat: publicId } });
+      navigate(appendChatParam(route, publicId));
       return;
     }
     if (kind === 'chord' && songName) {
@@ -595,7 +609,7 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
         const page = await listChordProjects({ size: 100, sort: 'updatedAt,desc' });
         const proj = page.content?.find((p) => p.title === songName);
         if (proj) {
-          navigate(`/mychord?project=${encodeURIComponent(proj.publicId)}`, { state: { restoreChat: publicId } });
+          navigate(appendChatParam(`/mychord?project=${encodeURIComponent(proj.publicId)}`, publicId));
           return;
         }
       } catch { /* fall through */ }
@@ -710,19 +724,23 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
           <BucketLabel>{group.label}</BucketLabel>
           {group.list.map((c) => {
         const isMenuOpen = menuId === c.publicId;
-        // A chat counts as a chord/sheet-chart chat ONLY when it was actually
-        // STARTED from a chart — signalled by the local mirror (or a backend
-        // `category`, when present). We do NOT infer it from `songTitle`: the
-        // raw home chat also sends a songTitle ("Jazzify"), so inferring would
-        // wrongly badge plain chats. Chart chats show the song name; everything
-        // else keeps the user's own question (the backend title).
+        // A chord/sheet-chart chat = STARTED from a chart. Reliable signal is
+        // the local mirror (kind); but that can be lost (cleared site data), so
+        // we ALSO treat a backend `songTitle` that is a REAL song (not a raw/
+        // placeholder title) as a chart chat. Raw home chats send "Jazzify" →
+        // excluded → they keep the user's own question. Kind has no backend
+        // signal once the mirror is gone, so it defaults to the chord icon.
         const meta = getChatChartMeta(c.publicId);
+        const backendSong = c.songTitle && !PLACEHOLDER_SONG_TITLES.has(c.songTitle)
+          ? c.songTitle
+          : null;
+        const songName = meta?.songTitle || backendSong || null;
         const chartKind: ChatChartKind | undefined =
           meta?.kind
-          ?? (c.category === 'chord' || c.category === 'sheet' ? c.category : undefined);
-        const songName = meta?.songTitle || c.songTitle || null;
-        const rowLabel = chartKind
-          ? (songName || c.title || '제목 없음')
+          ?? (c.category === 'chord' || c.category === 'sheet' ? c.category : undefined)
+          ?? (songName ? 'chord' : undefined);
+        const rowLabel = chartKind && songName
+          ? songName
           : (c.title || '제목 없음');
         return (
           <Row

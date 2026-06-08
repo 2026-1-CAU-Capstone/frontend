@@ -332,6 +332,12 @@ export interface BackingConfig {
    *  precedence over `loop`: the song plays exactly this many times then fires
    *  `onDone`. Undefined → fall back to `loop` (infinite). */
   repeatCount?: number;
+  /** Practice region loop. When set, playback starts at `startBar`, plays
+   *  through `endBar` (inclusive, 0-based flat bar indices into the chart) and
+   *  wraps back to `startBar` — infinitely, until stop. Takes precedence over
+   *  whole-song loop / repeatCount. Count-in fires once at start, not per wrap.
+   *  Applied live via setConfig so it can be set/changed/cleared mid-play. */
+  loopRegion?: { startBar: number; endBar: number } | null;
   /** Whether the final pass ends with the reverberant "button" tail (re-strike
    *  the closing chord, bloom the reverb, defer `onDone` ~6s). Default true —
    *  good for songs. Set false for short phrases (licks) so playback ends the

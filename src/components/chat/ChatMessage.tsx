@@ -7,6 +7,7 @@ import type { RagChunk } from '../../api/harmorag';
 import type { LickMatch } from '../../lib/lickMatcher';
 import { formatChordsInText } from './chordFormat';
 import { LickRecommendMessage, LickRecommendList, jsonToLickEntry } from './LickRecommendMessage';
+import type { LickEntry } from '../../data/lickData';
 import { ChatChartCard } from './ChatChartCard';
 import { parseChatChart, splitChordTables } from '../../lib/chatChartParser';
 import styled, { keyframes } from 'styled-components';
@@ -326,6 +327,11 @@ interface ChatMessageProps {
    */
   suppressChart?: boolean;
   songTempo?: number;
+  /** ChordPage 전용 — 추천 릭을 좌측 코드 차트에 핀(▼ 버튼). 없으면 카드의
+   *  ▼ 버튼이 숨겨진다(코드 진행이 없는 곳에선 끼울 데가 없으므로). */
+  onLickShowInline?: (lick: LickEntry) => void;
+  /** 현재 차트에 핀된 릭 id — 해당 카드의 ▼ 를 활성색으로. */
+  activeInlineLickId?: string | number;
   /** RAG source chunks for THIS message (message.ragDebug?.chunks), used to
    *  resolve inline [n] citation chips to their source / video timestamp. */
   citations?: RagChunk[];
@@ -595,6 +601,8 @@ function ChatMessageImpl({
   message,
   suppressChart = false,
   songTempo,
+  onLickShowInline,
+  activeInlineLickId,
   citations,
   onRetry,
   onRegenerate,
@@ -695,17 +703,33 @@ function ChatMessageImpl({
         });
       };
 
+      /* React key uses each lick's APPEARANCE ORDER (per id), NOT lm.index.
+       * lm.index is the tag's character offset, which shifts every stream tick
+       * as earlier text grows → the key changed each tick → the card remounted
+       * constantly, and a remount that lands on a 0-width frame left the score
+       * un-rendered ("sometimes the vexflow doesn't draw"). */
+      const lickOcc = new Map<string, number>();
       while ((lm = LICK_INLINE_RE.exec(text)) !== null) {
         flushMarkdown(text.slice(textIdx, lm.index), String(textIdx));
         // id 는 UUID 문자열 또는 숫자. 문자열 그대로 먼저, 안 되면 숫자로 재시도.
         const rawId = lm[1].trim();
+        const occ = lickOcc.get(rawId) ?? 0;
+        lickOcc.set(rawId, occ + 1);
         let match = lickById.get(rawId);
         if (!match) {
           const numId = Number(rawId);
           if (Number.isFinite(numId)) match = lickById.get(numId);
         }
         if (match) {
-          out.push(<LickRecommendMessage key={`${keyPrefix}-lick-${rawId}-${lm.index}`} match={match} tempoOverride={songTempo} />);
+          out.push(
+            <LickRecommendMessage
+              key={`${keyPrefix}-lick-${rawId}-${occ}`}
+              match={match}
+              tempoOverride={songTempo}
+              onShowInline={onLickShowInline}
+              inlineActive={activeInlineLickId != null && activeInlineLickId === match.lick.id}
+            />,
+          );
         }
         textIdx = lm.index + lm[0].length;
       }
@@ -806,7 +830,13 @@ function ChatMessageImpl({
             </MarkdownBody>,
           );
           segments.push(
-            <LickRecommendMessage key={`lick-inline-${l.id}-${i}`} match={m} tempoOverride={songTempo} />,
+            <LickRecommendMessage
+              key={`lick-inline-${l.id}-${i}`}
+              match={m}
+              tempoOverride={songTempo}
+              onShowInline={onLickShowInline}
+              inlineActive={activeInlineLickId != null && activeInlineLickId === m.lick.id}
+            />,
           );
         });
       }
@@ -833,7 +863,7 @@ function ChatMessageImpl({
     }
 
     return <>{segments}</>;
-  }, [message.content, message.role, message.lickMatches, message.savedLickMatches, message.lickProgressionLabel, message.lickInline, message.lickInlineLabel, isStreaming, suppressChart]);
+  }, [message.content, message.role, message.lickMatches, message.savedLickMatches, message.lickProgressionLabel, message.lickInline, message.lickInlineLabel, isStreaming, suppressChart, onLickShowInline, activeInlineLickId]);
 
   /* Thinking placeholder (saxophone flipbook) only shows for assistant
    * bubbles that are STILL streaming — empty content alone isn't enough:

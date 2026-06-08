@@ -80,6 +80,7 @@ interface MobileChatFabProps {
   groupExplanation?: string | null;
   songTitle: string;
   chartKind?: 'chord' | 'sheet';
+  restoreChatId?: string;
   chordContext?: string;
   isSelectionMode?: boolean;
   onToggleSelectionMode?: () => void;
@@ -92,6 +93,7 @@ export function MobileChatFab({
   groupExplanation = null,
   songTitle,
   chartKind,
+  restoreChatId,
   chordContext,
   isSelectionMode = false,
   onToggleSelectionMode,
@@ -134,6 +136,7 @@ export function MobileChatFab({
             groupExplanation={groupExplanation}
             songTitle={songTitle}
             chartKind={chartKind}
+            restoreChatId={restoreChatId}
             chordContext={chordContext}
             isSelectionMode={isSelectionMode}
             onToggleSelectionMode={onToggleSelectionMode}

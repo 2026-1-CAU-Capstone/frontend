@@ -14,12 +14,12 @@ export const PanelContainer = styled.aside`
 
 /* Floating "scroll to bottom" arrow — visible only when the user has scrolled
  * up from the latest message. Anchored just above the chat input (input height
- * roughly 70-150px, so 'bottom: 130px' clears most inputs without overlapping
- * the bubble area). */
+ * roughly 70-150px. Keep extra clearance above the chord/note section picker
+ * quick action so the arrow never competes with that target. */
 export const ScrollToBottomBtn = styled.button`
   position: absolute;
   left: 50%;
-  bottom: 130px;
+  bottom: 224px;
   transform: translateX(-50%);
   width: 34px;
   height: 34px;

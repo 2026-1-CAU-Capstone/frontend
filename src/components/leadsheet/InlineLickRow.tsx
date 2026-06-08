@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { Renderer, Stave, Voice, Formatter } from 'vexflow';
 import type { NoteSheetData } from '../../data/sampleMelody';
-import { buildVfNotes, buildBeams } from '../chat/LickRecommendMessage';
+import { buildVfNotes, buildBeams, buildTuplets } from '../chat/LickRecommendMessage';
 import { useGlobalPlayer } from '../../lib/player';
+import { getPlayerSettings, subscribePlayerSettings } from '../../lib/note/playerSettings';
 
 /* ─────────────────────────────────────────────────────────────────────────
  * InlineLickRow — renders a saved lick's notation IN FLOW directly under a
@@ -34,7 +35,7 @@ const Row = styled.div<{ $lower?: boolean }>`
    * chords drops a bit ($lower) so the lick clears the bracket; clean rows keep
    * the tight height. Bottom margin pushes the NEXT chart row further down so
    * the lick + next line don't crowd. */
-  margin: ${({ $lower }) => ($lower ? '-74px' : '-90px')} 0 30px;
+  margin: ${({ $lower }) => ($lower ? '-48px' : '-58px')} 0 30px;
   position: relative;
   z-index: 3;
   /* X close button is hidden until the lick is hovered (then black bg). */
@@ -133,6 +134,11 @@ export function InlineLickRow({
   const hostRef = useRef<HTMLDivElement>(null);
   const regionRef = useRef<HTMLDivElement>(null);
   const [gridW, setGridW] = useState(0);
+  // Mixer "릭 재생하기" toggle — when OFF, suppress ALL inline-lick highlight
+  // (no blue note, no light-blue measure box) and let only the chord chart's
+  // own highlight show.
+  const [playInlineLick, setPlayInlineLick] = useState(() => getPlayerSettings().playInlineLick);
+  useEffect(() => subscribePlayerSettings((s) => setPlayInlineLick(s.playInlineLick)), []);
   // (column, non-rest note index) → drawn SVG note element, for blue highlight.
   const noteElsRef = useRef<Map<string, SVGElement>>(new Map());
   const prevNoteRef = useRef<SVGElement | null>(null);
@@ -187,44 +193,21 @@ export function InlineLickRow({
         const vfNotes = buildVfNotes(measure, EMPTY_KACC);
         if (vfNotes.length === 0) continue;
         const beams = buildBeams(vfNotes, measure.notes);
+        // Tuplets BEFORE format → tick multipliers applied so triplet bars don't
+        // report "too many ticks" and overflow their column. Drawn after notes.
+        const tuplets = buildTuplets(vfNotes, measure.notes);
         const voice = new Voice({ numBeats: numBeats || 4, beatValue: beatValue || 4 });
         voice.setStrict(false);
         voice.addTickables(vfNotes);
-        /* Dense-measure compression — Charlie-Parker-style 16th-note
-         * lines (10+ non-rest notes per bar, especially with chromatic
-         * accidentals) overflow a single chart-column-width stave and
-         * spill onto neighbours. Scale just the voice + beams (NOT the
-         * stave, which is already drawn) horizontally about the stave's
-         * left edge so notes squish into their own bar without changing
-         * the column grid. */
-        const noteCount = measure.notes.filter((n) => !n.duration?.endsWith('r')).length;
-        const sx =
-          noteCount >= 14 ? 0.74 :
-          noteCount >= 12 ? 0.82 :
-          noteCount >= 10 ? 0.88 :
-          noteCount >= 8  ? 0.94 : 1.0;
-        const anchorX = m * colW;
-        const compress = sx < 1.0;
-        /* RenderContext exposes translate/scale on its concrete SVGContext
-         * / CanvasContext subclasses but the abstract base type only
-         * advertises save/restore + setters. Cast to the concrete shape
-         * we know the runtime implements. */
-        const xctx = ctx as unknown as {
-          save: () => void;
-          restore: () => void;
-          translate: (x: number, y: number) => void;
-          scale: (x: number, y: number) => void;
-        };
-        if (compress) {
-          xctx.save();
-          xctx.translate(anchorX, 0);
-          xctx.scale(sx, 1);
-          xctx.translate(-anchorX, 0);
-        }
+        // formatToStave fits the notes inside the stave's own width, so a dense
+        // bar packs tightly into its column instead of spilling — no manual
+        // ctx scaling needed (the old translate/scale hack threw
+        // "xctx.translate is not a function" on VexFlow's SVGContext, which
+        // skipped whole measures and left blank staves).
         new Formatter().joinVoices([voice]).formatToStave([voice], stave);
         voice.draw(ctx, stave);
         beams.forEach((b) => b.setContext(ctx).draw());
-        if (compress) xctx.restore();
+        tuplets.forEach((t) => t.setContext(ctx).draw());
         // Map each non-rest note to its SVG element, keyed by SOURCE note index
         // (measure.notes index) so it matches the player's onNote srcNi — which
         // identifies notes by source position, not by non-rest ordinal. Keying
@@ -263,7 +246,16 @@ export function InlineLickRow({
       if (prevNoteRef.current) { colorNote(prevNoteRef.current, ''); prevNoteRef.current = null; }
       if (regionRef.current) regionRef.current.style.display = 'none';
     };
+    // Suppress ALL highlight when the "릭 재생하기" toggle is OFF — the lick is
+    // drawn but silent, so no blue note / light-blue box belongs on it.
+    if (!playInlineLick) { clear(); return; }
+    // Only react to the CHORD-CHART engine's playback (kind === 'chart'). When
+    // the saved-licks modal auditions a lick (kind === 'lick'), it shares this
+    // singleton player's event bus — without this guard the inline lick on the
+    // chord chart would light up / move along with the modal's playback.
+    const isChart = () => player.currentInput?.kind === 'chart';
     const offNote = player.on('note', (globalBar: number, ni: number) => {
+      if (!isChart()) return;
       const col = globalBar - firstGlobalBar;
       if (prevNoteRef.current) colorNote(prevNoteRef.current, '');
       prevNoteRef.current = null;
@@ -272,6 +264,7 @@ export function InlineLickRow({
       if (el) { colorNote(el, BLUE_NOTE); prevNoteRef.current = el; }
     });
     const offBar = player.on('bar', (globalBar: number) => {
+      if (!isChart()) return;
       const col = globalBar - firstGlobalBar;
       const region = regionRef.current;
       if (!region) return;
@@ -282,7 +275,7 @@ export function InlineLickRow({
     });
     const offDone = player.on('done', clear);
     return () => { offNote(); offBar(); offDone(); clear(); };
-  }, [player, firstGlobalBar, colCount]);
+  }, [player, firstGlobalBar, colCount, playInlineLick]);
 
   return (
     <Row $lower={rowHasBracket}>

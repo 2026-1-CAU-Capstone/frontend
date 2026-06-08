@@ -21,6 +21,7 @@ import {
   selectionProgressionLabel,
   findLicksByProgression,
   detectProgressionKeyword,
+  findLicksByPerformer,
   findLicksByPerformerAndProgression,
   type LickMatch,
 } from '../../lib/lickMatcher';
@@ -205,11 +206,21 @@ interface RightChatPanelProps {
    *  started here so the Recent Chats sidebar shows the chart icon + song name,
    *  and forces a fresh session on entry (see the mount effect below). */
   chartKind?: 'chord' | 'sheet';
+  /** Set when the page was opened by clicking a chord/sheet chart chat in the
+   *  Recent Chats sidebar. Keeps that conversation loaded instead of letting
+   *  the song-settle (placeholder → real title) wipe it as a "song switch". */
+  restoreChatId?: string;
   chordContext?: string;
   isSelectionMode?: boolean;
   onToggleSelectionMode?: () => void;
   onClearSelectedChords?: () => void;
   songTempo?: number;
+  /** Pin a recommended lick onto the left-hand chord chart (anchored at the
+   *  selected span). Set only on the chord page; absent → lick cards hide the
+   *  ▼ "show on chart" button. */
+  onLickShowInline?: (lick: LickEntry) => void;
+  /** id of the lick currently pinned on the chart, so its card shows ▼ active. */
+  activeInlineLickId?: string | number;
   /** Pre-formatted note-level dump of the user-selected NoteSheet range.
    *  Attached to LLM context only when the user asks a solo / line / note-
    *  level question (heuristic below). Casual "analyze this chord progression"
@@ -308,11 +319,14 @@ export function RightChatPanel({
   selectedChords,
   songTitle,
   chartKind,
+  restoreChatId,
   chordContext,
   isSelectionMode = false,
   onToggleSelectionMode,
   onClearSelectedChords,
   songTempo,
+  onLickShowInline,
+  activeInlineLickId,
   notesContext,
   emptyState,
   hideHeader = false,
@@ -522,6 +536,11 @@ export function RightChatPanel({
     }
     if (lastSongTitleRef.current === songTitle) return;
     lastSongTitleRef.current = songTitle;
+    /* Restored-chat entry (opened from Recent Chats): the song title settling
+     * from a placeholder to the real song is NOT a user-initiated switch, so we
+     * must NOT wipe the conversation we just restored. While restoreChatId is
+     * set we never auto-reset on a song change. */
+    if (restoreChatId) return;
     setMessages([]);
     historyRef.current = [];
     /* Switching songs starts a fresh ad-hoc chat — drop the backend chat
@@ -530,7 +549,7 @@ export function RightChatPanel({
      * the sidebar list. */
     setChatPublicId(null);
     setActiveChat(null);
-  }, [songTitle, setChatPublicId]);
+  }, [songTitle, setChatPublicId, restoreChatId]);
 
   const handleRequestLicks = useCallback(() => {
     if (selectedChords.length === 0) return;
@@ -626,14 +645,36 @@ export function RightChatPanel({
       const detectedProg = detectProgressionKeyword(text);
 
       // 우선순위: 1) 선택한 코드  2) 연주자(+진행)  3) 진행만.
-      lickMatchesForMsg = findMatchingLicks(chordsForMatch, songTitle, songKey, allLicksRef.current, 5);
-      if (lickMatchesForMsg.length === 0) {
-        // "찰리파커 2-5-1" 류 — 그 연주자의 해당 진행 릭 우선, 부족하면 같은 진행의
-        // 다른 거장으로 보완. (연주자만 언급했고 진행이 없으면 연주자 릭 그대로.)
-        lickMatchesForMsg = findLicksByPerformerAndProgression(text, detectedProg, allLicksRef.current, 5);
-      }
-      if (lickMatchesForMsg.length === 0 && detectedProg) {
-        lickMatchesForMsg = findLicksByProgression(detectedProg, allLicksRef.current, 5);
+      // ───── DEMO-HARDCODE (임시 시연용 — 끝나면 이 if 데모 분기만 지우고 else 본문을 한 단계 내어쓰기) ─────
+      // 연주자명("찰리파커" 등)이 텍스트에 있으면 그 연주자 릭만 추천한다.
+      // 선택한 코드 진행(ii-V-I 등)에 맞는 그 연주자 릭을 우선, 없으면 그 연주자 릭 일반.
+      // 평소엔 코드 매칭이 1순위라 여러 연주자가 섞이는데, 시연에선 "찰리파커만" 보이게 강제.
+      const demoPerformerPool = findLicksByPerformer(text, allLicksRef.current, allLicksRef.current.length);
+      if (demoPerformerPool.length > 0) {
+        const pool = demoPerformerPool.map((m) => m.lick);
+        const byChords = findMatchingLicks(chordsForMatch, songTitle, songKey, pool, 5);
+        lickMatchesForMsg = byChords.length > 0 ? byChords : demoPerformerPool.slice(0, 5);
+        // ── DEMO-HARDCODE (임시): All of Me에서 찰리파커 릭이면 'C Jam Blues'를 무조건 1등으로.
+        //    시연 후 이 블록 삭제. ──
+        if (/all of me/i.test(songTitle)) {
+          const CJAM_ID = '0714c0e0-285a-40d1-a20b-c2334286a474'; // Charlie Parker / C Jam Blues
+          const cjam = allLicksRef.current.find((l) => String(l.id) === CJAM_ID);
+          if (cjam) {
+            const rest = lickMatchesForMsg.filter((m) => String(m.lick.id) !== CJAM_ID);
+            lickMatchesForMsg = [{ lick: cjam, tier: 1 as const }, ...rest].slice(0, 5);
+          }
+        }
+      } else {
+      // ──────────────────────────────────────────────────────────────────────────────────────
+        lickMatchesForMsg = findMatchingLicks(chordsForMatch, songTitle, songKey, allLicksRef.current, 5);
+        if (lickMatchesForMsg.length === 0) {
+          // "찰리파커 2-5-1" 류 — 그 연주자의 해당 진행 릭 우선, 부족하면 같은 진행의
+          // 다른 거장으로 보완. (연주자만 언급했고 진행이 없으면 연주자 릭 그대로.)
+          lickMatchesForMsg = findLicksByPerformerAndProgression(text, detectedProg, allLicksRef.current, 5);
+        }
+        if (lickMatchesForMsg.length === 0 && detectedProg) {
+          lickMatchesForMsg = findLicksByProgression(detectedProg, allLicksRef.current, 5);
+        }
       }
 
       if (lickMatchesForMsg.length > 0) {
@@ -1132,6 +1173,8 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
               message={msg}
               suppressChart={!!chordContext}
               songTempo={songTempo}
+              onLickShowInline={onLickShowInline}
+              activeInlineLickId={activeInlineLickId}
               /* The streaming reply is always the last assistant bubble while
                * `loading`. ChatMessage uses this to hold the deterministic
                * lick-card fallback until the stream finishes (so cards don't

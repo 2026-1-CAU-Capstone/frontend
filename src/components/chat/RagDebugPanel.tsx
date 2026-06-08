@@ -208,16 +208,21 @@ function ChunkItem({ chunk }: { chunk: RagChunk }) {
               </a>
             </div>
           )}
-          {chunk.matched_queries && chunk.matched_queries.length > 0 && (
-            <div style={{ color: '#888', fontSize: 10, marginBottom: 6 }}>
-              회수한 sub-query ({chunk.matched_queries.length}개):
-              <ul style={{ margin: '2px 0 0 14px', padding: 0 }}>
-                {chunk.matched_queries.map((q, i) => (
-                  <li key={i} style={{ listStyle: 'disc' }}>"{q}"</li>
-                ))}
-              </ul>
-            </div>
-          )}
+          {(() => {
+            const mqs = (chunk.matched_queries ?? [])
+              .map(cleanDebugQuery)
+              .filter((q) => q && !INTERNAL_LEFTOVER_RE.test(q));
+            return mqs.length > 0 ? (
+              <div style={{ color: '#888', fontSize: 10, marginBottom: 6 }}>
+                회수한 sub-query ({mqs.length}개):
+                <ul style={{ margin: '2px 0 0 14px', padding: 0 }}>
+                  {mqs.map((q, i) => (
+                    <li key={i} style={{ listStyle: 'disc' }}>"{q}"</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null;
+          })()}
           {chunk.response}
         </ChunkBody>
       )}
@@ -227,6 +232,16 @@ function ChunkItem({ chunk }: { chunk: RagChunk }) {
 
 interface RagDebugPanelProps {
   info: RagDebugInfo;
+}
+
+/* The lick-recommendation / glick turns send an AUGMENTED prompt as the RAG
+ * query (user question + a long hidden "[내부 지시 …]" instruction block + the
+ * matched [LICK:id] list). We only want the user-facing question to show in
+ * this debug box — strip everything from the internal-instruction header on,
+ * and drop any sub-query that is purely internal-instruction text. */
+const INTERNAL_LEFTOVER_RE = /\[내부\s*지시|\[LICK:|사용\s*가능한\s*릭|```glick|```chart/;
+function cleanDebugQuery(q: string): string {
+  return (q ?? '').split(/\[내부\s*지시/)[0].trim();
 }
 
 export function RagDebugPanel({ info }: RagDebugPanelProps) {
@@ -280,7 +295,10 @@ export function RagDebugPanel({ info }: RagDebugPanelProps) {
             <>
               <Section>
                 <SectionTitle>생성된 쿼리</SectionTitle>
-                {info.queries?.map((q, i) => (
+                {info.queries
+                  ?.map((q) => ({ ...q, query: cleanDebugQuery(q.query) }))
+                  .filter((q) => q.query && !INTERNAL_LEFTOVER_RE.test(q.query))
+                  .map((q, i) => (
                   <QueryRow key={i}>
                     <span style={{ color: '#bbb', flexShrink: 0 }}>{i + 1}.</span>
                     <QueryText title={q.query}>{q.query}</QueryText>

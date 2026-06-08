@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../styles/theme';
 import { IconSidebar } from '../components/layout/IconSidebar';
@@ -947,14 +947,15 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   // Entering a chord chart starts a FRESH AI-chat session (not a continuation
   // of whatever general chat was last open). Runs once per page entry; song
   // switches within the page are handled by RightChatPanel's songTitle effect.
-  // EXCEPTION: arriving via a Recent-Chats click (state.restoreChat) keeps that
-  // chat so its conversation reopens with this chart.
-  const location = useLocation();
-  const restoreChatOnMount = useRef<boolean>(
-    !!(location.state as { restoreChat?: string } | null)?.restoreChat,
+  // EXCEPTION: arriving via a Recent-Chats click (?chat=<id>) RESTORES that
+  // chat so its conversation reopens with this chart. Captured once at mount
+  // (setSongId later strips the param from the URL).
+  const [restoreChatId] = useState<string | undefined>(
+    () => searchParams.get('chat') ?? undefined,
   );
   useEffect(() => {
-    if (!restoreChatOnMount.current) setActiveChat(null);
+    if (restoreChatId) setActiveChat(restoreChatId);
+    else setActiveChat(null);
   }, []);
   /* Gate for Capacitor-app-only UI (native shell OR /preview/* route). */
   const isNativeUi = useIsNativeUi();
@@ -997,6 +998,13 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
    * keyed by songId. breakEditMode toggles the per-beat marker overlay. */
   const [breakEditMode, setBreakEditMode] = useState(false);
   const [breakPoints, setBreakPoints] = useState<BreakPoint[]>([]);
+
+  /* 구간 반복 (Loop). Per-song region [startBar, endBar] (0-based flat bar
+   * indices), persisted to localStorage by songId. loopEditMode opens the
+   * picker; loopDraftStart holds the first-clicked bar while awaiting the end. */
+  const [loopEditMode, setLoopEditMode] = useState(false);
+  const [loopRegion, setLoopRegion] = useState<{ startBar: number; endBar: number } | null>(null);
+  const [loopDraftStart, setLoopDraftStart] = useState<number | null>(null);
 
   const { player: globalPlayer } = useGlobalPlayer();
   const [isPlaying, setIsPlaying] = useState(false);
@@ -1044,6 +1052,25 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     systemIndex: number;
     anchorBar: number;
   } | null>(null);
+
+  /* 채팅 패널에서 추천된 릭의 ▼ 버튼 → 좌측 코드 진행 아래에 인라인 표시.
+   * SavedLicksModal의 ▼와 동일하게 동작하되, 채팅 릭에는 클릭 위치가 없으므로
+   * 앵커는 "현재 드래그 선택한 코드 구간의 첫 마디"(없으면 차트 첫 마디)로 잡는다.
+   * 같은 릭을 같은 앵커에서 다시 누르면 토글로 닫힌다. */
+  const handleChatLickInline = useCallback((lick: LickEntry) => {
+    if (!sheet) return;
+    const barNum = selectedChordsData[0]?.bar ?? sheet.systems[0]?.bars[0]?.measureNumber;
+    if (barNum == null) return;
+    const anchorSystem = sheet.systems.findIndex((s) => s.bars.some((b) => b.measureNumber === barNum));
+    if (anchorSystem < 0) return;
+    const anchorBar = sheet.systems[anchorSystem].bars.findIndex((b) => b.measureNumber === barNum);
+    if (anchorBar < 0) return;
+    setInlineLick((prev) => (
+      prev && prev.lick.id === lick.id && prev.systemIndex === anchorSystem && prev.anchorBar === anchorBar
+        ? null
+        : { lick, systemIndex: anchorSystem, anchorBar }
+    ));
+  }, [sheet, selectedChordsData]);
 
   /* Anchors of every ii-V-I group present in the current chart, keyed by
    * group type ("ii-V-I" / "minor-ii-V" / "ii-V"). When the user pins a
@@ -1183,8 +1210,18 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   // because the page already owns `activeBar` and `isPlaying` state for
   // the lead-sheet highlight and transport button.
   useEffect(() => {
-    const offBar = globalPlayer.on('bar', (bar) => setActiveBar(bar));
-    const offDone = globalPlayer.on('done', () => setIsPlaying(false));
+    // Only move the chart's bar highlight for the CHART engine. The saved-licks
+    // modal auditions licks (kind === 'lick') through this same singleton
+    // player; without the guard the chord chart's player would scrub along with
+    // the modal's lick playback.
+    const offBar = globalPlayer.on('bar', (bar) => {
+      if (globalPlayer.currentInput?.kind !== 'chart') return;
+      setActiveBar(bar);
+    });
+    const offDone = globalPlayer.on('done', () => {
+      if (globalPlayer.currentInput && globalPlayer.currentInput.kind !== 'chart') return;
+      setIsPlaying(false);
+    });
     return () => {
       offBar();
       offDone();
@@ -1282,6 +1319,55 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
       return toggleBreakPoint(prev, bar, restStart);
     });
   }, [sheet]);
+
+  // ── 구간 반복 (Loop) ──
+  // Load this song's saved loop region whenever the song changes (editor closed).
+  useEffect(() => {
+    let next: { startBar: number; endBar: number } | null = null;
+    try {
+      const raw = window.localStorage.getItem(`jazzify.loop.${songId}`);
+      const p = raw ? JSON.parse(raw) as { startBar: number; endBar: number } : null;
+      if (p && typeof p.startBar === 'number' && typeof p.endBar === 'number') next = p;
+    } catch { /* ignore */ }
+    setLoopRegion(next);
+    setLoopDraftStart(null);
+    setLoopEditMode(false);
+  }, [songId]);
+
+  // Push the region into the live player config + persist per-song. setConfig
+  // applies mid-play (the scheduler reads loopRegion live), so the loop starts
+  // on the next wrap without a restart.
+  useEffect(() => {
+    globalPlayer.setConfig({ loopRegion });
+    try {
+      if (loopRegion) window.localStorage.setItem(`jazzify.loop.${songId}`, JSON.stringify(loopRegion));
+      else window.localStorage.removeItem(`jazzify.loop.${songId}`);
+    } catch { /* quota / private mode — non-fatal */ }
+  }, [globalPlayer, loopRegion, songId]);
+
+  /* Loop editor bar pick: 1st click = start, 2nd click = end (auto-ordered).
+   * The previous region keeps looping until the 2nd click commits the new one,
+   * so picking never interrupts playback mid-selection. */
+  const handlePickLoopBar = useCallback((flatBar: number) => {
+    if (loopDraftStart == null) {
+      setLoopDraftStart(flatBar);
+    } else {
+      setLoopRegion({ startBar: Math.min(loopDraftStart, flatBar), endBar: Math.max(loopDraftStart, flatBar) });
+      setLoopDraftStart(null);
+    }
+  }, [loopDraftStart]);
+
+  const handleToggleLoopEdit = useCallback(() => {
+    setLoopEditMode((v) => {
+      if (v) setLoopDraftStart(null); // closing → drop any half-done pick
+      return !v;
+    });
+  }, []);
+
+  const handleClearLoop = useCallback(() => {
+    setLoopRegion(null);
+    setLoopDraftStart(null);
+  }, []);
 
   const countIn = useCountInIntro();
 
@@ -1800,6 +1886,10 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
               breakEditMode={breakEditMode}
               breakPoints={breakPoints}
               onToggleBreak={handleToggleBreak}
+              loopEditMode={loopEditMode}
+              loopRegion={loopRegion}
+              loopDraftStart={loopDraftStart}
+              onPickLoopBar={handlePickLoopBar}
               activeBar={activeBar}
               bpm={tempo}
               onChordClick={handleChordClick}
@@ -1807,43 +1897,13 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
               selectedChordIds={selectedChordIds}
               selectionMode={!editMode && isSelectionMode}
               savedLickBarNums={savedLickBarNums.size > 0 ? savedLickBarNums : undefined}
-              /* Multi-anchor fan-out: when the user pins a lick at one
-               *  ii-V-I anchor we ALSO display it at every other anchor in
-               *  the chart whose progression-type matches (the same lick
-               *  drawn at each occurrence). The originally-clicked anchor
-               *  is included as the first entry; remaining anchors are
-               *  whatever ii-V-I groups the analysis identified.
-               *  Falls back to the lone clicked anchor when no group-type
-               *  metadata is available. */
-              inlineLicks={inlineLick ? (() => {
-                const pickup = leadingPickupBars(inlineLick.lick.sheetData.measures);
-                const trail = trailingPickupBars(inlineLick.lick.sheetData.measures);
-                const primary = {
-                  systemIndex: inlineLick.systemIndex,
-                  anchorBar: inlineLick.anchorBar,
-                  sheet: inlineLick.lick.sheetData,
-                  pickupBars: pickup,
-                  trailingPickupBars: trail,
-                };
-                /* Identify the clicked anchor's group-type from the
-                 * pre-computed anchor list. If unknown (e.g. user pinned
-                 * from a non-ii-V-I context), just show the primary. */
-                const clicked = allIiviAnchors.find(
-                  (a) => a.systemIndex === inlineLick.systemIndex && a.anchorBar === inlineLick.anchorBar,
-                );
-                if (!clicked) return [primary];
-                const others = allIiviAnchors
-                  .filter((a) => a.groupKey === clicked.groupKey)
-                  .filter((a) => !(a.systemIndex === inlineLick.systemIndex && a.anchorBar === inlineLick.anchorBar))
-                  .map((a) => ({
-                    systemIndex: a.systemIndex,
-                    anchorBar: a.anchorBar,
-                    sheet: inlineLick.lick.sheetData,
-                    pickupBars: pickup,
-                    trailingPickupBars: trail,
-                  }));
-                return [primary, ...others];
-              })() : undefined}
+              /* Inline lick — shown ONCE at the clicked anchor. LeadSheet lays
+               *  each measure 1:1 under consecutive chart bars from the anchor. */
+              inlineLick={inlineLick ? {
+                systemIndex: inlineLick.systemIndex,
+                anchorBar: inlineLick.anchorBar,
+                sheet: inlineLick.lick.sheetData,
+              } : undefined}
               onInlineLickClose={() => setInlineLick(null)}
               onSavedLickBadgeClick={(barNum, spanLabel) => {
                 const anchorSystem = sheet?.systems.findIndex((system) =>
@@ -1943,11 +2003,16 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
               }}
               breakEditMode={breakEditMode}
               onToggleBreakEdit={() => setBreakEditMode((v) => !v)}
+              loopEditMode={loopEditMode}
+              onToggleLoopEdit={handleToggleLoopEdit}
+              loopRegion={loopRegion}
+              onClearLoop={handleClearLoop}
             />
           ) : (
             <RightChatPanel
             hideHeader
             chartKind="chord"
+            restoreChatId={restoreChatId}
             selectedChords={selectedChordsData}
             groupExplanation={selectedChordsData.length > 0 ? "이 구간이 다음 질문의 분석 대상으로 포함됩니다." : null}
             songTitle={sheet?.title ?? 'Jazzify AI'}
@@ -1956,6 +2021,8 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
             onToggleSelectionMode={toggleSelectionMode}
             onClearSelectedChords={clearSelectedChords}
             songTempo={tempo}
+            onLickShowInline={handleChatLickInline}
+            activeInlineLickId={inlineLick?.lick.id}
           />
           )}
         </RightPanelWrapper>
@@ -1968,6 +2035,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
         groupExplanation={selectedChordsData.length > 0 ? "이 구간이 다음 질문의 분석 대상으로 포함됩니다." : null}
         songTitle={sheet?.title ?? 'Jazzify AI'}
         chartKind="chord"
+        restoreChatId={restoreChatId}
         chordContext={chordContext}
         isSelectionMode={isSelectionMode}
         onToggleSelectionMode={toggleSelectionMode}
@@ -2182,6 +2250,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
               <RightChatPanel
                 hideHeader
                 chartKind="chord"
+                restoreChatId={restoreChatId}
                 selectedChords={selectedChordsData}
                 groupExplanation={selectedChordsData.length > 0 ? '이 구간이 다음 질문의 분석 대상으로 포함됩니다.' : null}
                 songTitle={sheet?.title ?? 'Jazzify AI'}
@@ -2218,6 +2287,10 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
                 }}
                 breakEditMode={breakEditMode}
                 onToggleBreakEdit={() => setBreakEditMode((v) => !v)}
+                loopEditMode={loopEditMode}
+                onToggleLoopEdit={handleToggleLoopEdit}
+                loopRegion={loopRegion}
+                onClearLoop={handleClearLoop}
               />
             </SheetBody>
           </SheetCard>

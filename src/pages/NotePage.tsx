@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../styles/theme';
 import { IconSidebar } from '../components/layout/IconSidebar';
@@ -618,14 +618,15 @@ export default function NotePage() {
   const navigate = useNavigate();
   // Entering a sheet/note chart starts a FRESH AI-chat session (song switches
   // within the page are handled by RightChatPanel's songTitle effect).
-  // EXCEPTION: arriving via a Recent-Chats click (state.restoreChat) keeps that
+  // EXCEPTION: arriving via a Recent-Chats click (?chat=<id>) RESTORES that
   // chat so its conversation reopens with this chart.
-  const location = useLocation();
-  const restoreChatOnMount = useRef<boolean>(
-    !!(location.state as { restoreChat?: string } | null)?.restoreChat,
+  const [searchParams] = useSearchParams();
+  const [restoreChatId] = useState<string | undefined>(
+    () => searchParams.get('chat') ?? undefined,
   );
   useEffect(() => {
-    if (!restoreChatOnMount.current) setActiveChat(null);
+    if (restoreChatId) setActiveChat(restoreChatId);
+    else setActiveChat(null);
   }, []);
   const { autoHighlight, toggleAutoHighlight } = useAutoHighlight(true);
   /* Mirror the toolbar's 분석 보기 toggle into the settings 디스플레이 tab. */
@@ -1038,6 +1039,7 @@ export default function NotePage() {
             <RightChatPanel
               hideHeader
               chartKind="sheet"
+              restoreChatId={restoreChatId}
               selectedChords={noteSelectionData.selectedChords}
               groupExplanation={
                 noteSelectionData.selectedChords.length > 0
@@ -1058,6 +1060,7 @@ export default function NotePage() {
       <MobileChatFab
         songTitle={sheet?.title ?? 'Jazzify AI'}
         chartKind="sheet"
+        restoreChatId={restoreChatId}
         selectedChords={noteSelectionData.selectedChords}
         isSelectionMode={isNoteSelectionMode}
         onToggleSelectionMode={toggleNoteSelectionMode}

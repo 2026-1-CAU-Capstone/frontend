@@ -180,6 +180,10 @@ export interface GlobalPlayerConfig {
    *  Analysis alike, while each page's melody/metronome play straight through.
    *  Each entry = { bar (flat index), beat (1-based) }. */
   breakBeats?: Array<{ bar: number; beat: number }>;
+  /** Practice region loop forwarded to the CHART backing engine: playback is
+   *  confined to [startBar, endBar] (0-based flat bar indices) and loops there
+   *  infinitely until stop. `null`/undefined clears it (normal whole-song play). */
+  loopRegion?: { startBar: number; endBar: number } | null;
   /** Bypass path — writes through to the global `playerSettings` store. */
   mixer?: Partial<PlayerSettings>;
 }

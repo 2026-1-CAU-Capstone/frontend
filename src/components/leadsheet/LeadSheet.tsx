@@ -517,6 +517,43 @@ const BarCell = styled.div<{ $endPad?: number }>`
   }
 `;
 
+/* ── Loop region (구간 반복): edit-mode pick target, region tint, edge marks ── */
+const LoopPickLayer = styled.button`
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  &:hover { background: rgba(44, 127, 184, 0.14); }
+`;
+const LoopRegionTint = styled.div<{ $draft?: boolean }>`
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background: ${({ $draft }) => ($draft ? 'rgba(44, 127, 184, 0.14)' : 'rgba(44, 127, 184, 0.07)')};
+`;
+const LoopStartMark = styled.div`
+  position: absolute;
+  left: 0; top: 6%; bottom: 6%;
+  width: 4px;
+  border-radius: 2px;
+  background: #2c7fb8;
+  pointer-events: none;
+  z-index: 5;
+`;
+const LoopEndMark = styled.div`
+  position: absolute;
+  right: 0; top: 6%; bottom: 6%;
+  width: 4px;
+  border-radius: 2px;
+  background: #2c7fb8;
+  pointer-events: none;
+  z-index: 5;
+`;
+
 /* ── Break Editor: per-beat markers + label ─────────────────────────────
  * The marker row floats above the chord area of a bar (only in break-edit
  * mode). Each cell holds a clickable quarter-note glyph; the active beat
@@ -1384,6 +1421,11 @@ interface SystemRowProps {
   breakEditMode?: boolean;
   breakPoints?: BreakPoint[];
   onToggleBreak?: (bar: number, beat: number) => void;
+  /** Loop region (구간 반복): edit-mode bar picking + start/end markers. */
+  loopEditMode?: boolean;
+  loopRegion?: { startBar: number; endBar: number } | null;
+  loopDraftStart?: number | null;
+  onPickLoopBar?: (flatBar: number) => void;
 }
 
 function SystemRowComponent({
@@ -1414,6 +1456,10 @@ function SystemRowComponent({
   breakEditMode = false,
   breakPoints,
   onToggleBreak,
+  loopEditMode = false,
+  loopRegion,
+  loopDraftStart,
+  onPickLoopBar,
 }: SystemRowProps) {
   const [top, bot] = timeSignature.split('/');
   const beatsPerBar = parseInt(top, 10) || 4;
@@ -1528,6 +1574,12 @@ function SystemRowComponent({
           const flatBar = barIndexBase + i;
           const breakBeat = breakBeatForBar(breakPoints ?? [], flatBar);
 
+          // Loop region (구간 반복) flags for this bar.
+          const loopInRegion = !!loopRegion && flatBar >= loopRegion.startBar && flatBar <= loopRegion.endBar;
+          const isLoopStart = !!loopRegion && flatBar === loopRegion.startBar;
+          const isLoopEnd = !!loopRegion && flatBar === loopRegion.endBar;
+          const isLoopDraft = loopDraftStart != null && flatBar === loopDraftStart;
+
           return (
             <BarCell key={i} data-bar-cell={`${systemIndex}-${i}`} $endPad={endPad}>
               {/* Left barline — skip for empty trailing bars */}
@@ -1535,6 +1587,19 @@ function SystemRowComponent({
                 <BarlineArea>
                   <LeftBarline kind={kind} />
                 </BarlineArea>
+              )}
+
+              {/* Loop region (구간 반복): subtle tint on in-region bars, start/end
+                  edge markers (shown in BOTH modes), and a click target while editing. */}
+              {(loopInRegion || isLoopDraft) && <LoopRegionTint $draft={!loopInRegion} aria-hidden />}
+              {isLoopStart && <LoopStartMark aria-hidden title={`루프 시작 (${flatBar + 1}마디)`} />}
+              {isLoopEnd && <LoopEndMark aria-hidden title={`루프 끝 (${flatBar + 1}마디)`} />}
+              {loopEditMode && !isEmpty && (
+                <LoopPickLayer
+                  type="button"
+                  aria-label={`${flatBar + 1}번째 마디를 루프 ${loopDraftStart == null ? '시작' : '끝'}으로 선택`}
+                  onClick={(e) => { e.stopPropagation(); onPickLoopBar?.(flatBar); }}
+                />
               )}
 
               {/* Break Editor: per-beat quarter-note markers above the bar.
@@ -1721,6 +1786,14 @@ interface LeadSheetProps {
   breakPoints?: BreakPoint[];
   /** Toggle a break at (flat bar index, 1-based beat). */
   onToggleBreak?: (bar: number, beat: number) => void;
+  /** Loop region editor (구간 반복). When `loopEditMode`, clicking a bar calls
+   *  `onPickLoopBar(flatBar)` (1st = start, 2nd = end). `loopRegion` (0-based
+   *  bar indices) draws start/end edge markers in BOTH modes; `loopDraftStart`
+   *  tints the bar picked as start while awaiting the end click. */
+  loopEditMode?: boolean;
+  loopRegion?: { startBar: number; endBar: number } | null;
+  loopDraftStart?: number | null;
+  onPickLoopBar?: (flatBar: number) => void;
 }
 
 interface ActiveBarRect {
@@ -2239,6 +2312,10 @@ export function LeadSheet({
   breakEditMode = false,
   breakPoints,
   onToggleBreak,
+  loopEditMode = false,
+  loopRegion,
+  loopDraftStart,
+  onPickLoopBar,
 }: LeadSheetProps) {
   // Resolve filters: prefer analysisFilters, fall back to legacy showAnalysis prop
   const af = analysisFilters ?? (showAnalysis === false
@@ -3776,6 +3853,10 @@ export function LeadSheet({
               breakEditMode={breakEditMode}
               breakPoints={breakPoints}
               onToggleBreak={onToggleBreak}
+              loopEditMode={loopEditMode}
+              loopRegion={loopRegion}
+              loopDraftStart={loopDraftStart}
+              onPickLoopBar={onPickLoopBar}
               compact={compactRows[i]}
               timeSignature={resolvedData.timeSignature}
               registerChordEl={registerChordEl}
@@ -3797,62 +3878,68 @@ export function LeadSheet({
               onChordEdit={onChordEdit}
             />
             {(() => {
-              // Inline lick(s) rendered under EVERY chart row each one flows
-              // through — each lick's measures map to consecutive chart bars
-              // starting at its (systemIndex, anchorBar), wrapping row by
-              // row. Multiple licks can land on the same chart simultaneously
-              // (e.g. one ii-V-I per A section); we iterate over the combined
-              // list of `inlineLicks` + a normalised entry for the legacy
-              // single-object `inlineLick` prop.
-              const allLicks = [
-                ...(inlineLicks ?? []),
-                ...(inlineLick ? [inlineLick] : []),
-              ];
-              if (allLicks.length === 0) return null;
+              // Inline lick — placed ONCE at the clicked anchor. Each lick
+              // measure sits 1:1 under a consecutive chart bar, starting at the
+              // anchor and wrapping row by row. Leading no-chord pickup measures
+              // are skipped so the first chord-bearing measure lands on the
+              // anchor. (Simple + predictable — no multi-anchor fan-out.)
+              if (!inlineLick) return null;
               const barsOf = (k: number) => resolvedData.systems[k]?.bars.length ?? 0;
+              const globalBarStartOf = (systemIndex: number) => {
+                let n = 0;
+                for (let k = 0; k < systemIndex; k++) n += barsOf(k);
+                return n;
+              };
+              const measures = inlineLick.sheet.measures;
+              // A measure "has a chord" only if it carries a real chord symbol —
+              // empty / N.C. / repeat markers count as NO chord. We READ each
+              // measure's chord and skip the leading no-chord pickup bar(s) so
+              // the lick's first CHORD-bearing measure (e.g. the D-7) lands on
+              // the clicked anchor, not the blank pickup.
+              const hasChord = (c?: string) => {
+                const t = (c ?? '').trim();
+                return t.length > 0 && t !== 'N.C.' && t !== 'NC' && t !== '%';
+              };
+              let start = 0;
+              while (start < measures.length && !hasChord(measures[start]?.chord)) start++;
+              if (start >= measures.length) start = 0;
+              // Stop at the I (tonic) resolution: render only the ii-V-I, not the
+              // lick's trailing measures past it (a turnaround / repeated tonic
+              // on the next bar). The I = first chord-bearing measure whose chord
+              // root equals the lick key's tonic.
+              const rootOf = (c: string) =>
+                c.trim().match(/^([A-G][b#♭♯]?)/)?.[1]?.replace('♭', 'b').replace('♯', '#') ?? '';
+              const keyRoot = rootOf(inlineLick.sheet.key || 'C') || 'C';
+              let endIdx = measures.length - 1;
+              for (let k = start; k < measures.length; k++) {
+                const ch = (measures[k]?.chord ?? '').trim();
+                if (ch && ch.split(/\s+/).some((sub) => rootOf(sub) === keyRoot)) { endIdx = k; break; }
+              }
+              const placeCount = endIdx - start + 1;
+              if (placeCount <= 0) return null;
+
+              const anchorGlobalBar = globalBarStartOf(inlineLick.systemIndex) + inlineLick.anchorBar;
+              const rowGlobalStart = globalBarStartOf(i);
+              const rowGlobalEnd = rowGlobalStart + barsOf(i) - 1;
+              const lo = Math.max(anchorGlobalBar, rowGlobalStart);
+              const hi = Math.min(anchorGlobalBar + placeCount - 1, rowGlobalEnd);
+              if (hi < lo) return null;
+              const colStart = lo - rowGlobalStart;
+              const measureOffset = start + (lo - anchorGlobalBar);
+              const colCount = hi - lo + 1;
               const rowHasBracket = bracketSpecs.some((b) => Number(b.chordId1.split('-')[0]) === i);
-              const segments: React.ReactNode[] = [];
-              allLicks.forEach((lk, lickIdx) => {
-                if (i < lk.systemIndex) return;
-                const S = lk.systemIndex;
-                const B = lk.anchorBar;
-                // Render ONLY the lick's chord-bearing part (the ii-V-I, e.g.
-                // D-7 → onward). Leading no-chord pickup measures are DROPPED,
-                // the first chord-bearing bar lands exactly on `anchorBar`,
-                // AND trailing no-chord measures are dropped from the tail so
-                // the lick doesn't spill past the I resolution onto the next
-                // unrelated chord in the host chart.
-                const start = lk.pickupBars ?? 0;        // first chord-bearing measure
-                const tail = lk.trailingPickupBars ?? 0; // empty bars after the I
-                const M = lk.sheet.measures.length;
-                const chordBars = M - start - tail;
-                if (chordBars <= 0) return;
-                let rowStartCont = 0;
-                for (let k = S; k < i; k++) rowStartCont += barsOf(k);
-                const lo = Math.max(B, rowStartCont);
-                const hi = Math.min(B + chordBars - 1, rowStartCont + barsOf(i) - 1);
-                if (hi < lo) return;
-                const colStart = lo - rowStartCont;
-                const measureOffset = start + (lo - B);
-                const colCount = hi - lo + 1;
-                if (colCount <= 0) return;
-                let firstGlobalBar = colStart;
-                for (let k = 0; k < i; k++) firstGlobalBar += barsOf(k);
-                segments.push(
-                  <InlineLickRow
-                    key={`lick-${lickIdx}-${i}`}
-                    sheet={lk.sheet}
-                    measureOffset={measureOffset}
-                    colStart={colStart}
-                    colCount={colCount}
-                    firstGlobalBar={firstGlobalBar}
-                    rowHasBracket={rowHasBracket}
-                    showClose={i === S}
-                    onClose={onInlineLickClose}
-                  />,
-                );
-              });
-              return segments.length > 0 ? <>{segments}</> : null;
+              return (
+                <InlineLickRow
+                  sheet={inlineLick.sheet}
+                  measureOffset={measureOffset}
+                  colStart={colStart}
+                  colCount={colCount}
+                  firstGlobalBar={lo}
+                  rowHasBracket={rowHasBracket}
+                  showClose={i === inlineLick.systemIndex}
+                  onClose={onInlineLickClose}
+                />
+              );
             })()}
           </div>
         ))}

@@ -277,6 +277,31 @@ export function buildBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
   return beams;
 }
 
+/** Build VexFlow Tuplet objects for any N-tuplet groups (3,5,6,7…). Critically,
+ *  the Tuplet constructor applies each note's tick multiplier — so constructing
+ *  these BEFORE Formatter.formatToStave() corrects the bar's tick total (a 16th-
+ *  triplet then counts as 1/3, not a full 16th). Without it the formatter sees
+ *  "too many ticks" and the notes overflow / spill past their measure. Returns
+ *  the tuplets so the caller can `.setContext(ctx).draw()` them after the notes. */
+export function buildTuplets(vfNotes: StaveNote[], notes: NoteInfo[]): Tuplet[] {
+  const out: Tuplet[] = [];
+  let ti = 0;
+  while (ti < notes.length) {
+    const n = notes[ti]?.tuplet;
+    if (n && n >= 3) {
+      const g: StaveNote[] = [];
+      while (ti < notes.length && notes[ti]?.tuplet === n && g.length < n) { g.push(vfNotes[ti]); ti++; }
+      if (g.length >= 2) {
+        const notesOccupied = Math.pow(2, Math.floor(Math.log2(n - 1)));
+        const tup = new Tuplet(g, { numNotes: g.length, notesOccupied });
+        if (g[0].getStemDirection() === -1) tup.setTupletLocation(-1);
+        out.push(tup);
+      }
+    } else ti++;
+  }
+  return out;
+}
+
 /* ── score renderer ───────────────────────────────────────────────────────── */
 
 function renderScore(
@@ -408,9 +433,11 @@ interface Props {
   /** True when this lick is the one currently shown inline — flips the ↓ button
    *  into an active/collapse state (the toggle is one-at-a-time). */
   inlineActive?: boolean;
+  /** Deletes this lick from the browser's saved-lick storage only. */
+  onDeleteLocal?: (lick: LickEntry) => void;
 }
 
-export function LickRecommendMessage({ match, tempoOverride, onShowInline, inlineActive }: Props) {
+export function LickRecommendMessage({ match, tempoOverride, onShowInline, inlineActive, onDeleteLocal }: Props) {
   const { lick, originalKey } = match;
   const wrapperRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<HTMLDivElement>(null);
@@ -432,17 +459,30 @@ export function LickRecommendMessage({ match, tempoOverride, onShowInline, inlin
     const el = svgRef.current;
     if (!el || !wrapper) return;
 
-    const doRender = () => {
+    let cancelled = false;
+    const render = (): boolean => {
+      if (cancelled) return false;
       const availW = wrapper.clientWidth;
-      if (availW < 60) return;
+      if (availW < 60) return false; // 폭 아직 미정 — rAF 루프/ResizeObserver 가 재시도
       renderScore(el, lick, Math.max(availW - 2, 100), measureRectsRef, noteElMapRef);
       prevNoteKeyRef.current = null;
+      return true;
     };
 
-    doRender();
-    const ro = new ResizeObserver(doRender);
+    /* 마운트(특히 스트리밍 중 [LICK:id] 카드 remount) 직후엔 컨테이너 폭이 0인
+     * 프레임이 있어 render() 가 일찍 빠진다. 폭이 생길 때까지 몇 프레임 재시도 —
+     * 안 그러면 ResizeObserver 초기 콜백이 다음 remount 로 취소될 때 악보가 영영
+     * 안 그려진다("가끔 vexflow 미출력"). */
+    let tries = 0;
+    const pump = () => {
+      if (cancelled || render() || tries++ > 30) return;
+      requestAnimationFrame(pump);
+    };
+    pump();
+
+    const ro = new ResizeObserver(() => render());
     ro.observe(wrapper);
-    return () => ro.disconnect();
+    return () => { cancelled = true; ro.disconnect(); };
   }, [lick]);
 
   const colorNote = useCallback((key: string, color: string) => {
@@ -544,8 +584,22 @@ export function LickRecommendMessage({ match, tempoOverride, onShowInline, inlin
     if (!cin.ok) { setPlaying(false); return; }
     clearPlaySubscriptions();
     playUnsubsRef.current = [
-      player.on('bar', (barIndex) => drawMeasureHL(barIndex)),
-      player.on('note', (mi, ni) => highlightNote(mi, ni)),
+      /* Re-assert playing on every bar. activate() inside player.play() may
+       * stop a previously-active engine while swapping in this lick, which
+       * emits a stray 'done' — the handler below would catch it and flip the
+       * button back to ▶ even though audio is actually starting. A real 'bar'
+       * tick means playback is rolling, so re-confirm (idempotent normally). */
+      // Only respond to LICK playback (this card's audition) — the singleton
+      // player's bus is shared with the chord-chart engine, so guard on kind so
+      // a chord-chart play() doesn't scrub this card's score.
+      player.on('bar', (barIndex) => {
+        if (player.currentInput?.kind !== 'lick') return;
+        setPlaying(true); drawMeasureHL(barIndex);
+      }),
+      player.on('note', (mi, ni) => {
+        if (player.currentInput?.kind !== 'lick') return;
+        highlightNote(mi, ni);
+      }),
       player.on('done', () => {
         setPlaying(false);
         clearPlaybackHighlight();
@@ -641,6 +695,21 @@ export function LickRecommendMessage({ match, tempoOverride, onShowInline, inlin
             </svg>
           )}
         </CircleBtn>
+        {onDeleteLocal && (
+          <CircleBtn
+            $color="#b3261e"
+            onClick={() => onDeleteLocal(lick)}
+            title="저장된 릭 삭제"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M3 6h18" />
+              <path d="M8 6V4h8v2" />
+              <path d="M6 6l1 15h10l1-15" />
+              <path d="M10 11v6" />
+              <path d="M14 11v6" />
+            </svg>
+          </CircleBtn>
+        )}
         {video && (
           <CircleBtn
             $color={showVideo ? '#9b1c1c' : '#c4302b'}
@@ -709,7 +778,14 @@ const EmptyState = styled.div`
 
 export function LickRecommendList({ matches, savedMatches = [], songTempo }: ListProps) {
   const [tab, setTab] = useState<'recommend' | 'saved'>('recommend');
-  const active = tab === 'recommend' ? matches : savedMatches;
+  const [localSavedMatches, setLocalSavedMatches] = useState(savedMatches);
+  useEffect(() => setLocalSavedMatches(savedMatches), [savedMatches]);
+  const active = tab === 'recommend' ? matches : localSavedMatches;
+  const handleDeleteLocal = useCallback((lick: LickEntry) => {
+    deleteUserLick(lick.id);
+    setLocalSavedMatches((prev) => prev.filter((m) => String(m.lick.id) !== String(lick.id)));
+    window.dispatchEvent(new CustomEvent('jazzify:lickSaved'));
+  }, []);
 
   return (
     <div>
@@ -721,7 +797,7 @@ export function LickRecommendList({ matches, savedMatches = [], songTempo }: Lis
           <svg width="18" height="18" viewBox="0 0 24 24" fill={tab === 'saved' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', marginRight: '4px' }}>
             <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
           </svg>
-          <span style={{ verticalAlign: 'middle' }}>{savedMatches.length}</span>
+          <span style={{ verticalAlign: 'middle' }}>{localSavedMatches.length}</span>
         </Tab>
       </TabRow>
       {active.length === 0 ? (
@@ -734,7 +810,11 @@ export function LickRecommendList({ matches, savedMatches = [], songTempo }: Lis
         active.map((m, i) => (
           <div key={m.lick.id}>
             {i > 0 && <ListDivider />}
-            <LickRecommendMessage match={m} tempoOverride={songTempo} />
+            <LickRecommendMessage
+              match={m}
+              tempoOverride={songTempo}
+              onDeleteLocal={tab === 'saved' ? handleDeleteLocal : undefined}
+            />
           </div>
         ))
       )}

@@ -628,7 +628,10 @@ export default function MyChordChartsPage() {
    * all descendants (mirrors deleteSelected's expand logic). */
   const deleteItem = async (id: string, kind: 'folder' | 'file'): Promise<void> => {
     const project = projects.find((p) => p.publicId === id);
-    if (kind === 'file' && project) {
+    // A chord chart card always carries a backend project publicId, so a 'file'
+    // delete must hit the backend even if `projects` momentarily lacks it
+    // (e.g. a mid-poll state) — otherwise the click silently no-ops.
+    if (kind === 'file' && (project || !id.startsWith(UPLOADING_ID_PREFIX))) {
       setProjectError(null);
       try {
         await deleteChordProject(id);
@@ -639,7 +642,11 @@ export default function MyChordChartsPage() {
           next.delete(id);
           return next;
         });
+        // Reconcile with the server so a silent backend failure (item lingers)
+        // is visible rather than masked by the optimistic removal.
+        void reloadProjects();
       } catch (e) {
+        console.error('[chord-project] delete failed:', e);
         setProjectError(e instanceof Error ? e.message : '코드 프로젝트 삭제 실패');
       }
       return;

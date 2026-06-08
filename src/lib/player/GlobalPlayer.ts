@@ -327,6 +327,7 @@ export function createGlobalPlayer(
     if (config.repeatCount !== undefined) seed.repeatCount = config.repeatCount;
     if (config.melody !== undefined) seed.melody = config.melody;
     if (config.breakBeats !== undefined) seed.breakBeats = config.breakBeats;
+    if (config.loopRegion !== undefined) seed.loopRegion = config.loopRegion;
 
     const styOpts = {
       styleUrl: input.styleUrl,
@@ -645,14 +646,16 @@ export function createGlobalPlayer(
     // chart track. The melody engine (sheet/lick/solo) gets its melody from its
     // own NoteSheetData seed, not from here.
     if ("melody" in patch) bpPatch.melody = patch.melody;
+    // Practice region loop is chart-only too (confines the Chord Analysis
+    // backing); the melody/sheet engine must not inherit it.
+    if ("loopRegion" in patch) bpPatch.loopRegion = patch.loopRegion;
     if (Object.keys(bpPatch).length > 0) {
       backingPlayer?.setConfig(bpPatch);
-      // Don't forward `melody` to the melody engine (it owns its own track).
-      if ("melody" in bpPatch && backingPlayerMelody) {
-        const { melody: _drop, ...rest } = bpPatch;
+      // Strip CHART-only fields (inline-lick `melody` + `loopRegion`) before
+      // forwarding to the melody/sheet engine — it owns its own track and range.
+      if (backingPlayerMelody) {
+        const { melody: _m, loopRegion: _lr, ...rest } = bpPatch;
         if (Object.keys(rest).length > 0) backingPlayerMelody.setConfig(rest);
-      } else {
-        backingPlayerMelody?.setConfig(bpPatch);
       }
     }
   }

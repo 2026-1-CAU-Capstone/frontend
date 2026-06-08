@@ -322,9 +322,17 @@ export interface BackingMixerProps {
    *  with a "Break Editor" toggle appears at the very bottom of the mixer. */
   breakEditMode?: boolean;
   onToggleBreakEdit?: () => void;
+  /** Loop Region editor (구간 반복) — mirrors the Break Editor wiring. When the
+   *  host wires these, a "구간 반복" toggle appears under Break Editor: ON lets
+   *  the user click a start/end measure on the chart; a saved region loops on
+   *  play. `loopRegion` (0-based bar indices) drives the label + 해제 button. */
+  loopEditMode?: boolean;
+  onToggleLoopEdit?: () => void;
+  loopRegion?: { startBar: number; endBar: number } | null;
+  onClearLoop?: () => void;
 }
 
-export function BackingMixer({ engine, analysisOn, onToggleAnalysis, breakEditMode, onToggleBreakEdit }: BackingMixerProps) {
+export function BackingMixer({ engine, analysisOn, onToggleAnalysis, breakEditMode, onToggleBreakEdit, loopEditMode, onToggleLoopEdit, loopRegion, onClearLoop }: BackingMixerProps) {
   const [settings, setSettings] = useState<PlayerSettings>(() => getPlayerSettings());
   useEffect(() => subscribePlayerSettings(setSettings), []);
 
@@ -465,18 +473,48 @@ export function BackingMixer({ engine, analysisOn, onToggleAnalysis, breakEditMo
       </MixerSection>
 
       {/* ── 고급 기능 (Advanced) — pinned at the very bottom ── */}
-      {onToggleBreakEdit && (
+      {(onToggleBreakEdit || onToggleLoopEdit) && (
         <MixerSection $accent='#8a5cf0'>
           <MixerSectionTitle>🎬 고급 기능</MixerSectionTitle>
-          <MixerRow>
-            <MixerLabel>Break Editor</MixerLabel>
-            <MetroToggle $on={!!breakEditMode} onClick={onToggleBreakEdit}>
-              {breakEditMode ? 'ON' : 'OFF'}
-            </MetroToggle>
-          </MixerRow>
-          <AttribLine>
-            마디 위 음표를 클릭해 그 박부터 백킹을 멈춥니다 (멜로디·메트로놈은 유지).
-          </AttribLine>
+          {onToggleBreakEdit && (
+            <>
+              <MixerRow>
+                <MixerLabel>Break Editor</MixerLabel>
+                <MetroToggle $on={!!breakEditMode} onClick={onToggleBreakEdit}>
+                  {breakEditMode ? 'ON' : 'OFF'}
+                </MetroToggle>
+              </MixerRow>
+              <AttribLine>
+                마디 위 음표를 클릭해 그 박부터 백킹을 멈춥니다 (멜로디·메트로놈은 유지).
+              </AttribLine>
+            </>
+          )}
+          {onToggleLoopEdit && (
+            <>
+              <MixerRow $top={!!onToggleBreakEdit}>
+                <MixerLabel>🔁 구간 반복</MixerLabel>
+                <MetroToggle $on={!!loopEditMode} onClick={onToggleLoopEdit}>
+                  {loopEditMode ? 'ON' : 'OFF'}
+                </MetroToggle>
+              </MixerRow>
+              {loopRegion && (
+                <MixerRow>
+                  <MixerLabel>구간</MixerLabel>
+                  <LoopRangeText>{loopRegion.startBar + 1} ~ {loopRegion.endBar + 1}마디</LoopRangeText>
+                  {onClearLoop && (
+                    <MetroToggle $on={false} onClick={onClearLoop}>해제</MetroToggle>
+                  )}
+                </MixerRow>
+              )}
+              <AttribLine>
+                {loopEditMode
+                  ? '차트에서 시작 마디 → 끝 마디를 클릭하세요. 저장되면 재생 시 그 구간만 무한 반복합니다.'
+                  : loopRegion
+                    ? '구간 설정됨 — 재생하면 정지 전까지 그 구간만 무한 반복. ON으로 바꿔 편집.'
+                    : 'ON으로 바꾸고 차트에서 시작/끝 마디를 클릭해 연습 구간을 정하세요.'}
+              </AttribLine>
+            </>
+          )}
         </MixerSection>
       )}
     </MixerScroll>
@@ -835,6 +873,14 @@ const MixerValue = styled.span`
   color: #333;
   width: 40px;
   text-align: right;
+  flex-shrink: 0;
+`;
+
+const LoopRangeText = styled.span`
+  margin-left: auto;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #333;
   flex-shrink: 0;
 `;
 

@@ -391,6 +391,15 @@ export function createBackingPlayer(
     if (!playing || !ctx) return;
     const now = ctx.currentTime - origin;
 
+    // Practice region loop bounds (0-based flat bar indices → seconds). When
+    // active, playback is confined to [startBar, endBar] and wraps back to
+    // startBar — this overrides whole-song loop / repeatCount below.
+    const rgn = config.loopRegion;
+    const regionActive = !!rgn && secPerBar > 0 && totalBars > 0
+      && rgn.startBar >= 0 && rgn.endBar >= rgn.startBar;
+    const regionStartSec = regionActive ? rgn!.startBar * secPerBar : 0;
+    const regionEndSec = regionActive ? Math.min(rgn!.endBar + 1, totalBars) * secPerBar : 0;
+
     // Break Editor: hard-cut the backing the instant the playhead enters a
     // rest region (stop ringing piano/bass/drums voices). Melody is left
     // alone so the lead line plays straight through the break.
@@ -403,6 +412,7 @@ export function createBackingPlayer(
     // Schedule upcoming events inside the lookahead window
     while (nextIdx < events.length) {
       const ev = events[nextIdx];
+      if (regionActive && ev.time >= regionEndSec) break; // don't schedule past the region end
       if (ev.time > now + LOOKAHEAD_SEC) break;
       if (ev.time >= now - TICK_TOLERANCE_SEC && !isGated(ev)) {
         dispatch(ev);
@@ -414,9 +424,14 @@ export function createBackingPlayer(
     // aligned with the audio because both use the same secPerBar grid.
     // No event-scanning needed, so humanization offsets on individual
     // events can't cause the highlight to jump early or late.
-    const currentBar = secPerBar > 0
+    let currentBar = secPerBar > 0
       ? Math.min(Math.floor(now / secPerBar), totalBars - 1)
       : -1;
+    // Keep the highlight inside the loop region (avoids a brief out-of-region
+    // flicker right after a wrap, when `now` momentarily sits just before start).
+    if (regionActive) {
+      currentBar = Math.min(Math.max(currentBar, rgn!.startBar), rgn!.endBar);
+    }
     if (currentBar !== lastBarFired) {
       lastBarFired = currentBar;
       callbacks.onBar?.(currentBar);
@@ -441,6 +456,28 @@ export function createBackingPlayer(
           callbacks.onNote?.(e.mi, e.ni);
         }
       }
+    }
+
+    // Practice region loop — overrides the whole-song done/stop logic. The
+    // instant every event up to `endBar` has been scheduled (mirrors the
+    // proactive whole-song wrap), rewind to `startBar` by advancing origin one
+    // region length. The just-scheduled tail keeps sounding; the rewound
+    // region-start events now sit in the future, so the seam is sample-accurate
+    // and the loop runs forever (until stop) regardless of `loop`/`repeatCount`.
+    if (regionActive) {
+      const regionDone = nextIdx >= events.length || events[nextIdx].time >= regionEndSec;
+      if (regionDone) {
+        origin += regionEndSec - regionStartSec;
+        nextIdx = 0;
+        for (let i = 0; i < events.length; i++) {
+          if (events[i].time >= regionStartSec - TICK_TOLERANCE_SEC) { nextIdx = i; break; }
+        }
+        lastBarFired = -2;
+        lastNoteIdx = -1;
+        wasInBreak = false;
+      }
+      rafHandle = requestAnimationFrame(tick);
+      return;
     }
 
     // Done? — wrap if looping, otherwise stop.
@@ -667,6 +704,16 @@ export function createBackingPlayer(
     lastBarFired = -2;
     lastNoteIdx = -1;
     loopCount = 0;
+    // Region loop: a FRESH start (elapsed 0) or a resume that landed outside the
+    // region snaps to the region's first bar so playback begins at startBar.
+    {
+      const rgn = config.loopRegion;
+      if (rgn && secPerBar > 0 && rgn.endBar >= rgn.startBar) {
+        const rStart = rgn.startBar * secPerBar;
+        const rEnd = (rgn.endBar + 1) * secPerBar;
+        if (elapsed < rStart - TICK_TOLERANCE_SEC || elapsed >= rEnd) elapsed = rStart;
+      }
+    }
     // Lead the origin slightly so the first event (time=0) is strictly in
     // the future. Two cases:
     //   - startAt is comfortably in the future → trust the count-in's audio

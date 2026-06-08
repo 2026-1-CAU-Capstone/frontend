@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 import type { LickMatch } from '../../lib/lickMatcher';
-import type { LickEntry } from '../../data/lickData';
+import { deleteUserLick, loadLicks, type LickEntry } from '../../data/lickData';
 import { LickRecommendMessage } from '../chat/LickRecommendMessage';
 
 interface Props {
@@ -115,11 +115,38 @@ const Empty = styled.div`
 `;
 
 export function SavedLicksModal({ spanLabel, matches, onClose, songTempo, onShowInline, activeInlineLickId }: Props) {
+  const [localMatches, setLocalMatches] = useState(matches);
+
+  // ── DEMO-HARDCODE (임시 시연용): "ChatGPT Generated Lick"을 무조건 모달 맨 앞에.
+  //    시연 후 이 effect를 `setLocalMatches(matches)` 한 줄로 되돌리면 됨. ──
+  useEffect(() => {
+    let cancelled = false;
+    const CHATGPT_LICK_ID = '747a25a6-5aed-4f04-8e51-b93df8757c79'; // [Unknown] ChatGPT Generated Lick
+    loadLicks()
+      .then((all) => {
+        if (cancelled) return;
+        const gpt = all.find((l) => String(l.id) === CHATGPT_LICK_ID);
+        if (gpt && !matches.some((m) => String(m.lick.id) === CHATGPT_LICK_ID)) {
+          setLocalMatches([{ lick: gpt, tier: 1 as const }, ...matches]);
+        } else {
+          setLocalMatches(matches);
+        }
+      })
+      .catch(() => { if (!cancelled) setLocalMatches(matches); });
+    return () => { cancelled = true; };
+  }, [matches]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+
+  const handleDeleteLocal = useCallback((lick: LickEntry) => {
+    deleteUserLick(lick.id);
+    setLocalMatches((prev) => prev.filter((m) => String(m.lick.id) !== String(lick.id)));
+    window.dispatchEvent(new CustomEvent('jazzify:lickSaved'));
+  }, []);
 
   return (
     <Overlay onClick={onClose}>
@@ -128,21 +155,22 @@ export function SavedLicksModal({ spanLabel, matches, onClose, songTempo, onShow
           <TitleGroup>
             <Title>저장된 릭</Title>
             <ProgLabel>{spanLabel}</ProgLabel>
-            {matches.length > 0 && <Count>{matches.length}개</Count>}
+            {localMatches.length > 0 && <Count>{localMatches.length}개</Count>}
           </TitleGroup>
           <CloseBtn onClick={onClose}>✕</CloseBtn>
         </Header>
         <ScrollBody>
-          {matches.length === 0 ? (
+          {localMatches.length === 0 ? (
             <Empty>저장된 릭이 없습니다.</Empty>
           ) : (
-            matches.map((m) => (
+            localMatches.map((m) => (
               <ItemWrap key={m.lick.id}>
                 <LickRecommendMessage
                   match={m}
                   tempoOverride={songTempo}
                   onShowInline={onShowInline}
                   inlineActive={activeInlineLickId != null && m.lick.id === activeInlineLickId}
+                  onDeleteLocal={handleDeleteLocal}
                 />
               </ItemWrap>
             ))

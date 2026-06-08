@@ -246,20 +246,27 @@ export async function streamClaudeMessage(
     const lines = buffer.split('\n');
     buffer = lines.pop() ?? '';
 
-    for (const line of lines) {
-      if (!line.startsWith('data: ')) continue;
-      const json = line.slice(6).trim();
-      if (!json || json === '[DONE]') continue;
+    for (const line of lines) handleSseLine(line);
+  }
 
-      try {
-        const parsed = JSON.parse(json);
-        if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-          accumulated += parsed.delta.text;
-          onChunk(accumulated);
-        }
-      } catch {
-        // skip malformed chunks
+  /* Flush the trailing line: the stream often ends WITHOUT a final newline, so
+   * the last `data: …delta` sits in `buffer` un-split and was being dropped —
+   * the visible reply lost its tail (cut mid-word). Process it on `done`. */
+  buffer += decoder.decode();
+  if (buffer) handleSseLine(buffer);
+
+  function handleSseLine(line: string): void {
+    if (!line.startsWith('data: ')) return;
+    const json = line.slice(6).trim();
+    if (!json || json === '[DONE]') return;
+    try {
+      const parsed = JSON.parse(json);
+      if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+        accumulated += parsed.delta.text;
+        onChunk(accumulated);
       }
+    } catch {
+      // skip malformed chunks
     }
   }
 
