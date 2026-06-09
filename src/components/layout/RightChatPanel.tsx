@@ -206,6 +206,10 @@ interface RightChatPanelProps {
    *  started here so the Recent Chats sidebar shows the chart icon + song name,
    *  and forces a fresh session on entry (see the mount effect below). */
   chartKind?: 'chord' | 'sheet';
+  /** publicId of the originating chord/sheet PROJECT (chartKind set). Routes the
+   *  chat to the categorized backend endpoint so it persists with this id and the
+   *  Recent Chats row can reopen the chart directly. */
+  projectPublicId?: string;
   /** Set when the page was opened by clicking a chord/sheet chart chat in the
    *  Recent Chats sidebar. Keeps that conversation loaded instead of letting
    *  the song-settle (placeholder → real title) wipe it as a "song switch". */
@@ -319,6 +323,7 @@ export function RightChatPanel({
   selectedChords,
   songTitle,
   chartKind,
+  projectPublicId,
   restoreChatId,
   chordContext,
   isSelectionMode = false,
@@ -844,6 +849,8 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
       songTitle,
       history: historyRef.current,
       chatPublicId: chatPublicIdRef.current,
+      chartKind: chartKind ?? null,
+      projectPublicId: projectPublicId ?? null,
       loggedIn,
       signal: ac.signal,
       forceLocal: forceLocalForLicks,
@@ -932,7 +939,7 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
       const next = queueRef.current.shift()!;
       queueMicrotask(() => { void handleSendRef.current?.(next.text, next.files); });
     }
-  }, [chordContext, selectedChords, songTitle, notesContext, chartKind, loggedIn, setChatPublicId]);
+  }, [chordContext, selectedChords, songTitle, notesContext, chartKind, projectPublicId, loggedIn, setChatPublicId]);
 
   /* Ref mirror of handleSend so the queue dispatch above can call the
    * latest function reference without putting handleSend in its own

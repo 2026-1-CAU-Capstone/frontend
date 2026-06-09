@@ -158,14 +158,20 @@ const DUR_GRID = [
   { beats: 0.25, vf: '16', dot: false },
 ];
 
+/**
+ * Snap a beat-duration to the LARGEST grid value that fits within `beats`
+ * (round DOWN, not nearest). Onsets are already on a straight-8th grid, so
+ * single-note durations (½/1/1½/2/3/4) map exactly; the only values that
+ * differ are non-single ones like 2½ — rounding down (→2) keeps the note
+ * inside its bar and lets the leftover ½ become a rest, instead of rounding
+ * up (→3) and overflowing the measure. Guarantees every bar sums correctly.
+ */
 function quantise(beats: number): { vf: string; dot: boolean; beats: number } {
-  let best = DUR_GRID[DUR_GRID.length - 1];
-  let diff = Infinity;
   for (const d of DUR_GRID) {
-    const dd = Math.abs(d.beats - beats);
-    if (dd < diff) { diff = dd; best = d; }
+    if (d.beats <= beats + 1e-6) return { vf: d.vf, dot: d.dot, beats: d.beats };
   }
-  return { vf: best.vf, dot: best.dot, beats: best.beats };
+  const smallest = DUR_GRID[DUR_GRID.length - 1];
+  return { vf: smallest.vf, dot: smallest.dot, beats: smallest.beats };
 }
 
 /** Break a duration (in beats) into standard rest values */
@@ -280,6 +286,57 @@ function extractMelodyLine(notes: NoteEv[]): NoteEv[] {
   return filtered;
 }
 
+/**
+ * Quantise an expressive performance line onto a straight-8th grid.
+ *
+ * WjazzD (Weimar Jazz Database) MIDIs are TRANSCRIPTIONS OF REAL SOLOS, not
+ * engraved scores: onsets sit off the beat, durations reflect articulation
+ * (staccato/legato), and 8th notes are SWUNG (long ≈0.6 beat, short ≈0.4).
+ *
+ * Feeding those raw values to the duration grid produced the broken look the
+ * user reported — a swung short-8th (~0.4) snapped to 0.375 = a DOTTED 16th,
+ * and articulation jitter produced random 16ths. The musical convention is to
+ * notate swing 8ths as STRAIGHT 8ths (swing is a feel, not a literal dotted
+ * figure), so we:
+ *
+ *   1. Trim leading empty bars (a solo that enters in bar 10 shouldn't render
+ *      9 bars of rests) — shift so the first note's bar becomes bar 0.
+ *   2. Snap each onset to the nearest straight-8th (½-beat) grid point, with a
+ *      monotonic guard so two notes never collapse onto the same slot. This
+ *      collapses a swing 8th pair (0.6 / 0.4) into two clean 0.5-beat 8ths.
+ *   3. Take each note's notated duration from the INTER-ONSET interval (gap to
+ *      the next note), capped by the note's own snapped length — so a real
+ *      pause becomes a rest, while back-to-back notes read as legato 8ths.
+ *
+ * Result: every duration is a clean multiple of a straight 8th (½/1/1½/2…),
+ * which the existing measure assembler renders without dotted-16th clutter.
+ */
+function quantizeToGrid(notes: NoteEv[], tpb: number, numBeats: number): NoteEv[] {
+  if (notes.length === 0) return [];
+  const gTicks = 0.5 * tpb;                 // straight-8th grid step
+  const barTicks = numBeats * tpb;
+  const shift = Math.floor(notes[0].start / barTicks) * barTicks; // trim lead-in bars
+
+  let prevOn = -1;
+  const snapped = notes.map((n) => {
+    let on = Math.round((n.start - shift) / gTicks) * gTicks;
+    if (on <= prevOn) on = prevOn + gTicks;  // keep onsets ≥ one 8th apart
+    prevOn = on;
+    const len = Math.max(gTicks, Math.round((n.end - n.start) / gTicks) * gTicks);
+    return { midi: n.midi, start: on, len };
+  });
+
+  const out: NoteEv[] = [];
+  for (let i = 0; i < snapped.length; i++) {
+    const gap = i < snapped.length - 1
+      ? snapped[i + 1].start - snapped[i].start
+      : snapped[i].len;
+    const dur = Math.max(gTicks, Math.min(snapped[i].len, gap));
+    out.push({ midi: snapped[i].midi, start: snapped[i].start, end: snapped[i].start + dur });
+  }
+  return out;
+}
+
 /** Score a track for "melody-likeness": prefer monophonic, non-drum, reasonable range. */
 function melodyTrack(midi: ParsedMidi): MidiEvent[] {
   let best = midi.tracks[0] ?? [];
@@ -347,8 +404,11 @@ export async function loadMidiMelody(
   const noteEvents = extractNotes(melody);
   if (!noteEvents.length) return { title, composer, key, timeSignature: timeSig, tempo, measures: [] };
 
-  // Extract single melody line (skyline top-voice extraction)
-  const melodyNotes = extractMelodyLine(noteEvents);
+  // Extract single melody line (skyline top-voice extraction), then quantise
+  // the expressive performance onto a straight-8th grid (swing → straight 8ths,
+  // articulation jitter removed, leading empty bars trimmed). Without this the
+  // raw note-off durations render as dotted-16th clutter.
+  const melodyNotes = quantizeToGrid(extractMelodyLine(noteEvents), tpb, numBeats);
 
   const lastTick = Math.max(...melodyNotes.map(n => n.end));
   const totalMeasures = Math.max(1, Math.ceil(lastTick / tpm));

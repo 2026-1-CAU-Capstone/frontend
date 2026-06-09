@@ -23,6 +23,8 @@ export { measureInfoToNoteSheet } from "./measureInfoAdapter";
 
 export { stopAllAudio, registerAudioStopper } from "./audioStopRegistry";
 
+export { warmupPlayerOnce } from "./warmup";
+
 export type {
   PlayerInput,
   SheetInput,

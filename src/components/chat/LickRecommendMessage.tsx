@@ -13,6 +13,7 @@ import type { LickEntry } from '../../data/lickData';
 import { saveUserLick, deleteUserLick, loadUserLicksSync } from '../../data/lickData';
 import type { LickMatch } from '../../lib/lickMatcher';
 import { useGlobalPlayer } from '../../lib/player/GlobalPlayerContext';
+import { warmupPlayerOnce } from '../../lib/player';
 import { useCountInIntro } from '../../hooks/useCountInIntro';
 import { PATTERN_SIMPLE } from '../../lib/note/countInPatterns';
 import type { NoteInfo, MeasureInfo } from '../../data/sampleMelody';
@@ -446,6 +447,13 @@ export function LickRecommendMessage({ match, tempoOverride, onShowInline, inlin
   const prevNoteKeyRef = useRef<string | null>(null);
   const playUnsubsRef = useRef<Array<() => void>>([]);
   const { player } = useGlobalPlayer();
+
+  /* Eager warmup: a recommended lick warms the audio engine on mount (no
+   * sound — the context stays suspended) so pressing Play is instant. */
+  useEffect(() => {
+    warmupPlayerOnce(player, { kind: 'lick', data: lick.sheetData });
+  }, [player, lick.sheetData]);
+
   const [playing, setPlaying] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
   // 마운트 시 localStorage 확인 — 이미 저장된 릭이면 saved 상태로 시작

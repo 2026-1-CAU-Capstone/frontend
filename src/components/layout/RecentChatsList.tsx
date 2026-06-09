@@ -598,12 +598,23 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
     route: string | undefined,
     kind: ChatChartKind | undefined,
     songName: string | null,
+    projectPublicId: string | undefined,
   ) => {
     setActiveChat(publicId);
+    // PREFERRED: a chord-project chat carries its projectPublicId from the
+    // backend → reopen the chord chart + AI chat screen directly. This replaces
+    // the old song-title round-trip guess below.
+    if (projectPublicId && kind === 'chord') {
+      navigate(appendChatParam(`/mychord?project=${encodeURIComponent(projectPublicId)}`, publicId));
+      return;
+    }
+    // Local origin tag (exact captured route; covers sheet + legacy chats).
     if (route) {
       navigate(appendChatParam(route, publicId));
       return;
     }
+    // LEGACY fallback for chats saved before projectPublicId existed: match a
+    // chord chat back to its project by song title.
     if (kind === 'chord' && songName) {
       try {
         const page = await listChordProjects({ size: 100, sort: 'updatedAt,desc' });
@@ -752,7 +763,7 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
             <RowLabel
               $active={c.publicId === activeId}
               title={rowLabel}
-              onClick={() => void handleRowOpen(c.publicId, meta?.route, chartKind, songName)}
+              onClick={() => void handleRowOpen(c.publicId, meta?.route, chartKind, songName, c.projectPublicId ?? undefined)}
             >
               {chartKind && (
                 <ChartBadge $kind={chartKind} aria-hidden>

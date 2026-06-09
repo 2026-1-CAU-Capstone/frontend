@@ -25,8 +25,8 @@ const API_BASE = import.meta.env.DEV ? '/api' : 'https://jazzify.p-e.kr/api';
 
 /* ── Types (mirror the Swagger schemas) ──────────────────────────────── */
 
-export type ChatType = 'direct' | 'rag' | string;
-export type ChatCategory = 'overview' | string;
+export type ChatType = 'global' | 'chordProject' | 'sheetProject' | 'direct' | 'rag' | string;
+export type ChatCategory = 'direct' | 'chord' | 'sheet' | 'overview' | string;
 
 export interface ChatSummary {
   publicId: string;
@@ -34,6 +34,10 @@ export interface ChatSummary {
   title: string;
   category?: ChatCategory | null;
   songTitle?: string | null;
+  /** Set for chats started from a chord/sheet PROJECT. Lets the Recent Chats
+   *  sidebar reopen the originating chart (chord chart + AI chat screen)
+   *  directly — no more matching back to a project by song title. */
+  projectPublicId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -62,6 +66,13 @@ export interface ChatStreamRequest {
   chordContextText?: string;
   category?: ChatCategory;
   songTitle?: string;
+  /** Required by the chord-project / sheet-project stream endpoints — the
+   *  backend stores it on the chat so the session is reopenable on that chart. */
+  projectPublicId?: string;
+  /** CLIENT-ONLY routing hint (NOT sent in the body): selects the categorized
+   *  stream endpoint. 'chord' → /chord-project/stream, 'sheet' →
+   *  /sheet-project/stream, undefined → /global/stream. */
+  chartKind?: 'chord' | 'sheet';
   images?: { mediaType: string; data: string }[];
   /** When true the backend attaches RAG (multi-query + RRF over the corpus)
    *  and prefixes the stream with a \x00RAG_DEBUG\x00 … \x00END_DEBUG\x00
@@ -260,10 +271,20 @@ export async function streamChat(
   onDebug?: (info: unknown) => void,
   signal?: AbortSignal,
 ): Promise<string> {
-  const res = await authFetch(`${API_BASE}/v1/chat/stream`, {
+  /* Pick the categorized stream endpoint. A chord/sheet PROJECT chat must go
+   * through its own endpoint so the backend persists type=chordProject/category=chord
+   * (+ projectPublicId/songTitle) — that's what drives the Recent Chats icon +
+   * "reopen on the chart" behaviour. Everything else is a global/direct chat.
+   * `chartKind` is a client-only hint; strip it from the wire body. */
+  const { chartKind, ...body } = req;
+  const path =
+    chartKind === 'chord' && body.projectPublicId ? '/v1/chat/chord-project/stream'
+    : chartKind === 'sheet' && body.projectPublicId ? '/v1/chat/sheet-project/stream'
+    : '/v1/chat/global/stream';
+  const res = await authFetch(`${API_BASE}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(req),
+    body: JSON.stringify(body),
     signal,
   });
   if (!res.ok) {

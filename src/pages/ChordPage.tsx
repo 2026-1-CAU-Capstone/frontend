@@ -953,6 +953,12 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   const [restoreChatId] = useState<string | undefined>(
     () => searchParams.get('chat') ?? undefined,
   );
+  /* publicId of the chord PROJECT this chart was opened from (`/mychord?project=<id>`).
+   * Threaded to RightChatPanel so chats started here persist with category=chord +
+   * this id → Recent Chats shows the chord icon + song name and reopens this chart. */
+  const [chatProjectId] = useState<string | undefined>(
+    () => searchParams.get('project') ?? undefined,
+  );
   useEffect(() => {
     if (restoreChatId) setActiveChat(restoreChatId);
     else setActiveChat(null);
@@ -2012,6 +2018,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
             <RightChatPanel
             hideHeader
             chartKind="chord"
+            projectPublicId={chatProjectId}
             restoreChatId={restoreChatId}
             selectedChords={selectedChordsData}
             groupExplanation={selectedChordsData.length > 0 ? "이 구간이 다음 질문의 분석 대상으로 포함됩니다." : null}
@@ -2035,6 +2042,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
         groupExplanation={selectedChordsData.length > 0 ? "이 구간이 다음 질문의 분석 대상으로 포함됩니다." : null}
         songTitle={sheet?.title ?? 'Jazzify AI'}
         chartKind="chord"
+        projectPublicId={chatProjectId}
         restoreChatId={restoreChatId}
         chordContext={chordContext}
         isSelectionMode={isSelectionMode}
@@ -2250,6 +2258,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
               <RightChatPanel
                 hideHeader
                 chartKind="chord"
+                projectPublicId={chatProjectId}
                 restoreChatId={restoreChatId}
                 selectedChords={selectedChordsData}
                 groupExplanation={selectedChordsData.length > 0 ? '이 구간이 다음 질문의 분석 대상으로 포함됩니다.' : null}

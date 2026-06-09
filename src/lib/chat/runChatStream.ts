@@ -30,6 +30,12 @@ export interface RunChatStreamArgs {
   songTitle: string;
   history: ClaudeMessage[];
   chatPublicId: string | null;
+  /** Chart origin → selects the categorized backend stream endpoint
+   *  (chord/sheet project). undefined → global/direct chat. */
+  chartKind?: 'chord' | 'sheet' | null;
+  /** publicId of the originating chord/sheet PROJECT — required by the
+   *  categorized endpoints so the chat is reopenable on that chart. */
+  projectPublicId?: string | null;
   loggedIn: boolean;
   signal: AbortSignal;
   onChunk: (accumulated: string) => void;
@@ -65,8 +71,8 @@ function toBackendImages(
 export async function runChatStream(args: RunChatStreamArgs): Promise<RunChatStreamResult> {
   const {
     text, textForLLM, images, contextForModel, songTitle, history,
-    chatPublicId, loggedIn, signal, onChunk, onDebug, onNewChatPublicId,
-    forceLocal = false,
+    chatPublicId, chartKind, projectPublicId, loggedIn, signal,
+    onChunk, onDebug, onNewChatPublicId, forceLocal = false,
   } = args;
 
   let finalText = '';
@@ -92,12 +98,16 @@ export async function runChatStream(args: RunChatStreamArgs): Promise<RunChatStr
           })),
           chordContextText: contextForModel || undefined,
           songTitle: songTitle || undefined,
-          // NOTE: do NOT send `category: chartKind` here. Posting an unknown
-          // category value ('chord'/'sheet') made the backend reject/branch the
-          // request so the chat was never persisted (it fell back to the local
-          // path → never appeared in Recent Chats). Chord/sheet origin is
-          // tracked client-side via chatChartMeta instead. Re-enable only once
-          // the backend explicitly accepts these category values.
+          // Categorized endpoints (now supported by the backend): when this chat
+          // originates from a chord/sheet PROJECT, `chartKind` + `projectPublicId`
+          // route it to /chord-project|sheet-project/stream so the backend
+          // persists type=chordProject/category=chord (+ projectPublicId/songTitle).
+          // That's what makes the Recent Chats row show the chart icon + song name
+          // and reopen on the chart. (chartKind is stripped from the wire body in
+          // streamChat; only projectPublicId is sent.)
+          ...(chartKind && projectPublicId
+            ? { chartKind, projectPublicId }
+            : {}),
           images: toBackendImages(images),
           /* Vision turns skip RAG — image grounding beats corpus retrieval
            * and the backend's image-stream endpoint is non-RAG. */

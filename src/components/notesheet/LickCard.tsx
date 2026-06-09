@@ -88,7 +88,7 @@ async function __ensureVexflow() {
 }
 import type { NoteInfo, MeasureInfo } from '../../data/sampleMelody';
 import type { LickEntry } from '../../data/lickData';
-import { useGlobalPlayer } from '../../lib/player';
+import { useGlobalPlayer, warmupPlayerOnce } from '../../lib/player';
 import { YoutubeEmbed } from '../common/YoutubeEmbed';
 import { getLickVideo } from '../../data/lickVideos';
 import { useCountInIntro } from '../../hooks/useCountInIntro';
@@ -636,6 +636,16 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
 
   /* player */
   const { player } = useGlobalPlayer();
+
+  /* Eager warmup: as soon as a lick card is on screen, warm the audio engine
+   * (AudioContext + piano/bass/drums + melody lead) in the background — without
+   * resuming the context (no sound). Runs once per session; by the time the
+   * user presses Play the samples are decoded and playback is instant. */
+  useEffect(() => {
+    if (visible === false) return;
+    warmupPlayerOnce(player, { kind: 'lick', data: lick.sheetData });
+  }, [visible, player, lick.sheetData]);
+
   const [playing, setPlaying] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
   const [scrollable, setScrollable] = useState(false);
