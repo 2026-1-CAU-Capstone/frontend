@@ -253,6 +253,10 @@ function transposeLick(lick: LickEntry, semitones: number): LickEntry {
     chords: lick.chords.map((c) => transposeChordLabel(c, semitones, uf)),
     sheetData: {
       ...lick.sheetData,
+      // Keep sheetData.key in sync with the transposed measures — consumers that
+      // read the tonic from sheetData.key (e.g. the inline-lick I-cap) otherwise
+      // see the stale original key and mis-detect the I.
+      key: newKey,
       measures: fitted,
     },
   };

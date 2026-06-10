@@ -3893,7 +3893,12 @@ export function LeadSheet({
               // root equals the lick key's tonic.
               const rootOf = (c: string) =>
                 c.trim().match(/^([A-G][b#♭♯]?)/)?.[1]?.replace('♭', 'b').replace('♯', '#') ?? '';
-              const keyRoot = rootOf(inlineLick.sheet.key || 'C') || 'C';
+              // Tonic = the CHART's current (written) key — the progression the
+              // user clicked resolves to the chart's I, and the lick is transposed
+              // to match. Prefer this over the lick's own sheet.key (which can be
+              // stale after a transpose), so the I-cap finds the real I (e.g. F△7
+              // in F), not a chord that merely shares the original tonic (C7).
+              const keyRoot = rootOf(selectedKey || inlineLick.sheet.key || 'C') || 'C';
               let endIdx = measures.length - 1;
               for (let k = start; k < measures.length; k++) {
                 const ch = (measures[k]?.chord ?? '').trim();

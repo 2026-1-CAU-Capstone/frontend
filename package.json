@@ -19,6 +19,7 @@
     "@capacitor/core": "^8.3.3",
     "@capacitor/ios": "^8.3.3",
     "@capacitor/keyboard": "^8.0.3",
+    "claude": "^0.1.1",
     "fflate": "^0.8.2",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
