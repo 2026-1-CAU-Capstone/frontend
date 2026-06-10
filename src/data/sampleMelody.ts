@@ -84,6 +84,13 @@ export interface NoteSheetData {
   tempo?: number;
   genre?: string;
   measures: MeasureInfo[];
+  /** Multi-part scores: MusyngKite instrument name for THIS part's timbre
+   *  (resolved from its GM program). Drives per-part playback timbre.
+   *  Omitted → default melody instrument. */
+  instrument?: string;
+  /** True when this part is a channel-10 percussion staff — its notes are GM
+   *  percussion keys played through the drum sampler, not pitched. */
+  isDrum?: boolean;
 }
 
 /* ─── Sample: 16-bar jazz melody in C major ─────────────────────────────── */

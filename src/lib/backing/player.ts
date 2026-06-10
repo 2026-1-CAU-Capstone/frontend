@@ -15,6 +15,7 @@ import {
   type PlayerSettings,
 } from "../note/playerSettings";
 import { DRUM_KIT_PRESETS } from "./drumKitPresets";
+import { DRUM_INSTRUMENT } from "../note/gmInstruments";
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Backing player.
@@ -96,6 +97,11 @@ export function createBackingPlayer(
   let melodyDestination: AudioNode | null = null;
   let melodyInstId: string | null = null;        // currently-loaded melody instrument
   let melodyLoading: Promise<void> | null = null; // in-flight melody (re)load
+  // Multi-part scores: one loaded instrument per distinct GM timbre present in
+  // the melody track (keyed by MusyngKite name). dispatch() routes each note
+  // to its part's instrument; falls back to `melody`/piano while loading.
+  const melodyInstMap = new Map<string, TriggerableInstrument>();
+  let melodyMapLoading: Promise<void> | null = null;
   let pianoReverbSend: GainNode | null = null;
   let drumLoop: DrumLoopPlayer | null = null;
   let drumLoopUrl: string | null = null;       // currently-loaded loop URL
@@ -148,6 +154,8 @@ export function createBackingPlayer(
    *  reloads them. Called when we recreate a dead/poisoned AudioContext. */
   function disposeCtxGraph(): void {
     try { piano?.stopAll(); bass?.stopAll(); drums?.stopAll(); melody?.stopAll(); } catch { /* noop */ }
+    try { melodyInstMap.forEach((inst) => inst.stopAll()); } catch { /* noop */ }
+    melodyInstMap.clear(); melodyMapLoading = null;
     piano = null; bass = null; drums = null; melody = null;
     pianoReverbSend = null; melodyDestination = null; melodyInstId = null;
     loading = null; melodyLoading = null;
@@ -203,7 +211,7 @@ export function createBackingPlayer(
   }
 
   function ensureInstruments(): Promise<void> {
-    if (piano && bass && drums) return ensureMelodyInstrument();
+    if (piano && bass && drums) return ensureMelodyInstrument().then(() => ensureMelodyInstruments());
     if (loading) return loading;
     // Load on the (possibly suspended) context — no resume needed, so this
     // can run during mount-time warmup before any user gesture.
@@ -221,7 +229,7 @@ export function createBackingPlayer(
       melodyDestination = inst.melodyDestination;
       // Apply any pianoReverb setting that was already in config when we loaded.
       applyPianoReverb();
-    }).then(() => ensureMelodyInstrument());
+    }).then(() => ensureMelodyInstrument()).then(() => ensureMelodyInstruments());
     return loading;
   }
 
@@ -255,6 +263,35 @@ export function createBackingPlayer(
       }
     })();
     return melodyLoading;
+  }
+
+  /** Multi-part: load one instrument per distinct GM timbre present in the
+   *  current melody track (config.melody[].instrument). Drum-routed notes
+   *  (melodyInst === DRUM_INSTRUMENT / drumPiece set) use the drum sampler,
+   *  not a pitched instrument, so they're skipped here. Idempotent. */
+  function ensureMelodyInstruments(): Promise<void> {
+    if (!ctx || !melodyDestination) return Promise.resolve();
+    const dest = melodyDestination;
+    const want = new Set<string>();
+    for (const m of config.melody ?? []) {
+      const name = (m as { instrument?: string }).instrument;
+      const isDrum = (m as { drumPiece?: unknown }).drumPiece !== undefined;
+      if (name && !isDrum && name !== DRUM_INSTRUMENT && !melodyInstMap.has(name)) want.add(name);
+    }
+    if (want.size === 0) return melodyMapLoading ?? Promise.resolve();
+    const load = (async () => {
+      await Promise.all([...want].map(async (name) => {
+        try {
+          const inst = await loadMelodyInstrument(ctx!, dest, name);
+          if (disposed) { inst.stopAll(); return; }
+          melodyInstMap.set(name, inst);
+        } catch (err) {
+          console.warn('[backing] part instrument load failed:', name, err);
+        }
+      }));
+    })();
+    melodyMapLoading = load;
+    return load;
   }
 
   function applyPianoReverb() {
@@ -557,15 +594,27 @@ export function createBackingPlayer(
       return;
     }
 
+    // Multi-part drum staff: a melody note flagged with a DrumPiece routes to
+    // the drum sampler (GM percussion), not a pitched instrument.
+    if (ev.instrument === "melody" && ev.drumPiece) {
+      if (config.drumMode === "loop" && drumLoop) return;
+      const dvol = config.volume?.drums ?? 1;
+      if (dvol <= 0) return;
+      drums?.trigger({ note: ev.drumPiece, time: absTime, duration: 0, velocity: ev.velocity * dvol });
+      return;
+    }
+
     // Melody plays on its own swappable lead instrument (piano / sax / flute /
-    // …, loaded by ensureMelodyInstrument). Falls back to the comp piano while
-    // the lead is still loading so the very first notes aren't dropped. Its own
-    // melody-volume key mixes the lead independently of the comp piano.
+    // …, loaded by ensureMelodyInstrument). For multi-part scores each note may
+    // carry its own GM timbre (ev.melodyInst) → route to that loaded instrument
+    // from melodyInstMap. Falls back to the single lead, then the comp piano,
+    // while instruments are still loading so the first notes aren't dropped.
     const inst =
       ev.instrument === "piano" ? piano :
       ev.instrument === "bass"  ? bass  :
-      ev.instrument === "melody" ? (melody ?? piano) :
-      null;
+      ev.instrument === "melody"
+        ? (ev.melodyInst ? (melodyInstMap.get(ev.melodyInst) ?? melody ?? piano) : (melody ?? piano))
+        : null;
     if (!inst) return;
 
     const vol = config.volume?.[ev.instrument] ?? 1;
@@ -584,6 +633,7 @@ export function createBackingPlayer(
     bass?.stopAll();
     drums?.stopAll();
     melody?.stopAll();
+    melodyInstMap.forEach((inst) => inst.stopAll());
     drumLoop?.stop();
   }
 
@@ -874,14 +924,21 @@ export function createBackingPlayer(
       // Melody-only change (e.g. an inline lick toggled over the chord chart):
       // re-render the event stream in place WITHOUT touching the transport
       // clock, so the new melody starts at its bars with no stop/restart.
-      if (melodyChanged) rebuildEventsInPlace();
+      if (melodyChanged) {
+        // Multi-part: load any new per-part timbres for the swapped melody.
+        ensureMelodyInstruments().catch(() => { /* logged in loader */ });
+        rebuildEventsInPlace();
+      }
       return;
     }
 
-    // Idle: pre-load a newly-selected melody instrument so the next play()
-    // doesn't stall on the sample fetch.
+    // Idle: pre-load a newly-selected melody instrument (and any multi-part
+    // per-part timbres) so the next play() doesn't stall on the sample fetch.
     if (melodyInstChanged) {
       ensureMelodyInstrument().catch(() => { /* logged in loader */ });
+    }
+    if (melodyChanged) {
+      ensureMelodyInstruments().catch(() => { /* logged in loader */ });
     }
   }
 

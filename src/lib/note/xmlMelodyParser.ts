@@ -3,6 +3,7 @@ import type {
   NoteSheetData, NoteInfo, MeasureInfo,
   Articulation, Ornament, Dynamic, NavigationMarker,
 } from '../../data/sampleMelody';
+import { gmProgramToInstrument, DRUM_INSTRUMENT } from './gmInstruments';
 
 /* ─── MusicXML → NoteSheetData parser ────────────────────────────────── */
 /*
@@ -784,6 +785,27 @@ function readPartNames(doc: Document): Map<string, string> {
   return map;
 }
 
+/** Read id → { instrument timbre, isDrum } from <part-list>. Each <score-part>
+ *  carries a <midi-instrument> with <midi-program> (GM, 1-based) and
+ *  <midi-channel> (10 = percussion). We resolve the program to a MusyngKite
+ *  instrument name so playback uses the part's real timbre. */
+function readPartInstruments(doc: Document): Map<string, { instrument: string; isDrum: boolean }> {
+  const map = new Map<string, { instrument: string; isDrum: boolean }>();
+  for (const sp of doc.querySelectorAll('part-list > score-part')) {
+    const id = sp.getAttribute('id');
+    if (!id) continue;
+    const mi = sp.querySelector('midi-instrument');
+    const channel = parseInt(mi?.querySelector('midi-channel')?.textContent ?? '0', 10);
+    const program = parseInt(mi?.querySelector('midi-program')?.textContent ?? '0', 10);
+    const isDrum = channel === 10 || sp.querySelector('midi-unpitched') !== null;
+    map.set(id, {
+      instrument: isDrum ? DRUM_INSTRUMENT : gmProgramToInstrument(program || undefined),
+      isDrum,
+    });
+  }
+  return map;
+}
+
 /** Heuristic melody-likeness so the UI can default to the most tune-carrying
  *  part: prefer mid/high average pitch, penalise empty/very-low parts. */
 function partMelodyScore(data: NoteSheetData): number {
@@ -804,6 +826,7 @@ function partMelodyScore(data: NoteSheetData): number {
  *  parse when the document has no discrete <part> elements. */
 function parseAllParts(doc: Document, fallbackTitle: string): ScorePart[] {
   const names = readPartNames(doc);
+  const instruments = readPartInstruments(doc);
   const partEls = Array.from(doc.querySelectorAll('part')).filter(
     (p) => p.querySelector(':scope > measure') !== null,
   );
@@ -812,7 +835,11 @@ function parseAllParts(doc: Document, fallbackTitle: string): ScorePart[] {
   }
   return partEls.map((pEl, i) => {
     const id = pEl.getAttribute('id') ?? `P${i + 1}`;
-    return { id, name: names.get(id) ?? `Part ${i + 1}`, data: parseXmlDoc(doc, fallbackTitle, pEl) };
+    const inst = instruments.get(id);
+    const data = parseXmlDoc(doc, fallbackTitle, pEl);
+    // Attach per-part timbre so playback uses the real instrument sound.
+    if (inst) { data.instrument = inst.instrument; data.isDrum = inst.isDrum; }
+    return { id, name: names.get(id) ?? `Part ${i + 1}`, data };
   });
 }
 

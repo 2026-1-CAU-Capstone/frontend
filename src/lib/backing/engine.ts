@@ -407,6 +407,9 @@ export function renderChart(chart: Chart, opts: RenderOptions): BackingEvent[] {
         bar: Math.floor(m.beatOffset / beatsPerBar),
         srcMi: m.srcMi,
         srcNi: m.srcNi,
+        // Multi-part per-note timbre / drum routing (single-part: undefined).
+        ...(m.instrument ? { melodyInst: m.instrument } : {}),
+        ...(m.drumPiece ? { drumPiece: m.drumPiece } : {}),
       });
     }
     console.log("[unified] melody track →", { count: opts.melody.length });

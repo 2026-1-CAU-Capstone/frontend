@@ -280,6 +280,12 @@ export interface NoteEvent {
    *  sync. Lets the renderer map the sounding note to the exact StaveNote
    *  regardless of rests / ties / chords / grace notes. */
   srcNi?: number;
+  /** Multi-part: MusyngKite instrument name to route this melody note to
+   *  (per-part timbre). Omitted → engine's default melody instrument. */
+  melodyInst?: string;
+  /** Multi-part drum part: route to the drum sampler with this piece instead
+   *  of playing the pitched `midi`. */
+  drumPiece?: DrumPiece;
 }
 
 export interface DrumEvent {

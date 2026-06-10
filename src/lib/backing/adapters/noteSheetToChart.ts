@@ -5,8 +5,9 @@ import type {
   LeadSheetSystem,
 } from "../../../data/leadSheetTypes";
 import type { NoteInfo, NoteSheetData } from "../../../data/sampleMelody";
-import type { Chart } from "../types";
+import type { Chart, DrumPiece } from "../types";
 import { leadSheetToChart } from "./leadSheetToChart";
+import { gmPercToDrumPiece } from "../../note/gmInstruments";
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Adapter: NoteSheetData (per-note melody data with bar-level chord strings)
@@ -45,6 +46,12 @@ export interface MelodyNote {
    *  tones all share the same srcNi; tie-continuations carry the originating
    *  note's srcNi so the held note keeps its highlight. */
   srcNi: number;
+  /** Multi-part: MusyngKite instrument name to play this note through (from
+   *  the source part's GM program). Omitted → engine's default melody inst. */
+  instrument?: string;
+  /** Multi-part drum part: this note is a percussion hit (GM key → DrumPiece);
+   *  the engine routes it to the drum sampler instead of a pitched instrument. */
+  drumPiece?: DrumPiece;
 }
 
 /**
@@ -159,6 +166,8 @@ export function extractMelody(sheet: NoteSheetData): MelodyNote[] {
               durationBeats: beats,
               srcMi: mi,
               srcNi,
+              ...(sheet.instrument ? { instrument: sheet.instrument } : {}),
+              ...(sheet.isDrum ? { drumPiece: gmPercToDrumPiece(midi) ?? undefined } : {}),
             });
             if (note.tie) nextOpen.set(midi, idx);
           }
