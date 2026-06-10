@@ -28,7 +28,7 @@ import { useIsNativeUi } from '../contexts/AppPreviewContext';
 import { withLeadSheetSelectionIds } from '../lib/leadSheetSelection';
 import type { LeadSheetChordSelection } from '../components/leadsheet/LeadSheet';
 import { loadUserLicksSync, type LickEntry } from '../data/lickData';
-import { findMatchingLicks, leadingPickupBars, trailingPickupBars, type LickMatch } from '../lib/lickMatcher';
+import { findMatchingLicks, leadingPickupBars, type LickMatch } from '../lib/lickMatcher';
 import { SavedLicksModal } from '../components/leadsheet/SavedLicksModal';
 import { useCountInIntro } from '../hooks/useCountInIntro';
 import { chordToInputString, parseChordInput, loadChartEdit, saveChartEdit } from '../lib/leadSheetChordEdit';
@@ -1078,37 +1078,6 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     ));
   }, [sheet, selectedChordsData]);
 
-  /* Anchors of every ii-V-I group present in the current chart, keyed by
-   * group type ("ii-V-I" / "minor-ii-V" / "ii-V"). When the user pins a
-   * lick at one anchor, we replicate it at every OTHER anchor of the same
-   * group type so the lick appears over every matching progression in the
-   * song (auto-multi-placement). The lick state itself stays a single
-   * record — only the rendering layer fans it out into LeadSheet's
-   * inlineLicks array. */
-  const allIiviAnchors = useMemo(() => {
-    if (!sheet) return [] as Array<{ systemIndex: number; anchorBar: number; groupKey: string }>;
-    const out: Array<{ systemIndex: number; anchorBar: number; groupKey: string }> = [];
-    /* Walk systems and read groupMemberships off each analyzed chord. For
-     * each unique groupId, find the role-ii bar (which is what anchorBar
-     * conventionally points at) and emit one anchor entry. groupKey is the
-     * groupType so the multi-placement fans out only within the same
-     * progression family (ii-V-I doesn't auto-place on a turnaround). */
-    const seen = new Set<number>();
-    sheet.systems.forEach((system, si) => {
-      system.bars.forEach((bar, bi) => {
-        for (const c of bar.chords) {
-          const mems = c?.analysis?.groupMemberships ?? [];
-          for (const g of mems) {
-            if (!g || seen.has(g.groupId)) continue;
-            if (g.role !== 'ii') continue; // anchor at the ii bar
-            seen.add(g.groupId);
-            out.push({ systemIndex: si, anchorBar: bi, groupKey: g.groupType });
-          }
-        }
-      });
-    });
-    return out;
-  }, [sheet]);
   // Mixer toggle: whether the inline lick's melody plays over the chord chart.
   const [playInlineLick, setPlayInlineLick] = useState(() => getPlayerSettings().playInlineLick);
   useEffect(() => subscribePlayerSettings((s) => setPlayInlineLick(s.playInlineLick)), []);

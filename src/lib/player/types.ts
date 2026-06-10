@@ -70,6 +70,11 @@ export type EngineBackend = "rule" | "sty" | "hybrid";
 export interface SheetInput {
   kind: "sheet";
   data: NoteSheetData;
+  /** Additional parts (multi-part scores) whose melody lines should ALSO
+   *  sound during playback. `data` drives the displayed staff + backing
+   *  chart; each entry here is flattened into the melody timeline so every
+   *  part is heard simultaneously. Omit for single-part playback. */
+  extraParts?: NoteSheetData[];
 }
 
 /**

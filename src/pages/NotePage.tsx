@@ -22,7 +22,7 @@ import type { ChordOverlay } from '../data/types';
 import { noteSongs, externalSongs, manualSongs, leadsheetSongs } from '../data/noteSongs';
 import type { SongGroup } from '../data/noteSongs';
 import { loadMidiMelody } from '../lib/note/midiMelodyParser';
-import { loadXmlMelody, loadMxlMelody } from '../lib/note/xmlMelodyParser';
+import { loadXmlParts, loadMxlParts, sortPartsByMelody, type ScorePart } from '../lib/note/xmlMelodyParser';
 import { injectChordsFromLeadSheet } from '../lib/note/jazz1460ChordInject';
 import { getPlayerSettings, subscribePlayerSettings, TRANSPOSING_INSTRUMENT_OFFSET } from '../lib/note/playerSettings';
 import { getSong } from '../lib/ireal/irealLoader';
@@ -544,6 +544,42 @@ const LightbulbIcon = ({ lit }: { lit: boolean }) => (
   </svg>
 );
 
+/* 전체 보기 — vertical stack of all parts, each shrunk via `zoom` so multiple
+ * independent staves fit ("아주 작게"). zoom reflows layout height (unlike
+ * transform:scale) so the stacked parts don't overlap. */
+const AllPartsStack = styled.div`
+  flex: 1;
+  overflow-y: auto;
+  background: ${({ theme }) => theme.colors.bgSecondary};
+  padding: 12px 0 40px;
+`;
+
+const AllPartsPicker = styled.select`
+  margin: 4px 0 10px 16px;
+  padding: 6px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 8px;
+  background: #1a1a1a;
+  color: #fff;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+`;
+
+const PartScale = styled.div`
+  zoom: 0.6;
+  margin-bottom: 6px;
+`;
+
+const PartScaleLabel = styled.div`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #555;
+  margin: 0 0 2px 18px;
+`;
+
 const LoadingState = styled.div`
   flex: 1;
   display: flex;
@@ -638,6 +674,11 @@ export default function NotePage() {
   const [songGroup, setSongGroup] = useState<SongGroup | '__sample__'>('__sample__');
   const [songId, setSongId] = useState(SAMPLE_ID);
   const [sheet, setSheet] = useState<NoteSheetData | null>(sampleMelody);
+  /* Multi-part scores (PDMX etc.): every part parsed separately. `parts[0]`
+   * is the most melody-like (default view). selectedPartId === 'all' shows
+   * every part stacked + plays them together. */
+  const [parts, setParts] = useState<ScorePart[]>([{ id: 'P1', name: 'Part 1', data: sampleMelody }]);
+  const [selectedPartId, setSelectedPartId] = useState<string>('P1');
 
   const filteredSongs = useMemo(() => {
     if (songGroup === '__sample__') return [];
@@ -785,6 +826,8 @@ export default function NotePage() {
   useEffect(() => {
     if (songId === SAMPLE_ID) {
       setSheet(sampleMelody);
+      setParts([{ id: 'P1', name: 'Part 1', data: sampleMelody }]);
+      setSelectedPartId('P1');
       setLoading(false);
       setError(null);
       return;
@@ -800,24 +843,38 @@ export default function NotePage() {
     (async () => {
       try {
         const url = await song.loadUrl();
-        let data =
-          song.fileType === 'json'
-            ? await fetch(url).then((r) => { if (!r.ok) throw new Error(`${r.status} ${r.statusText}`); return r.json(); }) as NoteSheetData
-            : song.fileType === 'midi'
-              ? await loadMidiMelody(url, song.title, song.composer)
-              : song.fileType === 'mxl'
-                ? await loadMxlMelody(url, song.title)
-                : await loadXmlMelody(url, song.title);
-        if (song.chordJazzIndex !== undefined) {
-          const lead = await getSong(song.chordJazzIndex);
-          if (lead) data = injectChordsFromLeadSheet(data, lead);
+        // XML/MXL → ALL parts (multi-part scores). MIDI/JSON → single synthetic part.
+        let loadedParts: ScorePart[];
+        if (song.fileType === 'json') {
+          const d = await fetch(url).then((r) => { if (!r.ok) throw new Error(`${r.status} ${r.statusText}`); return r.json(); }) as NoteSheetData;
+          loadedParts = [{ id: 'P1', name: 'Part 1', data: d }];
+        } else if (song.fileType === 'midi') {
+          const d = await loadMidiMelody(url, song.title, song.composer);
+          loadedParts = [{ id: 'P1', name: 'Part 1', data: d }];
+        } else if (song.fileType === 'mxl') {
+          loadedParts = sortPartsByMelody(await loadMxlParts(url, song.title));
+        } else {
+          loadedParts = sortPartsByMelody(await loadXmlParts(url, song.title));
         }
-        if (!cancelled) setSheet(data);
+        // Manual-clone chord overlay applies to the primary (displayed) part.
+        if (song.chordJazzIndex !== undefined && loadedParts[0]) {
+          const lead = await getSong(song.chordJazzIndex);
+          if (lead) loadedParts = [
+            { ...loadedParts[0], data: injectChordsFromLeadSheet(loadedParts[0].data, lead) },
+            ...loadedParts.slice(1),
+          ];
+        }
+        if (!cancelled) {
+          setParts(loadedParts);
+          setSelectedPartId(loadedParts[0]?.id ?? 'P1');
+          setSheet(loadedParts[0]?.data ?? null);
+        }
       } catch (err) {
         if (!cancelled) {
           console.error('Failed to load song:', err);
           setError(err instanceof Error ? err.message : 'Failed to load song.');
           setSheet(null);
+          setParts([]);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -826,6 +883,39 @@ export default function NotePage() {
 
     return () => { cancelled = true; };
   }, [songId]);
+
+  /* Switch displayed part. 'all' shows every part stacked; the displayed
+   * staff (sheet) tracks the primary part either way so chat-selection /
+   * transpose logic keeps working. */
+  const handleSelectPart = useCallback((id: string) => {
+    setSelectedPartId(id);
+    const p = id === 'all' ? parts[0] : parts.find((x) => x.id === id);
+    if (p) setSheet(p.data);
+  }, [parts]);
+
+  /* Each part transposed to the current written key (so 전체 보기 shows every
+   * part in the same key, and playback merges them consistently). */
+  const partsTransposed = useMemo(() =>
+    parts.map((p) => ({
+      ...p,
+      data: p.data.key === writtenKey ? p.data : transposeNoteData(p.data, writtenKey),
+    })),
+    [parts, writtenKey],
+  );
+
+  /* Dropdown options: only for multi-part scores. Prepend "전체 보기". */
+  const partOptions = useMemo(() =>
+    parts.length > 1
+      ? [{ id: 'all', name: '전체 보기' }, ...parts.map((p) => ({ id: p.id, name: p.name }))]
+      : [],
+    [parts],
+  );
+
+  /* In 전체 보기, all non-primary parts sound alongside the primary. */
+  const extraPartsForPlay = useMemo(() =>
+    selectedPartId === 'all' ? partsTransposed.slice(1).map((p) => p.data) : undefined,
+    [selectedPartId, partsTransposed],
+  );
 
   /* search filter */
   const searchResults = useMemo(() => {
@@ -993,12 +1083,48 @@ export default function NotePage() {
           </TransportBar>
 
           {transposedSheet && !loading ? (
+            selectedPartId === 'all' && partsTransposed.length > 1 ? (
+              /* 전체 보기 — every part as its own small independent staff, stacked.
+                 The FIRST sheet drives playback (ref) and merges all other parts
+                 via extraParts so everything sounds together; the rest are
+                 display-only (noPreload). A NotePage-level part picker sits above
+                 the stack so the user can switch back to a single part. */
+              <AllPartsStack>
+                <AllPartsPicker
+                  value="all"
+                  onChange={(e) => handleSelectPart(e.target.value)}
+                >
+                  {partOptions.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </AllPartsPicker>
+                {partsTransposed.map((p, i) => (
+                  <PartScale key={p.id}>
+                    <PartScaleLabel>{p.name}</PartScaleLabel>
+                    <NoteSheet
+                      ref={i === 0 ? noteSheetRef : undefined}
+                      data={p.data}
+                      forceAutoStem
+                      lineStartMeasureNumbers
+                      hideTransport
+                      noPreload={i !== 0}
+                      onPlayingChange={i === 0 ? setIsPlaying : undefined}
+                      onTempoChange={i === 0 ? setTempo : undefined}
+                      extraParts={i === 0 ? extraPartsForPlay : undefined}
+                    />
+                  </PartScale>
+                ))}
+              </AllPartsStack>
+            ) : (
             <NoteSheet
               ref={noteSheetRef}
               data={transposedSheet}
               selectedKey={writtenKey}
               allKeys={allKeys}
               onKeyChange={setWrittenKey}
+              partOptions={partOptions}
+              selectedPartId={selectedPartId}
+              onSelectPart={handleSelectPart}
               forceAutoStem
               lineStartMeasureNumbers
               selectable={isNoteSelectionMode}
@@ -1011,6 +1137,7 @@ export default function NotePage() {
               breakPoints={breakPoints}
               onToggleBreak={handleToggleBreak}
             />
+            )
           ) : (
             <LoadingState>
               {error ?? (loading ? 'Loading...' : 'Loading song list...')}

@@ -111,7 +111,16 @@ interface ParserState {
   pendingHairpinStop?: boolean;
 }
 
-function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
+/**
+ * Parse one part of a MusicXML document into a NoteSheetData.
+ *
+ * `partEl` scopes the measure walk + initial <attributes> to a SINGLE <part>
+ * element. Multi-part scores (PDMX often has 7-16 instrument parts) MUST pass
+ * it — otherwise `part > measure` concatenates every part's bars into one
+ * monstrous line. When omitted (single-part files: omnibook), it falls back to
+ * the whole document, preserving the original behaviour.
+ */
+function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element): NoteSheetData {
 
   /* ── metadata ────────────────────────────────────────────────────── */
   const title  = text(doc.documentElement, 'work-title')
@@ -119,7 +128,9 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
               ?? fallbackTitle;
   const composer = text(doc.documentElement, 'creator[type="composer"]') ?? 'Unknown';
 
-  const firstAttr = doc.querySelector('attributes');
+  // Initial attributes (key/divisions/time) — scoped to THIS part when given,
+  // since transposing instruments carry their own key/divisions.
+  const firstAttr = (partEl ?? doc).querySelector('attributes');
   const initialFifths = parseInt(text(firstAttr, 'fifths') ?? '0', 10);
   const beats    = text(firstAttr, 'beats') ?? '4';
   const beatType = text(firstAttr, 'beat-type') ?? '4';
@@ -170,7 +181,10 @@ function parseXmlDoc(doc: Document, fallbackTitle: string): NoteSheetData {
   // until <ending type="stop"/>. We mark each measure inside the span.
   let currentVolta: number | undefined;
 
-  const partMeasures = doc.querySelectorAll('part > measure');
+  // Scope to a single part when given (multi-part scores); else whole doc.
+  const partMeasures = partEl
+    ? partEl.querySelectorAll(':scope > measure')
+    : doc.querySelectorAll('part > measure');
 
   for (let measureIdx = 0; measureIdx < partMeasures.length; measureIdx++) {
     const mEl = partMeasures[measureIdx];
@@ -747,35 +761,97 @@ function kindToSymbol(kind: string): string {
   return MAP[kind] ?? kind;
 }
 
-/* ─── Public loaders ─────────────────────────────────────────────────── */
+/* ─── Multi-part support ─────────────────────────────────────────────── */
 
-export async function loadXmlMelody(
-  url: string,
-  fallbackTitle: string,
-): Promise<NoteSheetData> {
-  const res = await fetch(url);
-  const xml = await res.text();
-  const doc = new DOMParser().parseFromString(xml, 'application/xml');
-  return parseXmlDoc(doc, fallbackTitle);
+export interface ScorePart {
+  /** <part id="..."> identifier. */
+  id: string;
+  /** Human-readable name from <part-list><score-part><part-name>, else the id. */
+  name: string;
+  /** This part parsed as a standalone single-line sheet. */
+  data: NoteSheetData;
 }
 
-export async function loadMxlMelody(
-  url: string,
-  fallbackTitle: string,
-): Promise<NoteSheetData> {
-  const res = await fetch(url);
-  const buf = new Uint8Array(await res.arrayBuffer());
-  const files = unzipSync(buf);
+/** Read id → display name from <part-list>. */
+function readPartNames(doc: Document): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const sp of doc.querySelectorAll('part-list > score-part')) {
+    const id = sp.getAttribute('id');
+    if (!id) continue;
+    const name = (sp.querySelector('part-name')?.textContent ?? '').trim();
+    map.set(id, name || id);
+  }
+  return map;
+}
 
-  let xmlText: string | null = null;
-  for (const [name, data] of Object.entries(files)) {
-    if (name.endsWith('.xml') && !name.startsWith('META-INF') && name !== 'container.xml') {
-      xmlText = new TextDecoder().decode(data);
-      break;
+/** Heuristic melody-likeness so the UI can default to the most tune-carrying
+ *  part: prefer mid/high average pitch, penalise empty/very-low parts. */
+function partMelodyScore(data: NoteSheetData): number {
+  let sum = 0, cnt = 0;
+  for (const m of data.measures) {
+    for (const n of m.notes) {
+      if (n.duration.endsWith('r')) continue;
+      const oct = parseInt(n.keys[0]?.split('/')[1] ?? '4', 10);
+      sum += oct; cnt++;
     }
   }
-  if (!xmlText) throw new Error('No MusicXML found in MXL archive');
+  if (cnt === 0) return -Infinity;        // silent part — never the default
+  const avgOct = sum / cnt;
+  return cnt * 0.1 + (avgOct >= 4 && avgOct <= 6 ? 30 : 0) - (avgOct < 3 ? 20 : 0);
+}
 
+/** Parse EVERY <part> into its own sheet. Falls back to a single whole-doc
+ *  parse when the document has no discrete <part> elements. */
+function parseAllParts(doc: Document, fallbackTitle: string): ScorePart[] {
+  const names = readPartNames(doc);
+  const partEls = Array.from(doc.querySelectorAll('part')).filter(
+    (p) => p.querySelector(':scope > measure') !== null,
+  );
+  if (partEls.length === 0) {
+    return [{ id: 'P1', name: 'Part 1', data: parseXmlDoc(doc, fallbackTitle) }];
+  }
+  return partEls.map((pEl, i) => {
+    const id = pEl.getAttribute('id') ?? `P${i + 1}`;
+    return { id, name: names.get(id) ?? `Part ${i + 1}`, data: parseXmlDoc(doc, fallbackTitle, pEl) };
+  });
+}
+
+/** Order parts so the most melody-like one is first (the UI's default view). */
+export function sortPartsByMelody(parts: ScorePart[]): ScorePart[] {
+  return [...parts].sort((a, b) => partMelodyScore(b.data) - partMelodyScore(a.data));
+}
+
+function extractXmlFromMxl(buf: Uint8Array): string {
+  const files = unzipSync(buf);
+  for (const [name, data] of Object.entries(files)) {
+    if (name.endsWith('.xml') && !name.startsWith('META-INF') && name !== 'container.xml') {
+      return new TextDecoder().decode(data);
+    }
+  }
+  throw new Error('No MusicXML found in MXL archive');
+}
+
+/* ─── Public loaders ─────────────────────────────────────────────────── */
+
+export async function loadXmlParts(url: string, fallbackTitle: string): Promise<ScorePart[]> {
+  const res = await fetch(url);
+  const doc = new DOMParser().parseFromString(await res.text(), 'application/xml');
+  return parseAllParts(doc, fallbackTitle);
+}
+
+export async function loadMxlParts(url: string, fallbackTitle: string): Promise<ScorePart[]> {
+  const res = await fetch(url);
+  const xmlText = extractXmlFromMxl(new Uint8Array(await res.arrayBuffer()));
   const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
-  return parseXmlDoc(doc, fallbackTitle);
+  return parseAllParts(doc, fallbackTitle);
+}
+
+/* Single-line loaders kept for backward compatibility — return the primary
+ * (most melody-like) part so existing single-part call sites are unaffected. */
+export async function loadXmlMelody(url: string, fallbackTitle: string): Promise<NoteSheetData> {
+  return sortPartsByMelody(await loadXmlParts(url, fallbackTitle))[0].data;
+}
+
+export async function loadMxlMelody(url: string, fallbackTitle: string): Promise<NoteSheetData> {
+  return sortPartsByMelody(await loadMxlParts(url, fallbackTitle))[0].data;
 }

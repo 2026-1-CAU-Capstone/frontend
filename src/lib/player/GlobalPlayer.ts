@@ -367,7 +367,7 @@ export function createGlobalPlayer(
    * `play({ startAt })` on it.
    */
   function ensureBackingPlayerForSheet(
-    input: { kind: "sheet" | "lick" | "solo"; data: NoteSheetData },
+    input: { kind: "sheet" | "lick" | "solo"; data: NoteSheetData; extraParts?: NoteSheetData[] },
   ): BackingPlayer {
     const sig = computeMelodySig(input);
     if (backingPlayerMelody && backingPlayerMelodySig === sig) {
@@ -390,11 +390,20 @@ export function createGlobalPlayer(
     // (bossa/latin/straight) so those feels stay straight. Onset AND end are
     // both mapped so each note keeps its written length in swung time.
     const swingRatio = melodySwingRatio(chart, { bpm: tempo, style: config.style, feel: config.feel });
-    const melody: MelodyNote[] = extractMelody(input.data).map((m) => {
-      const onset = swungBeats(m.beatOffset, swingRatio);
-      const end = swungBeats(m.beatOffset + m.durationBeats, swingRatio);
-      return { ...m, beatOffset: onset, durationBeats: Math.max(0.05, end - onset) };
-    });
+    // Multi-part: flatten the displayed part + any extraParts into one melody
+    // timeline so every part sounds together. MelodyNote[] is a flat list, so
+    // overlapping notes from different parts coexist (polyphony) cleanly.
+    const sheetsToSound: NoteSheetData[] = [
+      input.data,
+      ...((input.kind === "sheet" && input.extraParts) ? input.extraParts : []),
+    ];
+    const melody: MelodyNote[] = sheetsToSound.flatMap((sheet) =>
+      extractMelody(sheet).map((m) => {
+        const onset = swungBeats(m.beatOffset, swingRatio);
+        const end = swungBeats(m.beatOffset + m.durationBeats, swingRatio);
+        return { ...m, beatOffset: onset, durationBeats: Math.max(0.05, end - onset) };
+      }),
+    );
 
     // ── Fast path: REUSE the live engine when only the CONTENT changed within
     // the same kind (browsing lick→lick, sheet→sheet). Swap the chart + melody
@@ -452,7 +461,7 @@ export function createGlobalPlayer(
     return backingPlayerMelody;
   }
 
-  function computeMelodySig(input: { kind: string; data: NoteSheetData }): string {
+  function computeMelodySig(input: { kind: string; data: NoteSheetData; extraParts?: NoteSheetData[] }): string {
     // Identity proxy — same convention as computeBackingSig. The kind is part
     // of the signature so toggling sheet↔lick forces a rebuild. `key` busts the
     // cache on transpose. A content hash of the actual notes/chords is included
@@ -470,7 +479,13 @@ export function createGlobalPlayer(
       "/" +
       (d.measures?.length ?? 0) +
       "/" +
-      hashMeasures(d.measures)
+      hashMeasures(d.measures) +
+      // Multi-part: bust the cache when the set of extra parts changes
+      // (switching part / toggling 전체보기 must rebuild the merged melody).
+      "/" +
+      (input.extraParts?.length ?? 0) +
+      ":" +
+      (input.extraParts ?? []).map((p) => hashMeasures(p.measures)).join(",")
     );
   }
 

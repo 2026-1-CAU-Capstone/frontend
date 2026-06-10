@@ -1743,30 +1743,15 @@ interface LeadSheetProps {
   /** 저장된 릭이 있는 ii-V-I 시작 마디 번호 세트 */
   savedLickBarNums?: Set<number>;
   onSavedLickBadgeClick?: (bar: number, spanLabel: string) => void;
-  /** Expanded lick row(s) rendered directly below the target chart system.
-   *  Multiple licks can be placed simultaneously — each lands on its own
-   *  (systemIndex, anchorBar) pair and renders independently. The legacy
-   *  single-object form is still accepted; the host can keep passing
-   *  `inlineLick={one}` and it'll be normalised to a 1-item array. */
+  /** Expanded lick row rendered directly below the target chart system —
+   *  placed ONCE at the clicked (systemIndex, anchorBar). Pickup-bar skipping
+   *  and the I-resolution cutoff are computed inside the render (no
+   *  multi-anchor fan-out; that path was rolled back in 3854709). */
   inlineLick?: {
     systemIndex: number;
     anchorBar: number;
     sheet: NoteSheetData;
-    /** Leading pickup measures in the lick (bars before the chord progression).
-     *  The lick's first chord-bearing bar is aligned to `anchorBar`; the pickup
-     *  bar(s) are dropped (not rendered). Defaults to 0. */
-    pickupBars?: number;
-    /** Trailing no-chord measures dropped from the tail end so the lick
-     *  doesn't bleed past the I resolution onto unrelated downstream chords. */
-    trailingPickupBars?: number;
   } | null;
-  inlineLicks?: Array<{
-    systemIndex: number;
-    anchorBar: number;
-    sheet: NoteSheetData;
-    pickupBars?: number;
-    trailingPickupBars?: number;
-  }>;
   onInlineLickClose?: () => void;
   /** Controlled transpose key. When provided the host owns the key — e.g.
    *  ChordPage renders the transpose control in the player transport.
@@ -2303,7 +2288,6 @@ export function LeadSheet({
   savedLickBarNums,
   onSavedLickBadgeClick,
   inlineLick,
-  inlineLicks,
   onInlineLickClose,
   selectedKey: selectedKeyProp,
   styleSlot,

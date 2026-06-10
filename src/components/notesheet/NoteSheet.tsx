@@ -500,6 +500,73 @@ const Composer = styled.span`
   }
 `;
 
+/* ── part dropdown (multi-part scores) — sits ABOVE the key dropdown ────── */
+
+const PartStack = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+`;
+
+const PartDropdownWrap = styled.div`
+  position: relative;
+  display: inline-block;
+`;
+
+const PartButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #1a1a1a;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  &::after { content: '▾'; font-size: 0.85em; opacity: 0.7; }
+  &:hover { background: #333; }
+`;
+
+const PartMenu = styled.div`
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 40;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  padding: 4px;
+  min-width: 180px;
+  max-height: 320px;
+  overflow-y: auto;
+`;
+
+const PartOption = styled.button<{ $active?: boolean }>`
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: ${({ $active }) => ($active ? 'rgba(0,0,0,0.07)' : 'transparent')};
+  border-radius: 5px;
+  padding: 7px 10px;
+  cursor: pointer;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.82rem;
+  font-weight: ${({ $active }) => ($active ? 700 : 500)};
+  color: #1a1a1a;
+  white-space: nowrap;
+  &:hover { background: rgba(0, 0, 0, 0.05); }
+`;
+
 /* ── key dropdown ──────────────────────────────────────────────────────── */
 
 const KeyDropdownWrap = styled.div`
@@ -894,6 +961,15 @@ interface NoteSheetProps {
   /** Toggle a break: passes the CLICKED beat (last played); the host maps it
    *  to the rest-start beat (clicked + 1). */
   onToggleBreak?: (bar: number, clickedBeat: number) => void;
+  /** Multi-part scores: other parts whose melody should ALSO sound during
+   *  playback (the displayed staff stays `data`). Forwarded into the player. */
+  extraParts?: NoteSheetData[];
+  /** Multi-part picker options shown as a dropdown ABOVE the in-score key
+   *  selector. Includes a synthetic "전체 보기" (id 'all') entry. Omit/empty
+   *  to hide (single-part scores). */
+  partOptions?: { id: string; name: string }[];
+  selectedPartId?: string;
+  onSelectPart?: (id: string) => void;
 }
 
 /** Imperative handle exposed to parents that own an external transport.
@@ -908,8 +984,19 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
   data, selectedKey, allKeys, onKeyChange, selectable, selectedRanges, onSelectionChange,
   showMeasureNumbers, lineStartMeasureNumbers, forceAutoStem,
   hideTransport, noPreload, onPlayingChange, onTempoChange,
-  breakEditMode = false, breakPoints, onToggleBreak,
+  breakEditMode = false, breakPoints, onToggleBreak, extraParts,
+  partOptions, selectedPartId, onSelectPart,
 }, ref) {
+  const [partMenuOpen, setPartMenuOpen] = useState(false);
+  const partMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!partMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!partMenuRef.current?.contains(e.target as Node)) setPartMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [partMenuOpen]);
   const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(900);
@@ -1019,8 +1106,8 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
   // instantly instead of stalling ~2s on a cold first play.
   useEffect(() => {
     if (noPreload) return; // static thumbnail/preview — never plays, so don't load sample banks
-    void player.preload({ kind: 'sheet', data }).catch(() => { /* retry at play time */ });
-  }, [player, data, noPreload]);
+    void player.preload({ kind: 'sheet', data, extraParts }).catch(() => { /* retry at play time */ });
+  }, [player, data, noPreload, extraParts]);
 
   const togglePlay = useCallback(async () => {
     const p = player;
@@ -1035,7 +1122,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     }
     setPlaying(true);
     setPaused(false);
-    const preload = p.preload({ kind: 'sheet', data });
+    const preload = p.preload({ kind: 'sheet', data, extraParts });
 
     // ── Anacrusis (pickup) handling ───────────────────────────────────────
     // If the song opens with a pickup measure (shorter than the time
@@ -1102,17 +1189,20 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
       if (!cin.ok) { p.cancelAnacrusis(); setPlaying(false); return; }
       const strippedData: NoteSheetData = { ...data, measures: data.measures.slice(1) };
       p.setConfig({ bpm: tempo });
-      await p.play({ kind: 'sheet', data: strippedData }, { startAt: songStart, measureOffset: 1 });
+      await p.play({ kind: 'sheet', data: strippedData, extraParts }, { startAt: songStart, measureOffset: 1 });
     } else {
-      // No pickup → nothing sounds during the count-in, so load instruments
-      // CONCURRENTLY with the clicks. Capture the anchor right before run() so
-      // it aligns with the count-in's first click; the hook awaits `preload`
-      // after the clicks and re-reads the clock for an accurate downbeat.
-      const cinStart = p.ctxNow() + 0.06;
+      // No pickup → load instruments CONCURRENTLY with the clicks (prepare).
+      // Anchor the downbeat to `cin.downbeatInSec` re-read AFTER run() resolves,
+      // NOT to a press-time absolute time. On a cold first play the preload can
+      // outrun the count-in, so run() blocks on `prepare` after the clicks; a
+      // press-time `startAt` would then already be in the PAST and the
+      // scheduler drops the downbeat → nothing plays until samples are cached
+      // (the "have to press a few times" bug). downbeatInSec is clamped ≥0 and
+      // converted to the player's clock here. (Matches ChordPage's play path.)
       const cin = await countIn.run({ bpm: tempo, prepare: preload });
       if (!cin.ok) { setPlaying(false); return; }
       p.setConfig({ bpm: tempo });
-      await p.play({ kind: 'sheet', data }, { startAt: cinStart + tsNum * beatDur });
+      await p.play({ kind: 'sheet', data, extraParts }, { startAt: p.ctxNow() + cin.downbeatInSec });
     }
   }, [data, tempo, countIn, player, playing]);
 
@@ -2253,28 +2343,52 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
       <FullscreenButton isFullscreen={isFullscreen} onClick={toggleFullscreen} />
       <Header>
         <HeaderLeft>
-          {selectedKey && allKeys && onKeyChange ? (
-            <KeyDropdownWrap ref={keyMenuRef}>
-              <KeyButton onClick={() => setKeyMenuOpen((v) => !v)}>
-                {selectedKey}
-              </KeyButton>
-              {keyMenuOpen && (
-                <KeyMenu>
-                  {allKeys.map((k) => (
-                    <KeyOption
-                      key={k}
-                      $active={k === selectedKey}
-                      onClick={() => { onKeyChange(k); setKeyMenuOpen(false); }}
-                    >
-                      {k}
-                    </KeyOption>
-                  ))}
-                </KeyMenu>
-              )}
-            </KeyDropdownWrap>
-          ) : (
-            <span>{data.genre || ''}</span>
-          )}
+          <PartStack>
+            {/* Part picker — only for multi-part scores; sits directly above
+                the key dropdown. */}
+            {partOptions && partOptions.length > 1 && onSelectPart && (
+              <PartDropdownWrap ref={partMenuRef}>
+                <PartButton onClick={() => setPartMenuOpen((v) => !v)}>
+                  {partOptions.find((p) => p.id === selectedPartId)?.name ?? '파트'}
+                </PartButton>
+                {partMenuOpen && (
+                  <PartMenu>
+                    {partOptions.map((p) => (
+                      <PartOption
+                        key={p.id}
+                        $active={p.id === selectedPartId}
+                        onClick={() => { onSelectPart(p.id); setPartMenuOpen(false); }}
+                      >
+                        {p.name}
+                      </PartOption>
+                    ))}
+                  </PartMenu>
+                )}
+              </PartDropdownWrap>
+            )}
+            {selectedKey && allKeys && onKeyChange ? (
+              <KeyDropdownWrap ref={keyMenuRef}>
+                <KeyButton onClick={() => setKeyMenuOpen((v) => !v)}>
+                  {selectedKey}
+                </KeyButton>
+                {keyMenuOpen && (
+                  <KeyMenu>
+                    {allKeys.map((k) => (
+                      <KeyOption
+                        key={k}
+                        $active={k === selectedKey}
+                        onClick={() => { onKeyChange(k); setKeyMenuOpen(false); }}
+                      >
+                        {k}
+                      </KeyOption>
+                    ))}
+                  </KeyMenu>
+                )}
+              </KeyDropdownWrap>
+            ) : (
+              <span>{data.genre || ''}</span>
+            )}
+          </PartStack>
         </HeaderLeft>
         <Title>{data.title}</Title>
         <Composer>{data.composer}</Composer>
