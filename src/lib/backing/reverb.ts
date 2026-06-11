@@ -41,14 +41,17 @@ export function createReverbBus(ctx: AudioContext, destination?: AudioNode): Rev
   wet.gain.value = 1.0;
 
   const convolver = ctx.createConvolver();
-  // Longer tail so piano chords ring like a real club kit — was 1.2s/2.8.
-  convolver.buffer = buildImpulseResponse(ctx, 2.0, 2.2);
+  // Slightly longer, smoother tail + more pre-delay = a more realistic "real
+  // room" bloom (less synthetic) so the sampled instruments sit in a space
+  // rather than sounding dry/MIDI. (was 2.0s / shape 2.2 / 10ms pre-delay.)
+  convolver.buffer = buildImpulseResponse(ctx, 2.6, 1.9, 0.018);
 
-  // High-frequency roll-off to keep cymbal reverb dark and jazzy
+  // High-frequency roll-off to keep cymbal reverb dark and jazzy. A touch
+  // warmer (lower corner, deeper cut) so the tail doesn't add fizz.
   const tone = ctx.createBiquadFilter();
   tone.type = "highshelf";
-  tone.frequency.value = 4000;
-  tone.gain.value = -6;
+  tone.frequency.value = 3500;
+  tone.gain.value = -7;
 
   // Final wet level — how loud the reverb is overall. Bumped from 0.35 so the
   // piano send (~0.45 by default) gives a clearly audible room without needing
@@ -70,10 +73,12 @@ function buildImpulseResponse(
   ctx: AudioContext,
   durationSec: number,
   decayShape: number,
+  preDelaySec = 0.01,
 ): AudioBuffer {
   const rate = ctx.sampleRate;
   const length = Math.floor(rate * durationSec);
   const buffer = ctx.createBuffer(2, length, rate);
+  const preDelaySamples = rate * preDelaySec;
 
   for (let ch = 0; ch < 2; ch++) {
     const data = buffer.getChannelData(ch);
@@ -82,9 +87,9 @@ function buildImpulseResponse(
       const noise = Math.random() * 2 - 1;
       // Exponential decay envelope
       const env = Math.pow(1 - i / length, decayShape);
-      // Skip the first ~10ms so the reverb has a pre-delay feel
-      const preDelay = i < rate * 0.01 ? 0 : 1;
-      data[i] = noise * env * preDelay;
+      // Pre-delay gap before the tail starts — gives the room depth/clarity.
+      const gate = i < preDelaySamples ? 0 : 1;
+      data[i] = noise * env * gate;
     }
   }
 

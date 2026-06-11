@@ -1,6 +1,26 @@
-import { SplendidGrandPiano, Soundfont } from "smplr";
+import { SplendidGrandPiano, Soundfont, Smolken, Mallet, CacheStorage } from "smplr";
 import { loadSampledDrumKit } from "./sampledDrumKit";
 import { createReverbBus } from "./reverb";
+
+/* Shared sample cache (IndexedDB) so the premium libraries (Smolken double
+ * bass, Versilian mallets) only fetch their samples once, then load instantly
+ * on every later play — and survive GitHub-Pages rate limits on revisits. */
+let sharedStorage: CacheStorage | null = null;
+function getStorage(): CacheStorage {
+  if (!sharedStorage) sharedStorage = new CacheStorage();
+  return sharedStorage;
+}
+
+/* Instrument families that have a higher-quality sampled source than the
+ * MusyngKite GM soundfont. Everything else stays on MusyngKite (still the best
+ * free GM set for horns/sax/etc.). */
+const BASS_NAMES = new Set([
+  'acoustic_bass', 'electric_bass_finger', 'electric_bass_pick',
+  'fretless_bass', 'contrabass',
+]);
+// Only vibraphone — Versilian's mallet set has real vibraphone samples (no
+// marimba), so marimba stays on MusyngKite GM.
+const MALLET_NAMES = new Set(['vibraphone']);
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Sample-based instrument loading via the smplr library.
@@ -98,23 +118,55 @@ function wrapPitched(inst: PitchedSampler, gainMultiplier = 1.0): TriggerableIns
  * `destination` should be the reverb-routed node from
  * BackingInstruments.melodyDestination so the lead sits in the same room.
  */
+/** MusyngKite GM fallback — always reliable (single bundle from smplr's CDN). */
+async function loadGmSoundfont(
+  ctx: AudioContext,
+  destination: AudioNode,
+  instrumentId: string,
+  gain = 1.0,
+): Promise<TriggerableInstrument> {
+  const inst = new Soundfont(ctx, { instrument: instrumentId, kit: "MusyngKite", destination });
+  await inst.load;
+  return wrapPitched(inst, gain);
+}
+
 export async function loadMelodyInstrument(
   ctx: AudioContext,
   destination: AudioNode,
   instrumentId: string,
 ): Promise<TriggerableInstrument> {
+  // Piano — Salamander grand (best-in-class free piano).
   if (instrumentId === "piano") {
     const piano = new SplendidGrandPiano(ctx, { destination });
     await piano.load;
     return wrapPitched(piano, 1.0);
   }
-  const inst = new Soundfont(ctx, {
-    instrument: instrumentId,
-    kit: "MusyngKite",
-    destination,
-  });
-  await inst.load;
-  return wrapPitched(inst, 1.0);
+
+  // Bass family — real sampled jazz double bass (Smolken pizzicato) beats the
+  // GM bass for walking lines. Falls back to MusyngKite on any load failure.
+  if (BASS_NAMES.has(instrumentId)) {
+    try {
+      const bass = new Smolken(ctx, { instrument: "Pizzicato", storage: getStorage(), destination });
+      await bass.load;
+      return wrapPitched(bass as unknown as PitchedSampler, 1.0);
+    } catch {
+      return loadGmSoundfont(ctx, destination, instrumentId);
+    }
+  }
+
+  // Vibraphone — Versilian real mallet samples beat GM vibraphone.
+  if (MALLET_NAMES.has(instrumentId)) {
+    try {
+      const mallet = new Mallet(ctx, { instrument: "Vibraphone - Hard Mallets", storage: getStorage(), destination });
+      await mallet.load;
+      return wrapPitched(mallet as unknown as PitchedSampler, 1.0);
+    } catch {
+      return loadGmSoundfont(ctx, destination, instrumentId);
+    }
+  }
+
+  // Everything else (horns, sax, guitar, …) → MusyngKite GM.
+  return loadGmSoundfont(ctx, destination, instrumentId);
 }
 
 /* ─── loader ─────────────────────────────────────────────────────────── */
@@ -173,24 +225,32 @@ export async function loadInstruments(ctx: AudioContext): Promise<BackingInstrum
   bassAmp.connect(ctx.destination);
 
   const piano = new SplendidGrandPiano(ctx, { destination: pianoAmp });
-  /* Bass: MusyngKite (smplr's high-quality kit) replaces the older FluidR3_GM
-   * samples. MusyngKite has richer low end and more natural attack for jazz
-   * walking bass — the FluidR3 set was the weakest link in the mix. */
-  const bass = new Soundfont(ctx, {
-    instrument: "acoustic_bass",
-    kit: "MusyngKite",
-    destination: bassAmp,
-  });
 
-  const [, , drums] = await Promise.all([
+  /* Walking bass: real sampled jazz double bass (Smolken Pizzicato) — far less
+   * "MIDI" than the GM bass for walking lines. Falls back to MusyngKite
+   * acoustic_bass if the sample fetch fails (GitHub-Pages throttling), so the
+   * mix is never worse than before. Cached after first load. */
+  async function loadCompBass(): Promise<TriggerableInstrument> {
+    try {
+      const sb = new Smolken(ctx, { instrument: "Pizzicato", storage: getStorage(), destination: bassAmp, volume: 90 });
+      await sb.load;
+      return wrapPitched(sb as unknown as PitchedSampler, 1.0);
+    } catch {
+      const sf = new Soundfont(ctx, { instrument: "acoustic_bass", kit: "MusyngKite", destination: bassAmp });
+      await sf.load;
+      return wrapPitched(sf, 1.0);
+    }
+  }
+
+  const [, bass, drums] = await Promise.all([
     piano.load,
-    bass.load,
+    loadCompBass(),
     loadSampledDrumKit(ctx, drumAmp),
   ]);
 
   return {
     piano: wrapPitched(piano, 1.0),
-    bass: wrapPitched(bass, 1.0),
+    bass,
     drums,
     pianoReverbSend: pianoSend,
     melodyDestination: melodyAmp,
