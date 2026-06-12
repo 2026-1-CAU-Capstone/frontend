@@ -139,7 +139,6 @@ export function GlobalPlayerProvider({
         // Surface engine errors so the console at least sees them in
         // dev. Pages that want to render an error banner should
         // subscribe to `player.on('error', …)` directly.
-        // eslint-disable-next-line no-console
         console.error("[GlobalPlayer] error:", err);
       }),
     ];

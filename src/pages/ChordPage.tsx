@@ -5,7 +5,7 @@ import { mq } from '../styles/theme';
 import { IconSidebar } from '../components/layout/IconSidebar';
 import { TopToolbar } from '../components/layout/TopToolbar';
 import { RightChatPanel } from '../components/layout/RightChatPanel';
-import { setActiveChat } from '../api/chat';
+import { setActiveChat, getCachedChatList } from '../api/chat';
 import { MobileChatFab } from '../components/layout/MobileChatFab';
 import { LeadSheet, KeyControl, isMinorKey, shiftKey } from '../components/leadsheet/LeadSheet';
 import { SessionPicker, type SessionInstrument } from '../components/chord/SessionPicker';
@@ -25,6 +25,7 @@ import { BUILTIN_STYLE, type StyleSelectorChoice } from '../components/yamaha-st
 import { getPlayerSettings, inferGenre, inferPlayStyle, setPlayerSetting, subscribePlayerSettings, TRANSPOSING_INSTRUMENT_OFFSET } from '../lib/note/playerSettings';
 import { GenreSelect, MetronomeToggle, BpmControl, RepeatControl, TransportButtons, BackingMixer, type EngineBackend } from '../components/backing/BackingPlayerBar';
 import { useIsNativeUi } from '../contexts/AppPreviewContext';
+import { useCompactLayout } from '../hooks/useCompactLayout';
 import { withLeadSheetSelectionIds } from '../lib/leadSheetSelection';
 import type { LeadSheetChordSelection } from '../components/leadsheet/LeadSheet';
 import { loadUserLicksSync, type LickEntry } from '../data/lickData';
@@ -950,9 +951,23 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   // EXCEPTION: arriving via a Recent-Chats click (?chat=<id>) RESTORES that
   // chat so its conversation reopens with this chart. Captured once at mount
   // (setSongId later strips the param from the URL).
-  const [restoreChatId] = useState<string | undefined>(
-    () => searchParams.get('chat') ?? undefined,
-  );
+  const [restoreChatId] = useState<string | undefined>(() => {
+    // Explicit Recent-Chats click carries ?chat=<id>.
+    const fromParam = searchParams.get('chat');
+    if (fromParam) return fromParam;
+    // Otherwise, entering a chart that ALREADY has a chat (any prior
+    // conversation on this project) reopens it — so the panel shows the saved
+    // log and the Recent-Chats row highlights, instead of a blank start
+    // screen. Cache-only lookup (no network); fresh chat when none found.
+    const proj = searchParams.get('project');
+    if (proj) {
+      const mine = (getCachedChatList() ?? [])
+        .filter((c) => c.projectPublicId === proj)
+        .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+      if (mine[0]) return mine[0].publicId;
+    }
+    return undefined;
+  });
   /* publicId of the chord PROJECT this chart was opened from (`/mychord?project=<id>`).
    * Threaded to RightChatPanel so chats started here persist with category=chord +
    * this id → Recent Chats shows the chord icon + song name and reopens this chart. */
@@ -965,6 +980,11 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   }, []);
   /* Gate for Capacitor-app-only UI (native shell OR /preview/* route). */
   const isNativeUi = useIsNativeUi();
+  /* compact(좁은 창/터치) 레이아웃에선 MobileChatFab가 자체 RightChatPanel을
+   * 마운트한다. 데스크톱 패널을 CSS로 숨기기만 하면 두 인스턴스가 동시에 살아
+   * jazzify:requestLicks 이벤트 중복 처리·GET /v1/chat 2회 발사·대화 상태
+   * 분기가 생겼다 — JS 레벨에서 한 쪽만 마운트한다. */
+  const isCompactLayout = useCompactLayout();
   const [songIndex, setSongIndex] = useState<SongEntry[]>([]);
   const [songId, setSongIdRaw] = useState(() => {
     if (mychordMode && searchParams.get('empty') === '1') return EMPTY_SONG_ID;
@@ -1270,6 +1290,11 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   }, [globalPlayer, tempo]);
 
   // Load this song's saved break points whenever the song changes.
+  // persistedSongIdRef: 곡 전환 commit에서는 load/save effect가 같은 songId
+  // deps를 공유해 "새 songId + 이전 곡 state" 조합으로 save가 한 번 실행됐다 —
+  // 이전 곡의 break/loop가 새 곡 키에 기록되거나 새 곡의 저장값을 지우는 오염.
+  // load가 완료된 songId를 ref에 기록하고, save는 일치할 때만 쓴다.
+  const persistedSongIdRef = useRef<string | null>(null);
   useEffect(() => {
     setBreakPoints(loadBreakPoints(songId));
   }, [songId]);
@@ -1279,6 +1304,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   // restart.
   useEffect(() => {
     globalPlayer.setConfig({ breakBeats: breakPoints });
+    if (persistedSongIdRef.current !== songId) return; // 곡 전환 직후 1커밋 스킵
     saveBreakPoints(songId, breakPoints);
   }, [globalPlayer, breakPoints, songId]);
 
@@ -1307,6 +1333,8 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     setLoopRegion(next);
     setLoopDraftStart(null);
     setLoopEditMode(false);
+    // break+loop 모두 이 시점부터 persist 허용 (load 완료 마커).
+    persistedSongIdRef.current = songId;
   }, [songId]);
 
   // Push the region into the live player config + persist per-song. setConfig
@@ -1314,6 +1342,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   // on the next wrap without a restart.
   useEffect(() => {
     globalPlayer.setConfig({ loopRegion });
+    if (persistedSongIdRef.current !== songId) return; // 곡 전환 직후 1커밋 스킵
     try {
       if (loopRegion) window.localStorage.setItem(`jazzify.loop.${songId}`, JSON.stringify(loopRegion));
       else window.localStorage.removeItem(`jazzify.loop.${songId}`);
@@ -1361,7 +1390,10 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
       // starts the instant the button is pressed (no multi-second stall on a
       // cold first play). The hook awaits this prepare promise after the clicks
       // finish and re-reads the clock, so the downbeat stays accurate.
-      const cin = await countIn.run({ bpm: tempo, prepare: globalPlayer.preload(chartInput) });
+      // preload에 생성 즉시 .catch — run()은 클릭이 끝난 뒤에야 prepare를
+      // await하므로, 그 사이 reject되면 unhandledrejection → AudioLifecycleGuard
+      // 가 stopAllAudio()로 응답해 시작하려던 재생을 죽인다. play()가 어차피 재로드.
+      const cin = await countIn.run({ bpm: tempo, prepare: globalPlayer.preload(chartInput).catch(() => {}) });
       if (!cin.ok) { setIsPlaying(false); return; }
       await globalPlayer.play(chartInput, { startAt: globalPlayer.ctxNow() + cin.downbeatInSec });
     } catch (err) {
@@ -1643,6 +1675,12 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     setEditMode(false);
   }, [mychordMode, sheet, songId]);
 
+  /* 부분 실패 재시도 시 create부터 다시 돌면 코드 없는 빈 프로젝트가 백엔드에
+   * 중복 누적된다 — 생성된 publicId를 보관해 재시도는 addChords/analyze부터
+   * 재개한다. (다른 시트로 바뀌면 리셋) */
+  const directSaveCreatedIdRef = useRef<string | null>(null);
+  useEffect(() => { directSaveCreatedIdRef.current = null; }, [pendingSaveSheet]);
+
   const handleConfirmDirectInputSave = useCallback(async () => {
     if (!pendingSaveSheet || savingProject) return;
     const title = saveProjectTitle.trim() || pendingSaveSheet.title?.trim() || '새 코드 차트';
@@ -1652,14 +1690,20 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     setError(null);
     setSaveProjectError(null);
     try {
-      const created = await createChordProject({
-        title,
-        key: displayKeyToProjectKey(chartKey || pendingSaveSheet.key || 'C'),
-        timeSignature: pendingSaveSheet.timeSignature || '4/4',
-      });
-      await addChordProjectChords(created.publicId, progression);
-      await analyzeChordProject(created.publicId);
+      let publicId = directSaveCreatedIdRef.current;
+      if (!publicId) {
+        const created = await createChordProject({
+          title,
+          key: displayKeyToProjectKey(chartKey || pendingSaveSheet.key || 'C'),
+          timeSignature: pendingSaveSheet.timeSignature || '4/4',
+        });
+        publicId = created.publicId;
+        directSaveCreatedIdRef.current = publicId; // 재시도는 create 스킵
+      }
+      await addChordProjectChords(publicId, progression);
+      await analyzeChordProject(publicId);
 
+      directSaveCreatedIdRef.current = null;
       editValuesRef.current.clear();
       setEditMode(false);
       setSaveConfirmOpen(false);
@@ -1680,6 +1724,10 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   const [session, setSession] = useState<SessionInstrument>('piano');
   const dividerRef = useRef<HTMLDivElement>(null);
 
+  /* 드래그 중 unmount(빠른 네비게이션)나 창 밖 mouseup 유실 시 window 리스너가
+   * 잔존하던 것 — 해제 함수를 ref에 보관해 unmount cleanup에서도 정리한다. */
+  const dividerCleanupRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => { dividerCleanupRef.current?.(); }, []);
   const onDividerMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     const startX = e.clientX;
@@ -1694,7 +1742,9 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
       dividerRef.current?.classList.remove('dragging');
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
+      dividerCleanupRef.current = null;
     };
+    dividerCleanupRef.current = onUp;
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
   }, [rightPanelWidth]);
@@ -1901,8 +1951,9 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
                 const NOTE_TO_PC: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
                 const PC_TO_FLAT  = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
                 const PC_TO_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-                const useFlats = (pc: number) => [0,5,10,3,8,1,6].includes(pc);
-                const pcToName = (pc: number) => (useFlats(pc) ? PC_TO_FLAT : PC_TO_SHARP)[pc];
+                // use* 이름은 eslint rules-of-hooks가 훅 호출로 오인 — 훅 아님.
+                const prefersFlats = (pc: number) => [0,5,10,3,8,1,6].includes(pc);
+                const pcToName = (pc: number) => (prefersFlats(pc) ? PC_TO_FLAT : PC_TO_SHARP)[pc];
 
                 let overlays: ChordOverlay[];
                 if (labelMatch) {
@@ -1957,9 +2008,9 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
 
         </CenterColumn>
 
-        {!isNativeUi && <ResizeDivider ref={dividerRef} onMouseDown={onDividerMouseDown} />}
+        {!isNativeUi && !isCompactLayout && <ResizeDivider ref={dividerRef} onMouseDown={onDividerMouseDown} />}
 
-        {!isNativeUi && (
+        {!isNativeUi && !isCompactLayout && (
         <RightPanelWrapper $width={rightPanelWidth}>
           <PanelTabs>
             <PanelTab type="button" $on={panelTab === 'mixer'} onClick={() => setPanelTab('mixer')}>믹서</PanelTab>

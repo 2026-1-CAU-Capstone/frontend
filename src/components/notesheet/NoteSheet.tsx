@@ -655,7 +655,7 @@ const PlayerBar = styled.div`
   padding: 12px 16px;
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-  z-index: 1000;
+  z-index: ${({ theme }) => theme.zIndex.modal};
 
   /* Hidden when printing to PDF — the floating player is a screen-only
    * control and was forcing a blank first page in the exported PDF. */
@@ -1000,6 +1000,15 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
   const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(900);
+  /* Bumped AFTER the async VexFlow render commits a fresh SVG. The overlay
+   * effects (.m-hl / .m-num / .brk-mk / .m-sel / .m-num-ls) inject into the SVG and
+   * read measureRectsRef — but the main render is async (dynamic vexflow
+   * import), so on data/width changes they used to run BEFORE the new SVG
+   * existed, then get wiped by `innerHTML=''` with nothing re-triggering
+   * them (stale "Defined AFTER the render effect" assumption from the
+   * synchronous era). Including renderTick in their deps re-runs them
+   * against the freshly-rendered SVG. */
+  const [renderTick, setRenderTick] = useState(0);
   const lineHRef = useRef(LINE_HEIGHT);
   const unscaledLineHRef = useRef(LINE_HEIGHT);
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(wrapRef);
@@ -1122,7 +1131,12 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     }
     setPlaying(true);
     setPaused(false);
-    const preload = p.preload({ kind: 'sheet', data, extraParts });
+    // .catch at creation: this promise is awaited ~2s later (inside the
+    // count-in / anacrusis path). A rejection in that gap is an
+    // `unhandledrejection`, which AudioLifecycleGuard answers with
+    // stopAllAudio() — killing the very playback we're starting. play()
+    // reloads instruments anyway if the preload failed.
+    const preload = p.preload({ kind: 'sheet', data, extraParts }).catch(() => {});
 
     // ── Anacrusis (pickup) handling ───────────────────────────────────────
     // If the song opens with a pickup measure (shorter than the time
@@ -1189,7 +1203,14 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
       if (!cin.ok) { p.cancelAnacrusis(); setPlaying(false); return; }
       const strippedData: NoteSheetData = { ...data, measures: data.measures.slice(1) };
       p.setConfig({ bpm: tempo });
-      await p.play({ kind: 'sheet', data: strippedData, extraParts }, { startAt: songStart, measureOffset: 1 });
+      try {
+        await p.play({ kind: 'sheet', data: strippedData, extraParts }, { startAt: songStart, measureOffset: 1 });
+      } catch {
+        // play() rethrows after emitting 'error' — unhandled it would both
+        // freeze the ▶ button on "playing" and trip AudioLifecycleGuard.
+        p.cancelAnacrusis();
+        setPlaying(false);
+      }
     } else {
       // No pickup → load instruments CONCURRENTLY with the clicks (prepare).
       // Anchor the downbeat to `cin.downbeatInSec` re-read AFTER run() resolves,
@@ -1202,7 +1223,11 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
       const cin = await countIn.run({ bpm: tempo, prepare: preload });
       if (!cin.ok) { setPlaying(false); return; }
       p.setConfig({ bpm: tempo });
-      await p.play({ kind: 'sheet', data, extraParts }, { startAt: p.ctxNow() + cin.downbeatInSec });
+      try {
+        await p.play({ kind: 'sheet', data, extraParts }, { startAt: p.ctxNow() + cin.downbeatInSec });
+      } catch {
+        setPlaying(false); // see anacrusis branch — same guard
+      }
     }
   }, [data, tempo, countIn, player, playing]);
 
@@ -1249,7 +1274,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     rect.setAttribute('stroke', 'none');
     rect.setAttribute('rx', '4');
     svg.insertBefore(rect, svg.firstChild);
-  }, [activeMeasure]);
+  }, [activeMeasure, renderTick]);
 
   /* ── measure-number labels (opt-in) ──────────────────────────────────
    * Small "1, 2, 3…" labels at the top-left of each measure, sitting above
@@ -1281,7 +1306,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
       txt.textContent = label;
       svg.appendChild(txt);
     }
-  }, [data, width, showMeasureNumbers]);
+  }, [data, width, showMeasureNumbers, renderTick]);
 
   /* ── Break Editor markers (SVG overlay) ───────────────────────────────
    * Mirrors the measure-highlight/number pattern: inject elements straight
@@ -1362,7 +1387,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
         svg.appendChild(lbl);
       }
     }
-  }, [data, width, breakEditMode, breakPoints, onToggleBreak]);
+  }, [data, width, breakEditMode, breakPoints, onToggleBreak, renderTick]);
 
   /* ── selection highlight (admin region picker) ────────────────────── */
   useEffect(() => {
@@ -1389,7 +1414,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
         svg.insertBefore(rect, svg.firstChild);
       }
     }
-  }, [selectedRanges, data]);
+  }, [selectedRanges, data, renderTick]);
 
   /* ── click → toggle / extend selection (admin mode only) ─────────────
    * Every click in select mode toggles a single-measure region:
@@ -1490,7 +1515,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     if (targetY < wrap.scrollTop + 40 || targetY + lineHRef.current > wrap.scrollTop + viewH - 40) {
       wrap.scrollTo({ top: Math.max(0, targetY - viewH / 3), behavior: 'smooth' });
     }
-  }, [activeMeasure]);
+  }, [activeMeasure, renderTick]);
 
   /* ── track container width ────────────────────────────────────────── */
   useEffect(() => {
@@ -1517,6 +1542,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
       if (cancelled) return;
       elOuter.innerHTML = '';
       renderNotation(elOuter);
+      setRenderTick((t) => t + 1); // overlays re-run against the new SVG
     });
     return () => { cancelled = true; };
 
@@ -2321,7 +2347,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
       txt.textContent = String(mNum);
       svg.appendChild(txt);
     }
-  }, [data, width, lineStartMeasureNumbers]);
+  }, [data, width, lineStartMeasureNumbers, renderTick]);
 
   /* ── close key menu on outside click ──────────────────────────────── */
   useEffect(() => {

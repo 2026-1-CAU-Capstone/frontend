@@ -184,6 +184,10 @@ function resolveFeel(style: StyleId, defaultFeel: FeelId): FeelId {
       return "up-tempo-swing";
     case "new-orleans":
       return "new-orleans-swing";
+    case "bebop":
+      return "bebop-swing";
+    case "shuffle":
+      return "shuffle-blues";
     case "funk":
       // Funk has its own straight-16 backbeat — distinct from plain even-8ths.
       return "funk";
@@ -269,7 +273,10 @@ export function melodySwingRatio(
 }
 
 export function renderChart(chart: Chart, opts: RenderOptions): BackingEvent[] {
-  const secPerBeat = 60 / opts.bpm;
+  // bpm 입구 가드 — 0/NaN/Infinity가 들어오면 모든 이벤트 시간이 Infinity로
+  // 무너진다 (조용한 무음). 120으로 폴백하고 경고만 남긴다.
+  const bpm = Number.isFinite(opts.bpm) && opts.bpm > 0 ? opts.bpm : (console.warn('[engine] invalid bpm', opts.bpm), 120);
+  const secPerBeat = 60 / bpm;
   const beatsPerBar = chart.timeSig[0];
   const secPerBar = beatsPerBar * secPerBeat;
   const style = opts.style ?? chart.defaultStyle;
@@ -297,7 +304,7 @@ export function renderChart(chart: Chart, opts: RenderOptions): BackingEvent[] {
   // Last bass MIDI note, threaded across chords so the walking line keeps its
   // register continuity (each note placed in the octave nearest this one).
   let prevBassMidi: MidiNote | null = null;
-  const swingRatio = getSwingRatio(opts.bpm, feel);
+  const swingRatio = getSwingRatio(bpm, feel);
 
   for (let bi = 0; bi < flatBars.length; bi++) {
     const bar = flatBars[bi];
@@ -315,7 +322,7 @@ export function renderChart(chart: Chart, opts: RenderOptions): BackingEvent[] {
         barIndex: bi,
       },
       barFeel,
-      opts.bpm,
+      bpm,
     );
     humanizeDrums(drumEvents, secPerBeat, bi);
     events.push(...drumEvents);
@@ -412,7 +419,6 @@ export function renderChart(chart: Chart, opts: RenderOptions): BackingEvent[] {
         ...(m.drumPiece ? { drumPiece: m.drumPiece } : {}),
       });
     }
-    console.log("[unified] melody track →", { count: opts.melody.length });
   }
 
   events.sort((a, b) => a.time - b.time);

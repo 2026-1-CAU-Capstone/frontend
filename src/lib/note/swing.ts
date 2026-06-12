@@ -42,6 +42,12 @@ export function getSwingRatio(bpm: number, style?: FeelId): number {
     style === 'straight-16'
   ) {
     r = 0.5;
+  } else if (style === 'shuffle-blues') {
+    // Hard triplet shuffle — the defining "dotted" lilt, wider than medium.
+    r = 0.667;
+  } else if (style === 'bebop-swing') {
+    // Bebop drives the line: tight, near-even swing so fast 8th runs articulate.
+    r = 0.6;
   } else if (style === 'ballad-swing' || bpm < 80) {
     r = 0.667;
   } else if (bpm >= 220 || style === 'up-tempo-swing') {

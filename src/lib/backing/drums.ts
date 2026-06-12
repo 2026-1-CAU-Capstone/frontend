@@ -666,6 +666,108 @@ export function waltzBar(opts: DrumBarOptions, bpm: number): DrumEvent[] {
  * per-style bar renderer. Unknown / unhandled feels fall back to medium
  * swing so the playback never silently goes silent.
  */
+/* ─── Bebop (fast driving swing + dropped "bombs") ─────────────────────── */
+
+/**
+ * Bebop — the up-tempo swing skeleton, but driven harder like a 1940s-50s
+ * bebop drummer:
+ *   • Tight swing ratio (0.6) so fast 8th-note lines stay articulate.
+ *   • Continuous "spang-a-lang" ride with the swung "&" on EVERY beat (busier
+ *     than medium/up-tempo, which only ride the & of 2 & 4).
+ *   • Crisp PHH on 2 & 4.
+ *   • Feathered kick on all four PLUS occasional "bombs" — accented bass-drum
+ *     kicks dropped on off-beats (a bebop signature). Bomb placement is
+ *     bar-seeded so a chart renders identically every play.
+ *   • Snare comping from the shared library + a left-hand accent.
+ */
+export function bebopBar(opts: DrumBarOptions): DrumEvent[] {
+  const { secPerBeat, barStart, beatsInBar, barIndex } = opts;
+  if (beatsInBar !== 4) return [];
+
+  const beatToSec = makeBeatToSec(secPerBeat, 0.6);
+  const events: DrumEvent[] = [];
+  const push = (beat: number, piece: DrumPiece, velocity: number) => {
+    events.push({ kind: "drum", piece, time: barStart + beatToSec(beat), velocity, bar: barIndex });
+  };
+
+  // Ride: quarters + swung "&" on every beat (continuous bebop ride).
+  push(0, "ride", 0.66);
+  push(1, "ride", 0.70);
+  push(2, "ride", 0.66);
+  push(3, "ride", 0.69);
+  push(0.5, "ride", 0.55);
+  push(1.5, "ride", 0.62);
+  push(2.5, "ride", 0.55);
+  push(3.5, "ride", 0.60);
+
+  // PHH backbeat on 2 & 4.
+  push(1, "hihat-foot", 0.52);
+  push(3, "hihat-foot", 0.52);
+
+  // Feathered kick on all four.
+  push(0, "kick", 0.24);
+  push(1, "kick", 0.23);
+  push(2, "kick", 0.23);
+  push(3, "kick", 0.23);
+
+  // "Bombs" — accented kicks on off-beats, sprinkled deterministically so the
+  // line breathes without sounding random. ~1 per bar on average.
+  const h = (barIndex * 2654435761) >>> 0;          // cheap deterministic hash
+  if (h % 3 === 0) push(1.5, "kick", 0.78);          // bomb on "& of 2"
+  if (h % 5 === 0) push(3.5, "kick", 0.82);          // bomb on "& of 4"
+  if (h % 7 === 0) push(2.5, "kick", 0.72);          // bomb on "& of 3"
+
+  // Snare comping (shared library) + a left-hand accent every 4 bars.
+  const snarePattern = SNARE_PATTERNS[barIndex % SNARE_PATTERNS.length];
+  for (const [offset, vel] of snarePattern) push(offset, "snare", vel);
+  if (barIndex % 4 === 3) push(3.5, "snare", 0.88);
+
+  return events;
+}
+
+/* ─── Shuffle (blues — hard triplet ride + 2&4 backbeat) ───────────────── */
+
+/**
+ * Blues / jazz shuffle — the classic "dt-dt-dt-dt" triplet lilt:
+ *   • Hi-hat (closed) plays the shuffle ride: each beat + its swung "&" landing
+ *     on the triplet 3rd (ratio 0.667), giving the dotted shuffle bounce.
+ *   • Strong backbeat snare on 2 & 4.
+ *   • Steady kick on 1 & 3 (the "boom-CHK boom-CHK" foundation) plus a soft
+ *     pickup kick into beat 1.
+ *   • PHH foot on 2 & 4 reinforcing the backbeat.
+ */
+export function shuffleBar(opts: DrumBarOptions): DrumEvent[] {
+  const { secPerBeat, barStart, beatsInBar, barIndex } = opts;
+  if (beatsInBar !== 4) return [];
+
+  const beatToSec = makeBeatToSec(secPerBeat, 0.667);
+  const events: DrumEvent[] = [];
+  const push = (beat: number, piece: DrumPiece, velocity: number) => {
+    events.push({ kind: "drum", piece, time: barStart + beatToSec(beat), velocity, bar: barIndex });
+  };
+
+  // Shuffle ride on closed hi-hat: beat + swung "&" (triplet 3rd) on each beat.
+  for (let b = 0; b < 4; b++) {
+    push(b, "hihat-closed", b % 2 === 1 ? 0.58 : 0.64);   // downbeats a touch fuller
+    push(b + 0.5, "hihat-closed", 0.46);                  // the triplet "&"
+  }
+
+  // Backbeat snare on 2 & 4 — the heart of the shuffle.
+  push(1, "snare", 0.9);
+  push(3, "snare", 0.92);
+
+  // Kick foundation on 1 & 3, with a soft lead-in kick on the "& of 4".
+  push(0, "kick", 0.8);
+  push(2, "kick", 0.78);
+  if (barIndex % 2 === 1) push(3.5, "kick", 0.42);
+
+  // PHH foot reinforcing 2 & 4.
+  push(1, "hihat-foot", 0.4);
+  push(3, "hihat-foot", 0.4);
+
+  return events;
+}
+
 export function renderDrumBar(
   opts: DrumBarOptions,
   feel: FeelId,
@@ -694,6 +796,10 @@ export function renderDrumBar(
       return funkBar(opts);
     case "waltz":
       return waltzBar(opts, bpm);
+    case "bebop-swing":
+      return bebopBar(opts);
+    case "shuffle-blues":
+      return shuffleBar(opts);
     case "swing":
     case "medium-swing":
     case "medium-up-swing":

@@ -81,6 +81,8 @@ export type StyleId =
   | "latin-swing"
   // Other (Phase 1+)
   | "funk" | "rock" | "pop-ballad" | "rubato" | "waltz-jazz" | "new-orleans"
+  // Phase 3 — distinct grooves
+  | "bebop" | "shuffle"
   // Fallback
   | "none";
 
@@ -122,7 +124,10 @@ export type FeelId =
   // Stage-2 additions — distinct grooves (own drum renderers)
   | "samba"
   | "funk"
-  | "waltz";
+  | "waltz"
+  // Stage-3 additions — distinct grooves (own drum renderers)
+  | "bebop-swing"   // fast driving swing: busy ride + dropped "bombs"
+  | "shuffle-blues"; // hard-triplet shuffle + 2&4 backbeat
 
 /* ─── Chart instructions (bar-level behaviors) ───────────────────────── */
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from 'react';
+import { isComposingEvent } from '../../lib/ime';
 import styled from 'styled-components';
 import { DRUM_KIT_PRESETS, type DrumKitId } from '../../lib/backing/drumKitPresets';
 import {
@@ -58,7 +59,8 @@ function useOutsideClose(
 
 /** Mock genre list for the (non-functional) genre dropdown. */
 const GENRES = [
-  'Ballad', 'Medium Swing', 'Up-Tempo Swing', 'Bebop', 'New Orleans Swing',
+  'Ballad', 'Medium Swing', 'Up-Tempo Swing', 'Bebop', 'Shuffle',
+  'New Orleans Swing', 'Straight 8ths',
   'Bossa Nova', 'Samba', 'Latin', 'Latin Swing', 'Funk', 'Jazz Waltz',
 ] as const;
 
@@ -133,7 +135,7 @@ function EditableBigNum({ value, min, max, onCommit }: {
       onChange={(e) => setText(e.target.value.replace(/\D/g, ''))}
       onBlur={commit}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') commit();
+        if (e.key === 'Enter') { if (isComposingEvent(e)) return; commit(); }
         else if (e.key === 'Escape') { setText(String(value)); setEditing(false); }
       }}
     />

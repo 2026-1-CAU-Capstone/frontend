@@ -366,7 +366,7 @@ export function RightChatPanel({
    * here; once the current turn finishes we shift the next one off and
    * fire handleSend recursively. Matches the ChatGPT "you can keep
    * typing" UX. Cap loosely so a runaway paste doesn't pile up forever. */
-  const queueRef = useRef<Array<{ text: string; files?: File[] }>>([]);
+  const queueRef = useRef<Array<{ text: string; files?: File[]; preImages?: ClaudeImage[] }>>([]);
   const QUEUE_CAP = 8;
 
   /* Abort controller for the in-flight stream. Set when a message is sent;
@@ -378,6 +378,20 @@ export function RightChatPanel({
   const stopGeneration = useCallback(() => {
     abortRef.current?.abort();
   }, []);
+  /* Unmount cleanup — tab switches (믹서↔채팅), HomePage's new-chat remount
+   * and route changes unmount this panel while a stream may be in flight.
+   * Without the abort the fetch keeps streaming in the background (tokens +
+   * network for nothing) and its completion side-effects fire post-unmount. */
+  useEffect(() => () => { abortRef.current?.abort(); }, []);
+  /* Guards for the "switch chat while streaming" races:
+   *  - loadSeqRef: sequence token for sidebar chat loads; a stale
+   *    backendGetChat response (A clicked, then B) must not win over the
+   *    newer one.
+   *  - historyEpochRef: bumped whenever historyRef is REPLACED (chat switch /
+   *    clear). A stream that started under an older epoch must not push its
+   *    turn into the NEW chat's history (LLM context contamination). */
+  const loadSeqRef = useRef(0);
+  const historyEpochRef = useRef(0);
   /* True while a sidebar-triggered GET /v1/chat/{id} is in flight, so the
    * empty MessagesArea can show a "채팅 불러오는 중…" placeholder instead of
    * looking frozen. */
@@ -419,55 +433,76 @@ export function RightChatPanel({
     });
   }, [setChatPublicId]);
 
-  /* Sidebar dispatched a chat selection → load it (or clear on null).
-   * Skips the load if the requested id is already open, which avoids a
-   * redundant fetch when the right panel itself emitted the change after
-   * creating a fresh chat. chatLoading drives the placeholder shown in the
-   * MessagesArea so the UI never looks "frozen" while GET /v1/chat is in
-   * flight. */
-  useEffect(() => {
-    const unsub = onActiveChatChange(async (id) => {
-      if (id === chatPublicIdRef.current) return;
-      if (id === null) {
-        setChatPublicId(null);
-        setMessages([]);
-        historyRef.current = [];
-        setChatLoading(false);
-        return;
-      }
-      setChatLoading(true);
-      try {
-        const detail = await backendGetChat(id);
-        const msgs: MessageWithDebug[] = (detail.messages || [])
-          .filter((m) => m.role === 'user' || m.role === 'assistant')
-          .map((m) => {
-            const base: MessageWithDebug = {
-              id: `db-${m.publicId}`,
-              role: m.role as 'user' | 'assistant',
-              content: m.content,
-              timestamp: new Date(m.createdAt).getTime() || Date.now(),
-            };
-            // Rebuild lick score cards from [LICK:id] tags (see helper above).
-            // If the lick DB isn't loaded yet, the [licksReady] effect re-runs
-            // this once it is.
-            if (m.role === 'assistant') {
-              const lm = resolveLickMatchesFromContent(m.content, allLicksRef.current);
-              if (lm.length > 0) { base.lickMatches = lm; base.lickInline = true; }
-            }
-            return base;
-          });
-        setChatPublicId(id);
-        setMessages(msgs);
-        historyRef.current = msgs.map((m) => ({ role: m.role, content: m.content }));
-        isScrolledUpRef.current = false;
-      } catch (e) {
-        console.error('[chat] load failed:', e);
-      } finally {
-        setChatLoading(false);
-      }
-    });
-    return unsub;
+  /* Load a chat's messages into the panel (or clear on null). Shared by the
+   * sidebar's active-chat dispatch AND the explicit restore effect below, so
+   * a Recent-Chats click always repopulates the log regardless of event
+   * timing. `force` bypasses the "already open" short-circuit — needed by the
+   * restore path, where the global active id may already equal the target but
+   * the panel hasn't actually fetched it yet (e.g. arrived via ?chat). */
+  const loadChatById = useCallback(async (id: string | null, force = false) => {
+    if (!force && id === chatPublicIdRef.current) return;
+    // Switching away from a chat that may still be streaming: kill the stream
+    // FIRST so its finishing turn can't leak into the new chat's history.
+    abortRef.current?.abort();
+    historyEpochRef.current++;
+    if (id === null) {
+      setChatPublicId(null);
+      setMessages([]);
+      historyRef.current = [];
+      setChatLoading(false);
+      return;
+    }
+    const seq = ++loadSeqRef.current;
+    setChatLoading(true);
+    try {
+      const detail = await backendGetChat(id);
+      // A newer load (rapid A→B clicks) superseded this one — drop it.
+      if (seq !== loadSeqRef.current) return;
+      const msgs: MessageWithDebug[] = (detail.messages || [])
+        // Role is normalised case-insensitively: the backend may serialise the
+        // enum as 'USER'/'ASSISTANT' (or 'system'), so a strict lowercase match
+        // silently dropped EVERY message → blank panel even when the chat had a
+        // full log. Keep only user/assistant turns.
+        .map((m) => ({ ...m, _r: (m.role || '').toLowerCase() }))
+        .filter((m) => m._r === 'user' || m._r === 'assistant')
+        .map((m) => {
+          const role: 'user' | 'assistant' = m._r === 'assistant' ? 'assistant' : 'user';
+          const base: MessageWithDebug = {
+            id: `db-${m.publicId}`,
+            role,
+            content: m.content,
+            timestamp: new Date(m.createdAt).getTime() || Date.now(),
+          };
+          if (role === 'assistant') {
+            const lm = resolveLickMatchesFromContent(m.content, allLicksRef.current);
+            if (lm.length > 0) { base.lickMatches = lm; base.lickInline = true; }
+          }
+          return base;
+        });
+      setChatPublicId(id);
+      setMessages(msgs);
+      historyRef.current = msgs.map((m) => ({ role: m.role, content: m.content }));
+      isScrolledUpRef.current = false;
+    } catch (e) {
+      console.error('[chat] load failed:', e);
+    } finally {
+      if (seq === loadSeqRef.current) setChatLoading(false);
+    }
   }, [setChatPublicId]);
+
+  /* Sidebar dispatched a chat selection → load it (or clear on null). */
+  useEffect(() => onActiveChatChange((id) => { void loadChatById(id); }), [loadChatById]);
+
+  /* Explicit restore (Recent-Chats click → ?chat=<id> → restoreChatId).
+   * Force-load it directly so the conversation reopens even when the global
+   * active-chat event was missed or already equalled the id at mount — the
+   * bug where clicking a chord/sheet chart's recent chat showed the empty
+   * start screen instead of the saved log. */
+  useEffect(() => {
+    if (!restoreChatId) return;
+    setActiveChat(restoreChatId);
+    void loadChatById(restoreChatId, true);
+  }, [restoreChatId, loadChatById]);
 
   /* 릭 추천 풀: 1순위 백엔드 lick DB (jazzify.p-e.kr/api/v1/licks). 백엔드가
    * 인증 만료/다운 등으로 실패하면 번들된 백업 스냅샷(public/data/licks/
@@ -599,20 +634,25 @@ export function RightChatPanel({
     return () => window.removeEventListener('jazzify:requestLicks', handler);
   }, [handleRequestLicks]);
 
-  const handleSend = useCallback(async (text: string, files?: File[]) => {
+  const handleSend = useCallback(async (text: string, files?: File[], preImages?: ClaudeImage[]) => {
     /* Queue path — a previous turn is still streaming. Stash this send
      * and bail out; the in-flight turn's tail will pick it up. */
     if (loadingRef.current) {
       if (queueRef.current.length >= QUEUE_CAP) return;
-      queueRef.current.push({ text, files });
+      queueRef.current.push({ text, files, preImages });
       return;
     }
     isScrolledUpRef.current = false;
 
     // 첨부 이미지 → Claude 비전 블록(base64). 비이미지(PDF 등)는 건너뜀.
-    const images: ClaudeImage[] = files && files.length > 0
-      ? (await Promise.all(files.map(fileToClaudeImage))).filter((x): x is ClaudeImage => x !== null)
-      : [];
+    // preImages: 이미 변환된 ClaudeImage[] (재시도 경로). 예전엔 retryImages를
+    // File[]로 강제 캐스트해 fileToClaudeImage의 file.type 접근에서 TypeError →
+    // 재시도가 메시지만 지우고 아무것도 못 보냈다.
+    const images: ClaudeImage[] = preImages && preImages.length > 0
+      ? preImages
+      : files && files.length > 0
+        ? (await Promise.all(files.map(fileToClaudeImage))).filter((x): x is ClaudeImage => x !== null)
+        : [];
 
     const userMsg: MessageWithDebug = {
       id: `user-${Date.now()}`,
@@ -818,6 +858,9 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
     /* Fresh abort controller for this turn. Stop button calls .abort(). */
     const ac = new AbortController();
     abortRef.current = ac;
+    // historyRef가 이 스트림 도중 교체(채팅 전환/클리어)되면 epoch가 달라진다 —
+    // 완료 시 동일할 때만 이 턴을 히스토리에 커밋한다.
+    const historyEpoch = historyEpochRef.current;
 
     /* Lick-recommendation and glick-generation turns MUST use the local
      * HarmoRAG path: only that path sends `textForLLM` (the grounding
@@ -890,7 +933,7 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
     /* Only commit to history when we actually produced an answer (no abort,
      * no error). On abort the partial reply stays visible but isn't fed
      * back into the LLM context. On error we surface a retry affordance. */
-    if (!aborted && !streamError) {
+    if (!aborted && !streamError && historyEpoch === historyEpochRef.current) {
       historyRef.current.push(
         { role: 'user', content: text },
         { role: 'assistant', content: finalText },
@@ -937,7 +980,7 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
      * memoised body (no stale closure). */
     if (queueRef.current.length > 0) {
       const next = queueRef.current.shift()!;
-      queueMicrotask(() => { void handleSendRef.current?.(next.text, next.files); });
+      queueMicrotask(() => { void handleSendRef.current?.(next.text, next.files, next.preImages); });
     }
   }, [chordContext, selectedChords, songTitle, notesContext, chartKind, projectPublicId, loggedIn, setChatPublicId]);
 
@@ -1209,7 +1252,7 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
                         const start = idx > 0 && prev[idx - 1].role === 'user' ? idx - 1 : idx;
                         return prev.slice(0, start).concat(prev.slice(idx + 1));
                       });
-                      void handleSend(prompt, imgs as unknown as File[] | undefined);
+                      void handleSend(prompt, undefined, imgs); // 이미 ClaudeImage[] — 변환 경로 우회
                     }
                   : undefined
               }

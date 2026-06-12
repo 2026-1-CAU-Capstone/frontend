@@ -180,7 +180,9 @@ export function stripInternalInstructions(s: string): string {
 async function readApiError(res: Response): Promise<string> {
   try {
     const j = await res.json() as { code?: string; message?: string; detail?: string };
-    return j.detail || j.message || j.code || '';
+    // detail(백엔드 내부 예외 문자열)은 UI로 내보내지 않는다 — dev 콘솔만.
+    if (import.meta.env.DEV && j.detail) console.debug(`[api ${res.status}] detail:`, j.detail);
+    return j.message || j.code || '';
   } catch {
     return '';
   }
@@ -196,7 +198,15 @@ const CHAT_LIST_CACHE_KEY = 'jazzify.chat.listCache';
 export function getCachedChatList(): ChatSummary[] | null {
   try {
     const raw = window.localStorage.getItem(CHAT_LIST_CACHE_KEY);
-    return raw ? (JSON.parse(raw) as ChatSummary[]) : null;
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    // 비배열(키 충돌/스키마 변경/수동 변조)이면 RecentChatsList의 items.map에서
+    // 사이드바가 통째로 죽는다 — 캐시를 버리고 자가 복구.
+    if (!Array.isArray(parsed)) {
+      window.localStorage.removeItem(CHAT_LIST_CACHE_KEY);
+      return null;
+    }
+    return parsed as ChatSummary[];
   } catch { return null; }
 }
 
@@ -232,8 +242,12 @@ export async function getChat(publicId: string): Promise<ChatDetail> {
   if (!res.ok) throw new Error(`chat get ${res.status} ${await readApiError(res)}`.trim());
   const json: { data: ChatDetail } = await res.json();
   const detail = json.data;
-  detail.messages = detail.messages.map((m) =>
-    m.role === 'user' ? { ...m, content: stripInternalInstructions(m.content) } : m,
+  // Defend against a detail payload that omits `messages` (or names it
+  // differently) so a chord/sheet-project chat detail can't crash the loader.
+  detail.messages = (detail.messages ?? []).map((m) =>
+    (m.role || '').toLowerCase() === 'user'
+      ? { ...m, content: stripInternalInstructions(m.content) }
+      : m,
   );
   return detail;
 }

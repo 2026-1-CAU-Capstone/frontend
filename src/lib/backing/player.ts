@@ -40,7 +40,7 @@ function genreToStyleId(genre: string, fallback: "swing" | "bossa"): StyleId {
     case "Ballad":         return "ballad-swing";
     case "Medium Swing":   return "medium-swing";
     case "Up-Tempo Swing": return "up-swing";
-    case "Bebop":          return "up-swing";
+    case "Bebop":          return "bebop";
     case "Bossa Nova":     return "bossa";
     case "Samba":          return "samba";
     case "Latin":          return "latin";
@@ -48,6 +48,8 @@ function genreToStyleId(genre: string, fallback: "swing" | "bossa"): StyleId {
     case "Funk":           return "funk";
     case "Jazz Waltz":     return "waltz-jazz";
     case "New Orleans Swing": return "new-orleans";
+    case "Straight 8ths":  return "rock";
+    case "Shuffle":        return "shuffle";
     default:               return fallback === "bossa" ? "bossa" : "medium-swing";
   }
 }
@@ -88,6 +90,14 @@ export function createBackingPlayer(
   // shared across every backing player and note-sheet player.
   const seeded = mixSettingsIntoConfig(getPlayerSettings(), initialConfig);
   let config: BackingConfig = seeded;
+  /* Caller-level overrides = initialConfig + every explicit setConfig patch
+   * (orchestrator/page). The global-settings broadcast below re-mixes the new
+   * settings UNDER these (base wins in mixSettingsIntoConfig), so moving one
+   * mixer slider can no longer clobber per-player seeds — e.g. the lick
+   * engine's melodyInstrument:'piano' / loop:false / pianoReverb, or a style
+   * the orchestrator set at runtime. */
+  let callerOverrides: Partial<BackingConfig> = { ...initialConfig };
+  let inSettingsBroadcast = false;
 
   let ctx: AudioContext | null = null;
   let piano: TriggerableInstrument | null = null;
@@ -127,6 +137,11 @@ export function createBackingPlayer(
   // that window would both pass the `if (playing)` check and start duplicate
   // tick loops (double audio + a leaked RAF chain). `starting` closes the gap.
   let starting = false;
+  /* Transport epoch — play()의 await 구간(콜드 스타트 수 초) 동안 stop()/
+   * pause()/dispose()가 끼어들면 증가한다. play()는 await를 마친 뒤 자신의
+   * epoch가 그대로일 때만 playing=true로 진입 — "정지를 눌렀는데 로드가 끝나자
+   * 음악이 시작되는" 재진입 레이스를 막는다. */
+  let transportEpoch = 0;
   let lastBarFired = -2;
   let lastNoteIdx = -1;  // index into melodyTimeline of the last highlighted note
   let loopCount = 0;  // completed song passes this play() session (for repeatCount)
@@ -229,7 +244,16 @@ export function createBackingPlayer(
       melodyDestination = inst.melodyDestination;
       // Apply any pianoReverb setting that was already in config when we loaded.
       applyPianoReverb();
-    }).then(() => ensureMelodyInstrument()).then(() => ensureMelodyInstruments());
+    }).then(() => ensureMelodyInstrument()).then(() => ensureMelodyInstruments())
+      .catch((err) => {
+        // CRITICAL: clear the cached promise on failure so the NEXT call
+        // retries the load. Without this, one transient CDN/network error
+        // leaves a rejected promise cached here forever and every subsequent
+        // play()/preload() fails instantly until a full page reload.
+        // (melodyLoading / drumLoopLoading already reset in their finally.)
+        loading = null;
+        throw err; // this attempt still fails — callers handle/report it
+      });
     return loading;
   }
 
@@ -269,27 +293,38 @@ export function createBackingPlayer(
    *  current melody track (config.melody[].instrument). Drum-routed notes
    *  (melodyInst === DRUM_INSTRUMENT / drumPiece set) use the drum sampler,
    *  not a pitched instrument, so they're skipped here. Idempotent. */
+  /** Per-instrument in-flight loads. play()'s ensureInstruments chain and a
+   *  rapid setConfig({melody}) used to race here: both saw `!melodyInstMap.has`,
+   *  fetched the SAME soundfont twice, and the later result clobbered the
+   *  earlier instance (orphaning its connected nodes, double download). */
+  const melodyInstInflight = new Map<string, Promise<void>>();
+
   function ensureMelodyInstruments(): Promise<void> {
     if (!ctx || !melodyDestination) return Promise.resolve();
     const dest = melodyDestination;
-    const want = new Set<string>();
+    const jobs: Promise<void>[] = [];
     for (const m of config.melody ?? []) {
       const name = (m as { instrument?: string }).instrument;
       const isDrum = (m as { drumPiece?: unknown }).drumPiece !== undefined;
-      if (name && !isDrum && name !== DRUM_INSTRUMENT && !melodyInstMap.has(name)) want.add(name);
-    }
-    if (want.size === 0) return melodyMapLoading ?? Promise.resolve();
-    const load = (async () => {
-      await Promise.all([...want].map(async (name) => {
+      if (!name || isDrum || name === DRUM_INSTRUMENT || melodyInstMap.has(name)) continue;
+      const inflight = melodyInstInflight.get(name);
+      if (inflight) { jobs.push(inflight); continue; }
+      const job = (async () => {
         try {
           const inst = await loadMelodyInstrument(ctx!, dest, name);
           if (disposed) { inst.stopAll(); return; }
           melodyInstMap.set(name, inst);
         } catch (err) {
           console.warn('[backing] part instrument load failed:', name, err);
+        } finally {
+          melodyInstInflight.delete(name);
         }
-      }));
-    })();
+      })();
+      melodyInstInflight.set(name, job);
+      jobs.push(job);
+    }
+    if (jobs.length === 0) return melodyMapLoading ?? Promise.resolve();
+    const load = Promise.all(jobs).then(() => undefined);
     melodyMapLoading = load;
     return load;
   }
@@ -554,6 +589,10 @@ export function createBackingPlayer(
             // transport immediately so the UI flips Stop→Play the moment the
             // phrase completes, and fire onDone now. We deliberately DON'T
             // killActiveNodes() — the last note keeps ringing on its own envelope.
+            // The DRUM LOOP however is an infinite AudioBufferSource (loop=true)
+            // that never ends on its own — without this stop it kept playing
+            // forever after the lick finished (brushes/sticks kits).
+            drumLoop?.stop();
             playing = false;
             cancelAnimationFrame(rafHandle);
             elapsed = 0;
@@ -734,6 +773,7 @@ export function createBackingPlayer(
   async function play(playOpts: { startAt?: number } = {}): Promise<void> {
     if (playing || starting) return;
     starting = true;
+    const epoch = ++transportEpoch;
     try {
     // A previous ending tail may still be ringing (playing===false but the
     // teardown timer pending). Cancel it so its stop()/onDone can't fire into
@@ -749,6 +789,9 @@ export function createBackingPlayer(
     await ensureCtx();
     await ensureInstruments();
     await ensureDrumLoop();
+    // stop()/pause()/dispose()가 위 await들 사이에 끼어들었나? 그렇다면 사용자
+    // 의도는 "시작하지 마라" — 조용히 빠진다 (UI는 이미 정지 상태).
+    if (epoch !== transportEpoch) return;
     build();
     playing = true;
     lastBarFired = -2;
@@ -813,6 +856,9 @@ export function createBackingPlayer(
   }
 
   function pause(): void {
+    // starting(로드 중) 구간의 pause = "시작 보류" 요청 — epoch만 올려 play()의
+    // 가드가 잡게 한다 (playing은 아직 false라 아래 early-return).
+    if (starting) transportEpoch++;
     if (!playing || !ctx) return;
     playing = false;
     cancelAnimationFrame(rafHandle);
@@ -850,6 +896,7 @@ export function createBackingPlayer(
   }
 
   function stop(): void {
+    transportEpoch++; // cancels any play() still inside its load awaits
     playing = false;
     cancelAnimationFrame(rafHandle);
     // Cancel any pending ending tail and restore the reverb send so a manual
@@ -879,6 +926,7 @@ export function createBackingPlayer(
   }
 
   function setConfig(next: Partial<BackingConfig>): void {
+    if (!inSettingsBroadcast) callerOverrides = { ...callerOverrides, ...next };
     const prevMode = config.drumMode;
     const prevUrl = config.drumLoop?.url;
     const prevBpm = config.bpm;
@@ -956,6 +1004,7 @@ export function createBackingPlayer(
   }
 
   function dispose(): void {
+    transportEpoch++; // a mid-load play() must not resurrect a disposed player
     if (disposed) return;
     disposed = true;
     stop();
@@ -995,7 +1044,12 @@ export function createBackingPlayer(
   // changes from any UI without per-page glue code. The diff is funneled
   // through setConfig so kit-change-forces-stop semantics still apply.
   let unsubSettings: (() => void) | null = subscribePlayerSettings((next) => {
-    setConfig(mixSettingsIntoConfig(next, {}));
+    inSettingsBroadcast = true;
+    try {
+      setConfig(mixSettingsIntoConfig(next, callerOverrides));
+    } finally {
+      inSettingsBroadcast = false;
+    }
   });
 
   return {
