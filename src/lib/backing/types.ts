@@ -412,6 +412,10 @@ export interface BackingPlayer {
   play(opts?: { startAt?: number }): Promise<void>;
   /** Pre-warm AudioContext + instruments + drum 자원 (count-in 과 병렬용). */
   preload(): Promise<void>;
+  /** True when instruments are loaded and play() can start instantly (no
+   *  multi-second cold-load). The page uses this to decide load-then-count-in
+   *  (cold) vs count-in-immediately (warm). */
+  isReady(): boolean;
   pause(): void;
   stop(): void;
   /** Jump the transport to the start of `bar` (0-based). While playing the jump

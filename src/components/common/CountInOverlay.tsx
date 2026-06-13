@@ -3,6 +3,8 @@ import { maxRowLength, type Pattern } from '../../lib/note/countInPatterns';
 
 interface Props {
   active: boolean;
+  /** 콜드 스타트 — 악기 로딩 중. "1 2 3 4" 대신 "준비 중…" 스피너를 보여준다. */
+  preparing?: boolean;
   pattern: Pattern;
   /** 1-indexed cell 글로벌 index (1..pattern.totalCells). 0 = pre-start. */
   currentBeat: number;
@@ -15,6 +17,31 @@ interface Props {
 const fadeIn = keyframes`
   from { opacity: 0; }
   to { opacity: 1; }
+`;
+
+const spin = keyframes`
+  to { transform: rotate(360deg); }
+`;
+
+const Preparing = styled.div<{ $scoped: boolean }>`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  row-gap: ${({ $scoped }) => ($scoped ? '12px' : '22px')};
+  color: #ffd54f;
+  font-family: 'Pretendard', 'MuseJazz Text', sans-serif;
+  font-weight: 700;
+  font-size: ${({ $scoped }) =>
+    $scoped ? 'clamp(0.85rem, 2.4vw, 1.2rem)' : 'clamp(1.1rem, 3vw, 2rem)'};
+`;
+
+const Spinner = styled.div<{ $scoped: boolean }>`
+  width: ${({ $scoped }) => ($scoped ? '28px' : '52px')};
+  height: ${({ $scoped }) => ($scoped ? '28px' : '52px')};
+  border-radius: 50%;
+  border: ${({ $scoped }) => ($scoped ? '3px' : '5px')} solid rgba(255, 213, 79, 0.25);
+  border-top-color: #ffd54f;
+  animation: ${spin} 700ms linear infinite;
 `;
 
 const Backdrop = styled.div<{ $scoped: boolean; $clickable: boolean }>`
@@ -130,6 +157,7 @@ const Box = styled.div<{
 
 export function CountInOverlay({
   active,
+  preparing = false,
   pattern,
   currentBeat,
   scoped = false,
@@ -151,6 +179,12 @@ export function CountInOverlay({
           : undefined
       }
     >
+      {preparing ? (
+        <Preparing $scoped={scoped}>
+          <Spinner $scoped={scoped} />
+          준비 중…
+        </Preparing>
+      ) : (
       <Rows $scoped={scoped}>
         {pattern.rows.map((row, ri) => (
           <Row key={ri} $scoped={scoped}>
@@ -178,6 +212,7 @@ export function CountInOverlay({
           </Row>
         ))}
       </Rows>
+      )}
     </Backdrop>
   );
 }

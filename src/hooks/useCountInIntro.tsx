@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   getCountInTime,
+  resumeCountInCtx,
   scheduleCountInClick,
   type ScheduledClick,
 } from '../lib/note/countInClick';
@@ -30,6 +31,13 @@ interface RunOptions {
    *  absorbs any overrun). Rejections are swallowed — the caller's play() path
    *  retries the load. */
   prepare?: Promise<unknown>;
+  /** Engine-loaded flag. When explicitly `false`, the engine is NOT yet loaded:
+   *  the overlay shows "준비 중…" and `prepare` is awaited BEFORE the "1 2 3 4"
+   *  clicks start — so the count-in only plays once playback can begin
+   *  immediately on the downbeat (no "1 2 3 4 … silence … sound" gap on a cold
+   *  first play). When `true`/omitted, `prepare` runs concurrently with the
+   *  clicks (warm path). */
+  ready?: boolean;
 }
 
 export interface CountInResult {
@@ -62,6 +70,7 @@ export interface CountInResult {
 export function useCountInIntro(options: HookOptions = {}) {
   const { scoped = false } = options;
   const [active, setActive] = useState(false);
+  const [preparing, setPreparing] = useState(false);
   const [currentBeat, setCurrentBeat] = useState(0);
   const [pattern, setPattern] = useState<Pattern>(PATTERN_SIMPLE);
   const cancelRef = useRef(false);
@@ -80,6 +89,7 @@ export function useCountInIntro(options: HookOptions = {}) {
     cancelRef.current = true;
     clearAll();
     setActive(false);
+    setPreparing(false);
     setCurrentBeat(0);
     if (resolveWaitRef.current) {
       const r = resolveWaitRef.current;
@@ -89,20 +99,55 @@ export function useCountInIntro(options: HookOptions = {}) {
   }, [clearAll]);
 
   const run = useCallback(
-    async ({ bpm, pattern: patternOverride, prepare }: RunOptions): Promise<CountInResult> => {
+    async ({ bpm, pattern: patternOverride, prepare: rawPrepare, ready }: RunOptions): Promise<CountInResult> => {
+      // Attach a catch IMMEDIATELY (hook-level backstop). `prepare` is only
+      // awaited after the clicks (~2s); a rejection inside that unobserved
+      // window fires `unhandledrejection`, which AudioLifecycleGuard answers
+      // with stopAllAudio() — silencing the very playback being started.
+      // Callers' play() retries the instrument load anyway.
+      const prepare = rawPrepare?.catch(() => {});
       if (!Number.isFinite(bpm) || bpm <= 0) {
         if (prepare) { try { await prepare; } catch { /* retried at play time */ } }
         return { ok: true, startAt: getCountInTime(), downbeatInSec: 0 };
       }
+      // run()은 ▶버튼 제스처 안에서 호출된다 — suspended ctx(iOS 백그라운드
+      // 복귀 등)를 클릭 스케줄 전에 깨워, frozen currentTime 기준으로 잡혀
+      // 첫 클릭들이 뭉개지던 문제를 막는다.
+      await resumeCountInCtx();
       const chosenPattern = patternOverride ?? selectPattern(bpm);
       const cells = flatCells(chosenPattern);
       const totalCells = cells.length;
 
+      // Re-entry guard: a second run() (rapid double-press — React-state
+      // guards don't close this window) clears the FIRST run's resolve timer
+      // via clearAll() and overwrites resolveWaitRef — leaving the first
+      // promise pending FOREVER and freezing that caller's async flow.
+      // Settle the previous waiter first so it returns (as cancelled).
+      if (resolveWaitRef.current) {
+        const r = resolveWaitRef.current;
+        resolveWaitRef.current = null;
+        r();
+      }
       cancelRef.current = false;
       clearAll();
       setPattern(chosenPattern);
       setActive(true);
       setCurrentBeat(0);
+
+      // COLD START (ready === false): the engine isn't loaded yet. Show "준비
+      // 중…" and finish loading BEFORE the clicks, so the "1 2 3 4" leads
+      // straight into the music instead of ending into a silent decode gap that
+      // the user mistakes for "playback already started". Warm path falls
+      // through and awaits `prepare` concurrently AFTER the clicks (below).
+      if (ready === false && prepare) {
+        setPreparing(true);
+        try { await prepare; } finally { setPreparing(false); }
+        if (cancelRef.current) {
+          setActive(false);
+          setCurrentBeat(0);
+          return { ok: false, startAt: getCountInTime(), downbeatInSec: 0 };
+        }
+      }
 
       const bs = 60 / bpm;
       const startAudioTime = getCountInTime() + 0.06;
@@ -158,6 +203,11 @@ export function useCountInIntro(options: HookOptions = {}) {
       // count-in and returns instantly; on a cold first play it may add a
       // little time, which is why downbeatInSec is re-read from the clock below.
       if (!cancelled && prepare) { try { await prepare; } catch { /* retried at play time */ } }
+      // RE-READ after the prepare await: on a cold start the load can outrun
+      // the clicks, and the user may hit Stop in that window. The early
+      // capture alone returned ok:true → caller proceeded to play() — music
+      // started right after the user pressed stop.
+      const cancelledFinal = cancelled || cancelRef.current;
       setActive(false);
       setCurrentBeat(0);
       scheduledRef.current = [];
@@ -166,7 +216,7 @@ export function useCountInIntro(options: HookOptions = {}) {
       // setTimeout slop at this point is typically a few ms past the downbeat,
       // so this clamps to >= 0.
       const downbeatInSec = Math.max(0, downbeatAudioTime - getCountInTime());
-      return { ok: !cancelled, startAt: downbeatAudioTime, downbeatInSec };
+      return { ok: !cancelledFinal, startAt: downbeatAudioTime, downbeatInSec };
     },
     [clearAll],
   );
@@ -176,6 +226,7 @@ export function useCountInIntro(options: HookOptions = {}) {
   const overlay = (
     <CountInOverlay
       active={active}
+      preparing={preparing}
       pattern={pattern}
       currentBeat={currentBeat}
       scoped={scoped}

@@ -434,6 +434,7 @@ export function createStyBackingPlayer(
     get playing() { return playing; },
     play,
     preload,
+    isReady() { return !!(ctx && style && drumMachine); },
     pause,
     stop,
     // The .sty engine ticks through the style's own bar structure and has no

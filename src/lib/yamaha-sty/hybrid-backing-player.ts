@@ -53,6 +53,7 @@ export function createHybridBackingPlayer(
     async preload() {
       await Promise.all([ruleEngine.preload(), styEngine.preload()]);
     },
+    isReady() { return ruleEngine.isReady() && styEngine.isReady(); },
     async play(opts) {
       // Both players start from the same absolute AudioContext time, so
       // their schedulers line up. They use separate AudioContexts under

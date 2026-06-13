@@ -94,6 +94,12 @@ function createLazyGlobalPlayer(): GlobalPlayer {
       return r.preload(input);
     },
 
+    isReady(input: PlayerInput): boolean {
+      // Before the real player (and smplr) loads there's nothing ready — the
+      // page treats this as cold and shows "준비 중…" while preload() loads.
+      return real?.isReady(input) ?? false;
+    },
+
     async play(
       input: PlayerInput,
       opts?: { startAt?: number; measureOffset?: number },

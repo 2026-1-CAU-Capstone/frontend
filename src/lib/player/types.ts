@@ -272,6 +272,10 @@ export interface GlobalPlayer {
   readonly playing: boolean;
   readonly currentInput: PlayerInput | null;
   preload(input: PlayerInput): Promise<void>;
+  /** True when the engine for `input` is already loaded (instant play). The
+   *  page uses this to load-then-count-in on a cold start vs count-in
+   *  immediately when warm. */
+  isReady(input: PlayerInput): boolean;
   play(
     input: PlayerInput,
     opts?: { startAt?: number; measureOffset?: number },

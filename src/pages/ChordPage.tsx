@@ -17,6 +17,7 @@ import { getSongIndex, getSong, type SongEntry } from '../lib/ireal/irealLoader'
 import { buildChordContext } from '../api/chordContext';
 import { addChordProjectChords, analyzeChordProject, createChordProject, getChordProject, getChordProjectAnalysis } from '../api/chordProjects';
 import { analysisToLeadSheet } from '../lib/chordProjectToLeadSheet';
+import { getCachedAnalysisEntry, setCachedAnalysis } from '../lib/analysisCache';
 import { leadSheetToChart } from '../lib/backing';
 import { extractMelody } from '../lib/backing/adapters/noteSheetToChart';
 import { getSwingRatio } from '../lib/note/swing';
@@ -1386,14 +1387,20 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     setIsPlaying(true);
     globalPlayer.setConfig({ repeatCount });
     try {
-      // Load instruments/drums CONCURRENTLY with the count-in so "1 2 3 4"
-      // starts the instant the button is pressed (no multi-second stall on a
-      // cold first play). The hook awaits this prepare promise after the clicks
-      // finish and re-reads the clock, so the downbeat stays accurate.
-      // preload에 생성 즉시 .catch — run()은 클릭이 끝난 뒤에야 prepare를
-      // await하므로, 그 사이 reject되면 unhandledrejection → AudioLifecycleGuard
-      // 가 stopAllAudio()로 응답해 시작하려던 재생을 죽인다. play()가 어차피 재로드.
-      const cin = await countIn.run({ bpm: tempo, prepare: globalPlayer.preload(chartInput).catch(() => {}) });
+      // WARM (already loaded): "1 2 3 4" plays the instant the button is pressed
+      // and leads straight into the music — preload runs concurrently as a
+      // no-op. COLD (not yet loaded — e.g. first play before the mount-time
+      // warmup finished): `ready:false` makes the hook show "준비 중…" and finish
+      // loading BEFORE the clicks, so the count-in never ends into a silent
+      // decode gap the user mistakes for "playback already started". Either way,
+      // once loaded every subsequent play is instant.
+      // preload에 생성 즉시 .catch — reject 시 unhandledrejection → AudioLifecycle
+      // Guard가 stopAllAudio()로 시작하려던 재생을 죽이는 걸 막는다. play()가 재로드.
+      const cin = await countIn.run({
+        bpm: tempo,
+        ready: globalPlayer.isReady(chartInput),
+        prepare: globalPlayer.preload(chartInput).catch(() => {}),
+      });
       if (!cin.ok) { setIsPlaying(false); return; }
       await globalPlayer.play(chartInput, { startAt: globalPlayer.ctxNow() + cin.downbeatInSec });
     } catch (err) {
@@ -1434,7 +1441,18 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
       if (edited) { setSheet(edited); setLoading(false); setError(null); return; }
       const publicId = songId.slice(PROJECT_ID_PREFIX.length);
       let cancelled = false;
-      setLoading(true);
+
+      // SWR: render the cached lead-sheet INSTANTLY (any version), then
+      // revalidate in the background. The version (updatedAt) isn't known until
+      // we fetch the project, so unlike the grid we render-then-check here.
+      const cachedEntry = getCachedAnalysisEntry(publicId);
+      if (cachedEntry) {
+        setSheet(withLeadSheetSelectionIds(cachedEntry.sheet, songId));
+        setLoading(false);
+        setError(null);
+      } else {
+        setLoading(true);
+      }
       setError(null);
       /* GET /analysis 404s (CHORD_PROJECT_005) when the project hasn't been
        * analyzed yet — common right after OMR, since the backend doesn't
@@ -1450,18 +1468,33 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
           return await analyzeChordProject(publicId);
         }
       };
-      Promise.all([getChordProject(publicId), fetchAnalysis()])
-        .then(([project, analysis]) => {
+      // Revalidate. If the cached sheet's version still matches the live
+      // project.updatedAt, the analysis can't have changed → skip the (heavy)
+      // analysis fetch + re-render entirely. Otherwise fetch fresh, re-render,
+      // and refresh the cache.
+      (async () => {
+        try {
+          const project = await getChordProject(publicId);
           if (cancelled) return;
-          setSheet(withLeadSheetSelectionIds(analysisToLeadSheet(analysis, project), songId));
-        })
-        .catch((err) => {
-          if (!cancelled) {
+          if (cachedEntry && cachedEntry.updatedAt === project.updatedAt) {
+            return; // cache is current — already rendered, nothing to do
+          }
+          const analysis = await fetchAnalysis();
+          if (cancelled) return;
+          const sheet = analysisToLeadSheet(analysis, project);
+          setCachedAnalysis(publicId, project.updatedAt, sheet);
+          setSheet(withLeadSheetSelectionIds(sheet, songId));
+        } catch (err) {
+          // A background revalidation failure must NOT blow away a sheet we
+          // already rendered from cache — only surface the error on a cold miss.
+          if (!cancelled && !cachedEntry) {
             setError(err instanceof Error ? err.message : 'Failed to load chord chart.');
             setSheet(null);
           }
-        })
-        .finally(() => { if (!cancelled) setLoading(false); });
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      })();
       return () => { cancelled = true; };
     }
 

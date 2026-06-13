@@ -232,7 +232,6 @@ export function createGlobalPlayer(
         // `error` channel unless we ARE on the error channel — in which
         // case we just log to avoid recursion.
         if (ev === "error") {
-          // eslint-disable-next-line no-console
           console.error("[GlobalPlayer] error listener threw", err);
         } else {
           emit("error", err instanceof Error ? err : new Error(String(err)));
@@ -378,7 +377,12 @@ export function createGlobalPlayer(
 
     // Seed BackingConfig with orchestrator state. Tempo precedence matches
     // the legacy path: explicit config.bpm > sheet.tempo > chart.bpm default.
-    const tempo = config.bpm ?? input.data.tempo ?? chart.bpm;
+    // ??(nullish)는 tempo:0을 통과시킨다 — 서버/OMR산 데이터의 0이 그대로
+    // secPerBeat=60/0=Infinity로 흘러 무음+하이라이트 고착이 됐다. 유한 양수만.
+    const validBpm = (n: number | undefined): n is number => Number.isFinite(n) && (n as number) > 0;
+    const tempo = validBpm(config.bpm) ? config.bpm!
+      : validBpm(input.data.tempo) ? input.data.tempo!
+      : chart.bpm;
 
     // Pre-swing the lead line to the song's feel so it locks with the swung
     // rhythm section (bass/drums/comp swing via the engine's swingRatio; a
@@ -511,16 +515,38 @@ export function createGlobalPlayer(
   function computeBackingSig(input: ChartInput): string {
     const backend = input.engineBackend ?? "rule";
     const data: LeadSheetData = input.data;
-    // Cheap, stable proxy for "same chart": title + bpm + system count.
-    // If two different charts happen to collide here, the page can force a
-    // rebuild by calling stop() before play(). Page code that toggles
-    // backends triggers a rebuild via the backend portion of the sig.
+    // title/style/system-count PLUS a rolling hash of the chord CONTENT.
+    // The old proxy ignored chord symbols, so editing a chord on the same
+    // chart (system count unchanged) silently kept playing the stale
+    // pre-edit chart from the cached engine — and contrary to the old
+    // comment here, stop() does NOT clear backingPlayerSig, so a content
+    // hash is the only reliable invalidation. (The melody path solved the
+    // identical bug with hashMeasures — its comment records a real
+    // two-licks-collided incident.)
+    let h = 0;
+    const mix = (str: string | undefined) => {
+      if (!str) return;
+      for (let i = 0; i < str.length; i++) h = (Math.imul(h, 31) + str.charCodeAt(i)) | 0;
+    };
+    for (const sys of data.systems ?? []) {
+      for (const bar of sys.bars ?? []) {
+        for (const c of bar.chords ?? []) {
+          mix(c?.root); mix(c?.accidental); mix(c?.quality);
+          mix(c?.bass?.root); mix(c?.bass?.accidental);
+          if (c?.durationBeats != null) mix(String(c.durationBeats));
+        }
+        h = (Math.imul(h, 31) + 1) | 0; // bar boundary
+      }
+      h = (Math.imul(h, 31) + 7) | 0; // system boundary
+    }
     const id =
       (data.title ?? "?") +
       "/" +
       (data.style ?? "?") +
       "/" +
-      (data.systems?.length ?? 0);
+      (data.systems?.length ?? 0) +
+      "/" +
+      (h >>> 0).toString(36);
     return backend + "|" + id;
   }
 
@@ -581,6 +607,15 @@ export function createGlobalPlayer(
       emit("error", err instanceof Error ? err : new Error(String(err)));
       throw err;
     }
+  }
+
+  /** Is the engine for `input` already loaded (instant play)? Reads the
+   *  existing engine without instantiating one — an absent engine is "not
+   *  ready", so the page preloads first. Lets the page show "준비 중" + load
+   *  BEFORE the count-in on a cold start, then count-in straight into playback. */
+  function isReady(input: PlayerInput): boolean {
+    const bp = getCandidate(input);
+    return bp ? bp.isReady() : false;
   }
 
   async function play(
@@ -689,7 +724,17 @@ export function createGlobalPlayer(
     // If active changed since we created the anacrusis player, the old
     // ctx is stale (or closed). Tear down and rebuild against the new ctx
     // so picking-up notes line up with p.ctxNow().
-    if (notePlayerAnacrusis && active && anacrusisCtxOwner !== active) {
+    // ALSO compare the held ctx instance: a BackingPlayer can recreate its
+    // ctx in place (poisoned-resume recovery) — owner identity then matches
+    // while the anacrusis player still holds the CLOSED ctx, silently
+    // dropping every pickup note.
+    const activeCtx = active?.getCtx?.() ?? null;
+    const heldCtx = notePlayerAnacrusis?.getCtx() ?? null;
+    if (
+      notePlayerAnacrusis && active &&
+      (anacrusisCtxOwner !== active ||
+        (anacrusisCtxOwner === active && activeCtx !== null && heldCtx !== activeCtx))
+    ) {
       notePlayerAnacrusis.dispose();
       notePlayerAnacrusis = null;
       anacrusisCtxOwner = null;
@@ -822,6 +867,7 @@ export function createGlobalPlayer(
       return currentInput;
     },
     preload,
+    isReady,
     play,
     pause,
     stop,

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 import type { LickMatch } from '../../lib/lickMatcher';
-import { deleteUserLick, loadLicks, type LickEntry } from '../../data/lickData';
+import { deleteUserLick, type LickEntry } from '../../data/lickData';
 import { LickRecommendMessage } from '../chat/LickRecommendMessage';
 
 interface Props {
@@ -19,7 +19,7 @@ const Overlay = styled.div`
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
-  z-index: 9999;
+  z-index: ${({ theme }) => theme.zIndex.max};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -117,24 +117,7 @@ const Empty = styled.div`
 export function SavedLicksModal({ spanLabel, matches, onClose, songTempo, onShowInline, activeInlineLickId }: Props) {
   const [localMatches, setLocalMatches] = useState(matches);
 
-  // ── DEMO-HARDCODE (임시 시연용): "ChatGPT Generated Lick"을 무조건 모달 맨 앞에.
-  //    시연 후 이 effect를 `setLocalMatches(matches)` 한 줄로 되돌리면 됨. ──
-  useEffect(() => {
-    let cancelled = false;
-    const CHATGPT_LICK_ID = '747a25a6-5aed-4f04-8e51-b93df8757c79'; // [Unknown] ChatGPT Generated Lick
-    loadLicks()
-      .then((all) => {
-        if (cancelled) return;
-        const gpt = all.find((l) => String(l.id) === CHATGPT_LICK_ID);
-        if (gpt && !matches.some((m) => String(m.lick.id) === CHATGPT_LICK_ID)) {
-          setLocalMatches([{ lick: gpt, tier: 1 as const }, ...matches]);
-        } else {
-          setLocalMatches(matches);
-        }
-      })
-      .catch(() => { if (!cancelled) setLocalMatches(matches); });
-    return () => { cancelled = true; };
-  }, [matches]);
+  useEffect(() => { setLocalMatches(matches); }, [matches]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };

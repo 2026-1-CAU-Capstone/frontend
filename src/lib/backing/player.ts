@@ -332,11 +332,15 @@ export function createBackingPlayer(
   function applyPianoReverb() {
     if (!ctx || !pianoReverbSend) return;
     if (config.pianoReverb === undefined) return;
-    pianoReverbSend.gain.setTargetAtTime(
-      config.pianoReverb,
-      ctx.currentTime,
-      0.05,
-    );
+    // 잔향 슬라이더(0~1)를 피아노 wet send 게인으로 변환. 잔향은 원음(dry, 1.0
+    // 고정) '위에 더해지는' 병렬 구조라(reverb.ts), send를 1.0까지 그대로 올리면
+    // 2.6초 꼬리가 음마다 누적돼 굉음이 된다("100%에서 미친듯이 커짐"). 기본값
+    // (~0.45) 이하 구간은 1:1로 그대로 두고 — 슬라이더를 만지지 않은 기본 사운드는
+    // 불변 — 그 위만 완만히 눌러 100%여도 send가 MAX(0.6)를 넘지 않게 한다.
+    const KNEE = 0.45, MAX = 0.6;
+    const raw = config.pianoReverb;
+    const shaped = raw <= KNEE ? raw : KNEE + (raw - KNEE) * ((MAX - KNEE) / (1 - KNEE));
+    pianoReverbSend.gain.setTargetAtTime(shaped, ctx.currentTime, 0.05);
   }
 
   /** Lazy-load drum loop player if config.drumLoop is set. Reloads when URL
@@ -760,6 +764,16 @@ export function createBackingPlayer(
   /** AudioContext + instruments + drum 자원을 미리 로드. play() 가 같은 ensure* 들을
    *  호출하지만 모두 idempotent (캐시) 라 카운트인과 병렬로 호출해두면 첫 재생
    *  지연이 사라진다. */
+  /** True when the rhythm section is loaded and play() can start INSTANTLY
+   *  (no multi-second smplr decode). Used by the page to decide whether to
+   *  load-then-count-in (cold) vs count-in-immediately (warm). Loop-kit drums
+   *  also need their loop buffer decoded before the first bar can sound. */
+  function isReady(): boolean {
+    if (!ctx || !piano || !bass || !drums) return false;
+    if (config.drumMode === "loop" && !drumLoop) return false;
+    return true;
+  }
+
   async function preload(): Promise<void> {
     // Warmup must NOT resume the context (that needs a user gesture and would
     // stall on mount). Just create it suspended and load all samples on it —
@@ -1056,6 +1070,7 @@ export function createBackingPlayer(
     get playing() { return playing; },
     play,
     preload,
+    isReady,
     pause,
     stop,
     seekToBar,

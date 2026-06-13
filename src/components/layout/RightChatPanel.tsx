@@ -21,7 +21,6 @@ import {
   selectionProgressionLabel,
   findLicksByProgression,
   detectProgressionKeyword,
-  findLicksByPerformer,
   findLicksByPerformerAndProgression,
   type LickMatch,
 } from '../../lib/lickMatcher';
@@ -689,37 +688,15 @@ export function RightChatPanel({
       const chordsForMatch = selectedChords.length > 0 ? selectedChords : [];
       const detectedProg = detectProgressionKeyword(text);
 
-      // 우선순위: 1) 선택한 코드  2) 연주자(+진행)  3) 진행만.
-      // ───── DEMO-HARDCODE (임시 시연용 — 끝나면 이 if 데모 분기만 지우고 else 본문을 한 단계 내어쓰기) ─────
-      // 연주자명("찰리파커" 등)이 텍스트에 있으면 그 연주자 릭만 추천한다.
-      // 선택한 코드 진행(ii-V-I 등)에 맞는 그 연주자 릭을 우선, 없으면 그 연주자 릭 일반.
-      // 평소엔 코드 매칭이 1순위라 여러 연주자가 섞이는데, 시연에선 "찰리파커만" 보이게 강제.
-      const demoPerformerPool = findLicksByPerformer(text, allLicksRef.current, allLicksRef.current.length);
-      if (demoPerformerPool.length > 0) {
-        const pool = demoPerformerPool.map((m) => m.lick);
-        const byChords = findMatchingLicks(chordsForMatch, songTitle, songKey, pool, 5);
-        lickMatchesForMsg = byChords.length > 0 ? byChords : demoPerformerPool.slice(0, 5);
-        // ── DEMO-HARDCODE (임시): All of Me에서 찰리파커 릭이면 'C Jam Blues'를 무조건 1등으로.
-        //    시연 후 이 블록 삭제. ──
-        if (/all of me/i.test(songTitle)) {
-          const CJAM_ID = '0714c0e0-285a-40d1-a20b-c2334286a474'; // Charlie Parker / C Jam Blues
-          const cjam = allLicksRef.current.find((l) => String(l.id) === CJAM_ID);
-          if (cjam) {
-            const rest = lickMatchesForMsg.filter((m) => String(m.lick.id) !== CJAM_ID);
-            lickMatchesForMsg = [{ lick: cjam, tier: 1 as const }, ...rest].slice(0, 5);
-          }
-        }
-      } else {
-      // ──────────────────────────────────────────────────────────────────────────────────────
-        lickMatchesForMsg = findMatchingLicks(chordsForMatch, songTitle, songKey, allLicksRef.current, 5);
-        if (lickMatchesForMsg.length === 0) {
-          // "찰리파커 2-5-1" 류 — 그 연주자의 해당 진행 릭 우선, 부족하면 같은 진행의
-          // 다른 거장으로 보완. (연주자만 언급했고 진행이 없으면 연주자 릭 그대로.)
-          lickMatchesForMsg = findLicksByPerformerAndProgression(text, detectedProg, allLicksRef.current, 5);
-        }
-        if (lickMatchesForMsg.length === 0 && detectedProg) {
-          lickMatchesForMsg = findLicksByProgression(detectedProg, allLicksRef.current, 5);
-        }
+      // 우선순위: 1) 선택한 코드 진행에 맞는 릭  2) 연주자(+진행)  3) 진행만.
+      lickMatchesForMsg = findMatchingLicks(chordsForMatch, songTitle, songKey, allLicksRef.current, 5);
+      if (lickMatchesForMsg.length === 0) {
+        // "찰리파커 2-5-1" 류 — 그 연주자의 해당 진행 릭 우선, 부족하면 같은 진행의
+        // 다른 거장으로 보완. (연주자만 언급했고 진행이 없으면 연주자 릭 그대로.)
+        lickMatchesForMsg = findLicksByPerformerAndProgression(text, detectedProg, allLicksRef.current, 5);
+      }
+      if (lickMatchesForMsg.length === 0 && detectedProg) {
+        lickMatchesForMsg = findLicksByProgression(detectedProg, allLicksRef.current, 5);
       }
 
       if (lickMatchesForMsg.length > 0) {
