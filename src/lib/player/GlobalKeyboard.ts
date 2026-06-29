@@ -91,6 +91,13 @@ export function getGlobalKeyboard(): GlobalKeyboard {
         void loadPiano();
         return null;
       }
+      // iOS Safari/Capacitor: 백그라운드·전화 인터럽트 후 ctx가 suspended로
+      // 떨어지면 이후 모든 클릭이 영구 무음이었다 (resume은 최초 load 때만
+      // 시도). play()는 사용자 제스처 안에서 불리므로 여기서 재시도하면
+      // 성공한다 — fire-and-forget이라 이번 클릭은 놓쳐도 다음부턴 소리남.
+      if (_ctx && _ctx.state !== "running") {
+        try { void _ctx.resume(); } catch { /* */ }
+      }
       const when = _ctx ? _ctx.currentTime : 0;
       const handle: SmplrPlayHandle | null = _piano.play(noteName, when, {
         duration: opts.duration,
@@ -104,6 +111,10 @@ export function getGlobalKeyboard(): GlobalKeyboard {
       };
     },
     ensureReady() {
+      // Already loaded but the ctx got suspended (iOS background) → resume.
+      if (_piano && _ctx && _ctx.state !== "running") {
+        try { void _ctx.resume(); } catch { /* */ }
+      }
       return loadPiano();
     },
     stopAll() {

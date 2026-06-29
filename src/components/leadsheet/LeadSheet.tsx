@@ -1,4 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode } from 'react';
+import { ALL_MAJOR_KEYS, ALL_MINOR_KEYS, transposeData } from './leadSheetTranspose';
+import { normalizeQuality, splitQuality } from './leadSheetQuality';
+import { detectIIVBrackets, detectIIVI, detectSecDomArrows, type IIVISpan } from './leadSheetAnalysis';
+/* 기존 외부 소비자(ChordPage/NotePage/NativeChordPlayer)의 import 경로 보존. */
+export { ALL_MAJOR_KEYS, ALL_MINOR_KEYS, isMinorKey, shiftKey } from './leadSheetTranspose';
+import { useLeadSheetSelection, type LeadSheetChordSelection } from './useLeadSheetSelection';
+export type { LeadSheetChordSelection } from './useLeadSheetSelection';
+import { isComposingEvent } from '../../lib/ime';
 import styled from 'styled-components';
 import type {
   LeadSheetData,
@@ -45,101 +53,6 @@ const LABEL_OFFSET = 52;  // px — how far the section label floats above the g
 const CHORD_FONT   = "'MuseJazz Text', 'Oswald', 'Pretendard', sans-serif";
 const LABEL_FONT   = "'Pretendard', 'Pretendard', sans-serif"; // gothic for A/B labels
 
-/* ─── transposition ──────────────────────────────────────────────────────── */
-
-export const ALL_MAJOR_KEYS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'] as const;
-export const ALL_MINOR_KEYS = ['Cm', 'C#m', 'Dm', 'Ebm', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Am', 'Bbm', 'Bm'] as const;
-
-const NOTE_TO_PC: Record<string, number> = {
-  C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11,
-};
-
-const FLAT_KEYS = new Set(['C', 'F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb']);
-
-// pitch-class → [root, accidental]
-const PC_FLAT:  [string, 'b' | '#' | undefined][] = [
-  ['C',undefined],['D','b'],['D',undefined],['E','b'],['E',undefined],
-  ['F',undefined],['G','b'],['G',undefined],['A','b'],['A',undefined],
-  ['B','b'],['B',undefined],
-];
-const PC_SHARP: [string, 'b' | '#' | undefined][] = [
-  ['C',undefined],['C','#'],['D',undefined],['D','#'],['E',undefined],
-  ['F',undefined],['F','#'],['G',undefined],['G','#'],['A',undefined],
-  ['A','#'],['B',undefined],
-];
-
-function keyToPc(key: string): number {
-  // handle e.g. "Bb", "F#", "C", "Cm", "F#m", "Bb-"
-  const cleaned = key.replace(/[-m]$/, '');
-  const root = cleaned[0];
-  const acc = cleaned.length > 1 ? cleaned[1] : '';
-  return ((NOTE_TO_PC[root] ?? 0) + (acc === '#' ? 1 : acc === 'b' ? -1 : 0) + 12) % 12;
-}
-
-export function isMinorKey(key: string): boolean {
-  return key.endsWith('-') || key.endsWith('m');
-}
-
-/** Shift a key string up by `semitones`, preserving major/minor and using the
- *  canonical spelling from ALL_MAJOR_KEYS / ALL_MINOR_KEYS. Used to fold the
- *  transposing-instrument offset into the chart's target key. */
-export function shiftKey(key: string, semitones: number): string {
-  if (semitones === 0) return key;
-  const newPc = (keyToPc(key) + semitones + 12) % 12;
-  return isMinorKey(key) ? ALL_MINOR_KEYS[newPc] : ALL_MAJOR_KEYS[newPc];
-}
-
-function transposeChord(chord: LeadSheetChord, semitones: number, useFlats: boolean): LeadSheetChord {
-  if (!chord.root || chord.isRepeat) return chord;
-
-  const table = useFlats ? PC_FLAT : PC_SHARP;
-  const rootPc = ((NOTE_TO_PC[chord.root] ?? 0) + (chord.accidental === '#' ? 1 : chord.accidental === 'b' ? -1 : 0) + 12) % 12;
-  const newPc = (rootPc + semitones + 12) % 12;
-  const [newRoot, newAcc] = table[newPc];
-
-  const result: LeadSheetChord = { ...chord, root: newRoot, accidental: newAcc };
-
-  if (chord.bass) {
-    const bassPc = ((NOTE_TO_PC[chord.bass.root] ?? 0) + (chord.bass.accidental === '#' ? 1 : chord.bass.accidental === 'b' ? -1 : 0) + 12) % 12;
-    const newBassPc = (bassPc + semitones + 12) % 12;
-    const [bRoot, bAcc] = table[newBassPc];
-    result.bass = { root: bRoot, accidental: bAcc };
-  }
-
-  if (chord.analysis) {
-    result.analysis = {
-      ...chord.analysis,
-      rootPc: newPc,
-      bassPc: chord.analysis.bassPc != null ? (chord.analysis.bassPc + semitones + 12) % 12 : undefined,
-    };
-  }
-
-  return result;
-}
-
-function transposeData(data: LeadSheetData, targetKey: string): LeadSheetData {
-  const origPc = keyToPc(data.key ?? 'C');
-  const targetPc = keyToPc(targetKey);
-  const semitones = (targetPc - origPc + 12) % 12;
-
-  // No pitch change needed — just update key label (e.g. relative key switch)
-  if (semitones === 0) return { ...data, key: targetKey };
-
-  const cleanTarget = targetKey.replace(/[-m]$/, '');
-  const useFlats = FLAT_KEYS.has(cleanTarget);
-  return {
-    ...data,
-    key: targetKey,
-    systems: data.systems.map((sys) => ({
-      ...sys,
-      bars: sys.bars.map((bar) => ({
-        ...bar,
-        chords: bar.chords.map((ch) => transposeChord(ch, semitones, useFlats)),
-      })),
-    })),
-  };
-}
-
 /* ─── page ───────────────────────────────────────────────────────────────── */
 
 const ViewerOuter = styled.div<{ $fs?: boolean; $fit?: boolean }>`
@@ -180,13 +93,13 @@ const ViewerOuter = styled.div<{ $fs?: boolean; $fit?: boolean }>`
   /* In-app "fullscreen": fill the viewport BELOW the top toolbar (58px) so the
    * app's top bar stays visible, instead of the browser's native fullscreen
    * (which covers the whole screen). */
-  ${({ $fs }) => $fs && `
+  ${({ $fs, theme }) => $fs && `
     position: fixed;
     top: calc(58px + env(safe-area-inset-top, 0px));
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: 900;
+    z-index: ${theme.zIndex.floating};
     flex: none;
     overflow: hidden;
     padding: 0;
@@ -643,54 +556,6 @@ const EndBarlineArea = styled.div`
   align-items: stretch;
 `;
 
-/* ─── chord quality normalisation ───────────────────────────────────────────
- * Converts all common chord quality notations (iReal Pro, lead-sheet, etc.)
- * to the standard jazz symbols used on this sheet:
- *
- *   M7 / maj7 / ^7 / Δ7  →  △7   (major-seven triangle)
- *   m  / min  / -        →  -    (minus = minor)
- *   m7 / min7 / -7       →  -7
- *   dim / o              →  °    (degree sign = diminished)
- *   dim7 / o7            →  °7
- *   h  / m7b5 / -7b5     →  ø    (ø = half-diminished)
- *   h7 / m7b5 (with 7)   →  ø7
- *   -maj7 / mMaj7        →  -△7  (minor-major seven)
- *
- * The function only replaces the quality PREFIX; any tensions / alterations
- * that follow (b9, #11, b13 …) are preserved verbatim.
- * ────────────────────────────────────────────────────────────────────────── */
-
-/** [prefix-regex, replacement] pairs – evaluated in order (specific first). */
-const QUALITY_PREFIXES: [RegExp, string][] = [
-  // ── Half-diminished ──────────────────────────────────────────────────────
-  [/^(-7b5|-7\(b5\)|m7b5)/,                         'ø7'],
-  [/^h(?=\d)/,                                        'ø'],   // h7 → ø7, h9 → ø9
-  [/^h$/,                                             'ø'],   // bare h → ø
-  // ── Diminished ───────────────────────────────────────────────────────────
-  [/^(dim7|o7)/,                                      '°7'],
-  [/^(dim|o)(?!\d)/,                                  '°'],   // o alone (lookahead avoids matching o7 here)
-  // ── Minor-Major 7 (before both minor and major checks) ───────────────────
-  [/^(-[Mm]aj7|-△7|-Δ7|-\^7|m[Mm]aj7|mM7)/,         '-△7'],
-  // ── Major 7 ──────────────────────────────────────────────────────────────
-  [/^(Δ7|△7|\^7|[Mm]aj7|M7)/,                        '△7'],
-  // ── Major (triad / with extension number) ────────────────────────────────
-  [/^(Δ|△|\^|[Mm]aj(?!7)|M(?=[69]|$))/,              '△'],
-  // ── Minor 7 (before bare-minor check) ────────────────────────────────────
-  [/^(-7(?!b5)|m7(?!b5)|min7)/,                       '-7'],
-  // ── Minor (triad / with extension) ───────────────────────────────────────
-  [/^(-|m(?!aj|7|in)|min(?!7))/,                      '-'],
-];
-
-function normalizeQuality(raw: string): string {
-  if (!raw) return '';
-  const s = raw.trim();
-  for (const [re, rep] of QUALITY_PREFIXES) {
-    const match = s.match(re);
-    if (match) return rep + s.slice(match[0].length);
-  }
-  return s;
-}
-
 /* ─── bar section layout ─────────────────────────────────────────────────────
  *  A bar is always divided into 2 equal SECTIONS (half-note units in 4/4).
  *  Each section holds 1 or 2 chords.  When a section holds 2 chords the
@@ -943,35 +808,6 @@ const SlashBass = styled.span<{ $size?: ChordSize }>`
   white-space: nowrap;
 `;
 
-/* ─── quality string → [base, tensions] ─────────────────────────────────────
- * After normalisation, optional tension tokens (b5 #5 b9 #9 #11 b13 alt …)
- * that trail the base quality are split off for lighter rendering.          */
-function splitQuality(normalized: string): [base: string, tensions: string] {
-  // Base is: optional quality char(s) + optional extension number + optional sus
-  // Tensions: one or more of (b|#)<digits> or 'alt', optionally in parens
-  const m = normalized.match(
-    /^(△7?|-7?|°7?|ø7?|-△7?|[0-9]+(?:sus[24]?)?|sus[24]?|add\d+)?(.*)/,
-  );
-  if (m) {
-    let base = m[1] ?? normalized;
-    let rest = (m[2] ?? '').replace(/[()]/g, ''); // strip optional parens
-    // "sus" can appear AFTER tensions in inputs like "7b9sus" or "7#9sus11".
-    // The leading regex only catches sus when it directly follows the digit.
-    // Pull a trailing sus[24]? off the rest and append it to the base, so
-    // tensions stack cleanly above a "7sus" base instead of getting hidden
-    // inside one long inline string (e.g. "G7b9sus" → base="7sus", tensions="b9").
-    const trailingSus = rest.match(/(sus[24]?)$/);
-    if (trailingSus) {
-      base = base + trailingSus[1];
-      rest = rest.slice(0, -trailingSus[1].length);
-    }
-    if (rest && /^(?:[b#]\d+|alt)+$/.test(rest)) {
-      return [base, rest];
-    }
-  }
-  return [normalized, ''];
-}
-
 /* ─── resolve repeats ────────────────────────────────────────────────────────
  *  Replace every { isRepeat: true } with the actual previous chord.
  *  After this pass no chord carries isRepeat — rendering and detection
@@ -1126,17 +962,6 @@ const SubVBandText = styled.span<{ $size?: ChordSize }>`
 
 /* ─── ChordSymbol ─────────────────────────────────────────────────────────── */
 
-export interface LeadSheetChordSelection {
-  id: string;
-  chordKey: string;
-  chord: LeadSheetChord;
-  measureNumber: number;
-  systemIndex: number;
-  barIndex: number;
-  chordIndex: number;
-  order: number;
-}
-
 interface ChordSymbolProps {
   chord: LeadSheetChord;
   size?: ChordSize;
@@ -1254,7 +1079,8 @@ function ChordSymbol({
             e.currentTarget.size = Math.max(e.target.value.length, 2);
           }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === 'Escape') {
+            if (e.key === 'Enter' && isComposingEvent(e)) return; // 한글 조합 확정 Enter 무시
+                  if (e.key === 'Enter' || e.key === 'Escape') {
               e.preventDefault();
               setEditing(false);
               e.currentTarget.blur();
@@ -1426,6 +1252,8 @@ interface SystemRowProps {
   loopRegion?: { startBar: number; endBar: number } | null;
   loopDraftStart?: number | null;
   onPickLoopBar?: (flatBar: number) => void;
+  onLoopBarPointerDown?: (flatBar: number) => void;
+  onLoopBarPointerEnter?: (flatBar: number) => void;
 }
 
 function SystemRowComponent({
@@ -1460,6 +1288,8 @@ function SystemRowComponent({
   loopRegion,
   loopDraftStart,
   onPickLoopBar,
+  onLoopBarPointerDown,
+  onLoopBarPointerEnter,
 }: SystemRowProps) {
   const [top, bot] = timeSignature.split('/');
   const beatsPerBar = parseInt(top, 10) || 4;
@@ -1599,6 +1429,8 @@ function SystemRowComponent({
                   type="button"
                   aria-label={`${flatBar + 1}번째 마디를 루프 ${loopDraftStart == null ? '시작' : '끝'}으로 선택`}
                   onClick={(e) => { e.stopPropagation(); onPickLoopBar?.(flatBar); }}
+                  onPointerDown={(e) => { e.stopPropagation(); onLoopBarPointerDown?.(flatBar); }}
+                  onPointerEnter={() => onLoopBarPointerEnter?.(flatBar)}
                 />
               )}
 
@@ -1779,6 +1611,8 @@ interface LeadSheetProps {
   loopRegion?: { startBar: number; endBar: number } | null;
   loopDraftStart?: number | null;
   onPickLoopBar?: (flatBar: number) => void;
+  onLoopBarPointerDown?: (flatBar: number) => void;
+  onLoopBarPointerEnter?: (flatBar: number) => void;
 }
 
 interface ActiveBarRect {
@@ -1819,6 +1653,11 @@ interface ArrowPathSegment {
 interface ResolvedArrow {
   key: string;
   segments: ArrowPathSegment[];
+}
+
+interface ResolvedBracket {
+  key: string;
+  d: string;
 }
 
 interface HighlightRect {
@@ -1873,359 +1712,6 @@ function hlBorder(pos: HighlightRect['rowPosition'], hovered: boolean): React.CS
     case 'middle': return tb;
     default:       return { ...tb, borderLeft: b, borderRight: b };
   }
-}
-
-interface ArrowSpec {
-  key: string;
-  sourceChordId: string;
-  targetChordId: string;
-}
-
-/* ─── ii-V detection ──────────────────────────────────────────────────── */
-
-interface BracketSpec {
-  key: string;
-  chordId1: string;
-  chordId2: string;
-}
-
-interface ResolvedBracket {
-  key: string;
-  d: string;
-}
-
-const ROOT_PC: Record<string, number> = {
-  C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11,
-};
-
-function chordPitchClass(root: string, accidental?: 'b' | '#'): number {
-  const base = ROOT_PC[root] ?? 0;
-  if (accidental === '#') return (base + 1) % 12;
-  if (accidental === 'b') return (base + 11) % 12;
-  return base;
-}
-
-/** True when the normalised quality is a dominant-7th type (7, 9, 13 …). */
-function isDominant7(q: string): boolean {
-  return /^7/.test(q) || /^(9|13)/.test(q);
-}
-
-/** True when q is the ii of a major 2-5-1 (must be -7). */
-function isMajorII(q: string): boolean { return q.startsWith('-7'); }
-/** True when q is the ii of a minor 2-5-1 (must be ø). */
-function isMinorII(q: string): boolean { return q.startsWith('ø'); }
-/** True when q is a major tonic (Δ7, △, 6, or bare major). */
-function isMajorI(q: string): boolean {
-  return q === '' || q.startsWith('△') || q === '6' || q.startsWith('maj');
-}
-/** True when q is a minor tonic (-7, -, -△7, etc. but NOT ø). */
-function isMinorI(q: string): boolean {
-  return q.startsWith('-') && !q.startsWith('ø');
-}
-
-/** Detect ii→V root motion (P4 up). Used for bracket detection — quality-agnostic. */
-function isIIV(c1: LeadSheetChord, c2: LeadSheetChord): boolean {
-  if (!c1.root || !c2.root || !c1.quality || !c2.quality) return false;
-  const q1 = normalizeQuality(c1.quality);
-  const q2 = normalizeQuality(c2.quality);
-  if ((!isMajorII(q1) && !isMinorII(q1)) || !isDominant7(q2)) return false;
-  const pc1 = chordPitchClass(c1.root, c1.accidental);
-  const pc2 = chordPitchClass(c2.root, c2.accidental);
-  return (pc2 - pc1 + 12) % 12 === 5;
-}
-
-/** Auto-detect ii-V pairs within each system row (expects resolved data). */
-/**
- * Compute the active volta number for each bar in a system.
- * Once a bar has `ending: N`, all following bars in that system
- * are inside volta N until a different `ending` appears.
- * Returns an array parallel to system.bars (undefined = not inside any volta).
- */
-function getActiveVoltas(system: LeadSheetSystem): (number | undefined)[] {
-  let active: number | undefined;
-  return system.bars.map((bar) => {
-    if (bar.ending != null) active = bar.ending;
-    return active;
-  });
-}
-
-/** True when two volta values represent a cross-volta boundary.
- *  undefined→1 is OK (bars before volta lead into volta 1).
- *  1→2 is a boundary (volta 1 and 2 never play consecutively). */
-function isVoltaBoundary(a?: number, b?: number): boolean {
-  if (a == null || b == null) return false; // no-volta ↔ any volta is fine
-  return a !== b;
-}
-
-function detectIIVBrackets(data: LeadSheetData): BracketSpec[] {
-  const brackets: BracketSpec[] = [];
-
-  for (let si = 0; si < data.systems.length; si++) {
-    const system = data.systems[si];
-    const voltas = getActiveVoltas(system);
-    const items: { chord: LeadSheetChord; key: string; volta?: number }[] = [];
-
-    for (let bi = 0; bi < system.bars.length; bi++) {
-      const bar = system.bars[bi];
-      for (let ci = 0; ci < bar.chords.length; ci++) {
-        items.push({ chord: bar.chords[ci], key: `${si}-${bi}-${ci}`, volta: voltas[bi] });
-      }
-    }
-
-    for (let i = 0; i < items.length - 1; i++) {
-      // Don't match across different volta brackets
-      if (isVoltaBoundary(items[i].volta, items[i + 1].volta)) continue;
-      if (isIIV(items[i].chord, items[i + 1].chord)) {
-        brackets.push({
-          key: `iiv-${items[i].key}`,
-          chordId1: items[i].key,
-          chordId2: items[i + 1].key,
-        });
-      }
-    }
-  }
-
-  return brackets;
-}
-
-/** A continuous highlight span covering one ii-V-I progression. */
-interface IIVISpan {
-  chordKeys: string[];              // ordered chord keys from ii through I
-  chordRoles: string[];             // parallel to chordKeys: always 'ii'/'V'/'I' for display
-  label: string;                    // e.g. "G Minor 2-5-1"
-  kind: 'major' | 'minor';
-}
-
-/** Detect ii-V-I across the entire song (cross-row).
- *  Consecutive duplicate chords are collapsed so resolved repeats don't
- *  break pattern matching. The I chord key is the actual occurrence that
- *  immediately follows V in sequence (not the first group occurrence),
- *  ensuring cross-row resolution is always highlighted correctly. */
-function detectIIVI(data: LeadSheetData): IIVISpan[] {
-  const spans: IIVISpan[] = [];
-
-  // Flatten all chords with chord-level keys and volta tracking.
-  // Chords in different voltas must never form a pattern together.
-  const all: { chord: LeadSheetChord; chordKey: string; volta?: number }[] = [];
-  for (let si = 0; si < data.systems.length; si++) {
-    const voltas = getActiveVoltas(data.systems[si]);
-    for (let bi = 0; bi < data.systems[si].bars.length; bi++) {
-      const bar = data.systems[si].bars[bi];
-      for (let ci = 0; ci < bar.chords.length; ci++) {
-        all.push({ chord: bar.chords[ci], chordKey: `${si}-${bi}-${ci}`, volta: voltas[bi] });
-      }
-    }
-  }
-
-  // Build fast lookup: chordKey → index in all[]
-  const allIdxByKey = new Map<string, number>();
-  all.forEach((item, idx) => allIdxByKey.set(item.chordKey, idx));
-
-  // Collapse consecutive identical chords into groups (ordered keys).
-  // Never merge across volta boundaries.
-  const groups: { chord: LeadSheetChord; chordKeys: string[]; volta?: number }[] = [];
-  for (const item of all) {
-    const prev = groups[groups.length - 1];
-    if (
-      prev &&
-      prev.volta === item.volta &&
-      prev.chord.root === item.chord.root &&
-      prev.chord.accidental === item.chord.accidental &&
-      prev.chord.quality === item.chord.quality
-    ) {
-      prev.chordKeys.push(item.chordKey);
-    } else {
-      groups.push({ chord: item.chord, chordKeys: [item.chordKey], volta: item.volta });
-    }
-  }
-
-  // Check consecutive groups for ii → V → I (strict: ii and I quality must agree)
-  for (let i = 0; i < groups.length - 2; i++) {
-    // Skip if any of the three groups cross a volta boundary
-    if (isVoltaBoundary(groups[i].volta, groups[i + 1].volta) || isVoltaBoundary(groups[i + 1].volta, groups[i + 2].volta)) continue;
-    if (!isDomResolution(groups[i + 1].chord, groups[i + 2].chord)) continue;
-
-    const iiQ = normalizeQuality(groups[i].chord.quality ?? '');
-    const vQ  = normalizeQuality(groups[i + 1].chord.quality ?? '');
-    const iQ  = normalizeQuality(groups[i + 2].chord.quality ?? '');
-    if (!isDominant7(vQ)) continue;
-
-    const pc1 = groups[i].chord.root ? chordPitchClass(groups[i].chord.root!, groups[i].chord.accidental) : -1;
-    const pc2 = groups[i + 1].chord.root ? chordPitchClass(groups[i + 1].chord.root!, groups[i + 1].chord.accidental) : -1;
-    if ((pc2 - pc1 + 12) % 12 !== 5) continue; // must be ii→V root motion
-
-    let kind: 'major' | 'minor' | null = null;
-    if (isMajorII(iiQ) && isMajorI(iQ)) kind = 'major';
-    else if (isMinorII(iiQ) && isMinorI(iQ)) kind = 'minor';
-    // ø7 → V7 → IMaj7: ø의 ♭5는 V7 얼터드 텐션과 같으므로 메이저 2-5-1로 허용
-    else if (isMinorII(iiQ) && isMajorI(iQ)) kind = 'major';
-    if (!kind) continue;
-
-    const tonicChord = groups[i + 2].chord;
-    const tonicAcc = tonicChord.accidental === '#' ? '♯' : tonicChord.accidental === 'b' ? '♭' : '';
-    const label = `${tonicChord.root ?? ''}${tonicAcc} ${kind === 'major' ? 'Major' : 'Minor'} 2-5-1`;
-
-    // Find the actual I key: the item in all[] immediately after V's last occurrence.
-    // This avoids the dedup bug where groups[i+2].chordKeys[0] might point to a
-    // repeated I chord earlier in the song (same row as V) rather than the true resolution.
-    const vLastKey = groups[i + 1].chordKeys[groups[i + 1].chordKeys.length - 1];
-    const vLastIdx = allIdxByKey.get(vLastKey) ?? -1;
-    const iActualKey = vLastIdx >= 0 && vLastIdx + 1 < all.length
-      ? all[vLastIdx + 1].chordKey
-      : groups[i + 2].chordKeys[0];
-
-    spans.push({
-      chordKeys: [
-        groups[i].chordKeys[groups[i].chordKeys.length - 1],
-        groups[i + 1].chordKeys[groups[i + 1].chordKeys.length - 1],
-        iActualKey,
-      ],
-      chordRoles: ['ii', 'V', 'I'],
-      label,
-      kind,
-    });
-  }
-
-  // Wrap-around: check last 2 groups + first group for a turnaround ii-V-I
-  // (e.g. the D-7 G7 at the end of the last row resolving to C△7 at bar 1).
-  if (groups.length >= 3) {
-    const iiGroup = groups[groups.length - 2];
-    const vGroup  = groups[groups.length - 1];
-    const iGroup  = groups[0];
-    if (isDomResolution(vGroup.chord, iGroup.chord)) {
-      const iiQ = normalizeQuality(iiGroup.chord.quality ?? '');
-      const vQ  = normalizeQuality(vGroup.chord.quality  ?? '');
-      const iQ  = normalizeQuality(iGroup.chord.quality  ?? '');
-      if (isDominant7(vQ)) {
-        const pc1 = iiGroup.chord.root ? chordPitchClass(iiGroup.chord.root, iiGroup.chord.accidental) : -1;
-        const pc2 = vGroup.chord.root  ? chordPitchClass(vGroup.chord.root,  vGroup.chord.accidental)  : -1;
-        if ((pc2 - pc1 + 12) % 12 === 5) {
-          let kind: 'major' | 'minor' | null = null;
-          if (isMajorII(iiQ) && isMajorI(iQ)) kind = 'major';
-          else if (isMinorII(iiQ) && isMinorI(iQ)) kind = 'minor';
-          else if (isMinorII(iiQ) && isMajorI(iQ)) kind = 'major';
-          if (kind) {
-            const tonicChord = iGroup.chord;
-            const tonicAcc = tonicChord.accidental === '#' ? '♯' : tonicChord.accidental === 'b' ? '♭' : '';
-            const label = `${tonicChord.root ?? ''}${tonicAcc} ${kind === 'major' ? 'Major' : 'Minor'} 2-5-1`;
-            spans.push({
-              chordKeys: [
-                iiGroup.chordKeys[iiGroup.chordKeys.length - 1],
-                vGroup.chordKeys[vGroup.chordKeys.length - 1],
-                iGroup.chordKeys[0],
-              ],
-              chordRoles: ['ii', 'V', 'I'],
-              label,
-              kind,
-            });
-          }
-        }
-      }
-    }
-  }
-
-  // Volta-1 repeat: the last chords of volta 1 loop back to the repeat start.
-  // Check if they form a ii-V-I with the first chord after the repeat-start barline.
-  const repeatStartIdx = data.systems.findIndex((sys) => sys.hasRepeatStart);
-  if (repeatStartIdx >= 0 && groups.length >= 3) {
-    const repeatSys = data.systems[repeatStartIdx];
-    let repeatIKey: string | undefined;
-    findRepeatI: for (let bi = 0; bi < repeatSys.bars.length; bi++) {
-      for (let ci = 0; ci < repeatSys.bars[bi].chords.length; ci++) {
-        repeatIKey = `${repeatStartIdx}-${bi}-${ci}`;
-        break findRepeatI;
-      }
-    }
-    if (repeatIKey) {
-      const repeatIGroup = groups.find((g) => g.chordKeys.includes(repeatIKey!));
-      const v1Groups = groups.filter((g) => g.volta === 1);
-      if (v1Groups.length >= 2 && repeatIGroup && repeatIGroup.volta !== 1) {
-        const iiG = v1Groups[v1Groups.length - 2];
-        const vG = v1Groups[v1Groups.length - 1];
-        if (isDomResolution(vG.chord, repeatIGroup.chord)) {
-          const iiQ = normalizeQuality(iiG.chord.quality ?? '');
-          const vQ = normalizeQuality(vG.chord.quality ?? '');
-          const iQ = normalizeQuality(repeatIGroup.chord.quality ?? '');
-          if (isDominant7(vQ)) {
-            const pc1 = iiG.chord.root ? chordPitchClass(iiG.chord.root, iiG.chord.accidental) : -1;
-            const pc2 = vG.chord.root ? chordPitchClass(vG.chord.root, vG.chord.accidental) : -1;
-            if ((pc2 - pc1 + 12) % 12 === 5) {
-              let kind: 'major' | 'minor' | null = null;
-              if (isMajorII(iiQ) && isMajorI(iQ)) kind = 'major';
-              else if (isMinorII(iiQ) && isMinorI(iQ)) kind = 'minor';
-              else if (isMinorII(iiQ) && isMajorI(iQ)) kind = 'major';
-              if (kind) {
-                const tc = repeatIGroup.chord;
-                const tcAcc = tc.accidental === '#' ? '♯' : tc.accidental === 'b' ? '♭' : '';
-                spans.push({
-                  chordKeys: [
-                    iiG.chordKeys[iiG.chordKeys.length - 1],
-                    vG.chordKeys[vG.chordKeys.length - 1],
-                    repeatIGroup.chordKeys[0],
-                  ],
-                  chordRoles: ['ii', 'V', 'I'],
-                  label: `${tc.root ?? ''}${tcAcc} ${kind === 'major' ? 'Major' : 'Minor'} 2-5-1`,
-                  kind,
-                });
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  return spans;
-}
-
-/** True when source (dominant) resolves down a P5 to target. */
-function isDomResolution(source: LeadSheetChord, target: LeadSheetChord): boolean {
-  if (!source.root || !target.root || !source.quality) return false;
-  const q = normalizeQuality(source.quality);
-  if (!isDominant7(q)) return false;
-  const srcPc = chordPitchClass(source.root, source.accidental);
-  const tgtPc = chordPitchClass(target.root, target.accidental);
-  return (srcPc - tgtPc + 12) % 12 === 7;
-}
-
-/** Auto-detect dominant resolutions V7 → I (song-wide, handles cross-row). */
-function detectSecDomArrows(data: LeadSheetData): ArrowSpec[] {
-  const specs: ArrowSpec[] = [];
-
-  // Flatten all chords across the entire song with volta tracking
-  const all: { chord: LeadSheetChord; key: string; volta?: number }[] = [];
-  for (let si = 0; si < data.systems.length; si++) {
-    const voltas = getActiveVoltas(data.systems[si]);
-    for (let bi = 0; bi < data.systems[si].bars.length; bi++) {
-      const bar = data.systems[si].bars[bi];
-      for (let ci = 0; ci < bar.chords.length; ci++) {
-        all.push({ chord: bar.chords[ci], key: `${si}-${bi}-${ci}`, volta: voltas[bi] });
-      }
-    }
-  }
-
-  for (let i = 0; i < all.length - 1; i++) {
-    // Don't match across different volta brackets
-    if (isVoltaBoundary(all[i].volta, all[i + 1].volta)) continue;
-    if (isDomResolution(all[i].chord, all[i + 1].chord)) {
-      specs.push({
-        key: `secdom-${all[i].key}`,
-        sourceChordId: all[i].key,
-        targetChordId: all[i + 1].key,
-      });
-    }
-  }
-
-  // Wrap-around: last chord → first chord (turnaround)
-  if (all.length >= 2 && isDomResolution(all[all.length - 1].chord, all[0].chord)) {
-    specs.push({
-      key: `secdom-wrap`,
-      sourceChordId: all[all.length - 1].key,
-      targetChordId: all[0].key,
-    });
-  }
-
-  return specs;
 }
 
 /* Standalone transpose-key dropdown — used by ChordPage's transport bar above
@@ -2300,6 +1786,8 @@ export function LeadSheet({
   loopRegion,
   loopDraftStart,
   onPickLoopBar,
+  onLoopBarPointerDown,
+  onLoopBarPointerEnter,
 }: LeadSheetProps) {
   // Resolve filters: prefer analysisFilters, fall back to legacy showAnalysis prop
   const af = analysisFilters ?? (showAnalysis === false
@@ -2494,138 +1982,19 @@ export function LeadSheet({
     setZoomLevel(fitted);
   }, [zoom, setZoomLevel]);
 
-  const selectionTargets = useMemo<LeadSheetChordSelection[]>(() => {
-    const targets: LeadSheetChordSelection[] = [];
-
-    resolvedData.systems.forEach((system, systemIndex) => {
-      system.bars.forEach((bar, barIndex) => {
-        bar.chords.forEach((chord, chordIndex) => {
-          if (!chord.root) return;
-          const chordKey = `${systemIndex}-${barIndex}-${chordIndex}`;
-          targets.push({
-            id: chord.id ?? chordKey,
-            chordKey,
-            chord,
-            measureNumber: bar.measureNumber ?? targets.length + 1,
-            systemIndex,
-            barIndex,
-            chordIndex,
-            order: targets.length,
-          });
-        });
-      });
-    });
-
-    return targets;
-  }, [resolvedData]);
-
-  const selectionTargetByKey = useMemo(() => {
-    const map = new Map<string, LeadSheetChordSelection>();
-    selectionTargets.forEach((target) => {
-      map.set(target.chordKey, target);
-      map.set(target.id, target);
-    });
-    return map;
-  }, [selectionTargets]);
-
-  const dragStartTargetRef = useRef<LeadSheetChordSelection | null>(null);
-  const dragCurrentTargetRef = useRef<LeadSheetChordSelection | null>(null);
-  const clickAnchorTargetRef = useRef<LeadSheetChordSelection | null>(null);
-  const dragMovedRef = useRef(false);
-  const draggingSelectionRef = useRef(false);
-  const [draggingSelection, setDraggingSelection] = useState(false);
-  const [dragPreviewChordIds, setDragPreviewChordIds] = useState<string[]>([]);
-  const visibleSelectionChordIds = useMemo(
-    () => dragPreviewChordIds.length > 0 ? dragPreviewChordIds : (selectedChordIds ?? []),
-    [dragPreviewChordIds, selectedChordIds],
-  );
-
-  const getSelectionRange = (start: LeadSheetChordSelection, end: LeadSheetChordSelection) => {
-    const from = Math.min(start.order, end.order);
-    const to = Math.max(start.order, end.order);
-    return selectionTargets.filter((target) => target.order >= from && target.order <= to);
-  };
-
-  const handleSelectionPointerDown = (target: LeadSheetChordSelection, event: PointerEvent<HTMLDivElement>) => {
-    if (!selectionMode) return;
-    event.preventDefault();
-    event.stopPropagation();
-    dragStartTargetRef.current = target;
-    dragCurrentTargetRef.current = target;
-    dragMovedRef.current = false;
-    draggingSelectionRef.current = true;
-    setDraggingSelection(true);
-    setDragPreviewChordIds([target.id]);
-  };
-
-  const handleSelectionPointerEnter = (target: LeadSheetChordSelection) => {
-    if (!draggingSelectionRef.current || !dragStartTargetRef.current) return;
-    dragCurrentTargetRef.current = target;
-    if (target.id !== dragStartTargetRef.current.id) dragMovedRef.current = true;
-    setDragPreviewChordIds(getSelectionRange(dragStartTargetRef.current, target).map((item) => item.id));
-  };
-
-  useEffect(() => {
-    if (!draggingSelection) return;
-
-    const handlePointerUp = (e: globalThis.PointerEvent) => {
-      if (!draggingSelectionRef.current) return;
-      draggingSelectionRef.current = false;
-      const start = dragStartTargetRef.current;
-      const end = dragCurrentTargetRef.current ?? start;
-      if (start && end) {
-        if (dragMovedRef.current) {
-          clickAnchorTargetRef.current = start;
-          onChordRangeSelect?.(getSelectionRange(start, end), { x: e.clientX, y: e.clientY });
-        } else {
-          const anchor = clickAnchorTargetRef.current;
-          const selectedIdSet = new Set(selectedChordIds ?? []);
-
-          if (selectedIdSet.has(start.id)) {
-            const remainingTargets = selectionTargets.filter((target) =>
-              selectedIdSet.has(target.id) && target.order < start.order
-            );
-            clickAnchorTargetRef.current = remainingTargets[0] ?? null;
-            onChordRangeSelect?.(remainingTargets);
-          } else if (!anchor || !selectedChordIds?.length) {
-            clickAnchorTargetRef.current = start;
-            onChordClick?.(start.chord, start.measureNumber, start);
-          } else {
-            onChordRangeSelect?.(getSelectionRange(anchor, start), { x: e.clientX, y: e.clientY });
-          }
-        }
-      }
-
-      dragStartTargetRef.current = null;
-      dragCurrentTargetRef.current = null;
-      dragMovedRef.current = false;
-      setDraggingSelection(false);
-      setDragPreviewChordIds([]);
-    };
-
-    window.addEventListener('pointerup', handlePointerUp);
-    window.addEventListener('pointercancel', handlePointerUp);
-    return () => {
-      window.removeEventListener('pointerup', handlePointerUp);
-      window.removeEventListener('pointercancel', handlePointerUp);
-    };
-  }, [draggingSelection, onChordClick, onChordRangeSelect, selectedChordIds, selectionTargets]);
-
-  useEffect(() => {
-    if (selectionMode) return;
-    dragStartTargetRef.current = null;
-    dragCurrentTargetRef.current = null;
-    clickAnchorTargetRef.current = null;
-    dragMovedRef.current = false;
-    draggingSelectionRef.current = false;
-    setDraggingSelection(false);
-    setDragPreviewChordIds([]);
-  }, [selectionMode]);
-
-  useEffect(() => {
-    if (selectedChordIds?.length) return;
-    clickAnchorTargetRef.current = null;
-  }, [selectedChordIds]);
+  const {
+    selectionTargetByKey,
+    visibleSelectionChordIds,
+    dragPreviewChordIds,
+    handleSelectionPointerDown,
+    handleSelectionPointerEnter,
+  } = useLeadSheetSelection({
+    resolvedData,
+    selectionMode,
+    selectedChordIds,
+    onChordClick,
+    onChordRangeSelect,
+  });
 
   const systemElsRef = useRef<Record<number, HTMLDivElement | null>>({});
   const gridElsRef = useRef<Record<number, HTMLDivElement | null>>({});
@@ -3841,6 +3210,8 @@ export function LeadSheet({
               loopRegion={loopRegion}
               loopDraftStart={loopDraftStart}
               onPickLoopBar={onPickLoopBar}
+              onLoopBarPointerDown={onLoopBarPointerDown}
+              onLoopBarPointerEnter={onLoopBarPointerEnter}
               compact={compactRows[i]}
               timeSignature={resolvedData.timeSignature}
               registerChordEl={registerChordEl}

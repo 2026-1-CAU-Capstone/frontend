@@ -9,6 +9,7 @@ import { getGlobalKeyboard } from '../lib/player/GlobalKeyboard';
 import { useCountInIntro } from '../hooks/useCountInIntro';
 import { PATTERN_SIMPLE } from '../lib/note/countInPatterns';
 import { swungBeats } from '../lib/note/swing';
+import { resolveMeasureAccidental, type RenderAcc } from '../lib/note/measureAccidentals';
 import type { NoteInfo, MeasureInfo } from '../data/sampleMelody';
 import { loadUserLicks, type LickEntry } from '../data/lickData';
 import { getLickVideo, type LickVideo } from '../data/lickVideos';
@@ -248,33 +249,19 @@ function keySigAccidentals(vexKey: string): Map<string, 'b' | '#'> {
   return map;
 }
 
-function buildVfNotes(measure: MeasureInfo, initialAcc?: Map<string, 'b' | '#' | 'n'>, keySigAcc?: Map<string, 'b' | '#'>): StaveNote[] {
-  // Letter-scoped accidental memory: once a letter (e.g. 'b') has been
-  // altered in this measure, the next bare same-letter note — regardless of
-  // octave — prints with a cautionary ♮. This keeps Bb→B across octaves
-  // visible so the reader sees "this is now B, not Bb".
-  const activeAcc = initialAcc ? new Map(initialAcc) : new Map<string, 'b' | '#' | 'n'>();
+function buildVfNotes(measure: MeasureInfo, initialAcc?: Map<string, RenderAcc>, keySigAcc?: Map<string, 'b' | '#'>): StaveNote[] {
+  // Octave-aware accidental rule — single shared helper. `initialAcc` carries
+  // tied-note state across the barline (keyed by full vex key, e.g. 'e/4').
+  const activeAcc: Map<string, RenderAcc> = initialAcc ? new Map(initialAcc) : new Map();
   return measure.notes.map((n) => {
     const isRest = n.duration.endsWith('r');
     const dur = buildDuration(n.duration, n.dotted);
     const note = new StaveNote({ keys: isRest ? ['b/4'] : n.keys, duration: dur, autoStem: true });
     if (n.dotted) Dot.buildAndAttach([note]);
     if (!isRest) {
-      const noteId = n.keys[0];
-      const letter = noteId.split('/')[0];
       const realAcc = n.accidentals?.[0] as 'b' | '#' | undefined;
-      const current = activeAcc.get(letter);
-      const keySigForLetter = keySigAcc?.get(letter);
-      const effective = current ?? keySigForLetter;
-      if (realAcc) {
-        if (effective !== realAcc) note.addModifier(new Accidental(realAcc), 0);
-        activeAcc.set(letter, realAcc);
-      } else {
-        if (effective && effective !== 'n') {
-          note.addModifier(new Accidental('n'), 0);
-          activeAcc.set(letter, 'n');
-        }
-      }
+      const glyph = resolveMeasureAccidental(activeAcc, keySigAcc, n.keys[0], realAcc);
+      if (glyph) note.addModifier(new Accidental(glyph), 0);
     }
     return note;
   });
@@ -429,7 +416,7 @@ function renderMeasures(el: HTMLDivElement, measures: MeasureInfo[], minWidth: n
   const stavePositions: { x: number; y: number; w: number }[] = [];
 
   // Track accidentals carried across barlines via ties
-  let tieCarryAcc: Map<string, 'b' | '#' | 'n'> | undefined;
+  let tieCarryAcc: Map<string, RenderAcc> | undefined;
   const keySigAcc = keySigAccidentals(keyName || 'C');
 
   for (let m = 0; m < nMeasures; m++) {
@@ -470,13 +457,13 @@ function renderMeasures(el: HTMLDivElement, measures: MeasureInfo[], minWidth: n
     const vfNotes = buildVfNotes(measure, tieCarryAcc, keySigAcc);
 
     // Build carry state for next measure: if last note has tie, pass its
-    // accidental. Letter-scoped (matches buildVfNotes above).
+    // accidental (keyed by full vex key, octave-aware — matches buildVfNotes above).
     tieCarryAcc = undefined;
     const lastNote = measure.notes[measure.notes.length - 1];
     if (lastNote?.tie && !lastNote.duration.endsWith('r')) {
       const acc = lastNote.accidentals?.[0] as 'b' | '#' | undefined;
       if (acc) {
-        tieCarryAcc = new Map([[lastNote.keys[0].split('/')[0], acc]]);
+        tieCarryAcc = new Map([[lastNote.keys[0], acc]]);
       }
     }
 
@@ -795,7 +782,7 @@ function KeyRow({ keyName, measures, width, isOriginal, defaultBpm, video }: {
     const kb = getGlobalKeyboard();
     const loadPromise = kb.ensureReady();
     // 릭 재생: BPM 무관하게 SIMPLE 카운트인.
-    const cin = await countIn.run({ bpm, pattern: PATTERN_SIMPLE });
+    const cin = await countIn.run({ bpm, pattern: PATTERN_SIMPLE, bars: 1, forceEnabled: true });
     if (!cin.ok) { setPlaying(false); return; }
     await loadPromise;
     const abort = new AbortController();

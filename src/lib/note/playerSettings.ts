@@ -18,6 +18,11 @@ export type BassMode =
   | 'two-feel'  // root on beat 1, fifth on beat 3 (every chord half)
   | 'four-feel'; // walking — one hit per beat (root/5 alternating)
 
+/** Mixer channel-strip tracks (volume + solo/mute). */
+export type MixTrack = 'melody' | 'piano' | 'bass' | 'drums';
+export type TrackFlags = Record<MixTrack, boolean>;
+const NO_TRACK_FLAGS: TrackFlags = { melody: false, piano: false, bass: false, drums: false };
+
 /** Overall feel/genre for the rhythm section. Switching this overrides
  * swing, comping rhythms, drum patterns, and bass behavior wholesale so
  * the whole rhythm section reads as that style. */
@@ -28,24 +33,69 @@ export type PlayStyle = 'swing' | 'bossa';
  * MusyngKite soundfont (same high-quality free kit the bass uses). */
 export type MelodyInstrumentId =
   | 'piano'
-  | 'flute'
+  | 'electric_piano_1'
+  | 'drawbar_organ'
+  | 'accordion'
+  | 'soprano_sax'
   | 'alto_sax'
   | 'tenor_sax'
+  | 'baritone_sax'
   | 'trumpet'
+  | 'trombone'
+  | 'clarinet'
+  | 'flute'
+  | 'piccolo'
+  | 'violin'
+  | 'cello'
+  | 'orchestral_harp'
+  | 'harmonica'
   | 'electric_guitar_jazz'
   | 'vibraphone'
-  | 'clarinet';
+  | 'marimba'
+  | 'glockenspiel'
+  | 'tubular_bells';
 
-/** Display lineup for the mixer's melody-instrument picker (order = UI order). */
+/** Display lineup for the mixer's melody-instrument picker (order = UI order).
+ *  Every id is a GM soundfont name (MusyngKite), so each plays its real timbre;
+ *  the matching icon comes from MELODY_ICON_SLUG in data/instrumentIcons.ts. */
 export const MELODY_INSTRUMENTS: { id: MelodyInstrumentId; label: string }[] = [
   { id: 'piano',                label: '🎹 피아노' },
-  { id: 'flute',                label: '🎶 플룻' },
+  { id: 'soprano_sax',          label: '🎷 소프라노 색소폰' },
   { id: 'alto_sax',             label: '🎷 알토 색소폰' },
   { id: 'tenor_sax',            label: '🎷 테너 색소폰' },
+  { id: 'baritone_sax',         label: '🎷 바리톤 색소폰' },
   { id: 'trumpet',              label: '🎺 트럼펫' },
+  { id: 'trombone',             label: '🎺 트롬본' },
+  { id: 'clarinet',             label: '🪈 클라리넷' },
+  { id: 'flute',                label: '🎶 플룻' },
+  { id: 'piccolo',              label: '🪈 피콜로' },
+  { id: 'violin',               label: '🎻 바이올린' },
+  { id: 'cello',                label: '🎻 첼로' },
+  { id: 'orchestral_harp',      label: '🎵 하프' },
+  { id: 'harmonica',            label: '🎵 하모니카' },
+  { id: 'vibraphone',           label: '🔔 비브라폰' },
+  { id: 'marimba',              label: '🔔 마림바' },
+  { id: 'glockenspiel',         label: '🔔 글로켄슈필' },
+  { id: 'tubular_bells',        label: '🔔 튜뷸러 벨' },
+];
+
+/** Comping (left-hand/keyboard) instruments for the PIANO track. The engine
+ *  loads the chosen timbre as the comp instrument (loadMelodyInstrument). */
+export const COMP_INSTRUMENTS: { id: string; label: string }[] = [
+  { id: 'piano',                label: '🎹 피아노' },
+  { id: 'electric_piano_1',     label: '🎹 로즈 (일렉트릭 피아노)' },
+  { id: 'drawbar_organ',        label: '🎹 해먼드 오르간' },
+  { id: 'accordion',            label: '🪗 아코디언' },
   { id: 'electric_guitar_jazz', label: '🎸 재즈 기타' },
   { id: 'vibraphone',           label: '🔔 비브라폰' },
-  { id: 'clarinet',             label: '🪈 클라리넷' },
+];
+
+/** Bass instruments for the BASS track. acoustic/contrabass use the sampled
+ *  upright (Smolken); electric/fretless use their GM timbre. */
+export const BASS_INSTRUMENTS: { id: string; label: string }[] = [
+  { id: 'acoustic_bass',        label: '🎻 콘트라베이스 (어쿠스틱)' },
+  { id: 'electric_bass_finger', label: '🎸 일렉트릭 베이스' },
+  { id: 'fretless_bass',        label: '🎸 프렛리스 베이스' },
 ];
 
 /** Transposing instrument for the chord-chart display. 'C' is concert pitch;
@@ -64,9 +114,13 @@ export interface PlayerSettings {
   /** Which instrument plays the melody lead line. Default 'piano'. */
   melodyInstrument: MelodyInstrumentId;
   pianoVolume: number;
+  /** Comping instrument timbre for the piano track (GM id; 'piano' = grand). */
+  compInstrument: string;
   /** 0–1, send level into the shared reverb bus for piano (comp + melody). */
   pianoReverb: number;
   bassVolume: number;
+  /** Bass instrument timbre (acoustic_bass = sampled upright; electric/fretless = GM). */
+  bassInstrument: string;
   bassMode: BassMode;
   drumVolume: number;
   drumKit: DrumKitId;
@@ -97,20 +151,40 @@ export interface PlayerSettings {
   /** Play the inline lick's melody over the chord chart when one is shown.
    *  Off = the lick is still drawn under the bars but stays silent. */
   playInlineLick: boolean;
+  /** Master output gain (0–1+) — multiplies every per-track volume. */
+  masterVolume: number;
+  /** Per-track mute. A muted track is silenced regardless of its slider. */
+  mutes: TrackFlags;
+  /** Per-track solo. If ANY track is soloed, only soloed (and un-muted)
+   *  tracks sound — the classic mixer solo. */
+  solos: TrackFlags;
+  /** Play the "1 2 3 4" count-in before playback. Off = start immediately. */
+  countInEnabled: boolean;
+  /** Count-in length in bars (1 or 2). */
+  countInBars: number;
 }
 
+/** Default for every volume slider — 0–100 UI scale, 50 = 0.5 gain.
+ *  50 was chosen as a moderate listening level (the old default 1.0 = full
+ *  velocity ran hot, and the sliders used to reach 200%). All five volumes
+ *  share this so the mix balance is set purely by the per-instrument amp
+ *  gains in soundfont.ts, not by uneven slider defaults. */
+const DEFAULT_VOLUME = 0.5;
+
 const DEFAULTS: PlayerSettings = {
-  melodyVolume: 1.0,
+  melodyVolume: DEFAULT_VOLUME,
   melodyInstrument: 'piano',
-  pianoVolume: 1.0,
+  pianoVolume: DEFAULT_VOLUME,
+  compInstrument: 'piano',
   pianoReverb: 0.45,
-  bassVolume: 1.0,
+  bassVolume: DEFAULT_VOLUME,
+  bassInstrument: 'acoustic_bass',
   bassMode: 'two-feel',
-  drumVolume: 1.0,
+  drumVolume: DEFAULT_VOLUME,
   drumKit: 'synth',
   drumEnabled: true,
   metroEnabled: false,
-  metroVolume: 0.6,
+  metroVolume: DEFAULT_VOLUME,
   // 0.708 matches the corpus-calibrated medium-swing ratio used by drum
   // patterns via `getSwingRatio(bpm, 'medium-swing')`. Before this change,
   // drums used 0.708 but bass/piano timing used 0.62, producing audible
@@ -122,6 +196,11 @@ const DEFAULTS: PlayerSettings = {
   loop: true,
   transposingInstrument: 'C',
   playInlineLick: true,
+  masterVolume: 1,
+  mutes: { ...NO_TRACK_FLAGS },
+  solos: { ...NO_TRACK_FLAGS },
+  countInEnabled: true,
+  countInBars: 1,
 };
 
 const LS_KEY = 'jazzify_player_settings_v1';
@@ -136,7 +215,24 @@ function loadFromStorage(): PlayerSettings {
     const raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(LS_KEY);
     if (!raw) return { ...DEFAULTS, drumKit: legacyDrumKit };
     const parsed = JSON.parse(raw) as Partial<PlayerSettings>;
-    return { ...DEFAULTS, drumKit: legacyDrumKit, ...parsed };
+    return {
+      ...DEFAULTS, drumKit: legacyDrumKit, ...parsed,
+      // 볼륨은 매 앱 시작마다 디폴트(50)로 강제 — 저장값을 무시한다.
+      // 사용자가 슬라이더를 0으로 내려놓고 잊어 "소리가 안 난다"고 헷갈리는 일을
+      // 막기 위함(무슨 일이 있어도 항상 50으로 시작). 다른 설정(킷/장르/스타일/
+      // 스윙/루프 등)은 그대로 유지되고, 세션 중 볼륨 조절도 정상 동작한다 —
+      // 다음 새로고침에서만 50으로 돌아온다.
+      melodyVolume: DEFAULTS.melodyVolume,
+      pianoVolume: DEFAULTS.pianoVolume,
+      bassVolume: DEFAULTS.bassVolume,
+      drumVolume: DEFAULTS.drumVolume,
+      metroVolume: DEFAULTS.metroVolume,
+      // 마스터/뮤트/솔로도 매 시작 초기화 — "어제 켜둔 뮤트/솔로로 소리가 안 난다"는
+      // 혼란을 막는다(볼륨과 동일 정책).
+      masterVolume: DEFAULTS.masterVolume,
+      mutes: { ...NO_TRACK_FLAGS },
+      solos: { ...NO_TRACK_FLAGS },
+    };
   } catch {
     return { ...DEFAULTS, drumKit: legacyDrumKit };
   }
@@ -175,6 +271,29 @@ export function setPlayerSettings(patch: Partial<PlayerSettings>): void {
   current = { ...current, ...patch };
   saveToStorage(current);
   listeners.forEach((l) => l(current));
+}
+
+/** Reset the MIXER controls to their defaults (volumes, kit, instrument,
+ *  bass mode, reverb, transposing instrument, metronome, count-in, mute/solo).
+ *  Leaves transport/song state (genre/style/loop) untouched. */
+export function resetMixerToDefaults(): void {
+  setPlayerSettings({
+    masterVolume: DEFAULTS.masterVolume,
+    melodyVolume: DEFAULTS.melodyVolume,
+    pianoVolume: DEFAULTS.pianoVolume,
+    bassVolume: DEFAULTS.bassVolume,
+    drumVolume: DEFAULTS.drumVolume,
+    metroVolume: DEFAULTS.metroVolume,
+    pianoReverb: DEFAULTS.pianoReverb,
+    drumKit: DEFAULTS.drumKit,
+    melodyInstrument: DEFAULTS.melodyInstrument,
+    bassMode: DEFAULTS.bassMode,
+    transposingInstrument: DEFAULTS.transposingInstrument,
+    countInEnabled: DEFAULTS.countInEnabled,
+    countInBars: DEFAULTS.countInBars,
+    mutes: { ...NO_TRACK_FLAGS },
+    solos: { ...NO_TRACK_FLAGS },
+  });
 }
 
 export function subscribePlayerSettings(fn: (s: PlayerSettings) => void): () => void {

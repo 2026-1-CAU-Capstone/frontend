@@ -32,13 +32,13 @@ const config: CapacitorConfig = {
    * 앱이 dev 서버 없이 독립 실행된다 (배포/TestFlight 기준 상태).
    *
    * 개발 중 라이브 리로드가 필요하면 아래 블록 주석 해제:
-   * - 192.168.0.12 = Mac의 WiFi LAN IP (iPad가 같은 WiFi에 있어야 함)
-   *   Tailscale 경유로 쓰려면 → http://100.92.49.85:5173 (iPad에도 Tailscale 켜야 함)
+   * - <MAC_LAN_IP> = Mac의 WiFi LAN IP (iPad가 같은 WiFi에 있어야 함)
+   *   Tailscale 경유로 쓰려면 → http://<TAILSCALE_IP>:5173 (iPad에도 Tailscale 켜야 함)
    * - cleartext: true 가 있어야 iOS WebView가 http:// 로드 허용 (ATS 우회)
    * - 배포(앱스토어/TestFlight) 빌드 전엔 반드시 다시 주석 처리할 것.
    */
   // server: {
-  //   url: 'http://192.168.0.12:5173',
+  //   url: 'http://<MAC_LAN_IP>:5173',
   //   cleartext: true,
   // },
 };

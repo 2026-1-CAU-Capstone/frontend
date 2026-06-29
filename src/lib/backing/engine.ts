@@ -1,6 +1,6 @@
 import type { BackingEvent, Bar, Chart, Chord, FeelId, MidiNote, StyleId } from "./types";
 import { renderDrumBar } from "./drums";
-import { walkChord, twoFeelBass, type WalkingBassBeat } from "./bass";
+import { walkChord, twoFeelBass, funkBass, type WalkingBassBeat } from "./bass";
 import { getSwingRatio } from "../note/swing";
 import { voiceChord } from "./voicing";
 import { PSBASE_CH0_PATTERN } from "./jazz-piano-pattern";
@@ -39,12 +39,18 @@ export interface RenderOptions {
    *  via `resolveFeel()`. Threading this through is what makes
    *  `BackingPlayer.setConfig({ feel })` actually take effect. */
   feel?: FeelId;
+  /** Bass scheduling override (mixer "베이스 모드"). See BackingConfig.bassMode. */
+  bassMode?: "half" | "two-feel" | "four-feel";
   /** Optional melody track (from `noteSheetToChart`'s `extractMelody`).
    *  Beat offsets are absolute from the start of the chart. */
   melody?: MelodyNote[];
   /** When false, suppress melody emission even if `melody` is provided.
    *  Defaults to `true` whenever `melody` is set. */
   playMelody?: boolean;
+  /** Force a steady piano comp on beats 1 & 3 of every chord, bypassing the
+   *  groove-based comping patterns. Used by the Editor's practice playback so
+   *  the soloist hears the changes on a plain 1-&-3 pulse. */
+  pianoComp1And3?: boolean;
 }
 
 /* ─── comping rhythm patterns ────────────────────────────────────────── */
@@ -172,9 +178,11 @@ function resolveFeel(style: StyleId, defaultFeel: FeelId): FeelId {
     case "latin":
     case "mambo":
     case "songo":
-    case "cha-cha":
-    case "afro-cuban-68":
       return "latin";
+    case "cha-cha":
+      return "cha-cha";
+    case "afro-cuban-68":
+      return "afro-cuban";
     case "latin-swing":
       return "latin-swing";
     case "ballad-swing":
@@ -239,6 +247,8 @@ function pickRoll(feel: FeelId, voicingLen: number, randDraw: number): number[] 
     feel === "bossa" ||
     feel === "latin" ||
     feel === "samba" ||
+    feel === "cha-cha" ||
+    feel === "afro-cuban" ||
     feel === "funk" ||
     feel === "new-orleans-swing"
   ) {
@@ -287,7 +297,19 @@ export function renderChart(chart: Chart, opts: RenderOptions): BackingEvent[] {
   // 2-feel bass + blocked/legacy piano comping (the per-feel comping helpers
   // below already special-case feel==='latin' the same way). Keyed off `feel`
   // so samba/mambo/songo/cha-cha/afro-cuban all route here, not just bossa.
-  const isBossa = feel === "bossa" || feel === "latin" || feel === "samba";
+  const isBossa = feel === "bossa" || feel === "latin" || feel === "samba" || feel === "cha-cha" || feel === "afro-cuban";
+
+  // Piano comp routing: the psBase pattern has SWING baked into its recorded
+  // MIDI ticks, so it must only drive swing feels. Straight feels (funk, rock/
+  // even-8ths) need the legacy voicing comp, whose timing is computed from raw
+  // beat offsets (no swing projection) — otherwise a swung piano floats over a
+  // straight drum/bass groove. Bossa-family already routes to legacy.
+  const usesLegacyComp =
+    isBossa ||
+    feel === "even-8ths" ||
+    feel === "funk" ||
+    feel === "straight-8" ||
+    feel === "straight-16";
 
   // Flatten all bars across sections (no repeat expansion yet).
   const flatBars: Bar[] = [];
@@ -338,11 +360,22 @@ export function renderChart(chart: Chart, opts: RenderOptions): BackingEvent[] {
       // renders the same line every time (no autoplay drift). `prevBassMidi`
       // threads register continuity through the walking/two-feel generators.
       const bassSeed = bi * 1009 + ci * 17;
+      // Bass routing. Latin (bossa/samba) and funk keep their dedicated bass.
+      // For swing feels, the mixer "베이스 모드"(opts.bassMode) overrides the
+      // feel default: four-feel→walking, two-feel/half→lighter root/fifth.
+      // When unset, ballad walks 2-feel and everything else walks.
+      const walk = () => walkChord(chord, next, chord.beats, bassSeed, prevBassMidi, swingRatio);
+      const two = () => twoFeelBass(chord, chord.beats, prevBassMidi, bassSeed);
+      const swingBass = (): WalkingBassBeat[] =>
+        opts.bassMode === "four-feel" ? walk()
+        : opts.bassMode === "two-feel" || opts.bassMode === "half" ? two()
+        : feel === "ballad-swing" ? two()
+        : walk();
       const bassNotes: WalkingBassBeat[] = isBossa
         ? bossaBass(chord, chord.beats)
-        : feel === "ballad-swing"
-          ? twoFeelBass(chord, chord.beats, prevBassMidi, bassSeed)
-          : walkChord(chord, next, chord.beats, bassSeed, prevBassMidi, swingRatio);
+        : feel === "funk"
+          ? funkBass(chord, next, chord.beats, prevBassMidi)
+          : swingBass();
       for (const bn of bassNotes) {
         const beatInBar = beatCursor + bn.beatOffset;
         // Walking bass: iReal Pro accents the BACKBEAT — beats 2 & 4 land
@@ -379,7 +412,13 @@ export function renderChart(chart: Chart, opts: RenderOptions): BackingEvent[] {
       // current chord's beats out of it and re-fit to the chord via
       // fitChordPhraseToChord. Bossa still uses the legacy voicing-based
       // path because the psBase pattern is swing-specific.
-      if (isBossa) {
+      if (opts.pianoComp1And3) {
+        // Editor practice mode: a plain block-chord comp on beats 1 & 3,
+        // overriding whatever the feel's groove would do.
+        prevVoicing = renderOneAndThreeComping(
+          chord, beatCursor, barStart, secPerBeat, bi, ci, events, prevVoicing,
+        );
+      } else if (usesLegacyComp) {
         prevVoicing = renderLegacyPianoComping(
           chord, beatCursor, bi, ci, barStart, secPerBeat, barFeel, events, prevVoicing,
         );
@@ -565,6 +604,48 @@ function renderPsBasePianoComping(
  *                (swing-feel modes only)
  *   - PATCH #8 — picks from 3-hit / 2-hit / 1-hit pools weighted 60/30/10
  */
+/**
+ * Editor practice comp: block-chord on beats 1 & 3 of each chord, in straight
+ * time (no swing anticipation, no groove pattern). Beat offsets are measured
+ * from the chord's start, so a chord shorter than 3 beats only gets beat 1.
+ * Returns the full voicing so the next chord can voice-lead against it.
+ */
+function renderOneAndThreeComping(
+  chord: Chord,
+  beatCursor: number,
+  barStart: number,
+  secPerBeat: number,
+  bi: number,
+  ci: number,
+  events: BackingEvent[],
+  prevVoicing: MidiNote[],
+): MidiNote[] {
+  const fullVoicing = voiceChord(chord, prevVoicing);
+  const voicing = fullVoicing.slice(0, 4);
+  if (voicing.length === 0) return fullVoicing;
+
+  // Beats 1 & 3 (offsets 0 and 2) that fall within this chord's duration.
+  const offsets = [0, 2].filter((o) => o < chord.beats);
+  for (const offset of offsets) {
+    const t = barStart + (beatCursor + offset) * secPerBeat;
+    // Ring until just before the next hit (or the chord's end).
+    const duration = secPerBeat * 1.9;
+    const vel = 0.6 + (rand(bi * 97 + ci * 11 + offset * 3) - 0.5) * 0.06;
+    for (const midi of voicing) {
+      events.push({
+        kind: "note",
+        instrument: "piano",
+        midi,
+        time: t,
+        duration,
+        velocity: Math.max(0.15, Math.min(0.9, vel)),
+        bar: bi,
+      });
+    }
+  }
+  return fullVoicing;
+}
+
 function renderLegacyPianoComping(
   chord: Chord,
   beatCursor: number,
@@ -584,7 +665,7 @@ function renderLegacyPianoComping(
   const voicing = fullVoicing.slice(0, 3).map((n: MidiNote) => n + octaveShift);
   if (voicing.length === 0) return fullVoicing;
 
-  const isBossa = feel === "bossa" || feel === "latin" || feel === "samba";
+  const isBossa = feel === "bossa" || feel === "latin" || feel === "samba" || feel === "cha-cha" || feel === "afro-cuban";
   const pattern = selectCompingPattern(chord.beats, bi, ci, feel);
   const isSingleHit = pattern.length === 1;
 
@@ -672,7 +753,7 @@ function selectCompingPattern(
   chordIdx: number,
   feel: FeelId,
 ): Array<[number, number]> {
-  const isBossa = feel === "bossa" || feel === "latin" || feel === "samba";
+  const isBossa = feel === "bossa" || feel === "latin" || feel === "samba" || feel === "cha-cha" || feel === "afro-cuban";
 
   if (beats >= 4) {
     if (isBossa) {

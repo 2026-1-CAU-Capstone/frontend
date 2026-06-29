@@ -1,6 +1,44 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent as ReactMouseEvent } from 'react';
+import { useDismissable } from '../hooks/useDismissable';
+import { useViewModePref } from '../hooks/useViewModePref';
+import {
+  CardMeta,
+  Header,
+  HeaderActions,
+  IconOnlyBtn,
+  Kebab,
+  KebabDot,
+  KebabMenuIcon,
+  KebabMenuItem,
+  KeyChip,
+  List,
+  ListMain,
+  ListNewRow,
+  ListRow,
+  ListSubtitle,
+  ListTitle,
+  MetaRow,
+  ModalLabel,
+  Page,
+  PillBtn,
+  SbBtn,
+  SelectionBar,
+  SheetCardInner,
+  SortItem,
+  SortLabel,
+  SortWrap,
+  TimeChip,
+  Title,
+  ViewToggle,
+  ViewToggleBtn,
+  Grid,
+  KebabMenu,
+  SortMenu,
+  PageBody,
+  ListThumb,
+} from '../components/projects/sharedStyles';
+import { isComposingEvent } from '../lib/ime';
 import styled from 'styled-components';
-import { mq } from '../styles/theme';
 import { IconSidebar } from '../components/layout/IconSidebar';
 import { NoteSheet } from '../components/notesheet/NoteSheet';
 import type { NoteSheetData } from '../data/sampleMelody';
@@ -9,11 +47,14 @@ import {
   KEY_SIGNATURES,
   createSheetProject,
   deleteSheetProject,
+  listSheetProjects,
+  updateSheetProject,
   type KeySignature,
+  type SheetProject,
 } from '../api/sheetProjects';
+import { getCachedUser } from '../api/auth';
 import { uploadStorageFile } from '../api/storageFiles';
 
-type ViewMode = 'grid' | 'list';
 type SortMode = 'recent' | 'old' | 'name' | 'type';
 
 interface UploadedSheetProject {
@@ -27,17 +68,6 @@ interface UploadedSheetProject {
 const VIEW_MODE_STORAGE_KEY = 'jazzify.mySheets.viewMode.v1';
 const UPLOADED_STORAGE_KEY = 'jazzify.mySheets.uploaded.v1';
 
-function loadViewMode(): ViewMode {
-  try {
-    const v = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
-    if (v === 'grid' || v === 'list') return v;
-  } catch { /* ignore */ }
-  return 'grid';
-}
-
-function saveViewMode(v: ViewMode): void {
-  try { localStorage.setItem(VIEW_MODE_STORAGE_KEY, v); } catch { /* ignore */ }
-}
 
 function loadUploadedProjects(): UploadedSheetProject[] {
   try {
@@ -72,7 +102,7 @@ function formatComposer(composer: string | undefined): string {
 }
 
 export default function MySheetProjectsPage() {
-  const [viewMode, setViewMode] = useState<ViewMode>(loadViewMode);
+  const [viewMode, setViewMode] = useViewModePref(VIEW_MODE_STORAGE_KEY);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
@@ -80,6 +110,45 @@ export default function MySheetProjectsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [kebabMenuId, setKebabMenuId] = useState<string | null>(null);
   const [uploadedProjects, setUploadedProjects] = useState<UploadedSheetProject[]>(loadUploadedProjects);
+
+  /* ── 서버 목록 동기화 ──
+   * localStorage만 쓰던 이전 구현은 (a) 다른 기기/브라우저의 프로젝트가 안
+   * 보이고, (b) localStorage가 지워지면 서버에 살아있는 프로젝트가 UI에서
+   * 영영 사라졌으며, (c) 이름 변경이 서버에 반영되지 않았다. 마운트 시
+   * GET /v1/sheet-projects 를 단일 진실 원천으로 로드하고 localStorage는
+   * 캐시(즉시 페인트 + 오프라인 폴백)로만 유지한다. */
+  const serverToLocal = (sp: SheetProject): UploadedSheetProject => ({
+    id: sp.publicId,
+    title: sp.title,
+    key: String(sp.keySignature ?? ''),
+    fileName: '',
+    createdAt: (sp.createdAt ?? '').slice(0, 10) || today(),
+  });
+  useEffect(() => {
+    if (!getCachedUser()) return; // 비로그인: 서버 목록 없음 — 로컬 캐시 유지
+    let cancelled = false;
+    listSheetProjects({ size: 100, sort: 'createdAt,desc' })
+      .then((page) => {
+        if (cancelled) return;
+        setUploadedProjects((prev) => {
+          const server = page.content.map(serverToLocal);
+          // 로컬에만 있는 항목(방금 업로드해 목록 반영 전 등)은 보존하며 병합.
+          const serverIds = new Set(server.map((x) => x.id));
+          const localOnly = prev.filter((x) => !serverIds.has(x.id));
+          // fileName은 서버 응답에 없으므로 로컬 캐시 값을 이어받는다.
+          const byId = new Map(prev.map((x) => [x.id, x]));
+          return [
+            ...server.map((x) => ({ ...x, fileName: byId.get(x.id)?.fileName ?? x.fileName })),
+            ...localOnly,
+          ];
+        });
+      })
+      .catch((e) => {
+        // 네트워크/만료 — 로컬 캐시로 계속 동작 (조용한 폴백, 콘솔만)
+        console.warn('[MySheetProjects] 서버 목록 로드 실패 — 로컬 캐시 사용:', e);
+      });
+    return () => { cancelled = true; };
+  }, []);
   const [renameTarget, setRenameTarget] = useState<{ id: string; title: string } | null>(null);
   const [renameInput, setRenameInput] = useState('');
 
@@ -92,36 +161,11 @@ export default function MySheetProjectsPage() {
   const sortWrapRef = useRef<HTMLDivElement>(null);
   const kebabMenuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { saveViewMode(viewMode); }, [viewMode]);
   useEffect(() => { saveUploadedProjects(uploadedProjects); }, [uploadedProjects]);
 
-  useEffect(() => {
-    if (!sortMenuOpen) return;
-    const onDown = (e: MouseEvent) => {
-      if (sortWrapRef.current && !sortWrapRef.current.contains(e.target as Node)) setSortMenuOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSortMenuOpen(false); };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [sortMenuOpen]);
+  useDismissable(sortMenuOpen, sortWrapRef, () => setSortMenuOpen(false));
 
-  useEffect(() => {
-    if (!kebabMenuId) return;
-    const onDown = (e: MouseEvent) => {
-      if (kebabMenuRef.current && !kebabMenuRef.current.contains(e.target as Node)) setKebabMenuId(null);
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setKebabMenuId(null); };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [kebabMenuId]);
+  useDismissable(!!kebabMenuId, kebabMenuRef, () => setKebabMenuId(null));
 
   const visibleSongs = useMemo(() => {
     const list = [...leadsheetSongs];
@@ -173,17 +217,28 @@ export default function MySheetProjectsPage() {
     resetCreateForm();
   };
 
+  // 업로드 성공 후 createSheetProject가 실패하면, 재시도 때 같은 파일을 또 올려
+  // 서버에 고아 파일이 누적된다(스토리지엔 delete API가 없음). 동일 File이면 직전
+  // 업로드 결과를 재사용해 누적을 막는다(Fable §4 399). 성공 시 캐시를 비운다.
+  const uploadedRef = useRef<{ file: File; publicId: string } | null>(null);
+
   const handleCreate = async () => {
     if (!newTitle.trim() || !newFile) return;
     setCreating(true);
     setError(null);
     try {
-      const stored = await uploadStorageFile(newFile, newFile.name);
+      let storedId = uploadedRef.current?.file === newFile ? uploadedRef.current.publicId : null;
+      if (!storedId) {
+        const stored = await uploadStorageFile(newFile, newFile.name);
+        storedId = stored.publicId;
+        uploadedRef.current = { file: newFile, publicId: storedId };
+      }
       const created = await createSheetProject({
         title: newTitle.trim(),
         key: newKey,
-        storageFileIds: [stored.publicId],
+        storageFileIds: [storedId],
       });
+      uploadedRef.current = null;
       setUploadedProjects((prev) => [{
         id: created.publicId,
         title: created.title,
@@ -214,9 +269,17 @@ export default function MySheetProjectsPage() {
     if (!renameTarget) return;
     const next = renameInput.trim();
     if (!next) return;
-    setUploadedProjects((prev) => prev.map((p) => (p.id === renameTarget.id ? { ...p, title: next } : p)));
+    const targetId = renameTarget.id;
+    const prevTitle = renameTarget.title;
+    // 낙관적 반영 후 서버 PUT — 실패 시 롤백 + 에러 배너. (이전엔 로컬만 바꿔
+    // 서버 제목과 영구 불일치 — MyChordChartsPage의 confirmEdit와 비대칭이었다.)
+    setUploadedProjects((prev) => prev.map((p) => (p.id === targetId ? { ...p, title: next } : p)));
     setRenameTarget(null);
     setRenameInput('');
+    updateSheetProject(targetId, { title: next }).catch((e) => {
+      setUploadedProjects((prev) => prev.map((p) => (p.id === targetId ? { ...p, title: prevTitle } : p)));
+      setError(e instanceof Error ? e.message : '이름 변경 실패 (서버 반영 안 됨)');
+    });
   };
 
   /* Single-item delete from the kebab menu. Calls the backend first; on
@@ -254,20 +317,37 @@ export default function MySheetProjectsPage() {
       return;
     }
     setBulkDeleting(true);
-    try {
-      /* Sequential — predictable error reporting and avoids slamming the
-       * backend if the user selected dozens of rows. */
-      for (const id of ids) {
+    /* Sequential — predictable error reporting and avoids slamming the
+     * backend if the user selected dozens of rows. Each SUCCESS is applied
+     * immediately: a failure at item k used to leave the already-deleted
+     * 0..k-1 rows on screen (server/UI 불일치). */
+    const okIds: string[] = [];
+    let firstErr: unknown = null;
+    for (const id of ids) {
+      try {
         await deleteSheetProject(id);
+        okIds.push(id);
+      } catch (e) {
+        firstErr = e;
+        break; // 같은 원인(만료/네트워크)일 가능성이 높아 연쇄 404 방지 위해 중단
       }
-      setUploadedProjects((prev) => prev.filter((p) => !ids.includes(p.id)));
+    }
+    if (okIds.length > 0) {
+      setUploadedProjects((prev) => prev.filter((p) => !okIds.includes(p.id)));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        okIds.forEach((id) => next.delete(id));
+        return next;
+      });
+    }
+    if (firstErr) {
+      const msg = firstErr instanceof Error ? firstErr.message : '악보 일괄 삭제 실패';
+      setError(`${msg} — ${okIds.length}/${ids.length}개 삭제됨`);
+    } else {
       setBulkDeleteOpen(false);
       exitSelect();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '악보 일괄 삭제 실패');
-    } finally {
-      setBulkDeleting(false);
     }
+    setBulkDeleting(false);
   };
 
   /* Selection-bar handlers — mirror the chord-chart page so the bar reads
@@ -337,6 +417,16 @@ export default function MySheetProjectsPage() {
           </HeaderActions>
         </Header>
 
+        {/* 페이지 레벨 에러 — 삭제/일괄삭제 실패는 생성 모달 밖에서 발생하므로
+          * ModalError(모달 내부)만으론 사용자에게 아무 피드백이 없었다.
+          * (MyChordChartsPage의 ErrorBanner와 동일 패턴) */}
+        {error && !createOpen && (
+          <PageErrorBanner>
+            <span>{error}</span>
+            <PageErrorClose type="button" onClick={() => setError(null)}>닫기</PageErrorClose>
+          </PageErrorBanner>
+        )}
+
         {viewMode === 'grid' ? (
           <Grid>
             <NewCard type="button" onClick={openCreateModal}>
@@ -363,11 +453,6 @@ export default function MySheetProjectsPage() {
                 <UploadedThumb>
                   <FileMusicIcon />
                   <UploadedThumbText>{item.fileName}</UploadedThumbText>
-                  {!selectMode && (
-                    <HoverOverlay className="sheet-hover-overlay" aria-hidden>
-                      <HoverArrowBox><ArrowRightIcon /></HoverArrowBox>
-                    </HoverOverlay>
-                  )}
                 </UploadedThumb>
                 <CardMeta>
                   <CardTitleRow>
@@ -419,11 +504,6 @@ export default function MySheetProjectsPage() {
                 )}
                 <SheetCardInner>
                   <SheetPreview song={song} />
-                  {!selectMode && (
-                    <HoverOverlay className="sheet-hover-overlay" aria-hidden>
-                      <HoverArrowBox><ArrowRightIcon /></HoverArrowBox>
-                    </HoverOverlay>
-                  )}
                 </SheetCardInner>
                 <CardMeta>
                   <CardTitleRow>
@@ -543,7 +623,7 @@ export default function MySheetProjectsPage() {
                 value={renameInput}
                 onChange={(e) => setRenameInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') confirmRename();
+                  if (e.key === 'Enter') { if (isComposingEvent(e)) return; confirmRename(); }
                   else if (e.key === 'Escape') setRenameTarget(null);
                 }}
               />
@@ -593,6 +673,7 @@ export default function MySheetProjectsPage() {
                           기본 제공 곡 {skipped}개는 삭제되지 않습니다.
                         </SkippedNote>
                       )}
+                      {error && <ModalError>{error}</ModalError>}
                       <ModalWarn>이 작업은 되돌릴 수 없습니다.</ModalWarn>
                     </>
                   );
@@ -747,15 +828,6 @@ function ListViewIcon() {
   );
 }
 
-function ArrowRightIcon() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <line x1="5" y1="12" x2="19" y2="12" />
-      <polyline points="13 6 19 12 13 18" />
-    </svg>
-  );
-}
-
 function FileMusicIcon() {
   return (
     <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -840,162 +912,19 @@ function ListSheetMini() {
 
 /* ── layout ──────────────────────────────────────────────────────────── */
 
-const Page = styled.div`
-  display: flex;
-  flex-direction: row;
-  height: 100vh;
-  height: 100dvh;
-  width: 100%;
-  background: ${({ theme }) => theme.colors.bgPrimary};
-  font-family: 'Pretendard', sans-serif;
-`;
 
-const PageBody = styled.div`
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-width: 0;
-`;
 
-const Header = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: calc(env(safe-area-inset-top, 0px) + 14px) 28px 12px;
-  ${mq.mobile} {
-    padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px 10px;
-  }
-`;
 
-const Title = styled.h1`
-  margin: 0;
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: #1a1a1a;
-`;
 
-const HeaderActions = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 10px;
-`;
 
-const PillBtn = styled.button`
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(0, 0, 0, 0.05);
-  border: none;
-  border-radius: 999px;
-  padding: 8px 14px;
-  font-family: inherit;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: #1a1a1a;
-  cursor: pointer;
-  transition: background 0.12s;
-  &:hover { background: rgba(0, 0, 0, 0.08); }
-`;
 
-const IconOnlyBtn = styled.button`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: #1a1a1a;
-  cursor: pointer;
-  transition: background 0.12s;
-  &:hover { background: rgba(0, 0, 0, 0.06); }
-`;
 
-const ViewToggle = styled.div`
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 999px;
-  padding: 2px;
-  gap: 2px;
-  background: #fff;
-`;
 
-const ViewToggleBtn = styled.button<{ $active?: boolean }>`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 28px;
-  border: none;
-  border-radius: 999px;
-  cursor: pointer;
-  background: ${({ $active }) => ($active ? 'rgba(0, 0, 0, 0.06)' : 'transparent')};
-  color: ${({ $active }) => ($active ? '#2a73d9' : 'rgba(0, 0, 0, 0.55)')};
-  transition: background 0.12s, color 0.12s;
-  &:hover { background: ${({ $active }) => ($active ? 'rgba(0, 0, 0, 0.08)' : 'rgba(0, 0, 0, 0.04)')}; }
-`;
 
-const SortWrap = styled.div`
-  position: relative;
-  display: inline-flex;
-`;
 
-const SortMenu = styled.div`
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  min-width: 180px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 14px;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.14);
-  padding: 6px;
-  z-index: 50;
-`;
 
-const SortItem = styled.button<{ $active?: boolean }>`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-  padding: 10px 12px;
-  border: none;
-  background: transparent;
-  border-radius: 9px;
-  cursor: pointer;
-  font-family: inherit;
-  text-align: left;
-  color: ${({ $active }) => ($active ? '#1a1a1a' : 'rgba(0, 0, 0, 0.45)')};
-  transition: background 0.1s;
-  &:hover { background: rgba(0, 0, 0, 0.04); }
-`;
 
-const SortLabel = styled.span<{ $active?: boolean }>`
-  font-size: 14.5px;
-  font-weight: ${({ $active }) => ($active ? 700 : 500)};
-`;
 
-const Grid = styled.div`
-  flex: 1;
-  overflow-y: auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
-  align-items: start;
-  align-content: start;
-  gap: 16px 10px;
-  padding: 10px 22px 24px;
-  ${mq.mobile} {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 12px 8px;
-    padding: 6px 14px 20px;
-  }
-`;
 
 const CARD_HOVER_BG = '#FAF6E9';
 
@@ -1017,6 +946,7 @@ const CardBase = `
   &:active { transform: scale(0.985); }
 `;
 
+// 페이지별 의도적 디자인 차이 — 상대 페이지와 통합 금지 (§8 R9, sharedStyles.ts 헤더 참조)
 const NewCard = styled.button`
   ${CardBase}
   align-items: center;
@@ -1027,6 +957,7 @@ const NewCard = styled.button`
   color: rgba(0, 0, 0, 0.55);
 `;
 
+// 페이지별 의도적 디자인 차이 — 상대 페이지와 통합 금지 (§8 R9, sharedStyles.ts 헤더 참조)
 const NewLabel = styled.span`
   font-size: 14px;
   font-weight: 500;
@@ -1043,15 +974,6 @@ const SheetCard = styled.div<{ $selected?: boolean; $menuOpen?: boolean }>`
     `background: ${CARD_HOVER_BG}; border-color: rgba(0, 0, 0, 0.18); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);`}
 `;
 
-const SheetCardInner = styled.div`
-  position: relative;
-  width: 100%;
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  padding: 10px 10px 0 10px;
-`;
 
 const ScoreThumbWrap = styled.div`
   position: relative;
@@ -1136,15 +1058,10 @@ const UploadedThumbText = styled.span`
   white-space: nowrap;
 `;
 
-const CardMeta = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 12px 12px;
-`;
 
 /* 제목 + 키칩 + 박자칩 한 줄. 제목(div)이 flex:1 로 남는 폭 전부 차지(길면
  * ellipsis), 칩(span)은 flex-shrink:0 이라 안 잘림. 내 코드 차트와 동일. */
+// 페이지별 의도적 디자인 차이 — 상대 페이지와 통합 금지 (§8 R9, sharedStyles.ts 헤더 참조)
 const CardTitleRow = styled.div`
   display: flex;
   align-items: center;
@@ -1158,6 +1075,7 @@ const CardTitleRow = styled.div`
   }
 `;
 
+// 페이지별 의도적 디자인 차이 — 상대 페이지와 통합 금지 (§8 R9, sharedStyles.ts 헤더 참조)
 const CardTitle = styled.div`
   font-size: 14px;
   font-weight: 600;
@@ -1169,11 +1087,6 @@ const CardTitle = styled.div`
   padding-right: 0;
 `;
 
-const MetaRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-`;
 
 const ComposerText = styled.span`
   display: block;
@@ -1192,122 +1105,17 @@ const ComposerText = styled.span`
 `;
 
 /* 키 칩(노랑) — 내 코드 차트와 동일 디자인 유지 (두 페이지 카드는 항상 같게). */
-const KeyChip = styled.span`
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  font-size: 9.5px;
-  font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: rgba(214, 152, 18, 0.16);
-  color: #9a6800;
-  letter-spacing: 0.01em;
-`;
 
 /* 박자 칩(파랑) — 코드 차트와 동일. 악보엔 박자 데이터가 없어 4/4 고정. */
-const TimeChip = styled.span`
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  font-size: 9.5px;
-  font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: rgba(43, 138, 239, 0.14);
-  color: #2570c8;
-  letter-spacing: 0.01em;
-`;
 
-const HoverOverlay = styled.div`
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.15s;
-  pointer-events: none;
-`;
 
-const HoverArrowBox = styled.div`
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
-  background: rgba(20, 20, 20, 0.78);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
-`;
 
-const Kebab = styled.button`
-  position: absolute;
-  right: 8px;
-  bottom: 10px;
-  width: 22px;
-  height: 22px;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  cursor: pointer;
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  &:hover { background: rgba(0, 0, 0, 0.05); }
-`;
 
-const KebabDot = styled.span`
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.5);
-`;
 
-const KebabMenu = styled.div`
-  position: absolute;
-  right: 6px;
-  top: calc(100% + 4px);
-  min-width: 132px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 12px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
-  padding: 6px;
-  z-index: 20;
-`;
 
-const KebabMenuItem = styled.button<{ $danger?: boolean }>`
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 8px 10px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 13.5px;
-  font-weight: 500;
-  text-align: left;
-  color: ${({ $danger }) => ($danger ? '#e74c3c' : '#1a1a1a')};
-  transition: background 0.1s;
-  &:hover { background: ${({ $danger }) => ($danger ? 'rgba(231, 76, 60, 0.08)' : 'rgba(0, 0, 0, 0.04)')}; }
-`;
 
-const KebabMenuIcon = styled.span`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  color: currentColor;
-  flex-shrink: 0;
-`;
 
+// 페이지별 의도적 디자인 차이 — 상대 페이지와 통합 금지 (§8 R9, sharedStyles.ts 헤더 참조)
 const CardCheckbox = styled.button<{ $checked?: boolean }>`
   position: absolute;
   left: 8px;
@@ -1332,89 +1140,12 @@ const CheckMark = styled.span`
   transform: rotate(-45deg) translateY(-1px);
 `;
 
-const List = styled.div`
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  padding: 4px 22px 24px;
-  ${mq.mobile} { padding: 2px 14px 20px; }
-`;
 
-const ListRow = styled.div<{ $selected?: boolean }>`
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 10px 12px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  cursor: pointer;
-  background: ${({ $selected }) => ($selected ? 'rgba(43, 138, 239, 0.07)' : 'transparent')};
-  transition: background 0.1s;
-  &:hover { background: ${({ $selected }) => ($selected ? 'rgba(43, 138, 239, 0.1)' : 'rgba(0, 0, 0, 0.03)')}; }
-`;
 
-const ListNewRow = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  width: 100%;
-  padding: 10px 12px;
-  border: none;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  background: transparent;
-  cursor: pointer;
-  font-family: inherit;
-  text-align: left;
-  color: rgba(0, 0, 0, 0.6);
-  transition: background 0.1s, color 0.1s;
-  &:hover { background: rgba(0, 0, 0, 0.03); color: #1a1a1a; }
-`;
 
-const ListThumb = styled.div<{ $tone?: 'sheet' | 'new' }>`
-  position: relative;
-  flex-shrink: 0;
-  width: 64px;
-  height: 44px;
-  border-radius: 6px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  background: ${({ $tone }) => ($tone === 'new' ? 'transparent' : '#fff')};
-  ${({ $tone }) => $tone === 'new' && `
-    border-style: dashed;
-    border-color: rgba(0, 0, 0, 0.22);
-  `}
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  color: rgba(0, 0, 0, 0.55);
-`;
 
-const ListMain = styled.div`
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-`;
 
-const ListTitle = styled.div`
-  font-size: 15px;
-  font-weight: 600;
-  color: #1a1a1a;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-`;
 
-const ListSubtitle = styled.div`
-  font-size: 12px;
-  color: rgba(0, 0, 0, 0.42);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-`;
 
 const ModalBackdrop = styled.div`
   position: fixed;
@@ -1427,6 +1158,7 @@ const ModalBackdrop = styled.div`
   padding: 24px;
 `;
 
+// 페이지별 의도적 디자인 차이 — 상대 페이지와 통합 금지 (§8 R9, sharedStyles.ts 헤더 참조)
 const ModalCard = styled.div`
   width: min(420px, 100%);
   background: #fff;
@@ -1438,6 +1170,7 @@ const ModalCard = styled.div`
   gap: 14px;
 `;
 
+// 페이지별 의도적 디자인 차이 — 상대 페이지와 통합 금지 (§8 R9, sharedStyles.ts 헤더 참조)
 const ModalTitle = styled.h2`
   margin: 0;
   font-size: 18px;
@@ -1469,12 +1202,8 @@ const ModalField = styled.label`
   gap: 7px;
 `;
 
-const ModalLabel = styled.span`
-  font-size: 12px;
-  font-weight: 700;
-  color: rgba(0, 0, 0, 0.55);
-`;
 
+// 페이지별 의도적 디자인 차이 — 상대 페이지와 통합 금지 (§8 R9, sharedStyles.ts 헤더 참조)
 const ModalInput = styled.input`
   width: 100%;
   box-sizing: border-box;
@@ -1523,6 +1252,27 @@ const HiddenFileInput = styled.input`
   display: none;
 `;
 
+const PageErrorBanner = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 22px 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fdecea;
+  color: #a03022;
+  font-size: 13px;
+`;
+const PageErrorClose = styled.button`
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 12px;
+`;
+
 const ModalError = styled.div`
   padding: 9px 11px;
   border-radius: 10px;
@@ -1531,12 +1281,14 @@ const ModalError = styled.div`
   font-size: 12.5px;
 `;
 
+// 페이지별 의도적 디자인 차이 — 상대 페이지와 통합 금지 (§8 R9, sharedStyles.ts 헤더 참조)
 const ModalActions = styled.div`
   display: flex;
   justify-content: flex-end;
   gap: 8px;
 `;
 
+// 페이지별 의도적 디자인 차이 — 상대 페이지와 통합 금지 (§8 R9, sharedStyles.ts 헤더 참조)
 const ModalBtn = styled.button<{ $variant?: 'ghost' | 'primary' }>`
   border: none;
   border-radius: 9px;
@@ -1553,36 +1305,4 @@ const ModalBtn = styled.button<{ $variant?: 'ghost' | 'primary' }>`
 /* Bottom floating selection-mode action bar (white pill). Matches the
  * chord-chart page's SelectionBar 1-for-1 so both libraries share the
  * exact same selection UX. */
-const SelectionBar = styled.div`
-  position: fixed;
-  bottom: max(20px, env(safe-area-inset-bottom, 0px));
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1000;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 10px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 999px;
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.14);
-`;
 
-const SbBtn = styled.button<{ $danger?: boolean }>`
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border: none;
-  background: transparent;
-  border-radius: 999px;
-  font-family: inherit;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: ${({ $danger }) => ($danger ? '#e74c3c' : '#1a1a1a')};
-  cursor: pointer;
-  transition: background 0.12s, opacity 0.12s;
-  &:hover:not(:disabled) { background: rgba(0, 0, 0, 0.04); }
-  &:disabled { opacity: 0.4; cursor: not-allowed; }
-`;

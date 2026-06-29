@@ -15,8 +15,9 @@ import type { LickMatch } from '../../lib/lickMatcher';
 import { useGlobalPlayer } from '../../lib/player/GlobalPlayerContext';
 import { warmupPlayerOnce } from '../../lib/player';
 import { useCountInIntro } from '../../hooks/useCountInIntro';
-import { PATTERN_SIMPLE } from '../../lib/note/countInPatterns';
+import { prepareLickIntro } from '../../lib/note/anacrusis';
 import type { NoteInfo, MeasureInfo } from '../../data/sampleMelody';
+import { resolveMeasureAccidental, type RenderAcc } from '../../lib/note/measureAccidentals';
 import { normalizeChordTypeset as normalizeChordLabel } from '../../lib/jazz-harmony';
 import { YoutubeEmbed } from '../common/YoutubeEmbed';
 import { getLickVideo } from '../../data/lickVideos';
@@ -230,23 +231,21 @@ function buildDur(dur: string, dotted?: boolean) {
 }
 
 export function buildVfNotes(measure: MeasureInfo, kAcc: Map<string, 'b' | '#'>): StaveNote[] {
-  // Letter-scoped accidental memory: once a letter (e.g. 'b') has been
-  // altered in this measure, the next bare same-letter note — regardless of
-  // octave — prints with a cautionary ♮ so the reader sees "this Bb is now B".
-  // This keeps Bb→B across octaves visible the way jazz lead-sheet readers
-  // expect, instead of silently letting the second one revert to keysig.
-  const active = new Map<string, 'b' | '#' | 'n'>();
+  // Octave-aware accidental memory (standard engraving rule) — see
+  // resolveMeasureAccidental. An accidental persists only for the same pitch at
+  // the SAME octave within the measure; a different octave neither inherits a
+  // flat/sharp nor needs a cautionary natural, and re-prints its own accidental
+  // when altered, so the glyph always matches the played pitch. Shared by the
+  // chat lick cards (this file) and the chord-chart inline licks (InlineLickRow).
+  const active = new Map<string, RenderAcc>();
   return measure.notes.map((n) => {
     const isRest = n.duration.endsWith('r');
     const note = new StaveNote({ keys: isRest ? ['b/4'] : n.keys, duration: buildDur(n.duration, n.dotted), autoStem: true });
     if (n.dotted) Dot.buildAndAttach([note]);
     if (!isRest) {
-      const letter = n.keys[0].split('/')[0];
       const realAcc = n.accidentals?.[0] as 'b' | '#' | undefined;
-      const cur = active.get(letter);
-      const ksa = kAcc.get(letter);
-      if (realAcc) { if ((cur ?? ksa) !== realAcc) note.addModifier(new Accidental(realAcc), 0); active.set(letter, realAcc); }
-      else { const eff = cur ?? ksa; if (eff && eff !== 'n') { note.addModifier(new Accidental('n'), 0); active.set(letter, 'n'); } }
+      const glyph = resolveMeasureAccidental(active, kAcc, n.keys[0], realAcc);
+      if (glyph) note.addModifier(new Accidental(glyph), 0);
     }
     return note;
   });
@@ -575,21 +574,13 @@ export function LickRecommendMessage({ match, tempoOverride, onShowInline, inlin
     }
     const bpm = tempoOverride ?? lick.tempo ?? 200;
     setPlaying(true);
-    // 샘플 로드를 카운트인과 병렬로 → "1234" 즉시 시작, 다운비트 직전에 로드 완료 대기.
-    // 릭 재생: BPM 무관하게 SIMPLE 카운트인.
-    const cin = await countIn.run({
-      bpm,
-      pattern: PATTERN_SIMPLE,
-      // IMPORTANT: attach the .catch HERE, at creation. This promise is created
-      // now but only awaited ~1.2s later inside run() (after the count-in). If
-      // preload rejects in that gap with no handler yet attached, the browser
-      // fires `unhandledrejection` — which AudioLifecycleGuard listens for and
-      // responds to with stopAllAudio(), killing the lick the instant the
-      // count-in ends ("1 2 3 4" then silence). Pre-catching keeps it handled;
-      // instruments are reloaded by play() anyway if the preload failed.
-      prepare: player.preload({ kind: 'lick', data: lick.sheetData }).catch(() => {}),
-    });
-    if (!cin.ok) { setPlaying(false); return; }
+    // 리딩 픽업이면 픽업 음표를 카운트인 꼬리에 얹고 본문만 재생(measureOffset:1) →
+    // 픽업과 메인 멜로디 사이 쉼 제거. 카운트인은 항상 1마디 "1 2 3 4", 로드는 병렬.
+    // (.catch는 생성 시점에 — 핸들러 없는 rejection이 AudioLifecycleGuard의
+    //  stopAllAudio()를 깨워 시작하는 재생을 죽이는 걸 막는다.)
+    const preload = player.preload({ kind: 'lick', data: lick.sheetData }).catch(() => {});
+    const intro = await prepareLickIntro(player, countIn, lick.sheetData, bpm, preload);
+    if (!intro.ok) { setPlaying(false); return; }
     clearPlaySubscriptions();
     playUnsubsRef.current = [
       /* Re-assert playing on every bar. activate() inside player.play() may
@@ -619,7 +610,7 @@ export function LickRecommendMessage({ match, tempoOverride, onShowInline, inlin
     // `unhandledrejection` → stopAllAudio() (killing this very playback), and on a
     // real failure we want to reset the button/highlight back to idle (#4c).
     try {
-      await player.play({ kind: 'lick', data: lick.sheetData }, { startAt: player.ctxNow() + cin.downbeatInSec });
+      await player.play({ kind: 'lick', data: intro.data }, intro.opts);
     } catch {
       setPlaying(false);
       clearPlaybackHighlight();

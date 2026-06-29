@@ -19,5 +19,14 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      /* `_`-prefixed = intentionally unused (declared-API params, destructure
+       * holes). Without these patterns the 11 deliberate `_foo` markers in the
+       * codebase count as errors and bury real unused-var findings. */
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { varsIgnorePattern: '^_', argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
+      ],
+    },
   },
 ])

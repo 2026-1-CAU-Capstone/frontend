@@ -19,6 +19,7 @@ import {
   onAuthChange,
   type AuthUser,
 } from '../api/auth';
+import { listChats, setActiveChat } from '../api/chat';
 
 /* ─────────────────────────────────────────────────────────────────────────
  * HomePage (intro screen).
@@ -699,15 +700,25 @@ export default function HomePage() {
     </IntroBlock>
   );
 
-  /* Chat history modal — gated by login. Conversations array is empty for
-   *  now (no persistent chat backend yet); once wired, swap the empty
-   *  array for the real list. */
+  /* Chat history modal — 백엔드 /v1/chat 목록을 열 때마다 로드해 표시.
+   * (이전엔 상수 빈 배열 + onSelect no-op이라 '항상 빈 모달'이었다 —
+   * RecentChatsList가 이미 쓰는 listChats를 그대로 재사용.) */
   const [chatHistoryOpen, setChatHistoryOpen] = useState(false);
-  const chatConversations: ChatConversation[] = [];
+  const [chatConversations, setChatConversations] = useState<ChatConversation[]>([]);
 
   const openChatHistory = () => {
     if (!isLoggedIn) return;
     setChatHistoryOpen(true);
+    listChats({ size: 50 })
+      .then((page) => {
+        setChatConversations(page.content.map((c) => ({
+          id: c.publicId,
+          title: c.songTitle && c.songTitle !== 'Jazzify' ? c.songTitle : (c.title || '제목 없음'),
+          updatedAt: new Date(c.updatedAt).getTime() || Date.now(),
+          badge: c.category === 'chord' ? '코드 차트' : c.category === 'sheet' ? '악보' : undefined,
+        })));
+      })
+      .catch((e) => console.warn('[HomePage] 채팅 목록 로드 실패:', e));
   };
 
   /* New-chat flow. `chatKey` is bumped to remount RightChatPanel so its
@@ -721,6 +732,11 @@ export default function HomePage() {
   const [confirmNewChatOpen, setConfirmNewChatOpen] = useState(false);
 
   const resetChat = () => {
+    // Release the globally-active chat FIRST. onActiveChatChange replays the
+    // current id to late subscribers, so without this the remounted panel
+    // immediately re-loads the chat we were trying to leave — making the
+    // "새 채팅" button a no-op for logged-in users with a chat open.
+    setActiveChat(null);
     setChatKey((k) => k + 1);
     setChatMessageCount(0);
   };
@@ -899,7 +915,11 @@ export default function HomePage() {
         open={chatHistoryOpen}
         conversations={chatConversations}
         onClose={() => setChatHistoryOpen(false)}
-        onSelect={() => { /* TODO: load conversation into RightChatPanel */ }}
+        onSelect={(id) => {
+          // RightChatPanel의 onActiveChatChange 구독이 해당 대화를 로드한다.
+          setActiveChat(id);
+          setChatHistoryOpen(false);
+        }}
         onNewChat={handleNewChatClick}
       />
 

@@ -36,6 +36,8 @@ export function getSwingRatio(bpm: number, style?: FeelId): number {
     style === 'bossa' ||
     style === 'latin' ||
     style === 'samba' ||
+    style === 'cha-cha' ||
+    style === 'afro-cuban' ||
     style === 'funk' ||
     style === 'new-orleans-swing' ||
     style === 'straight-8' ||

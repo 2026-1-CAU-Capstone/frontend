@@ -6,7 +6,6 @@ import {
   GenreSelect,
   RepeatControl,
   TransportButtons,
-  type BackingEngineControls,
 } from './BackingPlayerBar';
 import { KeyControl, isMinorKey } from '../leadsheet/LeadSheet';
 import { SessionPicker, type SessionInstrument } from '../chord/SessionPicker';
@@ -45,7 +44,7 @@ interface Props {
   onStop: () => void;
   disabled?: boolean;
   /* Mixer sheet content. */
-  engine?: BackingEngineControls;
+  inlineLick?: boolean;
   analysisOn?: boolean;
   onToggleAnalysis?: () => void;
 }
@@ -63,7 +62,7 @@ export function NativeChordPlayer({
   onPlayPause,
   onStop,
   disabled = false,
-  engine,
+  inlineLick,
   analysisOn,
   onToggleAnalysis,
 }: Props) {
@@ -112,7 +111,7 @@ export function NativeChordPlayer({
             </SheetHeader>
             <SheetBody>
               <BackingMixer
-                engine={engine}
+                inlineLick={inlineLick}
                 analysisOn={analysisOn}
                 onToggleAnalysis={onToggleAnalysis}
               />
@@ -203,7 +202,7 @@ const RoundBtn = styled.button<{ $primary?: boolean; $tone?: 'stop' }>`
 const SheetBackdrop = styled.div`
   position: fixed;
   inset: 0;
-  z-index: 1200;
+  z-index: ${({ theme }) => theme.zIndex.overlay};
   background: rgba(0, 0, 0, 0.35);
   display: flex;
   align-items: flex-end;

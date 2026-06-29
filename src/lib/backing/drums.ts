@@ -441,6 +441,99 @@ export function latinBar(opts: DrumBarOptions): DrumEvent[] {
   return events;
 }
 
+/* ─── Cha-Cha (cowbell + tumbao + the "cha-cha-cha") ───────────────────── */
+
+/**
+ * Cha-cha-cha — straight 4/4 latin dance groove, distinct from the generic
+ * `latin` mambo bell:
+ *   • Cowbell (ride-bell) steady on the quarters — the anchor.
+ *   • The signature "cha-cha-cha" triple: rim taps on 4, the "& of 4", and a
+ *     resolving snare on beat 1.
+ *   • Conga tumbao (tom-low) — open taps mid-bar, slap on 4.
+ *   • Light kick on 1 & 3, pedal hat on 2 & 4.
+ */
+export function chaChaBar(opts: DrumBarOptions): DrumEvent[] {
+  const { secPerBeat, barStart, beatsInBar, barIndex } = opts;
+  if (beatsInBar !== 4) return [];
+
+  const beatToSec = makeBeatToSec(secPerBeat, 0.5);
+  const events: DrumEvent[] = [];
+  const push = (beat: number, piece: DrumPiece, velocity: number) => {
+    events.push({ kind: "drum", piece, time: barStart + beatToSec(beat), velocity, bar: barIndex });
+  };
+
+  // Cowbell on the quarters (downbeats fuller).
+  push(0, "ride-bell", 0.62);
+  push(1, "ride-bell", 0.50);
+  push(2, "ride-bell", 0.58);
+  push(3, "ride-bell", 0.50);
+
+  // The "cha-cha-cha": the quick triple across 4 → "&4" → 1 (the 1 resolves
+  // into the downbeat / this bar's beat 1).
+  push(0, "snare", 0.55);   // the resolving "cha" on 1
+  push(3, "rim", 0.6);      // "cha"
+  push(3.5, "rim", 0.62);   // "cha"
+
+  // Conga tumbao.
+  push(1.5, "tom-low", 0.45);
+  push(2, "tom-low", 0.45);
+  push(3, "tom-low", 0.6);
+
+  // Light kick on 1 & 3, pedal hat on 2 & 4.
+  push(0, "kick", 0.5);
+  push(2, "kick", 0.5);
+  push(1, "hihat-foot", 0.4);
+  push(3, "hihat-foot", 0.4);
+
+  return events;
+}
+
+/* ─── Afro-Cuban (4/4 son — cascara + 3-2 son clave + tumbao) ──────────── */
+
+/**
+ * Afro-Cuban son/songo in 4/4 (a flattening of the traditional 6/8 so it fits
+ * the engine's 4/4 grid). Voices:
+ *   • Cascara (rim) — the steady shell pattern on the ride-bell.
+ *   • 3-2 son clave (rim) — 2-bar: the 3-side (1, "&2", 4) then the 2-side
+ *     (2, 3).
+ *   • Conga tumbao (tom-low) — heel/tip taps + slaps, accented on 4.
+ *   • Surdo-ish kick on 1 and the "& of 2"; pedal hat on 2 & 4.
+ */
+export function afroCubanBar(opts: DrumBarOptions): DrumEvent[] {
+  const { secPerBeat, barStart, beatsInBar, barIndex } = opts;
+  if (beatsInBar !== 4) return [];
+
+  const beatToSec = makeBeatToSec(secPerBeat, 0.5);
+  const events: DrumEvent[] = [];
+  const push = (beat: number, piece: DrumPiece, velocity: number) => {
+    events.push({ kind: "drum", piece, time: barStart + beatToSec(beat), velocity, bar: barIndex });
+  };
+
+  // Cascara on the ride-bell — the recognizable "1, &, a-of-2, 3, a-of-4" shell.
+  for (const b of [0, 1, 1.5, 2, 2.5, 3.5]) push(b, "ride-bell", b === 0 ? 0.55 : 0.42);
+
+  // 3-2 son clave on the rim (2-bar): 3-side then 2-side.
+  if (barIndex % 2 === 0) {
+    push(0, "rim", 0.6); push(1.5, "rim", 0.6); push(3, "rim", 0.6);   // 3-side
+  } else {
+    push(1, "rim", 0.6); push(2, "rim", 0.6);                          // 2-side
+  }
+
+  // Conga tumbao — taps then a slap accent on 4.
+  push(1.5, "tom-low", 0.42);
+  push(2, "tom-low", 0.42);
+  push(3, "tom-low", 0.58);
+  push(3.5, "tom-low", 0.5);
+
+  // Surdo-style kick + pedal hat.
+  push(0, "kick", 0.62);
+  push(1.5, "kick", 0.6);
+  push(1, "hihat-foot", 0.4);
+  push(3, "hihat-foot", 0.4);
+
+  return events;
+}
+
 /* ─── Latin Swing (alternates latin & medium-swing bars) ───────────────── */
 
 /**
@@ -672,55 +765,59 @@ export function waltzBar(opts: DrumBarOptions, bpm: number): DrumEvent[] {
  * Bebop — the up-tempo swing skeleton, but driven harder like a 1940s-50s
  * bebop drummer:
  *   • Tight swing ratio (0.6) so fast 8th-note lines stay articulate.
- *   • Continuous "spang-a-lang" ride with the swung "&" on EVERY beat (busier
- *     than medium/up-tempo, which only ride the & of 2 & 4).
+ *   • Standard "spang-a-lang" ride (skip-beat on 2 & 4) — recognizable and
+ *     uncluttered, locked to the bass/piano swing.
  *   • Crisp PHH on 2 & 4.
- *   • Feathered kick on all four PLUS occasional "bombs" — accented bass-drum
- *     kicks dropped on off-beats (a bebop signature). Bomb placement is
- *     bar-seeded so a chart renders identically every play.
- *   • Snare comping from the shared library + a left-hand accent.
+ *   • Feathered kick on all four PLUS an occasional "bomb" — at most one
+ *     accented off-beat bass-drum kick per bar, ~1 bar in 3 (bar-seeded so a
+ *     chart renders identically every play).
+ *   • Snare comping from the shared library + a phrase-end left-hand accent.
  */
 export function bebopBar(opts: DrumBarOptions): DrumEvent[] {
   const { secPerBeat, barStart, beatsInBar, barIndex } = opts;
   if (beatsInBar !== 4) return [];
 
+  // Tight, driving swing (0.6) — tighter than medium (~0.708), looser than
+  // straight. Off-beats articulate the fast 8th lines.
   const beatToSec = makeBeatToSec(secPerBeat, 0.6);
   const events: DrumEvent[] = [];
   const push = (beat: number, piece: DrumPiece, velocity: number) => {
     events.push({ kind: "drum", piece, time: barStart + beatToSec(beat), velocity, bar: barIndex });
   };
 
-  // Ride: quarters + swung "&" on every beat (continuous bebop ride).
-  push(0, "ride", 0.66);
+  // Ride — the spang-a-lang (same recognizable shape as medium/up-tempo, just
+  // faster + tighter). The continuous-8th ride the old version used read as
+  // cluttered against the comping; the skip-beat ride is the idiomatic bebop
+  // pulse and locks with the bass/piano swing.
+  push(0, "ride", 0.64);
   push(1, "ride", 0.70);
-  push(2, "ride", 0.66);
-  push(3, "ride", 0.69);
-  push(0.5, "ride", 0.55);
-  push(1.5, "ride", 0.62);
-  push(2.5, "ride", 0.55);
-  push(3.5, "ride", 0.60);
+  push(2, "ride", 0.64);
+  push(3, "ride", 0.68);
+  push(1.5, "ride", 0.62);   // skip-beat "a" of 2
+  push(3.5, "ride", 0.60);   // skip-beat "a" of 4
 
-  // PHH backbeat on 2 & 4.
-  push(1, "hihat-foot", 0.52);
-  push(3, "hihat-foot", 0.52);
+  // Hi-hat foot — crisp backbeat on 2 & 4.
+  push(1, "hihat-foot", 0.55);
+  push(3, "hihat-foot", 0.55);
 
-  // Feathered kick on all four.
-  push(0, "kick", 0.24);
-  push(1, "kick", 0.23);
-  push(2, "kick", 0.23);
-  push(3, "kick", 0.23);
+  // Feathered kick on all four — barely-audible bebop pulse (not a thud).
+  push(0, "kick", 0.22);
+  push(1, "kick", 0.22);
+  push(2, "kick", 0.22);
+  push(3, "kick", 0.22);
 
-  // "Bombs" — accented kicks on off-beats, sprinkled deterministically so the
-  // line breathes without sounding random. ~1 per bar on average.
-  const h = (barIndex * 2654435761) >>> 0;          // cheap deterministic hash
-  if (h % 3 === 0) push(1.5, "kick", 0.78);          // bomb on "& of 2"
-  if (h % 5 === 0) push(3.5, "kick", 0.82);          // bomb on "& of 4"
-  if (h % 7 === 0) push(2.5, "kick", 0.72);          // bomb on "& of 3"
+  // "Bombs" — the accented bass-drum kicks of Roach / Philly Joe. The old
+  // version stacked up to three loud bombs in a bar (and ALL three on bar 0,
+  // since hash(0)=0), which lurched. Now: at most ONE bomb per bar, on roughly
+  // one bar in three, at a musical (not slamming) level — so the line breathes.
+  const r = ((barIndex * 2654435761) >>> 0) % 6;
+  if (r === 0) push(3.5, "kick", 0.58);        // bomb on "& of 4" (leads into next bar)
+  else if (r === 3) push(1.5, "kick", 0.56);   // bomb on "& of 2"
 
-  // Snare comping (shared library) + a left-hand accent every 4 bars.
+  // Snare comping (shared library) + a phrase-end left-hand accent every 4 bars.
   const snarePattern = SNARE_PATTERNS[barIndex % SNARE_PATTERNS.length];
   for (const [offset, vel] of snarePattern) push(offset, "snare", vel);
-  if (barIndex % 4 === 3) push(3.5, "snare", 0.88);
+  if (barIndex % 4 === 3) push(3.5, "snare", 0.85);
 
   return events;
 }
@@ -790,6 +887,10 @@ export function renderDrumBar(
       return latinBar(opts);
     case "latin-swing":
       return latinSwingBar(opts, bpm);
+    case "cha-cha":
+      return chaChaBar(opts);
+    case "afro-cuban":
+      return afroCubanBar(opts);
     case "samba":
       return sambaBar(opts);
     case "funk":

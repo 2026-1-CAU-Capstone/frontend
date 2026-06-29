@@ -12,6 +12,7 @@
  *   - Up/Down arrow navigates results; Enter activates the highlighted.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { isComposingEvent } from '../../lib/ime';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { listChats, setActiveChat, type ChatSummary } from '../../api/chat';
@@ -96,6 +97,7 @@ export function ChatSearchModal({ open, onClose }: Props): React.ReactElement | 
       e.preventDefault();
       setActiveIdx((i) => Math.max(0, i - 1));
     } else if (e.key === 'Enter') {
+      if (isComposingEvent(e)) return; // 한글 조합 확정 Enter — 검색 유지
       e.preventDefault();
       const hit = filtered[activeIdx];
       if (hit) openChat(hit.publicId);
@@ -160,7 +162,10 @@ const SearchIcon = () => (
 const Backdrop = styled.div`
   position: fixed;
   inset: 0;
-  z-index: 1200;
+  /* Above MobileChatFab's fullscreen overlay (1200) — same value made the
+   * Cmd+K modal render UNDER the open mobile chat while still grabbing
+   * Escape. Search must win over any page overlay. */
+  z-index: ${({ theme }) => theme.zIndex.popover};
   background: rgba(20, 20, 20, 0.32);
   display: flex;
   align-items: flex-start;

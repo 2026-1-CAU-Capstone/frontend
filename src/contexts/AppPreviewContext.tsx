@@ -40,7 +40,7 @@ const PreviewBadge = styled.div`
   position: fixed;
   bottom: 12px;
   right: 12px;
-  z-index: 9999;
+  z-index: ${({ theme }) => theme.zIndex.max};
   padding: 4px 10px;
   border-radius: 999px;
   background: rgba(28, 100, 242, 0.92);

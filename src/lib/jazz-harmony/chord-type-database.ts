@@ -81,10 +81,12 @@ const BUILTINS: Array<[string, string, Family, string, number, number, number, n
   ['m9', '7M',   MIN, ':mi9M:min9M:minMaj7(9):-9M:mM9:m7M9', 0, -1, NP, 0, NP, 0],
 
   // DIMINISHED
-  ['',   'dim',  DIM, ':°:o:h:mb5:dim5:', NP, -1, NP, -1, NP, NP],
-  ['',   'dim7', DIM, ':°7:o7:7dim:h7:', NP, -1, NP, -1, 0, NP],
+  ['',   'dim',  DIM, ':°:o:mb5:dim5:', NP, -1, NP, -1, NP, NP],
+  ['',   'dim7', DIM, ':°7:o7:7dim:', NP, -1, NP, -1, 0, NP],
   ['',   'dim7M',DIM, ':°7M:o7M:oM7:7dim7M:dimM7:', NP, -1, NP, -1, NP, 0],
-  ['m7', 'b5',   DIM, ':m7-5:mi7b5:mi7-5:min7b5:min7-5:-7b5:', NP, -1, NP, -1, NP, -1],
+  // `h`/`h7` (German "halb") are half-diminished, not diminished — keep them
+  // with m7b5 so the parser agrees with formatChordDisplay (h7 → ø7).
+  ['m7', 'b5',   DIM, ':m7-5:mi7b5:mi7-5:min7b5:min7-5:-7b5:h7:h:', NP, -1, NP, -1, NP, -1],
   ['m9', 'b5',   DIM, ':m9-5:mi9b5:mi9-5:min9b5:min9-5:-9b5:', 0, -1, NP, -1, NP, -1],
   ['m11','b5',   DIM, ':m11(b5):min11(b5):-11b5:-11(b5):', NP, -1, 0, -1, NP, -1],
 

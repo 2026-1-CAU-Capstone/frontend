@@ -1,5 +1,5 @@
 import { useState, lazy, Suspense } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { AppPreviewProvider } from './contexts/AppPreviewContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { GlobalPlayerProvider } from './lib/player';
@@ -24,12 +24,22 @@ const MyChordChartsPage   = lazy(() => import('./pages/MyChordChartsPage'));
 const MySheetProjectsPage = lazy(() => import('./pages/MySheetProjectsPage'));
 const Lick12KeyPage       = lazy(() => import('./pages/Lick12KeyPage'));
 const InputPage           = lazy(() => import('./pages/InputPage'));
-const StyPocPage          = lazy(() => import('./pages/StyPocPage'));
-const StyDemoPage         = lazy(() => import('./pages/StyDemoPage'));
 const EditorPage          = lazy(() => import('./pages/EditorPage'));
 const YoutubeOnsetPage    = lazy(() => import('./pages/YoutubeOnsetPage'));
 const IntroPage           = lazy(() => import('./pages/IntroPage'));
 const LoginPage           = lazy(() => import('./pages/LoginPage'));
+const SharedChartPage     = lazy(() => import('./pages/SharedChartPage'));
+
+/* Recent-Chats(사이드바)에서 코드차트 → 코드차트로 이동하면 `/mychord` 라우트는
+ * 그대로고 `?project=`(또는 `?song=`) 쿼리만 바뀐다. 같은 라우트라 React Router는
+ * 기존 ChordPage를 리마운트하지 않는데, ChordPage는 project/chat을 마운트 시 1회만
+ * 캡처하므로 쿼리만 바뀐 전환에선 새 차트·채팅이 로드되지 않는다. project/song id로
+ * key를 주어 전환마다 강제 리마운트시킨다. */
+function KeyedChordPage(props: { mychordMode?: boolean }) {
+  const [sp] = useSearchParams();
+  const key = sp.get('project') ?? sp.get('song') ?? 'default';
+  return <ChordPage key={key} {...props} />;
+}
 
 function RouteFallback() {
   return (
@@ -87,7 +97,7 @@ export default function App() {
            * passing the original location so the user lands back here after
            * signing in. */}
           <Route path="/chord" element={<ProtectedRoute><ChordPage /></ProtectedRoute>} />
-          <Route path="/mychord" element={<ProtectedRoute><ChordPage mychordMode /></ProtectedRoute>} />
+          <Route path="/mychord" element={<ProtectedRoute><KeyedChordPage mychordMode /></ProtectedRoute>} />
           <Route path="/note" element={<ProtectedRoute><NotePage /></ProtectedRoute>} />
           <Route path="/licks" element={<ProtectedRoute><LicksPage /></ProtectedRoute>} />
           <Route path="/solos" element={<ProtectedRoute><SolosPage /></ProtectedRoute>} />
@@ -97,10 +107,12 @@ export default function App() {
           <Route path="/my-charts" element={<ProtectedRoute><MyChordChartsPage /></ProtectedRoute>} />
           <Route path="/my-sheets" element={<ProtectedRoute><MySheetProjectsPage /></ProtectedRoute>} />
           <Route path="/lick-practice/:id" element={<ProtectedRoute><Lick12KeyPage /></ProtectedRoute>} />
-          <Route path="/sty-poc" element={<ProtectedRoute><StyPocPage /></ProtectedRoute>} />
-          <Route path="/sty-demo" element={<ProtectedRoute><StyDemoPage /></ProtectedRoute>} />
           <Route path="/editor" element={<ProtectedRoute><EditorPage /></ProtectedRoute>} />
           <Route path="/login" element={<LoginPage />} />
+          {/* Public shared-chart viewer — chart data rides in the URL hash
+              (#/v?d=…), so anyone with the link can view it read-only without
+              logging in. No ProtectedRoute. */}
+          <Route path="/v" element={<SharedChartPage />} />
           {/* Standalone public marketing page — not linked from any in-app
               navigation. Reachable only via the direct URL (#/intro). */}
           <Route path="/intro" element={<IntroPage />} />

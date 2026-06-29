@@ -13,6 +13,7 @@ import {
   getPlayerSettings,
   subscribePlayerSettings,
   type PlayerSettings,
+  type MixTrack,
 } from "../note/playerSettings";
 import { DRUM_KIT_PRESETS } from "./drumKitPresets";
 import { DRUM_INSTRUMENT } from "../note/gmInstruments";
@@ -29,6 +30,8 @@ import { DRUM_INSTRUMENT } from "../note/gmInstruments";
 
 const LOOKAHEAD_SEC = 0.2;
 const TICK_TOLERANCE_SEC = 0.05;
+// 멀티파트 멜로디 악기 캐시 상한 — 초과 시 현재 곡이 안 쓰는 항목부터 폐기(누적 방지).
+const MELODY_INST_CACHE_CAP = 12;
 
 /** Map the transport's genre label (PlayerSettings.genre, one of GENRES in
  *  BackingPlayerBar) to the engine's StyleId so the rhythm section routes to
@@ -45,6 +48,8 @@ function genreToStyleId(genre: string, fallback: "swing" | "bossa"): StyleId {
     case "Samba":          return "samba";
     case "Latin":          return "latin";
     case "Latin Swing":    return "latin-swing";
+    case "Cha-Cha":        return "cha-cha";
+    case "Afro-Cuban":     return "afro-cuban-68";
     case "Funk":           return "funk";
     case "Jazz Waltz":     return "waltz-jazz";
     case "New Orleans Swing": return "new-orleans";
@@ -64,17 +69,28 @@ function mixSettingsIntoConfig(
   // Genre label → StyleId so the engine plays the genre's own groove
   // (bossa/latin/ballad/up-tempo/funk/…), not just swing-vs-bossa.
   const mappedStyle = genreToStyleId(s.genre, s.style);
+  // Effective per-track gain = base × master, gated by solo/mute. If ANY track
+  // is soloed, only soloed (and un-muted) tracks sound (classic mixer solo).
+  const anySolo = s.solos.melody || s.solos.piano || s.solos.bass || s.solos.drums;
+  const gain = (track: MixTrack, baseVol: number): number => {
+    if (s.mutes[track]) return 0;
+    if (anySolo && !s.solos[track]) return 0;
+    return baseVol * s.masterVolume;
+  };
   return {
     ...kitCfg,                   // drumMode + drumLoop
     style: mappedStyle,
     loop: s.loop,
     melodyInstrument: s.melodyInstrument,
+    compInstrument: s.compInstrument,
+    bassInstrument: s.bassInstrument,
+    bassMode: s.bassMode,
     ...base,                     // caller overrides win
     volume: {
-      piano: s.pianoVolume,
-      bass: s.bassVolume,
-      drums: s.drumVolume,
-      melody: s.melodyVolume,
+      piano: gain('piano', s.pianoVolume),
+      bass: gain('bass', s.bassVolume),
+      drums: gain('drums', s.drumVolume),
+      melody: gain('melody', s.melodyVolume),
       ...(base.volume ?? {}),
     },
     pianoReverb: base.pianoReverb ?? s.pianoReverb,
@@ -107,6 +123,15 @@ export function createBackingPlayer(
   let melodyDestination: AudioNode | null = null;
   let melodyInstId: string | null = null;        // currently-loaded melody instrument
   let melodyLoading: Promise<void> | null = null; // in-flight melody (re)load
+  // Swappable COMP piano + BASS timbres (mixer track dropdowns). The initial
+  // loadInstruments() loads grand piano + sampled upright, so the ids start at
+  // 'piano' / 'acoustic_bass'; ensureComp/BassInstrument reload on change.
+  let pianoDestination: AudioNode | null = null;
+  let bassDestination: AudioNode | null = null;
+  let compInstId: string | null = null;
+  let bassInstId: string | null = null;
+  let compLoading: Promise<void> | null = null;
+  let bassLoading: Promise<void> | null = null;
   // Multi-part scores: one loaded instrument per distinct GM timbre present in
   // the melody track (keyed by MusyngKite name). dispatch() routes each note
   // to its part's instrument; falls back to `melody`/piano while loading.
@@ -173,7 +198,9 @@ export function createBackingPlayer(
     melodyInstMap.clear(); melodyMapLoading = null;
     piano = null; bass = null; drums = null; melody = null;
     pianoReverbSend = null; melodyDestination = null; melodyInstId = null;
-    loading = null; melodyLoading = null;
+    pianoDestination = null; bassDestination = null;
+    compInstId = null; bassInstId = null;
+    loading = null; melodyLoading = null; compLoading = null; bassLoading = null;
     try { drumLoop?.dispose(); } catch { /* noop */ }
     drumLoop = null; drumLoopUrl = null; drumLoopLoading = null;
   }
@@ -226,7 +253,12 @@ export function createBackingPlayer(
   }
 
   function ensureInstruments(): Promise<void> {
-    if (piano && bass && drums) return ensureMelodyInstrument().then(() => ensureMelodyInstruments());
+    if (piano && bass && drums) {
+      return ensureMelodyInstrument()
+        .then(() => ensureMelodyInstruments())
+        .then(() => ensureCompInstrument())
+        .then(() => ensureBassInstrument());
+    }
     if (loading) return loading;
     // Load on the (possibly suspended) context — no resume needed, so this
     // can run during mount-time warmup before any user gesture.
@@ -242,9 +274,14 @@ export function createBackingPlayer(
       drums = inst.drums;
       pianoReverbSend = inst.pianoReverbSend;
       melodyDestination = inst.melodyDestination;
+      pianoDestination = inst.pianoDestination;
+      bassDestination = inst.bassDestination;
+      compInstId = "piano";          // loadInstruments loaded the grand piano
+      bassInstId = "acoustic_bass";  // …and the sampled upright bass
       // Apply any pianoReverb setting that was already in config when we loaded.
       applyPianoReverb();
     }).then(() => ensureMelodyInstrument()).then(() => ensureMelodyInstruments())
+      .then(() => ensureCompInstrument()).then(() => ensureBassInstrument())
       .catch((err) => {
         // CRITICAL: clear the cached promise on failure so the NEXT call
         // retries the load. Without this, one transient CDN/network error
@@ -289,6 +326,57 @@ export function createBackingPlayer(
     return melodyLoading;
   }
 
+  /** Lazily (re)load the COMP piano instrument to match config.compInstrument.
+   *  Mirrors ensureMelodyInstrument but reassigns `piano` (the comping voice). */
+  function ensureCompInstrument(): Promise<void> {
+    if (compLoading) return compLoading.then(() => ensureCompInstrument());
+    const want = config.compInstrument ?? "piano";
+    if (piano && compInstId === want) return Promise.resolve();
+    if (!ctx || !pianoDestination) return Promise.resolve();
+    const dest = pianoDestination;
+    compLoading = (async () => {
+      try {
+        const inst = await loadMelodyInstrument(ctx!, dest, want);
+        if (disposed) { inst.stopAll(); return; }
+        if ((config.compInstrument ?? "piano") !== want) return;
+        piano?.stopAll();
+        piano = inst;
+        compInstId = want;
+      } catch (err) {
+        console.warn("[backing] comp instrument load failed:", want, err);
+      } finally {
+        compLoading = null;
+      }
+    })();
+    return compLoading;
+  }
+
+  /** Lazily (re)load the BASS instrument to match config.bassInstrument.
+   *  acoustic_bass → sampled upright; electric/fretless → GM (handled inside
+   *  loadMelodyInstrument). Reassigns `bass`. */
+  function ensureBassInstrument(): Promise<void> {
+    if (bassLoading) return bassLoading.then(() => ensureBassInstrument());
+    const want = config.bassInstrument ?? "acoustic_bass";
+    if (bass && bassInstId === want) return Promise.resolve();
+    if (!ctx || !bassDestination) return Promise.resolve();
+    const dest = bassDestination;
+    bassLoading = (async () => {
+      try {
+        const inst = await loadMelodyInstrument(ctx!, dest, want);
+        if (disposed) { inst.stopAll(); return; }
+        if ((config.bassInstrument ?? "acoustic_bass") !== want) return;
+        bass?.stopAll();
+        bass = inst;
+        bassInstId = want;
+      } catch (err) {
+        console.warn("[backing] bass instrument load failed:", want, err);
+      } finally {
+        bassLoading = null;
+      }
+    })();
+    return bassLoading;
+  }
+
   /** Multi-part: load one instrument per distinct GM timbre present in the
    *  current melody track (config.melody[].instrument). Drum-routed notes
    *  (melodyInst === DRUM_INSTRUMENT / drumPiece set) use the drum sampler,
@@ -302,11 +390,31 @@ export function createBackingPlayer(
   function ensureMelodyInstruments(): Promise<void> {
     if (!ctx || !melodyDestination) return Promise.resolve();
     const dest = melodyDestination;
-    const jobs: Promise<void>[] = [];
+    // 현재 멜로디가 실제로 쓰는 악기 이름 집합. dispatch는 이 집합의 ev.melodyInst만
+    // 참조하므로, 집합 밖 항목은 트리거되지 않아 안전하게 폐기할 수 있다.
+    const wanted = new Set<string>();
     for (const m of config.melody ?? []) {
       const name = (m as { instrument?: string }).instrument;
       const isDrum = (m as { drumPiece?: unknown }).drumPiece !== undefined;
-      if (!name || isDrum || name === DRUM_INSTRUMENT || melodyInstMap.has(name)) continue;
+      if (name && !isDrum && name !== DRUM_INSTRUMENT) wanted.add(name);
+    }
+    // 캡 기반 eviction — 멀티파트 악보를 여러 개 열면 GM 악기별 디코드 샘플(악기당
+    // 수 MB)이 melodyInstMap에 무한 누적된다(dispose 외 evict 없음, Fable §2 287).
+    // 현재 곡이 안 쓰는 항목을 삽입순(오래된 것 먼저)으로 캡 초과분만큼 폐기한다.
+    // 폐기 방식은 기존 teardown과 동일(stopAll + map에서 제거 → GC).
+    const evictExcess = () => {
+      if (melodyInstMap.size <= MELODY_INST_CACHE_CAP) return;
+      for (const [key, inst] of melodyInstMap) {
+        if (melodyInstMap.size <= MELODY_INST_CACHE_CAP) break;
+        if (wanted.has(key)) continue; // 현재 곡이 쓰는 악기는 보존
+        try { inst.stopAll(); } catch { /* noop */ }
+        melodyInstMap.delete(key);
+      }
+    };
+
+    const jobs: Promise<void>[] = [];
+    for (const name of wanted) {
+      if (melodyInstMap.has(name)) continue;
       const inflight = melodyInstInflight.get(name);
       if (inflight) { jobs.push(inflight); continue; }
       const job = (async () => {
@@ -323,8 +431,8 @@ export function createBackingPlayer(
       melodyInstInflight.set(name, job);
       jobs.push(job);
     }
-    if (jobs.length === 0) return melodyMapLoading ?? Promise.resolve();
-    const load = Promise.all(jobs).then(() => undefined);
+    if (jobs.length === 0) { evictExcess(); return melodyMapLoading ?? Promise.resolve(); }
+    const load = Promise.all(jobs).then(() => { evictExcess(); });
     melodyMapLoading = load;
     return load;
   }
@@ -400,7 +508,9 @@ export function createBackingPlayer(
       bpm,
       style: config.style,
       feel: config.feel,
+      bassMode: config.bassMode,
       melody: config.melody,
+      pianoComp1And3: config.pianoComp1And3,
     });
     beatsPerBar = chart.timeSig[0];
     secPerBar = beatsPerBar * (60 / bpm);
@@ -777,11 +887,22 @@ export function createBackingPlayer(
   async function preload(): Promise<void> {
     // Warmup must NOT resume the context (that needs a user gesture and would
     // stall on mount). Just create it suspended and load all samples on it —
-    // play() resumes later inside the click gesture, by which point everything
-    // is already decoded so the count-in starts instantly.
+    // unlock()/play() resume later. Note: play() runs AFTER the ~2s count-in
+    // await, by which point the click gesture has expired — so the in-gesture
+    // resume has to happen via unlock(), called from the play-button handler
+    // before the count-in.
     getCtx();
     await ensureInstruments();
     await ensureDrumLoop();
+  }
+
+  /** Resume the AudioContext synchronously inside the user gesture. See the
+   *  BackingPlayer interface doc — without this, the first play after a cold
+   *  page entry schedules into a still-suspended context (the play()-time
+   *  resume fires too late, outside the gesture) and produces no sound until
+   *  a stop+replay. ensureCtx() invokes ctx.resume() synchronously here. */
+  function unlock(): void {
+    void ensureCtx();
   }
 
   async function play(playOpts: { startAt?: number } = {}): Promise<void> {
@@ -947,6 +1068,8 @@ export function createBackingPlayer(
     const prevStyle = config.style;
     const prevFeel = config.feel;
     const prevMelodyInst = config.melodyInstrument;
+    const prevComp = config.compInstrument;
+    const prevBass = config.bassInstrument;
     config = { ...config, ...next };
 
     // Apply pianoReverb immediately whether playing or not.
@@ -955,6 +1078,16 @@ export function createBackingPlayer(
     const melodyInstChanged =
       "melodyInstrument" in next && prevMelodyInst !== config.melodyInstrument;
     const melodyChanged = "melody" in next;
+
+    // Comp/bass timbre swaps don't desync the timeline (the instrument instance
+    // is just replaced), so apply them LIVE — no stop/restart, whether playing
+    // or idle. dispatch() reads the (reloaded) piano/bass on the next note.
+    if ("compInstrument" in next && prevComp !== config.compInstrument) {
+      ensureCompInstrument().catch(() => { /* logged in loader */ });
+    }
+    if ("bassInstrument" in next && prevBass !== config.bassInstrument) {
+      ensureBassInstrument().catch(() => { /* logged in loader */ });
+    }
 
     if (playing) {
       // Mid-playback drum-kit / loop-URL / BPM / style / feel / melody-instrument
@@ -1039,8 +1172,14 @@ export function createBackingPlayer(
     melodyDestination = null;
     melodyInstId = null;
     pianoReverbSend = null;
+    pianoDestination = null;
+    bassDestination = null;
+    compInstId = null;
+    bassInstId = null;
     loading = null;
     melodyLoading = null;
+    compLoading = null;
+    bassLoading = null;
     drumLoopLoading = null;
     if (closeCtx) {
       const close = () => {
@@ -1070,6 +1209,7 @@ export function createBackingPlayer(
     get playing() { return playing; },
     play,
     preload,
+    unlock,
     isReady,
     pause,
     stop,

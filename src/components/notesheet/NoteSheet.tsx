@@ -129,6 +129,7 @@ import {
 } from '../../lib/note/playerSettings';
 import { FullscreenButton, useFullscreen } from '../common/FullscreenButton';
 import { formatChordDisplay } from '../../lib/jazz-harmony';
+import { resolveMeasureAccidental } from '../../lib/note/measureAccidentals';
 
 /* ─── constants ─────────────────────────────────────────────────────────── */
 
@@ -1137,6 +1138,12 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     // stopAllAudio() — killing the very playback we're starting. play()
     // reloads instruments anyway if the preload failed.
     const preload = p.preload({ kind: 'sheet', data, extraParts }).catch(() => {});
+    // Resume the melody engine's AudioContext NOW, synchronously inside this
+    // click gesture. play() runs only after the ~2s count-in await, when the
+    // gesture has expired and its resume() can no longer start a ctx created
+    // suspended during mount warmup — the cause of the first-play-after-cold-
+    // entry silence. This is the in-gesture resume.
+    p.unlock({ kind: 'sheet', data, extraParts });
 
     // ── Anacrusis (pickup) handling ───────────────────────────────────────
     // If the song opens with a pickup measure (shorter than the time
@@ -1224,12 +1231,12 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
       if (!cin.ok) { setPlaying(false); return; }
       p.setConfig({ bpm: tempo });
       try {
-        await p.play({ kind: 'sheet', data, extraParts }, { startAt: p.ctxNow() + cin.downbeatInSec });
+        await p.play({ kind: 'sheet', data, extraParts }, { downbeatInSec: cin.downbeatInSec });
       } catch {
         setPlaying(false); // see anacrusis branch — same guard
       }
     }
-  }, [data, tempo, countIn, player, playing]);
+  }, [data, tempo, countIn, player, playing, extraParts]);
 
   const handleStop = useCallback(() => {
     player.stop();
@@ -1510,7 +1517,12 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     if (!r || !wrap) return;
 
     const headerH = 120; // approx header + transport height
-    const targetY = r.y + headerH;
+    // r.y는 가상(unscaled) 좌표인데 scrollTop/clientHeight는 실제 CSS px다. 좁은
+    // 화면(scale<1)에선 화면상 y = r.y*scale이므로 스케일 비율을 곱해 좌표계를
+    // 통일한다(데스크톱은 비율 1 → 무변화). 안 그러면 모바일에서 자동 스크롤이
+    // 현재 마디를 1/scale배 지나쳐 내려간다(Fable §4). lineHRef는 이미 스케일값.
+    const scale = lineHRef.current / unscaledLineHRef.current;
+    const targetY = r.y * scale + headerH;
     const viewH = wrap.clientHeight;
     if (targetY < wrap.scrollTop + 40 || targetY + lineHRef.current > wrap.scrollTop + viewH - 40) {
       wrap.scrollTo({ top: Math.max(0, targetY - viewH / 3), behavior: 'smooth' });
@@ -1820,44 +1832,15 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
           // skip parent notes that ARE grace (those become group members).
 
           if (!isRest) {
-            // Modern music engraving convention (Behind Bars, Read, Stone):
-            // accidentals apply ONLY to the SAME letter AT THE SAME OCTAVE
-            // within a measure. Tracking key is letter+octave; key signature
-            // remains letter-based (applies to all octaves).
-            //
-            // Multi-note chord support: iterate over EVERY pitch in `keys`,
-            // not just index 0 — engraver may set accidentals on inner chord
-            // tones (e.g. {keys: ['c/4','eb/4','g/4'], accidentals: {1:'b'}}).
+            // Octave-aware accidental rule — single shared helper
+            // (resolveMeasureAccidental), courtesy mode for full scores so an
+            // explicit source accidental prints even when it matches the key
+            // signature. Iterate EVERY pitch in `keys` so inner chord tones
+            // (e.g. {keys:['c/4','eb/4','g/4'], accidentals:{1:'b'}}) resolve too.
             for (let ki = 0; ki < keys.length; ki++) {
-              const noteId = keys[ki];
-              const letter = noteId.split('/')[0];
               const acc = ki === 0 ? realAcc : (n.accidentals?.[ki] as Acc | undefined);
-              const current = activeAcc.get(noteId);
-              const keySigForLetter = keySigAcc.get(letter);
-
-              if (acc) {
-                // An accidental on this note is in the source data (e.g.
-                // MusicXML <accidental>flat</accidental>, or <alter>±1</alter>).
-                // Treat that as the engraver's explicit intent: print it
-                // unless THIS exact (letter,octave) has already shown the
-                // same accidental earlier in this measure (true carry).
-                // Crucially we do NOT suppress when the accidental matches
-                // the key signature — the XML went to the trouble of marking
-                // it (often a courtesy accidental after a recent alteration
-                // in another octave / register), so we honour that.
-                if (current !== acc) note.addModifier(new Accidental(acc), ki);
-                activeAcc.set(noteId, acc);
-              } else if (current !== undefined && current !== keySigForLetter) {
-                // No explicit accidental on this note, but a different one
-                // is in force for this exact pitch — cancel back to the
-                // key-signature default (♮ if keysig has nothing here).
-                if (keySigForLetter) {
-                  note.addModifier(new Accidental(keySigForLetter), ki);
-                } else {
-                  note.addModifier(new Accidental('n'), ki);
-                }
-                activeAcc.delete(noteId);
-              }
+              const glyph = resolveMeasureAccidental(activeAcc, keySigAcc, keys[ki], acc, { courtesy: true });
+              if (glyph) note.addModifier(new Accidental(glyph), ki);
             }
           }
           vfNoteIdxOf[mi_] = vfNotes.length;
@@ -2312,7 +2295,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
 
     measureRectsRef.current = rects;
     } // end renderNotation
-  }, [data, width]);
+  }, [data, width, forceAutoStem]);
 
   /* ── line-start measure numbers ───────────────────────────────────────
    * A tiny number at the left edge of each LINE's first bar (note page +
@@ -2438,8 +2421,8 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
                 <MixerSectionTitle>🎵 멜로디</MixerSectionTitle>
                 <MixerRow>
                   <MixerLabel>볼륨</MixerLabel>
-                  <MixerSlider type='range' min='0' max='200'
-                    $pct={Math.min(100, melodyVol * 50)}
+                  <MixerSlider type='range' min='0' max='100'
+                    $pct={Math.min(100, melodyVol * 100)}
                     value={Math.round(melodyVol * 100)}
                     onChange={(e) => setPlayerSetting('melodyVolume', Number(e.target.value) / 100)} />
                   <MixerValue>{Math.round(melodyVol * 100)}</MixerValue>
@@ -2451,8 +2434,8 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
                 <MixerSectionTitle>🎹 피아노</MixerSectionTitle>
                 <MixerRow>
                   <MixerLabel>볼륨</MixerLabel>
-                  <MixerSlider type='range' min='0' max='200'
-                    $pct={Math.min(100, pianoVol * 50)}
+                  <MixerSlider type='range' min='0' max='100'
+                    $pct={Math.min(100, pianoVol * 100)}
                     value={Math.round(pianoVol * 100)}
                     onChange={(e) => setPlayerSetting('pianoVolume', Number(e.target.value) / 100)} />
                   <MixerValue>{Math.round(pianoVol * 100)}</MixerValue>
@@ -2472,8 +2455,8 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
                 <MixerSectionTitle>🎸 베이스</MixerSectionTitle>
                 <MixerRow>
                   <MixerLabel>볼륨</MixerLabel>
-                  <MixerSlider type='range' min='0' max='200'
-                    $pct={Math.min(100, bassVol * 50)}
+                  <MixerSlider type='range' min='0' max='100'
+                    $pct={Math.min(100, bassVol * 100)}
                     value={Math.round(bassVol * 100)}
                     onChange={(e) => setPlayerSetting('bassVolume', Number(e.target.value) / 100)} />
                   <MixerValue>{Math.round(bassVol * 100)}</MixerValue>
@@ -2506,8 +2489,8 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
                 <MixerSectionTitle>🥁 드럼</MixerSectionTitle>
                 <MixerRow>
                   <MixerLabel>볼륨</MixerLabel>
-                  <MixerSlider type='range' min='0' max='200'
-                    $pct={Math.min(100, drumVol * 50)}
+                  <MixerSlider type='range' min='0' max='100'
+                    $pct={Math.min(100, drumVol * 100)}
                     value={Math.round(drumVol * 100)}
                     onChange={(e) => setPlayerSetting('drumVolume', Number(e.target.value) / 100)} />
                   <MixerValue>{Math.round(drumVol * 100)}</MixerValue>
@@ -2568,8 +2551,8 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
                   </MixToggle>
                   {metroOn && (
                     <>
-                      <MixerSlider type='range' min='0' max='200'
-                        $pct={Math.min(100, metroVol * 50)}
+                      <MixerSlider type='range' min='0' max='100'
+                        $pct={Math.min(100, metroVol * 100)}
                         value={Math.round(metroVol * 100)}
                         onChange={(e) => setPlayerSetting('metroVolume', Number(e.target.value) / 100)} />
                       <MixerValue>{Math.round(metroVol * 100)}</MixerValue>

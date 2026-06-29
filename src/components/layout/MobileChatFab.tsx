@@ -25,7 +25,7 @@ const Fab = styled.button`
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  z-index: 900;
+  z-index: ${({ theme }) => theme.zIndex.floating};
   transition: transform 0.15s;
   &:active { transform: scale(0.92); }
 `;
@@ -41,7 +41,7 @@ const FabIcon = styled.svg`
 const Overlay = styled.div`
   position: fixed;
   inset: 0;
-  z-index: 1200;
+  z-index: ${({ theme }) => theme.zIndex.overlay};
   background: ${({ theme }) => theme.colors.bgPrimary};
   display: flex;
   flex-direction: column;

@@ -1,4 +1,45 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent as ReactMouseEvent } from 'react';
+import { useDismissable } from '../hooks/useDismissable';
+import { useViewModePref } from '../hooks/useViewModePref';
+import {
+  CardMeta,
+  Header,
+  HeaderActions,
+  HoverArrowBox,
+  HoverOverlay,
+  IconOnlyBtn,
+  Kebab,
+  KebabDot,
+  KebabMenuIcon,
+  KebabMenuItem,
+  KeyChip,
+  List,
+  ListMain,
+  ListNewRow,
+  ListRow,
+  ListSubtitle,
+  ListTitle,
+  MetaRow,
+  ModalLabel,
+  Page,
+  PillBtn,
+  SbBtn,
+  SelectionBar,
+  SheetCardInner,
+  SortItem,
+  SortLabel,
+  SortWrap,
+  TimeChip,
+  Title,
+  ViewToggle,
+  ViewToggleBtn,
+  Grid,
+  KebabMenu,
+  SortMenu,
+  PageBody,
+  ListThumb,
+} from '../components/projects/sharedStyles';
+import { isComposingEvent } from '../lib/ime';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../styles/theme';
@@ -6,6 +47,7 @@ import { IconSidebar } from '../components/layout/IconSidebar';
 import { LeadSheet } from '../components/leadsheet/LeadSheet';
 import type { LeadSheetData } from '../data/leadSheetTypes';
 import { analysisToLeadSheet } from '../lib/chordProjectToLeadSheet';
+import { getFreshCachedSheet, setCachedAnalysis, clearCachedAnalysis } from '../lib/analysisCache';
 import { saveOmrSourceImage, deleteOmrSourceImage } from '../lib/omrImageStore';
 import { ConfirmDeleteModal } from '../components/common/ConfirmDeleteModal';
 import {
@@ -20,6 +62,7 @@ import {
   updateChordProject,
   type ChordProject,
   type ChordProjectKey,
+  type ChordAnalysisResult,
 } from '../api/chordProjects';
 import { ProjectCreateModal, type ProjectCreatePayload } from '../components/common/ProjectCreateModal';
 import { KeyPicker } from '../components/common/KeyPicker';
@@ -48,6 +91,20 @@ const SHEET_ANALYZED_ID = 'sheet-all-of-me';
  * "uploading" chord-project card. The OMR-status poller skips ids with this
  * prefix (they don't exist on the server yet). */
 const UPLOADING_ID_PREFIX = '__uploading__';
+
+/* OMR 완료 직후 /analyze 를 부르는 경로가 둘이다 — 페이지 폴러(완료 감지)와
+ * SheetPreview 자가복구(GET /analysis 404→POST). 동시에 같은 프로젝트에 POST가
+ * 두 발 나가던 레이스를 in-flight Promise 공유로 단일화한다. */
+const analyzeInflight = new Map<string, Promise<ChordAnalysisResult>>();
+function analyzeOnce(publicId: string): Promise<ChordAnalysisResult> {
+  const inflight = analyzeInflight.get(publicId);
+  if (inflight) return inflight;
+  const job = analyzeChordProject(publicId).finally(() => {
+    analyzeInflight.delete(publicId);
+  });
+  analyzeInflight.set(publicId, job);
+  return job;
+}
 
 /** OMR status polling interval (ms). OMR takes tens of seconds, so a slow poll
  *  is plenty — keeps the GET /omr-status request rate low. */
@@ -149,18 +206,7 @@ function saveStore(s: Store): void {
 
 /* Persisted grid/list toggle. Stored separately from the document store so
  * clearing the doc store doesn't reset the user's preferred view. */
-type ViewMode = 'grid' | 'list';
 const VIEW_MODE_STORAGE_KEY = 'jazzify.myCharts.viewMode.v1';
-function loadViewMode(): ViewMode {
-  try {
-    const v = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
-    if (v === 'list' || v === 'grid') return v;
-  } catch { /* ignore */ }
-  return 'grid';
-}
-function saveViewMode(v: ViewMode): void {
-  try { localStorage.setItem(VIEW_MODE_STORAGE_KEY, v); } catch { /* ignore */ }
-}
 
 const today = (): string => new Date().toISOString().slice(0, 10);
 const newId = (): string => {
@@ -174,7 +220,6 @@ const GRADIENTS = [
   'linear-gradient(135deg, #2c5f8d 0%, #4a90c2 100%)',
   'linear-gradient(135deg, #d6a72c 0%, #d65f2c 100%)',
 ] as const;
-const pickGradient = (): string => GRADIENTS[Math.floor(Math.random() * GRADIENTS.length)];
 
 /* ── component ───────────────────────────────────────────────────────── */
 
@@ -185,9 +230,7 @@ export default function MyChordChartsPage() {
   const [newMenuOpen, setNewMenuOpen] = useState(false);
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
-  const [youtubeOpen, setYoutubeOpen] = useState(false);
   const [folderName, setFolderName] = useState('');
-  const [ytUrl, setYtUrl] = useState('');
   const [dragOverParent, setDragOverParent] = useState(false);
   const [projects, setProjects] = useState<ChordProject[]>([]);
   const [projectLoading, setProjectLoading] = useState(false);
@@ -203,8 +246,7 @@ export default function MyChordChartsPage() {
   const [sortBy, setSortBy] = useState<'recent' | 'old' | 'name' | 'type'>('recent');
 
   /* Grid vs list view toggle — persisted across sessions. */
-  const [viewMode, setViewMode] = useState<ViewMode>(loadViewMode);
-  useEffect(() => { saveViewMode(viewMode); }, [viewMode]);
+  const [viewMode, setViewMode] = useViewModePref(VIEW_MODE_STORAGE_KEY);
 
   /* Card kebab menu (이름 변경 / 이동 / 삭제). Single menu open at a time
    * — id of the card whose menu is open, or null. Rename target drives the
@@ -229,7 +271,6 @@ export default function MyChordChartsPage() {
 
   const newWrapRef = useRef<HTMLDivElement>(null);
   const sortWrapRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const kebabMenuRef = useRef<HTMLDivElement>(null);
   /* Tracks which projects we've already auto-analyzed after OMR completion
    * (the backend doesn't run analyze automatically after OMR; ChordInfo
@@ -263,7 +304,13 @@ export default function MyChordChartsPage() {
     setProjectError(null);
     try {
       const page = await listChordProjects({ size: 100, sort: projectSort });
-      setProjects(page.content);
+      // 업로드 진행 중 placeholder(__uploading__*)는 서버 목록에 없다 — 정렬
+      // 변경 등으로 reload가 끼어들 때 통째 교체하면 "업로드 중" 카드가
+      // 사라져 취소된 것처럼 보였다. placeholder를 보존하며 병합.
+      setProjects((prev) => [
+        ...prev.filter((p) => p.publicId.startsWith(UPLOADING_ID_PREFIX)),
+        ...page.content,
+      ]);
     } catch (e) {
       setProjectError(e instanceof Error ? e.message : '코드 프로젝트 목록 조회 실패');
     } finally {
@@ -312,7 +359,7 @@ export default function MyChordChartsPage() {
             if (status.status === 'COMPLETED' && !analyzedOmrIdsRef.current.has(id)) {
               analyzedOmrIdsRef.current.add(id);
               try {
-                await analyzeChordProject(id);
+                await analyzeOnce(id);
                 /* Bump updatedAt so SheetPreview's effect (keyed off the
                  * `project` reference) re-fires and pulls the freshly-
                  * computed analysis. */
@@ -347,36 +394,10 @@ export default function MyChordChartsPage() {
   useEffect(() => { saveStore(store); }, [store]);
 
   // Close the "신규" dropdown on outside click / Escape.
-  useEffect(() => {
-    if (!newMenuOpen) return;
-    const onDown = (e: MouseEvent) => {
-      if (newWrapRef.current?.contains(e.target as Node)) return;
-      setNewMenuOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setNewMenuOpen(false); };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [newMenuOpen]);
+  useDismissable(newMenuOpen, newWrapRef, () => setNewMenuOpen(false));
 
   /* Close the sort dropdown on outside click / Escape. */
-  useEffect(() => {
-    if (!sortMenuOpen) return;
-    const onDown = (e: MouseEvent) => {
-      if (sortWrapRef.current?.contains(e.target as Node)) return;
-      setSortMenuOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSortMenuOpen(false); };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [sortMenuOpen]);
+  useDismissable(sortMenuOpen, sortWrapRef, () => setSortMenuOpen(false));
 
   /* Escape exits select mode. */
   useEffect(() => {
@@ -387,20 +408,7 @@ export default function MyChordChartsPage() {
   }, [selectMode]);
 
   /* Close the per-card kebab menu on outside click / Escape. */
-  useEffect(() => {
-    if (kebabMenuId === null) return;
-    const onDown = (e: MouseEvent) => {
-      if (kebabMenuRef.current?.contains(e.target as Node)) return;
-      setKebabMenuId(null);
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setKebabMenuId(null); };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [kebabMenuId]);
+  useDismissable(kebabMenuId !== null, kebabMenuRef, () => setKebabMenuId(null));
 
   /* Computed: contents of the current folder. */
   const currentFolders = useMemo<FolderNode[]>(() => [], []);
@@ -534,20 +542,6 @@ export default function MyChordChartsPage() {
     }));
   };
 
-  const addYouTube = (url: string): void => {
-    const trimmed = url.trim();
-    if (!trimmed) return;
-    /* Heuristic title — use the URL fragment for the mock. Real flow would
-     * fetch the video title from oEmbed / scrape the watch page. */
-    const title = trimmed.replace(/^https?:\/\/(www\.)?(youtube\.com\/|youtu\.be\/)?/i, '').slice(0, 80) || 'YouTube';
-    setStore((s) => ({
-      ...s,
-      files: [...s.files, {
-        id: newId(), parentId: currentFolderId, kind: 'video', title, date: today(), gradient: pickGradient(),
-      }],
-    }));
-  };
-
   const resetCreateProject = (): void => {
     setNewProjectTitle('');
     setNewProjectKey('C_MAJOR');
@@ -589,7 +583,6 @@ export default function MyChordChartsPage() {
   };
 
   // 코드 차트 업로드는 OMR 경로로 처리.
-  const handleOmrFile = uploadOmrFile;
 
   const moveTo = (itemId: string, targetParentId: string | null): void => {
     setStore((s) => ({
@@ -636,6 +629,7 @@ export default function MyChordChartsPage() {
       try {
         await deleteChordProject(id);
         void deleteOmrSourceImage(id); // drop the locally-cached source image
+        clearCachedAnalysis(id);        // drop the cached lead-sheet
         setProjects((prev) => prev.filter((p) => p.publicId !== id));
         setSelectedIds((prev) => {
           const next = new Set(prev);
@@ -733,13 +727,22 @@ export default function MyChordChartsPage() {
     const projectIds = Array.from(selectedIds).filter((id) => projects.some((p) => p.publicId === id));
     if (projectIds.length > 0) {
       setProjectError(null);
-      try {
-        await Promise.all(projectIds.map((id) => deleteChordProject(id)));
-        projectIds.forEach((id) => void deleteOmrSourceImage(id));
-        setProjects((prev) => prev.filter((p) => !selectedIds.has(p.publicId)));
+      // allSettled: 일부 실패 시에도 성공분은 즉시 반영. (이전 Promise.all은
+      // 한 건만 실패해도 catch로 빠져 — 서버에선 지워진 항목이 화면에 남고,
+      // 재시도하면 그 id들이 404라 전체가 또 실패한 것처럼 보였다.)
+      const results = await Promise.allSettled(projectIds.map((id) => deleteChordProject(id)));
+      const okIds = projectIds.filter((_, i) => results[i].status === 'fulfilled');
+      const failed = projectIds.length - okIds.length;
+      okIds.forEach((id) => { void deleteOmrSourceImage(id); clearCachedAnalysis(id); });
+      if (okIds.length > 0) {
+        const okSet = new Set(okIds);
+        setProjects((prev) => prev.filter((p) => !okSet.has(p.publicId)));
+      }
+      if (failed > 0) {
+        setProjectError(`${failed}개 항목 삭제 실패 (${okIds.length}개는 삭제됨)`);
+        void reloadProjects(); // 서버 상태와 재동기화
+      } else {
         exitSelect();
-      } catch (e) {
-        setProjectError(e instanceof Error ? e.message : '선택한 코드 프로젝트 삭제 실패');
       }
       return;
     }
@@ -1190,19 +1193,6 @@ export default function MyChordChartsPage() {
         </List>
         )}
 
-        {/* Hidden file input driven by the dropdown item. */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          hidden
-          accept="image/png,image/jpeg,image/jpg,.pdf,.musicxml,.xml"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void handleOmrFile(f);
-            e.target.value = '';
-          }}
-        />
-
         {createProjectOpen && (
           <ModalBackdrop onClick={() => !creatingProject && setCreateProjectOpen(false)}>
             <ModalCard onClick={(e) => e.stopPropagation()}>
@@ -1288,7 +1278,7 @@ export default function MyChordChartsPage() {
                 value={folderName}
                 onChange={(e) => setFolderName(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') { addFolder(folderName); setCreateFolderOpen(false); }
+                  if (e.key === 'Enter') { if (isComposingEvent(e)) return; addFolder(folderName); setCreateFolderOpen(false); }
                   else if (e.key === 'Escape') setCreateFolderOpen(false);
                 }}
               />
@@ -1321,7 +1311,7 @@ export default function MyChordChartsPage() {
                 value={renameInput}
                 onChange={(e) => setRenameInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') confirmRename();
+                  if (e.key === 'Enter') { if (isComposingEvent(e)) return; confirmRename(); }
                   else if (e.key === 'Escape') setRenameTarget(null);
                 }}
               />
@@ -1362,27 +1352,6 @@ export default function MyChordChartsPage() {
           </SelectionBar>
         )}
 
-        {youtubeOpen && (
-          <ModalBackdrop onClick={() => setYoutubeOpen(false)}>
-            <ModalCard onClick={(e) => e.stopPropagation()}>
-              <ModalTitle>YouTube 링크 추가</ModalTitle>
-              <ModalInput
-                autoFocus
-                placeholder="https://www.youtube.com/..."
-                value={ytUrl}
-                onChange={(e) => setYtUrl(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') { addYouTube(ytUrl); setYoutubeOpen(false); }
-                  else if (e.key === 'Escape') setYoutubeOpen(false);
-                }}
-              />
-              <ModalActions>
-                <ModalBtn $variant="ghost" type="button" onClick={() => setYoutubeOpen(false)}>취소</ModalBtn>
-                <ModalBtn $variant="primary" type="button" onClick={() => { addYouTube(ytUrl); setYoutubeOpen(false); }}>추가</ModalBtn>
-              </ModalActions>
-            </ModalCard>
-          </ModalBackdrop>
-        )}
       </PageBody>
     </Page>
   );
@@ -1498,24 +1467,7 @@ const XIcon = () => (
 
 /* ── layout ──────────────────────────────────────────────────────────── */
 
-const Page = styled.div`
-  display: flex;
-  flex-direction: row;
-  height: 100vh;
-  height: 100dvh;
-  width: 100%;
-  background: ${({ theme }) => theme.colors.bgPrimary};
-  font-family: 'Pretendard', sans-serif;
-`;
 
-const PageBody = styled.div`
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-width: 0;
-  position: relative;
-`;
 
 const PageDropOverlay = styled.div`
   position: absolute;
@@ -1533,111 +1485,15 @@ const PageDropOverlay = styled.div`
   pointer-events: none;
 `;
 
-const Header = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: calc(env(safe-area-inset-top, 0px) + 14px) 28px 12px;
-  ${mq.mobile} {
-    padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px 10px;
-  }
-`;
 
-const Title = styled.h1`
-  margin: 0;
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: #1a1a1a;
-`;
 
-const HeaderActions = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 10px;
-`;
 
-const PillBtn = styled.button`
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(0, 0, 0, 0.05);
-  border: none;
-  border-radius: 999px;
-  padding: 8px 14px;
-  font-family: inherit;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: #1a1a1a;
-  cursor: pointer;
-  transition: background 0.12s;
-  &:hover { background: rgba(0, 0, 0, 0.08); }
-`;
 
-const IconOnlyBtn = styled.button`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: #1a1a1a;
-  cursor: pointer;
-  transition: background 0.12s;
-  &:hover { background: rgba(0, 0, 0, 0.06); }
-`;
 
 /* Sort dropdown — anchored to the sort icon button. */
-const SortWrap = styled.div`
-  position: relative;
-  display: inline-flex;
-`;
 
-const SortMenu = styled.div`
-  position: absolute;
-  top: calc(100% + 4px);
-  /* Anchor under the sort icon button (36px wide) — shift right so the menu's
-   * right edge lines up with the button's right edge. */
-  right: 0;
-  min-width: 180px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 14px;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.14);
-  padding: 6px;
-  z-index: 50;
-  animation: menuIn 0.12s ease both;
-  @keyframes menuIn {
-    from { opacity: 0; transform: translateY(-4px) scale(0.98); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
-  }
-`;
 
-const SortItem = styled.button<{ $active?: boolean }>`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-  padding: 10px 12px;
-  border: none;
-  background: transparent;
-  border-radius: 9px;
-  cursor: pointer;
-  font-family: inherit;
-  text-align: left;
-  color: ${({ $active }) => ($active ? '#1a1a1a' : 'rgba(0, 0, 0, 0.45)')};
-  transition: background 0.1s;
-  &:hover { background: rgba(0, 0, 0, 0.04); }
-`;
 
-const SortLabel = styled.span<{ $active?: boolean }>`
-  font-size: 14.5px;
-  font-weight: ${({ $active }) => ($active ? 700 : 500)};
-`;
 
 /* ── breadcrumbs ─────────────────────────────────────────────────────── */
 
@@ -1742,25 +1598,6 @@ const LoadingStrip = styled.div`
 
 /* ── grid ────────────────────────────────────────────────────────────── */
 
-const Grid = styled.div`
-  flex: 1;
-  overflow-y: auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
-  /* align-items: start prevents the grid from stretching shorter cards
-   * (folders, "신규") to match the tallest card in their row. Without it,
-   * a tall chord-chart card would force every folder next to it to grow
-   * non-square. With start, each card honors its own aspect-ratio. */
-  align-items: start;
-  align-content: start;
-  gap: 16px 10px;
-  padding: 10px 22px 24px;
-  ${mq.mobile} {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 12px 8px;
-    padding: 6px 14px 20px;
-  }
-`;
 
 /* Shared 1:1 card chrome (video + folder). Hover lifts the card with a
  * soft cream tint (matches the folder-hover mock); the actual hover
@@ -1798,6 +1635,7 @@ const NewCardWrap = styled.div`
   position: relative;
 `;
 
+// 페이지별 의도적 디자인 차이 — 상대 페이지와 통합 금지 (§8 R9, sharedStyles.ts 헤더 참조)
 const NewCard = styled.button`
   display: flex;
   flex-direction: column;
@@ -1824,6 +1662,7 @@ const NewCard = styled.button`
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
   }
 `;
+// 페이지별 의도적 디자인 차이 — 상대 페이지와 통합 금지 (§8 R9, sharedStyles.ts 헤더 참조)
 const NewLabel = styled.div`
   font-size: 15px;
   font-weight: 600;
@@ -1926,12 +1765,7 @@ const FolderGlyph = styled.span`
   opacity: 0.85;
 `;
 
-const CardMeta = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 12px 12px;
-`;
+// 페이지별 의도적 디자인 차이 — 상대 페이지와 통합 금지 (§8 R9, sharedStyles.ts 헤더 참조)
 const CardTitle = styled.div`
   font-size: 14px;
   font-weight: 600;
@@ -1941,11 +1775,6 @@ const CardTitle = styled.div`
   overflow: hidden;
   text-overflow: ellipsis;
   padding-right: 22px;
-`;
-const MetaRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
 `;
 const Badge = styled.span<{ $tone: 'youtube' | 'folder' | 'sheet' }>`
   display: inline-flex;
@@ -1971,6 +1800,7 @@ const DateText = styled.span`
 /* 제목 + 키칩 + 박자칩을 한 줄에. 제목이 flex:1 로 남는 폭을 전부 먹고(길면
  * ellipsis), 칩들은 flex-shrink:0 이라 절대 안 잘린다 → "제목은 최대한 길게,
  * Am·4/4 는 항상 보이게". */
+// 페이지별 의도적 디자인 차이 — 상대 페이지와 통합 금지 (§8 R9, sharedStyles.ts 헤더 참조)
 const CardTitleRow = styled.div`
   display: flex;
   align-items: center;
@@ -1989,33 +1819,9 @@ const CardTitleRow = styled.div`
 /* Neutral grey pill showing the chord chart's key (e.g. "C", "Cm"). Sits
  * to the right of the file title with a slight rounding — not a full pill,
  * just softened corners so it reads as a tag rather than a button. */
-const KeyChip = styled.span`
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  font-size: 9.5px;
-  font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: rgba(214, 152, 18, 0.16);
-  color: #9a6800;
-  letter-spacing: 0.01em;
-`;
 
 /* 박자(4/4) 칩 — 키 칩 바로 오른쪽. 키=노랑 / 박자=파랑으로 색을 갈라
  * "조성 vs 박자"가 한눈에 구분되도록. */
-const TimeChip = styled.span`
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  font-size: 9.5px;
-  font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: rgba(43, 138, 239, 0.14);
-  color: #2570c8;
-  letter-spacing: 0.01em;
-`;
 
 /* OMR 진행 막대 — 썸네일 가운데 "N% 처리 중" 아래 0~100 채움 바. */
 const ProgressTrack = styled.div`
@@ -2084,29 +1890,6 @@ function formatProjectMeta(file: FileNode): string {
   return `${file.timeSignature ?? '4/4'} · ${formatListDate(file.date)}`;
 }
 
-const Kebab = styled.button`
-  position: absolute;
-  right: 8px;
-  bottom: 10px;
-  width: 22px;
-  height: 22px;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  cursor: pointer;
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  &:hover { background: rgba(0, 0, 0, 0.05); }
-`;
-const KebabDot = styled.span`
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.5);
-`;
 
 /* ── sheet (악보) preview thumbnail ───────────────────────────────────── */
 
@@ -2150,15 +1933,6 @@ const PREVIEW_FILTERS = {
  * thumb takes exactly the remaining height — no aspect-ratio lock, no
  * overflow. Reducing the card's overall aspect (CardBase) automatically
  * shrinks the thumb without any thumb-specific tweak needed. */
-const SheetCardInner = styled.div`
-  position: relative;
-  width: 100%;
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  padding: 10px 10px 0 10px;
-`;
 
 /* The thumb has NO fixed aspect now — it flex-fills the SheetCardInner.
  * Containment + isolation still guarantee that LeadSheet's absolutely
@@ -2282,6 +2056,16 @@ function SheetPreview({ project }: { project?: ChordProject }) {
       setData(null);
       return;
     }
+    // Version-keyed cache hit → render instantly, ZERO backend calls. The
+    // project's updatedAt is the version; a match means the analysis can't
+    // have changed, so no revalidation is needed.
+    const cached = getFreshCachedSheet(project.publicId, project.updatedAt);
+    if (cached) {
+      setData(cached);
+      setPreviewState(cached.systems.length > 0 ? 'ready' : 'empty');
+      return;
+    }
+
     let cancelled = false;
     setPreviewState('loading');
 
@@ -2306,7 +2090,7 @@ function SheetPreview({ project }: { project?: ChordProject }) {
          * path. Fall back to GET on the off-chance /analyze returns a
          * subset shape vs /analysis. */
         try {
-          return await analyzeChordProject(project.publicId);
+          return await analyzeOnce(project.publicId);
         } catch (analyzeErr) {
           /* Analyze itself failed — surface empty preview, no more
            * recovery attempts (don't loop). */
@@ -2319,6 +2103,7 @@ function SheetPreview({ project }: { project?: ChordProject }) {
       .then((analysis) => {
         if (cancelled) return;
         const sheet = analysisToLeadSheet(analysis, project);
+        setCachedAnalysis(project.publicId, project.updatedAt, sheet);
         setData(sheet);
         setPreviewState(sheet.systems.length > 0 ? 'ready' : 'empty');
       })
@@ -2409,6 +2194,7 @@ function SheetPreview({ project }: { project?: ChordProject }) {
 
 
 /* Checkbox overlay shown in the top-left of every card in select mode. */
+// 페이지별 의도적 디자인 차이 — 상대 페이지와 통합 금지 (§8 R9, sharedStyles.ts 헤더 참조)
 const CardCheckbox = styled.button<{ $checked?: boolean }>`
   position: absolute;
   top: 8px;
@@ -2428,46 +2214,14 @@ const CardCheckbox = styled.button<{ $checked?: boolean }>`
 `;
 
 /* Bottom floating selection-mode action bar (white pill). */
-const SelectionBar = styled.div`
-  position: fixed;
-  bottom: max(20px, env(safe-area-inset-bottom, 0px));
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1000;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 10px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 999px;
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.14);
-`;
 
-const SbBtn = styled.button<{ $danger?: boolean }>`
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border: none;
-  background: transparent;
-  border-radius: 999px;
-  font-family: inherit;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: ${({ $danger }) => ($danger ? '#e74c3c' : '#1a1a1a')};
-  cursor: pointer;
-  transition: background 0.12s, opacity 0.12s;
-  &:hover:not(:disabled) { background: rgba(0, 0, 0, 0.04); }
-  &:disabled { opacity: 0.4; cursor: not-allowed; }
-`;
 
 /* ── modals (folder + youtube) ───────────────────────────────────────── */
 
 const ModalBackdrop = styled.div`
   position: fixed;
   inset: 0;
-  z-index: 1100;
+  z-index: ${({ theme }) => theme.zIndex.modalHigh};
   background: rgba(20, 20, 20, 0.35);
   display: flex;
   align-items: center;
@@ -2475,6 +2229,7 @@ const ModalBackdrop = styled.div`
   padding: 24px;
 `;
 
+// 페이지별 의도적 디자인 차이 — 상대 페이지와 통합 금지 (§8 R9, sharedStyles.ts 헤더 참조)
 const ModalCard = styled.div`
   width: 100%;
   max-width: 380px;
@@ -2485,6 +2240,7 @@ const ModalCard = styled.div`
   font-family: inherit;
 `;
 
+// 페이지별 의도적 디자인 차이 — 상대 페이지와 통합 금지 (§8 R9, sharedStyles.ts 헤더 참조)
 const ModalTitle = styled.h2`
   margin: 0 0 14px;
   font-size: 17px;
@@ -2492,6 +2248,7 @@ const ModalTitle = styled.h2`
   color: #1a1a1a;
 `;
 
+// 페이지별 의도적 디자인 차이 — 상대 페이지와 통합 금지 (§8 R9, sharedStyles.ts 헤더 참조)
 const ModalInput = styled.input`
   width: 100%;
   height: 40px;
@@ -2529,11 +2286,6 @@ const ModalField = styled.label`
   margin-top: 10px;
 `;
 
-const ModalLabel = styled.span`
-  font-size: 12px;
-  font-weight: 700;
-  color: rgba(0, 0, 0, 0.55);
-`;
 
 const ModalHint = styled.div`
   margin-top: 8px;
@@ -2541,6 +2293,7 @@ const ModalHint = styled.div`
   color: rgba(0, 0, 0, 0.48);
 `;
 
+// 페이지별 의도적 디자인 차이 — 상대 페이지와 통합 금지 (§8 R9, sharedStyles.ts 헤더 참조)
 const ModalActions = styled.div`
   display: flex;
   justify-content: flex-end;
@@ -2548,6 +2301,7 @@ const ModalActions = styled.div`
   margin-top: 14px;
 `;
 
+// 페이지별 의도적 디자인 차이 — 상대 페이지와 통합 금지 (§8 R9, sharedStyles.ts 헤더 참조)
 const ModalBtn = styled.button<{ $variant?: 'ghost' | 'primary' }>`
   border: none;
   border-radius: 8px;
@@ -2566,29 +2320,6 @@ const ModalBtn = styled.button<{ $variant?: 'ghost' | 'primary' }>`
 /* Segmented grid/list toggle that lives next to the sort button in the
  * header. Visually a single pill; the active half darkens to indicate
  * the selected mode. */
-const ViewToggle = styled.div`
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 999px;
-  padding: 2px;
-  gap: 2px;
-  background: #fff;
-`;
-const ViewToggleBtn = styled.button<{ $active?: boolean }>`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 28px;
-  border: none;
-  border-radius: 999px;
-  cursor: pointer;
-  background: ${({ $active }) => ($active ? 'rgba(0, 0, 0, 0.06)' : 'transparent')};
-  color: ${({ $active }) => ($active ? '#2a73d9' : 'rgba(0, 0, 0, 0.55)')};
-  transition: background 0.12s, color 0.12s;
-  &:hover { background: ${({ $active }) => ($active ? 'rgba(0, 0, 0, 0.08)' : 'rgba(0, 0, 0, 0.04)')}; }
-`;
 
 /* 4-square grid icon. Filled when active (active color is driven by the
  * parent button's `color` via currentColor). */
@@ -2628,75 +2359,17 @@ function StarOutlineIcon() {
 }
 
 /* List container — stacked rows, scroll inside the page body. */
-const List = styled.div`
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  padding: 4px 22px 24px;
-  ${mq.mobile} { padding: 2px 14px 20px; }
-`;
 
-const ListRow = styled.div<{ $selected?: boolean }>`
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 10px 12px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  cursor: pointer;
-  background: ${({ $selected }) => ($selected ? 'rgba(43, 138, 239, 0.07)' : 'transparent')};
-  transition: background 0.1s;
-  &:hover { background: ${({ $selected }) => ($selected ? 'rgba(43, 138, 239, 0.1)' : 'rgba(0, 0, 0, 0.03)')}; }
-`;
 
 /* "신규" row sits at the top of the list view; wrapper anchors the NewMenu
  * popover absolutely (mirrors NewCardWrap in grid mode). */
 const ListNewRowWrap = styled.div`
   position: relative;
 `;
-const ListNewRow = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  width: 100%;
-  padding: 10px 12px;
-  border: none;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-  background: transparent;
-  cursor: pointer;
-  font-family: inherit;
-  text-align: left;
-  color: rgba(0, 0, 0, 0.6);
-  transition: background 0.1s, color 0.1s;
-  &:hover { background: rgba(0, 0, 0, 0.03); color: #1a1a1a; }
-`;
 
 /* Small leading thumbnail. $tone picks a default background tint for folder
  * / sheet / "new"; for plain files the inline `style.background` (gradient)
  * takes over via attribute precedence. */
-const ListThumb = styled.div<{ $tone?: 'folder' | 'sheet' | 'new' }>`
-  position: relative;
-  flex-shrink: 0;
-  width: 64px;
-  height: 44px;
-  border-radius: 6px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  background: ${({ $tone }) =>
-    $tone === 'folder' ? '#f2f2f3'
-      : $tone === 'sheet' ? '#fff'
-      : $tone === 'new' ? 'transparent'
-      : '#e5e5e5'};
-  ${({ $tone }) => $tone === 'new' && `
-    border-style: dashed;
-    border-color: rgba(0, 0, 0, 0.22);
-  `}
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  color: rgba(0, 0, 0, 0.55);
-`;
 
 /* Tiny static lead-sheet glyph for sheet rows — three horizontal staff-like
  * lines with one chord mark. Cheap to render and reads as "sheet music" in
@@ -2730,29 +2403,6 @@ const PlayBadgeSm = styled.div`
   justify-content: center;
 `;
 
-const ListMain = styled.div`
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-`;
-const ListTitle = styled.div`
-  font-size: 15px;
-  font-weight: 600;
-  color: #1a1a1a;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-`;
-const ListSubtitle = styled.div`
-  font-size: 12px;
-  color: rgba(0, 0, 0, 0.42);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-`;
 
 const ListStar = styled.button`
   flex-shrink: 0;
@@ -2785,27 +2435,6 @@ function formatListDate(iso: string): string {
 /* Sits absolutely inside FolderTop. Revealed by `${FolderCard}:hover` via
  * the `.folder-hover-overlay` class (see FolderCard above). pointer-events
  * off so the underlying card click still navigates into the folder. */
-const HoverOverlay = styled.div`
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.15s;
-  pointer-events: none;
-`;
-const HoverArrowBox = styled.div`
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
-  background: rgba(20, 20, 20, 0.78);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
-`;
 function ArrowRightIcon() {
   return (
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -2818,49 +2447,6 @@ function ArrowRightIcon() {
 /* Compact dropdown anchored just below the card, aligned to the kebab
  * button's right edge. Card uses overflow:visible so the menu can spill
  * down past the card's lower edge into the grid gap. */
-const KebabMenu = styled.div`
-  position: absolute;
-  right: 6px;
-  top: calc(100% + 4px);
-  min-width: 132px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 12px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
-  padding: 6px;
-  z-index: 20;
-  animation: kebabIn 0.1s ease both;
-  @keyframes kebabIn {
-    from { opacity: 0; transform: translateY(-4px) scale(0.98); }
-    to   { opacity: 1; transform: translateY(0) scale(1); }
-  }
-`;
-const KebabMenuItem = styled.button<{ $danger?: boolean }>`
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 8px 10px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 13.5px;
-  font-weight: 500;
-  text-align: left;
-  color: ${({ $danger }) => ($danger ? '#e74c3c' : '#1a1a1a')};
-  transition: background 0.1s;
-  &:hover { background: ${({ $danger }) => ($danger ? 'rgba(231, 76, 60, 0.08)' : 'rgba(0, 0, 0, 0.04)')}; }
-`;
-const KebabMenuIcon = styled.span`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  color: currentColor;
-  flex-shrink: 0;
-`;
 function RenameIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

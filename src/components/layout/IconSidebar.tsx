@@ -32,7 +32,10 @@ const Rail = styled.nav<{ $expanded: boolean }>`
   background: transparent;
   /* Solid right border so the rail visually separates from the chat area. */
   border-right: 1px solid rgba(0, 0, 0, 0.12);
-  transition: width 0.22s ease, padding 0.22s ease, align-items 0.22s ease;
+  /* 즉시 전환 — width 를 애니메이션하면 옆 콘텐츠(flex:1) 폭이 매 프레임 바뀌어
+   * 악보/차트의 ResizeObserver 가 220ms 동안 수십 번 재렌더되며 심하게 버벅였다.
+   * 스냅 전환은 콘텐츠를 단 1회만 reflow 시켜 끊김이 없다. (align-items 는 애초에
+   * 애니메이션 불가 속성이라 transition 에 넣어도 툭 튀기만 했음.) */
 
   /* iPhone notch / iPad gesture area — desktop uses 0. */
   padding-top: env(safe-area-inset-top, 0px);
@@ -89,7 +92,7 @@ const ToggleTooltip = styled.span`
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.15s ease, transform 0.15s ease;
-  z-index: 1000;
+  z-index: ${({ theme }) => theme.zIndex.modal};
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 `;
 
@@ -143,6 +146,9 @@ const ScrollArea = styled.div<{ $expanded: boolean }>`
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  /* 세로만 스크롤. overflow-y:auto 만 두면 규격상 overflow-x 가 auto 로 계산돼
+   * 축소(아이콘) 모드에서 내용이 1~2px 넘칠 때 가로 스크롤바가 떴다 — 가로는 클립. */
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   /* Mirror Rail's cross-axis alignment so collapsed-mode icons stay centered. */
@@ -231,7 +237,7 @@ const NavTooltip = styled.span`
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.15s ease, transform 0.15s ease;
-  z-index: 1000;
+  z-index: ${({ theme }) => theme.zIndex.modal};
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 `;
 
@@ -911,7 +917,8 @@ export function IconSidebar({
             </NavBtn>
             <NavBtn
               $expanded={true}
-              onClick={() => { /* TODO: 사용자별 릭 DB */ }}
+              $active={loggedIn && pathname.startsWith('/my-licks')}
+              onClick={() => navigate('/my-licks')}
               disabled={!loggedIn}
               title={loggedIn ? '내 릭' : '로그인 필요'}
             >
@@ -948,7 +955,8 @@ export function IconSidebar({
             <NavBtnWrap>
               <NavBtn
                 $expanded={false}
-                onClick={() => { /* TODO: 사용자별 릭 DB */ }}
+                $active={loggedIn && pathname.startsWith('/my-licks')}
+                onClick={() => navigate('/my-licks')}
                 disabled={!loggedIn}
                 title={loggedIn ? '내 릭' : '로그인 필요'}
               >

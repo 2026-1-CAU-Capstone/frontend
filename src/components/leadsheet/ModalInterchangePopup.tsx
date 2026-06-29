@@ -5,7 +5,7 @@ const Backdrop = styled.div`
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.35);
-  z-index: 1300;
+  z-index: ${({ theme }) => theme.zIndex.popover};
   display: flex;
   align-items: center;
   justify-content: center;

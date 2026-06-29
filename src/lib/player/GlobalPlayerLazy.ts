@@ -100,9 +100,19 @@ function createLazyGlobalPlayer(): GlobalPlayer {
       return real?.isReady(input) ?? false;
     },
 
+    unlock(input: PlayerInput): void {
+      // Must stay SYNCHRONOUS to keep the ctx.resume() inside the user gesture.
+      // By the time a page calls unlock() (play-button click) its mount-time
+      // preload() has already materialized the real player, so `real` is set.
+      // If it somehow isn't, kick off the load so the *next* play is warm —
+      // this first one falls back to play()'s own (late) resume.
+      if (real) real.unlock(input);
+      else void load();
+    },
+
     async play(
       input: PlayerInput,
-      opts?: { startAt?: number; measureOffset?: number },
+      opts?: { startAt?: number; measureOffset?: number; downbeatInSec?: number },
     ): Promise<void> {
       const r = await load();
       return r.play(input, opts);

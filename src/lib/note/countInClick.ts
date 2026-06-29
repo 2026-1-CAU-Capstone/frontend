@@ -24,6 +24,19 @@ function ensureCtx(): AudioContext {
   return sharedCtx;
 }
 
+/** 사용자 제스처 안에서 호출해 suspended ctx를 깨운 뒤, running 상태가 될
+ *  때까지(최대 ~150ms) 기다린다. iOS에서 resume 직후 currentTime이 잠시
+ *  frozen이라 — 그 시각 기준으로 클릭을 스케줄하면 첫 1~2 클릭이 뭉개지던
+ *  문제를 막는다. 실패해도 throw하지 않음 (클릭은 best-effort). */
+export async function resumeCountInCtx(): Promise<void> {
+  const ctx = ensureCtx();
+  if (ctx.state === 'running') return;
+  try { await ctx.resume(); } catch { /* gesture 밖이면 다음 기회에 */ }
+  for (let i = 0; i < 10 && (ctx.state as string) !== 'running'; i++) {
+    await new Promise((r) => setTimeout(r, 15));
+  }
+}
+
 export interface ScheduledClick {
   stop(): void;
 }

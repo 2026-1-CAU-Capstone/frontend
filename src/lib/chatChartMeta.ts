@@ -34,7 +34,15 @@ const listeners = new Set<() => void>();
 function readAll(): Record<string, ChatChartMeta> {
   try {
     const raw = window.localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as Record<string, ChatChartMeta>) : {};
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    // plain object가 아니면(배열/문자열 오염) Object.entries 소비자가 비정상
+    // 동작한다 — 버리고 자가 복구.
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      window.localStorage.removeItem(KEY);
+      return {};
+    }
+    return parsed as Record<string, ChatChartMeta>;
   } catch {
     return {};
   }

@@ -18,6 +18,7 @@
  */
 
 import { authFetch } from './auth';
+import { readApiErrorMessage } from './apiError';
 
 /* ── enums (mirroring the backend) ───────────────────────────────────────── */
 
@@ -87,9 +88,9 @@ export interface SheetProjectUpdateRequest {
 
 async function jsonOrThrow<T>(res: Response, what: string): Promise<T> {
   if (!res.ok) {
-    let detail = '';
-    try { detail = JSON.stringify(await res.json()); } catch { /* not json */ }
-    throw new Error(`${what} failed (${res.status}) ${detail}`.trim());
+    // envelope 원문(JSON.stringify)을 그대로 UI에 노출하던 것 → 사용자용
+    // message만. detail은 dev 콘솔로 (apiError.ts 규칙).
+    throw new Error(`${what} failed (${res.status}) ${await readApiErrorMessage(res, '')}`.trim());
   }
   // 204 No Content has empty body — caller already handled that path.
   const text = await res.text();
@@ -158,9 +159,7 @@ export async function deleteSheetProject(publicId: string): Promise<void> {
     method: 'DELETE',
   });
   if (!res.ok && res.status !== 204) {
-    let detail = '';
-    try { detail = JSON.stringify(await res.json()); } catch { /* not json */ }
-    throw new Error(`악보 프로젝트 삭제 실패 (${res.status}) ${detail}`.trim());
+    throw new Error(`악보 프로젝트 삭제 실패 (${res.status}) ${await readApiErrorMessage(res, '')}`.trim());
   }
 }
 

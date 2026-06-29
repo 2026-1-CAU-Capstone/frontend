@@ -14,10 +14,6 @@ function getStorage(): CacheStorage {
 /* Instrument families that have a higher-quality sampled source than the
  * MusyngKite GM soundfont. Everything else stays on MusyngKite (still the best
  * free GM set for horns/sax/etc.). */
-const BASS_NAMES = new Set([
-  'acoustic_bass', 'electric_bass_finger', 'electric_bass_pick',
-  'fretless_bass', 'contrabass',
-]);
 // Only vibraphone — Versilian's mallet set has real vibraphone samples (no
 // marimba), so marimba stays on MusyngKite GM.
 const MALLET_NAMES = new Set(['vibraphone']);
@@ -72,6 +68,12 @@ export interface BackingInstruments {
    * through the shared reverb (dry + wet send) so any lead instrument loaded
    * by loadMelodyInstrument() sits in the same room as the piano. */
   melodyDestination: AudioNode;
+  /** Destination for a swappable COMP instrument (piano/Rhodes/organ/…) — same
+   *  reverb routing as the default comp piano. */
+  pianoDestination: AudioNode;
+  /** Destination for a swappable BASS instrument (upright/electric/…) — dry, as
+   *  the default bass. */
+  bassDestination: AudioNode;
 }
 
 /* ─── helpers ────────────────────────────────────────────────────────── */
@@ -142,9 +144,10 @@ export async function loadMelodyInstrument(
     return wrapPitched(piano, 1.0);
   }
 
-  // Bass family — real sampled jazz double bass (Smolken pizzicato) beats the
-  // GM bass for walking lines. Falls back to MusyngKite on any load failure.
-  if (BASS_NAMES.has(instrumentId)) {
+  // Upright bass (acoustic/contrabass) — real sampled jazz double bass (Smolken
+  // pizzicato) beats the GM bass for walking lines. Electric/fretless basses
+  // fall through to GM so they keep their OWN distinct timbre (not the upright).
+  if (instrumentId === "acoustic_bass" || instrumentId === "contrabass") {
     try {
       const bass = new Smolken(ctx, { instrument: "Pizzicato", storage: getStorage(), destination });
       await bass.load;
@@ -221,7 +224,7 @@ export async function loadInstruments(ctx: AudioContext): Promise<BackingInstrum
   // bypasses reverb to stay tight and present in the mix (jazz bass is
   // almost always dry).
   const bassAmp = ctx.createGain();
-  bassAmp.gain.value = 3.2;
+  bassAmp.gain.value = 1.2;
   bassAmp.connect(ctx.destination);
 
   const piano = new SplendidGrandPiano(ctx, { destination: pianoAmp });
@@ -254,5 +257,7 @@ export async function loadInstruments(ctx: AudioContext): Promise<BackingInstrum
     drums,
     pianoReverbSend: pianoSend,
     melodyDestination: melodyAmp,
+    pianoDestination: pianoAmp,
+    bassDestination: bassAmp,
   };
 }

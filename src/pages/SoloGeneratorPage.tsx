@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { isComposingEvent } from '../lib/ime';
 import { useNavigate, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import {
@@ -11,15 +12,13 @@ import type { NoteInfo, MeasureInfo, NavigationMarker, NoteSheetData } from '../
 
 /* ─── helpers ──────────────────────────────────────────────────────────── */
 
-import { getGlobalKeyboard } from '../lib/player/GlobalKeyboard';
-import { useCountInIntro } from '../hooks/useCountInIntro';
-import { swungBeats } from '../lib/note/swing';
+import { useNoteSheetPlayback } from '../hooks/useNoteSheetPlayback';
+import { DUR_BEATS, vexToMidi, getBeats } from '../lib/note/melodyTiming';
+import { resolveMeasureAccidental, type RenderAcc } from '../lib/note/measureAccidentals';
 import { normalizeChord, formatChordDisplay } from '../lib/jazz-harmony';
 import { createSolo, updateSolo } from '../api/solos';
 import { buildUserSoloDraft, invalidateSolosCache, loadAllSolos, pushSoloToCache, updateSoloInCache } from '../data/soloData';
 
-const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25 };
-const SEMI_MAP: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
 const SHARP_TO_FLAT: Record<string, string> = { c: 'd', d: 'e', f: 'g', g: 'a', a: 'b' };
 
 /* Autosave: 작성 중인 solo를 10초마다 localStorage에 저장. 새로고침/크래시 후
@@ -27,13 +26,6 @@ const SHARP_TO_FLAT: Record<string, string> = { c: 'd', d: 'e', f: 'g', g: 'a', 
  * 저장된 솔로 자체는 백엔드 (POST /v1/solos) 로 보낸다 — soloData.ts 참고. */
 const DRAFT_KEY = 'leadSheetGenerator.draft.v1';
 
-function vexToMidi(key: string, acc?: '#' | 'b' | 'n'): number {
-  const [n, o] = key.split('/');
-  let s = SEMI_MAP[n] ?? 0;
-  if (acc === '#') s += 1;
-  if (acc === 'b') s -= 1;
-  return (parseInt(o) + 1) * 12 + s;
-}
 
 function convertAcc(pn: PianoNote, mode: 'b' | '#'): { vexKey: string; acc?: 'b' | '#' } {
   if (!pn.acc) return { vexKey: pn.vexKey };
@@ -46,16 +38,6 @@ function convertAcc(pn: PianoNote, mode: 'b' | '#'): { vexKey: string; acc?: 'b'
   return { vexKey: `${flatLetter}/${oct}`, acc: 'b' };
 }
 
-function getBeats(dur: string, dotted?: boolean, tuplet?: number): number {
-  const base = dur.replace(/r$/, '');
-  let b = DUR_BEATS[base] ?? 1;
-  if (dotted) b *= 1.5;
-  if (tuplet && tuplet >= 2) {
-    const denom = Math.pow(2, Math.floor(Math.log2(tuplet - 1)));
-    b *= denom / tuplet;
-  }
-  return b;
-}
 
 function measureBeats(notes: NoteInfo[]): number {
   return notes.reduce((s, n) => s + getBeats(n.duration, n.dotted, n.tuplet), 0);
@@ -150,49 +132,8 @@ function splitMeasuresByBeats(measures: MeasureInfo[], beatsPerBar = 4): Measure
 
 /* ─── piano playback ─────────────────────────────────────────────────── */
 
-/* Playback shares the app-wide piano via getGlobalKeyboard(). */
+/* 재생은 useNoteSheetPlayback 훅에 위임 — EditorPage/SoloGeneratorPage 공통(§8 R8). */
 
-/** Parse a chord symbol like "CΔ7", "Dm7", "G7b9" → array of MIDI notes (3-4 note voicing around C3-C4) */
-function chordToMidi(chord: string): number[] {
-  if (!chord) return [];
-  // Root note
-  const rootMatch = chord.match(/^([A-Ga-g])([#b♯♭]?)/);
-  if (!rootMatch) return [];
-  const rootLetter = rootMatch[1].toLowerCase();
-  const rootAcc = rootMatch[2];
-  let root = SEMI_MAP[rootLetter] ?? 0;
-  if (rootAcc === '#' || rootAcc === '♯') root += 1;
-  if (rootAcc === 'b' || rootAcc === '♭') root -= 1;
-  const rest = chord.slice(rootMatch[0].length);
-
-  // Determine chord quality → intervals from root
-  let intervals: number[];
-  if (/^[mM\-](?!aj)/i.test(rest) && !/^min.*maj/i.test(rest)) {
-    // minor
-    if (/7/.test(rest)) intervals = [0, 3, 7, 10]; // m7
-    else intervals = [0, 3, 7];
-  } else if (/dim|[oø°]/.test(rest)) {
-    if (/ø|half/i.test(rest) || /7/.test(rest)) intervals = [0, 3, 6, 10]; // half-dim
-    else intervals = [0, 3, 6]; // dim
-  } else if (/aug|\+/.test(rest)) {
-    if (/7/.test(rest)) intervals = [0, 4, 8, 10];
-    else intervals = [0, 4, 8];
-  } else if (/[Δ△]|[Mm]aj7/i.test(rest)) {
-    intervals = [0, 4, 7, 11]; // maj7
-  } else if (/7/.test(rest)) {
-    intervals = [0, 4, 7, 10]; // dom7
-  } else if (/sus4/.test(rest)) {
-    intervals = [0, 5, 7];
-  } else if (/sus2/.test(rest)) {
-    intervals = [0, 2, 7];
-  } else {
-    intervals = [0, 4, 7]; // major triad
-  }
-
-  // Voice around C3 (MIDI 48) - rootless voicing style
-  const base = 48 + root; // C3 range
-  return intervals.map((iv) => base + iv);
-}
 
 
 /* ─── key signature accidentals ────────────────────────────────────────── */
@@ -375,7 +316,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
     el.style.height = `${totalH * SHEET_SCALE}px`;
   }
   const allVfNotes: { mi: number; ni: number; vfNote: StaveNote }[] = [];
-  let tieCarryAcc: Map<string, 'b' | '#' | 'n'> | undefined;
+  let tieCarryAcc: Map<string, RenderAcc> | undefined;
   const keySigAcc = keySigAccidentals(sheetKey || 'C');
 
   for (let li = 0; li < lines.length; li++) {
@@ -488,7 +429,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         continue;
       }
 
-      const activeAcc = tieCarryAcc ? new Map(tieCarryAcc) : new Map<string, 'b' | '#' | 'n'>();
+      const activeAcc: Map<string, RenderAcc> = tieCarryAcc ? new Map(tieCarryAcc) : new Map();
       tieCarryAcc = undefined;
 
       const vfNotes = measure.notes.map((n) => {
@@ -498,29 +439,10 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         if (n.dotted) Dot.buildAndAttach([note]);
 
         if (!isRest) {
-          // Letter-scoped accidental memory: once a letter has been altered
-          // in this measure, the next bare same-letter note — regardless of
-          // octave — prints with a cautionary ♮ so the reader sees the
-          // Bb→B transition across octaves.
-          const noteId = n.keys[0];
-          const letter = noteId.split('/')[0];
+          // Octave-aware accidental rule — single shared helper.
           const realAcc = n.accidentals?.[0] as 'b' | '#' | undefined;
-          const current = activeAcc.get(letter);
-          const keySigForLetter = keySigAcc.get(letter);
-
-          if (realAcc) {
-            const effective = current ?? keySigForLetter;
-            if (effective !== realAcc) {
-              note.addModifier(new Accidental(realAcc), 0);
-            }
-            activeAcc.set(letter, realAcc);
-          } else {
-            const effective = current ?? keySigForLetter;
-            if (effective && effective !== 'n') {
-              note.addModifier(new Accidental('n'), 0);
-              activeAcc.set(letter, 'n');
-            }
-          }
+          const glyph = resolveMeasureAccidental(activeAcc, keySigAcc, n.keys[0], realAcc);
+          if (glyph) note.addModifier(new Accidental(glyph), 0);
         }
 
         // ── Articulations / fermata / dynamics ─────────────────────────
@@ -570,7 +492,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       if (lastNote?.tie && !lastNote.duration.endsWith('r')) {
         const acc = lastNote.accidentals?.[0] as 'b' | '#' | undefined;
         if (acc) {
-          tieCarryAcc = new Map([[lastNote.keys[0].split('/')[0], acc]]);
+          tieCarryAcc = new Map([[lastNote.keys[0], acc]]);
         }
       }
 
@@ -1133,7 +1055,7 @@ const PlayerBar = styled.div`
   padding: 14px 22px;
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-  z-index: 1000;
+  z-index: ${({ theme }) => theme.zIndex.modal};
 `;
 
 const PlayerIconBtn = styled.button`
@@ -1317,7 +1239,7 @@ function splitChord(chord: string): { base: string; ext: string; tensions: { acc
   let remaining = rest.slice(ext.length);
   const tensions: { acc: string; num: string }[] = [];
   while (remaining.length > 0) {
-    const t = remaining.match(/^([♭♯\u266D\u266F#b]*)(\d+)/);
+    const t = remaining.match(/^([♭♯\u266D\u266F#b]*)(\d+|alt)/);
     if (!t) break;
     tensions.push({ acc: t[1], num: t[2] });
     remaining = remaining.slice(t[0].length);
@@ -1345,7 +1267,8 @@ function ChordCell({ value, onChange, style }: {
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onBlur={() => { onChange(normalizeChord(value)); setEditing(false); }}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); onChange(normalizeChord(value)); setEditing(false); } }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && isComposingEvent(e)) return; // 한글 조합 확정 Enter 무시
+                  if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); onChange(normalizeChord(value)); setEditing(false); } }}
         />
       ) : (
         <ChordCellDisplay>
@@ -1544,11 +1467,6 @@ export default function SoloGeneratorPage() {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [playing, setPlaying] = useState(false);
-  const [paused, setPaused] = useState(false);
-  const playAbortRef = useRef<AbortController | null>(null);
-  const pauseResolveRef = useRef<(() => void) | null>(null);
-  const pausedRef = useRef(false);
   const svgRef = useRef<HTMLDivElement>(null);
   const chord1Ref = useRef<HTMLInputElement>(null);
 
@@ -1621,27 +1539,30 @@ export default function SoloGeneratorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ── Autosave draft every 10s — survives reload/crash ────────────────── */
+  /* ── Autosave draft every 10s — survives reload/crash ──────────────────
+   * 최신 상태는 ref 미러로 읽고 interval은 마운트 시 1회만 건다. deps에 상태를
+   * 전부 넣던 이전 구현은 키 입력마다 타이머가 0부터 리셋돼 "10초마다"가 아니라
+   * "마지막 입력 후 10초 무입력"이어야 저장됐다 — 연속 입력 중 크래시하면
+   * 드래프트가 한 번도 안 남았다. */
+  const draftRef = useRef({ measures, curNotes, curChord1, curChord2, composer, genre, sheetTitle, sheetKey, bpm });
+  draftRef.current = { measures, curNotes, curChord1, curChord2, composer, genre, sheetTitle, sheetKey, bpm };
   useEffect(() => {
     const intv = setInterval(() => {
       try {
+        const d = draftRef.current;
         const isEmpty =
-          measures.length === 0 &&
-          curNotes.length === 0 &&
-          !curChord1 && !curChord2 &&
-          !composer && !genre && !sheetTitle;
+          d.measures.length === 0 &&
+          d.curNotes.length === 0 &&
+          !d.curChord1 && !d.curChord2 &&
+          !d.composer && !d.genre && !d.sheetTitle;
         if (isEmpty) return;
-        const draft = {
-          measures, curNotes, curChord1, curChord2,
-          composer, genre, sheetTitle, sheetKey, bpm,
-        };
-        localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
       } catch (e) {
         console.warn('Failed to autosave lead-sheet draft', e);
       }
     }, 10000);
     return () => clearInterval(intv);
-  }, [measures, curNotes, curChord1, curChord2, composer, genre, sheetTitle, sheetKey, bpm]);
+  }, []);
 
   const editUndoStack = useRef<{ measures: MeasureInfo[]; curNotes: NoteInfo[]; curChord1: string; curChord2: string; repeatStart: boolean; repeatEnd: boolean; volta: 0 | 1 | 2; navigation: NavigationMarker | ''; bracket: boolean }[]>([]);
   const pushEditUndo = useCallback(() => {
@@ -2057,7 +1978,7 @@ export default function SoloGeneratorPage() {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.key === 'Backspace') { e.preventDefault(); handleUndo(); }
-      if (e.key === 'Enter') { e.preventDefault(); closeMeasure(); }
+      if (e.key === 'Enter') { if (isComposingEvent(e)) return; e.preventDefault(); closeMeasure(); }
       if (e.key === 'l' || e.key === 'L') { e.preventDefault(); setTieNext((v) => !v); }
       if (e.key === 't' || e.key === 'T') { e.preventDefault(); setTripletMode((v) => { if (!v) tripletCountRef.current = 0; return !v; }); }
       if (e.key === '1') { e.preventDefault(); setDuration('w'); setDotted(false); }
@@ -2152,342 +2073,11 @@ export default function SoloGeneratorPage() {
     return JSON.stringify(entry, null, 2);
   }, [allMeasures, sheetTitle, composer, genre, sheetKey, bpm]);
 
-  /* playback */
-  const handlePause = useCallback(() => {
-    if (!playing) return;
-    if (pausedRef.current) {
-      // Resume
-      pausedRef.current = false;
-      setPaused(false);
-      pauseResolveRef.current?.();
-      pauseResolveRef.current = null;
-    } else {
-      // Pause
-      pausedRef.current = true;
-      setPaused(true);
-    }
-  }, [playing]);
-
-  const countIn = useCountInIntro();
-
-  const handlePlay = useCallback(async () => {
-    if (playing || countIn.active) {
-      playAbortRef.current?.abort();
-      pauseResolveRef.current?.();
-      pauseResolveRef.current = null;
-      pausedRef.current = false;
-      countIn.cancel();
-      setPaused(false);
-      setPlaying(false);
-      return;
-    }
-    if (allMeasures.length === 0) return;
-
-    setPlaying(true);
-    // 카운트인과 병렬로 piano soundfont 로드 — 첫 재생 지연 제거.
-    const kb = getGlobalKeyboard();
-    const kbReady = kb.ensureReady();
-    const cin = await countIn.run({ bpm });
-    if (!cin.ok) { setPlaying(false); return; }
-    await kbReady;
-    const abort = new AbortController();
-    playAbortRef.current = abort;
-    pausedRef.current = false;
-    setPaused(false);
-
-    // Align the first note with the count-in's downbeat. cin.downbeatInSec
-    // measures setTimeout slop between cin resolve and here in any clock.
-    if (cin.downbeatInSec > 0) {
-      try {
-        await new Promise<void>((resolve, reject) => {
-          const timer = setTimeout(resolve, cin.downbeatInSec * 1000);
-          abort.signal.addEventListener(
-            'abort',
-            () => { clearTimeout(timer); reject('stop'); },
-            { once: true },
-          );
-        });
-      } catch {
-        setPlaying(false);
-        return;
-      }
-    }
-
-    const beatDur = 60 / bpm;
-    // Swung-time projection: distance between two straight-beat positions in
-    // wall-clock seconds, after the swing-feel non-linear remap. Off-beat 8ths
-    // sit ~24% later inside the beat. Quarter notes and downbeats land exactly
-    // on integer-beat boundaries so chord comping fires in straight time even
-    // while the melody breathes.
-    const beatRange = (start: number, b: number) =>
-      (swungBeats(start + b) - swungBeats(start)) * beatDur;
-
-    // Helper: expand repeat/volta/navigation for a set of measures
-    type ExpandedM = { m: MeasureInfo; origMi: number };
-    const expandMeasures = (srcMeasures: MeasureInfo[]): ExpandedM[] => {
-      const expandedMeasures: ExpandedM[] = [];
-
-      // Phase 1: expand repeats + volta
-      const afterRepeats: ExpandedM[] = [];
-      let repeatFromIdx = 0;
-      let mi = 0;
-      while (mi < srcMeasures.length) {
-        const m = srcMeasures[mi];
-        if (m.repeatStart) repeatFromIdx = mi;
-        afterRepeats.push({ m, origMi: mi });
-
-        if (m.repeatEnd) {
-          for (let ri = repeatFromIdx; ri <= mi; ri++) {
-            if (srcMeasures[ri].volta === 1) break;
-            afterRepeats.push({ m: srcMeasures[ri], origMi: ri });
-          }
-          let vi = mi + 1;
-          while (vi < srcMeasures.length && srcMeasures[vi].volta === 2) {
-            afterRepeats.push({ m: srcMeasures[vi], origMi: vi });
-            vi++;
-          }
-          mi = vi;
-          continue;
-        }
-        mi++;
-      }
-
-      // Phase 2: expand D.C./D.S./Coda/Fine navigation
-      const segnoIdx = afterRepeats.findIndex((e) => e.m.navigation === 'segno');
-      const codaIdx = afterRepeats.findIndex((e) => e.m.navigation === 'coda');
-
-      let jumped = false;
-      for (let mi = 0; mi < afterRepeats.length; mi++) {
-        const entry = afterRepeats[mi];
-        expandedMeasures.push(entry);
-        const nav = entry.m.navigation;
-        if (!nav || jumped) continue;
-
-        if (nav === 'fine') break;
-        if (nav === 'toCoda' && !jumped) continue;
-        if (nav === 'dc' || nav === 'dcAlCoda' || nav === 'dcAlFine' ||
-            nav === 'ds' || nav === 'dsAlCoda' || nav === 'dsAlFine') {
-          jumped = true;
-          const jumpTo = (nav === 'ds' || nav === 'dsAlCoda' || nav === 'dsAlFine')
-            ? Math.max(0, segnoIdx) : 0;
-          const alCoda = nav === 'dcAlCoda' || nav === 'dsAlCoda';
-          const alFine = nav === 'dcAlFine' || nav === 'dsAlFine';
-
-          for (let ri = jumpTo; ri < afterRepeats.length; ri++) {
-            const re = afterRepeats[ri];
-            expandedMeasures.push(re);
-            if (alCoda && re.m.navigation === 'toCoda') {
-              if (codaIdx >= 0) {
-                for (let ci = codaIdx; ci < afterRepeats.length; ci++) {
-                  expandedMeasures.push(afterRepeats[ci]);
-                }
-              }
-              break;
-            }
-            if (alFine && re.m.navigation === 'fine') break;
-            if (!alCoda && !alFine && (nav === 'dc' || nav === 'ds') && ri === afterRepeats.length - 1) break;
-          }
-          break;
-        }
-      }
-      return expandedMeasures;
-    };
-
-    // Highlight helpers — direct DOM manipulation, no React re-render
-    const elMap = noteElMapRef.current;
-    let prevKey: string | null = null;
-    const BLUE = '#1565c0';
-    const colorNote = (key: string, color: string) => {
-      const svg = elMap.get(key);
-      if (!svg) return;
-      const apply = (el: Element) => { (el as SVGElement).style.fill = color; };
-      apply(svg);
-      svg.querySelectorAll('*').forEach(apply);
-    };
-    const highlight = (mi: number, ni: number) => {
-      if (prevKey) colorNote(prevKey, '');
-      const key = `${mi}-${ni}`;
-      colorNote(key, BLUE);
-      prevKey = key;
-    };
-    const clearHighlight = () => { if (prevKey) colorNote(prevKey, ''); prevKey = null; };
-    const checkPause = async () => {
-      if (abort.signal.aborted) throw 'stop';
-      if (pausedRef.current) {
-        await new Promise<void>((resolve, reject) => {
-          pauseResolveRef.current = resolve;
-          abort.signal.addEventListener('abort', () => { reject('stop'); }, { once: true });
-        });
-      }
-    };
-
-    try {
-      let loopCount = 0;
-      while (!abort.signal.aborted) {
-        // On first loop: use all measures. On subsequent loops: skip bracket measures
-        // and start from the first measure with a chord.
-        let srcMeasures: MeasureInfo[];
-        if (loopCount === 0) {
-          srcMeasures = allMeasures;
-        } else {
-          // Find first measure index with a chord
-          const firstChordIdx = allMeasures.findIndex((m) => !!m.chord);
-          const startIdx = firstChordIdx >= 0 ? firstChordIdx : 0;
-          srcMeasures = allMeasures.slice(startIdx);
-        }
-
-        const expandedMeasures = expandMeasures(srcMeasures);
-        // Remap origMi: when loopCount > 0, srcMeasures is a slice, so origMi is relative.
-        // We need to offset it back to absolute index for highlight.
-        const miOffset = loopCount === 0 ? 0 : (allMeasures.findIndex((m) => !!m.chord) || 0);
-
-        // Build flat note list with beat-position tracking for inline piano comping
-        type FlatNote = { note: NoteInfo; mi: number; ni: number; emIdx: number; beatPos: number };
-        const flat: FlatNote[] = [];
-        for (let ei = 0; ei < expandedMeasures.length; ei++) {
-          const em = expandedMeasures[ei];
-          let bp = 0;
-          for (let ni = 0; ni < em.m.notes.length; ni++) {
-            flat.push({ note: em.m.notes[ni], mi: em.origMi + miOffset, ni, emIdx: ei, beatPos: bp });
-            bp += getBeats(em.m.notes[ni].duration, em.m.notes[ni].dotted, em.m.notes[ni].tuplet);
-          }
-        }
-
-        // Pre-compute piano chord voicings per expanded measure
-        const compChords: { midi1: number[]; midi2: number[] }[] = expandedMeasures.map((em) => {
-          const mChord = em.m.chord;
-          if (!mChord) return { midi1: [], midi2: [] };
-          const parts = mChord.split(/\s{2,}/);
-          const c1 = parts[0]?.trim();
-          const c2 = parts[1]?.trim() || c1;
-          return { midi1: chordToMidi(c1 || ''), midi2: chordToMidi(c2 || '') };
-        });
-        const compDur = beatDur * 0.6;
-        const compedBeats = new Set<string>();
-        const fireComp = (emIdx: number, beatStart: number, beatEnd: number) => {
-          if ((beatStart < 1 && beatEnd > 1) || beatStart === 1) {
-            const key = `${emIdx}-2`;
-            if (!compedBeats.has(key)) {
-              compedBeats.add(key);
-              const cc = compChords[emIdx];
-              if (cc.midi1.length > 0) {
-                for (const m of cc.midi1) kb.play(String(m), { duration: compDur, gain: 1.2 });
-              }
-            }
-          }
-          if ((beatStart < 3 && beatEnd > 3) || beatStart === 3) {
-            const key = `${emIdx}-4`;
-            if (!compedBeats.has(key)) {
-              compedBeats.add(key);
-              const cc = compChords[emIdx];
-              if (cc.midi2.length > 0) {
-                for (const m of cc.midi2) kb.play(String(m), { duration: compDur, gain: 1.2 });
-              }
-            }
-          }
-        };
-
-        // Helper: wait for a duration, fire piano comping at exact beat 2 (pos 1) and beat 4 (pos 3)
-        const waitWithComp = async (totalBeats: number, emIdx: number, startBeat: number) => {
-          const boundaries: number[] = [];
-          for (const b of [1, 3]) {
-            if (b > startBeat && b < startBeat + totalBeats) boundaries.push(b);
-          }
-          if (startBeat === 1 || startBeat === 3) {
-            fireComp(emIdx, startBeat, startBeat);
-          }
-
-          let elapsed = 0;
-          for (const b of boundaries) {
-            const waitBeats = (b - startBeat) - elapsed;
-            if (waitBeats > 0.001) {
-              // Swung wait — off-beat starts get a shorter wall-clock leg to the
-              // next downbeat than straight 8ths would.
-              const waitSec = beatRange(startBeat + elapsed, waitBeats);
-              await new Promise<void>((resolve, reject) => {
-                const timer = setTimeout(resolve, waitSec * 1000);
-                abort.signal.addEventListener('abort', () => { clearTimeout(timer); reject('stop'); }, { once: true });
-              });
-              elapsed += waitBeats;
-            }
-            fireComp(emIdx, b, b);
-          }
-          const leftBeats = totalBeats - elapsed;
-          if (leftBeats > 0.001) {
-            const waitSec = beatRange(startBeat + elapsed, leftBeats);
-            await new Promise<void>((resolve, reject) => {
-              const timer = setTimeout(resolve, waitSec * 1000);
-              abort.signal.addEventListener('abort', () => { clearTimeout(timer); reject('stop'); }, { once: true });
-            });
-          }
-        };
-
-        // Play all notes in this loop pass
-        let i = 0;
-        while (i < flat.length) {
-          await checkPause();
-          const { note: n, mi, ni, emIdx, beatPos } = flat[i];
-          const isRest = n.duration.endsWith('r');
-          const baseDur = n.duration.replace(/r$/, '');
-          let beats = DUR_BEATS[baseDur] ?? 1;
-          if (n.dotted) beats *= 1.5;
-          if (n.tuplet && n.tuplet >= 2) {
-            const denom = Math.pow(2, Math.floor(Math.log2(n.tuplet - 1)));
-            beats *= denom / n.tuplet;
-          }
-
-          if (!isRest) highlight(mi, ni);
-
-          if (!isRest && n.tie) {
-            const tieSegs: { emIdx: number; beatPos: number; beats: number }[] = [
-              { emIdx, beatPos, beats },
-            ];
-            let look = i + 1;
-            while (look < flat.length) {
-              const ln = flat[look].note;
-              const lb = ln.duration.replace(/r$/, '');
-              let lbeats = DUR_BEATS[lb] ?? 1;
-              if (ln.dotted) lbeats *= 1.5;
-              if (ln.tuplet && ln.tuplet >= 2) {
-                const denom = Math.pow(2, Math.floor(Math.log2(ln.tuplet - 1)));
-                lbeats *= denom / ln.tuplet;
-              }
-              tieSegs.push({ emIdx: flat[look].emIdx, beatPos: flat[look].beatPos, beats: lbeats });
-              if (!ln.tie) { look++; break; }
-              look++;
-            }
-            const totalBeats = tieSegs.reduce((s, seg) => s + seg.beats, 0);
-            const sec = beatRange(beatPos, totalBeats);
-            const acc = n.accidentals?.[0] as '#' | 'b' | 'n' | undefined;
-            const midi = vexToMidi(n.keys[0], acc);
-            kb.play(String(midi), { duration: sec * 0.9, gain: 3 });
-            for (const seg of tieSegs) {
-              await waitWithComp(seg.beats, seg.emIdx, seg.beatPos);
-            }
-            i = look;
-            continue;
-          }
-
-          const sec = beatRange(beatPos, beats);
-          if (!isRest) {
-            const acc = n.accidentals?.[0] as '#' | 'b' | 'n' | undefined;
-            const midi = vexToMidi(n.keys[0], acc);
-            kb.play(String(midi), { duration: sec * 0.9, gain: 3 });
-          }
-          await waitWithComp(beats, emIdx, beatPos);
-          i++;
-        }
-
-        loopCount++;
-      }
-    } catch {
-      // stopped
-    }
-
-    clearHighlight();
-    kb.stopAll();
-    setPlaying(false);
-  }, [playing, allMeasures, bpm]);
+  /* 재생 — EditorPage/SoloGeneratorPage 공통 ~330줄 루프를 useNoteSheetPlayback
+   * 훅으로 위임(§8 R8). 동작 동일(피아노 단독·setTimeout 타이밍). 이전엔 이 사본이
+   * Editor보다 옛 버전이라 리스너 누수·하이라이트 오프셋 등 버그가 있었는데 통합으로 해소. */
+  const { playing, paused, handlePlay, handlePause, countInOverlay } =
+    useNoteSheetPlayback({ allMeasures, bpm, noteElMapRef });
 
   // Update a specific chord slot (0 or 1) for a given measure
   const updateMeasureChordSlot = useCallback((idx: number, slot: 0 | 1, value: string) => {
@@ -2553,7 +2143,7 @@ export default function SoloGeneratorPage() {
 
   return (
     <Page>
-      {countIn.overlay}
+      {countInOverlay}
       <Header>
         <BackBtn onClick={() => navigate('/note')}>&#8592; Note</BackBtn>
         <Title>Solo Generator</Title>
@@ -3192,6 +2782,7 @@ export default function SoloGeneratorPage() {
                   setNoteChordEditing(false);
                 }}
                 onKeyDown={(e) => {
+                  if (e.key === 'Enter' && isComposingEvent(e)) return; // 한글 조합 확정 Enter 무시
                   if (e.key === 'Enter' || e.key === 'Escape') {
                     e.preventDefault();
                     const norm = normalizeChord(noteChordValue);

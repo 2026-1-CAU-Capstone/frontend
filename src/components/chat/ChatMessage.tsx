@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback, useEffect, useContext } from 'react';
+import { safeVideoUrl } from '../../lib/safeVideoUrl';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
@@ -178,8 +179,8 @@ function CitationChip({ n }: { n: number }) {
 
   if (isVideo) {
     const ts = Math.floor(chunk.start_sec ?? 0);
-    const url = chunk.video_url
-      || `https://www.youtube.com/watch?v=${chunk.video_id}&t=${ts}s`;
+    const url = safeVideoUrl(chunk.video_url, chunk.video_id, ts);
+    if (!url) return <CiteBadge title={label}>{n}</CiteBadge>;
     const mmss = fmtMMSS(ts);
     const title = `${chunk.channel ? chunk.channel + ' · ' : ''}${label} · ${mmss}`;
     return (
@@ -738,8 +739,16 @@ function ChatMessageImpl({
     };
 
     /* Step 1: split by ```chart blocks. Each complete chart block becomes
-     * a ChatChartCard; everything else flows through renderTextWithLicks. */
-    const CHART_RE = /```\s*chart[ \t]*\n([\s\S]*?)\n```/g;
+     * a ChatChartCard; everything else flows through renderTextWithLicks.
+     *
+     * Lenient fence matching: the model doesn't always put the JSON on its
+     * own line — it may emit ```chart {…}``` on one line, omit the newline
+     * after "chart", or close with `}```  ` on the same line. The old strict
+     * `chart[ \t]*\n … \n``` ` form silently failed on all of those (the
+     * chart just vanished). Now: `chart` word-boundary, optional whitespace/
+     * newline before the body, body is non-greedy up to the next ``` (chart
+     * JSON never contains backticks, so the first fence is the real close). */
+    const CHART_RE = /```[ \t]*chart\b[ \t]*\n?([\s\S]*?)```/g;
     const segments: React.ReactNode[] = [];
     let lastIdx = 0;
     let cm: RegExpExecArray | null;

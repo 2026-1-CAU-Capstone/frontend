@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { isComposingEvent } from '../lib/ime';
 import { useNavigate, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import {
@@ -10,7 +11,8 @@ import type { NoteInfo, MeasureInfo, NavigationMarker } from '../data/sampleMelo
 import { saveUserLick, computeLickFeatures, type LickEntry } from '../data/lickData';
 import { useGlobalPlayer } from '../lib/player';
 import { useCountInIntro } from '../hooks/useCountInIntro';
-import { PATTERN_SIMPLE } from '../lib/note/countInPatterns';
+import { prepareLickIntro } from '../lib/note/anacrusis';
+import { resolveMeasureAccidental, type RenderAcc } from '../lib/note/measureAccidentals';
 import { normalizeChord, formatChordDisplay } from '../lib/jazz-harmony';
 import { NoteIcon, RestIcon } from '../components/notesheet/NotationIcon';
 
@@ -219,7 +221,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
     el.style.height = `${totalH * SHEET_SCALE}px`;
   }
   const allVfNotes: { mi: number; ni: number; vfNote: StaveNote }[] = [];
-  let tieCarryAcc: Map<string, 'b' | '#' | 'n'> | undefined;
+  let tieCarryAcc: Map<string, RenderAcc> | undefined;
   const keySigAcc = keySigAccidentals(sheetKey || 'C');
 
   for (let li = 0; li < lines.length; li++) {
@@ -300,7 +302,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
 
       // Per-measure accidental tracking for smart display
       // If previous measure ended with a tie, carry its accidental state
-      const activeAcc = tieCarryAcc ? new Map(tieCarryAcc) : new Map<string, 'b' | '#' | 'n'>();
+      const activeAcc: Map<string, RenderAcc> = tieCarryAcc ? new Map(tieCarryAcc) : new Map();
       tieCarryAcc = undefined;
 
       const vfNotes = measure.notes.map((n) => {
@@ -310,25 +312,10 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         if (n.dotted) Dot.buildAndAttach([note]);
 
         if (!isRest) {
-          const noteId = n.keys[0];
-          const letter = noteId.split('/')[0];
+          // Octave-aware accidental rule — single shared helper.
           const realAcc = n.accidentals?.[0] as 'b' | '#' | undefined;
-          const current = activeAcc.get(letter);
-          const keySigForLetter = keySigAcc.get(letter);
-
-          if (realAcc) {
-            const effective = current ?? keySigForLetter;
-            if (effective !== realAcc) {
-              note.addModifier(new Accidental(realAcc), 0);
-            }
-            activeAcc.set(letter, realAcc);
-          } else {
-            const effective = current ?? keySigForLetter;
-            if (effective && effective !== 'n') {
-              note.addModifier(new Accidental('n'), 0);
-              activeAcc.set(letter, 'n');
-            }
-          }
+          const glyph = resolveMeasureAccidental(activeAcc, keySigAcc, n.keys[0], realAcc);
+          if (glyph) note.addModifier(new Accidental(glyph), 0);
         }
 
         // ── Articulations / fermata / dynamics (matches NoteSheet) ─────
@@ -376,7 +363,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       if (lastNote?.tie && !lastNote.duration.endsWith('r')) {
         const acc = lastNote.accidentals?.[0] as 'b' | '#' | undefined;
         if (acc) {
-          tieCarryAcc = new Map([[lastNote.keys[0].split('/')[0], acc]]);
+          tieCarryAcc = new Map([[lastNote.keys[0], acc]]);
         }
       }
 
@@ -966,7 +953,7 @@ function splitChord(chord: string): { base: string; ext: string; tensions: { acc
   // Parse tensions: each is optional accidental + number (e.g. ♭9, ♯11, 13)
   const tensions: { acc: string; num: string }[] = [];
   while (remaining.length > 0) {
-    const t = remaining.match(/^([♭♯\u266D\u266F#b]*)(\d+)/);
+    const t = remaining.match(/^([♭♯\u266D\u266F#b]*)(\d+|alt)/);
     if (!t) break;
     tensions.push({ acc: t[1], num: t[2] });
     remaining = remaining.slice(t[0].length);
@@ -1019,7 +1006,8 @@ function ChordCell({ value, onChange, style }: {
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onBlur={() => { onChange(normalizeChord(value)); setEditing(false); }}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); onChange(normalizeChord(value)); setEditing(false); } }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && isComposingEvent(e)) return; // 한글 조합 확정 Enter 무시
+                  if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); onChange(normalizeChord(value)); setEditing(false); } }}
         />
       ) : (
         <ChordCellDisplay>
@@ -1739,7 +1727,7 @@ export default function LickInputPage() {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.key === 'Backspace') { e.preventDefault(); handleUndo(); }
-      if (e.key === 'Enter') { e.preventDefault(); closeMeasure(); }
+      if (e.key === 'Enter') { if (isComposingEvent(e)) return; e.preventDefault(); closeMeasure(); }
       if (e.key === 'l' || e.key === 'L') { e.preventDefault(); setTieNext((v) => !v); }
       if (e.key === 't' || e.key === 'T') { e.preventDefault(); setTripletMode((v) => { if (!v) tripletCountRef.current = 0; return !v; }); }
       if (e.key === '1') { e.preventDefault(); setDuration('w'); setDotted(false); }
@@ -1872,16 +1860,21 @@ export default function LickInputPage() {
       measures: allMeasures,
     };
     // 샘플 로드를 카운트인과 병렬로 → "1234" 가 즉시 시작, 다운비트 직전에 로드 완료 대기.
-    // 릭 재생: BPM 무관하게 SIMPLE 카운트인.
-    const cin = await countIn.run({
-      bpm,
-      pattern: PATTERN_SIMPLE,
-      prepare: player.preload({ kind: 'lick', data: sheetData }),
-    });
-    if (!cin.ok) { setPlaying(false); return; }
+    // 리딩 픽업이면 픽업 음표를 카운트인 꼬리에 얹고 본문만 재생(measureOffset:1) →
+    // 픽업과 메인 멜로디 사이 쉼 제거. 카운트인은 항상 1마디 "1 2 3 4", 로드는 병렬.
+    const preload = player.preload({ kind: 'lick', data: sheetData }).catch(() => {});
+    const intro = await prepareLickIntro(player, countIn, sheetData, bpm, preload);
+    if (!intro.ok) { setPlaying(false); return; }
     player.setConfig({ bpm });
-    player.on('done', () => setPlaying(false));
-    await player.play({ kind: 'lick', data: sheetData }, { startAt: player.ctxNow() + cin.downbeatInSec });
+    // Self-releasing 'done' — the old bare player.on() leaked one listener
+    // per playback onto the app-wide singleton bus.
+    const offDone = player.on('done', () => { setPlaying(false); offDone(); });
+    try {
+      await player.play({ kind: 'lick', data: intro.data }, intro.opts);
+    } catch {
+      setPlaying(false);
+      offDone(); // play never started → no 'done' will come; release now
+    }
   }, [allMeasures, bpm, title, performer, lickKey, countIn, playing, player]);
 
   /* update chord for any measure (completed or current) */
@@ -2729,6 +2722,7 @@ export default function LickInputPage() {
                   setNoteChordEditing(false);
                 }}
                 onKeyDown={(e) => {
+                  if (e.key === 'Enter' && isComposingEvent(e)) return; // 한글 조합 확정 Enter 무시
                   if (e.key === 'Enter' || e.key === 'Escape') {
                     e.preventDefault();
                     const norm = normalizeChord(noteChordValue);

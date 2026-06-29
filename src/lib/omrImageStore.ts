@@ -89,3 +89,21 @@ export async function deleteOmrSourceImage(projectId: string): Promise<void> {
     }
   });
 }
+
+/** Wipe EVERY stored sheet image. Called on logout / account switch so the
+ *  next user on this device can't open the previous user's uploaded scores
+ *  (the blobs aren't user-namespaced). Best-effort like the rest of this
+ *  module — auth flows must never block on IndexedDB. */
+export async function clearAllOmrSourceImages(): Promise<void> {
+  const db = await openDb();
+  if (!db) return;
+  await new Promise<void>((resolve) => {
+    try {
+      const req = tx(db, 'readwrite').clear();
+      req.onsuccess = () => resolve();
+      req.onerror = () => resolve();
+    } catch {
+      resolve();
+    }
+  });
+}

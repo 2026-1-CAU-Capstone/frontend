@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { safeVideoUrl } from '../../lib/safeVideoUrl';
 import styled from 'styled-components';
 import type { RagDebugInfo, RagChunk } from '../../api/harmorag';
 
@@ -158,7 +159,7 @@ function ChunkItem({ chunk }: { chunk: RagChunk }) {
   const isVideo = !!(chunk.video_id || chunk.video_url) && chunk.start_sec != null;
   const ts = Math.max(0, Math.floor(chunk.start_sec ?? 0));
   const videoUrl = isVideo
-    ? (chunk.video_url || `https://www.youtube.com/watch?v=${chunk.video_id}&t=${ts}s`)
+    ? safeVideoUrl(chunk.video_url, chunk.video_id, ts)
     : '';
   const mmss = `${Math.floor(ts / 60)}:${String(ts % 60).padStart(2, '0')}`;
 
@@ -199,7 +200,7 @@ function ChunkItem({ chunk }: { chunk: RagChunk }) {
           <div style={{ color: '#888', fontSize: 10, marginBottom: 4 }}>
             id: {chunk.id}
           </div>
-          {isVideo && (
+          {isVideo && videoUrl && (
             <div style={{ fontSize: 10, marginBottom: 6 }}>
               🎬{' '}
               <a href={videoUrl} target="_blank" rel="noopener noreferrer"
@@ -282,11 +283,6 @@ export function RagDebugPanel({ info }: RagDebugPanelProps) {
           {info.error && (
             <div style={{ color: '#c62828', padding: '4px 0', whiteSpace: 'pre-wrap' }}>
               ❌ {info.error}
-            </div>
-          )}
-          {info.serverUrl && (
-            <div style={{ color: '#888', fontSize: 10, padding: '2px 0 4px' }}>
-              endpoint: {info.serverUrl}
             </div>
           )}
 

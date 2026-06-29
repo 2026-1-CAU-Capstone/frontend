@@ -17,8 +17,8 @@
  * onNewPublicId callbacks while the stream is in flight.
  */
 import { streamChat } from '../../api/chat';
-import { streamWithRAG, type RagDebugInfo } from '../../api/harmorag';
-import type { ClaudeImage, ClaudeMessage } from '../../api/claude';
+import type { RagDebugInfo } from '../../api/harmorag';
+import { streamClaudeMessage, type ClaudeImage, type ClaudeMessage } from '../../api/claude';
 
 export interface RunChatStreamArgs {
   /** Raw user text (DB-safe — no `[내부 지시 …]` injections). */
@@ -130,16 +130,19 @@ export async function runChatStream(args: RunChatStreamArgs): Promise<RunChatStr
     }
   }
 
-  /* Local HarmoRAG path — direct call to the FastAPI server. Runs for
-   * anonymous users AND as fallback when the backend errored above. */
+  /* Fallback — direct Claude (NO RAG). Runs for anonymous users AND when the
+   * backend stream errored above. RAG now lives entirely on the backend
+   * (/v1/chat/stream with useRag); the old self-hosted Mac-mini RAG server is
+   * gone, so there's no RAG in this path — just a plain Claude reply. The
+   * augmented `textForLLM` is still used so client-only tricks ([LICK:id] /
+   * ```glick) keep working on this path. */
   try {
-    finalText = await streamWithRAG(
+    finalText = await streamClaudeMessage(
       textForLLM,
       history,
       contextForModel,
-      songTitle,
       onChunk,
-      onDebug,
+      undefined,
       images,
       signal,
     );

@@ -215,7 +215,7 @@ const ReaderIcon = () => (
 const Wrapper = styled.div`
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: ${({ theme }) => theme.zIndex.modal};
   background: #fff;
   font-family: ${({ theme }) => theme.fonts.ui};
   display: flex;

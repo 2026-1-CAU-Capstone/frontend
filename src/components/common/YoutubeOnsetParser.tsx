@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { isComposingEvent } from '../../lib/ime';
 import styled from 'styled-components';
 import {
   parseYoutubeId,
@@ -381,7 +382,7 @@ export function YoutubeOnsetParser() {
           value={urlInput}
           onChange={(e) => setUrlInput(e.target.value)}
           placeholder="YouTube URL 또는 11자 ID"
-          onKeyDown={(e) => { if (e.key === 'Enter') handleLoad(); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !isComposingEvent(e)) handleLoad(); }}
         />
         <BtnPrimary onClick={handleLoad}>Load</BtnPrimary>
       </Row>
@@ -451,7 +452,7 @@ export function YoutubeOnsetParser() {
           onChange={(e) => setLickNumInput(e.target.value)}
           placeholder="Lick # (예: 64)"
           style={{ maxWidth: 200 }}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !submitting) handleSubmit(); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !submitting && !isComposingEvent(e)) handleSubmit(); }}
           disabled={submitting}
         />
         <BtnPrimary onClick={handleSubmit} disabled={submitting}>

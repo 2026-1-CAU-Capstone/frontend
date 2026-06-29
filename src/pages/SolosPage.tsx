@@ -661,11 +661,23 @@ export default function SolosPage() {
    *  at the app root, so the toast still appears even if the user has navigated
    *  away from this page. Gives up after MAX_MS so a stuck job can't poll
    *  forever. */
+  /* publicId → pending timeout. 동일 솔로 중복 폴러 방지 + 정리 가능하게 추적.
+   * (기존엔 타이머 id를 버려서 로그아웃/삭제 후에도 최대 5분간 5초 간격 요청이
+   * 계속됐고, 같은 파일 연속 업로드 시 폴러가 누적됐다.) */
+  const omrPollersRef = useRef<Map<string, number>>(new Map());
+  useEffect(() => () => {
+    // 언마운트: 모든 폴러 정지 (토스트 알림은 페이지를 떠나면 의미 없음)
+    omrPollersRef.current.forEach((t) => window.clearTimeout(t));
+    omrPollersRef.current.clear();
+  }, []);
+
   const pollSoloOmr = useCallback((publicId: string) => {
     const INTERVAL_MS = 5000; // OMR takes tens of seconds — slow poll keeps the request rate low
     const MAX_MS = 5 * 60_000;
+    if (omrPollersRef.current.has(publicId)) return; // 중복 폴러 방지
     const startedAt = Date.now();
     const tick = async () => {
+      omrPollersRef.current.delete(publicId);
       try {
         const st = await getSoloOmrStatus(publicId);
         if (st.status === 'COMPLETED') {
@@ -685,8 +697,11 @@ export default function SolosPage() {
           });
           return;
         }
-      } catch {
-        /* best-effort — keep polling unless we've exceeded MAX_MS */
+      } catch (e) {
+        // 인증 만료(401/403)면 더 폴링해도 영원히 실패 — 즉시 종료.
+        const msg = e instanceof Error ? e.message : '';
+        if (/\b401\b|\b403\b/.test(msg)) return;
+        /* 그 외 일시 오류 — best-effort로 계속 */
       }
       if (Date.now() - startedAt > MAX_MS) {
         notify({
@@ -696,7 +711,8 @@ export default function SolosPage() {
         });
         return;
       }
-      window.setTimeout(() => void tick(), INTERVAL_MS);
+      const t = window.setTimeout(() => void tick(), INTERVAL_MS);
+      omrPollersRef.current.set(publicId, t);
     };
     void tick();
   }, [notify, fetchAndOpenSolo]);
@@ -787,25 +803,41 @@ export default function SolosPage() {
   const handlePdfDownload = useCallback(async (solo: SoloResponse) => {
     setPdfBusy(solo.publicId);
     try {
-      if (selectedId !== solo.publicId) {
-        setSelectedId(solo.publicId);
-        await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
-        await new Promise((r) => setTimeout(r, 350));
+      // 1) sheetData 보장 — 목록 행은 metadata-only일 수 있다. 고정 350ms 대기는
+      //    fetch+렌더가 그보다 느리면 실패했고, 이미 선택된 행이라도 getSolo가
+      //    아직 머지 전이면(분기 미진입) 거의 항상 실패했다. 직접 await로 해소.
+      if (!solo.sheetData) {
+        const full = await getSolo(solo.publicId);
+        setSolos((prev) => prev.map((s) => (s.publicId === full.publicId ? full : s)));
+        solo = full;
       }
+      if (selectedId !== solo.publicId) setSelectedId(solo.publicId);
       if (typeof document !== 'undefined' && document.fonts?.ready) {
         await document.fonts.ready;
       }
 
-      // The score is the LARGEST <svg> in the preview (others are icons/glyphs).
-      const allSvgs = Array.from(
-        previewBodyRef.current?.querySelectorAll('svg') ?? [],
-      ) as SVGSVGElement[];
-      if (allSvgs.length === 0) throw new Error('악보가 준비되지 않았습니다.');
-      const scoreSvg = allSvgs.reduce((best, s) => {
-        const r = s.getBoundingClientRect();
-        const b = best.getBoundingClientRect();
-        return r.width * r.height > b.width * b.height ? s : best;
-      });
+      // 2) 악보 SVG가 실제로 그려질 때까지 폴링 (최대 ~5s). "가장 큰 svg"가
+      //    아이콘 수준 크기면 아직 악보가 아니다 — 최소 면적으로 검증.
+      const MIN_SCORE_AREA = 40_000; // px² — 아이콘(수백)과 악보(수십만)의 중간
+      const findScoreSvg = (): SVGSVGElement | null => {
+        const all = Array.from(
+          previewBodyRef.current?.querySelectorAll('svg') ?? [],
+        ) as SVGSVGElement[];
+        if (all.length === 0) return null;
+        const best = all.reduce((b, s) => {
+          const r = s.getBoundingClientRect();
+          const rb = b.getBoundingClientRect();
+          return r.width * r.height > rb.width * rb.height ? s : b;
+        });
+        const br = best.getBoundingClientRect();
+        return br.width * br.height >= MIN_SCORE_AREA ? best : null;
+      };
+      let scoreSvg = findScoreSvg();
+      for (let i = 0; i < 50 && !scoreSvg; i++) {
+        await new Promise((r) => setTimeout(r, 100));
+        scoreSvg = findScoreSvg();
+      }
+      if (!scoreSvg) throw new Error('악보가 준비되지 않았습니다.');
 
       const safe = (s: string) => s.replace(/[/\\?%*:|"<>]/g, '-').trim();
       const filename = `${safe(solo.performer ?? 'Unknown')} - ${safe(solo.title)}`;

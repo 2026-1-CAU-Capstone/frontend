@@ -202,7 +202,7 @@ const popIn = keyframes`
 const Backdrop = styled.div`
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: ${({ theme }) => theme.zIndex.modal};
   background: rgba(20, 20, 20, 0.4);
   display: flex;
   align-items: center;

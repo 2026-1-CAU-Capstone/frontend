@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Jazzify 기능 명세서 (Functional Specification) v1.0</title>
+<style>
+  :root{
+    --ink:#16181d; --ink2:#3a3f4a; --muted:#6b7280; --line:#e7e9ee; --bg:#f7f8fa;
+    --card:#ffffff; --accent:#2b6cb0; --accent2:#0e7490;
+    --done:#16a34a; --partial:#d97706; --fix:#dc2626; --plan:#7c3aed; --dev:#64748b;
+    --crit:#b91c1c; --high:#ea580c; --med:#ca8a04; --low:#2563eb; --info:#64748b;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo",Roboto,"Noto Sans KR",sans-serif;
+    color:var(--ink);background:var(--bg);line-height:1.6;-webkit-font-smoothing:antialiased;}
+  .layout{display:grid;grid-template-columns:264px 1fr;max-width:1320px;margin:0 auto;}
+  /* Sidebar */
+  nav.toc{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;
+    padding:24px 16px;border-right:1px solid var(--line);background:var(--card);}
+  nav.toc h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:18px 8px 6px;}
+  nav.toc a{display:block;padding:6px 10px;border-radius:8px;color:var(--ink2);text-decoration:none;font-size:13.5px;}
+  nav.toc a:hover{background:var(--bg);color:var(--accent);}
+  nav.toc .brand{font-weight:800;font-size:18px;color:var(--ink);padding:0 8px 4px;}
+  nav.toc .brand small{display:block;font-weight:500;font-size:12px;color:var(--muted);}
+  /* Main */
+  main{padding:40px 48px 120px;min-width:0;}
+  header.doc{border-bottom:2px solid var(--ink);padding-bottom:20px;margin-bottom:8px;}
+  header.doc h1{font-size:30px;margin:0 0 6px;letter-spacing:-.01em;}
+  header.doc .meta{color:var(--muted);font-size:13.5px;}
+  header.doc .meta b{color:var(--ink2);}
+  section{margin-top:44px;scroll-margin-top:20px;}
+  section>h2{font-size:23px;border-left:5px solid var(--accent);padding-left:12px;margin:0 0 16px;}
+  section>h3{font-size:17px;margin:26px 0 10px;color:var(--ink);}
+  p{color:var(--ink2);}
+  code{background:#eef1f5;padding:1.5px 6px;border-radius:5px;font-size:12.5px;
+    font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;color:#0b4a6f;}
+  pre{background:#0f172a;color:#e2e8f0;padding:16px 18px;border-radius:12px;overflow-x:auto;font-size:12.5px;
+    font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;line-height:1.55;}
+  /* Tables */
+  table{width:100%;border-collapse:collapse;margin:10px 0 6px;font-size:13.5px;background:var(--card);
+    border:1px solid var(--line);border-radius:12px;overflow:hidden;}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{background:#f0f2f6;font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);font-weight:700;}
+  tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:#fafbfc;}
+  td.id{font-family:"SF Mono",ui-monospace,monospace;font-size:12px;color:var(--muted);white-space:nowrap;}
+  /* Badges */
+  .b{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700;white-space:nowrap;line-height:1.5;}
+  .done{background:#dcfce7;color:var(--done);}
+  .partial{background:#fef3c7;color:var(--partial);}
+  .fix{background:#fee2e2;color:var(--fix);}
+  .plan{background:#ede9fe;color:var(--plan);}
+  .dev{background:#e2e8f0;color:var(--dev);}
+  /* Tier pills */
+  .t{display:inline-block;padding:1px 7px;border-radius:6px;font-size:10.5px;font-weight:700;margin:1px 2px 1px 0;border:1px solid;}
+  .t.fe{color:#0e7490;border-color:#a5d8e6;background:#ecfeff;}
+  .t.be{color:#9333ea;border-color:#ddc7f5;background:#f8f0ff;}
+  .t.omr{color:#b45309;border-color:#f3d8a8;background:#fffbeb;}
+  .t.rag{color:#0369a1;border-color:#b6dcf0;background:#f0f9ff;}
+  .t.llm{color:#be123c;border-color:#f3c0cc;background:#fff1f3;}
+  .t.ios{color:#475569;border-color:#cbd5e1;background:#f1f5f9;}
+  /* Severity */
+  .sev{font-weight:800;}
+  .sev.c{color:var(--crit);} .sev.h{color:var(--high);} .sev.m{color:var(--med);} .sev.l{color:var(--low);} .sev.i{color:var(--info);}
+  /* Dashboard cards */
+  .dash{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:16px 0 8px;}
+  .dash .c{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;text-align:center;}
+  .dash .c .n{font-size:28px;font-weight:800;line-height:1;}
+  .dash .c .l{font-size:12px;color:var(--muted);margin-top:6px;}
+  .legend{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0;}
+  .callout{border:1px solid var(--line);border-left:4px solid var(--crit);background:#fff6f6;border-radius:10px;padding:14px 18px;margin:14px 0;}
+  .callout.ok{border-left-color:var(--done);background:#f3fdf6;}
+  .callout b{color:var(--ink);}
+  .arch{font-size:12px;}
+  hr{border:none;border-top:1px solid var(--line);margin:40px 0;}
+  @media(max-width:900px){
+    .layout{grid-template-columns:1fr;} nav.toc{display:none;} main{padding:24px 18px 80px;}
+    .dash{grid-template-columns:repeat(2,1fr);}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="toc">
+  <div class="brand">Jazzify <small>기능 명세서 v1.0 · 2026-06-13</small></div>
+  <h2>문서</h2>
+  <a href="#legend">0. 범례</a>
+  <a href="#overview">1. 제품 개요</a>
+  <a href="#arch">2. 시스템 아키텍처</a>
+  <h2>기능 명세</h2>
+  <a href="#m1">M1. 인증 &amp; 계정</a>
+  <a href="#m2">M2. 홈 &amp; AI 채팅</a>
+  <a href="#m3">M3. 코드 차트 분석</a>
+  <a href="#m4">M4. 악보 분석</a>
+  <a href="#m5">M5. 릭 DB &amp; 12키 연습</a>
+  <a href="#m6">M6. 솔로 DB</a>
+  <a href="#m7">M7. 악보 편집기</a>
+  <a href="#m8">M8. OMR</a>
+  <a href="#m9">M9. 내 라이브러리</a>
+  <a href="#m10">M10. 재생 엔진</a>
+  <a href="#m11">M11. YouTube 채보</a>
+  <a href="#m12">M12. 백킹 R&amp;D</a>
+  <a href="#m13">M13. 마케팅/온보딩</a>
+  <a href="#m14">M14. 플랫폼/iOS</a>
+  <h2>부록</h2>
+  <a href="#api">4. API 요약</a>
+  <a href="#roadmap">5. 로드맵</a>
+  <a href="#defects">6. 수정 필요</a>
+  <a href="#nfr">7. 비기능 요구사항</a>
+  <a href="#glossary">8. 용어집</a>
+  <h2>백엔드 요구사항</h2>
+  <a href="#backend-req">B. 백엔드 요구사항</a>
+</nav>
+
+<main>
+<header class="doc">
+  <h1>Jazzify 기능 명세서</h1>
+  <div class="meta">
+    <b>Functional Specification</b> · 버전 v1.0 · 작성일 2026-06-13<br/>
+    대상: 재즈 코드차트·리드시트 분석 / AI 학습 / 연습 플랫폼 (React 19 + Vite 8 + Capacitor iOS)<br/>
+    근거: <code>src/</code> 전수(237파일) · <code>Fable.md</code> 감사(81건) · API 13모듈 · 오디오·OMR·RAG 매핑
+  </div>
+</header>
+
+<div class="dash">
+  <div class="c"><div class="n" style="color:var(--done)">91</div><div class="l">✅ 구현완료</div></div>
+  <div class="c"><div class="n" style="color:var(--partial)">4</div><div class="l">🟡 부분구현</div></div>
+  <div class="c"><div class="n" style="color:var(--fix)">12</div><div class="l">🔧 수정필요</div></div>
+  <div class="c"><div class="n" style="color:var(--plan)">4</div><div class="l">📋 예정</div></div>
+  <div class="c"><div class="n" style="color:var(--dev)">3</div><div class="l">🧪 개발용</div></div>
+</div>
+
+<!-- 0. 범례 -->
+<section id="legend">
+  <h2>0. 범례</h2>
+  <h3>구현 상태</h3>
+  <div class="legend">
+    <span class="b done">✅ 구현완료</span>
+    <span class="b partial">🟡 부분구현</span>
+    <span class="b fix">🔧 수정필요</span>
+    <span class="b plan">📋 예정</span>
+    <span class="b dev">🧪 개발·데모용</span>
+  </div>
+  <h3>필요 계층 (Tier)</h3>
+  <div class="legend">
+    <span class="t fe">FE 프론트</span>
+    <span class="t be">BE 백엔드</span>
+    <span class="t omr">OMR</span>
+    <span class="t rag">RAG</span>
+    <span class="t llm">LLM Claude</span>
+    <span class="t ios">iOS</span>
+  </div>
+  <h3>액터 (Actor)</h3>
+  <table>
+    <tr><th>아이콘</th><th>액터</th><th>설명</th></tr>
+    <tr><td>👤</td><td>일반 사용자</td><td>로그인 후 학습/연습/저장 (대부분 ProtectedRoute)</td></tr>
+    <tr><td>🌐</td><td>비로그인 방문자</td><td>랜딩/로그인/소개</td></tr>
+    <tr><td>🛠</td><td>관리자(Admin)</td><td>큐레이션 콘텐츠 관리 — <b>현재 프론트 전용 UI 없음</b>, 백엔드/DB 시딩</td></tr>
+    <tr><td>👨‍💻</td><td>개발자(Dev)</td><td>내부 POC·기술검증·디버그</td></tr>
+    <tr><td>⚙️</td><td>시스템</td><td>자동 동작(토큰갱신·캐시·재생엔진)</td></tr>
+  </table>
+</section>
+
+<!-- 1. 개요 -->
+<section id="overview">
+  <h2>1. 제품 개요</h2>
+  <p>Jazzify는 재즈 연주자·학습자를 위한 <b>코드차트/리드시트 분석 + AI 화성학 튜터 + 백킹트랙 연습</b> 통합 플랫폼이다.</p>
+  <table>
+    <tr><th>핵심 가치</th><th>내용</th></tr>
+    <tr><td><b>분석</b></td><td>1,460곡 표준 + 사용자 차트를 ii-V-I·세컨더리 도미넌트·모달 인터체인지로 자동 분석·시각화</td></tr>
+    <tr><td><b>AI 튜터</b></td><td>RAG 채팅으로 출처(유튜브 딥링크) 달린 답변 + DB 릭 추천</td></tr>
+    <tr><td><b>연습</b></td><td>풀밴드 자동 반주(콤핑+워킹베이스+드럼, 13장르), 12키 릭 연습, 구간 루프</td></tr>
+    <tr><td><b>자료화</b></td><td>OMR로 이미지 악보 디지털화, 릭/솔로 DB(WJazzD 8,000+) 검색</td></tr>
+  </table>
+  <p><b>플랫폼</b>: 웹(데스크톱/태블릿) + iOS 네이티브(Capacitor) · HashRouter SPA</p>
+</section>
+
+<!-- 2. 아키텍처 -->
+<section id="arch">
+  <h2>2. 시스템 아키텍처</h2>
+  <h3>2.1 기술 스택</h3>
+  <table>
+    <tr><th>계층</th><th>기술</th></tr>
+    <tr><td>프론트</td><td>React 19, Vite 8(rolldown), styled-components 6, TypeScript strict</td></tr>
+    <tr><td>악보 렌더</td><td>VexFlow 5, OSMD</td></tr>
+    <tr><td>오디오</td><td>Web Audio API, smplr(사운드폰트), 자체 백킹 엔진</td></tr>
+    <tr><td>네이티브</td><td>Capacitor 8 (iOS)</td></tr>
+    <tr><td>백엔드</td><td>Jazzify API — JWT(access) + HTTP-only refresh 쿠키(RTR)</td></tr>
+    <tr><td>AI</td><td>Anthropic Claude (백엔드 프록시 + RAG / 클라 직접 폴백)</td></tr>
+    <tr><td>OMR</td><td>백엔드 OMR (이미지→MusicXML→코드/멜로디)</td></tr>
+    <tr><td>RAG</td><td>백엔드 RAG (멀티쿼리 + RRF + 유튜브 딥링크 출처)</td></tr>
+  </table>
+  <h3>2.2 구성도</h3>
+<pre class="arch">┌────────────── 클라이언트 (Web / iOS) ──────────────┐
+│ React SPA (HashRouter)                              │
+│  ├─ 페이지 18 · 컴포넌트 도메인 9 · 전역 Provider     │
+│  ├─ 재생 엔진(FE): 백킹·사운드폰트·스윙·카운트인       │
+│  ├─ OMR 원본 이미지 캐시(FE): IndexedDB              │
+│  └─ API 클라 13모듈 (authFetch: Bearer + refresh)   │
+└──────┬───────────────────┬──────────────────┬──────┘
+       │                   │                  │
+ [Jazzify 백엔드]    [Anthropic API]   [localStorage/IndexedDB]
+ jazzify.p-e.kr/api  api.anthropic.com 토큰·캐시·OMR이미지
+  ├ 인증(RTR)        (클라 직접 폴백)
+  ├ 채팅 스트림 + RAG
+  ├ 코드/악보 프로젝트
+  ├ 릭/솔로 (+ OMR)
+  └ 파일 스토리지</pre>
+</section>
+
+<!-- ===== 기능 명세 ===== -->
+<section id="m1">
+  <h2>M1. 인증 &amp; 계정</h2>
+  <table>
+    <tr><th>ID</th><th>기능</th><th>설명</th><th>액터</th><th>계층</th><th>상태</th></tr>
+    <tr><td class="id">F1.1</td><td>회원가입</td><td><code>POST /v1/auth/signup</code> (즉시 로그인 유도)</td><td>🌐</td><td><span class="t be">BE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F1.2</td><td>로그인</td><td>access token(localStorage) + refresh 쿠키</td><td>🌐</td><td><span class="t be">BE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F1.3</td><td>소셜 로그인</td><td>Google 등 버튼만 존재</td><td>🌐</td><td><span class="t be">BE</span></td><td><span class="b plan">📋</span></td></tr>
+    <tr><td class="id">F1.4</td><td>자동 토큰 갱신(RTR)</td><td>만료 60초 전 무음 갱신, 재사용 감지 무효화</td><td>⚙️</td><td><span class="t be">BE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F1.5</td><td>멀티탭 동기화</td><td>Web Locks 직렬화 + storage 이벤트</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F1.6</td><td>세션 복구</td><td>새로고침 시 bootstrapAuth 자동 유지</td><td>⚙️</td><td><span class="t be">BE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F1.7</td><td>로그아웃 + 데이터 정리</td><td>캐시 8종 + chartEdit + IndexedDB OMR 이미지 clear</td><td>👤</td><td><span class="t fe">FE</span><span class="t be">BE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F1.8</td><td>계정 모달</td><td>사용자 정보·로그아웃</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F1.9</td><td>보호 라우트</td><td>비로그인 시 /login + 원위치 복구</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F1.10</td><td>Access Token 저장</td><td>localStorage — XSS 탈취 위험</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b fix">🔧</span></td></tr>
+  </table>
+</section>
+
+<section id="m2">
+  <h2>M2. 홈 &amp; AI 채팅</h2>
+  <table>
+    <tr><th>ID</th><th>기능</th><th>설명</th><th>액터</th><th>계층</th><th>상태</th></tr>
+    <tr><td class="id">F2.1</td><td>홈 대시보드</td><td>로그인 시 채팅 허브 / 비로그인 시 도구·CTA</td><td>👤🌐</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F2.2</td><td>AI 채팅(스트리밍)</td><td><code>POST /v1/chat/*/stream</code> SSE + 코드차트 블록</td><td>👤</td><td><span class="t be">BE</span><span class="t rag">RAG</span><span class="t llm">LLM</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F2.3</td><td>비로그인/폴백 채팅</td><td>백엔드 실패·익명 시 Claude 직접(no RAG)</td><td>👤🌐</td><td><span class="t llm">LLM</span></td><td><span class="b fix">🔧</span></td></tr>
+    <tr><td class="id">F2.4</td><td>채팅 히스토리</td><td>목록·상세·삭제, 사이드바 자동 갱신</td><td>👤</td><td><span class="t be">BE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F2.5</td><td>새 채팅</td><td>작성중 확인 모달 + reset</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F2.6</td><td>코드/악보 컨텍스트 첨부</td><td>선택 코드·노트 범위 분석 전송</td><td>👤</td><td><span class="t fe">FE</span><span class="t be">BE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F2.7</td><td>이미지 첨부(Vision)</td><td>base64 첨부, vision은 RAG 비활성</td><td>👤</td><td><span class="t llm">LLM</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F2.8</td><td>RAG 인용</td><td><code>[n]</code> → 출처 칩, 유튜브 t=초 딥링크</td><td>👤</td><td><span class="t rag">RAG</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F2.9</td><td>릭 추천 인라인</td><td>DB 릭만 추출 → 인라인 VexFlow + 재생</td><td>👤</td><td><span class="t be">BE</span><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F2.10</td><td>프로젝트별 채팅</td><td>차트 발 채팅이 곡명·아이콘으로 최근채팅 + 재진입</td><td>👤</td><td><span class="t be">BE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F2.11</td><td>RAG 디버그 패널</td><td>쿼리 분해·청크 점수·RRF</td><td>👨‍💻</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F2.12</td><td>메시지 편집/재생성 fork</td><td>백엔드 영속 불일치(삭제 턴 부활·중복)</td><td>👤</td><td><span class="t be">BE</span></td><td><span class="b fix">🔧</span></td></tr>
+  </table>
+</section>
+
+<section id="m3">
+  <h2>M3. 코드 차트 분석</h2>
+  <table>
+    <tr><th>ID</th><th>기능</th><th>설명</th><th>액터</th><th>계층</th><th>상태</th></tr>
+    <tr><td class="id">F3.1</td><td>차트 뷰어</td><td>LeadSheet(VexFlow) 코드·마디·반복·볼타</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F3.2</td><td>1,460곡 라이브러리</td><td>표준 곡 검색·열기</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F3.3</td><td>ii-V-I 감지·괄호</td><td>곡 전체(행 넘김) 자동 탐지</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F3.4</td><td>세컨더리 도미넌트</td><td>해결 관계 화살표</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F3.5</td><td>모달 인터체인지</td><td>빌린 코드 하이라이트</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F3.6</td><td>도수·기능 표시</td><td>T/SD/D 색상 + 도수 라벨</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F3.7</td><td>이조</td><td>12키 즉시 전조(이조악기 반영)</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F3.8</td><td>자동 반주 재생</td><td>풀밴드 백킹(M10)</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F3.9</td><td>믹서</td><td>볼륨(0~100·기본50)·드럼킷·리버브·베이스모드</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F3.10</td><td>연습 루프</td><td>구간 A-B 반복 저장</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F3.11</td><td>Break Editor</td><td>구간 반주 음소거(멜로디 유지)</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F3.12</td><td>코드 선택 모드</td><td>범위 드래그 → 채팅 컨텍스트</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b fix">🔧 모바일 터치</span></td></tr>
+    <tr><td class="id">F3.13</td><td>직접 편집</td><td>코드 심볼 입력/수정 + 저장</td><td>👤</td><td><span class="t be">BE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F3.14</td><td>프로젝트 저장/분석</td><td>ChordProject CRUD + 자동 분석</td><td>👤</td><td><span class="t be">BE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F3.15</td><td>저장된 릭 표시</td><td>마디별 매칭 릭 모달 + 인라인</td><td>👤</td><td><span class="t be">BE</span><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F3.16</td><td>공유 링크</td><td>차트를 URL 해시(<code>/v?d=…</code>)에 인코딩 → 공개 링크 생성. <code>navigator.share</code> 네이티브 공유시트 우선·링크 복사 모달 폴백. 누구나 로그인 없이 읽기 전용 열람. <b>프론트 전용 v1</b>(백엔드 토큰 미사용 → BR-2)</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+  </table>
+</section>
+
+<section id="m4">
+  <h2>M4. 악보(노트시트) 분석</h2>
+  <table>
+    <tr><th>ID</th><th>기능</th><th>설명</th><th>액터</th><th>계층</th><th>상태</th></tr>
+    <tr><td class="id">F4.1</td><td>악보 뷰어</td><td>NoteSheet 멜로디 + 코드</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F4.2</td><td>멀티파트</td><td>전체/단일 파트, 파트별 GM 음색</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F4.3</td><td>멜로디 분석</td><td>코드톤/텐션/어보이드 색상</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F4.4</td><td>이조</td><td>멜로디+코드 동시 전조</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F4.5</td><td>재생</td><td>멜로디+코드 동기 재생·하이라이트</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F4.6</td><td>선택 → 채팅</td><td>마디 범위 → 노트+코드 컨텍스트</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F4.7</td><td>파일 로드</td><td>JSON/MIDI/XML/MXL</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F4.11</td><td>공유 링크</td><td>악보(NoteSheetData)를 URL 해시(<code>/v?d=…</code>)에 인코딩 → 공개 뷰어에서 <b>보기 전용</b> 열람. 네이티브 공유시트/복사 모달. 복제는 미지원(악보 생성 백엔드 경로 없음 → BR-2)</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F4.8</td><td>의존성 배열 누락</td><td>togglePlay extraParts·forceAutoStem</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b fix">🔧</span></td></tr>
+    <tr><td class="id">F4.9</td><td>자동 스크롤 좌표 혼용</td><td>좁은 화면 오버스크롤</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b fix">🔧</span></td></tr>
+    <tr><td class="id">F4.10</td><td>RepeatControl 미반영</td><td>NotePage 반복 UI 재생 미적용</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b fix">🔧</span></td></tr>
+  </table>
+</section>
+
+<section id="m5">
+  <h2>M5. 릭 데이터베이스 &amp; 12키 연습</h2>
+  <table>
+    <tr><th>ID</th><th>기능</th><th>설명</th><th>액터</th><th>계층</th><th>상태</th></tr>
+    <tr><td class="id">F5.1</td><td>릭 목록</td><td>백엔드/스냅샷/정적(WJazzD 8,000+)</td><td>👤</td><td><span class="t be">BE</span><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F5.2</td><td>필터</td><td>연주자·스타일·코드·텍스트</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F5.3</td><td>멜로디 유사도 검색</td><td>피아노→MIDI→슬라이딩 매칭(0~100%)</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F5.4</td><td>무한 스크롤</td><td>Intersection Observer</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F5.5</td><td>릭 카드</td><td>VexFlow 악보·메타·재생</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F5.6</td><td>12키 연습</td><td>크로매틱/4도권, 자동 이조·카운트인</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F5.7</td><td>YouTube 링크</td><td>릭 영상 딥링크 패널</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F5.8</td><td>릭 CRUD</td><td>생성/수정/삭제</td><td>👤🛠</td><td><span class="t be">BE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F5.9</td><td>OMR 릭 생성</td><td>이미지 → 릭 채보</td><td>👤</td><td><span class="t omr">OMR</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F5.10</td><td>릭 추천 자동 이조</td><td>곡명/조성/패턴 3단계 + 대상키 이조</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+  </table>
+</section>
+
+<section id="m6">
+  <h2>M6. 솔로 데이터베이스</h2>
+  <table>
+    <tr><th>ID</th><th>기능</th><th>설명</th><th>액터</th><th>계층</th><th>상태</th></tr>
+    <tr><td class="id">F6.1</td><td>솔로 목록</td><td><code>GET /v1/solos</code> (curated/weimar/user)</td><td>👤</td><td><span class="t be">BE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F6.2</td><td>필터(클라)</td><td>연주자·조성·박자·텍스트 (백엔드 필터 미지원)</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b partial">🟡</span></td></tr>
+    <tr><td class="id">F6.3</td><td>연주자/작곡자 facet</td><td>distinct 목록</td><td>👤</td><td><span class="t be">BE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F6.4</td><td>솔로 카드</td><td>NoteSheet 렌더·재생·12키 이조</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F6.5</td><td>솔로 CRUD</td><td>생성/수정/삭제</td><td>👤🛠</td><td><span class="t be">BE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F6.6</td><td>OMR 솔로 생성</td><td>이미지 → 솔로 채보</td><td>👤</td><td><span class="t omr">OMR</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F6.7</td><td>PDF 내보내기</td><td>악보 SVG → PDF</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F6.8</td><td>비디오 링크</td><td>솔로 영상 등록/삭제</td><td>👤🛠</td><td><span class="t be">BE</span></td><td><span class="b done">✅</span></td></tr>
+  </table>
+</section>
+
+<section id="m7">
+  <h2>M7. 악보 편집기 (Editor)</h2>
+  <table>
+    <tr><th>ID</th><th>기능</th><th>설명</th><th>액터</th><th>계층</th><th>상태</th></tr>
+    <tr><td class="id">F7.1</td><td>모드</td><td><code>?mode=solo/lick</code> (LickInput/SoloGen 통합 후신)</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F7.2</td><td>피아노 입력</td><td>PianoKeyboard 클릭/터치</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F7.3</td><td>음표/쉼표/코드 편집</td><td>duration·accent·tie·tuplet·코드</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F7.4</td><td>박자 정규화</td><td>비정상 박자 자동 분할</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F7.5</td><td>자동 저장</td><td>10초 주기 드래프트</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b fix">🔧 Clear 후 재생성</span></td></tr>
+    <tr><td class="id">F7.6</td><td>멜로디 재생</td><td>useNoteSheetPlayback 공유훅(§8 R8)</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F7.7</td><td>저장</td><td>솔로/릭 POST(+이미지)</td><td>👤</td><td><span class="t be">BE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F7.8</td><td>JSON 로드</td><td>외부 JSON 검증 후 로드</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+  </table>
+</section>
+
+<section id="m8">
+  <h2>M8. OMR (광학 악보 인식)</h2>
+  <table>
+    <tr><th>ID</th><th>기능</th><th>설명</th><th>액터</th><th>계층</th><th>상태</th></tr>
+    <tr><td class="id">F8.1</td><td>이미지/PDF 업로드</td><td>드래그앤드롭, PDF→이미지 변환</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F8.2</td><td>코드차트 OMR</td><td><code>POST /v1/chord-projects/omr</code></td><td>👤</td><td><span class="t omr">OMR</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F8.3</td><td>릭/솔로 OMR</td><td><code>/v1/licks/omr</code>, <code>/v1/solos/omr</code></td><td>👤</td><td><span class="t omr">OMR</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F8.4</td><td>상태 폴링</td><td>PENDING→PROCESSING→COMPLETED/FAILED</td><td>⚙️</td><td><span class="t be">BE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F8.5</td><td>원본 이미지 캐시</td><td>IndexedDB(디바이스 한정)</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F8.6</td><td>InputPage 독립 진입</td><td><code>/input</code> UI만, 백엔드 미연결</td><td>👤</td><td><span class="t omr">OMR</span></td><td><span class="b plan">📋 stub</span></td></tr>
+  </table>
+</section>
+
+<section id="m9">
+  <h2>M9. 내 라이브러리 (My Library)</h2>
+  <table>
+    <tr><th>ID</th><th>기능</th><th>설명</th><th>액터</th><th>계층</th><th>상태</th></tr>
+    <tr><td class="id">F9.1</td><td>내 코드차트</td><td>그리드/리스트, 생성·수정·삭제·분석</td><td>👤</td><td><span class="t be">BE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F9.2</td><td>차트 신규 3종</td><td>직접입력 / OMR·JSON / (폴더)</td><td>👤</td><td><span class="t be">BE</span><span class="t omr">OMR</span></td><td><span class="b partial">🟡</span></td></tr>
+    <tr><td class="id">F9.3</td><td>폴더 기능</td><td>"새 폴더" 버튼·UI 렌더 불가(무동작)</td><td>👤</td><td><span class="t be">BE</span></td><td><span class="b fix">🔧</span></td></tr>
+    <tr><td class="id">F9.4</td><td>내 악보 프로젝트</td><td>파일 업로드→SheetProject CRUD(서버 연동)</td><td>👤</td><td><span class="t be">BE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F9.5</td><td>내 릭</td><td>LicksPage 기반, 사용자 범위 필터 미완</td><td>👤</td><td><span class="t be">BE</span></td><td><span class="b partial">🟡</span></td></tr>
+    <tr><td class="id">F9.6</td><td>업로드 롤백</td><td>생성 실패 시 고아 파일</td><td>⚙️</td><td><span class="t be">BE</span></td><td><span class="b fix">🔧</span></td></tr>
+    <tr><td class="id">F9.7</td><td>악보 카드 클릭</td><td>(과거) 무동작 비대칭 — 검토</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b fix">🔧</span></td></tr>
+    <tr><td class="id">F9.8</td><td>공유 차트 복제</td><td>공개 뷰어(<code>/v</code>)에서 "내 라이브러리에 복제" → ChordProject 생성+코드등록+분석. 로그인 필요(비로그인 시 <code>/login</code> 유도)</td><td>👤</td><td><span class="t be">BE</span><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+  </table>
+</section>
+
+<section id="m10">
+  <h2>M10. 재생 엔진 (Playback Engine) — 공통/시스템</h2>
+  <table>
+    <tr><th>ID</th><th>기능</th><th>설명</th><th>액터</th><th>계층</th><th>상태</th></tr>
+    <tr><td class="id">F10.1</td><td>백킹 자동생성</td><td>콤핑 + 워킹베이스 + 드럼 이벤트</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F10.2</td><td>피아노 콤핑</td><td>프로 녹음 패턴(psBase) + 성음주도</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F10.3</td><td>워킹 베이스</td><td>iReal 18곡 보정 접근음, 2-feel/walking</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F10.4</td><td>드럼 패턴</td><td>13개 스타일 렌더러</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F10.5</td><td>장르·필</td><td>장르→StyleId→FeelId 라우팅</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F10.6</td><td>드럼킷</td><td>acoustic/brushes/latin/synth + 루프</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F10.7</td><td>사운드폰트</td><td>SplendidGrandPiano·Smolken·MusyngKite, IndexedDB 캐시</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F10.8</td><td>스윙</td><td>BPM+필 → 0.5~0.708, 경로 일관</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F10.9</td><td>카운트인</td><td>1~4박 클릭, iOS resume 보정</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F10.10</td><td>글로벌 플레이어</td><td>싱글톤·이벤트 버스·엔진 자동선택</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F10.11</td><td>곡 끝 처리</td><td>마지막 보이싱 + 리버브 블룸(릭 즉시종료)</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F10.12</td><td>멀티파트 재생</td><td>음색별 인스턴스·드럼 스태프 라우팅</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F10.13</td><td>melodyInstMap 누적</td><td>중복로드 dedup, LRU evict 미적용</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b fix">🔧 부분</span></td></tr>
+    <tr><td class="id">F10.14</td><td>볼륨 정책</td><td>0~100·기본50·앱시작 강제 리셋 <i>(2026-06-13)</i></td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F10.15</td><td>잔향</td><td>knee 커브(상한 0.6, 폭주 방지) <i>(2026-06-13)</i></td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+  </table>
+</section>
+
+<section id="m11">
+  <h2>M11. YouTube 채보 (예정)</h2>
+  <table>
+    <tr><th>ID</th><th>기능</th><th>설명</th><th>액터</th><th>계층</th><th>상태</th></tr>
+    <tr><td class="id">F11.1</td><td>URL 입력·메타</td><td>YoutubeOnsetPage UI</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b partial">🟡</span></td></tr>
+    <tr><td class="id">F11.2</td><td>온셋 제안</td><td>현재 mock, <code>/v1/onset/suggest</code> 미구현</td><td>👤</td><td><span class="t be">BE</span></td><td><span class="b plan">📋</span></td></tr>
+    <tr><td class="id">F11.3</td><td>결과→에디터</td><td>온셋→MIDI→Editor 전달</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b plan">📋</span></td></tr>
+  </table>
+</section>
+
+<section id="m12">
+  <h2>M12. 백킹 엔진 R&amp;D (개발용)</h2>
+  <table>
+    <tr><th>ID</th><th>기능</th><th>설명</th><th>액터</th><th>계층</th><th>상태</th></tr>
+    <tr><td class="id">F12.1</td><td>StyPocPage</td><td>Yamaha STY 파싱·변형 실험</td><td>👨‍💻</td><td><span class="t fe">FE</span></td><td><span class="b dev">🧪</span></td></tr>
+    <tr><td class="id">F12.2</td><td>StyDemoPage</td><td>STY 풀 파이프라인 시연</td><td>👨‍💻</td><td><span class="t fe">FE</span></td><td><span class="b dev">🧪</span></td></tr>
+    <tr><td class="id">F12.3</td><td>Hybrid/Sty 백킹</td><td>GlobalPlayer 대체 엔진 후보</td><td>👨‍💻</td><td><span class="t fe">FE</span></td><td><span class="b dev">🧪</span></td></tr>
+  </table>
+</section>
+
+<section id="m13">
+  <h2>M13. 마케팅 / 온보딩</h2>
+  <table>
+    <tr><th>ID</th><th>기능</th><th>설명</th><th>액터</th><th>계층</th><th>상태</th></tr>
+    <tr><td class="id">F13.1</td><td>IntroPage 랜딩</td><td>다국어(한/영), 히어로·CTA, CSS 목업</td><td>🌐</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F13.2</td><td>IntroScreen 스플래시</td><td>첫 방문 1회 애니메이션</td><td>🌐</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+  </table>
+</section>
+
+<section id="m14">
+  <h2>M14. 플랫폼 / 네이티브 (iOS)</h2>
+  <table>
+    <tr><th>ID</th><th>기능</th><th>설명</th><th>액터</th><th>계층</th><th>상태</th></tr>
+    <tr><td class="id">F14.1</td><td>iOS 번들 모드</td><td>Capacitor webDir:dist, cap sync</td><td>⚙️</td><td><span class="t ios">iOS</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F14.2</td><td>바텀 탭바</td><td>네이티브 5탭(웹 no-op)</td><td>👤</td><td><span class="t ios">iOS</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F14.3</td><td>슬라이드 드로어</td><td>iPhone 햄버거+스와이프</td><td>👤</td><td><span class="t ios">iOS</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F14.4</td><td>키보드 높이 추적</td><td>입력 시 레이아웃 보정</td><td>⚙️</td><td><span class="t ios">iOS</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F14.5</td><td>preview 라우트</td><td><code>/preview/*</code> 네이티브 UI 검수</td><td>👨‍💻</td><td><span class="t ios">iOS</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F14.6</td><td>안전영역</td><td>safe-area-inset 패딩</td><td>⚙️</td><td><span class="t ios">iOS</span></td><td><span class="b done">✅</span></td></tr>
+  </table>
+</section>
+
+<hr/>
+
+<!-- 4. API -->
+<section id="api">
+  <h2>4. API 엔드포인트 요약</h2>
+  <p>인증: <code>authFetch</code>가 <code>Authorization: Bearer</code> + refresh 쿠키 부착. 별도 표기 없으면 Bearer 필요.</p>
+  <table>
+    <tr><th>도메인</th><th>메서드 · 경로</th><th>용도</th></tr>
+    <tr><td>인증</td><td><code>POST /v1/auth/signup·login·refresh·logout</code>, <code>GET /v1/auth/me</code></td><td>계정·세션</td></tr>
+    <tr><td>채팅</td><td><code>GET /v1/chat</code>, <code>GET·DELETE /v1/chat/{id}</code></td><td>목록·상세·삭제</td></tr>
+    <tr><td>채팅 스트림</td><td><code>POST /v1/chat/global|chord-project|sheet-project/stream</code></td><td>SSE + RAG_DEBUG</td></tr>
+    <tr><td>코드 프로젝트</td><td><code>GET·POST·PUT·DELETE /v1/chord-projects[/{id}]</code></td><td>CRUD</td></tr>
+    <tr><td>코드 분석/OMR</td><td><code>POST /{id}/analyze</code>, <code>GET /{id}/analysis·explain·omr-status</code>, <code>POST /v1/chord-projects/omr</code></td><td>분석·OMR</td></tr>
+    <tr><td>악보 프로젝트</td><td><code>GET·POST·PUT·DELETE /v1/sheet-projects[/{id}]</code>, <code>GET /{id}/omr-status</code></td><td>CRUD·OMR</td></tr>
+    <tr><td>스토리지</td><td><code>POST /v1/storage-files</code>, <code>GET /v1/storage-files/{id}</code></td><td>파일 업로드</td></tr>
+    <tr><td>릭</td><td><code>GET·POST·PUT·DELETE /v1/licks[/{id}]</code>, <code>POST /v1/licks/omr</code>, <code>PUT /{id}/video</code></td><td>CRUD·OMR·영상</td></tr>
+    <tr><td>솔로</td><td><code>GET·POST·PUT·DELETE /v1/solos[/{id}]</code>, <code>/performers·/composers</code>, <code>POST /v1/solos/omr</code>, <code>PUT·DELETE /{id}/video</code></td><td>CRUD·facet·OMR·영상</td></tr>
+    <tr><td>Anthropic(직접)</td><td><code>POST https://api.anthropic.com/v1/messages</code></td><td>폴백 채팅 🔴 키 노출</td></tr>
+    <tr><td>온셋(예정)</td><td><code>POST /v1/onset/suggest</code></td><td>미구현(현 mock)</td></tr>
+  </table>
+</section>
+
+<!-- 5. Roadmap -->
+<section id="roadmap">
+  <h2>5. 미구현 / 예정 기능 (Roadmap)</h2>
+  <table>
+    <tr><th>우선</th><th>기능</th><th>모듈</th><th>필요</th></tr>
+    <tr><td><b style="color:var(--high)">높음</b></td><td>소셜 로그인(Google)</td><td>M1</td><td><span class="t be">BE</span></td></tr>
+    <tr><td><b style="color:var(--high)">높음</b></td><td>폴더 기능 정상화 또는 제거 결정</td><td>M9</td><td><span class="t be">BE</span> + 제품결정</td></tr>
+    <tr><td><b style="color:var(--high)">높음</b></td><td>메시지 편집/재생성 fork 영속 정합</td><td>M2</td><td><span class="t be">BE</span></td></tr>
+    <tr><td><b style="color:var(--med)">중간</b></td><td>내 릭 사용자 범위 필터링</td><td>M9</td><td><span class="t be">BE</span></td></tr>
+    <tr><td><b style="color:var(--med)">중간</b></td><td>솔로 백엔드 필터(현 클라)</td><td>M6</td><td><span class="t be">BE</span></td></tr>
+    <tr><td><b style="color:var(--med)">중간</b></td><td>YouTube 온셋 감지 실제 구현</td><td>M11</td><td><span class="t be">BE</span></td></tr>
+    <tr><td><b style="color:var(--med)">중간</b></td><td>InputPage OMR 진입 연결</td><td>M8</td><td><span class="t omr">OMR</span></td></tr>
+    <tr><td><b style="color:var(--low)">낮음</b></td><td>관리자(Admin) 콘솔 — 큐레이션 관리 UI</td><td>신규</td><td><span class="t be">BE</span></td></tr>
+  </table>
+</section>
+
+<!-- 6. Defects -->
+<section id="defects">
+  <h2>6. 수정 필요 (Known Defects)</h2>
+  <p>출처: <code>Fable.md</code> 감사(81건). 다수는 조치 완료. 아래는 <b>미해결/부분/사용자 조치 대기</b>.</p>
+
+  <div class="callout">
+    <b>🔴 Critical (C1) — Anthropic API 키 클라 번들 노출.</b>
+    dist·iOS 번들에 평문 포함 → IPA 추출로 무제한 과금 호출.
+    <b>조치(사용자 콘솔):</b> 키 즉시 폐기·재발급 + 백엔드 일원화 + <code>.env</code>에서 <code>VITE_</code> 제거. (코드 직접 수정 불가 — 키는 콘솔에서)
+  </div>
+
+  <h3>🟠 High</h3>
+  <table>
+    <tr><th>ID</th><th>항목</th><th>상태</th></tr>
+    <tr><td class="id">H1</td><td>메시지 편집/재생성 fork 백엔드 불일치 (F2.12)</td><td>미해결(백엔드 필요)</td></tr>
+    <tr><td class="id">H2</td><td>"새 폴더" 무동작 — 폴더 UI 렌더 불가 (F9.3)</td><td>미해결(제품 결정)</td></tr>
+    <tr><td class="id">H3</td><td>melodyInstMap LRU evict 미적용 (F10.13)</td><td>부분(중복로드 dedup만)</td></tr>
+    <tr><td class="id">H4</td><td>RAG Bearer 토큰 번들 노출</td><td><b>사실상 폐기</b> — RAG 백엔드 이전으로 클라 코드 제거됨</td></tr>
+  </table>
+
+  <h3>🟡 Medium</h3>
+  <table>
+    <tr><th>ID</th><th>항목</th><th>상태</th></tr>
+    <tr><td class="id">M-1</td><td>LeadSheet 모바일 터치 드래그 범위 선택 불가 (F3.12)</td><td>미해결(implicit pointer capture)</td></tr>
+  </table>
+
+  <h3>🟢 Low</h3>
+  <table>
+    <tr><th>ID</th><th>항목</th><th>상태</th></tr>
+    <tr><td class="id">L1</td><td>NoteSheet 의존성 배열 누락 (F4.8)</td><td>미해결</td></tr>
+    <tr><td class="id">L2</td><td>NoteSheet 자동 스크롤 좌표 혼용 (F4.9)</td><td>미해결</td></tr>
+    <tr><td class="id">L3</td><td>업로드 후 생성 실패 시 고아 파일 (F9.6)</td><td>미해결</td></tr>
+    <tr><td class="id">L4</td><td>악보 카드 클릭 무동작 비대칭 (F9.7)</td><td>미해결</td></tr>
+    <tr><td class="id">L5</td><td>NotePage RepeatControl 재생 미반영 (F4.10)</td><td>미해결</td></tr>
+    <tr><td class="id">L6</td><td>autosave Clear 후 draft 재생성 (F7.5)</td><td>부분</td></tr>
+    <tr><td class="id">L7</td><td>CSP — SRI·폰트 셀프호스팅 잔존</td><td>부분(CSP 메타 적용)</td></tr>
+    <tr><td class="id">L8</td><td>Access Token localStorage XSS (F1.10)</td><td>미해결(아키텍처)</td></tr>
+    <tr><td class="id">L9</td><td>Vite dev 0.0.0.0 바인딩</td><td>미해결(설정)</td></tr>
+  </table>
+
+  <h3>ℹ️ Info (데드코드/기록)</h3>
+  <table>
+    <tr><th>ID</th><th>항목</th><th>상태</th></tr>
+    <tr><td class="id">I1</td><td><code>src/api/analysis.ts</code> 죽은 모듈(import 0)</td><td>삭제 후보</td></tr>
+    <tr><td class="id">I2</td><td>LeadSheet SubV 장식 경로 사문화</td><td>의도적 하드코딩</td></tr>
+    <tr><td class="id">I3</td><td>capacitor.config.ts 주석 내부 IP 노출</td><td>주석 제거 후보</td></tr>
+    <tr><td class="id">I4</td><td>MyChordCharts 레거시 생성 모달 일부</td><td>보존 주석 유지</td></tr>
+  </table>
+</section>
+
+<!-- 7. NFR -->
+<section id="nfr">
+  <h2>7. 비기능 요구사항 (NFR)</h2>
+  <h3>7.1 보안</h3>
+  <ul>
+    <li><b>시크릿</b>: <code>VITE_</code>는 공개 가능 값 전용. API 키·토큰은 백엔드 보관 필수 (현 위반: C1).</li>
+    <li><b>인증</b>: JWT(단기 access, localStorage) + HTTP-only refresh 쿠키 + RTR(재사용 감지 무효화) + 멀티탭 Web Locks.</li>
+    <li><b>계정 격리</b>: 로그인/로그아웃 시 사용자범위 캐시 8종·chartEdit prefix·IndexedDB OMR 이미지 정리.</li>
+    <li><b>CSP</b>: 외부 스크립트 차단(youtube만)·frame/object 제한 메타. SRI·폰트 셀프호스팅 잔존.</li>
+    <li><b>에러 노출</b>: 사용자에겐 <code>message</code>만, <code>detail</code>은 dev 콘솔만.</li>
+    <li><b>개선 권고</b>: access token 메모리/httpOnly화, Anthropic 호출 백엔드 일원화, npm audit 주기 점검.</li>
+  </ul>
+  <h3>7.2 성능</h3>
+  <ul>
+    <li><b>코드 스플리팅</b>: VexFlow/OSMD(~1.1MB)를 차트/악보 페이지에만 lazy 로드.</li>
+    <li><b>사운드폰트 캐시</b>: smplr 샘플 IndexedDB 캐시.</li>
+    <li><b>재생 정확도</b>: 백킹은 Web Audio lookahead(200ms). 에디터/12키는 setTimeout 기반(§8 R8 공유훅 단일화).</li>
+    <li><b>OMR 비동기</b>: 폴링 + in-flight dedup으로 중복 POST 방지.</li>
+  </ul>
+  <h3>7.3 유지보수 — §8 리팩토링 현황</h3>
+  <table>
+    <tr><th>단계</th><th>내용</th><th>효과</th></tr>
+    <tr><td>R0~R3</td><td>z-index 토큰화, 데드코드 삭제(jazzSongs 33,264줄·ireal 1,042줄)</td><td>번들/그래프 정리</td></tr>
+    <tr><td>R4~R5</td><td>두 프로젝트 페이지 공통 styled 36개 추출</td><td>비대칭 버그 차단</td></tr>
+    <tr><td>R7</td><td>LeadSheet 분할(4,037→3,401) + 순수 모듈 4개</td><td>핫스팟 격리</td></tr>
+    <tr><td>R8</td><td>에디터/솔로생 재생 루프 → 공유훅</td><td>−358줄, 잠복버그 4종 해소</td></tr>
+    <tr><td>R9</td><td>잔여 분기 styled 10개 = 의도적 분리 확정·문서화</td><td>항목 종료</td></tr>
+  </table>
+</section>
+
+<!-- 8. Glossary -->
+<section id="glossary">
+  <h2>8. 용어 / 데이터 모델</h2>
+  <table>
+    <tr><th>용어</th><th>설명</th></tr>
+    <tr><td>ChordProject</td><td>사용자 코드차트 프로젝트(분석 포함). BE 저장</td></tr>
+    <tr><td>SheetProject</td><td>업로드 악보 프로젝트(스토리지 파일 참조). BE 저장</td></tr>
+    <tr><td>LickEntry</td><td>릭: performer/key/chords/sheetData/intervals</td></tr>
+    <tr><td>SoloResponse</td><td>솔로: source(user/weimar/curated)/instrument/style/sheetData</td></tr>
+    <tr><td>NoteSheetData</td><td>멜로디+코드 악보 내부 표현(measures·notes)</td></tr>
+    <tr><td>LeadSheetData</td><td>코드차트 내부 표현(systems·bars·chords)</td></tr>
+    <tr><td>MelodyNote</td><td>재생용 음표(beatOffset·midi·duration·srcMi/srcNi)</td></tr>
+    <tr><td>BackingEvent</td><td>엔진 생성 타이밍 이벤트(note/drum)</td></tr>
+    <tr><td>RagChunk</td><td>RAG 청크(score·source_type·video_url·start_sec)</td></tr>
+    <tr><td>FeelId / StyleId</td><td>리듬 느낌 / 장르 식별자(재생 엔진 라우팅)</td></tr>
+    <tr><td>RTR</td><td>Refresh Token Rotation (갱신 시 회전·재사용 감지)</td></tr>
+  </table>
+  <div class="callout ok" style="margin-top:24px">
+    <b>문서 끝.</b> 본 명세서는 <code>Fable.md</code>(결함 감사)와 상호 보완 — 기능 정의는 본 문서, 결함 상세·조치 이력은 <code>Fable.md</code> §1~§10 참조.
+  </div>
+</section>
+
+<!-- B. Backend Requirements -->
+<section id="backend-req">
+  <h2>B. 백엔드 요구사항 (Backend Requirements)</h2>
+  <p>
+    프론트엔드에서 <b>해결 불가</b> — 별도 백엔드(Spring, <code>jazzify.p-e.kr</code>) 또는 인프라(프록시) 수정이
+    필요한 항목을 발견 순으로 누적한다. 각 항목은 프론트 측 완화(있으면)와 백엔드 조치를 함께 적는다.
+  </p>
+
+  <h3>BR-1. AI 채팅 응답이 긴 답변에서 중간에 끊김
+    &nbsp;<span class="b fix">미해결</span>&nbsp;<span class="sev h">HIGH</span>&nbsp;<span class="t be">BE</span> <span class="t rag">RAG</span> <span class="t llm">LLM</span></h3>
+  <table>
+    <tr><th style="width:140px">항목</th><th>내용</th></tr>
+    <tr>
+      <td>증상</td>
+      <td>RAG 채팅(<code>POST /v1/chat/global/stream</code>, <code>useRag=true</code>)에서 긴 화성 분석 답변이
+        문장 중간에 멈춘다. 실제 사례: <i>"E-7은 다이아토닉 iii,"</i> 에서 종료.</td>
+    </tr>
+    <tr>
+      <td>연쇄 영향</td>
+      <td>코드 차트(<code>```chart</code> 펜스 블록)는 보통 답변 후반/끝에 나오므로, 응답이 먼저 끊기면
+        차트 JSON 자체가 전송되지 않는다 → <b>차트 카드 미출력</b>. (즉 "차트 안 나옴" 버그의 상당수가
+        이 끊김의 2차 증상.)</td>
+    </tr>
+    <tr>
+      <td>원인 (프론트 아님)</td>
+      <td>프론트 스트림 파서는 <code>reader.read()</code> 가 <code>done</code> 될 때까지 정상 수신하며,
+        폴백 Claude 경로(<code>api/claude.ts</code>)는 <code>max_tokens: 16384</code> 로 넉넉하다.
+        끊김은 Spring 백엔드 스트림 경로에서 발생.</td>
+    </tr>
+    <tr>
+      <td>의심 ①</td>
+      <td>Spring AI Anthropic ChatClient의 <code>max-tokens</code> 가 작게(기본 1024 / 4096) 설정되어
+        긴 답변이 토큰 한도에서 잘림.</td>
+    </tr>
+    <tr>
+      <td>의심 ②</td>
+      <td>스트림 엔드포인트 앞단 프록시(cloudflared / nginx)의 idle·응답 타임아웃 →
+        긴 SSE 스트림 도중 연결 종료.</td>
+    </tr>
+    <tr>
+      <td>백엔드 조치</td>
+      <td>① <code>spring.ai.anthropic.chat.options.max-tokens</code> ≥ 8192 로 상향.<br/>
+        ② nginx <code>proxy_read_timeout</code> / cloudflared 스트리밍 타임아웃을 답변 생성 시간 이상으로 상향.</td>
+    </tr>
+    <tr>
+      <td>프론트 완화 (적용됨)</td>
+      <td><code>ChatMessage.tsx</code> 의 <code>CHART_RE</code> 정규식을 관대화 —
+        <code>```chart {…}```</code> 한 줄 포맷·닫는 펜스 줄바꿈 변형도 인식. 차트 블록이
+        <b>응답 앞부분에 완결된 경우</b>는 그려진다. 단 응답이 차트 도착 <i>전에</i> 끊기면 복구 불가
+        (BR-1 백엔드 조치 필요).</td>
+    </tr>
+  </table>
+
+  <h3>BR-2. 차트 공유용 토큰 기반 공개 엔드포인트 부재
+    &nbsp;<span class="b fix">미해결</span>&nbsp;<span class="sev m">MEDIUM</span>&nbsp;<span class="t be">BE</span></h3>
+  <table>
+    <tr><th style="width:140px">항목</th><th>내용</th></tr>
+    <tr>
+      <td>증상</td>
+      <td>공유(F3.16 코드차트 · F4.11 악보)가 <b>프론트 전용 v1</b> 으로만 구현됨 — 차트/악보 전체를
+        URL 해시(<code>/v?d=&lt;base64url&gt;</code>)에 인코딩해 링크를 만든다. 백엔드 공유 리소스가 없음.</td>
+    </tr>
+    <tr>
+      <td><span class="sev c">🔴 선결 조건 (차단)</span></td>
+      <td>프론트 전용 공유는 링크를 열 <b>공개 웹페이지가 실제 배포돼 있어야</b> 동작한다. 현재 SPA가
+        공개 웹(<code>jazzify.app</code>)에 <b>미배포</b> → 링크를 외부인에게 보내면 안 열린다. 즉 공유 기능은
+        코드 완성·검증됐으나 <b>웹 배포 전까지 외부 실사용 불가</b>.</td>
+    </tr>
+    <tr>
+      <td>연쇄 영향</td>
+      <td>① 차트/악보가 크면 URL 길이가 폭증(특히 악보는 음표 수가 많아 더 길어짐 — 일부 메신저가 링크 절단 가능, v1 용인 위험).
+        ② 공유 후 원본 수정이 링크에 반영되지 않음(스냅샷). ③ 조회수·만료·폐기 불가.
+        ④ 악보(F4.11)는 <b>보기 전용</b> — 원시 음표로 SheetProject를 만드는 백엔드 경로가 없어 "복제" 미지원.</td>
+    </tr>
+    <tr>
+      <td>백엔드 조치</td>
+      <td>① <code>POST /v1/chord-projects/{publicId}/share</code> → 추측 불가 토큰 발급(멱등, 이미 있으면 재사용) +
+        <code>{ shareToken, shareUrl }</code> 반환.<br/>
+        ② <code>GET /v1/share/{token}</code> → <b>인증 없이</b> 차트 페이로드 반환(공개 read).<br/>
+        ③ <code>DELETE …/share</code> 폐기. ④ 악보 프로젝트도 동일 패턴 + 악보 import(복제) 경로.</td>
+    </tr>
+    <tr>
+      <td>프론트 완화 (적용됨)</td>
+      <td>코드/악보 모두 URL 인코딩으로 즉시 공유 동작(통합 코덱 <code>lib/share/chartShare.ts</code>,
+        <code>kind:'chord'|'note'</code>). 코드차트는 analysis·id 등 무거운 필드를 인코딩 전 제거해 URL 최소화.
+        <b>네이티브(iOS) origin이 <code>capacitor://localhost</code> 라 죽은 링크가 되던 버그 수정</b> →
+        <code>https://jazzify.app</code> canonical base 사용. 백엔드 토큰 준비 시
+        <code>buildShareUrl</code>/<code>buildNoteShareUrl</code> 의 링크 소스만 토큰 발급으로 교체(뷰어·복제 흐름 재사용).</td>
+    </tr>
+  </table>
+</section>
+
+</main>
+</div>
+</body>
+</html>

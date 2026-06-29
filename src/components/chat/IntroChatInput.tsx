@@ -304,18 +304,18 @@ export function IntroChatInput({
           })}
         </AttachRow>
       )}
-      {/* While the assistant is streaming we keep the textarea ENABLED so
-       *  the user can start typing the next message — Send only fires once
-       *  the current turn finishes (the dark circle is in STOP mode until
-       *  then). Mirrors the ChatGPT / Claude "pre-type next prompt" UX. */}
+      {/* Lock the composer WHILE the assistant is streaming — no typing or
+       *  sending mid-reply (user decision). The dark circle becomes a Stop
+       *  button during this window so the only mid-stream action is to
+       *  interrupt; the textarea re-enables the moment the reply finishes. */}
       <TA
         ref={ref}
         $compact={compact}
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={onKey}
-        placeholder={placeholder}
-        disabled={disabled && !isStreaming}
+        placeholder={isStreaming ? '응답 생성 중…' : placeholder}
+        disabled={disabled || isStreaming}
         rows={1}
       />
       <BottomRow>

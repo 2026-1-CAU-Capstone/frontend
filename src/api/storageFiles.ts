@@ -11,6 +11,7 @@
  */
 
 import { authFetch } from './auth';
+import { readApiErrorMessage } from './apiError';
 
 export interface StorageFile {
   publicId: string;
@@ -24,9 +25,9 @@ interface ApiEnvelope<T> { data: T }
 
 async function jsonOrThrow<T>(res: Response, what: string): Promise<T> {
   if (!res.ok) {
-    let detail = '';
-    try { detail = JSON.stringify(await res.json()); } catch { /* not json */ }
-    throw new Error(`${what} failed (${res.status}) ${detail}`.trim());
+    // envelope 원문(JSON.stringify)을 그대로 UI에 노출하던 것 → 사용자용
+    // message만. detail은 dev 콘솔로 (apiError.ts 규칙).
+    throw new Error(`${what} failed (${res.status}) ${await readApiErrorMessage(res, '')}`.trim());
   }
   const text = await res.text();
   const json = text ? JSON.parse(text) : {};

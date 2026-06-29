@@ -3,9 +3,7 @@
  *
  * Approach B from the Unified Player Architecture design doc: this is a
  * thin orchestrator that wraps the concrete engines —
- *  • `BackingPlayer`      (lib/backing/player.ts +
- *                          lib/yamaha-sty/sty-backing-player.ts +
- *                          lib/yamaha-sty/hybrid-backing-player.ts)
+ *  • `BackingPlayer`      (lib/backing/player.ts) — rule-based engine
  *  • `AnacrusisPlayer`    (lib/player/anacrusisPlayer.ts) — pickup notes
  *
  * Responsibilities of this layer (intentionally small):
@@ -72,8 +70,6 @@ import {
   extractMelody,
   type MelodyNote,
 } from "../backing/adapters/noteSheetToChart";
-import { createStyBackingPlayer } from "../../lib/yamaha-sty/sty-backing-player";
-import { createHybridBackingPlayer } from "../../lib/yamaha-sty/hybrid-backing-player";
 import { swungBeats } from "../note/swing";
 import { melodySwingRatio } from "../backing/engine";
 import type { Chart, BackingPlayer, BackingConfig } from "../backing/types";
@@ -83,7 +79,6 @@ import type {
   AnacrusisNote,
   ChartInput,
   ChordSymbol,
-  EngineBackend,
   GlobalPlayer,
   GlobalPlayerConfig,
   GlobalPlayerEvents,
@@ -102,24 +97,10 @@ export interface GlobalPlayerEngineFactories {
     chart: Chart,
     config?: BackingConfig,
   ) => BackingPlayer;
-  createStyBackingPlayer: (
-    chart: Chart,
-    config?: BackingConfig,
-    options?: { styleUrl?: string; styleData?: ArrayBuffer },
-  ) => BackingPlayer;
-  createHybridBackingPlayer: (
-    chart: Chart,
-    config?: BackingConfig,
-    options?: { styleUrl?: string; styleData?: ArrayBuffer },
-  ) => BackingPlayer;
 }
 
 const DEFAULT_FACTORIES: GlobalPlayerEngineFactories = {
   createBackingPlayer: (chart, config) => createBackingPlayer(chart, config),
-  createStyBackingPlayer: (chart, config, options) =>
-    createStyBackingPlayer(chart, config, options),
-  createHybridBackingPlayer: (chart, config, options) =>
-    createHybridBackingPlayer(chart, config, options),
 };
 
 /* ─── Helpers ────────────────────────────────────────────────────────── */
@@ -295,12 +276,9 @@ export function createGlobalPlayer(
   /* ── BackingPlayer selection ─────────────────────────────────────── */
 
   function ensureBackingPlayer(input: ChartInput): BackingPlayer {
-    const backend: EngineBackend = input.engineBackend ?? "rule";
-    // Signature includes the LeadSheet identity, backend, and any style
-    // override. If any change → tear down and rebuild.
-    // LeadSheetData isn't easily hashed; use title+bpm+systems.length as a
-    // cheap proxy. Callers that want a forced rebuild can call stop()
-    // first; play() also tears down on engineBackend change.
+    // Signature includes the LeadSheet identity + chord-content hash. If it
+    // changes → tear down and rebuild. Callers that want a forced rebuild can
+    // call stop() first.
     const sig = computeBackingSig(input);
     if (backingPlayer && backingPlayerSig === sig) {
       return backingPlayer;
@@ -328,27 +306,7 @@ export function createGlobalPlayer(
     if (config.breakBeats !== undefined) seed.breakBeats = config.breakBeats;
     if (config.loopRegion !== undefined) seed.loopRegion = config.loopRegion;
 
-    const styOpts = {
-      styleUrl: input.styleUrl,
-      styleData: input.styleData,
-    };
-
-    switch (backend) {
-      case "sty":
-        backingPlayer = factories.createStyBackingPlayer(chart, seed, styOpts);
-        break;
-      case "hybrid":
-        backingPlayer = factories.createHybridBackingPlayer(
-          chart,
-          seed,
-          styOpts,
-        );
-        break;
-      case "rule":
-      default:
-        backingPlayer = factories.createBackingPlayer(chart, seed);
-        break;
-    }
+    backingPlayer = factories.createBackingPlayer(chart, seed);
 
     backingPlayerSig = sig;
     wireBackingPlayer(backingPlayer);
@@ -442,6 +400,7 @@ export function createGlobalPlayer(
     if (config.feel !== undefined) seed.feel = config.feel;
     if (config.loop !== undefined) seed.loop = config.loop;
     if (config.repeatCount !== undefined) seed.repeatCount = config.repeatCount;
+    if (config.pianoComp1And3 !== undefined) seed.pianoComp1And3 = config.pianoComp1And3;
 
     // Lick mode:
     //  - play ONCE through (no infinite loop / no repeats),
@@ -513,7 +472,6 @@ export function createGlobalPlayer(
   }
 
   function computeBackingSig(input: ChartInput): string {
-    const backend = input.engineBackend ?? "rule";
     const data: LeadSheetData = input.data;
     // title/style/system-count PLUS a rolling hash of the chord CONTENT.
     // The old proxy ignored chord symbols, so editing a chord on the same
@@ -547,7 +505,7 @@ export function createGlobalPlayer(
       (data.systems?.length ?? 0) +
       "/" +
       (h >>> 0).toString(36);
-    return backend + "|" + id;
+    return "rule|" + id;
   }
 
   /* ── Active engine swap helper ───────────────────────────────────── */
@@ -618,9 +576,25 @@ export function createGlobalPlayer(
     return bp ? bp.isReady() : false;
   }
 
+  /** Resume the input's engine ctx synchronously, inside the user gesture.
+   *  Ensures the engine exists (creating it if the mount-warmup preload hasn't
+   *  run for this input yet) so its AudioContext is both created AND resumed
+   *  within the gesture — see the GlobalPlayer interface doc. Without this the
+   *  first play after a cold page entry stays silent (play()'s resume fires
+   *  ~2s later, after the count-in, when the gesture has expired). */
+  function unlock(input: PlayerInput): void {
+    const bp = isMelodyInput(input)
+      ? ensureBackingPlayerForSheet(
+          input as { kind: "sheet" | "lick" | "solo"; data: NoteSheetData },
+        )
+      : ensureBackingPlayer(input);
+    if (!active) active = bp;
+    bp.unlock();
+  }
+
   async function play(
     input: PlayerInput,
-    opts: { startAt?: number; measureOffset?: number } = {},
+    opts: { startAt?: number; measureOffset?: number; downbeatInSec?: number } = {},
   ): Promise<void> {
     try {
       // Stash the measureOffset for the unified path's `wireBackingPlayerMelody`
@@ -629,7 +603,15 @@ export function createGlobalPlayer(
       // offset.
       backingPlayerMelodyOffset = opts.measureOffset ?? 0;
       const handle = activate(input);
-      await handle.engine.play({ startAt: opts.startAt });
+      // startAt은 '실제로 재생할 엔진의 ctx' 기준으로 계산해야 한다. 카운트인이 주는
+      // downbeatInSec(상대 오프셋, cross-ctx 안전)을 그 엔진의 ctxNow()에 더한다. 예전엔
+      // 호출부가 전역 ctxNow()(=active 엔진)로 절대 startAt을 만들었는데, 코드차트는
+      // active가 시트 엔진(앱루트 워밍업)일 때 '다른 AudioContext'의 시각이 섞여
+      // 첫 재생이 "1 2 3 4 후 무음"이 됐다(이벤트가 먼 미래로 스케줄).
+      const startAt = opts.downbeatInSec != null
+        ? handle.engine.ctxNow() + opts.downbeatInSec
+        : opts.startAt;
+      await handle.engine.play({ startAt });
     } catch (err) {
       emit("error", err instanceof Error ? err : new Error(String(err)));
       throw err;
@@ -688,6 +670,7 @@ export function createGlobalPlayer(
     if ("feel" in patch) bpPatch.feel = patch.feel;
     if ("loop" in patch) bpPatch.loop = patch.loop;
     if ("repeatCount" in patch) bpPatch.repeatCount = patch.repeatCount;
+    if ("pianoComp1And3" in patch) bpPatch.pianoComp1And3 = patch.pianoComp1And3;
     // breakBeats go to BOTH engines — chart (Chord Analysis) and melody
     // (Note Analysis). The engine's gate excludes melody events, so the lead
     // line keeps playing; only the backing rests.
@@ -868,6 +851,7 @@ export function createGlobalPlayer(
     },
     preload,
     isReady,
+    unlock,
     play,
     pause,
     stop,

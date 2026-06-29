@@ -1,4 +1,5 @@
 import { authFetch } from './auth';
+import { readApiErrorMessage } from './apiError';
 
 export const CHORD_PROJECT_KEYS = [
   'C_MAJOR', 'G_MAJOR', 'D_MAJOR', 'A_MAJOR', 'E_MAJOR', 'B_MAJOR', 'F_SHARP_MAJOR', 'C_SHARP_MAJOR',
@@ -75,9 +76,9 @@ interface ApiEnvelope<T> { data: T }
 
 async function jsonOrThrow<T>(res: Response, what: string): Promise<T> {
   if (!res.ok) {
-    let detail = '';
-    try { detail = JSON.stringify(await res.json()); } catch { /* not json */ }
-    throw new Error(`${what} failed (${res.status}) ${detail}`.trim());
+    // envelope 원문(JSON.stringify)을 그대로 UI에 노출하던 것 → 사용자용
+    // message만. detail은 dev 콘솔로 (apiError.ts 규칙).
+    throw new Error(`${what} failed (${res.status}) ${await readApiErrorMessage(res, '')}`.trim());
   }
   const text = await res.text();
   const json = text ? JSON.parse(text) : {};
@@ -126,9 +127,7 @@ export async function updateChordProject(
 export async function deleteChordProject(publicId: string): Promise<void> {
   const res = await authFetch(`/v1/chord-projects/${encodeURIComponent(publicId)}`, { method: 'DELETE' });
   if (!res.ok && res.status !== 204) {
-    let detail = '';
-    try { detail = JSON.stringify(await res.json()); } catch { /* not json */ }
-    throw new Error(`코드 프로젝트 삭제 실패 (${res.status}) ${detail}`.trim());
+    throw new Error(`코드 프로젝트 삭제 실패 (${res.status}) ${await readApiErrorMessage(res, '')}`.trim());
   }
 }
 

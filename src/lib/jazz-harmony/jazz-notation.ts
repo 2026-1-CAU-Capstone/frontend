@@ -59,6 +59,10 @@ export function chordTypeToJazzText(ct: ChordType): string {
     }
   }
 
+  // Altered dominant — jazz convention writes this as "7alt", not the
+  // spelled-out "7#9#5" (which is the ChordType's canonical name in the DB).
+  if (name === '7#9#5') return '7alt';
+
   // SEVENTH family + SUS family: canonical names already work
   // ("7", "9", "13", "7b9", "7sus", "13sus", etc.)
   return name;
@@ -151,13 +155,14 @@ export function formatChordDisplay(raw: string): string {
     // Half-diminished — specific patterns first
     .replace(/(?:m7b5|min7b5|mi7b5|-7b5|m7\(b5\)|-7\(b5\))/g, 'ø7')
     .replace(/h7/g, 'ø7')
-    .replace(/h(?!\d)/g, 'ø')
+    // 루트 직후의 h만 — 단어 중간 h('C7th'의 h)가 ø로 깨지지 않게.
+    .replace(/(?<=[A-G][b#♭♯]?)h(?!\d)/g, 'ø')
     // Diminished
     .replace(/dim7M/g, '°△7')
     .replace(/dim7/g, '°7')
     .replace(/dim(?![a-zA-Z\d])/g, '°')
     .replace(/o7/g, '°7')
-    .replace(/o(?!\d)/g, '°')
+    .replace(/(?<=[A-G][b#♭♯]?)o(?!\d)/g, '°')
     // Minor — must come after the above so we don't disturb maj/dim/etc.
     // Order: longest alternative first (min before mi) to avoid leaving 'n' behind.
     .replace(/(?<=[A-G][b#♭♯]?)(?:min|mi)/g, '-')

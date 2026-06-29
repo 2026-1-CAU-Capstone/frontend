@@ -360,14 +360,6 @@ export function RightChatPanel({
   const loadingRef = useRef(false);
   useEffect(() => { loadingRef.current = loading; }, [loading]);
 
-  /* Pending-message queue. While a stream is in-flight, additional sends
-   * (Enter in the textarea while the dark circle shows STOP) get pushed
-   * here; once the current turn finishes we shift the next one off and
-   * fire handleSend recursively. Matches the ChatGPT "you can keep
-   * typing" UX. Cap loosely so a runaway paste doesn't pile up forever. */
-  const queueRef = useRef<Array<{ text: string; files?: File[]; preImages?: ClaudeImage[] }>>([]);
-  const QUEUE_CAP = 8;
-
   /* Abort controller for the in-flight stream. Set when a message is sent;
    * cleared when the stream ends (success / error / user-abort). The Send
    * button on the input row toggles to a Stop button while this is set —
@@ -634,13 +626,11 @@ export function RightChatPanel({
   }, [handleRequestLicks]);
 
   const handleSend = useCallback(async (text: string, files?: File[], preImages?: ClaudeImage[]) => {
-    /* Queue path — a previous turn is still streaming. Stash this send
-     * and bail out; the in-flight turn's tail will pick it up. */
-    if (loadingRef.current) {
-      if (queueRef.current.length >= QUEUE_CAP) return;
-      queueRef.current.push({ text, files, preImages });
-      return;
-    }
+    /* While a reply is streaming the composer is locked (textarea disabled +
+     * the send button shows Stop), so a new send shouldn't even be reachable.
+     * Guard anyway — silently ignore any send attempt mid-stream rather than
+     * queueing it. (User decision: no "type while it answers" / queueing.) */
+    if (loadingRef.current) return;
     isScrolledUpRef.current = false;
 
     // 첨부 이미지 → Claude 비전 블록(base64). 비이미지(PDF 등)는 건너뜀.
@@ -950,22 +940,7 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
     if (loggedIn && !forceLocalForLicks) {
       notifyChatListChanged();
     }
-
-    /* Dispatch the next queued message (if any). Done in a microtask so
-     * any setMessages from this turn flushes first. Uses the ref-mirror
-     * of handleSend so the recursive call always points at the latest
-     * memoised body (no stale closure). */
-    if (queueRef.current.length > 0) {
-      const next = queueRef.current.shift()!;
-      queueMicrotask(() => { void handleSendRef.current?.(next.text, next.files, next.preImages); });
-    }
   }, [chordContext, selectedChords, songTitle, notesContext, chartKind, projectPublicId, loggedIn, setChatPublicId]);
-
-  /* Ref mirror of handleSend so the queue dispatch above can call the
-   * latest function reference without putting handleSend in its own
-   * useCallback deps (which would either create a cycle or do nothing). */
-  const handleSendRef = useRef(handleSend);
-  useEffect(() => { handleSendRef.current = handleSend; }, [handleSend]);
 
   /* Rebuild historyRef from the currently-visible messages, preserving
    * only clean user / assistant turns (skips error / aborted bubbles and

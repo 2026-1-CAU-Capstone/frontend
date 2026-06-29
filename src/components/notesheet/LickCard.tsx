@@ -90,9 +90,10 @@ import type { NoteInfo, MeasureInfo } from '../../data/sampleMelody';
 import type { LickEntry } from '../../data/lickData';
 import { useGlobalPlayer, warmupPlayerOnce } from '../../lib/player';
 import { YoutubeEmbed } from '../common/YoutubeEmbed';
-import { getLickVideo } from '../../data/lickVideos';
+import { getLickVideo, lickYoutubeSearchUrl } from '../../data/lickVideos';
 import { useCountInIntro } from '../../hooks/useCountInIntro';
-import { PATTERN_SIMPLE } from '../../lib/note/countInPatterns';
+import { prepareLickIntro } from '../../lib/note/anacrusis';
+import { resolveMeasureAccidental } from '../../lib/note/measureAccidentals';
 import { formatChordDisplay } from '../../lib/jazz-harmony';
 
 /* ─── layout constants ──────────────────────────────────────────────── */
@@ -524,29 +525,10 @@ function buildVfNotes(measure: MeasureInfo, initialAcc?: Map<string, LickAcc>, k
     if (n.dotted) Dot.buildAndAttach([note]);
 
     if (!isRest) {
-      // Modern engraving convention: accidentals apply only to the same
-      // letter AT THE SAME OCTAVE within a measure. Track by full vex key
-      // ('b/4') rather than just the letter ('b'). Key signature remains
-      // letter-based (applies to all octaves).
-      const noteId = n.keys[0];
-      const letter = noteId.split('/')[0];
+      // Octave-aware accidental rule — single shared helper.
       const realAcc = n.accidentals?.[0] as LickAcc | undefined;
-      const current = activeAcc.get(noteId);
-      const keySigForLetter = keySigAcc?.get(letter);
-
-      if (realAcc) {
-        const effective = current ?? keySigForLetter;
-        if (effective !== realAcc) {
-          note.addModifier(new Accidental(realAcc), 0);
-        }
-        activeAcc.set(noteId, realAcc);
-      } else {
-        const effective = current ?? keySigForLetter;
-        if (effective && effective !== 'n') {
-          note.addModifier(new Accidental('n'), 0);
-          activeAcc.set(noteId, 'n');
-        }
-      }
+      const glyph = resolveMeasureAccidental(activeAcc, keySigAcc, n.keys[0], realAcc);
+      if (glyph) note.addModifier(new Accidental(glyph), 0);
     }
 
     // ── Articulations (staccato/accent/tenuto/marcato) ──
@@ -723,52 +705,79 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
 
   const countIn = useCountInIntro({ scoped: true });
 
+  /* bar/note/done 구독 해제 핸들 — 수동 정지·릭 교체·언마운트 어디서든 풀 수
+   * 있게 ref로 보관. 예전엔 'done' 콜백 안에서만 해제해서, 수동 정지 시
+   * (player.stop()은 onDone을 emit하지 않음) 리스너 3개가 전역 싱글톤 버스에
+   * 사이클마다 누적됐고 — 이후 다른 카드/페이지 재생이 이 카드의 SVG에
+   * 하이라이트를 잘못 그렸다. */
+  const playUnsubsRef = useRef<Array<() => void>>([]);
+  const releasePlaySubs = useCallback(() => {
+    playUnsubsRef.current.forEach((fn) => { try { fn(); } catch { /* noop */ } });
+    playUnsubsRef.current = [];
+  }, []);
+  useEffect(() => releasePlaySubs, [releasePlaySubs]); // unmount에서도 해제
+
   const togglePlay = useCallback(async () => {
     if (playing || countIn.active) {
       player.stop();
       countIn.cancel();
+      releasePlaySubs();
       setPlaying(false);
       clearNoteHighlight();
       drawMeasureHL(-1);
       return;
     }
     setPlaying(true);
-    // 샘플 로드를 카운트인과 병렬로 → "1234" 가 버튼 누르는 즉시 시작.
-    // 훅이 클릭 종료 후 prepare 를 await 하고 클럭을 재측정하므로 다운비트는 정확.
-    // 릭 재생은 BPM과 무관하게 항상 SIMPLE (1 2 3 4) 카운트인 사용.
-    const cin = await countIn.run({
-      bpm,
-      pattern: PATTERN_SIMPLE,
-      prepare: player.preload({ kind: 'lick', data: lick.sheetData }),
-    });
-    if (!cin.ok) {
+    // 리딩 픽업(anacrusis)이면 픽업 음표를 카운트인 꼬리에 얹고 픽업 마디를 떼어
+    // 본문만 재생(measureOffset:1) → 픽업과 메인 멜로디 사이 쉼 없이 이어진다.
+    // 카운트인은 항상 1마디 "1 2 3 4", 샘플 로드는 병렬. (prepareLickIntro 참조)
+    const preload = player.preload({ kind: 'lick', data: lick.sheetData }).catch(() => {});
+    const intro = await prepareLickIntro(player, countIn, lick.sheetData, bpm, preload);
+    if (!intro.ok) {
       setPlaying(false);
       return;
     }
 
-    const unsub = [
+    releasePlaySubs(); // 혹시 남은 이전 사이클 구독 정리 후 등록
+    playUnsubsRef.current = [
       player.on('bar', (barIndex) => drawMeasureHL(barIndex)),
       player.on('note', (mi, ni) => highlightNote(mi, ni)),
       player.on('done', () => {
         setPlaying(false);
         clearNoteHighlight();   // 재생 끝나면 파란 음표/마디 하이라이트 제거
         drawMeasureHL(-1);
-        unsub.forEach((fn) => fn());
+        releasePlaySubs();
       }),
     ];
 
     player.setConfig({ bpm });
-    await player.play({ kind: 'lick', data: lick.sheetData }, { startAt: player.ctxNow() + cin.downbeatInSec });
-  }, [player, lick, bpm, playing, countIn, highlightNote, clearNoteHighlight, drawMeasureHL]);
+    try {
+      await player.play({ kind: 'lick', data: intro.data }, intro.opts);
+    } catch {
+      // Reset UI + release the just-registered listeners on failure (no
+      // 'done' will ever fire for a play() that never started).
+      setPlaying(false);
+      clearNoteHighlight();
+      drawMeasureHL(-1);
+      releasePlaySubs();
+    }
+  }, [player, lick, bpm, playing, countIn, highlightNote, clearNoteHighlight, drawMeasureHL, releasePlaySubs]);
 
-  // stop if lick changes while playing
+  // stop if lick changes while playing — but NOT on first mount. player는
+  // 전역 싱글톤이라, 마운트마다 무조건 stop()하면 목록 갱신/페이지네이션으로
+  // 새 카드가 마운트되는 순간 다른 카드의 진행 중 재생이 끊겼다.
+  const prevLickIdRef = useRef<typeof lick.id | null>(null);
   useEffect(() => {
+    const prev = prevLickIdRef.current;
+    prevLickIdRef.current = lick.id;
+    if (prev === null || prev === lick.id) return; // 첫 마운트/동일 릭 → no-op
     player.stop();
+    releasePlaySubs();
     setPlaying(false);
     clearNoteHighlight();
     drawMeasureHL(-1);
     renderedRef.current = false;
-  }, [lick.id, player, clearNoteHighlight, drawMeasureHL]);
+  }, [lick.id, player, clearNoteHighlight, drawMeasureHL, releasePlaySubs]);
 
   /* render notation — default size → CSS scale → horizontal scroll */
   useEffect(() => {
@@ -1228,6 +1237,19 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
               <path fill="#fff" d="M9.6 12.1V4.9L15.8 8.5z"/>
             </svg>
             YouTube
+          </PlayBtn>
+        )}
+        {!video && (
+          <PlayBtn
+            onClick={(e) => { e.stopPropagation(); window.open(lickYoutubeSearchUrl(lick), '_blank', 'noopener,noreferrer'); }}
+            style={{ color: '#c4302b', borderColor: '#c4302b', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+            title="원곡을 유튜브에서 검색"
+          >
+            <svg width="14" height="10" viewBox="0 0 24 17" aria-hidden>
+              <path fill="#c4302b" d="M23.5 2.6a3 3 0 0 0-2.1-2.1C19.5 0 12 0 12 0S4.5 0 2.6.5A3 3 0 0 0 .5 2.6 31 31 0 0 0 0 8.5c0 2 .2 4 .5 5.9a3 3 0 0 0 2.1 2.1C4.5 17 12 17 12 17s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1c.3-1.9.5-3.9.5-5.9 0-2-.2-4-.5-5.9z"/>
+              <path fill="#fff" d="M9.6 12.1V4.9L15.8 8.5z"/>
+            </svg>
+            원곡 찾기
           </PlayBtn>
         )}
         {onEdit && (

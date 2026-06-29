@@ -121,6 +121,8 @@ export type FeelId =
   | "bossa"
   | "latin"
   | "latin-swing"
+  | "cha-cha"        // cha-cha-cha — cowbell + tumbao (own drum renderer)
+  | "afro-cuban"     // 4/4 son/songo — cascara + son clave (own drum renderer)
   // Stage-2 additions — distinct grooves (own drum renderers)
   | "samba"
   | "funk"
@@ -311,6 +313,17 @@ export interface BackingConfig {
   style?: StyleId;
   /** Override chart.defaultFeel if set. */
   feel?: FeelId;
+  /** Bass scheduling override (mixer "베이스 모드"). 'four-feel' = walking,
+   *  'two-feel'/'half' = lighter root/fifth. Applies to swing feels; latin
+   *  (bossa/samba) and funk keep their own dedicated bass. */
+  bassMode?: "half" | "two-feel" | "four-feel";
+  /** Comp piano timbre (GM id; 'piano' = grand). Swappable via the mixer. */
+  compInstrument?: string;
+  /** Bass timbre (acoustic_bass = upright; electric/fretless = GM). */
+  bassInstrument?: string;
+  /** Force piano comping onto a steady beats-1-&-3 pulse (Editor practice
+   *  playback). Forwarded to `RenderOptions.pianoComp1And3`. */
+  pianoComp1And3?: boolean;
   /** Toggle individual instruments (all default true). */
   enabled?: Partial<Record<Exclude<InstrumentId, "drums"> | "drums", boolean>>;
   /** 0..1 gain per instrument group. */
@@ -412,6 +425,12 @@ export interface BackingPlayer {
   play(opts?: { startAt?: number }): Promise<void>;
   /** Pre-warm AudioContext + instruments + drum 자원 (count-in 과 병렬용). */
   preload(): Promise<void>;
+  /** Resume the AudioContext synchronously inside a user gesture. preload()
+   *  deliberately leaves the ctx suspended (warmup runs with no gesture); this
+   *  is the in-gesture resume that play() — which runs ~2s later, after the
+   *  count-in — can no longer perform. Call from the play-button handler before
+   *  the count-in. Idempotent. */
+  unlock(): void;
   /** True when instruments are loaded and play() can start instantly (no
    *  multi-second cold-load). The page uses this to decide load-then-count-in
    *  (cold) vs count-in-immediately (warm). */

@@ -169,6 +169,45 @@ export function twoFeelBass(
   return out;
 }
 
+/**
+ * Funk bass — a syncopated, root-driven riff (straight feel) that locks with
+ * the funkBar kick (downbeat, the 'a of 1', the '& of 3'). Uses the fifth for
+ * motion and a half-step chromatic approach into the next chord's root on the
+ * last 16th of a full bar. Hits whose offset exceeds the chord's length are
+ * dropped, so shorter chords just play the early part of the riff.
+ */
+export function funkBass(
+  current: Chord,
+  next: Chord | null,
+  beats: number,
+  prevMidi: MidiNote | null = null,
+): WalkingBassBeat[] {
+  if (beats <= 0) return [];
+  const rootPc = current.bass ?? current.root;
+  const fifthPc = (current.root + 7) % 12;
+  let prev: MidiNote = prevMidi ?? BASS_CENTER;
+  const out: WalkingBassBeat[] = [];
+  const add = (pc: PitchClass, beatOffset: number, durBeats: number, accent = false) => {
+    if (beatOffset >= beats) return;
+    const midi = placeNear(pc, prev);
+    prev = midi;
+    out.push({ beatOffset, midi, durBeats, accent });
+  };
+
+  add(rootPc, 0, 0.7);            // the "one"
+  add(rootPc, 0.75, 0.4, true);   // 'a of 1' push — locks with the kick
+  add(fifthPc, 1.5, 0.4);         // '& of 2' fifth for motion
+  add(rootPc, 2.5, 0.6, true);    // '& of 3' — the funk pocket accent
+  if (beats >= 4 && next) {
+    // Chromatic approach into the next chord on the last 16th.
+    const tgt = next.bass ?? next.root;
+    add((tgt + 11) % 12, 3.75, 0.25, true);
+  } else if (beats >= 3) {
+    add(rootPc, 3, 0.5);
+  }
+  return out;
+}
+
 /* ─── helpers ────────────────────────────────────────────────────────── */
 
 /** Tessitura centre the line gravitates toward (≈ D2). Real bassists re-centre

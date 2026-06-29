@@ -59,6 +59,13 @@ export class AnacrusisPlayer {
     return this.ctx.currentTime;
   }
 
+  /** The AudioContext this player schedules on. GlobalPlayer compares it to
+   *  the active BackingPlayer's ctx to detect the "same engine instance but
+   *  internally-recreated (poisoned→new) ctx" stale case. */
+  getCtx(): AudioContext {
+    return this.ctx;
+  }
+
   /** Fire a single piano note at audio time `when` (this player's ctx clock).
    *  Silently drops the note if the piano hasn't finished loading yet —
    *  matches the legacy `scheduleStandaloneNote`'s `if (!this.melodyInst) return`

@@ -3,11 +3,9 @@
  *
  * This file defines the public surface of the unified player layer
  * (Approach B in the Unified Player Architecture design doc). The
- * orchestrator (`GlobalPlayer`) wraps the two concrete engines —
- * the `BackingPlayer` family
- * (`lib/backing/player.ts`, `lib/yamaha-sty/sty-backing-player.ts`,
- * `lib/yamaha-sty/hybrid-backing-player.ts`) — and exposes a single
- * uniform API to React pages.
+ * orchestrator (`GlobalPlayer`) wraps the concrete engines —
+ * the rule-based `BackingPlayer` (`lib/backing/player.ts`) — and exposes
+ * a single uniform API to React pages.
  *
  * Why a discriminated union for `PlayerInput`?
  *   • `NoteSheetData` (sheet/lick/solo) and `LeadSheetData` (chart) are
@@ -26,9 +24,8 @@
  *   • Pages with hand-rolled Soundfont schedulers (EditorPage,
  *     SoloGeneratorPage, Lick12KeyPage) →
  *     `play({ kind: 'solo' | 'lick', data: measureInfoToNoteSheet(...) })`.
- *   • ChordPage's `createBackingPlayer` / `createStyBackingPlayer` /
- *     `createHybridBackingPlayer` direct calls →
- *     `play({ kind: 'chart', data: leadSheet, engineBackend })`.
+ *   • ChordPage's `createBackingPlayer` direct call →
+ *     `play({ kind: 'chart', data: leadSheet })`.
  *
  * Out of scope for this Core layer (see design Section 7):
  *   • `PianoKeyboard.playMidi()` single-note audition — stays as-is.
@@ -47,19 +44,6 @@ import type {
   FeelId,
 } from "../backing/types";
 import type { PlayerSettings } from "../note/playerSettings";
-
-/* ─── Engine backend selector ────────────────────────────────────────── */
-
-/**
- * Engine backend for the `chart` kind only.
- * Mirrors `EngineBackend` from `components/backing/BackingPlayerBar.tsx`
- * — re-declared here so the player core has no React/UI dependency.
- *
- *  - "rule"   : procedural engine in `lib/backing/player.ts`
- *  - "sty"    : Yamaha .sty engine in `lib/yamaha-sty/sty-backing-player.ts`
- *  - "hybrid" : combined rule (bass+drums) + sty (piano/horns/etc.)
- */
-export type EngineBackend = "rule" | "sty" | "hybrid";
 
 /* ─── PlayerInput discriminated union ────────────────────────────────── */
 
@@ -104,19 +88,12 @@ export interface SoloInput {
 }
 
 /**
- * Chart kind — chord chart backing track (no melody). The active engine
- * is one of the BackingPlayer family, selected by `engineBackend`.
- * Defaults to "rule" if omitted.
+ * Chart kind — chord chart backing track (no melody). Played by the
+ * rule-based BackingPlayer (lib/backing/player.ts).
  */
 export interface ChartInput {
   kind: "chart";
   data: LeadSheetData;
-  engineBackend?: EngineBackend;
-  /** Optional pre-loaded .sty bytes for sty/hybrid backends (so we don't
-   *  refetch a user-uploaded style from IndexedDB on every play()). */
-  styleData?: ArrayBuffer;
-  /** Optional .sty URL override (defaults to '/styles/psBase.sst'). */
-  styleUrl?: string;
 }
 
 export type PlayerInput =
@@ -191,6 +168,9 @@ export interface GlobalPlayerConfig {
   loopRegion?: { startBar: number; endBar: number } | null;
   /** Bypass path — writes through to the global `playerSettings` store. */
   mixer?: Partial<PlayerSettings>;
+  /** Force piano comping onto a steady beats-1-&-3 pulse. Forwarded to both
+   *  inner backing engines. Used by the Editor's practice playback. */
+  pianoComp1And3?: boolean;
 }
 
 /* ─── Anacrusis (pickup-note) scheduling ─────────────────────────────── */
@@ -276,9 +256,17 @@ export interface GlobalPlayer {
    *  page uses this to load-then-count-in on a cold start vs count-in
    *  immediately when warm. */
   isReady(input: PlayerInput): boolean;
+  /** Resume the engine's AudioContext SYNCHRONOUSLY inside the user gesture.
+   *  `play()` runs after the ~2s count-in await — long past the click — so the
+   *  resume() inside it can't start a context that was created suspended during
+   *  mount warmup (no gesture): the first play's events fire into a non-running
+   *  clock → silence until a stop+replay. Pages call this in the play-button
+   *  handler, BEFORE awaiting the count-in, so the ctx is running by play()
+   *  time. Idempotent and safe to call repeatedly. */
+  unlock(input: PlayerInput): void;
   play(
     input: PlayerInput,
-    opts?: { startAt?: number; measureOffset?: number },
+    opts?: { startAt?: number; measureOffset?: number; downbeatInSec?: number },
   ): Promise<void>;
   pause(): void;
   stop(): void;

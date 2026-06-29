@@ -163,6 +163,9 @@ export async function streamClaudeMessage(
   onChunk: (accumulated: string) => void,
   category?: AnalysisCategory,
   images?: ClaudeImage[],
+  /** Abort signal from the chat Stop button — without it this fallback
+   *  stream is unstoppable once started (Fable.md High: Stop 무력화). */
+  signal?: AbortSignal,
 ): Promise<string> {
   if (!ANTHROPIC_API_KEY) {
     const msg = '[Error] VITE_ANTHROPIC_API_KEY not set in .env';
@@ -217,12 +220,16 @@ export async function streamClaudeMessage(
       'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify(body),
+    signal,
   });
 
   if (!res.ok) {
     const err = await res.text();
-    console.error('Claude API error:', res.status, err);
-    const msg = `[API Error ${res.status}] ${err}`;
+    console.error('Claude API error:', res.status, err); // 원문은 콘솔만
+    // 응답 본문(내부 에러 구조)을 말풍선에 그대로 노출하지 않는다.
+    const msg = res.status === 429
+      ? '[요청 한도 초과] 잠시 후 다시 시도해 주세요.'
+      : `[응답 실패 ${res.status}] 잠시 후 다시 시도해 주세요.`;
     onChunk(msg);
     return msg;
   }

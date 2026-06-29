@@ -1,33 +1,29 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
+import { INSTRUMENT_ICONS, CATEGORIES, instrumentIconUrl, SESSION_ICON_SLUG } from '../../data/instrumentIcons';
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Session picker — the player declares which instrument they're using this
  * chart with. Clicking the icon (right of the key) opens a "세션 변경" modal
- * listing every instrument. Selection only changes the displayed icon for now;
- * instrument-specific behaviours (vocal → lyrics/scat, sax → transpose,
- * drums → section view, …) are wired later.
+ * listing every instrument, grouped by family. Selection only changes the
+ * displayed icon for now; instrument-specific behaviours (vocal → lyrics/scat,
+ * sax → transpose, drums → section view, …) are wired later.
  *
- * Icons are PNGs sliced from /public/instrument.png, each trimmed and centered
- * on a 256×256 transparent canvas so they render at one consistent size.
+ * A session value is an icon slug (e.g. 'alto-saxophone'); the icons live in
+ * /public/icons/sessions/ (square, transparent). Legacy generic ids
+ * ('sax','drums','bass','guitar') are still accepted and normalized to a slug.
  * ──────────────────────────────────────────────────────────────────────── */
 
-export type SessionInstrument =
-  | 'vocal' | 'trumpet' | 'sax' | 'piano' | 'drums' | 'bass' | 'guitar';
-
-const INSTRUMENTS: { id: SessionInstrument; label: string; img: string }[] = [
-  { id: 'vocal',   label: '보컬',       img: '/icons/sessions/vocal.png' },
-  { id: 'trumpet', label: '트럼펫',     img: '/icons/sessions/trumpet.png' },
-  { id: 'sax',     label: '색소폰',     img: '/icons/sessions/sax.png' },
-  { id: 'piano',   label: '피아노',     img: '/icons/sessions/piano.png' },
-  { id: 'drums',   label: '드럼',       img: '/icons/sessions/drums.png' },
-  { id: 'bass',    label: '콘트라베이스', img: '/icons/sessions/bass.png' },
-  { id: 'guitar',  label: '일렉기타',   img: '/icons/sessions/guitar.png' },
-];
+export type SessionInstrument = string;
 
 /* Bump when the icon PNGs change so browsers refetch instead of serving the
- * cached (old-background) copy at the same static URL. */
-const ICON_VER = '2';
+ * cached copy at the same static URL. */
+const ICON_VER = '3';
+
+/** Resolve any stored value (icon slug or legacy generic id) to a canonical slug. */
+function toSlug(v: string): string {
+  return SESSION_ICON_SLUG[v] ?? v;
+}
 
 interface Props {
   value: SessionInstrument;
@@ -36,7 +32,18 @@ interface Props {
 
 export function SessionPicker({ value, onChange }: Props) {
   const [open, setOpen] = useState(false);
-  const current = INSTRUMENTS.find((i) => i.id === value) ?? INSTRUMENTS[3];
+  const slug = toSlug(value);
+  const current =
+    INSTRUMENT_ICONS.find((i) => i.slug === slug) ??
+    INSTRUMENT_ICONS.find((i) => i.slug === 'piano')!;
+  const currentImg = instrumentIconUrl(current.slug) ?? '';
+
+  const groups = useMemo(
+    () =>
+      CATEGORIES.map((c) => ({ ...c, items: INSTRUMENT_ICONS.filter((i) => i.cat === c.key) }))
+        .filter((g) => g.items.length > 0),
+    [],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -48,7 +55,7 @@ export function SessionPicker({ value, onChange }: Props) {
   return (
     <>
       <Trigger type="button" title="세션 변경" aria-label="세션 변경" onClick={() => setOpen(true)}>
-        <TriggerImg src={`${current.img}?v=${ICON_VER}`} alt={current.label} />
+        <TriggerImg src={`${currentImg}?v=${ICON_VER}`} alt={current.ko} />
       </Trigger>
 
       {open && (
@@ -56,19 +63,27 @@ export function SessionPicker({ value, onChange }: Props) {
           <Modal onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="세션 변경">
             <Title>세션 변경</Title>
             <Sub>이 악보를 어떤 악기로 연주하나요?</Sub>
-            <Grid>
-              {INSTRUMENTS.map(({ id, label, img }) => (
-                <Cell
-                  key={id}
-                  type="button"
-                  $active={id === value}
-                  onClick={() => { onChange(id); setOpen(false); }}
-                >
-                  <CellIcon><img src={`${img}?v=${ICON_VER}`} alt={label} /></CellIcon>
-                  <CellLabel>{label}</CellLabel>
-                </Cell>
+            <Scroll>
+              {groups.map((g) => (
+                <Section key={g.key}>
+                  <SectionTitle>{g.label}</SectionTitle>
+                  <Grid>
+                    {g.items.map((it) => (
+                      <Cell
+                        key={it.slug}
+                        type="button"
+                        $active={it.slug === slug}
+                        title={`${it.ko} · ${it.en}`}
+                        onClick={() => { onChange(it.slug); setOpen(false); }}
+                      >
+                        <CellIcon><img src={`${instrumentIconUrl(it.slug)}?v=${ICON_VER}`} alt={it.ko} /></CellIcon>
+                        <CellLabel>{it.ko}</CellLabel>
+                      </Cell>
+                    ))}
+                  </Grid>
+                </Section>
               ))}
-            </Grid>
+            </Scroll>
           </Modal>
         </Backdrop>
       )}
@@ -82,7 +97,6 @@ const Trigger = styled.button`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* Borderless — icon ~matches the adjacent key box height (~32px). */
   width: 36px;
   height: 36px;
   padding: 0;
@@ -104,7 +118,7 @@ const TriggerImg = styled.img`
 const Backdrop = styled.div`
   position: fixed;
   inset: 0;
-  z-index: 1100;
+  z-index: ${({ theme }) => theme.zIndex.modalHigh};
   background: rgba(20, 20, 20, 0.4);
   display: flex;
   align-items: center;
@@ -114,11 +128,14 @@ const Backdrop = styled.div`
 
 const Modal = styled.div`
   width: 100%;
-  max-width: 440px;
+  max-width: 540px;
+  max-height: 84vh;
+  display: flex;
+  flex-direction: column;
   background: #fff;
   border-radius: 18px;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.24);
-  padding: 26px 26px 30px;
+  padding: 24px 22px 8px;
   font-family: ${({ theme }) => theme.fonts.ui};
 `;
 
@@ -131,26 +148,44 @@ const Title = styled.h2`
 `;
 
 const Sub = styled.p`
-  margin: 6px 0 22px;
+  margin: 6px 0 16px;
   font-size: 13.5px;
   color: rgba(0, 0, 0, 0.5);
   text-align: center;
 `;
 
+const Scroll = styled.div`
+  overflow-y: auto;
+  padding: 0 6px 18px 2px;
+  -webkit-overflow-scrolling: touch;
+`;
+
+const Section = styled.section`
+  & + & { margin-top: 16px; }
+`;
+
+const SectionTitle = styled.h3`
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: ${({ theme }) => theme.colors.gold};
+`;
+
 const Grid = styled.div`
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+  gap: 8px;
 `;
 
 const Cell = styled.button<{ $active?: boolean }>`
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 14px 6px;
+  gap: 6px;
+  padding: 11px 4px;
   border: 1.5px solid ${({ $active }) => ($active ? '#1a1a1a' : 'rgba(0, 0, 0, 0.1)')};
-  border-radius: 14px;
+  border-radius: 12px;
   background: ${({ $active }) => ($active ? 'rgba(0, 0, 0, 0.04)' : '#fff')};
   color: #1a1a1a;
   cursor: pointer;
@@ -161,8 +196,8 @@ const Cell = styled.button<{ $active?: boolean }>`
 `;
 
 const CellIcon = styled.span`
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -170,7 +205,9 @@ const CellIcon = styled.span`
 `;
 
 const CellLabel = styled.span`
-  font-size: 12.5px;
+  font-size: 11px;
   font-weight: 600;
-  white-space: nowrap;
+  line-height: 1.25;
+  text-align: center;
+  word-break: keep-all;
 `;

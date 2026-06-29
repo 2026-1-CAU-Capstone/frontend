@@ -48,7 +48,8 @@ const cases: Case[] = [
   ['C7#9',       'C7#9'],
   ['C7b5',       'C7b5'],
   ['C7#5',       'C7#5'],
-  ['C7alt',      'C7#9#5'],  // alt resolves to canonical 7#9#5
+  ['C7alt',      'C7alt'],   // altered dominant displays as "7alt", not spelled-out "7#9#5"
+  ['C7#9#5',     'C7alt'],   // …and the spelled-out form normalises to it too
   ['C7#11',      'C7#11'],
   ['C13b9',      'C13b9'],
   // Diminished
@@ -61,6 +62,8 @@ const cases: Case[] = [
   ['Cm7b5',      'Cø7'],
   ['Cmin7b5',    'Cø7'],
   ['C-7b5',      'Cø7'],
+  ['Ch7',        'Cø7'],   // "h"(halb) = half-diminished, not diminished
+  ['Ch',         'Cø7'],
   ['Cm9b5',      'Cø9'],
   // Augmented / sus
   ['Caug',       'C+'],

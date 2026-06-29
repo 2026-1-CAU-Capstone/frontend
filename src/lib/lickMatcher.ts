@@ -50,7 +50,7 @@ const PC_TO_SHARP = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#',
 // Keys that prefer flats (pitch class of tonic)
 const FLAT_TONIC_PCS = new Set([0, 5, 10, 3, 8, 1, 6]); // C F Bb Eb Ab Db Gb
 
-function useFlatsForPc(pc: number): boolean {
+function prefersFlatsForPc(pc: number): boolean {
   return FLAT_TONIC_PCS.has(pc);
 }
 
@@ -237,7 +237,7 @@ function transposeLick(lick: LickEntry, semitones: number): LickEntry {
   }
 
   const targetPc = (rootPc(lick.key) + semitones + 12) % 12;
-  const uf = useFlatsForPc(targetPc);
+  const uf = prefersFlatsForPc(targetPc);
 
   const newRootName = uf ? PC_TO_FLAT[targetPc] : PC_TO_SHARP[targetPc];
   const newKeyRoot = newRootName[0].toUpperCase() + (newRootName.length > 1 ? newRootName[1] : '');

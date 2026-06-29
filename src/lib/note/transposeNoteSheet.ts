@@ -71,10 +71,6 @@ function transposeNoteKey(
 ): { key: string; acc?: '#' | 'b' | 'n' } {
   const [notePart, octStr] = vexKey.split('/');
   const noteName = notePart.toUpperCase();
-  let pc = NOTE_TO_PC[noteName] ?? 0;
-  if (accidental === '#') pc += 1;
-  else if (accidental === 'b') pc -= 1;
-  pc = ((pc + semitones) % 12 + 12) % 12;
 
   let origPc = NOTE_TO_PC[noteName] ?? 0;
   if (accidental === '#') origPc += 1;

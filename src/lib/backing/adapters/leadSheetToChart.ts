@@ -306,14 +306,22 @@ const QUALITY_MAP: Record<string, ChordQuality> = {
 
   // raw iReal / common shorthand — major family
   "^": "maj", "^7": "maj7", "^9": "maj9", "^6": "maj6", "Δ": "maj", "Δ7": "maj7",
-  "6": "maj6", "6/9": "maj6", "69": "maj6",
+  // U+25B3 WHITE UP-POINTING TRIANGLE — the glyph our notation actually
+  // renders/stores (jazz-notation formatChordDisplay normalises maj7 → "△").
+  // Distinct codepoint from "Δ" (U+0394 Greek delta) above, so it needs its
+  // own entries or every △7 cell falls back to a bare major triad.
+  "△": "maj", "△7": "maj7", "△9": "maj9", "△6": "maj6", "△13": "maj9",
+  "6": "maj6", "6/9": "maj6", "69": "maj6", "5": "maj",
   "^7#11": "maj7", "^9#11": "maj9", "^7#5": "maj7", "^13": "maj9",
+  "△7#11": "maj7", "△9#11": "maj9", "△7#5": "maj7",
   add9: "maj",
 
-  // minor family
+  // minor family — both "-" and "m" spellings (input uses either).
   "-": "min", "-7": "min7", "-6": "min6", "-9": "min9", "-11": "min11",
-  "-^7": "minmaj7", "-Δ7": "minmaj7", "-^9": "minmaj7", minmaj: "minmaj7",
+  "-^7": "minmaj7", "-Δ7": "minmaj7", "-△7": "minmaj7", "-^9": "minmaj7", minmaj: "minmaj7",
   "-69": "min6", "-b6": "min", "-#5": "min",
+  m: "min", m7: "min7", m6: "min6", m9: "min9", m11: "min11",
+  m7b5: "min7b5", mmaj7: "minmaj7", "m△7": "minmaj7", "m^7": "minmaj7", m69: "min6",
 
   // dominant family — natural extensions
   "7": "dom7", "9": "dom9", "13": "dom13",
@@ -351,6 +359,54 @@ const QUALITY_MAP: Record<string, ChordQuality> = {
   sus: "sus4", "2": "sus2",
 };
 
+/**
+ * Last-resort quality guesser. Scans a quality string for the few
+ * distinctive harmony markers and maps to the closest playable ChordQuality.
+ * This is intentionally lenient: ANY non-empty input yields a musically
+ * defensible result rather than a bare major triad, so corrupted / exotic
+ * cells (e.g. "m3179", "min7add11omit5", odd unicode) still play sensibly.
+ * Returns null only for a truly empty string.
+ *
+ * Marker priority is most-distinctive-first so e.g. "m7b5" reads as
+ * half-diminished, not plain minor.
+ */
+function guessQualityFromMarkers(raw: string): ChordQuality | null {
+  if (!raw) return null;
+  const s = raw.toLowerCase();
+  const hasExt = /7|9|11|13|6/.test(s);          // any seventh/extension digit
+
+  // half-diminished (ø, h7, m7b5, -7b5)
+  if (raw.includes("ø") || /m7b5|m7♭5|-7b5|min7b5/.test(s) || (/\bh/.test(s) && hasExt)) {
+    return "min7b5";
+  }
+  // diminished (°, dim, o / o7)
+  if (raw.includes("°") || s.includes("dim") || /(^|[^a-z])o7?($|[^a-z])/.test(s)) {
+    return hasExt ? "dim7" : "dim";
+  }
+  // augmented (+, aug, #5 with a dominant feel)
+  if (raw.includes("+") || s.includes("aug")) {
+    return hasExt ? "aug7" : "aug";
+  }
+  // suspended
+  if (s.includes("sus")) {
+    return s.includes("sus2") ? "sus2" : "sus4";
+  }
+  // minor-vs-major detection — evaluated on raw (case-sensitive) so a
+  // capital "M7" reads as major, not minor.
+  //   minor marker: a leading "-", a LOWERCASE "m" not starting "maj"/"ma",
+  //                 or the word "min".
+  //   major marker: △ Δ ^ , the word "maj" (any case), or a capital "M"
+  //                 before a digit / "aj".
+  const minorMark = raw.includes("-") || /^m(?!aj|a)/.test(raw) || /^min/i.test(raw);
+  const majMark = /[△Δ^]/.test(raw) || /maj/i.test(raw) || /M(?=\d|aj)/.test(raw);
+  if (minorMark && majMark) return "minmaj7";   // minMaj7 family
+  if (minorMark) return hasExt ? "min7" : "min";
+  if (majMark) return hasExt ? "maj7" : "maj";
+  // dominant — leading digit or any seventh/extension with no quality letter
+  if (hasExt) return "dom7";
+  return null;
+}
+
 function resolveQuality(src: LeadSheetChord): ChordQuality {
   const canonical = src.analysis?.normalizedQuality;
   if (canonical && QUALITY_MAP[canonical]) return QUALITY_MAP[canonical];
@@ -362,9 +418,14 @@ function resolveQuality(src: LeadSheetChord): ChordQuality {
   const slash = raw.indexOf("/");
   if (slash >= 0) raw = raw.slice(0, slash).trim();
 
+  // Bare root (no quality at all) → major triad. This is the normal,
+  // expected case (a "C" cell), so no warning.
+  if (!raw && !canonical) return "maj";
+
+  // 1. exact match
   if (raw && QUALITY_MAP[raw]) return QUALITY_MAP[raw];
 
-  // Best-effort prefix match for extended shorthand like "9b13", "13#11" etc.
+  // 2. prefix match for extended shorthand like "9b13", "13#11" etc.
   if (raw) {
     for (let len = raw.length; len > 0; len--) {
       const candidate = raw.slice(0, len);
@@ -372,11 +433,17 @@ function resolveQuality(src: LeadSheetChord): ChordQuality {
     }
   }
 
-  // Final fallback: major triad. Warn so unrecognized inputs surface rather
-  // than silently playing a wrong chord.
-  if (raw || canonical) {
-    console.warn(
-      `[leadSheetToChart] unknown chord quality, falling back to "maj":`,
+  // 3. marker-scan heuristic — guarantees a sensible playable quality for
+  //    ANY garbage/exotic input so backing never silently plays the wrong
+  //    chord AND the console isn't spammed with fallbacks.
+  const guessed = guessQualityFromMarkers(raw) ?? guessQualityFromMarkers(canonical ?? "");
+  if (guessed) return guessed;
+
+  // 4. truly unparseable (e.g. quality was only punctuation) → major triad.
+  //    Dev-only debug, not a warn, so production consoles stay clean.
+  if (import.meta.env.DEV) {
+    console.debug(
+      `[leadSheetToChart] unrecognized chord quality → "maj":`,
       { quality: raw, normalizedQuality: canonical },
     );
   }

@@ -1,4 +1,5 @@
 import type { LeadSheetChord, LeadSheetData } from '../data/leadSheetTypes';
+import { isMinorKey } from '../components/leadsheet/leadSheetTranspose';
 
 /* Frontend-only chord-chart editing helpers.
  *
@@ -41,6 +42,36 @@ export function parseChordInput(raw: string | null | undefined): LeadSheetChord 
     if (bm) chord.bass = { root: bm[1].toUpperCase(), accidental: ACC(bm[2]) };
   }
   return chord;
+}
+
+/** Backend ChordProject key enum, e.g. "F#m" → "F_SHARP_MINOR", "Bb" → "B_FLAT_MAJOR". */
+export function displayKeyToProjectKey(key: string): string {
+  const minor = isMinorKey(key);
+  const root = key.replace(/m$/, '').replace(/-$/, '');
+  const normalizedRoot = root
+    .replace('#', '_SHARP')
+    .replace('b', '_FLAT')
+    .replace(/^([A-G])$/, '$1');
+  return `${normalizedRoot}_${minor ? 'MINOR' : 'MAJOR'}`.toUpperCase();
+}
+
+/** Flatten a lead sheet into the backend's bar-delimited progression string,
+ *  e.g. "Cmaj7 | Am7 Dm7 | G7 | N.C.". Trailing empty bars are trimmed. */
+export function leadSheetToProgression(data: LeadSheetData): string {
+  const bars = data.systems.flatMap((system) =>
+    system.bars.map((bar) => {
+      const symbols = bar.chords
+        .map(chordToInputString)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      return symbols.length > 0 ? symbols.join(' ') : 'N.C.';
+    }),
+  );
+
+  while (bars.length > 1 && bars[bars.length - 1] === 'N.C.') {
+    bars.pop();
+  }
+  return bars.join(' | ') || 'N.C.';
 }
 
 /* ─── localStorage persistence (interim, until a user backend exists) ───── */

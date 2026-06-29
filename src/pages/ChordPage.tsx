@@ -10,6 +10,7 @@ import { MobileChatFab } from '../components/layout/MobileChatFab';
 import { LeadSheet, KeyControl, isMinorKey, shiftKey } from '../components/leadsheet/LeadSheet';
 import { SessionPicker, type SessionInstrument } from '../components/chord/SessionPicker';
 import { useAnalysisFilters } from '../hooks/useAnalysisFilters';
+import { AnalysisSettingsModal } from '../components/common/AnalysisSettingsModal';
 import { allOfMe } from '../data/allOfMe';
 import type { LeadSheetData } from '../data/leadSheetTypes';
 import type { ChordOverlay } from '../data/types';
@@ -22,9 +23,8 @@ import { leadSheetToChart } from '../lib/backing';
 import { extractMelody } from '../lib/backing/adapters/noteSheetToChart';
 import { getSwingRatio } from '../lib/note/swing';
 import { useGlobalPlayer, type ChartInput } from '../lib/player';
-import { BUILTIN_STYLE, type StyleSelectorChoice } from '../components/yamaha-sty/StyleSelector';
 import { getPlayerSettings, inferGenre, inferPlayStyle, setPlayerSetting, subscribePlayerSettings, TRANSPOSING_INSTRUMENT_OFFSET } from '../lib/note/playerSettings';
-import { GenreSelect, MetronomeToggle, BpmControl, RepeatControl, TransportButtons, BackingMixer, type EngineBackend } from '../components/backing/BackingPlayerBar';
+import { GenreSelect, MixerButton, BpmControl, RepeatControl, TransportButtons, BackingMixer } from '../components/backing/BackingPlayerBar';
 import { useIsNativeUi } from '../contexts/AppPreviewContext';
 import { useCompactLayout } from '../hooks/useCompactLayout';
 import { withLeadSheetSelectionIds } from '../lib/leadSheetSelection';
@@ -33,7 +33,9 @@ import { loadUserLicksSync, type LickEntry } from '../data/lickData';
 import { findMatchingLicks, leadingPickupBars, type LickMatch } from '../lib/lickMatcher';
 import { SavedLicksModal } from '../components/leadsheet/SavedLicksModal';
 import { useCountInIntro } from '../hooks/useCountInIntro';
-import { chordToInputString, parseChordInput, loadChartEdit, saveChartEdit } from '../lib/leadSheetChordEdit';
+import { parseChordInput, loadChartEdit, saveChartEdit, displayKeyToProjectKey, leadSheetToProgression } from '../lib/leadSheetChordEdit';
+import { buildShareUrl, tryNativeShare } from '../lib/share/chartShare';
+import { ShareLinkModal } from '../components/common/ShareLinkModal';
 import { loadBreakPoints, saveBreakPoints, toggleBreakPoint, type BreakPoint } from '../lib/breakPoints';
 import { useTransitionState } from '../hooks/useTransitionState';
 
@@ -68,33 +70,6 @@ function makeEmptySheet(): LeadSheetData {
       })),
     })),
   };
-}
-
-function displayKeyToProjectKey(key: string): string {
-  const minor = isMinorKey(key);
-  const root = key.replace(/m$/, '').replace(/-$/, '');
-  const normalizedRoot = root
-    .replace('#', '_SHARP')
-    .replace('b', '_FLAT')
-    .replace(/^([A-G])$/, '$1');
-  return `${normalizedRoot}_${minor ? 'MINOR' : 'MAJOR'}`.toUpperCase();
-}
-
-function leadSheetToProgression(data: LeadSheetData): string {
-  const bars = data.systems.flatMap((system) =>
-    system.bars.map((bar) => {
-      const symbols = bar.chords
-        .map(chordToInputString)
-        .map((s) => s.trim())
-        .filter(Boolean);
-      return symbols.length > 0 ? symbols.join(' ') : 'N.C.';
-    }),
-  );
-
-  while (bars.length > 1 && bars[bars.length - 1] === 'N.C.') {
-    bars.pop();
-  }
-  return bars.join(' | ') || 'N.C.';
 }
 
 /* Rule-based analysis is forced off while editing the chart. */
@@ -311,12 +286,6 @@ const ToolBtn = styled.button<{ $lit?: boolean }>`
   &:hover { background: rgba(0, 0, 0, 0.06); }
 `;
 
-/* Lightbulb popover — analysis master toggle + sub-filters. */
-const ToolWrap = styled.div`
-  position: relative;
-  display: inline-flex;
-`;
-
 /* ─── native-only sidebar (slide-in song list, iRealPro-style) ─────────── */
 
 const SidebarBackdrop = styled.div<{ $entered: boolean }>`
@@ -432,20 +401,6 @@ const SongMeta = styled.div`
   margin-top: 4px;
   font-size: 0.72rem;
   color: #999;
-`;
-
-const AnalysisDrop = styled.div<{ $up?: boolean }>`
-  position: absolute;
-  ${({ $up }) => ($up ? 'bottom: calc(100% + 6px);' : 'top: calc(100% + 6px);')}
-  right: 0;
-  z-index: 90;
-  width: 248px;
-  background: #fff;
-  border: 1px solid #e6e6e6;
-  border-radius: 14px;
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.2);
-  padding: 6px 16px 12px;
-  font-family: 'Pretendard', sans-serif;
 `;
 
 /* ─── tool icons (Lucide, 24×24 stroke) ───────────────────────────────── */
@@ -612,46 +567,6 @@ const ModalButton = styled.button<{ $primary?: boolean }>`
   &:disabled {
     opacity: 0.58;
     cursor: default;
-  }
-`;
-
-const ToggleRow = styled.label<{ $disabled?: boolean }>`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 11px 2px;
-  border-top: 1px solid #f0f0f0;
-  cursor: ${({ $disabled }) => ($disabled ? 'default' : 'pointer')};
-  opacity: ${({ $disabled }) => ($disabled ? 0.4 : 1)};
-
-  &:first-of-type { border-top: none; }
-`;
-
-const ToggleLabel = styled.span`
-  font-size: 0.95rem;
-  color: #2a2a2a;
-`;
-
-const Switch = styled.span<{ $on?: boolean }>`
-  position: relative;
-  width: 42px;
-  height: 24px;
-  border-radius: 999px;
-  background: ${({ $on }) => ($on ? '#3b82f6' : '#d4d4d8')};
-  transition: background 0.18s;
-  flex-shrink: 0;
-
-  &::after {
-    content: '';
-    position: absolute;
-    top: 2px;
-    left: ${({ $on }) => ($on ? '20px' : '2px')};
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #fff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-    transition: left 0.18s;
   }
 `;
 
@@ -895,29 +810,6 @@ const RightPanelWrapper = styled.div<{ $width: number }>`
 
 /* Tab strip splitting the right panel into 믹서 / AI 채팅. Sits right under
  * the always-visible BackingTransport. */
-const PanelTabs = styled.div`
-  display: flex;
-  background: #fff;
-  border-bottom: 1px solid #e6e6e6;
-  flex-shrink: 0;
-`;
-
-const PanelTab = styled.button<{ $on?: boolean }>`
-  flex: 1;
-  padding: 9px 0;
-  border: none;
-  background: transparent;
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: ${({ $on }) => ($on ? '#2b8aef' : '#888')};
-  border-bottom: 2px solid ${({ $on }) => ($on ? '#2b8aef' : 'transparent')};
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
-  &:hover { color: ${({ $on }) => ($on ? '#2b8aef' : '#555')}; }
-`;
-
-
 const ResizeDivider = styled.div`
   width: 5px;
   flex-shrink: 0;
@@ -1038,19 +930,11 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   /* How many times Play repeats the chart before stopping (default 3). */
   const [repeatCount, setRepeatCount] = useState(3);
   const [tempo, setTempo] = useState(140);
-  const [engineBackend, setEngineBackend] = useState<EngineBackend>(() => {
-    if (typeof window === 'undefined') return 'rule';
-    const stored = window.localStorage.getItem('jazzify.engine');
-    if (stored === 'sty' || stored === 'hybrid') return stored;
-    return 'rule';
-  });
-  const [styleChoice, setStyleChoice] = useState<StyleSelectorChoice>(BUILTIN_STYLE);
   const [activeBar, setActiveBar] = useState(-1);
   const [selectedChordIds, setSelectedChordIds] = useState<string[]>([]);
   const [selectedChordsData, setSelectedChordsData] = useState<ChordOverlay[]>([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [analysisMenuOpen, setAnalysisMenuOpen] = useState(false);
-  const [lightMenuOpen, setLightMenuOpen] = useState(false);
   /* Native-only top-bar toggles. Sidebar drops the song list, chat opens the
    * AI panel as a modal (no right-side dock), mixer opens BackingMixer as a
    * bottom sheet. */
@@ -1065,7 +949,6 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   const sidebarT = useTransitionState(sidebarOpen);
   const chatT = useTransitionState(chatOpen);
   const mixerSheetT = useTransitionState(mixerSheetOpen);
-  const analysisModalT = useTransitionState(analysisMenuOpen);
   // ★ 저장된 릭 있는 마디 번호 세트
   const [savedLickBarNums, setSavedLickBarNums] = useState<Set<number>>(new Set());
   const [savedLicksModal, setSavedLicksModal] = useState<{
@@ -1107,8 +990,10 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   const [saveProjectError, setSaveProjectError] = useState<string | null>(null);
   const [pendingSaveSheet, setPendingSaveSheet] = useState<LeadSheetData | null>(null);
   const [savingProject, setSavingProject] = useState(false);
-  const analysisMenuRef = useRef<HTMLDivElement>(null);
-  const lightMenuRef = useRef<HTMLDivElement>(null);
+  /* Share: build a self-contained public link (chart encoded in the URL) and
+   * hand it to the native share sheet, falling back to a copy-link modal. */
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
 
   const handleChordClick = (_chord: any, _measureNumber: number, target?: LeadSheetChordSelection) => {
     if (!isSelectionMode) return;
@@ -1162,20 +1047,13 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     getSongIndex().then(setSongIndex).catch(() => {});
   }, []);
 
-  // Build a stable ChartInput for the GlobalPlayer whenever the loaded
-  // sheet / engine backend / style choice changes. The GlobalPlayer
-  // lazy-instantiates the appropriate BackingPlayer engine when play()
-  // is called with this input.
+  // Build a stable ChartInput for the GlobalPlayer whenever the loaded sheet
+  // changes. The GlobalPlayer lazy-instantiates the rule BackingPlayer when
+  // play() is called with this input.
   const chartInput = useMemo<ChartInput | null>(() => {
     if (!sheet) return null;
-    return {
-      kind: 'chart',
-      data: sheet,
-      engineBackend,
-      styleUrl: styleChoice.url,
-      styleData: styleChoice.buffer,
-    };
-  }, [sheet, engineBackend, styleChoice]);
+    return { kind: 'chart', data: sheet };
+  }, [sheet]);
 
   // Sync tempo and inferred rhythm style from the chart whenever the
   // sheet changes. (BackingPlayer reads the global playerSettings store
@@ -1362,6 +1240,28 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     }
   }, [loopDraftStart]);
 
+  /* Drag-to-select a loop region on the chart (구간 반복 ON). pointerdown on a
+   * bar = anchor, drag over bars = live region preview, release = commit.
+   * Independent of the 1st/2nd-click flow (a no-move press still clicks). */
+  const loopDragAnchorRef = useRef<number | null>(null);
+  const loopDraggingRef = useRef(false);
+  const handleLoopBarPointerDown = useCallback((flatBar: number) => {
+    loopDragAnchorRef.current = flatBar;
+    loopDraggingRef.current = true;
+    setLoopDraftStart(null); // 드래그 시작 시 진행 중이던 클릭-선택 취소
+  }, []);
+  const handleLoopBarPointerEnter = useCallback((flatBar: number) => {
+    if (!loopDraggingRef.current || loopDragAnchorRef.current == null) return;
+    const a = loopDragAnchorRef.current;
+    setLoopRegion({ startBar: Math.min(a, flatBar), endBar: Math.max(a, flatBar) });
+  }, []);
+  useEffect(() => {
+    if (!loopEditMode) return;
+    const onUp = () => { loopDraggingRef.current = false; loopDragAnchorRef.current = null; };
+    window.addEventListener('pointerup', onUp);
+    return () => window.removeEventListener('pointerup', onUp);
+  }, [loopEditMode]);
+
   const handleToggleLoopEdit = useCallback(() => {
     setLoopEditMode((v) => {
       if (v) setLoopDraftStart(null); // closing → drop any half-done pick
@@ -1386,6 +1286,12 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     }
     setIsPlaying(true);
     globalPlayer.setConfig({ repeatCount });
+    // Resume the chart engine's AudioContext NOW, synchronously inside this
+    // click gesture. play() runs only after the ~2s count-in await — by then
+    // the gesture has expired and its resume() can't start a context created
+    // suspended during mount warmup, so the first play after a cold page entry
+    // stayed silent until a stop+replay. This is the in-gesture resume.
+    globalPlayer.unlock(chartInput);
     try {
       // WARM (already loaded): "1 2 3 4" plays the instant the button is pressed
       // and leads straight into the music — preload runs concurrently as a
@@ -1402,7 +1308,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
         prepare: globalPlayer.preload(chartInput).catch(() => {}),
       });
       if (!cin.ok) { setIsPlaying(false); return; }
-      await globalPlayer.play(chartInput, { startAt: globalPlayer.ctxNow() + cin.downbeatInSec });
+      await globalPlayer.play(chartInput, { downbeatInSec: cin.downbeatInSec });
     } catch (err) {
       console.error('[backing] play failed:', err);
       setIsPlaying(false);
@@ -1552,27 +1458,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     return () => document.removeEventListener('mousedown', handler);
   }, [searchOpen]);
 
-  useEffect(() => {
-    if (!analysisMenuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (analysisMenuRef.current && !analysisMenuRef.current.contains(e.target as Node)) {
-        setAnalysisMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [analysisMenuOpen]);
-
-  useEffect(() => {
-    if (!lightMenuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (lightMenuRef.current && !lightMenuRef.current.contains(e.target as Node)) {
-        setLightMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [lightMenuOpen]);
+  /* 분석 설정 모달(AnalysisSettingsModal)은 자체 backdrop 클릭/Esc 로 닫힌다. */
 
 
   const chordContext = useMemo(() => {
@@ -1643,7 +1529,6 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
 
   const [rightPanelWidth, setRightPanelWidth] = useState(515);
   /* Right panel view: mixer (player controls) vs AI chat. */
-  const [panelTab, setPanelTab] = useState<'mixer' | 'chat'>('chat');
   /* Transpose key, lifted out of LeadSheet so the player transport owns it. */
   const chartOriginalKey = sheet?.key ?? 'C';
   const [chartKey, setChartKey] = useState(chartOriginalKey);
@@ -1751,6 +1636,14 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     }
   }, [chartKey, navigate, pendingSaveSheet, saveProjectTitle, savingProject]);
 
+  const handleShare = useCallback(async () => {
+    if (!sheet) return;
+    const url = buildShareUrl(sheet);
+    if (await tryNativeShare(sheet.title || '코드 차트', url)) return;
+    setShareUrl(url);
+    setShareModalOpen(true);
+  }, [sheet]);
+
   /* Which instrument the player is using this chart with. Display-only for now;
    * instrument-specific behaviours (vocal lyrics, sax transpose, drum sections)
    * come later. */
@@ -1856,7 +1749,15 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
               <SessionPicker value={session} onChange={setSession} />
             </BarLeft>
             <BarCenter>
-              <MetronomeToggle />
+              <MixerButton
+                inlineLick
+                breakEditMode={breakEditMode}
+                onToggleBreakEdit={() => setBreakEditMode((v) => !v)}
+                loopEditMode={loopEditMode}
+                onToggleLoopEdit={handleToggleLoopEdit}
+                loopRegion={loopRegion}
+                onClearLoop={handleClearLoop}
+              />
               <BpmControl tempo={tempo} onTempoChange={setTempo} disabled={!sheet || loading} />
               <RepeatControl repeatCount={repeatCount} onRepeatChange={setRepeatCount} disabled={!sheet || loading} />
               <TransportButtons playing={isPlaying} onPlayPause={handlePlayPause} onStop={handleStop} disabled={!sheet || loading} />
@@ -1877,7 +1778,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
                   </ToolBtn>
                 </>
               )}
-              <ToolBtn type="button" title="공유" onClick={() => {/* TODO: 공유 기능 */}}>
+              <ToolBtn type="button" title="공유" onClick={handleShare} disabled={!sheet || loading}>
                 <ShareIcon />
               </ToolBtn>
               <ToolBtn
@@ -1888,40 +1789,16 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
               >
                 <PencilIcon />
               </ToolBtn>
-              <ToolWrap ref={lightMenuRef}>
-                <ToolBtn
-                  type="button"
-                  title="분석 보기"
-                  $lit={filters.showAnalysis}
-                  onClick={() => setLightMenuOpen((v) => !v)}
-                >
-                  <LightbulbIcon lit={filters.showAnalysis} />
-                </ToolBtn>
-                {lightMenuOpen && (
-                  <AnalysisDrop>
-                    <ToggleRow onClick={() => toggleFilter('showAnalysis')}>
-                      <ToggleLabel style={{ fontWeight: 700 }}>분석 보기</ToggleLabel>
-                      <Switch $on={filters.showAnalysis} />
-                    </ToggleRow>
-                    {([
-                      { key: 'showDegree', label: '도수 표시' },
-                      { key: 'showIIVI', label: '2-5-1 하이라이트' },
-                      { key: 'showArrows', label: '해결 화살표' },
-                      { key: 'showColors', label: '비화성음 · 모달 색상' },
-                    ] as const).map(({ key, label }) => (
-                      <ToggleRow
-                        key={key}
-                        $disabled={!filters.showAnalysis}
-                        onClick={() => filters.showAnalysis && toggleFilter(key)}
-                      >
-                        <ToggleLabel>{label}</ToggleLabel>
-                        <Switch $on={filters.showAnalysis && filters[key]} />
-                      </ToggleRow>
-                    ))}
-                  </AnalysisDrop>
-                )}
-              </ToolWrap>
-              <ToolBtn type="button" title="분석 설정" onClick={() => setAnalysisMenuOpen(true)}>
+              {/* 전구 = 분석 보기 ON/OFF 마스터 토글만. 세부 설정은 톱니 모달. */}
+              <ToolBtn
+                type="button"
+                title={filters.showAnalysis ? '분석 보기 끄기' : '분석 보기 켜기'}
+                $lit={filters.showAnalysis}
+                onClick={() => toggleFilter('showAnalysis')}
+              >
+                <LightbulbIcon lit={filters.showAnalysis} />
+              </ToolBtn>
+              <ToolBtn type="button" title="고급 설정" onClick={() => setAnalysisMenuOpen(true)}>
                 <GearIcon />
               </ToolBtn>
             </BarRight>
@@ -1948,6 +1825,8 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
               loopRegion={loopRegion}
               loopDraftStart={loopDraftStart}
               onPickLoopBar={handlePickLoopBar}
+              onLoopBarPointerDown={handleLoopBarPointerDown}
+              onLoopBarPointerEnter={handleLoopBarPointerEnter}
               activeBar={activeBar}
               bpm={tempo}
               onChordClick={handleChordClick}
@@ -2045,30 +1924,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
 
         {!isNativeUi && !isCompactLayout && (
         <RightPanelWrapper $width={rightPanelWidth}>
-          <PanelTabs>
-            <PanelTab type="button" $on={panelTab === 'mixer'} onClick={() => setPanelTab('mixer')}>믹서</PanelTab>
-            <PanelTab type="button" $on={panelTab === 'chat'} onClick={() => setPanelTab('chat')}>AI 채팅</PanelTab>
-          </PanelTabs>
-          {panelTab === 'mixer' ? (
-            <BackingMixer
-              engine={{
-                backend: engineBackend,
-                onBackendChange: (b) => {
-                  setEngineBackend(b);
-                  window.localStorage.setItem('jazzify.engine', b);
-                },
-                styleChoice,
-                onStyleChange: setStyleChoice,
-              }}
-              breakEditMode={breakEditMode}
-              onToggleBreakEdit={() => setBreakEditMode((v) => !v)}
-              loopEditMode={loopEditMode}
-              onToggleLoopEdit={handleToggleLoopEdit}
-              loopRegion={loopRegion}
-              onClearLoop={handleClearLoop}
-            />
-          ) : (
-            <RightChatPanel
+          <RightChatPanel
             hideHeader
             chartKind="chord"
             projectPublicId={chatProjectId}
@@ -2084,7 +1940,6 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
             onLickShowInline={handleChatLickInline}
             activeInlineLickId={inlineLick?.lick.id}
           />
-          )}
         </RightPanelWrapper>
         )}
         </MainArea>
@@ -2189,6 +2044,10 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
         </ModalOverlay>
       )}
 
+      {shareModalOpen && (
+        <ShareLinkModal url={shareUrl} onClose={() => setShareModalOpen(false)} />
+      )}
+
       {savedLicksModal && (
         <SavedLicksModal
           spanLabel={savedLicksModal.label}
@@ -2219,29 +2078,12 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
         />
       )}
 
-      {analysisModalT.mounted && (
-        <ModalOverlay $entered={analysisModalT.entered}>
-          <ModalCard $entered={analysisModalT.entered} ref={analysisMenuRef}>
-            <ModalTitle>분석 설정</ModalTitle>
-            <ModalSub>룰 기반 분석에 표시할 항목을 선택하세요.</ModalSub>
-            {([
-              { key: 'showDegree', label: '도수 표시' },
-              { key: 'showIIVI', label: '2-5-1 하이라이트' },
-              { key: 'showArrows', label: '해결 화살표' },
-              { key: 'showColors', label: '비화성음 · 모달 색상' },
-            ] as const).map(({ key, label }) => (
-              <ToggleRow
-                key={key}
-                $disabled={!filters.showAnalysis}
-                onClick={() => filters.showAnalysis && toggleFilter(key)}
-              >
-                <ToggleLabel>{label}</ToggleLabel>
-                <Switch $on={filters.showAnalysis && filters[key]} />
-              </ToggleRow>
-            ))}
-          </ModalCard>
-        </ModalOverlay>
-      )}
+      <AnalysisSettingsModal
+        open={analysisMenuOpen}
+        onClose={() => setAnalysisMenuOpen(false)}
+        filters={filters}
+        onToggleFilter={toggleFilter}
+      />
 
       {/* Native: song-list sidebar slides in from the left. Backdrop click
        *  or the close icon dismisses it. Mounted while animating in either
@@ -2338,15 +2180,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
             </SheetHeader>
             <SheetBody>
               <BackingMixer
-                engine={{
-                  backend: engineBackend,
-                  onBackendChange: (b) => {
-                    setEngineBackend(b);
-                    window.localStorage.setItem('jazzify.engine', b);
-                  },
-                  styleChoice,
-                  onStyleChange: setStyleChoice,
-                }}
+                inlineLick
                 breakEditMode={breakEditMode}
                 onToggleBreakEdit={() => setBreakEditMode((v) => !v)}
                 loopEditMode={loopEditMode}

@@ -2,6 +2,23 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
+    <!-- CSP — XSS 발생 시의 완화층 (Fable.md 보안 finding).
+         실용 정책: 핵심은 외부 출처 스크립트 차단(youtube iframe_api만 허용)과
+         frame/object 제한. 'unsafe-inline' script는 Vite dev의 react-refresh
+         preamble 때문에 필요하고, connect-src https:/wss:는 가변 RAG 터널
+         (*.trycloudflare.com)·smplr 사운드폰트 CDN·백엔드를 포괄한다. -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' https://www.youtube.com https://s.ytimg.com;
+      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net;
+      font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net;
+      img-src 'self' data: blob: https:;
+      media-src 'self' blob: https:;
+      connect-src 'self' https: wss: ws: blob: data:;
+      frame-src https://www.youtube.com https://www.youtube-nocookie.com;
+      worker-src 'self' blob:;
+      object-src 'none';
+      base-uri 'self'">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
     <meta name="mobile-web-app-capable" content="yes" />

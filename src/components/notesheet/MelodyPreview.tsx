@@ -10,6 +10,7 @@ import {
   Accidental,
   BarlineType,
 } from 'vexflow';
+import { resolveMeasureAccidental, type RenderAcc } from '../../lib/note/measureAccidentals';
 
 /* ─── midi → vexflow ─────────────────────────────────────────────────── */
 
@@ -85,9 +86,13 @@ export function MelodyPreview({ midis, width }: Props) {
       if (isLast) stave.setEndBarType(BarlineType.END);
       stave.setContext(ctx).draw();
 
+      // Octave-aware accidental rule (shared helper) — suppress same-pitch
+      // repeats within the measure; re-mark / no needless ♮ across octaves.
+      const active = new Map<string, RenderAcc>();
       const vfNotes = measures[mi].map((n) => {
         const sn = new StaveNote({ keys: [n.key], duration: 'q', autoStem: true });
-        if (n.acc) sn.addModifier(new Accidental(n.acc));
+        const glyph = resolveMeasureAccidental(active, undefined, n.key, n.acc);
+        if (glyph) sn.addModifier(new Accidental(glyph));
         return sn;
       });
 

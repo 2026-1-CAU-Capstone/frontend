@@ -67,6 +67,23 @@ export function getLickVideo(id: number | string): LickVideo | undefined {
 }
 
 /**
+ * Build a YouTube SEARCH url for a lick's source recording from its metadata
+ * (performer + tune + album). Used as the always-available fallback when no
+ * exact video is pinned: it resolves to the right search results for every
+ * lick and never invents a (possibly wrong) video id. Pinned videos
+ * (`getLickVideo`) take precedence at the call site.
+ */
+export function lickYoutubeSearchUrl(
+  lick: { performer?: string; title?: string; album?: string },
+): string {
+  const q = [lick.performer, lick.title, lick.album]
+    .map((s) => (s ?? '').trim())
+    .filter(Boolean)
+    .join(' ');
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(q || 'jazz lick')}`;
+}
+
+/**
  * Pull a YouTube video ID out of a URL or a bare ID string. Supports the
  * standard watch URL, youtu.be short URL, /embed/ form, and a raw 11-char
  * ID. Returns null if no plausible ID is found.

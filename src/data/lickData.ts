@@ -196,6 +196,7 @@ let cachedFrontendLicks: LickEntry[] | null = null;
 export async function loadFrontendLicks(): Promise<LickEntry[]> {
   if (cachedFrontendLicks) return cachedFrontendLicks;
   const res = await fetch('/data/licks/licks.json');
+  if (!res.ok) throw new Error(`licks.json ${res.status}`); // SPA 404→index.html 오진 방지
   const raw: RawLick[] = await res.json();
   cachedFrontendLicks = raw
     .filter((l) => l.n_events >= 8)
@@ -233,6 +234,7 @@ let cachedBackupLicks: LickEntry[] | null = null;
 export async function loadBackupLicks(): Promise<LickEntry[]> {
   if (cachedBackupLicks) return cachedBackupLicks;
   const res = await fetch('/data/licks/backend_backup_licks.json');
+  if (!res.ok) throw new Error(`backend_backup_licks.json ${res.status}`); // SPA 404→index.html 오진 방지
   const raw = await res.json();
   const { toLickEntry } = await import('../api/licks');
   cachedBackupLicks = raw.map(toLickEntry);
@@ -317,8 +319,14 @@ const STORAGE_KEY = 'jazzify_user_licks';
 let seedLicks: LickEntry[] | null = null;
 
 async function loadSeedLicks(): Promise<LickEntry[]> {
+  // The module cache was written but never READ — every loadUserLicks() call
+  // re-fetched the JSON. Guard first, like cachedFrontendLicks/cachedBackupLicks.
+  if (seedLicks) return seedLicks;
   try {
     const res = await fetch('/data/licks/user_licks.json');
+    // SPA static hosts return index.html (200) for missing files — res.json()
+    // would then die with a cryptic "Unexpected token <". Fail explicitly.
+    if (!res.ok) throw new Error(`user_licks.json ${res.status}`);
     seedLicks = await res.json();
     return seedLicks!;
   } catch {
@@ -331,7 +339,11 @@ function loadLocalLicks(): LickEntry[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
-    return JSON.parse(raw) as LickEntry[];
+    const parsed = JSON.parse(raw);
+    // Corrupt/foreign value under our key (non-array) → treat as empty
+    // instead of letting callers .filter()/.map() crash. (soloData has the
+    // same Array.isArray guard.)
+    return Array.isArray(parsed) ? (parsed as LickEntry[]) : [];
   } catch {
     return [];
   }
@@ -378,10 +390,22 @@ export function loadUserLicksSync(): LickEntry[] {
 export function saveUserLick(lick: LickEntry): void {
   const existing = loadLocalLicks().filter((l) => String(l.id) !== String(lick.id));
   existing.unshift(lick);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+  // setItem can throw (QuotaExceeded — sheetData-heavy entries add up).
+  // Swallow with a warn like every other localStorage write in the codebase:
+  // a failed local mirror must not surface as "save failed" after the
+  // backend save already succeeded (EditorPage flow).
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+  } catch (e) {
+    console.warn('[lickData] saveUserLick: localStorage write failed', e);
+  }
 }
 
 export function deleteUserLick(id: number | string): void {
   const existing = loadLocalLicks().filter((l) => String(l.id) !== String(id));
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+  } catch (e) {
+    console.warn('[lickData] deleteUserLick: localStorage write failed', e);
+  }
 }

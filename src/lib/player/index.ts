@@ -32,7 +32,6 @@ export type {
   SoloInput,
   ChartInput,
   ChordSymbol,
-  EngineBackend,
   GlobalPlayer,
   GlobalPlayerConfig,
   GlobalPlayerEvents,

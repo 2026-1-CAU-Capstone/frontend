@@ -176,7 +176,7 @@ const UpIcon = () => (
 const Overlay = styled.div`
   position: fixed;
   inset: 0;
-  z-index: 2000;
+  z-index: ${({ theme }) => theme.zIndex.toast};
   background: rgba(0, 0, 0, 0.45);
   display: flex;
   align-items: center;

@@ -12,6 +12,7 @@ import {
   type Pattern,
 } from '../lib/note/countInPatterns';
 import { CountInOverlay } from '../components/common/CountInOverlay';
+import { getPlayerSettings } from '../lib/note/playerSettings';
 
 interface HookOptions {
   /** scoped=true → overlay 를 부모 컨테이너 안에서만 표시 (LickCard 등). */
@@ -38,6 +39,13 @@ interface RunOptions {
    *  first play). When `true`/omitted, `prepare` runs concurrently with the
    *  clicks (warm path). */
   ready?: boolean;
+  /** Force the count-in length in bars (1 or 2), overriding the global
+   *  `countInBars` setting. Lick playback passes 1 so it always leads with a
+   *  single "1 2 3 4" regardless of the user's chord-chart count-in preference. */
+  bars?: number;
+  /** Play the count-in even when the global `countInEnabled` setting is off.
+   *  Lick playback always wants the one-bar count-in. */
+  forceEnabled?: boolean;
 }
 
 export interface CountInResult {
@@ -99,7 +107,7 @@ export function useCountInIntro(options: HookOptions = {}) {
   }, [clearAll]);
 
   const run = useCallback(
-    async ({ bpm, pattern: patternOverride, prepare: rawPrepare, ready }: RunOptions): Promise<CountInResult> => {
+    async ({ bpm, pattern: patternOverride, prepare: rawPrepare, ready, bars: barsOverride, forceEnabled }: RunOptions): Promise<CountInResult> => {
       // Attach a catch IMMEDIATELY (hook-level backstop). `prepare` is only
       // awaited after the clicks (~2s); a rejection inside that unobserved
       // window fires `unhandledrejection`, which AudioLifecycleGuard answers
@@ -115,7 +123,12 @@ export function useCountInIntro(options: HookOptions = {}) {
       // 첫 클릭들이 뭉개지던 문제를 막는다.
       await resumeCountInCtx();
       const chosenPattern = patternOverride ?? selectPattern(bpm);
-      const cells = flatCells(chosenPattern);
+      const cellsPerBar = flatCells(chosenPattern);
+      const perBar = cellsPerBar.length;
+      // 카운트인 마디 수(1/2). 2면 패턴을 두 번 반복("1234 1234 |1").
+      // barsOverride(릭 재생 등)가 있으면 전역 countInBars 대신 강제한다.
+      const bars = Math.max(1, Math.min(2, barsOverride ?? getPlayerSettings().countInBars ?? 1));
+      const cells = bars === 1 ? cellsPerBar : [...cellsPerBar, ...cellsPerBar];
       const totalCells = cells.length;
 
       // Re-entry guard: a second run() (rapid double-press — React-state
@@ -149,6 +162,15 @@ export function useCountInIntro(options: HookOptions = {}) {
         }
       }
 
+      // 카운트인 끄기: 클릭 없이 즉시 재생. 콜드 로드는 위 ready 블록에서 이미
+      // 처리됨; 웜 경로는 prepare를 여기서 마저 기다려 play()가 바로 시작되게 한다.
+      if (!forceEnabled && !getPlayerSettings().countInEnabled) {
+        if (prepare) { try { await prepare; } catch { /* retried at play time */ } }
+        setActive(false);
+        setCurrentBeat(0);
+        return { ok: !cancelRef.current, startAt: getCountInTime(), downbeatInSec: 0 };
+      }
+
       const bs = 60 / bpm;
       const startAudioTime = getCountInTime() + 0.06;
       // The first downbeat AFTER the count-in. This is the precise audio time
@@ -173,7 +195,8 @@ export function useCountInIntro(options: HookOptions = {}) {
             // 짝 (silent) cell 일 땐 currentBeat 안 바꾸고 이전 numbered cell 의
             // 하이라이트가 자연스럽게 유지되도록 함.
             if (cell.audio !== 'silent') {
-              setCurrentBeat(i + 1);
+              // 2마디일 때 각 마디마다 하이라이트가 1부터 다시 차도록 modulo.
+              setCurrentBeat((i % perBar) + 1);
             }
           },
           Math.max(0, delayMs),

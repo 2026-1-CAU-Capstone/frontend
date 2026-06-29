@@ -73,7 +73,7 @@ export function ConfirmDeleteModal({
 const ModalBackdrop = styled.div`
   position: fixed;
   inset: 0;
-  z-index: 1100;
+  z-index: ${({ theme }) => theme.zIndex.modalHigh};
   background: rgba(20, 20, 20, 0.35);
   display: flex;
   align-items: center;

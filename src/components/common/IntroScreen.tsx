@@ -25,7 +25,7 @@ const fadeOut = keyframes`
 const Screen = styled.div<{ $exiting: boolean }>`
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: ${({ theme }) => theme.zIndex.max};
   display: flex;
   flex-direction: column;
   align-items: center;

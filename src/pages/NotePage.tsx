@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useCompactLayout } from '../hooks/useCompactLayout';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../styles/theme';
@@ -28,6 +29,8 @@ import { getPlayerSettings, subscribePlayerSettings, TRANSPOSING_INSTRUMENT_OFFS
 import { getSong } from '../lib/ireal/irealLoader';
 import { useGlobalPlayer } from '../lib/player';
 import { loadBreakPoints, saveBreakPoints, toggleBreakPoint, type BreakPoint } from '../lib/breakPoints';
+import { buildNoteShareUrl, tryNativeShare } from '../lib/share/chartShare';
+import { ShareLinkModal } from '../components/common/ShareLinkModal';
 
 const SAMPLE_ID = '__sample__';
 
@@ -73,10 +76,6 @@ function transposeNoteKey(vexKey: string, accidental: '#' | 'b' | 'n' | undefine
   // vexKey e.g. "c/4", "f/5"
   const [notePart, octStr] = vexKey.split('/');
   const noteName = notePart.toUpperCase();
-  let pc = NOTE_TO_PC[noteName] ?? 0;
-  if (accidental === '#') pc += 1;
-  else if (accidental === 'b') pc -= 1;
-  pc = ((pc + semitones) % 12 + 12) % 12;
 
   // Compute new octave
   let origPc = NOTE_TO_PC[noteName] ?? 0;
@@ -688,6 +687,8 @@ export default function NotePage() {
   }, [songGroup]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
 
   /* key transposition */
   const originalKey = sheet?.key ?? 'C';
@@ -723,21 +724,43 @@ export default function NotePage() {
   const noteSheetRef = useRef<NoteSheetHandle | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [tempo, setTempo] = useState(sampleMelody.tempo ?? 120);
-  const [repeatCount, setRepeatCount] = useState(3);  // UI-only — player plays once through.
+  const [repeatCount, setRepeatCount] = useState(3);  // globalPlayer.setConfig({repeatCount})로 반영(아래 effect).
   const [session, setSession] = useState<SessionInstrument>('piano');
 
   /* Break Editor (고급 기능) — backing rests while the melody keeps playing.
    * NoteSheet plays through the global player singleton, so we reach the same
    * instance here to push breakBeats. Persisted per-song by songId. */
   const { player: globalPlayer } = useGlobalPlayer();
+  // compact에선 MobileChatFab가 패널을 소유 — 데스크톱 패널은 언마운트 (이중
+  // 마운트로 인한 이벤트 중복 처리/중복 fetch 방지; ChordPage와 동일 처리).
+  const isCompactLayout = useCompactLayout();
   const [breakEditMode, setBreakEditMode] = useState(false);
   const [breakPoints, setBreakPoints] = useState<BreakPoint[]>([]);
 
-  useEffect(() => { setBreakPoints(loadBreakPoints(songId)); }, [songId]);
+  // 곡 전환 commit에서 save effect가 "새 songId + 이전 breakPoints"로 한 번
+  // 돌아 이전 곡 데이터를 새 곡 키에 쓰던 오염 가드 (ChordPage와 동일 패턴).
+  const persistedBreakSongIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    setBreakPoints(loadBreakPoints(songId));
+    persistedBreakSongIdRef.current = songId;
+  }, [songId]);
   useEffect(() => {
     globalPlayer.setConfig({ breakBeats: breakPoints });
+    if (persistedBreakSongIdRef.current !== songId) return;
     saveBreakPoints(songId, breakPoints);
   }, [globalPlayer, breakPoints, songId]);
+
+  // RepeatControl → 실제 반복 반영. ChordPage(globalPlayer.setConfig({repeatCount}))와
+  // 동일하게 배선 — 이전엔 UI만 있고 재생에 미반영이었다(Fable §4 489). setConfig는
+  // 두 엔진(코드/멜로디)에 모두 fan-out되므로 NotePage의 sheet 재생에도 적용된다.
+  useEffect(() => {
+    globalPlayer.setConfig({ repeatCount });
+  }, [globalPlayer, repeatCount]);
+
+  // Stop the GlobalPlayer when this page unmounts — same guard ChordPage has.
+  // Without it, navigating away mid-playback left the melody/backing running
+  // (engines are app-wide singletons; nothing else stops them on leave).
+  useEffect(() => () => { globalPlayer.stop(); }, [globalPlayer]);
 
   const handleToggleBreak = useCallback((bar: number, clickedBeat: number) => {
     const beatsPerBar = parseInt((sheet?.timeSignature ?? '4/4').split('/')[0], 10) || 4;
@@ -757,6 +780,14 @@ export default function NotePage() {
   const handleStop = useCallback(() => {
     noteSheetRef.current?.stop();
   }, []);
+
+  const handleShare = useCallback(async () => {
+    if (!sheet) return;
+    const url = buildNoteShareUrl(sheet);
+    if (await tryNativeShare(sheet.title || '악보', url)) return;
+    setShareUrl(url);
+    setShareModalOpen(true);
+  }, [sheet]);
 
   const handleTempoChange = useCallback((n: number) => {
     noteSheetRef.current?.setTempo(n);
@@ -944,6 +975,10 @@ export default function NotePage() {
   const dividerRef = useRef<HTMLDivElement>(null);
   const [panelTab, setPanelTab] = useState<'mixer' | 'chat'>('chat');
 
+  /* 드래그 중 unmount(빠른 네비게이션)나 창 밖 mouseup 유실 시 window 리스너가
+   * 잔존하던 것 — 해제 함수를 ref에 보관해 unmount cleanup에서도 정리한다. */
+  const dividerCleanupRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => { dividerCleanupRef.current?.(); }, []);
   const onDividerMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     const startX = e.clientX;
@@ -958,7 +993,9 @@ export default function NotePage() {
       dividerRef.current?.classList.remove('dragging');
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
+      dividerCleanupRef.current = null;
     };
+    dividerCleanupRef.current = onUp;
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
   }, [rightPanelWidth]);
@@ -1054,7 +1091,7 @@ export default function NotePage() {
               <TransportButtons playing={isPlaying} onPlayPause={handlePlayPause} onStop={handleStop} disabled={!sheet || loading} />
             </BarCenter>
             <BarRight>
-              <ToolBtn type="button" title="공유" onClick={() => {/* TODO: 공유 기능 */}}>
+              <ToolBtn type="button" title="공유" onClick={handleShare} disabled={!sheet || loading}>
                 <ShareIcon />
               </ToolBtn>
               <ToolBtn type="button" title="Editor에서 수정" onClick={() => navigate('/editor?mode=solo')}>
@@ -1145,8 +1182,9 @@ export default function NotePage() {
           )}
         </CenterColumn>
 
-        <ResizeDivider ref={dividerRef} onMouseDown={onDividerMouseDown} />
+        {!isCompactLayout && <ResizeDivider ref={dividerRef} onMouseDown={onDividerMouseDown} />}
 
+        {!isCompactLayout && (
         <RightPanelWrapper $width={rightPanelWidth}>
           <PanelTabs>
             <PanelTab type="button" $on={panelTab === 'mixer'} onClick={() => setPanelTab('mixer')}>믹서</PanelTab>
@@ -1181,6 +1219,7 @@ export default function NotePage() {
             />
           )}
         </RightPanelWrapper>
+        )}
         </MainArea>
       </RightSection>
 
@@ -1194,6 +1233,10 @@ export default function NotePage() {
         onClearSelectedChords={clearNoteSelection}
         notesContext={noteSelectionData.notesContext}
       />
+
+      {shareModalOpen && (
+        <ShareLinkModal url={shareUrl} onClose={() => setShareModalOpen(false)} />
+      )}
     </PageContainer>
   );
 }

@@ -176,7 +176,9 @@ function buildBody(draft: SoloDraft): Record<string, unknown> {
 async function readApiError(res: Response): Promise<string> {
   try {
     const j = await res.json() as { code?: string; message?: string; detail?: string };
-    return j.detail || j.message || j.code || '';
+    // detail(백엔드 내부 예외 문자열)은 UI로 내보내지 않는다 — dev 콘솔만.
+    if (import.meta.env.DEV && j.detail) console.debug(`[api ${res.status}] detail:`, j.detail);
+    return j.message || j.code || '';
   } catch {
     return '';
   }
@@ -235,7 +237,8 @@ export async function createSoloViaOMR(file: File, metadata: OMRMetadata = {}): 
     let code = '';
     try {
       const j = await res.json() as { message?: string; detail?: string; code?: string };
-      detail = j.detail || j.message || '';
+      if (import.meta.env.DEV && j.detail) console.debug('[api] detail:', j.detail);
+      detail = j.message || '';
       code = j.code || '';
     } catch { /* ignore */ }
     throw new Error(`OMR 실패 (${res.status}${code ? ' · ' + code : ''}) ${detail}`.trim());

@@ -1,6 +1,6 @@
 import type { LickEntry } from '../data/lickData';
 import type { NoteSheetData } from '../data/sampleMelody';
-import { authFetch, getAccessToken } from './auth';
+import { authFetch, getAccessToken, tryRefreshAccessToken } from './auth';
 
 const API_BASE = import.meta.env.DEV ? '/api' : 'https://jazzify.p-e.kr/api';
 
@@ -145,7 +145,8 @@ export async function createLick(entry: LickEntry): Promise<LickEntry> {
       if (res.status === 409 || j.code === 'LICK_002') {
         throw new Error('이미 같은 제목과 연주자의 릭이 등록되어 있습니다.');
       }
-      detail = j.detail || j.message || '';
+      if (import.meta.env.DEV && j.detail) console.debug('[api] detail:', j.detail);
+      detail = j.message || '';
     } catch (e) {
       if (e instanceof Error && e.message.startsWith('이미')) throw e;
     }
@@ -190,7 +191,8 @@ export async function updateLick(publicId: string, entry: LickEntry): Promise<Li
     let detail = '';
     try {
       const j = await res.json() as { code?: string; message?: string; detail?: string };
-      detail = j.detail || j.message || '';
+      if (import.meta.env.DEV && j.detail) console.debug('[api] detail:', j.detail);
+      detail = j.message || '';
     } catch {/* ignore */}
     throw new Error(`수정 실패 (${res.status}) ${detail}`.trim());
   }
@@ -217,7 +219,8 @@ export async function updateLickVideo(publicId: string, video: LickVideoPayload)
     let detail = '';
     try {
       const j = await res.json() as { code?: string; message?: string; detail?: string };
-      detail = j.detail || j.message || '';
+      if (import.meta.env.DEV && j.detail) console.debug('[api] detail:', j.detail);
+      detail = j.message || '';
     } catch {/* ignore */}
     throw new Error(`Video 저장 실패 (${res.status}) ${detail}`.trim());
   }
@@ -259,7 +262,8 @@ export async function createLickViaOMR(file: File, metadata: OMRMetadata = {}): 
     let code = '';
     try {
       const j = await res.json() as { message?: string; detail?: string; code?: string };
-      detail = j.detail || j.message || '';
+      if (import.meta.env.DEV && j.detail) console.debug('[api] detail:', j.detail);
+      detail = j.message || '';
       code = j.code || '';
     } catch { /* ignore */ }
     throw new Error(`OMR 실패 (${res.status}${code ? ' · ' + code : ''}) ${detail}`.trim());
@@ -278,7 +282,8 @@ export async function deleteLick(publicId: string): Promise<void> {
     let detail = '';
     try {
       const j = await res.json() as { message?: string; detail?: string };
-      detail = j.detail || j.message || '';
+      if (import.meta.env.DEV && j.detail) console.debug('[api] detail:', j.detail);
+      detail = j.message || '';
     } catch {/* ignore */}
     throw new Error(`삭제 실패 (${res.status}) ${detail}`.trim());
   }
@@ -297,13 +302,21 @@ export async function fetchAllLicks(): Promise<LickEntry[]> {
   // background pool load, and authFetch's refresh-then-redirect-to-/login on
   // failure would be disruptive. On 401 we just throw so the caller can fall
   // back to the bundled backup snapshot.
-  const token = getAccessToken();
-  const authHeader: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+  let token = getAccessToken();
+  let triedRefresh = false;
   while (!isLast) {
+    const authHeader: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const res = await fetch(
       `${API_BASE}/v1/licks?page=${page}&size=${PAGE_SIZE}&sort=createdAt,desc`,
       { headers: authHeader, credentials: 'include' },
     );
+    // access token 만료 직후(refresh 쿠키는 유효) 백그라운드 로드가 통째로
+    // 백업 스냅샷에 폴백되던 케이스 — redirect 없는 soft refresh 1회만 시도.
+    if (res.status === 401 && !triedRefresh) {
+      triedRefresh = true;
+      const fresh = await tryRefreshAccessToken();
+      if (fresh) { token = fresh; continue; }
+    }
     if (!res.ok) throw new Error(`licks API ${res.status}`);
     const json: ApiResponse<LickResponse> = await res.json();
     all.push(...json.data.content.map(toLickEntry));

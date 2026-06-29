@@ -47,12 +47,6 @@ export function getAccessToken(): string | null {
   try { return window.localStorage.getItem(ACCESS_TOKEN_KEY); } catch { return null; }
 }
 
-/* Resume the silent-refresh timer on module load — covers the case where a
- * persisted token already sits in localStorage from a previous tab session. */
-if (typeof window !== 'undefined') {
-  try { scheduleProactiveRefresh(window.localStorage.getItem(ACCESS_TOKEN_KEY)); }
-  catch { /* private mode */ }
-}
 function setAccessToken(token: string | null) {
   try {
     if (token) window.localStorage.setItem(ACCESS_TOKEN_KEY, token);
@@ -94,6 +88,18 @@ function scheduleProactiveRefresh(token: string | null): void {
   }, delay);
 }
 
+/* Resume the silent-refresh timer on module load — covers the case where a
+ * persisted token already sits in localStorage from a previous tab session.
+ * MUST live BELOW `let refreshTimer` + scheduleProactiveRefresh: it used to
+ * sit above them, so the call hit the `let` in its temporal dead zone →
+ * ReferenceError, silently swallowed by the catch — returning users got NO
+ * proactive refresh until their first 401 (exactly what this exists to
+ * prevent). The catch now logs so a regression can't hide again. */
+if (typeof window !== 'undefined') {
+  try { scheduleProactiveRefresh(window.localStorage.getItem(ACCESS_TOKEN_KEY)); }
+  catch (e) { console.warn('[auth] proactive-refresh init failed:', e); }
+}
+
 export function getCachedUser(): AuthUser | null {
   try {
     const raw = window.localStorage.getItem(USER_CACHE_KEY);
@@ -131,11 +137,40 @@ export function onAuthReset(cb: () => void): () => void {
   authResetListeners.add(cb);
   return () => { authResetListeners.delete(cb); };
 }
-const USER_SCOPED_CACHE_KEYS = ['jazzify.chat.listCache', 'jazzify.chat.chartMeta'];
+const USER_SCOPED_CACHE_KEYS = [
+  'jazzify.chat.listCache',
+  'jazzify.chat.chartMeta',
+  // 프로젝트/업로드 목록 — 이전 계정의 차트 제목·업로드 항목이 다음 계정에 노출되던 키들
+  'jazzify.myCharts.mock-v4',
+  'jazzify.mySheets.uploaded.v1',
+  // 사용자 저장 릭/솔로 미러
+  'jazzify_user_licks',
+  'jazzify_user_solos',
+  // 에디터 초안 (이전 사용자의 작업 내용 노출 방지)
+  'lickInput.draft.v1',
+  'leadSheetGenerator.draft.v1',
+];
+/** localStorage prefixes wiped wholesale (per-song keys, unbounded set). */
+const USER_SCOPED_CACHE_PREFIXES = ['jazzify.chartEdit.'];
 function clearUserScopedCaches(): void {
   for (const k of USER_SCOPED_CACHE_KEYS) {
     try { window.localStorage.removeItem(k); } catch { /* private mode */ }
   }
+  try {
+    // Collect first, then remove — deleting while iterating shifts key indices.
+    const doomed: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (key && USER_SCOPED_CACHE_PREFIXES.some((p) => key.startsWith(p))) doomed.push(key);
+    }
+    doomed.forEach((k) => window.localStorage.removeItem(k));
+  } catch { /* private mode */ }
+  // IndexedDB: 업로드한 악보 원본 이미지 전체 삭제 — 비동기 best-effort
+  // (auth 흐름을 IDB에 블록시키지 않음). dynamic import라 auth 모듈이
+  // IDB 코드를 eager하게 끌고 오지도 않는다.
+  void import('../lib/omrImageStore')
+    .then((m) => m.clearAllOmrSourceImages())
+    .catch(() => { /* best-effort */ });
   authResetListeners.forEach((cb) => { try { cb(); } catch { /* swallow */ } });
 }
 
@@ -172,22 +207,62 @@ let refreshInFlight: Promise<string> | null = null;
 async function refreshAccessToken(): Promise<string> {
   if (refreshInFlight) return refreshInFlight;
   refreshInFlight = (async () => {
-    const res = await fetch(`${API_BASE}/v1/auth/refresh`, {
-      method: 'POST',
-      credentials: 'include',
-    });
-    if (!res.ok) throw new Error('refresh failed');
-    const data = await rawJson<TokenResponse>(res);
-    setAccessToken(data.accessToken);
-    const user: AuthUser = { publicId: data.publicId, username: data.username };
-    setCachedUser({ ...(getCachedUser() ?? {} as AuthUser), ...user });
-    return data.accessToken;
+    /* ── 멀티탭 단일화 ──
+     * proactive 타이머는 탭마다 독립적으로 걸리고 refreshInFlight는 탭 내부
+     * 변수라, 같은 토큰을 가진 두 탭이 만료 60초 전 거의 동시에 refresh를
+     * 쏘면 동일 refresh 쿠키가 중복 사용된다 — 백엔드가 RTR 재사용 감지를
+     * 하면 세션 패밀리 전체 무효화(전 탭 강제 로그아웃)로 이어질 수 있다.
+     * Web Locks로 탭 간 직렬화하고, 락 획득 후 다른 탭이 이미 갱신했으면
+     * (localStorage의 exp가 미래) 네트워크 호출 없이 그 토큰을 재사용한다. */
+    const doRefresh = async (): Promise<string> => {
+      const current = getAccessToken();
+      const exp = current ? decodeJwtExpMs(current) : null;
+      if (exp && exp - Date.now() > 90_000) {
+        // 다른 탭이 방금 갱신함 — 그대로 사용 + 내 타이머 재스케줄.
+        scheduleProactiveRefresh(current);
+        return current!;
+      }
+      const res = await fetch(`${API_BASE}/v1/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('refresh failed');
+      const data = await rawJson<TokenResponse>(res);
+      setAccessToken(data.accessToken);
+      const user: AuthUser = { publicId: data.publicId, username: data.username };
+      setCachedUser({ ...(getCachedUser() ?? {} as AuthUser), ...user });
+      return data.accessToken;
+    };
+    const locks = (navigator as Navigator & { locks?: LockManager }).locks;
+    if (locks?.request) {
+      // LockManager.request의 제네릭이 콜백 반환을 Promise로 한 번 더 감싸도
+      // await가 평탄화한다 — 타입만 명시적으로 풀어준다.
+      return (await locks.request('jazzify.auth.refresh', doRefresh)) as string;
+    }
+    return doRefresh(); // Web Locks 미지원 브라우저 — 기존 동작
   })();
   try {
     return await refreshInFlight;
   } finally {
     refreshInFlight = null;
   }
+}
+
+/* 다른 탭이 토큰을 갱신/삭제하면 storage 이벤트로 통지된다 — 내 proactive
+ * 타이머를 새 exp 기준으로 재스케줄하고, 로그아웃(null)이면 타이머를 멈춰
+ * 잔여 타이머가 의미 없는 refresh를 쏘지 않게 한다. */
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key !== ACCESS_TOKEN_KEY) return;
+    scheduleProactiveRefresh(e.newValue);
+  });
+}
+
+/** Soft refresh for background loaders (no /login redirect on failure).
+ *  fetchAllLicks류가 만료 토큰으로 즉시 폴백하지 않고 한 번 갱신을 시도할 수
+ *  있게 한다. 실패 시 null — 호출부가 자체 폴백을 진행. */
+export async function tryRefreshAccessToken(): Promise<string | null> {
+  try { return await refreshAccessToken(); } catch { return null; }
 }
 
 /** Authenticated fetch — attaches Bearer token and refreshes once on 401.
@@ -204,7 +279,17 @@ export async function authFetch(input: string, init: RequestInit = {}): Promise<
   const url = isComplete ? input : `${API_BASE}${input}`;
   const token = getAccessToken();
   const headers = new Headers(init.headers);
-  if (token) headers.set('Authorization', `Bearer ${token}`);
+  // JWT는 우리 API origin에만 부착 — 절대 URL이 다른 도메인이면(미래의 실수/
+  // 서버가 내려준 URL 패스스루) 토큰이 외부로 새지 않게 한다.
+  const sameOrigin = (() => {
+    try {
+      // dev의 API_BASE('/api')는 상대경로 — location.origin을 base로 해석해야
+      // 비교가 성립한다 (안 그러면 new URL이 throw → dev 전체 토큰 미부착).
+      const base = new URL(API_BASE, window.location.origin).origin;
+      return new URL(url, window.location.origin).origin === base;
+    } catch { return false; }
+  })();
+  if (token && sameOrigin) headers.set('Authorization', `Bearer ${token}`);
   const opts: RequestInit = { ...init, headers, credentials: 'include' };
   let res = await fetch(url, opts);
   if (res.status !== 401) return res;

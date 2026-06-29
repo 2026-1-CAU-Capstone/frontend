@@ -44,7 +44,8 @@ import type { NoteSheetData, NoteInfo, MeasureInfo } from '../../data/sampleMelo
 import { PianoKeyboard, type PianoNote } from './PianoKeyboard';
 import { useGlobalPlayer } from '../../lib/player';
 import { useCountInIntro } from '../../hooks/useCountInIntro';
-import { PATTERN_SIMPLE } from '../../lib/note/countInPatterns';
+import { prepareLickIntro } from '../../lib/note/anacrusis';
+import { resolveMeasureAccidental, type RenderAcc } from '../../lib/note/measureAccidentals';
 import { NoteIcon, RestIcon } from './NotationIcon';
 
 /* ─── key helpers ────────────────────────────────────────────────────── */
@@ -298,6 +299,8 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number)
       rects[m] = { x: x + dw + 4, y, w: barW - 4 };
 
       const measure = measures[m];
+      // Octave-aware accidental rule (shared helper), reset per measure.
+      const activeAcc = new Map<string, RenderAcc>();
       const vfNotes = measure.notes.map((n) => {
         const isRest = n.duration.endsWith('r');
         const dur = buildDuration(n.duration, n.dotted);
@@ -307,9 +310,11 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number)
           autoStem: true,
         });
         if (n.dotted) Dot.buildAndAttach([note]);
-        if (!isRest && n.accidentals) {
-          for (const [idx, type] of Object.entries(n.accidentals)) {
-            note.addModifier(new Accidental(type), Number(idx));
+        if (!isRest) {
+          for (let ki = 0; ki < n.keys.length; ki++) {
+            const dataAcc = n.accidentals?.[ki] as RenderAcc | undefined;
+            const glyph = resolveMeasureAccidental(activeAcc, undefined, n.keys[ki], dataAcc);
+            if (glyph) note.addModifier(new Accidental(glyph), ki);
           }
         }
         return note;
@@ -674,15 +679,16 @@ export function LickCreator({ width, onSave, onCancel }: LickCreatorProps) {
     }
     if (measures.length > 0) {
       setPlaying(true);
-      // 샘플 로드를 카운트인과 병렬로 → "1234" 즉시 시작, 다운비트 직전에 로드 완료 대기.
-      // 릭 재생: BPM 무관하게 SIMPLE 카운트인.
-      const cin = await countIn.run({
-        bpm: 120,
-        pattern: PATTERN_SIMPLE,
-        prepare: player.preload({ kind: 'lick', data: sheetData }),
-      });
-      if (!cin.ok) { setPlaying(false); return; }
-      await player.play({ kind: 'lick', data: sheetData }, { startAt: player.ctxNow() + cin.downbeatInSec });
+      // 리딩 픽업이면 픽업 음표를 카운트인 꼬리에 얹고 본문만 재생(measureOffset:1) →
+      // 픽업과 메인 멜로디 사이 쉼 제거. 카운트인은 항상 1마디 "1 2 3 4", 로드는 병렬.
+      const preload = player.preload({ kind: 'lick', data: sheetData }).catch(() => {});
+      const intro = await prepareLickIntro(player, countIn, sheetData, 120, preload);
+      if (!intro.ok) { setPlaying(false); return; }
+      try {
+        await player.play({ kind: 'lick', data: intro.data }, intro.opts);
+      } catch {
+        setPlaying(false); // failed start: unfreeze the ▶ button
+      }
     }
   }, [measures, sheetData, playing, player]);
 

@@ -189,7 +189,7 @@ const FileIcon = () => (
 /* ── styles ──────────────────────────────────────────────────────────── */
 const Backdrop = styled.div`
   position: fixed; inset: 0; background: rgba(0,0,0,.55);
-  z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 24px;
+  z-index: ${({ theme }) => theme.zIndex.max}; display: flex; align-items: center; justify-content: center; padding: 24px;
 `;
 const Card = styled.div`
   background: #fff; border-radius: 14px; width: min(460px, 100%);

@@ -138,6 +138,11 @@ export async function loadSampledDrumKit(
     }),
   );
 
+  // Live (scheduled-or-sounding) hits. The BackingPlayer schedules ~0.2s ahead
+  // (LOOKAHEAD), so stop/pause/seek must be able to cancel FUTURE hits too —
+  // sources self-remove via onended once finished.
+  const live = new Set<{ src: AudioBufferSourceNode; gain: GainNode }>();
+
   return {
     trigger({ note, time, velocity }) {
       if (typeof note !== "string") return;
@@ -159,10 +164,23 @@ export async function loadSampledDrumKit(
       gain.gain.value = Math.max(0, Math.min(1.6, scaled));
 
       src.connect(gain).connect(bus);
+      const entry = { src, gain };
+      live.add(entry);
+      src.onended = () => {
+        live.delete(entry);
+        try { src.disconnect(); gain.disconnect(); } catch { /* already gone */ }
+      };
       src.start(time);
     },
     stopAll() {
-      // AudioBufferSourceNodes clean themselves up automatically.
+      // Cut every scheduled + sounding hit. Previously a no-op, so stop/
+      // pause/break hard-cuts silenced piano/bass but drums (incl. long
+      // ride/crash tails and the 0.2s-lookahead future hits) played on.
+      for (const { src, gain } of [...live]) {
+        try { src.stop(); } catch { /* not started yet/already stopped */ }
+        try { src.disconnect(); gain.disconnect(); } catch { /* noop */ }
+      }
+      live.clear();
     },
   };
 }
