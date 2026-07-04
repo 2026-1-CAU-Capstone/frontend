@@ -29,7 +29,7 @@ const cases: Case[] = [
   ['C-7(b5)',   'Cø7'],
   ['Cm7(b5)',   'Cø7'],
   ['Ch7',       'Cø7'],
-  ['Ch',        'Cø'],
+  ['Ch',        'Cø7'],  // 파서(h → m7b5 → ø7)와 일치 — 타이핑 프리뷰/blur 결과 동일하게
   // Diminished
   ['Cdim',      'C°'],
   ['Cdim7',     'C°7'],

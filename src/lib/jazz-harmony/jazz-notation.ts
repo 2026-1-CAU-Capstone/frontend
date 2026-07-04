@@ -156,7 +156,8 @@ export function formatChordDisplay(raw: string): string {
     .replace(/(?:m7b5|min7b5|mi7b5|-7b5|m7\(b5\)|-7\(b5\))/g, 'ø7')
     .replace(/h7/g, 'ø7')
     // 루트 직후의 h만 — 단어 중간 h('C7th'의 h)가 ø로 깨지지 않게.
-    .replace(/(?<=[A-G][b#♭♯]?)h(?!\d)/g, 'ø')
+    // 파서(ChordSymbol: h → m7b5 → ø7)와 표기 일치: bare h도 ø7.
+    .replace(/(?<=[A-G][b#♭♯]?)h(?!\d)/g, 'ø7')
     // Diminished
     .replace(/dim7M/g, '°△7')
     .replace(/dim7/g, '°7')

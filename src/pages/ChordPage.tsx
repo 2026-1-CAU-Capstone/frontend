@@ -893,6 +893,10 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     setSongIdRaw(id);
     if (id.startsWith(PROJECT_ID_PREFIX)) {
       setSearchParams({ project: id.slice(PROJECT_ID_PREFIX.length) }, { replace: true });
+    } else if (id === EMPTY_SONG_ID) {
+      // 빈 시트는 ?empty=1 형태가 정본 — `song=__empty__`로 쓰면 리마운트 후
+      // 초기화 로직(mychordMode + empty=1 검사)이 못 알아보고 Analyzed로 빠진다.
+      setSearchParams({ empty: '1' }, { replace: true });
     } else if (id === ANALYZED_SONG_ID) {
       setSearchParams({}, { replace: true });
     } else {
@@ -1734,9 +1738,9 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
 
         <MainArea>
         <CenterColumn>
-          {/* White transport bar — always at the top of the score column on
-           *  web. (Native: the duplicated cells are hidden here and rendered
-           *  in the bottom NativeChordPlayer instead.) */}
+          {/* White transport bar — always at the top of the score column
+           *  (web AND native; the planned bottom NativeChordPlayer was never
+           *  shipped and has been removed). */}
           <TransportBar>
             <BarLeft>
               {isNativeUi && (

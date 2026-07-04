@@ -12,8 +12,9 @@
  * 언마운트 시 끈다 — 같은 sheet 엔진을 공유하는 NotePage로 새지 않게.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { useGlobalPlayer } from '../lib/player';
+import { useGlobalPlayer, warmupPlayerOnce } from '../lib/player';
 import { useCountInIntro } from './useCountInIntro';
+import { expandMeasures } from '../lib/note/expandMeasures';
 import type { NoteSheetData } from '../data/sampleMelody';
 
 interface UseEditorBackingPlaybackArgs {
@@ -41,6 +42,21 @@ export function useEditorBackingPlayback(
   const countIn = useCountInIntro();
   const [playing, setPlaying] = useState(false);
   const prevNoteKeyRef = useRef<string | null>(null);
+  /* 일시정지 상태 추적 — 재개 시 카운트인을 생략하고 멈춘 위치에서 바로 이어
+   * 재생한다(엔진이 elapsed를 보존). 정지/자연 종료 시 해제. */
+  const pausedRef = useRef(false);
+  /* 도돌이/볼타 전개 후 마디 인덱스 → 원본(allMeasures) 인덱스. 'note' 이벤트의
+   * mi는 전개된 시트 기준이므로 하이라이트 전에 원본으로 되돌린다. */
+  const origMiRef = useRef<number[]>([]);
+
+  /* 마운트 즉시 실제 플레이어를 구체화(dynamic import) + 악기 디코드 시작.
+   * 이게 없으면 앱 진입 직후의 빠른 첫 ▶ 클릭이 lazy 프록시의 unlock 무효화
+   * 레이스에 걸려 콜드 스타트 무음이 될 수 있다. (LickCard와 동일 패턴) */
+  const buildSheetRef = useRef(buildSheet);
+  buildSheetRef.current = buildSheet;
+  useEffect(() => {
+    warmupPlayerOnce(player, { kind: 'sheet', data: buildSheetRef.current() });
+  }, [player]);
 
   /* ── 음표 하이라이트 (NoteSheet와 동일한 SVG fill 조작) ─────────────── */
   const colorNote = useCallback((key: string, color: string) => {
@@ -68,10 +84,11 @@ export function useEditorBackingPlayback(
     prevNoteKeyRef.current = key;
   }, [colorNote]);
 
-  // GlobalPlayer 이벤트 구독 — 음표 하이라이트 + 자연 종료.
+  // GlobalPlayer 이벤트 구독 — 음표 하이라이트 + 자연 종료. mi는 전개된 시트
+  // 기준이므로 origMi 매핑으로 원본 마디 인덱스로 환원해 칠한다.
   useEffect(() => {
-    const unsubNote = player.on('note', (mi, ni) => highlightNote(mi, ni));
-    const unsubDone = player.on('done', () => { highlightNote(-1, 0); setPlaying(false); });
+    const unsubNote = player.on('note', (mi, ni) => highlightNote(origMiRef.current[mi] ?? mi, ni));
+    const unsubDone = player.on('done', () => { pausedRef.current = false; highlightNote(-1, 0); setPlaying(false); });
     return () => { unsubNote(); unsubDone(); };
   }, [player, highlightNote]);
 
@@ -84,23 +101,33 @@ export function useEditorBackingPlayback(
   const handleStop = useCallback(() => {
     player.stop();
     countIn.cancel();
+    pausedRef.current = false;
     highlightNote(-1, 0);
     setPlaying(false);
   }, [player, countIn, highlightNote]);
 
   const handlePlayPause = useCallback(async () => {
     const p = player;
-    // 재생 중(또는 카운트인 중) 누르면 정지.
+    // 재생 중(또는 카운트인 중) 누르면 일시정지.
     if (playing || countIn.active) {
       p.pause();
       countIn.cancel();
+      pausedRef.current = playing; // 실제 재생 중이었을 때만 '재개' 대상
       highlightNote(-1, 0);
       setPlaying(false);
       return;
     }
-    const data = buildSheet();
-    if (!data.measures.length) return;
+    const src = buildSheet();
+    if (!src.measures.length) return;
 
+    // 도돌이표/볼타/내비게이션 전개 — 에디터에 그린 |: :| 가 실제 재생에
+    // 반영되게 한다. origMi 매핑은 하이라이트 환원용으로 보관.
+    const expanded = expandMeasures(src.measures);
+    origMiRef.current = expanded.map((e) => e.origMi);
+    const data: NoteSheetData = { ...src, measures: expanded.map((e) => e.m) };
+
+    const resuming = pausedRef.current;
+    pausedRef.current = false;
     setPlaying(true);
     // preload 실패 .catch: 카운트인 대기 중의 rejection이 AudioLifecycleGuard의
     // stopAllAudio를 트리거하지 않게 한다(play()가 어차피 재로드).
@@ -108,12 +135,18 @@ export function useEditorBackingPlayback(
     // 클릭 제스처 안에서 동기로 ctx resume(콜드 첫 재생 무음 방지).
     p.unlock({ kind: 'sheet', data });
 
-    const cin = await countIn.run({ bpm, prepare: preload });
-    if (!cin.ok) { setPlaying(false); return; }
+    // 재개(pause 후)면 카운트인 생략 — 멈춘 자리에서 바로 이어감. 새 시작이면
+    // 카운트인 "1 2 3 4" 후 다운비트에 정렬.
+    let downbeatInSec: number | undefined;
+    if (!resuming) {
+      const cin = await countIn.run({ bpm, prepare: preload });
+      if (!cin.ok) { setPlaying(false); return; }
+      downbeatInSec = cin.downbeatInSec;
+    }
     // 에디터 전용: 1·3박 피아노 컴핑.
     p.setConfig({ bpm, repeatCount, pianoComp1And3: true });
     try {
-      await p.play({ kind: 'sheet', data }, { downbeatInSec: cin.downbeatInSec });
+      await p.play({ kind: 'sheet', data }, downbeatInSec !== undefined ? { downbeatInSec } : {});
     } catch {
       setPlaying(false); // play()는 'error' emit 후 rethrow — 버튼 고착 방지.
     }

@@ -103,11 +103,14 @@ function createLazyGlobalPlayer(): GlobalPlayer {
     unlock(input: PlayerInput): void {
       // Must stay SYNCHRONOUS to keep the ctx.resume() inside the user gesture.
       // By the time a page calls unlock() (play-button click) its mount-time
-      // preload() has already materialized the real player, so `real` is set.
-      // If it somehow isn't, kick off the load so the *next* play is warm —
-      // this first one falls back to play()'s own (late) resume.
+      // preload() has usually materialized the real player, so `real` is set.
+      // If it isn't (fast first click racing the dynamic import), chain the
+      // unlock onto the load: the import resolves in tens of ms, typically
+      // still inside the browser's transient-activation window — so the
+      // resume can still succeed instead of being silently dropped (which
+      // produced "count-in plays, then silence" on a cold fast click).
       if (real) real.unlock(input);
-      else void load();
+      else void load().then((r) => r.unlock(input)).catch(() => { /* surfaced via error bus */ });
     },
 
     async play(

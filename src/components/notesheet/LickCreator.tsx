@@ -664,17 +664,23 @@ export function LickCreator({ width, onSave, onCancel }: LickCreatorProps) {
 
   const countIn = useCountInIntro();
 
-  useEffect(() => {
-    const unsubBar = player.on('bar', (barIndex) => setActiveMeasure(barIndex));
-    const unsubDone = player.on('done', () => setPlaying(false));
-    return () => { unsubBar(); unsubDone(); };
-  }, [player]);
+  /* bar/done 구독은 마운트 수명이 아니라 '재생 세션' 스코프 — 상시 무가드
+   * 구독은 다른 표면(릭 카드 등)의 재생에도 반응해 이 컴포넌트의 하이라이트/
+   * 버튼 상태를 흔들었다. play 시작 시 등록, 정지/종료/실패/언마운트 시 해제. */
+  const playUnsubsRef = useRef<Array<() => void>>([]);
+  const releasePlaySubs = useCallback(() => {
+    playUnsubsRef.current.forEach((fn) => { try { fn(); } catch { /* noop */ } });
+    playUnsubsRef.current = [];
+  }, []);
+  useEffect(() => releasePlaySubs, [releasePlaySubs]); // unmount에서도 해제
 
   const handlePlay = useCallback(async () => {
     if (playing || countIn.active) {
       player.stop();
       countIn.cancel();
+      releasePlaySubs();
       setPlaying(false);
+      setActiveMeasure(-1);
       return;
     }
     if (measures.length > 0) {
@@ -682,15 +688,26 @@ export function LickCreator({ width, onSave, onCancel }: LickCreatorProps) {
       // 리딩 픽업이면 픽업 음표를 카운트인 꼬리에 얹고 본문만 재생(measureOffset:1) →
       // 픽업과 메인 멜로디 사이 쉼 제거. 카운트인은 항상 1마디 "1 2 3 4", 로드는 병렬.
       const preload = player.preload({ kind: 'lick', data: sheetData }).catch(() => {});
+      // 클릭 제스처 안에서 backing ctx를 즉시 resume — 카운트인(별도 ctx) 뒤의
+      // play()에서는 제스처가 만료돼 suspended ctx를 못 깨운다("카운트인 후
+      // 무음"). LickCard와 동일 처치.
+      player.unlock({ kind: 'lick', data: sheetData });
       const intro = await prepareLickIntro(player, countIn, sheetData, 120, preload);
       if (!intro.ok) { setPlaying(false); return; }
+      releasePlaySubs();
+      playUnsubsRef.current = [
+        player.on('bar', (barIndex) => setActiveMeasure(barIndex)),
+        player.on('done', () => { setPlaying(false); setActiveMeasure(-1); releasePlaySubs(); }),
+      ];
       try {
         await player.play({ kind: 'lick', data: intro.data }, intro.opts);
       } catch {
         setPlaying(false); // failed start: unfreeze the ▶ button
+        setActiveMeasure(-1);
+        releasePlaySubs();
       }
     }
-  }, [measures, sheetData, playing, player]);
+  }, [measures, sheetData, playing, player, countIn, releasePlaySubs]);
 
   /* ── save ──────────────────────────────────────────────────────────── */
   const handleSave = useCallback(() => {

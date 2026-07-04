@@ -16,6 +16,7 @@ import { useGlobalPlayer } from '../../lib/player/GlobalPlayerContext';
 import { warmupPlayerOnce } from '../../lib/player';
 import { useCountInIntro } from '../../hooks/useCountInIntro';
 import { prepareLickIntro } from '../../lib/note/anacrusis';
+import { claimPlaybackUi, releasePlaybackUi } from '../../lib/player/playbackClaim';
 import type { NoteInfo, MeasureInfo } from '../../data/sampleMelody';
 import { resolveMeasureAccidental, type RenderAcc } from '../../lib/note/measureAccidentals';
 import { normalizeChordTypeset as normalizeChordLabel } from '../../lib/jazz-harmony';
@@ -552,12 +553,21 @@ export function LickRecommendMessage({ match, tempoOverride, onShowInline, inlin
     playUnsubsRef.current = [];
   }, []);
 
+  /* 다른 카드/표면이 재생을 시작하면 호출되는 UI 리셋 — 리스너 해제 + 버튼/
+   * 하이라이트 원복 (카드 B 재생 시 카드 A 고착 방지, LickCard와 동일). */
+  const releaseUi = useCallback(() => {
+    clearPlaySubscriptions();
+    setPlaying(false);
+    clearPlaybackHighlight();
+  }, [clearPlaySubscriptions, clearPlaybackHighlight]);
+
   useEffect(() => {
     return () => {
       clearPlaySubscriptions();
       clearPlaybackHighlight();
+      releasePlaybackUi(releaseUi);
     };
-  }, [clearPlaySubscriptions, clearPlaybackHighlight]);
+  }, [clearPlaySubscriptions, clearPlaybackHighlight, releaseUi]);
 
   // scoped → 카운트인 "1 2 3 4" 오버레이를 전체 화면이 아니라 이 카드(Wrapper)
   // 안에서만 표시. (Wrapper 가 position:relative 라 absolute inset:0 으로 갇힌다.)
@@ -567,20 +577,24 @@ export function LickRecommendMessage({ match, tempoOverride, onShowInline, inlin
     if (playing || countIn.active) {
       player.stop();
       countIn.cancel();
-      setPlaying(false);
-      clearPlaySubscriptions();
-      clearPlaybackHighlight();
+      releaseUi();
+      releasePlaybackUi(releaseUi);
       return;
     }
     const bpm = tempoOverride ?? lick.tempo ?? 200;
+    claimPlaybackUi(releaseUi); // 이전 카드의 UI를 정리하고 소유권 획득
     setPlaying(true);
     // 리딩 픽업이면 픽업 음표를 카운트인 꼬리에 얹고 본문만 재생(measureOffset:1) →
     // 픽업과 메인 멜로디 사이 쉼 제거. 카운트인은 항상 1마디 "1 2 3 4", 로드는 병렬.
     // (.catch는 생성 시점에 — 핸들러 없는 rejection이 AudioLifecycleGuard의
     //  stopAllAudio()를 깨워 시작하는 재생을 죽이는 걸 막는다.)
     const preload = player.preload({ kind: 'lick', data: lick.sheetData }).catch(() => {});
+    // 클릭 제스처 안에서 backing ctx를 즉시 resume — scoped 카운트인은 backing
+    // ctx를 안 깨우고, play()는 카운트인 뒤(제스처 만료 후)에야 resume을 시도해
+    // "카운트인은 들리는데 backing 무음"이 된다. (LickCard와 동일 처치.)
+    player.unlock({ kind: 'lick', data: lick.sheetData });
     const intro = await prepareLickIntro(player, countIn, lick.sheetData, bpm, preload);
-    if (!intro.ok) { setPlaying(false); return; }
+    if (!intro.ok) { setPlaying(false); releasePlaybackUi(releaseUi); return; }
     clearPlaySubscriptions();
     playUnsubsRef.current = [
       /* Re-assert playing on every bar. activate() inside player.play() may
@@ -600,9 +614,8 @@ export function LickRecommendMessage({ match, tempoOverride, onShowInline, inlin
         highlightNote(mi, ni);
       }),
       player.on('done', () => {
-        setPlaying(false);
-        clearPlaybackHighlight();
-        clearPlaySubscriptions();
+        releaseUi();
+        releasePlaybackUi(releaseUi);
       }),
     ];
     player.setConfig({ bpm });
@@ -612,9 +625,8 @@ export function LickRecommendMessage({ match, tempoOverride, onShowInline, inlin
     try {
       await player.play({ kind: 'lick', data: intro.data }, intro.opts);
     } catch {
-      setPlaying(false);
-      clearPlaybackHighlight();
-      clearPlaySubscriptions();
+      releaseUi();
+      releasePlaybackUi(releaseUi);
     }
   }, [
     lick,
@@ -622,8 +634,7 @@ export function LickRecommendMessage({ match, tempoOverride, onShowInline, inlin
     countIn,
     player,
     playing,
-    clearPlaySubscriptions,
-    clearPlaybackHighlight,
+    releaseUi,
     drawMeasureHL,
     highlightNote,
   ]);

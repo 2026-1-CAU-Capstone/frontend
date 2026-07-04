@@ -37,7 +37,9 @@ const SharedChartPage     = lazy(() => import('./pages/SharedChartPage'));
  * key를 주어 전환마다 강제 리마운트시킨다. */
 function KeyedChordPage(props: { mychordMode?: boolean }) {
   const [sp] = useSearchParams();
-  const key = sp.get('project') ?? sp.get('song') ?? 'default';
+  // `empty`(빈 시트로 시작)도 key에 포함 — empty ↔ 일반 차트 전환이 쿼리만
+  // 바뀌는 전환이라 리마운트가 필요하긴 마찬가지다.
+  const key = sp.get('project') ?? sp.get('song') ?? (sp.get('empty') === '1' ? 'empty' : 'default');
   return <ChordPage key={key} {...props} />;
 }
 
@@ -121,7 +123,7 @@ export default function App() {
               with /preview, so isNativeUi/isNativeLandscape pick it up
               globally (including the bottom tab bar). */}
           <Route path="/preview/chord" element={<ChordPage />} />
-          <Route path="/preview/mychord" element={<ChordPage mychordMode />} />
+          <Route path="/preview/mychord" element={<KeyedChordPage mychordMode />} />
           <Route path="/preview/note" element={<NotePage />} />
           <Route path="/preview" element={<Navigate to="/preview/chord" replace />} />
           {/* Legacy routes — SoloGeneratorPage & LickInputPage merged into

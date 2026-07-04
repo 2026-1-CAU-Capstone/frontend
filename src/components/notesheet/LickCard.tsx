@@ -89,6 +89,7 @@ async function __ensureVexflow() {
 import type { NoteInfo, MeasureInfo } from '../../data/sampleMelody';
 import type { LickEntry } from '../../data/lickData';
 import { useGlobalPlayer, warmupPlayerOnce } from '../../lib/player';
+import { claimPlaybackUi, releasePlaybackUi } from '../../lib/player/playbackClaim';
 import { YoutubeEmbed } from '../common/YoutubeEmbed';
 import { getLickVideo, lickYoutubeSearchUrl } from '../../data/lickVideos';
 import { useCountInIntro } from '../../hooks/useCountInIntro';
@@ -717,24 +718,40 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
   }, []);
   useEffect(() => releasePlaySubs, [releasePlaySubs]); // unmount에서도 해제
 
+  /* 다른 카드/표면이 재생을 시작하면 호출되는 UI 리셋 — 리스너 해제 + 버튼/
+   * 하이라이트 원복. 이게 없으면 카드 B 재생 시 카드 A의 리스너가 남아 B의
+   * 하이라이트를 A의 SVG에 그리고 A 버튼이 '재생 중'에 고착됐다. */
+  const releaseUi = useCallback(() => {
+    releasePlaySubs();
+    setPlaying(false);
+    clearNoteHighlight();
+    drawMeasureHL(-1);
+  }, [releasePlaySubs, clearNoteHighlight, drawMeasureHL]);
+  useEffect(() => () => releasePlaybackUi(releaseUi), [releaseUi]);
+
   const togglePlay = useCallback(async () => {
     if (playing || countIn.active) {
       player.stop();
       countIn.cancel();
-      releasePlaySubs();
-      setPlaying(false);
-      clearNoteHighlight();
-      drawMeasureHL(-1);
+      releaseUi();
+      releasePlaybackUi(releaseUi);
       return;
     }
+    claimPlaybackUi(releaseUi); // 이전 카드의 UI를 정리하고 소유권 획득
     setPlaying(true);
     // 리딩 픽업(anacrusis)이면 픽업 음표를 카운트인 꼬리에 얹고 픽업 마디를 떼어
     // 본문만 재생(measureOffset:1) → 픽업과 메인 멜로디 사이 쉼 없이 이어진다.
     // 카운트인은 항상 1마디 "1 2 3 4", 샘플 로드는 병렬. (prepareLickIntro 참조)
     const preload = player.preload({ kind: 'lick', data: lick.sheetData }).catch(() => {});
+    // 클릭 제스처 안에서 backing 엔진의 AudioContext를 즉시 resume한다. 카운트인은
+    // scoped(별도 ctx)라 backing ctx를 안 깨우고, play()는 카운트인(~2초) 뒤에야
+    // 실행돼 그때의 resume()은 만료된 제스처로는 suspended ctx를 못 깨운다 —
+    // 그래서 "카운트인은 들리는데 backing 무음"이 됐다. NoteSheet와 동일한 처치.
+    player.unlock({ kind: 'lick', data: lick.sheetData });
     const intro = await prepareLickIntro(player, countIn, lick.sheetData, bpm, preload);
     if (!intro.ok) {
       setPlaying(false);
+      releasePlaybackUi(releaseUi);
       return;
     }
 
@@ -743,10 +760,8 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
       player.on('bar', (barIndex) => drawMeasureHL(barIndex)),
       player.on('note', (mi, ni) => highlightNote(mi, ni)),
       player.on('done', () => {
-        setPlaying(false);
-        clearNoteHighlight();   // 재생 끝나면 파란 음표/마디 하이라이트 제거
-        drawMeasureHL(-1);
-        releasePlaySubs();
+        releaseUi();            // 리스너 해제 + 버튼/하이라이트 원복
+        releasePlaybackUi(releaseUi);
       }),
     ];
 
@@ -756,12 +771,10 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
     } catch {
       // Reset UI + release the just-registered listeners on failure (no
       // 'done' will ever fire for a play() that never started).
-      setPlaying(false);
-      clearNoteHighlight();
-      drawMeasureHL(-1);
-      releasePlaySubs();
+      releaseUi();
+      releasePlaybackUi(releaseUi);
     }
-  }, [player, lick, bpm, playing, countIn, highlightNote, clearNoteHighlight, drawMeasureHL, releasePlaySubs]);
+  }, [player, lick, bpm, playing, countIn, highlightNote, releaseUi]);
 
   // stop if lick changes while playing — but NOT on first mount. player는
   // 전역 싱글톤이라, 마운트마다 무조건 stop()하면 목록 갱신/페이지네이션으로

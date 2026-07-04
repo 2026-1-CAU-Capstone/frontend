@@ -1863,6 +1863,9 @@ export default function LickInputPage() {
     // 리딩 픽업이면 픽업 음표를 카운트인 꼬리에 얹고 본문만 재생(measureOffset:1) →
     // 픽업과 메인 멜로디 사이 쉼 제거. 카운트인은 항상 1마디 "1 2 3 4", 로드는 병렬.
     const preload = player.preload({ kind: 'lick', data: sheetData }).catch(() => {});
+    // 클릭 제스처 안에서 backing ctx를 즉시 resume — 카운트인 뒤 play()의 늦은
+    // resume은 만료된 제스처로 실패해 "카운트인 후 무음"이 된다. (LickCard 동일)
+    player.unlock({ kind: 'lick', data: sheetData });
     const intro = await prepareLickIntro(player, countIn, sheetData, bpm, preload);
     if (!intro.ok) { setPlaying(false); return; }
     player.setConfig({ bpm });

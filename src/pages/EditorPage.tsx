@@ -2435,7 +2435,9 @@ export default function EditorPage() {
             playing={playing}
             onPlayPause={handlePlayPause}
             onStop={handleStop}
-            disabled={totalNotes === 0}
+            /* 재생 중엔 항상 활성 — 재생 도중 음표를 전부 지웠을 때 정지 버튼까지
+               죽어 오디오를 멈출 수 없게 되는 것을 방지. */
+            disabled={totalNotes === 0 && !playing}
           />
         </BarCenter>
       </TransportBar>

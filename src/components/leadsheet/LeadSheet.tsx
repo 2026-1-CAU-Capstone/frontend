@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { ALL_MAJOR_KEYS, ALL_MINOR_KEYS, transposeData } from './leadSheetTranspose';
 import { normalizeQuality, splitQuality } from './leadSheetQuality';
 import { detectIIVBrackets, detectIIVI, detectSecDomArrows, type IIVISpan } from './leadSheetAnalysis';
-/* 기존 외부 소비자(ChordPage/NotePage/NativeChordPlayer)의 import 경로 보존. */
+/* 기존 외부 소비자(ChordPage/NotePage)의 import 경로 보존. */
 export { ALL_MAJOR_KEYS, ALL_MINOR_KEYS, isMinorKey, shiftKey } from './leadSheetTranspose';
 import { useLeadSheetSelection, type LeadSheetChordSelection } from './useLeadSheetSelection';
 export type { LeadSheetChordSelection } from './useLeadSheetSelection';

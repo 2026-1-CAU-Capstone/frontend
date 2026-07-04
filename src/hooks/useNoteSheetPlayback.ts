@@ -13,6 +13,7 @@ import { getGlobalKeyboard } from '../lib/player/GlobalKeyboard';
 import { useCountInIntro } from './useCountInIntro';
 import { swungBeats } from '../lib/note/swing';
 import { DUR_BEATS, vexToMidi, getBeats, chordToMidi } from '../lib/note/melodyTiming';
+import { expandMeasures } from '../lib/note/expandMeasures';
 
 export interface UseNoteSheetPlaybackArgs {
   /** 반복/볼타 전개 전의 표시 마디들. */
@@ -114,76 +115,7 @@ export function useNoteSheetPlayback(
     const beatRange = (start: number, b: number) =>
       (swungBeats(start + b) - swungBeats(start)) * beatDur;
 
-    // Helper: expand repeat/volta/navigation for a set of measures
-    type ExpandedM = { m: MeasureInfo; origMi: number };
-    const expandMeasures = (srcMeasures: MeasureInfo[]): ExpandedM[] => {
-      const expandedMeasures: ExpandedM[] = [];
-
-      // Phase 1: expand repeats + volta
-      const afterRepeats: ExpandedM[] = [];
-      let repeatFromIdx = 0;
-      let mi = 0;
-      while (mi < srcMeasures.length) {
-        const m = srcMeasures[mi];
-        if (m.repeatStart) repeatFromIdx = mi;
-        afterRepeats.push({ m, origMi: mi });
-
-        if (m.repeatEnd) {
-          for (let ri = repeatFromIdx; ri <= mi; ri++) {
-            if (srcMeasures[ri].volta === 1) break;
-            afterRepeats.push({ m: srcMeasures[ri], origMi: ri });
-          }
-          let vi = mi + 1;
-          while (vi < srcMeasures.length && srcMeasures[vi].volta === 2) {
-            afterRepeats.push({ m: srcMeasures[vi], origMi: vi });
-            vi++;
-          }
-          mi = vi;
-          continue;
-        }
-        mi++;
-      }
-
-      // Phase 2: expand D.C./D.S./Coda/Fine navigation
-      const segnoIdx = afterRepeats.findIndex((e) => e.m.navigation === 'segno');
-      const codaIdx = afterRepeats.findIndex((e) => e.m.navigation === 'coda');
-
-      let jumped = false;
-      for (let mi = 0; mi < afterRepeats.length; mi++) {
-        const entry = afterRepeats[mi];
-        expandedMeasures.push(entry);
-        const nav = entry.m.navigation;
-        if (!nav || jumped) continue;
-
-        if (nav === 'fine') break;
-        if (nav === 'toCoda' && !jumped) continue;
-        if (nav === 'dc' || nav === 'dcAlCoda' || nav === 'dcAlFine' ||
-            nav === 'ds' || nav === 'dsAlCoda' || nav === 'dsAlFine') {
-          jumped = true;
-          const jumpTo = (nav === 'ds' || nav === 'dsAlCoda' || nav === 'dsAlFine')
-            ? Math.max(0, segnoIdx) : 0;
-          const alCoda = nav === 'dcAlCoda' || nav === 'dsAlCoda';
-          const alFine = nav === 'dcAlFine' || nav === 'dsAlFine';
-
-          for (let ri = jumpTo; ri < afterRepeats.length; ri++) {
-            const re = afterRepeats[ri];
-            expandedMeasures.push(re);
-            if (alCoda && re.m.navigation === 'toCoda') {
-              if (codaIdx >= 0) {
-                for (let ci = codaIdx; ci < afterRepeats.length; ci++) {
-                  expandedMeasures.push(afterRepeats[ci]);
-                }
-              }
-              break;
-            }
-            if (alFine && re.m.navigation === 'fine') break;
-            if (!alCoda && !alFine && (nav === 'dc' || nav === 'ds') && ri === afterRepeats.length - 1) break;
-          }
-          break;
-        }
-      }
-      return expandedMeasures;
-    };
+    // 도돌이/볼타/내비게이션 전개 — lib/note/expandMeasures로 추출된 공용 로직.
 
     // Highlight helpers — direct DOM manipulation, no React re-render
     const elMap = noteElMapRef.current;

@@ -38,7 +38,7 @@ const MELODY_INST_CACHE_CAP = 12;
  *  the matching per-genre drum/feel renderer. Falls back to the binary
  *  PlayStyle when the genre is unrecognized. Latin maps to 'samba' so it
  *  resolves to the engine's 'latin' feel. */
-function genreToStyleId(genre: string, fallback: "swing" | "bossa"): StyleId {
+export function genreToStyleId(genre: string, fallback: "swing" | "bossa"): StyleId {
   switch (genre) {
     case "Ballad":         return "ballad-swing";
     case "Medium Swing":   return "medium-swing";

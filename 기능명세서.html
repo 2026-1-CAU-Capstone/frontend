@@ -267,6 +267,7 @@
     <tr><td class="id">F3.14</td><td>프로젝트 저장/분석</td><td>ChordProject CRUD + 자동 분석</td><td>👤</td><td><span class="t be">BE</span></td><td><span class="b done">✅</span></td></tr>
     <tr><td class="id">F3.15</td><td>저장된 릭 표시</td><td>마디별 매칭 릭 모달 + 인라인</td><td>👤</td><td><span class="t be">BE</span><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
     <tr><td class="id">F3.16</td><td>공유 링크</td><td>차트를 URL 해시(<code>/v?d=…</code>)에 인코딩 → 공개 링크 생성. <code>navigator.share</code> 네이티브 공유시트 우선·링크 복사 모달 폴백. 누구나 로그인 없이 읽기 전용 열람. <b>프론트 전용 v1</b>(백엔드 토큰 미사용 → BR-2)</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F3.17</td><td>고급 설정 모달</td><td>상단바 톱니 → 대형 설정 모달(AnalysisSettingsModal). 탭: <b>분석 엔진</b>(마스터+도수/2-5-1/화살표/색상) · <b>악기 이조</b>(F3.7 전역 설정 연동). 전구는 분석 보기 ON/OFF 전용. 믹서·플레이어 설정은 믹서 드롭다운(F3.9) 소관</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
   </table>
 </section>
 
@@ -329,9 +330,10 @@
     <tr><td class="id">F7.3</td><td>음표/쉼표/코드 편집</td><td>duration·accent·tie·tuplet·코드</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
     <tr><td class="id">F7.4</td><td>박자 정규화</td><td>비정상 박자 자동 분할</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
     <tr><td class="id">F7.5</td><td>자동 저장</td><td>10초 주기 드래프트</td><td>⚙️</td><td><span class="t fe">FE</span></td><td><span class="b fix">🔧 Clear 후 재생성</span></td></tr>
-    <tr><td class="id">F7.6</td><td>멜로디 재생</td><td>useNoteSheetPlayback 공유훅(§8 R8)</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
-    <tr><td class="id">F7.7</td><td>저장</td><td>솔로/릭 POST(+이미지)</td><td>👤</td><td><span class="t be">BE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F7.6</td><td>풀밴드 재생</td><td>useEditorBackingPlayback — GlobalPlayer(sheet)로 멜로디+베이스+드럼+피아노 컴핑. <b>피아노 컴핑은 에디터에서만 1·3박 고정</b>. 도돌이/볼타 전개 반영, 재개 시 카운트인 생략</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F7.7</td><td>저장</td><td>솔로/릭 POST(+이미지). 버튼 라벨 모드 분기(<b>Save Solo</b> / <b>Save Lick</b>)</td><td>👤</td><td><span class="t be">BE</span></td><td><span class="b done">✅</span></td></tr>
     <tr><td class="id">F7.8</td><td>JSON 로드</td><td>외부 JSON 검증 후 로드</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F7.9</td><td>상단 트랜스포트 바</td><td>코드차트와 동일 UI — GenreSelect·믹서 팝오버(F3.9 공유)·BPM·반복(3x)·재생/정지. 우측 하단 PlayerBar 대체</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
   </table>
 </section>
 

@@ -605,10 +605,13 @@ function renderPsBasePianoComping(
  *   - PATCH #8 — picks from 3-hit / 2-hit / 1-hit pools weighted 60/30/10
  */
 /**
- * Editor practice comp: block-chord on beats 1 & 3 of each chord, in straight
- * time (no swing anticipation, no groove pattern). Beat offsets are measured
- * from the chord's start, so a chord shorter than 3 beats only gets beat 1.
- * Returns the full voicing so the next chord can voice-lead against it.
+ * Editor practice comp: block-chord on BAR beats 1 & 3, in straight time
+ * (no swing anticipation, no groove pattern). Hits are bar-relative: a chord
+ * only sounds if bar-beat 0 or 2 falls inside its span, so a 4×1-beat bar
+ * plays exactly two stabs (beats 1 & 3) instead of four overlapping ones,
+ * and uneven splits (1+3) still land on the bar's beats 1 & 3. Duration is
+ * clamped to the chord's remaining span so a stab never rings across the
+ * next chord's downbeat. Returns the full voicing for voice-leading.
  */
 function renderOneAndThreeComping(
   chord: Chord,
@@ -624,20 +627,22 @@ function renderOneAndThreeComping(
   const voicing = fullVoicing.slice(0, 4);
   if (voicing.length === 0) return fullVoicing;
 
-  // Beats 1 & 3 (offsets 0 and 2) that fall within this chord's duration.
-  const offsets = [0, 2].filter((o) => o < chord.beats);
-  for (const offset of offsets) {
-    const t = barStart + (beatCursor + offset) * secPerBeat;
-    // Ring until just before the next hit (or the chord's end).
-    const duration = secPerBeat * 1.9;
-    const vel = 0.6 + (rand(bi * 97 + ci * 11 + offset * 3) - 0.5) * 0.06;
+  const chordStart = beatCursor;
+  const chordEnd = beatCursor + chord.beats;
+  for (const barBeat of [0, 2]) {
+    if (barBeat < chordStart || barBeat >= chordEnd) continue;
+    const t = barStart + barBeat * secPerBeat;
+    // Ring ~2 beats, but never past the chord boundary (small 0.1 gap so the
+    // release doesn't smear into the next voicing's attack).
+    const durBeats = Math.min(1.9, Math.max(0.5, chordEnd - barBeat - 0.1));
+    const vel = 0.6 + (rand(bi * 97 + ci * 11 + barBeat * 3) - 0.5) * 0.06;
     for (const midi of voicing) {
       events.push({
         kind: "note",
         instrument: "piano",
         midi,
         time: t,
-        duration,
+        duration: secPerBeat * durBeats,
         velocity: Math.max(0.15, Math.min(0.9, vel)),
         bar: bi,
       });

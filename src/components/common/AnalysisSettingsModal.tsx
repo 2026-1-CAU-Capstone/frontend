@@ -92,21 +92,20 @@ function EnginePanel({ filters, onToggleFilter }: Pick<Props, 'filters' | 'onTog
   const on = filters.showAnalysis;
   return (
     <PanelInner>
-      <SectionTitle>분석 엔진</SectionTitle>
-      <FieldHelper>
-        룰 기반 화성 분석을 켜고, 악보에 표시할 항목을 선택합니다. (분석 보기는 상단바
-        전구 아이콘으로도 켜고 끌 수 있습니다.)
-      </FieldHelper>
-
-      <FieldRow>
-        <FieldLabel as="span">분석 보기</FieldLabel>
-        <FieldControl>
-          <Switch
-            type="button" role="switch" aria-checked={on} aria-label="분석 보기"
-            $on={on} onClick={() => onToggleFilter('showAnalysis')}
-          />
-        </FieldControl>
-      </FieldRow>
+      {/* 마스터 "분석 보기" 토글 — 제목·설명 바로 오른쪽에 크게. */}
+      <PanelHeader>
+        <PanelHeaderText>
+          <SectionTitle>분석 엔진</SectionTitle>
+          <FieldHelper style={{ margin: 0 }}>
+            룰 기반 화성 분석을 켜고, 악보에 표시할 항목을 선택합니다. (분석 보기는 상단바
+            전구 아이콘으로도 켜고 끌 수 있습니다.)
+          </FieldHelper>
+        </PanelHeaderText>
+        <BigSwitch
+          type="button" role="switch" aria-checked={on} aria-label="분석 보기"
+          $on={on} onClick={() => onToggleFilter('showAnalysis')}
+        />
+      </PanelHeader>
 
       {ANALYSIS_OPTIONS.map(({ key, label, helper }) => (
         <FieldRow key={key} $dim={!on}>
@@ -313,6 +312,44 @@ const SectionTitle = styled.h2`
   font-weight: 700;
   color: #1a1a1a;
   letter-spacing: -0.01em;
+`;
+
+/* 분석 엔진 헤더 — 제목+설명(좌) + 큰 마스터 토글(우). */
+const PanelHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding-bottom: 20px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+`;
+const PanelHeaderText = styled.div`
+  flex: 1;
+  min-width: 0;
+  & > h2 { margin-bottom: 6px; }
+`;
+const BigSwitch = styled.button<{ $on?: boolean }>`
+  position: relative;
+  flex-shrink: 0;
+  width: 60px;
+  height: 34px;
+  border: none;
+  border-radius: 999px;
+  background: ${({ $on }) => ($on ? '#1a1a1a' : 'rgba(0, 0, 0, 0.18)')};
+  cursor: pointer;
+  transition: background 0.15s;
+  &::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: ${({ $on }) => ($on ? '29px' : '3px')};
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    transition: left 0.15s;
+  }
 `;
 
 const FieldRow = styled.div<{ $dim?: boolean }>`

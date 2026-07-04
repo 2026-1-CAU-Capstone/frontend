@@ -62,8 +62,8 @@
 
 import { AnacrusisPlayer } from "./anacrusisPlayer";
 import { registerAudioStopper } from "./audioStopRegistry";
-import { setPlayerSettings } from "../note/playerSettings";
-import { createBackingPlayer } from "../backing/player";
+import { getPlayerSettings, setPlayerSettings } from "../note/playerSettings";
+import { createBackingPlayer, genreToStyleId } from "../backing/player";
 import { leadSheetToChart } from "../backing/adapters/leadSheetToChart";
 import {
   noteSheetToChart,
@@ -326,7 +326,13 @@ export function createGlobalPlayer(
   function ensureBackingPlayerForSheet(
     input: { kind: "sheet" | "lick" | "solo"; data: NoteSheetData; extraParts?: NoteSheetData[] },
   ): BackingPlayer {
-    const sig = computeMelodySig(input);
+    // The effective style participates in the signature: the melody below is
+    // PRE-SWUNG for this style, so a GenreSelect change (swing ↔ bossa/funk)
+    // must bust the same-sig early return or the stale-swung melody keeps
+    // playing against the newly-straight rhythm section.
+    const settings = getPlayerSettings();
+    const effStyle = config.style ?? genreToStyleId(settings.genre, settings.style);
+    const sig = computeMelodySig(input) + `|${effStyle}|${config.feel ?? ''}`;
     if (backingPlayerMelody && backingPlayerMelodySig === sig) {
       return backingPlayerMelody;
     }
@@ -351,7 +357,15 @@ export function createGlobalPlayer(
     // exact feel resolution, and `swungBeats` is a no-op at ratio 0.5
     // (bossa/latin/straight) so those feels stay straight. Onset AND end are
     // both mapped so each note keeps its written length in swung time.
-    const swingRatio = melodySwingRatio(chart, { bpm: tempo, style: config.style, feel: config.feel });
+    // Style resolution must MATCH what the engine will actually play: the
+    // BackingPlayer mixes the global GenreSelect (playerSettings.genre →
+    // genreToStyleId) into its config, but this orchestrator-level pre-swing
+    // only saw `config.style` (usually undefined) and fell back to the chart
+    // default (always swing) — so picking Bossa/Funk/Straight-8ths made the
+    // rhythm section go straight while the melody stayed pre-swung (flams).
+    // Resolve the same way the engine does: explicit config first, then the
+    // global genre mapping (effStyle computed above, also part of the sig).
+    const swingRatio = melodySwingRatio(chart, { bpm: tempo, style: effStyle, feel: config.feel });
     // Multi-part: flatten the displayed part + any extraParts into one melody
     // timeline so every part sounds together. MelodyNote[] is a flat list, so
     // overlapping notes from different parts coexist (polyphony) cleanly.
@@ -400,7 +414,12 @@ export function createGlobalPlayer(
     if (config.feel !== undefined) seed.feel = config.feel;
     if (config.loop !== undefined) seed.loop = config.loop;
     if (config.repeatCount !== undefined) seed.repeatCount = config.repeatCount;
-    if (config.pianoComp1And3 !== undefined) seed.pianoComp1And3 = config.pianoComp1And3;
+    // Editor practice comp — seed only for 'sheet' (the Editor's kind) so a
+    // still-set flag can never leak into a lick/solo engine created while an
+    // Editor session is alive (e.g. a chat lick card playing mid-session).
+    if (input.kind === "sheet" && config.pianoComp1And3 !== undefined) {
+      seed.pianoComp1And3 = config.pianoComp1And3;
+    }
 
     // Lick mode:
     //  - play ONCE through (no infinite loop / no repeats),
@@ -683,7 +702,11 @@ export function createGlobalPlayer(
     // backing); the melody/sheet engine must not inherit it.
     if ("loopRegion" in patch) bpPatch.loopRegion = patch.loopRegion;
     if (Object.keys(bpPatch).length > 0) {
-      backingPlayer?.setConfig(bpPatch);
+      // pianoComp1And3 is a MELODY-engine-only concern (Editor practice comp);
+      // strip it from the chart engine so an Editor session can't recolor the
+      // chord-chart backing's comping.
+      const { pianoComp1And3: _pc, ...chartPatch } = bpPatch;
+      if (Object.keys(chartPatch).length > 0) backingPlayer?.setConfig(chartPatch);
       // Strip CHART-only fields (inline-lick `melody` + `loopRegion`) before
       // forwarding to the melody/sheet engine — it owns its own track and range.
       if (backingPlayerMelody) {
