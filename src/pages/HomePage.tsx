@@ -498,6 +498,7 @@ const TOOLS: ReadonlyArray<{ label: string; icon: ReactNode; path: string }> = [
   { label: 'Editor', icon: '✎', path: '/editor' },
   { label: 'YouTube Onset', icon: <YoutubeMark />, path: '/youtube-onset' },
   { label: 'OMR', icon: '📄', path: '/input' },
+  { label: '음원 분리', icon: '🎚️', path: '/stems' },
 ];
 
 const DIconChord = () => (
@@ -552,6 +553,13 @@ const DIconNewChat = () => (
   </svg>
 );
 
+const DIconStems = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+    <line x1="6" y1="4" x2="6" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/>
+    <circle cx="6" cy="9" r="2" fill="currentColor"/><circle cx="12" cy="15" r="2" fill="currentColor"/><circle cx="18" cy="7" r="2" fill="currentColor"/>
+  </svg>
+);
+
 const DRAWER_TOOLS: Array<{ label: string; icon: ReactNode; path: string }> = [
   { label: 'Chord Analysis', icon: <DIconChord />, path: '/chord' },
   { label: 'Note Analysis',  icon: <DIconNote />,  path: '/note' },
@@ -560,6 +568,7 @@ const DRAWER_TOOLS: Array<{ label: string; icon: ReactNode; path: string }> = [
   { label: 'Editor',         icon: <DIconEditor />, path: '/editor' },
   { label: 'YouTube 분석',  icon: <DIconVideo />,  path: '/youtube-onset' },
   { label: 'OMR',            icon: <DIconDoc />,   path: '/input' },
+  { label: '음원 분리',      icon: <DIconStems />,  path: '/stems' },
 ];
 
 const MOCK_SCORES = [

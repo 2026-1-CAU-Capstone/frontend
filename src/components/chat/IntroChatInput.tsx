@@ -278,12 +278,13 @@ export function IntroChatInput({
           {attachments.map((f, i) => {
             const kind = attachmentKind(f);
             const isImg = kind === 'image' && previews[i];
-            /* PDF/audio aren't sent to the LLM yet — surface that in the
-             * chip tooltip so the user knows they're staged only. */
-            const stagedOnly = kind !== 'image';
-            const tip = stagedOnly
+            /* audio → 전송 시 스템 분리 파이프라인으로 처리(인라인 카드 응답).
+             * PDF만 아직 미처리 — 칩 툴팁으로 안내. */
+            const tip = kind === 'pdf'
               ? `${f.name} · 현재는 LLM에 전송되지 않습니다 (UI에만 표시)`
-              : f.name;
+              : kind === 'audio'
+                ? `${f.name} · 전송하면 음원 분리로 처리됩니다 ("스템 분리해줘", "피아노만 빼줘" 등)`
+                : f.name;
             return (
               <AttachThumb key={`${f.name}-${i}`} title={tip}>
                 {isImg ? (

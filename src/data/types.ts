@@ -67,4 +67,8 @@ export interface ChatMessage {
   lickInline?: boolean;
   /** Per-lick intro lines for the inline mode (templated, parallel to lickMatches). */
   lickInlineLabel?: string;
+  /** 스템 분리 카드 — 오디오 첨부 + rule-based 인텐트로 생성된 어시스턴트
+   *  메시지에 붙는다. File 객체를 들고 있어 비영속(세션 한정, 새로고침 시
+   *  카드 소멸). 렌더는 ChatMessage → StemSplitMessage. */
+  stemRequest?: import('../components/chat/StemSplitMessage').StemChatRequest;
 }

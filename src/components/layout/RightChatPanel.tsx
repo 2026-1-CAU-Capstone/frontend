@@ -13,6 +13,7 @@ import {
   setPendingChat,
 } from '../../api/chat';
 import { runChatStream } from '../../lib/chat/runChatStream';
+import { parseStemIntent, describeStemIntent } from '../../lib/stems/intent';
 import { setChatChartMeta } from '../../lib/chatChartMeta';
 import { getCachedUser, onAuthChange } from '../../api/auth';
 import { RagDebugPanel } from '../chat/RagDebugPanel';
@@ -632,6 +633,40 @@ export function RightChatPanel({
      * queueing it. (User decision: no "type while it answers" / queueing.) */
     if (loadingRef.current) return;
     isScrolledUpRef.current = false;
+
+    // ── 오디오 첨부 → 스템 분리 파이프라인 (LLM 우회) ──────────────────
+    // 현행 채팅 LLM은 오디오 입력을 처리하지 못한다. 오디오가 붙으면
+    // rule-based 인텐트("스템 분리/피아노만/MR")를 파싱해 StemSplitMessage
+    // 카드로 응답한다. 신호가 없으면 4스템 분리로 폴백. File 기반이라
+    // 이 턴은 백엔드 히스토리에 저장하지 않는다(비영속 카드).
+    const audioFile = files?.find(
+      (f) => f.type.startsWith('audio/') || /\.(mp3|wav|m4a|ogg|flac)$/i.test(f.name),
+    );
+    if (audioFile) {
+      const intent = parseStemIntent(text) ?? { kind: 'split' as const, preset: '4' as const };
+      const now = Date.now();
+      const stemUserMsg: MessageWithDebug = {
+        id: `user-${now}`,
+        role: 'user',
+        // 첨부 파일명을 항상 표기 — 텍스트만 보이면 뭘 올렸는지 알 수 없다.
+        content: text.trim() ? `${text.trim()}\n\n🎵 ${audioFile.name}` : `🎵 ${audioFile.name}`,
+        timestamp: now,
+      };
+      const stemAiMsg: MessageWithDebug = {
+        id: `ai-${now}`,
+        role: 'assistant',
+        content: `“${audioFile.name}” — ${describeStemIntent(intent)}를 시작할게요. 아래 카드에서 결과를 듣고 저장할 수 있어요.`,
+        timestamp: now,
+        stemRequest: { file: audioFile, intent },
+      };
+      setMessages((prev) => [...prev, stemUserMsg, stemAiMsg]);
+      historyRef.current = [
+        ...historyRef.current,
+        { role: 'user', content: stemUserMsg.content },
+        { role: 'assistant', content: stemAiMsg.content },
+      ];
+      return;
+    }
 
     // 첨부 이미지 → Claude 비전 블록(base64). 비이미지(PDF 등)는 건너뜀.
     // preImages: 이미 변환된 ClaudeImage[] (재시도 경로). 예전엔 retryImages를

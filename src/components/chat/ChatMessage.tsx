@@ -8,6 +8,7 @@ import type { RagChunk } from '../../api/harmorag';
 import type { LickMatch } from '../../lib/lickMatcher';
 import { formatChordsInText } from './chordFormat';
 import { LickRecommendMessage, LickRecommendList, jsonToLickEntry } from './LickRecommendMessage';
+import { StemSplitMessage } from './StemSplitMessage';
 import type { LickEntry } from '../../data/lickData';
 import { ChatChartCard } from './ChatChartCard';
 import { parseChatChart, splitChordTables } from '../../lib/chatChartParser';
@@ -871,8 +872,13 @@ function ChatMessageImpl({
       );
     }
 
+    // 스템 분리 카드 — 오디오 첨부 턴(message.stemRequest). 안내 문장 뒤에 붙는다.
+    if (message.stemRequest) {
+      segments.push(<StemSplitMessage key="stem-card" request={message.stemRequest} />);
+    }
+
     return <>{segments}</>;
-  }, [message.content, message.role, message.lickMatches, message.savedLickMatches, message.lickProgressionLabel, message.lickInline, message.lickInlineLabel, isStreaming, suppressChart, onLickShowInline, activeInlineLickId]);
+  }, [message.content, message.role, message.lickMatches, message.savedLickMatches, message.lickProgressionLabel, message.lickInline, message.lickInlineLabel, message.stemRequest, isStreaming, suppressChart, onLickShowInline, activeInlineLickId]);
 
   /* Thinking placeholder (saxophone flipbook) only shows for assistant
    * bubbles that are STILL streaming — empty content alone isn't enough:

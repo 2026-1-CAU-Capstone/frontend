@@ -26,6 +26,7 @@ const Lick12KeyPage       = lazy(() => import('./pages/Lick12KeyPage'));
 const InputPage           = lazy(() => import('./pages/InputPage'));
 const EditorPage          = lazy(() => import('./pages/EditorPage'));
 const YoutubeOnsetPage    = lazy(() => import('./pages/YoutubeOnsetPage'));
+const StemSplitterPage    = lazy(() => import('./pages/StemSplitterPage'));
 const IntroPage           = lazy(() => import('./pages/IntroPage'));
 const LoginPage           = lazy(() => import('./pages/LoginPage'));
 const SharedChartPage     = lazy(() => import('./pages/SharedChartPage'));
@@ -105,6 +106,7 @@ export default function App() {
           <Route path="/solos" element={<ProtectedRoute><SolosPage /></ProtectedRoute>} />
           <Route path="/input" element={<ProtectedRoute><InputPage /></ProtectedRoute>} />
           <Route path="/youtube-onset" element={<ProtectedRoute><YoutubeOnsetPage /></ProtectedRoute>} />
+          <Route path="/stems" element={<ProtectedRoute><StemSplitterPage /></ProtectedRoute>} />
           <Route path="/my-licks" element={<ProtectedRoute><MyLicksPage /></ProtectedRoute>} />
           <Route path="/my-charts" element={<ProtectedRoute><MyChordChartsPage /></ProtectedRoute>} />
           <Route path="/my-sheets" element={<ProtectedRoute><MySheetProjectsPage /></ProtectedRoute>} />

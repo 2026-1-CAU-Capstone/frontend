@@ -429,6 +429,21 @@
   </table>
 </section>
 
+<section id="m15">
+  <h2>M15. 음원 분리 (Stem Splitter)</h2>
+  <table>
+    <tr><th>ID</th><th>기능</th><th>설명</th><th>액터</th><th>계층</th><th>상태</th></tr>
+    <tr><td class="id">F15.1</td><td>업로드</td><td><code>/stems</code> — 파일 선택 + 드래그&amp;드롭, wav/mp3(+m4a/ogg/flac 시도), 200MB 가드</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F15.2</td><td>스템 프리셋</td><td>2(보컬/MR) · 4(보컬/드럼/베이스/나머지) · 6(+피아노/기타) — 전환 시 재분리</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F15.3</td><td>분리 엔진</td><td><b>데모: EQ 대역 근사</b>(mockSeparate). 실 AI 분리(Demucs)는 BE 대기 — <code>separate()</code> 1곳 교체로 연동</td><td>⚙️</td><td><span class="t fe">FE</span><span class="t be">BE</span></td><td><span class="b part">🟡 데모 (BR-3)</span></td></tr>
+    <tr><td class="id">F15.4</td><td>스템 믹서</td><td>트랙별 볼륨·팬(더블클릭 센터)·뮤트·솔로 + 파형 + 마스터. solo/mute 실효 게인 라이브 반영</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F15.5</td><td>동기 재생</td><td>WebAudio 스템 동시 재생, 시크바·루프·스페이스바</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F15.6</td><td>다운로드</td><td>① 트랙별 WAV ② <b>현재 상태로 저장</b>(믹서 반영 믹스다운) ③ 모든 트랙 저장(순차 — zip은 BE 몫)</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F15.7</td><td>인트로 진입 카드</td><td>홈 TOOLS/드로어 "음원 분리" 카드</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b done">✅</span></td></tr>
+    <tr><td class="id">F15.8</td><td>채팅 명령 연동</td><td>홈 채팅에 오디오 첨부 + "스템 분리해줘/피아노만 빼줘/MR 만들어줘" — rule-based 인텐트(split/extract/remove) → 인라인 카드(미니 믹서·미리듣기·다운로드·믹서에서 열기). LLM 우회, 비영속</td><td>👤</td><td><span class="t fe">FE</span></td><td><span class="b part">🟡 데모 (실분리 BR-3)</span></td></tr>
+  </table>
+</section>
+
 <hr/>
 
 <!-- 4. API -->
@@ -658,6 +673,14 @@
         <code>https://jazzify.app</code> canonical base 사용. 백엔드 토큰 준비 시
         <code>buildShareUrl</code>/<code>buildNoteShareUrl</code> 의 링크 소스만 토큰 발급으로 교체(뷰어·복제 흐름 재사용).</td>
     </tr>
+  </table>
+
+  <h3>BR-3. 음원 분리(Stem Separation) GPU 추론 API — <span class="b fix">미해결 · HIGH</span> · BE/인프라</h3>
+  <table>
+    <tr><th>항목</th><th>내용</th></tr>
+    <tr><td>배경</td><td><code>/stems</code>(M15) 프론트 완성 — 업로드·믹서·재생·다운로드 실동작. 분리만 브라우저 EQ 근사(데모)이며 실제 AI 소스 분리는 서버 추론 필수.</td></tr>
+    <tr><td>백엔드 조치</td><td>① <code>POST /v1/stems</code>(multipart + preset 2/4/6) → jobId ② <code>GET /v1/stems/{jobId}</code> 폴링(status/progress/presigned URL/zipUrl/expiresAt) ③ Python 워커(Demucs htdemucs·htdemucs_6s, GPU 권장) + 잡 큐 ④ 스토리지 만료 정책. 상세: <b>음원분리_백엔드 요구사항.md</b></td></tr>
+    <tr><td>프론트 연동점</td><td><code>src/lib/stems/mockSeparate.ts</code> 의 <code>separate()</code> 1곳만 API 호출로 교체 — 페이지/믹서/다운로드 무수정.</td></tr>
   </table>
 </section>
 
