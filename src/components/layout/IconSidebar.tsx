@@ -593,6 +593,14 @@ const OmrIcon = () => (
   </svg>
 );
 
+/* 음원 분리 — 믹서 페이더 3열. */
+const StemsIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <line x1="6" y1="4" x2="6" y2="20" /><line x1="12" y1="4" x2="12" y2="20" /><line x1="18" y1="4" x2="18" y2="20" />
+    <circle cx="6" cy="9" r="2" fill="currentColor" /><circle cx="12" cy="15" r="2" fill="currentColor" /><circle cx="18" cy="7" r="2" fill="currentColor" />
+  </svg>
+);
+
 const NAV = [
   { path: '/chord', icon: ChordIcon, label: 'Chord Analysis' },
   { path: '/note', icon: NoteIcon, label: 'Note Analysis' },
@@ -601,6 +609,7 @@ const NAV = [
   { path: '/editor', icon: EditorIcon, label: 'Editor' },
   { path: '/youtube-onset', icon: VideoIcon, label: 'YouTube Onset' },
   { path: '/input', icon: OmrIcon, label: 'OMR' },
+  { path: '/stems', icon: StemsIcon, label: '음원 분리' },
 ] as const;
 
 /* ── Admin drop-up ───────────────────────────────────────────────────────
