@@ -54,7 +54,6 @@ rag/scratch/cache/
 *.sw?
 
 # External datasets (large, fetched locally, not source)
-data/DigThatLick/
 
 # Capacitor / iOS — generated build artifacts
 ios/App/Pods/
@@ -66,10 +65,8 @@ ios/App/Podfile.lock
 xcuserdata/
 
 # RAG corpus source — managed outside git (chroma DB holds the indexed form)
-data/explanation/
 
 # RAG raw transcripts (regen via rag/ingest_youtube.py)
-data/youtube/
 
 # Local DB backups & bak files
 rag/db.old-*/
@@ -79,6 +76,6 @@ rag/*.bak.*
 rag/*.tgz
 
 # Analysis scratch (added 2026-05)
-data/*.py
-data/**/__pycache__/
-data/**/*.pyc
+
+# 데이터셋은 저장소 밖(jazzify/data)으로 이동 — 심링크만 남음
+/data
