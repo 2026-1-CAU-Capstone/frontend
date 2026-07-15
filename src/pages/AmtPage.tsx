@@ -1,4 +1,6 @@
+import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
+import { IconSidebar } from '../components/layout/IconSidebar';
 
 /* ─────────────────────────────────────────────────────────────────────────
  * AMT (자동 채보) — 목업 (mock-up).
@@ -10,8 +12,17 @@ import styled from 'styled-components';
  * ──────────────────────────────────────────────────────────────────────── */
 
 export default function AmtPage() {
+  const navigate = useNavigate();
   return (
-    <Page>
+    <Shell>
+      <IconSidebar />
+      <Body>
+        <TopBar>
+          <BackBtn onClick={() => navigate(-1)}>← Back</BackBtn>
+          <TopTitle>AMT · 자동 채보</TopTitle>
+        </TopBar>
+        <Content>
+          <Inner>
       <Header>
         <H1>AMT · 자동 채보 실험실 <MockTag>MOCK-UP</MockTag></H1>
         <Sub>영상/오디오에서 구간을 잘라 코드 진행과 함께 베이스를 채보하는 흐름의 목업입니다.</Sub>
@@ -63,20 +74,69 @@ export default function AmtPage() {
         </Row>
         <Placeholder $ratio="auto" style={{ minHeight: 160 }}>♪ 채보 결과 악보 (VexFlow)</Placeholder>
       </Card>
-    </Page>
+          </Inner>
+        </Content>
+      </Body>
+    </Shell>
   );
 }
 
 /* ─── styled ─────────────────────────────────────────────────────────── */
 
-const Page = styled.div`
+const Shell = styled.div`
+  display: flex;
+  flex-direction: row;
+  height: 100vh;
+  height: 100dvh;
+  width: 100%;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  font-family: ${({ theme }) => theme.fonts.ui};
+  overflow: hidden;
+`;
+const Body = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+`;
+const TopBar = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 20px 10px;
+  background: ${({ theme }) => theme.colors.bgSecondary};
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  flex-shrink: 0;
+`;
+const BackBtn = styled.button`
+  padding: 6px 12px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 6px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  color: ${({ theme }) => theme.colors.textPrimary};
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: 0.82rem;
+  cursor: pointer;
+  &:hover { border-color: ${({ theme }) => theme.colors.gold}; }
+`;
+const TopTitle = styled.div`
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.textPrimary};
+`;
+const Content = styled.div`
+  flex: 1;
+  overflow: auto;
+`;
+
+const Inner = styled.div`
   max-width: 960px;
   margin: 0 auto;
   padding: 24px 24px 96px;
   display: flex;
   flex-direction: column;
   gap: 18px;
-  font-family: ${({ theme }) => theme.fonts.ui};
   color: ${({ theme }) => theme.colors.textPrimary};
 `;
 const Header = styled.div``;
