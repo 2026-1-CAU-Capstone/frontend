@@ -16,6 +16,8 @@
 /* dev: Vite proxy(/api → jazzify.p-e.kr)를 거쳐 same-origin 으로 요청 →
  * RefreshToken HTTP-only 쿠키가 first-party 로 저장/전송된다.
  * prod: 빌드 결과는 절대 URL 로 백엔드를 직접 호출. */
+import type { components } from './schema';
+
 const API_BASE = import.meta.env.DEV ? '/api' : 'https://jazzify.p-e.kr/api';
 const ACCESS_TOKEN_KEY = 'jazzify.auth.accessToken';
 const USER_CACHE_KEY = 'jazzify.auth.userCache';
@@ -37,17 +39,10 @@ export function isAdminUser(user: AuthUser | null): boolean {
   return user.username === 'admin';
 }
 
-interface TokenResponse {
-  accessToken: string;
-  publicId: string;
-  username: string;
-}
-
-interface SignUpResponse {
-  publicId: string;
-  name: string;
-  username: string;
-}
+// 타입 원천 = 생성 스키마(브릿지, BR-23 참조). 항상 오는 필드만 Required로 좁힘.
+// (AuthUser는 TokenResponse + /me 를 합친 프론트 합성 타입이라 손글씨 유지.)
+type TokenResponse = Required<components['schemas']['TokenResponse']>;
+type SignUpResponse = Required<components['schemas']['SignUpResponse']>;
 
 interface ApiEnvelope<T> { data: T }
 interface ApiError { code: string; message: string; detail?: string }

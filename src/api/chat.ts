@@ -17,6 +17,9 @@
 
 import { authFetch } from './auth';
 import type { ClaudeMessage, ClaudeImage } from './claude';
+import type { components } from './schema';
+
+type Schemas = components['schemas'];
 
 /* Same base convention as solos.ts / licks.ts. authFetch() detects an
  * already-base-prefixed URL and does NOT re-prepend, so this stays a single
@@ -28,31 +31,22 @@ const API_BASE = import.meta.env.DEV ? '/api' : 'https://jazzify.p-e.kr/api';
 export type ChatType = 'global' | 'chordProject' | 'sheetProject' | 'direct' | 'rag' | string;
 export type ChatCategory = 'direct' | 'chord' | 'sheet' | 'overview' | string;
 
-export interface ChatSummary {
-  publicId: string;
-  type: ChatType;
-  title: string;
-  category?: ChatCategory | null;
-  songTitle?: string | null;
-  /** Set for chats started from a chord/sheet PROJECT. Lets the Recent Chats
-   *  sidebar reopen the originating chart (chord chart + AI chat screen)
-   *  directly — no more matching back to a project by song title. */
-  projectPublicId?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+/* 타입 원천 = 생성 스키마(브릿지, BR-23 참조). 항상 오는 필드만 Required로 좁히고,
+ * 프론트가 문자열/ null로 느슨하게 다루는 필드만 경계에서 명시. */
+export type ChatSummary =
+  Required<Omit<Schemas['ChatSummaryResponse'], 'type' | 'category' | 'songTitle' | 'projectPublicId'>>
+  & {
+      type: ChatType;
+      category?: ChatCategory | null;
+      songTitle?: string | null;
+      /** Set for chats started from a chord/sheet PROJECT. Lets the Recent Chats
+       *  sidebar reopen the originating chart directly. */
+      projectPublicId?: string | null;
+    };
 
-export interface ChatMessage {
-  publicId: string;
-  role: string;                       // 'user' | 'assistant' | 'system'
-  content: string;
-  sortOrder: number;
-  createdAt: string;
-}
+export type ChatMessage = Required<Schemas['ChatMessageResponse']>;  // role: 'user'|'assistant'|'system'
 
-export interface ChatDetail extends ChatSummary {
-  messages: ChatMessage[];
-}
+export type ChatDetail = ChatSummary & { messages: ChatMessage[] };
 
 /** Request body for POST /v1/chat/stream. `chatPublicId` is omitted on the
  *  first message (server creates a new chat and returns the ID via the

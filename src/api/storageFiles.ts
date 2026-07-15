@@ -12,14 +12,10 @@
 
 import { authFetch } from './auth';
 import { readApiErrorMessage } from './apiError';
+import type { components } from './schema';
 
-export interface StorageFile {
-  publicId: string;
-  originalFileName: string;
-  fileSize: number;
-  contentType: string;
-  createdAt: string;
-}
+// 타입 원천 = 생성 스키마. 항상 오는 필드만 Required로 좁힘(브릿지, BR-23 참조).
+export type StorageFile = Required<components['schemas']['StorageFileResponse']>;
 
 interface ApiEnvelope<T> { data: T }
 

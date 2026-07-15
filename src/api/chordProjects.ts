@@ -1,5 +1,8 @@
 import { authFetch } from './auth';
 import { readApiErrorMessage } from './apiError';
+import type { components } from './schema';
+
+type Schemas = components['schemas'];
 
 export const CHORD_PROJECT_KEYS = [
   'C_MAJOR', 'G_MAJOR', 'D_MAJOR', 'A_MAJOR', 'E_MAJOR', 'B_MAJOR', 'F_SHARP_MAJOR', 'C_SHARP_MAJOR',
@@ -11,56 +14,29 @@ export const CHORD_PROJECT_KEYS = [
 export type ChordProjectKey = typeof CHORD_PROJECT_KEYS[number];
 export type ChordProjectOmrStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | string;
 
-export interface ChordProject {
-  publicId: string;
-  title: string;
-  keySignature: ChordProjectKey | string;
-  timeSignature: string;
-  omrStatus: ChordProjectOmrStatus;
-  omrProgress: number;
-  omrFailureReason: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+/* 타입 원천 = 백엔드 스펙(생성 `schema.d.ts`). 손으로 응답 모양을 적지 않는다.
+ * openapi-typescript가 전부 optional로 뽑으므로(스펙에 required 미선언, BR-23),
+ * "백엔드가 항상 주는 필드"만 Required로 좁혀 사용성을 유지하고, 진짜 nullable인
+ * 필드만 경계에서 명시한다. 필드가 rename/삭제되면 여기서 컴파일 에러 → 드리프트 감지.
+ * BR-23(스펙에 required/nullable 선언) 완료 시 이 브릿지는 순수 alias로 축소 가능. */
+export type ChordProject =
+  Required<Omit<Schemas['ChordProjectResponse'], 'keySignature' | 'omrFailureReason' | 'chords'>>
+  & {
+      keySignature: ChordProjectKey | string;  // 프론트는 조성을 문자열로 다룸
+      omrFailureReason: string | null;          // 실패 없으면 null
+    };
 
-export interface ChordProjectStatus {
-  publicId: string;
-  status: ChordProjectOmrStatus;
-  progress: number;
-  failureReason: string | null;
-}
+export type ChordProjectStatus = Required<Schemas['ChordProjectOmrStatusResponse']>;
 
-export interface ChordInfo {
-  publicId: string;
-  chord: string;
-  bar: number;
-  beat: number;
-  durationBeats: number;
-  analysis: Record<string, unknown> | null;
-}
+export type ChordInfo =
+  Required<Omit<Schemas['ChordInfoResponse'], 'chord' | 'analysis'>>
+  & {
+      chord: string | null;                     // 코드 없는 마디 → null (손글씨가 놓쳐 버그났던 필드)
+      analysis: Record<string, unknown> | null; // 분석 전 → null
+    };
 
-export interface ChordAnalysisResult {
-  projectPublicId: string;
-  title: string;
-  keySignature: string;
-  timeSignature: string;
-  lastAnalyzedAt?: string;
-  ambiguityStats?: Record<string, unknown>;
-  chords: ChordInfo[];
-  groups: Array<Record<string, unknown>>;
-  sections: Array<Record<string, unknown>>;
-}
-
-export interface ChordExplanationResult {
-  title: string;
-  key: string;
-  timeSignature: string;
-  overview: string;
-  chordExplanations: Array<Record<string, unknown>>;
-  sectionExplanations: string[];
-  notablePatterns: string[];
-  harmonicSummary: string;
-}
+export type ChordAnalysisResult = Required<Schemas['AnalysisResultResponse']>;
+export type ChordExplanationResult = Required<Schemas['AnalysisExplanationResponse']>;
 
 interface PageData<T> {
   content: T[];

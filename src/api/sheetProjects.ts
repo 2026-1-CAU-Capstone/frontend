@@ -19,6 +19,9 @@
 
 import { authFetch } from './auth';
 import { readApiErrorMessage } from './apiError';
+import type { components } from './schema';
+
+type Schemas = components['schemas'];
 
 /* ── enums (mirroring the backend) ───────────────────────────────────────── */
 
@@ -38,24 +41,23 @@ export type OmrStatus = typeof OMR_STATUSES[number];
 
 /* ── response types ──────────────────────────────────────────────────────── */
 
-export interface SheetProject {
-  publicId: string;
-  title: string;
-  keySignature: KeySignature | string;   // tolerate unknown enum values
-  filePublicId: string | null;
-  omrStatus: OmrStatus | string;
-  omrProgress: number;
-  omrFailureReason: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+/* 타입 원천 = 생성 스키마(브릿지, BR-23 참조). 항상 오는 필드만 Required로 좁히고,
+ * 진짜 nullable / 프론트가 문자열로 다루는 필드만 경계에서 명시. */
+export type SheetProject =
+  Required<Omit<Schemas['SheetProjectResponse'], 'keySignature' | 'omrStatus' | 'filePublicId' | 'omrFailureReason'>>
+  & {
+      keySignature: KeySignature | string;   // tolerate unknown enum values
+      omrStatus: OmrStatus | string;
+      filePublicId: string | null;
+      omrFailureReason: string | null;
+    };
 
-export interface SheetProjectOmrStatus {
-  publicId: string;
-  status: OmrStatus | string;
-  progress: number;
-  failureReason: string | null;
-}
+export type SheetProjectOmrStatus =
+  Required<Omit<Schemas['SheetProjectOmrStatusResponse'], 'status' | 'failureReason'>>
+  & {
+      status: OmrStatus | string;
+      failureReason: string | null;
+    };
 
 /** Spring's Page<T> envelope (the backend uses the same shape as the licks list). */
 interface PageData<T> {
