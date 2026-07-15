@@ -49,6 +49,10 @@ interface Props {
   disabled?: boolean;
   placeholder?: string;
   autoFocus?: boolean;
+  /** autoFocus 발동까지의 지연(ms). 홈 인트로는 히어로 애니메이션이 끝나길
+   *  기다려야 해 기본 2300이지만, 바텀시트(AI 채팅)처럼 즉시 키보드를 띄워야
+   *  하는 곳은 작은 값(≈350)을 넘겨 시트 트랜지션 직후 포커스한다. */
+  autoFocusDelay?: number;
   /** Compact variant used when this input is pinned at the bottom of an
    *  active conversation (mid-chat). Shrinks the padding, border-radius and
    *  textarea height so the input doesn't dominate the chat area. */
@@ -94,7 +98,7 @@ const LOGIN_GATED_ITEMS: MenuEntry[] = [
 ];
 
 export function IntroChatInput({
-  onSend, disabled, placeholder, autoFocus, compact,
+  onSend, disabled, placeholder, autoFocus, autoFocusDelay = 2300, compact,
   selectedChords = [],
   onClearSelectedChords,
   isSelectionMode,
@@ -168,9 +172,9 @@ export function IntroChatInput({
 
   useEffect(() => {
     if (!autoFocus) return;
-    const id = setTimeout(() => ref.current?.focus(), 2300);
+    const id = setTimeout(() => ref.current?.focus(), autoFocusDelay);
     return () => clearTimeout(id);
-  }, [autoFocus]);
+  }, [autoFocus, autoFocusDelay]);
 
   useEffect(() => {
     if (!menuOpen) return;

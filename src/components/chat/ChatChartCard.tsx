@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import styled from 'styled-components';
 import type { ChatChart } from '../../lib/chatChartParser';
 import type { LeadSheetData, LeadSheetBar, LeadSheetSystem } from '../../data/leadSheetTypes';
@@ -73,14 +74,17 @@ interface Props {
   chart: ChatChart;
 }
 
-export function ChatChartCard({ chart }: Props) {
+/* memo: `chart` is now a cache-stable reference per fenced JSON block (see
+ * ChatMessage's chartCacheRef) — skip re-rendering (and re-running VexFlow
+ * layout) while the rest of the message keeps streaming after this chart. */
+export const ChatChartCard = memo(function ChatChartCard({ chart }: Props) {
   const data = chatChartToLeadSheet(chart);
   return (
     <ChartFrame>
       <LeadSheet data={data} analysisFilters={CHART_FILTERS} />
     </ChartFrame>
   );
-}
+});
 
 /* Wrapper that embeds the full LeadSheet read-only inline:
  *   - hide the zoom / fullscreen / compact corner controls

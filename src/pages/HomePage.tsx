@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, type ReactNode, type TouchEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 import { Keyboard } from '@capacitor/keyboard';
 import { mq } from '../styles/theme';
@@ -8,9 +8,11 @@ import { BrandLogoImage } from '../components/common/BrandLogoImage';
 import { IconSidebar } from '../components/layout/IconSidebar';
 import { AuthTopBar } from '../components/layout/AuthTopBar';
 import { AccountModal } from '../components/chat/AccountModal';
+import { NativeHomeDashboard } from '../components/native/NativeHomeDashboard';
 import { ChatHistoryModal, type ChatConversation } from '../components/chat/ChatHistoryModal';
 import { ConfirmNewChatModal } from '../components/chat/ConfirmNewChatModal';
 import { isNativeApp } from '../lib/platform';
+import { useIsNativeUi } from '../contexts/AppPreviewContext';
 import {
   bootstrapAuth,
   getAccessToken,
@@ -581,30 +583,19 @@ const MOCK_SCORES = [
 /* Tablet-or-wider detector. iPad portrait starts at 768pt logical width, so
  * this picks up every iPad while excluding all phones. Used to give iPad the
  * desktop-style persistent sidebar (ChatGPT-on-iPad pattern) instead of the
- * hamburger + slide-out drawer we use on iPhone. Listens to media-query
- * changes so rotating between portrait/landscape keeps the UI consistent. */
-function useIsTabletOrLarger(): boolean {
-  const [matches, setMatches] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return window.matchMedia('(min-width: 768px)').matches;
-  });
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mql = window.matchMedia('(min-width: 768px)');
-    const handler = (e: MediaQueryListEvent) => setMatches(e.matches);
-    mql.addEventListener('change', handler);
-    return () => mql.removeEventListener('change', handler);
-  }, []);
-  return matches;
-}
+ * hamburger + slide-out drawer we use on iPhone. */
 
 export default function HomePage() {
   const navigate = useNavigate();
   const native = isNativeApp();
-  const tabletOrLarger = useIsTabletOrLarger();
-  /* Only iPhones (native + narrow viewport) get the mobile drawer UI. iPads
-   * fall through to the persistent IconSidebar like the desktop web build. */
-  const useNativeUI = native && !tabletOrLarger;
+  /* 네이티브(iPhone·iPad 공통)면 노션형 대시보드 셸. 이전에는 iPad 가
+   * min-width 768px 기준으로 데스크톱형 IconSidebar 경로로 빠졌지만,
+   * 새 디자인은 "아이패드·아이폰 동일, 웹 미적용"이 요구사항이라 플랫폼
+   * 기준 하나로 통일했다.
+   * useIsNativeUi(): 실제 네이티브 OR /preview/* — 브라우저(데스크톱·폰
+   * 사파리)에서 /#/preview/home 으로 새 홈을 설치 없이 검수할 수 있다.
+   * 일반 웹 "/" 에서는 여전히 false → 웹 UI 불변. */
+  const useNativeUI = useIsNativeUi();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   /* Real auth state — driven by Jazzify backend (/v1/auth/*). The cached
@@ -764,6 +755,19 @@ export default function HomePage() {
      *  and just start fresh. */
     resetChat();
   };
+
+  /* ── 네이티브(iPhone·iPad) 홈 — 노션형 대시보드로 전면 교체. ──
+   * 채팅은 더 이상 홈이 아니라 AiChatSheet(하단 바 "AI에게 질문하기")로
+   * 열린다. 아래의 기존 드로어/채팅-홈 JSX 는 웹 경로 전용으로 남는다.
+   * (모든 훅 호출 뒤의 조기 반환이라 rules-of-hooks 안전.) */
+  if (useNativeUI) {
+    /* 로그인 강제 — 네이티브는 게스트 진입을 막고 로그인 사용자만 홈에
+     * 들어온다. 캐시된 사용자(getCachedUser)로 초기화하므로 재로그인 사용자는
+     * 로그인 화면 깜빡임 없이 바로 대시보드. 미로그인이면 /login 으로.
+     * (웹 "/" 은 공개 랜딩이라 이 게이트를 적용하지 않는다.) */
+    if (!isLoggedIn) return <Navigate to="/login" replace />;
+    return <NativeHomeDashboard />;
+  }
 
   return (
     <Wrapper $native={useNativeUI}>

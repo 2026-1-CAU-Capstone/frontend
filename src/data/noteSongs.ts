@@ -19,6 +19,9 @@ export interface NoteSongEntry {
    * top of the melody parsed from the source file.
    */
   chordJazzIndex?: number;
+  /** music21 변환 풀 피아노 "연주" 파일(맥켄지 정량화본) — 파서의
+   *  pianoPerformance 모드(마디별 멜로디 voice 선택 + 저음 컷)로 로드. */
+  pianoPerformance?: boolean;
 }
 
 /* ── Vite glob imports ────────────────────────────────────────────────── */
@@ -39,6 +42,15 @@ const jazzstandardModules = import.meta.glob('../../data/jazzstandards/*.{mid,MI
 }) as Record<string, () => Promise<string>>;
 
 const pdmxModules = import.meta.glob('../../data/PDMX/scores/*.mxl', {
+  import: 'default',
+  query: '?url',
+}) as Record<string, () => Promise<string>>;
+
+/* Doug McKenzie 아카이브 — data/jazzstandards(위 jazzstandardModules)와는 다른
+ * 파일이다: jazzstandards는 원시 연주 MIDI(사람 타이밍 그대로라 표기가 지저분함),
+ * 이건 그 같은 곡들을 리듬 정량화(quantize)한 MusicXML — 노트 표기가 훨씬
+ * 깔끔하다. musicxml/(비정량화)는 중복이라 제외하고 quantized만 쓴다. */
+const mckenzieModules = import.meta.glob('../../data/midi_dougmckenzie/musicxml_quantized/*.musicxml', {
   import: 'default',
   query: '?url',
 }) as Record<string, () => Promise<string>>;
@@ -111,6 +123,14 @@ const pdmxSongs: NoteSongEntry[] = Object.entries(pdmxModules).map(
     const fn = path.split('/').pop() ?? '';
     const title = decodeURIComponent(fn).replace(/\.mxl$/i, '').replace(/\s*\(\d+\)$/, '');
     return { id: `pdmx:${fn}`, title, composer: 'PDMX', collection: 'pdmx', group: 'external' as const, fileType: 'mxl' as const, loadUrl };
+  },
+);
+
+const mckenzieSongs: NoteSongEntry[] = Object.entries(mckenzieModules).map(
+  ([path, loadUrl]) => {
+    const fn = path.split('/').pop() ?? '';
+    const title = parseJazzStandard(decodeURIComponent(fn).replace(/\.musicxml$/i, '.mid'));
+    return { id: `mckenzie:${fn}`, title, composer: 'Doug McKenzie', collection: 'mckenzie', group: 'external' as const, fileType: 'xml' as const, loadUrl, pianoPerformance: true };
   },
 );
 
@@ -630,7 +650,7 @@ const omrLeadsheetSongs: NoteSongEntry[] = [
  * external entries are left untouched. */
 
 const externalById = new Map<string, NoteSongEntry>();
-for (const s of [...omnibookSongs, ...wjazzdSongs, ...jazzstandardSongs, ...pdmxSongs]) {
+for (const s of [...omnibookSongs, ...wjazzdSongs, ...jazzstandardSongs, ...pdmxSongs, ...mckenzieSongs]) {
   externalById.set(s.id, s);
 }
 
@@ -665,7 +685,26 @@ export const externalSongs: NoteSongEntry[] = [
   ...wjazzdSongs,
   ...jazzstandardSongs,
   ...pdmxSongs,
+  ...mckenzieSongs,
 ].sort((a, b) => a.title.localeCompare(b.title));
+
+/* External을 "데이터셋별로" 볼 수 있게 소스별 그룹으로도 내보낸다. NotePage의
+ * External 피커는 이걸로 2단 선택(데이터셋 → 그 안의 곡)을 구성한다 — 예전엔
+ * 4개 소스(현재 5개)를 통째로 알파벳 정렬해 하나의 거대한 드롭다운에 섞어
+ * 보여줬다(PDMX/McKenzie 등이 뒤섞임). */
+export interface ExternalCollection {
+  id: string;
+  label: string;
+  songs: NoteSongEntry[];
+}
+
+export const externalCollections: ExternalCollection[] = [
+  { id: 'pdmx', label: 'PDMX', songs: pdmxSongs },
+  { id: 'mckenzie', label: 'Doug McKenzie (MusicXML)', songs: mckenzieSongs },
+  { id: 'jazzstandards', label: 'Jazz Standards (McKenzie MIDI)', songs: jazzstandardSongs },
+  { id: 'omnibook', label: 'Omnibook (Charlie Parker)', songs: omnibookSongs },
+  { id: 'wjazzd', label: 'WJazzD', songs: wjazzdSongs },
+].map((c) => ({ ...c, songs: [...c.songs].sort((a, b) => a.title.localeCompare(b.title)) }));
 
 export { manualSongs, leadsheetSongs };
 

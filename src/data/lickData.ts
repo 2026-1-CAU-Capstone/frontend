@@ -128,6 +128,25 @@ function quantise(beats: number): { vf: string; dot: boolean; beats: number } {
 
 /* ─── Convert raw lick → NoteSheetData ────────────────────────────── */
 
+/* VexFlow duration → beat 길이 (dotted 는 호출부에서 곱함). */
+const VF_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25, '32': 0.125 };
+function niBeatLen(n: NoteInfo): number {
+  const base = n.duration.replace(/[dr]/g, '');
+  let b = VF_BEATS[base] ?? 1;
+  if (n.dotted) b *= 1.5;
+  return b;
+}
+/** beats 만큼의 쉼표 NoteInfo 배열 — 16분 격자로 스냅 후 h/q/8/16 그리디 분해. */
+function beatsToRests(beats: number): NoteInfo[] {
+  let b = Math.round(beats * 4) / 4;
+  const out: NoteInfo[] = [];
+  const units: [number, string][] = [[2, 'hr'], [1, 'qr'], [0.5, '8r'], [0.25, '16r']];
+  for (const [val, vf] of units) {
+    while (b >= val - 1e-6) { out.push({ keys: ['b/4'], duration: vf }); b -= val; }
+  }
+  return out;
+}
+
 function lickToSheet(lick: RawLick): NoteSheetData {
   const nKey = normalizeKey(lick.key);
   const useFlats = true; // always use flats for lick display
@@ -148,11 +167,20 @@ function lickToSheet(lick: RawLick): NoteSheetData {
     avgBeatDur = 60 / lick.tempo;
   }
 
-  for (const [, indices] of [...barMap.entries()].sort((a, b) => a[0] - b[0])) {
+  let firstBar = 0;
+  let firstNoteBeat = 1;
+  let isFirst = true;
+  for (const [barNo, indices] of [...barMap.entries()].sort((a, b) => a[0] - b[0])) {
     const notes: NoteInfo[] = [];
 
     // Chord for this measure (first event's chord)
     const chordStr = lick.chords_per_event[indices[0]] ?? undefined;
+
+    if (isFirst) {
+      firstBar = barNo;
+      firstNoteBeat = lick.beat[indices[0]] ?? 1; // WJD beat 은 1-based (1 = 다운비트)
+      isFirst = false;
+    }
 
     for (const idx of indices) {
       const midi = lick.pitch[idx];
@@ -177,6 +205,23 @@ function lickToSheet(lick: RawLick): NoteSheetData {
     }
 
     measures.push({ notes, chord: chordStr });
+  }
+
+  // 마디 중간에서 시작하는 릭(진짜 픽업이 아니라 솔로 중간 발췌)은 첫 마디를
+  // 온전한 한 마디로 채운다: 앞에 (firstNoteBeat-1)beat 쉼표를 넣어 첫 음을 제
+  // beat 에 놓고, 남는 만큼 뒤를 쉼표로 채운다. 이러면 ① 첫 음 위치가 리듬섹션과
+  // 맞고 ② 첫 마디가 꽉 차 픽업(anacrusis) 오검출(hasLeadingAnacrusis)이 사라져
+  // 첫 마디가 잘려나가지 않는다. bar<=0 은 곡 도입부 진짜 픽업이므로 손대지 않고
+  // 기존 anacrusis 처리에 맡긴다.
+  if (firstBar >= 1 && measures[0]) {
+    const tsNum = parseInt((lick.signature || '4/4').split('/')[0], 10) || 4;
+    const lead = Math.max(0, firstNoteBeat - 1);
+    const existing = measures[0].notes.reduce((s, n) => s + niBeatLen(n), 0);
+    const trailing = Math.max(0, tsNum - lead - existing);
+    measures[0] = {
+      ...measures[0],
+      notes: [...beatsToRests(lead), ...measures[0].notes, ...beatsToRests(trailing)],
+    };
   }
 
   return {
@@ -220,6 +265,55 @@ export async function loadFrontendLicks(): Promise<LickEntry[]> {
       durationClasses: l.duration_class,
     }));
   return cachedFrontendLicks;
+}
+
+/* ─── Special 검수 후보: Charlie Parker (licks.json 기반) ───────────
+ *
+ * 195개 파커 릭을 '검수 후보군'으로 로드한다. LicksPage 의 'Special 후보'
+ * 소스에서 사람이 하나씩 확인하고, 마음에 들면 승인(→ createLick)으로 실 DB
+ * 에 저장한다. 백엔드는 (title, performer) 중복을 거부하는데 한 곡에 릭이
+ * 여러 개라 제목이 겹치므로, 제목에 마디 접미사 "(m.13–14)"를 붙여 유일하게
+ * 만든다(동일 마디범위가 또 겹치면 "·2, ·3" 을 덧붙임). */
+let cachedParkerCandidates: LickEntry[] | null = null;
+
+export async function loadParkerCandidates(): Promise<LickEntry[]> {
+  if (cachedParkerCandidates) return cachedParkerCandidates;
+  const res = await fetch('/data/licks/licks.json');
+  if (!res.ok) throw new Error(`licks.json ${res.status}`); // SPA 404→index.html 오진 방지
+  const raw: RawLick[] = await res.json();
+  const seen = new Map<string, number>();
+  cachedParkerCandidates = raw
+    .filter((l) => l.performer === 'Charlie Parker')
+    .map((l) => {
+      const bars = l.bar.length ? l.bar : [0];
+      const bmin = Math.min(...bars);
+      const bmax = Math.max(...bars);
+      const barLabel = bmin === bmax ? `${bmin}` : `${bmin}–${bmax}`;
+      let title = `${l.title} (m.${barLabel})`;
+      const n = (seen.get(title) ?? 0) + 1;
+      seen.set(title, n);
+      if (n > 1) title = `${title} ·${n}`;
+      return {
+        id: l.id,
+        performer: l.performer,
+        title,
+        instrument: l.instrument,
+        style: l.style,
+        tempo: l.tempo,
+        key: l.key,
+        rhythmfeel: l.rhythmfeel,
+        tag: l.tag,
+        chords: l.chords,
+        nEvents: l.n_events,
+        label: `#${l.id} ${l.performer} — ${title}`,
+        sheetData: lickToSheet(l),
+        intervals: l.interval,
+        parsons: l.parsons,
+        fuzzyIntervals: l.fuzzy_interval,
+        durationClasses: l.duration_class,
+      };
+    });
+  return cachedParkerCandidates;
 }
 
 /* ─── Load from backup snapshot (145 licks, frozen 2026-05-18) ─────

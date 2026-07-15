@@ -1114,6 +1114,7 @@ export default function SolosPage() {
                           lineStartMeasureNumbers
                           forceAutoStem
                           hideTransport
+                          lockSwing
                           onPlayingChange={setSoloPlaying}
                           onTempoChange={setSoloTempo}
                         />

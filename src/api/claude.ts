@@ -1,5 +1,9 @@
 const ANTHROPIC_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY as string;
-const MODEL = 'claude-sonnet-4-20250514';
+/* ⚠️ 프로젝트 정책: 이 프로젝트의 모든 Claude 호출은 Sonnet 4.6 고정.
+ * Sonnet 5 등 다른 모델로 바꾸지 말 것 (2026-07-09 팀 결정).
+ * (기존 claude-sonnet-4-20250514는 2026-06-15 retire되어 404가 났던 것 —
+ *  4.6은 활성 모델이며 이 페이로드(프리필 없음·스트리밍·16384)와 완전 호환.) */
+const MODEL = 'claude-sonnet-4-6';
 const API_URL = 'https://api.anthropic.com/v1/messages';
 
 /** An image attachment to send to Claude's vision input. */

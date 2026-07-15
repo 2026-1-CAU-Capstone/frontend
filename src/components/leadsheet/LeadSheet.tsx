@@ -2346,9 +2346,10 @@ export function LeadSheet({
           const [, tgtBiStr] = spec.targetChordId.split('-');
           const isSameBar = srcBiStr === tgtBiStr;
 
-          // Cross-bar arrows already span enough horizontal distance that
-          // anchoring the endpoints near the chord's mid-height with a
-          // tall 38px bow reads as a clean cadence arc above the row.
+          // Cross-bar arrows span roughly a full bar; a bow scaled to that
+          // width (clamped ~24–30px) keeps them at the same visual height as
+          // the source-side resolution arcs so every arrow on the chart reads
+          // as one consistent gesture.
           //
           // Same-bar arrows only have ~20–40px to work with. Anchoring at
           // mid-height there squashes the arc behind the chord text, so
@@ -2360,7 +2361,7 @@ export function LeadSheet({
           const cx = (x1 + x2) / 2;
           const bowHeight = isSameBar
             ? Math.min(22, Math.max(12, (x2 - x1) * 0.45))
-            : 38;
+            : Math.min(30, Math.max(24, (x2 - x1) * 0.32));
           const cy = Math.min(arcY1, arcY2) - bowHeight;
           resolvedArrows.push({
             key: spec.key,
@@ -2370,51 +2371,22 @@ export function LeadSheet({
         }
 
         const edgeInset = 24;
-        // If the source chord sits mid-row (row doesn't reach near the page
-        // right edge — e.g. final system with fewer than 4 bars), draw a
-        // single short arrow at the source instead of the long wrap-around.
-        const SHORT_ARROW_THRESHOLD = 160;
-        if (pageW - edgeInset - x1 > SHORT_ARROW_THRESHOLD) {
-          const shortEndX = x1 + 70;
-          const shortCx   = x1 + 35;
-          const shortCy   = y1 - 28;
-          resolvedArrows.push({
-            key: spec.key,
-            segments: [{
-              d: `M ${x1} ${y1} Q ${shortCx} ${shortCy} ${shortEndX} ${y1}`,
-              markerEnd: true,
-            }],
-          });
-          continue;
-        }
-
-        const exitX = pageW - edgeInset;
-        const entryX = edgeInset;
-        const sourceExitY = y1;   // exit at same chord-mid height
-        const targetEntryY = y2;
-        const exitCx = (x1 + exitX) / 2;
-        const entryCx = (entryX + x2) / 2;
-        const exitCy = y1 - 26;
-        const entryCy = y2 - 38;
-
-        // Right half of the entry curve only (split quadratic Bezier at t=0.5):
-        // start at the midpoint and use (control + end)/2 as the new control.
-        const entryMidX = (entryX + 2 * entryCx + x2) / 4;
-        const entryMidY = (targetEntryY + 2 * entryCy + y2) / 4;
-        const entryHalfCx = (entryCx + x2) / 2;
-        const entryHalfCy = (entryCy + y2) / 2;
-
+        // Cross-row resolution: the target sits on a later system row. A literal
+        // wrap-around (exit curve at the row's right edge + entry curve at the
+        // next row's left edge) collapses into an ugly near-vertical stub
+        // whenever the target is the row's first chord (x2 ≈ left edge). Draw a
+        // single clean forward-pointing arc at the SOURCE instead — the
+        // universal "resolves onward" gesture. Its width scales to the room
+        // left of the row's right edge, and the target carries its own outgoing
+        // arrow so the harmonic chain still reads.
+        const availRight = pageW - edgeInset - x1;
+        const w = Math.max(30, Math.min(66, availRight - 6));
+        const endX = x1 + w;
+        const cx = x1 + w / 2;
+        const cy = y1 - Math.max(16, Math.round(w * 0.42));
         resolvedArrows.push({
           key: spec.key,
-          segments: [
-            {
-              d: `M ${x1} ${y1} Q ${exitCx} ${exitCy} ${exitX} ${sourceExitY}`,
-            },
-            {
-              d: `M ${entryMidX} ${entryMidY} Q ${entryHalfCx} ${entryHalfCy} ${x2} ${y2}`,
-              markerEnd: true,
-            },
-          ],
+          segments: [{ d: `M ${x1} ${y1} Q ${cx} ${cy} ${endX} ${y1}`, markerEnd: true }],
         });
       }
 

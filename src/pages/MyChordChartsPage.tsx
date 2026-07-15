@@ -1,9 +1,8 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent as ReactMouseEvent } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { useDismissable } from '../hooks/useDismissable';
 import { useViewModePref } from '../hooks/useViewModePref';
 import {
   CardMeta,
-  Header,
   HeaderActions,
   HoverArrowBox,
   HoverOverlay,
@@ -13,7 +12,6 @@ import {
   KebabMenuIcon,
   KebabMenuItem,
   KeyChip,
-  List,
   ListMain,
   ListNewRow,
   ListRow,
@@ -30,20 +28,26 @@ import {
   SortLabel,
   SortWrap,
   TimeChip,
-  Title,
   ViewToggle,
   ViewToggleBtn,
-  Grid,
   KebabMenu,
   SortMenu,
-  PageBody,
   ListThumb,
+  DetailHeader,
+  DetailHeaderRow,
+  DetailBackBtn,
+  DetailTitle,
+  DetailBody,
+  CardGrid,
+  CardList,
+  CardPanel,
 } from '../components/projects/sharedStyles';
 import { isComposingEvent } from '../lib/ime';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../styles/theme';
 import { IconSidebar } from '../components/layout/IconSidebar';
+import { useIsNativeUi } from '../contexts/AppPreviewContext';
 import { LeadSheet } from '../components/leadsheet/LeadSheet';
 import type { LeadSheetData } from '../data/leadSheetTypes';
 import { analysisToLeadSheet } from '../lib/chordProjectToLeadSheet';
@@ -225,6 +229,9 @@ const GRADIENTS = [
 
 export default function MyChordChartsPage() {
   const navigate = useNavigate();
+  /* 네이티브 앱(및 /preview/*)에선 웹 사이드바를 숨기고 그리드를 풀폭으로 —
+   * 하단 네이티브 바(App의 NativeBottomBar)는 그대로 유지된다. */
+  const isNativeUi = useIsNativeUi();
   const [store, setStore] = useState<Store>(loadStore);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [newMenuOpen, setNewMenuOpen] = useState(false);
@@ -272,6 +279,17 @@ export default function MyChordChartsPage() {
   const newWrapRef = useRef<HTMLDivElement>(null);
   const sortWrapRef = useRef<HTMLDivElement>(null);
   const kebabMenuRef = useRef<HTMLDivElement>(null);
+  /* "신규" 드롭다운의 파일/이미지 업로드 → 온보딩 모달(제목·키 → OMR)로 흘려보낸다. */
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const onPickFile = (e: ChangeEvent<HTMLInputElement>): void => {
+    const f = e.target.files?.[0];
+    e.target.value = ''; // 같은 파일 재선택 허용
+    if (!f) return;
+    setOnboardError(null);
+    setOnboardFile(f);
+    setOnboardOpen(true);
+  };
   /* Tracks which projects we've already auto-analyzed after OMR completion
    * (the backend doesn't run analyze automatically after OMR; ChordInfo
    * lands but no AnalysisResult, so GET /analysis returns CHORD_PROJECT_005
@@ -290,8 +308,6 @@ export default function MyChordChartsPage() {
   const [onboardCreating, setOnboardCreating] = useState(false);
   const [onboardError, setOnboardError] = useState<string | null>(null);
   const [pageDragOver, setPageDragOver] = useState(false);
-
-  const openCreateModal = () => { setOnboardFile(null); setOnboardError(null); setOnboardOpen(true); };
 
   const projectSort = useMemo(() => {
     if (sortBy === 'old') return 'createdAt,asc';
@@ -817,17 +833,38 @@ export default function MyChordChartsPage() {
 
   /* ── render ────────────────────────────────────────────────────────── */
 
+  /* "신규" 드롭다운 — 격자·목록 뷰가 공유(newWrapRef 앵커에 하나만 마운트됨). */
+  const newMenu = newMenuOpen ? (
+    <NewMenu role="menu">
+      <NewMenuItem type="button" onClick={() => { setNewMenuOpen(false); navigate('/mychord?empty=1&edit=1'); }}>
+        <NmEditIcon /> <span>직접 입력하기</span>
+      </NewMenuItem>
+      <NewMenuItem type="button" onClick={() => { setNewMenuOpen(false); fileInputRef.current?.click(); }}>
+        <NmFileIcon /> <span>파일 업로드</span>
+      </NewMenuItem>
+      <NewMenuItem type="button" onClick={() => { setNewMenuOpen(false); imageInputRef.current?.click(); }}>
+        <NmImageIcon /> <span>이미지 업로드</span>
+      </NewMenuItem>
+      <NewMenuDivider />
+      <NewMenuItem type="button" onClick={() => { setNewMenuOpen(false); setCreateFolderOpen(true); }}>
+        <NmFolderIcon /> <span>폴더 생성</span>
+      </NewMenuItem>
+    </NewMenu>
+  ) : null;
+
   return (
     <Page>
-      <IconSidebar />
-      <PageBody onDragOver={onPageDragOver} onDragLeave={onPageDragLeave} onDrop={onPageDrop}>
+      {!isNativeUi && <IconSidebar />}
+      <DetailBody onDragOver={onPageDragOver} onDragLeave={onPageDragLeave} onDrop={onPageDrop}>
         {pageDragOver && <PageDropOverlay>여기에 놓으면 새 프로젝트로 추가됩니다</PageDropOverlay>}
-        <Header>
-          <Title>내 코드 차트</Title>
-          <HeaderActions>
-            {!selectMode && (
-              <PillBtn type="button" onClick={() => setCreateFolderOpen(true)}>새 폴더</PillBtn>
-            )}
+        <DetailHeader>
+          {/* 한 줄: 뒤로가기(좌) · 제목(가운데) · 선택~정렬(우) */}
+          <DetailHeaderRow>
+            <DetailBackBtn type="button" aria-label="뒤로" onClick={() => navigate(-1)}>
+              <BackArrow />
+            </DetailBackBtn>
+            <DetailTitle>내 코드 차트</DetailTitle>
+            <HeaderActions>
             {selectMode ? (
               <PillBtn type="button" onClick={exitSelect}>취소</PillBtn>
             ) : (
@@ -881,9 +918,9 @@ export default function MyChordChartsPage() {
                 </SortMenu>
               )}
             </SortWrap>
-            <PillBtn type="button"><GearIcon /> 설정</PillBtn>
-          </HeaderActions>
-        </Header>
+            </HeaderActions>
+          </DetailHeaderRow>
+        </DetailHeader>
 
         {breadcrumbs.length > 0 && (
           <BreadcrumbsRow>
@@ -932,13 +969,19 @@ export default function MyChordChartsPage() {
         )}
         {projectLoading && <LoadingStrip>코드 프로젝트를 불러오는 중...</LoadingStrip>}
 
+        {/* "신규" 드롭다운의 파일/이미지 업로드용 숨김 입력 */}
+        <input ref={fileInputRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.json,image/*" hidden onChange={onPickFile} />
+        <input ref={imageInputRef} type="file" accept="image/*" hidden onChange={onPickFile} />
+
         {viewMode === 'grid' ? (
-        <Grid>
+        <CardPanel>
+        <CardGrid $native={isNativeUi}>
           <NewCardWrap ref={newWrapRef}>
-            <NewCard type="button" onClick={openCreateModal}>
+            <NewCard type="button" $on={newMenuOpen} onClick={() => setNewMenuOpen((v) => !v)}>
               <PlusIcon />
               <NewLabel>신규</NewLabel>
             </NewCard>
+            {newMenu}
           </NewCardWrap>
 
           {currentFolders.map((folder) => (
@@ -1096,17 +1139,20 @@ export default function MyChordChartsPage() {
               )}
             </VideoCard>
           ))}
-        </Grid>
+        </CardGrid>
+        </CardPanel>
         ) : (
-        <List>
+        <CardPanel>
+        <CardList $native={isNativeUi}>
           <ListNewRowWrap ref={newWrapRef}>
-            <ListNewRow type="button" onClick={openCreateModal}>
+            <ListNewRow type="button" onClick={() => setNewMenuOpen((v) => !v)}>
               <ListThumb $tone="new"><PlusIcon /></ListThumb>
               <ListMain>
                 <ListTitle>신규</ListTitle>
                 <ListSubtitle>새 프로젝트 생성</ListSubtitle>
               </ListMain>
             </ListNewRow>
+            {newMenu}
           </ListNewRowWrap>
 
           {currentFolders.map((folder) => (
@@ -1190,7 +1236,8 @@ export default function MyChordChartsPage() {
               </ListStar>
             </ListRow>
           ))}
-        </List>
+        </CardList>
+        </CardPanel>
         )}
 
         {createProjectOpen && (
@@ -1352,7 +1399,7 @@ export default function MyChordChartsPage() {
           </SelectionBar>
         )}
 
-      </PageBody>
+      </DetailBody>
     </Page>
   );
 }
@@ -1375,18 +1422,23 @@ const SortIcon = () => (
   </svg>
 );
 
-const GearIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <circle cx="12" cy="12" r="3" />
-    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-  </svg>
-);
-
 const BackChevron = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
     <polyline points="15 18 9 12 15 6" />
   </svg>
 );
+
+/* ── 헤더 (내 코드 차트) ──────────────────────────────────────────────
+ * 한 줄: 뒤로가기(좌) · 제목(가운데) · 선택~정렬(우). 헤더는 홈 기본 배경색,
+ * 아래 카드 영역은 흰색(DetailBody). */
+const BackArrow = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="15 18 9 12 15 6" />
+  </svg>
+);
+
+/* 헤더/배경/오목 카드 패널은 세 상세 페이지 공통 —
+ * DetailHeader·DetailBody·CardPanel·CardGrid·CardList 는 sharedStyles 에서 가져온다. */
 
 const HomeIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -1616,7 +1668,7 @@ const CardBase = `
   position: relative;
   display: flex;
   flex-direction: column;
-  aspect-ratio: 4 / 5;
+  aspect-ratio: 4 / 3;
   width: 100%;
   max-width: 200px;
   justify-self: start;
@@ -1636,7 +1688,7 @@ const NewCardWrap = styled.div`
 `;
 
 // 페이지별 의도적 디자인 차이 — 상대 페이지와 통합 금지 (§8 R9, sharedStyles.ts 헤더 참조)
-const NewCard = styled.button`
+const NewCard = styled.button<{ $on?: boolean }>`
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1645,11 +1697,11 @@ const NewCard = styled.button`
   width: 100%;
   max-width: 200px;
   justify-self: start;
-  aspect-ratio: 4 / 5;
-  background: transparent;
-  border: 1.5px dashed rgba(0, 0, 0, 0.18);
+  aspect-ratio: 4 / 3;
+  background: ${({ $on }) => ($on ? CARD_HOVER_BG : 'transparent')};
+  border: 1.5px dashed ${({ $on }) => ($on ? 'rgba(0,0,0,0.3)' : 'rgba(0, 0, 0, 0.18)')};
   border-radius: 14px;
-  color: rgba(0, 0, 0, 0.55);
+  color: ${({ $on }) => ($on ? '#1a1a1a' : 'rgba(0, 0, 0, 0.55)')};
   cursor: pointer;
   font-family: inherit;
   transition: border-color 0.15s, color 0.15s, background 0.15s, box-shadow 0.15s;
@@ -1668,6 +1720,72 @@ const NewLabel = styled.div`
   font-weight: 600;
   letter-spacing: -0.01em;
 `;
+
+/* "신규" 드롭다운 — NewCardWrap/ListNewRowWrap 에 앵커. 카드 바로 아래로 펼침. */
+const NewMenu = styled.div`
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  min-width: 240px;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.06);
+  z-index: 80;
+  animation: newMenuIn 0.13s ease-out;
+  @keyframes newMenuIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+`;
+
+const NewMenuItem = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 12px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #1a1a1a;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 550;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+  & svg { flex-shrink: 0; color: rgba(0, 0, 0, 0.62); }
+  &:hover { background: rgba(0, 0, 0, 0.05); }
+`;
+
+const NewMenuDivider = styled.div`
+  height: 1px;
+  margin: 5px 8px;
+  background: rgba(0, 0, 0, 0.08);
+`;
+
+const NmEditIcon = () => (
+  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+  </svg>
+);
+const NmFileIcon = () => (
+  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /><path d="M12 18v-6" /><path d="M9.5 14.5 12 12l2.5 2.5" />
+  </svg>
+);
+const NmImageIcon = () => (
+  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="9" cy="9" r="1.8" /><path d="m21 15-5-5L5 21" />
+  </svg>
+);
+const NmFolderIcon = () => (
+  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 20a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h4l2 3h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2Z" /><path d="M12 11v6" /><path d="M9 14h6" />
+  </svg>
+);
 
 /* Larger, bolder "신규" dropdown — matches the design mock (big rows,
  * generous padding, ~24 px icons). Anchored under the NewCard. */

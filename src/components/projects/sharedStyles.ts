@@ -148,13 +148,16 @@ export const KeyChip = styled.span`
   letter-spacing: 0.01em;
 `;
 
-export const List = styled.div`
+export const List = styled.div<{ $native?: boolean }>`
   flex: 1;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   padding: 4px 22px 24px;
   ${mq.mobile} { padding: 2px 14px 20px; }
+  ${({ $native }) => $native && `
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
+  `}
 `;
 
 export const ListMain = styled.div`
@@ -373,11 +376,16 @@ export const ViewToggleBtn = styled.button<{ $active?: boolean }>`
 
 /* ── R5: 본문이 사실상 동일(주석/무해한 superset 차이)해 통일한 5종 ── */
 /* 주석만 다르던 쌍 — chord판으로 통일 */
-export const Grid = styled.div`
+export const Grid = styled.div<{ $native?: boolean }>`
   flex: 1;
   overflow-y: auto;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
+  /* 네이티브: 하단 고정 바(NativeBottomBar ~72px + 세이프에어리어)에 마지막
+   * 행이 가리지 않도록 여백 확보. */
+  ${({ $native }) => $native && `
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
+  `}
   /* align-items: start prevents the grid from stretching shorter cards
    * (folders, "신규") to match the tallest card in their row. Without it,
    * a tall chord-chart card would force every folder next to it to grow
@@ -465,4 +473,72 @@ export const ListThumb = styled.div<{ $tone?: 'folder' | 'sheet' | 'new' }>`
   justify-content: center;
   overflow: hidden;
   color: rgba(0, 0, 0, 0.55);
+`;
+
+/* ── 상세 페이지 공통 셸 (내 코드 차트 · 내 악보 차트 · 내 릭) ──────────────
+ * 세 페이지가 완전히 동일한 헤더/배경을 쓴다. 단일 소스로 두어 한 곳을 고치면
+ * 세 페이지가 함께 바뀐다. 프로필 페이지와 동일한 형식:
+ *   · 헤더: 한 줄 = 뒤로가기(좌) · 제목(가운데) · 액션(우, 있으면), 배경 흰색
+ *   · 헤더 아래는 1px 직선 경계(오목 라운드 X)
+ *   · 본문/카드: 홈 기본색 #f7f7f5 배경 */
+export const DetailHeader = styled.div`
+  background: #ffffff;
+  border-bottom: 1px solid #ececec;
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 14px;
+`;
+
+export const DetailHeaderRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+`;
+
+export const DetailBackBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-left: -4px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #1a1a1a;
+  cursor: pointer;
+  &:active { opacity: 0.55; }
+`;
+
+export const DetailTitle = styled.h1`
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding-left: 12px;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #1a1a1a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+export const DetailBody = styled(PageBody)`
+  background: #f7f7f5;
+`;
+
+/* 카드 스크롤 영역 — 배경 통일 + 첫 줄 카드 위 여백. */
+const cardScrollCss = `
+  background: #f7f7f5;
+  padding-top: 18px;
+`;
+export const CardGrid = styled(Grid)`${cardScrollCss}`;
+export const CardList = styled(List)`${cardScrollCss}`;
+
+/* 카드 영역 래퍼 — 헤더 아래는 직선 경계(오목 라운드 없음)라 별도 장식 없이
+ * 스크롤 카드 영역만 채우는 평범한 flex 컨테이너다. */
+export const CardPanel = styled.div`
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 `;

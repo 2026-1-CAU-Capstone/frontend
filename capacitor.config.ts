@@ -27,20 +27,28 @@ const config: CapacitorConfig = {
       resize: 'none',
     },
   },
-  /* ── 번들 모드 (현재 활성) ────────────────────────────────────────────
-   * server.url 미설정 = WebView가 cap sync 로 복사된 dist/ 번들을 로드.
-   * 앱이 dev 서버 없이 독립 실행된다 (배포/TestFlight 기준 상태).
+  /* ── ⚠️ 라이브 리로드 모드 (현재 활성) — "Expo Go 식" 개발 ─────────────
+   * WebView가 dist/ 번들 대신 Mac 의 Vite dev 서버를 직접 로드한다.
+   * 최초 1회만 Xcode 로 기기에 설치하면, 이후엔 파일 저장 즉시 기기에서
+   * HMR 반영 (재빌드·재설치 불필요).
    *
-   * 개발 중 라이브 리로드가 필요하면 아래 블록 주석 해제:
-   * - <MAC_LAN_IP> = Mac의 WiFi LAN IP (iPad가 같은 WiFi에 있어야 함)
-   *   Tailscale 경유로 쓰려면 → http://<TAILSCALE_IP>:5173 (iPad에도 Tailscale 켜야 함)
+   * 조건: `npm run dev` 실행 중(host:true)
    * - cleartext: true 가 있어야 iOS WebView가 http:// 로드 허용 (ATS 우회)
-   * - 배포(앱스토어/TestFlight) 빌드 전엔 반드시 다시 주석 처리할 것.
+   *
+   * ⚠️ iOS 시뮬레이터는 Mac과 네트워크를 공유하므로 localhost 사용 (실기기는
+   *    LAN IP 필요 — `ipconfig getifaddr en0`). localhost:5173 은 백엔드
+   *    CORS 허용 목록에 있지만 LAN IP는 없어서 192.168.x.x 로 두면 로그인 시
+   *    403 Invalid CORS request 가 난다.
+   *
+   * ⚠️ 배포(앱스토어/TestFlight) 빌드 전 반드시 이 블록을 다시 주석 처리!
+   *    (주석 처리 = 번들 모드: cap sync 로 복사된 dist/ 를 독립 실행.
+   *    단, capacitor://localhost 오리진도 아직 백엔드 CORS 허용 목록에
+   *    없어서 지금은 번들 모드에서도 로그인이 막힌다 — 백엔드 조치 필요)
    */
-  // server: {
-  //   url: 'http://<MAC_LAN_IP>:5173',
-  //   cleartext: true,
-  // },
+  server: {
+    url: 'http://localhost:5173',
+    cleartext: true,
+  },
 };
 
 export default config;

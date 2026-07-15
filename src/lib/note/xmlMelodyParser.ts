@@ -121,12 +121,28 @@ interface ParserState {
  * monstrous line. When omitted (single-part files: omnibook), it falls back to
  * the whole document, preserving the original behaviour.
  */
-function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element): NoteSheetData {
+/** 파싱 동작 옵션. */
+export interface XmlParseOpts {
+  /** music21로 MIDI→MusicXML 변환된 풀 피아노 "연주" 악보(맥켄지 정량화본 등).
+   *  이런 파일은 (a) voice 번호가 마디 단위로 재배정돼 "voice 1 고정" 추출이
+   *  왼손 베이스를 집어오고, (b) 저음 컴핑이 멜로디 줄에 섞인다. 켜면:
+   *  마디마다 평균 피치가 가장 높은 voice를 멜로디로 선택하고, C3(옥타브 3)
+   *  미만 노트는 쉼표로 치환한다. 리드시트/singe-voice 악보(Omnibook 등)에는
+   *  켜지 말 것. */
+  pianoPerformance?: boolean;
+}
+
+/* 피치 근사용 반음 오프셋 (voice 평균 피치 비교에만 사용 — alter 무시). */
+const STEP_SEMIS: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+
+function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opts?: XmlParseOpts): NoteSheetData {
 
   /* ── metadata ────────────────────────────────────────────────────── */
-  const title  = text(doc.documentElement, 'work-title')
-              ?? text(doc.documentElement, 'movement-title')
-              ?? fallbackTitle;
+  const xmlTitle = text(doc.documentElement, 'work-title')
+                ?? text(doc.documentElement, 'movement-title');
+  // music21이 제목 메타데이터 없이 변환한 파일은 movement-title이 placeholder
+  // "Music21 Fragment"다 — 실제 제목이 아니므로 파일명 기반 fallback을 쓴다.
+  const title = (xmlTitle && xmlTitle !== 'Music21 Fragment') ? xmlTitle : fallbackTitle;
   const composer = text(doc.documentElement, 'creator[type="composer"]') ?? 'Unknown';
 
   // Initial attributes (key/divisions/time) — scoped to THIS part when given,
@@ -203,6 +219,32 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element): No
     }
 
     const measureChords: string[] = [];
+
+    /* pianoPerformance: 이 마디의 멜로디 voice 선택 — 평균 피치가 가장 높은
+     * voice. music21은 voice 번호를 마디 단위로 재배정하므로 "voice 1 고정"은
+     * 멜로디가 쉬는 마디에서 왼손 베이스를 멜로디로 집어온다(레저라인 저음이
+     * 랜덤하게 섞이던 버그의 원인). */
+    let melodyVoice = '1';
+    if (opts?.pianoPerformance) {
+      const acc = new Map<string, { sum: number; n: number }>();
+      for (const nEl of Array.from(mEl.children)) {
+        if (nEl.tagName !== 'note') continue;
+        const pitchEl = nEl.querySelector('pitch');
+        if (!pitchEl) continue;
+        const step = (text(pitchEl, 'step') ?? 'C').toUpperCase();
+        const oct = parseInt(text(pitchEl, 'octave') ?? '4', 10);
+        const midi = (oct + 1) * 12 + (STEP_SEMIS[step] ?? 0);
+        const v = text(nEl, 'voice') ?? '1';
+        const e = acc.get(v) ?? { sum: 0, n: 0 };
+        e.sum += midi; e.n += 1;
+        acc.set(v, e);
+      }
+      let bestAvg = -Infinity;
+      for (const [v, { sum, n }] of acc) {
+        const avg = sum / n;
+        if (avg > bestAvg) { bestAvg = avg; melodyVoice = v; }
+      }
+    }
 
     // Beam-open tracker: turns true on <beam>begin</beam>, false after the
     // matching <beam>end</beam>. Used to flag rests that sit inside a beam
@@ -422,11 +464,41 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element): No
       const nEl = child;
 
       // Skip simultaneous chord tones (top note only).
-      if (nEl.querySelector('chord')) continue;
+      if (nEl.querySelector('chord')) {
+        /* pianoPerformance: MusicXML chord 그룹은 "첫 노트 + <chord/> 서브"
+         * 구조인데 첫 노트가 항상 최고음이 아니다(맥켄지 정량화본 실측:
+         * 최저음이 첫 노트인 그룹 ~16%). first-note만 남기면 보이싱의 바닥
+         * 음이 멜로디로 남아 "갑자기 낮은 음"이 찍힌다 — 서브노트가 직전
+         * 대표 노트보다 높으면 대표의 피치를 교체해 그룹 최고음을 남긴다. */
+        if (opts?.pianoPerformance) {
+          const last = measure.notes[measure.notes.length - 1];
+          const subPitch = nEl.querySelector('pitch');
+          if (last && !last.duration.endsWith('r') && subPitch) {
+            const sStep = (text(subPitch, 'step') ?? 'C').toUpperCase();
+            const sOct = parseInt(text(subPitch, 'octave') ?? '4', 10);
+            const sAlt = parseInt(text(subPitch, 'alter') ?? '0', 10) || 0;
+            const subMidi = (sOct + 1) * 12 + (STEP_SEMIS[sStep] ?? 0) + sAlt;
+            const [lStep, lOct] = last.keys[0].split('/');
+            const lAcc = last.accidentals?.[0];
+            const lAlt = lAcc === '#' ? 1 : lAcc === 'b' ? -1 : lAcc === '##' ? 2 : lAcc === 'bb' ? -2 : 0;
+            const lastMidi = (parseInt(lOct, 10) + 1) * 12 + (STEP_SEMIS[lStep.toUpperCase()] ?? 0) + lAlt;
+            if (subMidi > lastMidi) {
+              last.keys[0] = `${sStep.toLowerCase()}/${sOct}`;
+              if (sAlt === 1) last.accidentals = { 0: '#' };
+              else if (sAlt === -1) last.accidentals = { 0: 'b' };
+              else if (sAlt === 2) last.accidentals = { 0: '##' };
+              else if (sAlt === -2) last.accidentals = { 0: 'bb' };
+              else delete last.accidentals;
+            }
+          }
+        }
+        continue;
+      }
 
-      // Voice 1 only.
+      // Single-voice extraction — 기본은 voice 1, pianoPerformance 모드에선
+      // 위에서 마디별로 고른 최고-평균-피치 voice.
       const voiceText = text(nEl, 'voice');
-      if (voiceText && voiceText !== '1') continue;
+      if (voiceText && voiceText !== melodyVoice) continue;
 
       // ── Tie / Slur handling
       const tieEls = nEl.querySelectorAll('tie');
@@ -578,6 +650,18 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element): No
 
       const step   = (text(pitchEl, 'step') ?? 'C').toLowerCase();
       const octave = text(pitchEl, 'octave') ?? '4';
+
+      /* pianoPerformance: C3 미만(옥타브 ≤ 2)은 멜로디가 아니라 왼손 베이스 —
+       * 리듬 자리는 지키도록 쉼표로 치환한다(삭제하면 마디 박자가 무너짐). */
+      if (opts?.pianoPerformance && parseInt(octave, 10) < 3) {
+        const bassRest: NoteInfo = { keys: ['b/4'], duration: vf + 'r' };
+        if (isDotted) bassRest.dotted = true;
+        if (tuplet) bassRest.tuplet = tuplet;
+        if (tupletNormal) bassRest.tupletNormal = tupletNormal;
+        measure.notes.push(bassRest);
+        flatNoteIdx++;
+        continue;
+      }
 
       const ni: NoteInfo = {
         keys: [`${step}/${octave}`],
@@ -824,19 +908,19 @@ function partMelodyScore(data: NoteSheetData): number {
 
 /** Parse EVERY <part> into its own sheet. Falls back to a single whole-doc
  *  parse when the document has no discrete <part> elements. */
-function parseAllParts(doc: Document, fallbackTitle: string): ScorePart[] {
+function parseAllParts(doc: Document, fallbackTitle: string, opts?: XmlParseOpts): ScorePart[] {
   const names = readPartNames(doc);
   const instruments = readPartInstruments(doc);
   const partEls = Array.from(doc.querySelectorAll('part')).filter(
     (p) => p.querySelector(':scope > measure') !== null,
   );
   if (partEls.length === 0) {
-    return [{ id: 'P1', name: 'Part 1', data: parseXmlDoc(doc, fallbackTitle) }];
+    return [{ id: 'P1', name: 'Part 1', data: parseXmlDoc(doc, fallbackTitle, undefined, opts) }];
   }
   return partEls.map((pEl, i) => {
     const id = pEl.getAttribute('id') ?? `P${i + 1}`;
     const inst = instruments.get(id);
-    const data = parseXmlDoc(doc, fallbackTitle, pEl);
+    const data = parseXmlDoc(doc, fallbackTitle, pEl, opts);
     // Attach per-part timbre so playback uses the real instrument sound.
     if (inst) { data.instrument = inst.instrument; data.isDrum = inst.isDrum; }
     return { id, name: names.get(id) ?? `Part ${i + 1}`, data };
@@ -860,17 +944,17 @@ function extractXmlFromMxl(buf: Uint8Array): string {
 
 /* ─── Public loaders ─────────────────────────────────────────────────── */
 
-export async function loadXmlParts(url: string, fallbackTitle: string): Promise<ScorePart[]> {
+export async function loadXmlParts(url: string, fallbackTitle: string, opts?: XmlParseOpts): Promise<ScorePart[]> {
   const res = await fetch(url);
   const doc = new DOMParser().parseFromString(await res.text(), 'application/xml');
-  return parseAllParts(doc, fallbackTitle);
+  return parseAllParts(doc, fallbackTitle, opts);
 }
 
-export async function loadMxlParts(url: string, fallbackTitle: string): Promise<ScorePart[]> {
+export async function loadMxlParts(url: string, fallbackTitle: string, opts?: XmlParseOpts): Promise<ScorePart[]> {
   const res = await fetch(url);
   const xmlText = extractXmlFromMxl(new Uint8Array(await res.arrayBuffer()));
   const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
-  return parseAllParts(doc, fallbackTitle);
+  return parseAllParts(doc, fallbackTitle, opts);
 }
 
 /* Single-line loaders kept for backward compatibility — return the primary

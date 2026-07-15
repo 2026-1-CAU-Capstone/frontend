@@ -16,7 +16,13 @@ import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../styles/theme';
 import { IconSidebar } from '../components/layout/IconSidebar';
-import { TopToolbar } from '../components/layout/TopToolbar';
+import { useIsNativeUi } from '../contexts/AppPreviewContext';
+import {
+  DetailHeader,
+  DetailHeaderRow,
+  DetailBackBtn,
+  DetailTitle,
+} from '../components/projects/sharedStyles';
 import { LickCard } from '../components/notesheet/LickCard';
 import { PianoKeyboard, type PianoNote } from '../components/notesheet/PianoKeyboard';
 import { MelodyPreview } from '../components/notesheet/MelodyPreview';
@@ -28,6 +34,12 @@ import { createLickViaOMR } from '../api/licks';
 const PAGE_SIZE = 30;
 
 /* ─── styled ─────────────────────────────────────────────────────────── */
+
+const BackArrow = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="15 18 9 12 15 6" />
+  </svg>
+);
 
 const PageContainer = styled.div`
   display: flex;
@@ -47,6 +59,7 @@ const MainArea = styled.div`
   display: flex;
   flex: 1;
   overflow: hidden;
+  background: #f7f7f5; /* 상단 흰 헤더 아래는 홈 기본 배경색 */
 `;
 
 const CenterColumn = styled.div`
@@ -339,7 +352,7 @@ function melodySimilarity(query: QueryFeatures, lick: LickEntry): number {
 
 /* ─── visibility wrapper ─────────────────────────────────────────────── */
 
-function VisibleLickCard({ lick, width, displayId, onDelete, onEdit, onTranspose, onPractice }: { lick: LickEntry; width: number; displayId: number; onDelete?: () => void; onEdit?: () => void; onTranspose?: () => void; onPractice?: () => void }) {
+function VisibleLickCard({ lick, width, displayId, fitToWidth, onDelete, onEdit, onTranspose, onPractice }: { lick: LickEntry; width: number; displayId: number; fitToWidth?: boolean; onDelete?: () => void; onEdit?: () => void; onTranspose?: () => void; onPractice?: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
 
@@ -356,7 +369,7 @@ function VisibleLickCard({ lick, width, displayId, onDelete, onEdit, onTranspose
 
   return (
     <div ref={ref}>
-      <LickCard lick={lick} width={width} visible={visible} compact displayId={displayId} onDelete={onDelete} onEdit={onEdit} onTranspose={onTranspose} onPractice={onPractice} />
+      <LickCard lick={lick} width={width} visible={visible} compact displayId={displayId} fitToWidth={fitToWidth} onDelete={onDelete} onEdit={onEdit} onTranspose={onTranspose} onPractice={onPractice} />
     </div>
   );
 }
@@ -365,6 +378,7 @@ function VisibleLickCard({ lick, width, displayId, onDelete, onEdit, onTranspose
 
 export default function MyLicksPage() {
   const navigate = useNavigate();
+  const isNativeUi = useIsNativeUi();
   const [melodySearch, setMelodySearch] = useState(false);
   const [searchMidis, setSearchMidis] = useState<number[]>([]);
 
@@ -585,9 +599,17 @@ export default function MyLicksPage() {
 
   return (
     <PageContainer>
-      <IconSidebar />
+      {!isNativeUi && <IconSidebar />}
       <RightSection>
-        <TopToolbar />
+        <DetailHeader>
+          {/* 한 줄: 뒤로가기(좌) · 제목(가운데) — 내 코드/악보 차트와 동일 */}
+          <DetailHeaderRow>
+            <DetailBackBtn type="button" aria-label="뒤로" onClick={() => navigate(-1)}>
+              <BackArrow />
+            </DetailBackBtn>
+            <DetailTitle>내 릭</DetailTitle>
+          </DetailHeaderRow>
+        </DetailHeader>
 
         <MainArea>
         <CenterColumn>
@@ -717,6 +739,7 @@ export default function MyLicksPage() {
                       <VisibleLickCard
                         lick={lick}
                         width={feedWidth}
+                        fitToWidth
                         displayId={rankedLicks.length - i}
                         onDelete={lickSource === 'backend' ? () => handleDeleteLick(lick) : undefined}
                         onEdit={lickSource === 'backend' ? () => handleEditLick(lick) : undefined}

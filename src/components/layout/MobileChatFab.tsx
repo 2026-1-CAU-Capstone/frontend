@@ -2,6 +2,7 @@ import { useState } from 'react';
 import styled from 'styled-components';
 import { mq } from '../../styles/theme';
 import { useCompactLayout } from '../../hooks/useCompactLayout';
+import { useIsNativeUi } from '../../contexts/AppPreviewContext';
 import { RightChatPanel } from './RightChatPanel';
 import type { ChordOverlay } from '../../data/types';
 
@@ -103,12 +104,16 @@ export function MobileChatFab({
   notesContext,
 }: MobileChatFabProps) {
   const isCompact = useCompactLayout();
+  const isNativeUi = useIsNativeUi();
   const [open, setOpen] = useState(false);
 
   /* This surface only exists in compact layout; on desktop it renders nothing,
    * so resizing back to a PC viewport can't strand the fullscreen mobile
-   * overlay over the desktop UI (the PC right-panel owns the chat there). */
-  if (!isCompact) return null;
+   * overlay over the desktop UI (the PC right-panel owns the chat there).
+   * On native, NativeBottomBar's "AI에게 질문하기" pill + AiChatSheet already
+   * cover this — this FAB would just float a redundant duplicate button on
+   * top of it (overlapping in the bottom-right corner). */
+  if (!isCompact || isNativeUi) return null;
 
   return (
     <>

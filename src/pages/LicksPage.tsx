@@ -7,7 +7,7 @@ import { TopToolbar } from '../components/layout/TopToolbar';
 import { LickCard } from '../components/notesheet/LickCard';
 import { PianoKeyboard, type PianoNote } from '../components/notesheet/PianoKeyboard';
 import { MelodyPreview } from '../components/notesheet/MelodyPreview';
-import { loadLicks, loadFrontendLicks, loadBackupLicks, loadUserLicks, invalidateLicksCache, type LickEntry } from '../data/lickData';
+import { loadLicks, loadFrontendLicks, loadBackupLicks, loadUserLicks, loadParkerCandidates, invalidateLicksCache, type LickEntry } from '../data/lickData';
 import { transposeLick, normalizeKeyInput, formatKeyDisplay } from '../lib/transpose';
 import { OMRUploadModal } from '../components/common/OMRUploadModal';
 import { createLickViaOMR } from '../api/licks';
@@ -326,7 +326,7 @@ function melodySimilarity(query: QueryFeatures, lick: LickEntry): number {
 
 /* ─── visibility wrapper ─────────────────────────────────────────────── */
 
-function VisibleLickCard({ lick, width, displayId, onDelete, onEdit, onTranspose, onPractice }: { lick: LickEntry; width: number; displayId: number; onDelete?: () => void; onEdit?: () => void; onTranspose?: () => void; onPractice?: () => void }) {
+function VisibleLickCard({ lick, width, displayId, onDelete, onEdit, onTranspose, onPractice, onApprove, saved }: { lick: LickEntry; width: number; displayId: number; onDelete?: () => void; onEdit?: () => void; onTranspose?: () => void; onPractice?: () => void; onApprove?: () => void; saved?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
 
@@ -343,7 +343,7 @@ function VisibleLickCard({ lick, width, displayId, onDelete, onEdit, onTranspose
 
   return (
     <div ref={ref}>
-      <LickCard lick={lick} width={width} visible={visible} compact displayId={displayId} onDelete={onDelete} onEdit={onEdit} onTranspose={onTranspose} onPractice={onPractice} />
+      <LickCard lick={lick} width={width} visible={visible} compact displayId={displayId} onDelete={onDelete} onEdit={onEdit} onTranspose={onTranspose} onPractice={onPractice} onApprove={onApprove} saved={saved} />
     </div>
   );
 }
@@ -359,11 +359,25 @@ export default function LicksPage() {
    *   backend  — live /v1/licks (현재 비어있음, 복구 대기)
    *   frontend — 백엔드 wipe 직전 snapshot 145개 (public/data/licks/backend_backup_licks.json)
    *   static   — WJazzD 정적 ~8000개 + user_licks.json (브라우저용 폴백 풀) */
-  const [lickSource, setLickSource] = useState<'backend' | 'frontend' | 'static'>('backend');
+  const [lickSource, setLickSource] = useState<'backend' | 'frontend' | 'static' | 'special'>('backend');
 
   /* lick data */
   const [allLicks, setAllLicks] = useState<LickEntry[]>([]);
   const [loadingLicks, setLoadingLicks] = useState(true);
+
+  /* Special 후보에서 이미 실 DB로 저장(승인)한 릭 id 집합 — localStorage 영속.
+   * 재방문 시에도 ✓ 저장됨 표시가 유지되어 중복 저장을 막는다. */
+  const [savedIds, setSavedIds] = useState<Set<string>>(() => {
+    try { return new Set<string>(JSON.parse(localStorage.getItem('parker_saved_ids') || '[]')); }
+    catch { return new Set<string>(); }
+  });
+  const markSaved = useCallback((id: string) => {
+    setSavedIds((prev) => {
+      const next = new Set(prev); next.add(id);
+      try { localStorage.setItem('parker_saved_ids', JSON.stringify([...next])); } catch { /* noop */ }
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     setLoadingLicks(true);
@@ -380,6 +394,10 @@ export default function LicksPage() {
       loadBackupLicks()
         .then((licks) => { setAllLicks(licks); setLoadingLicks(false); })
         .catch((err) => { console.error('Failed to load backup snapshot licks:', err); setLoadingLicks(false); });
+    } else if (lickSource === 'special') {
+      loadParkerCandidates()
+        .then((licks) => { setAllLicks(licks); setLoadingLicks(false); })
+        .catch((err) => { console.error('Failed to load Parker candidates:', err); setLoadingLicks(false); });
     } else {
       // 'static'
       loadFrontendLicks()
@@ -424,6 +442,24 @@ export default function LicksPage() {
       alert(err instanceof Error ? err.message : '삭제 실패');
     }
   }, []);
+
+  /* approve (special only) — 후보 릭을 실 DB에 저장(POST /v1/licks). 성공하거나
+   * 이미 등록된 경우(409) 모두 ✓ 저장됨으로 표시한다. */
+  const handleApproveLick = useCallback(async (lick: LickEntry) => {
+    try {
+      const { createLick } = await import('../api/licks');
+      await createLick(lick);
+      invalidateLicksCache();
+      markSaved(String(lick.id));
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith('이미')) {
+        markSaved(String(lick.id)); // 서버에 이미 있음 — 저장된 것으로 간주
+        return;
+      }
+      console.error('Approve/save failed', err);
+      alert(err instanceof Error ? err.message : '저장 실패');
+    }
+  }, [markSaved]);
 
   /* transpose (backend only, TEMP TOOL) — change the lick's original key.
    * Shifts every note, every chord change, and the top-level chord/key fields,
@@ -583,6 +619,7 @@ export default function LicksPage() {
                   <SourceBtn $active={lickSource === 'backend'} onClick={() => setLickSource('backend')}>Backend</SourceBtn>
                   <SourceBtn $active={lickSource === 'frontend'} onClick={() => setLickSource('frontend')}>Frontend</SourceBtn>
                   <SourceBtn $active={lickSource === 'static'} onClick={() => setLickSource('static')}>Static</SourceBtn>
+                  <SourceBtn $active={lickSource === 'special'} onClick={() => setLickSource('special')}>✨ 파커 후보</SourceBtn>
                 </SourceToggleWrap>
 
                 <OMRBtn onClick={() => setOmrOpen(true)} title="악보 이미지를 업로드해 OMR로 릭 생성">
@@ -708,6 +745,8 @@ export default function LicksPage() {
                         onDelete={lickSource === 'backend' ? () => handleDeleteLick(lick) : undefined}
                         onEdit={lickSource === 'backend' ? () => handleEditLick(lick) : undefined}
                         onTranspose={lickSource === 'backend' ? () => handleTransposeLick(lick) : undefined}
+                        onApprove={lickSource === 'special' ? () => handleApproveLick(lick) : undefined}
+                        saved={lickSource === 'special' ? savedIds.has(String(lick.id)) : undefined}
                         onPractice={() => navigate(`/lick-practice/${lick.id}`, { state: { lick } })}
                       />
                     </div>

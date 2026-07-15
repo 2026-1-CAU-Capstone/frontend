@@ -20,8 +20,9 @@ import type { AnalysisFilters } from '../../hooks/useAnalysisFilters';
 interface Props {
   open: boolean;
   onClose: () => void;
-  filters: AnalysisFilters;
-  onToggleFilter: (key: keyof AnalysisFilters) => void;
+  /** 코드 분석 필터. 생략하면 '분석 엔진' 탭을 감춘다(악보 분석 페이지). */
+  filters?: AnalysisFilters;
+  onToggleFilter?: (key: keyof AnalysisFilters) => void;
 }
 
 type TabId = 'engine' | 'transpose';
@@ -39,7 +40,11 @@ const ANALYSIS_OPTIONS: { key: keyof AnalysisFilters; label: string; helper: str
 ];
 
 export function AnalysisSettingsModal({ open, onClose, filters, onToggleFilter }: Props) {
-  const [activeTab, setActiveTab] = useState<TabId>('engine');
+  /* NoteSheet(악보 분석)는 코드 분석 필터가 없다 — filters 를 넘기지 않으면
+   * '분석 엔진' 탭 자체를 감추고 '악기 이조'만 보여준다. */
+  const hasEngine = !!filters && !!onToggleFilter;
+  const tabs = hasEngine ? TABS : TABS.filter((t) => t.id !== 'engine');
+  const [activeTab, setActiveTab] = useState<TabId>(hasEngine ? 'engine' : 'transpose');
 
   /* Esc 로 닫기 + 모달 열린 동안 body 스크롤 잠금. */
   useEffect(() => {
@@ -67,7 +72,7 @@ export function AnalysisSettingsModal({ open, onClose, filters, onToggleFilter }
           <Sidebar>
             <SidebarTitle>설정</SidebarTitle>
             <TabList>
-              {TABS.map((tab) => (
+              {tabs.map((tab) => (
                 <TabBtn key={tab.id} $active={activeTab === tab.id} onClick={() => setActiveTab(tab.id)}>
                   <TabLabel>{tab.label}</TabLabel>
                 </TabBtn>
@@ -76,8 +81,8 @@ export function AnalysisSettingsModal({ open, onClose, filters, onToggleFilter }
           </Sidebar>
 
           <Content>
-            {activeTab === 'engine'
-              ? <EnginePanel filters={filters} onToggleFilter={onToggleFilter} />
+            {activeTab === 'engine' && hasEngine
+              ? <EnginePanel filters={filters!} onToggleFilter={onToggleFilter!} />
               : <TransposePanel />}
           </Content>
         </Body>
@@ -88,7 +93,7 @@ export function AnalysisSettingsModal({ open, onClose, filters, onToggleFilter }
 
 /* ── 분석 엔진 탭 ────────────────────────────────────────────────────── */
 
-function EnginePanel({ filters, onToggleFilter }: Pick<Props, 'filters' | 'onToggleFilter'>) {
+function EnginePanel({ filters, onToggleFilter }: Required<Pick<Props, 'filters' | 'onToggleFilter'>>) {
   const on = filters.showAnalysis;
   return (
     <PanelInner>

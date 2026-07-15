@@ -128,32 +128,6 @@ export const BackButton = styled.button`
   }
 `;
 
-export const ShareButton = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 14px;
-  border: none;
-  border-radius: 8px;
-  background: #2D6E6E;
-  color: #fff;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  font-family: ${({ theme }) => theme.fonts.ui};
-  transition: all 0.15s ease;
-  white-space: nowrap;
-
-  &:hover {
-    opacity: 0.85;
-  }
-
-  ${mq.mobile} {
-    padding: 5px 10px;
-    font-size: 11px;
-  }
-`;
-
 export const ToolbarButton = styled.button`
   display: flex;
   align-items: center;

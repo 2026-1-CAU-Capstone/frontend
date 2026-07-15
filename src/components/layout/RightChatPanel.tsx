@@ -247,6 +247,10 @@ interface RightChatPanelProps {
   /** Focus the chat input on mount — HomePage native uses this to pop the
    *  iOS keyboard automatically on app launch. */
   autoFocusInput?: boolean;
+  /** autoFocus 지연(ms). 기본은 IntroChatInput 이 정한 홈 인트로용 값(2300).
+   *  AI 바텀시트는 시트 트랜지션(≈280ms) 직후 바로 키보드를 띄우려고 작은
+   *  값을 넘긴다. */
+  autoFocusInputDelay?: number;
   /** When true, render the chat input at the top of the panel (above messages) */
   inputAtTop?: boolean;
   /** When true, in empty-state mode (no messages yet), render the chat input
@@ -338,6 +342,7 @@ export function RightChatPanel({
   hideSelectionQuickAction = false,
   inputPlaceholder,
   autoFocusInput = false,
+  autoFocusInputDelay,
   inputAtTop = false,
   inputInIntro = false,
   nativeIntroLayout = false,
@@ -1120,6 +1125,7 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
             hideSelectionQuickAction={hideSelectionQuickAction}
             placeholder={inputPlaceholder}
             autoFocus={autoFocusInput}
+            autoFocusDelay={autoFocusInputDelay}
           />
         </IntroInputSlot>
       )}
@@ -1130,10 +1136,9 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
         style={
           messages.length === 0 && inputInIntro
             ? nativeIntroLayout
-              /* Native: IntroBlock claims flex:1 + self-centers (see its
-               *  mobile @media in HomePage). Input is at the end of the
-               *  flex flow. PanelContainer translateY handles keyboard. */
-              ? { justifyContent: 'flex-start', padding: 0 }
+              /* Native: 웹과 동일하게 히어로를 세로 중앙에 — 인트로가 화면
+               *  꼭대기에 붙어 보이지 않게 한다. Input은 flex flow 맨 끝. */
+              ? { justifyContent: 'center', padding: 0 }
               /* Web: hero + input centered as a group. */
               : { justifyContent: 'center' }
             /* chord/note pages: default top alignment — EmptyState sits up
@@ -1194,6 +1199,7 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
               onStop={stopGeneration}
               placeholder={inputPlaceholder}
               autoFocus={autoFocusInput}
+            autoFocusDelay={autoFocusInputDelay}
             />
           </IntroInputSlot>
         )}
@@ -1293,6 +1299,7 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
               messages.length === 0 ? inputPlaceholder : 'Jazzify AI에게 응답하기'
             }
             autoFocus={messages.length === 0 ? autoFocusInput : false}
+            autoFocusDelay={autoFocusInputDelay}
           />
         </IntroInputSlot>
       )}
@@ -1336,6 +1343,7 @@ ${songKey === 'Eb' ? `- Bb→"b/옥타브" (임시표 불필요), Eb→"e/옥타
             dropUpMenu
             placeholder={inputPlaceholder}
             autoFocus={autoFocusInput}
+            autoFocusDelay={autoFocusInputDelay}
           />
         </IntroInputSlot>
       )}

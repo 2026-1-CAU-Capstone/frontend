@@ -971,6 +971,10 @@ interface NoteSheetProps {
   partOptions?: { id: string; name: string }[];
   selectedPartId?: string;
   onSelectPart?: (id: string) => void;
+  /** Lock the rhythm-section feel to SWING regardless of the chart's genre.
+   *  Solo Database uses this so a chord chart's latin/bossa choice never leaks
+   *  into solo playback (same "릭·솔로는 무조건 스윙" 정책). */
+  lockSwing?: boolean;
 }
 
 /** Imperative handle exposed to parents that own an external transport.
@@ -986,7 +990,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
   showMeasureNumbers, lineStartMeasureNumbers, forceAutoStem,
   hideTransport, noPreload, onPlayingChange, onTempoChange,
   breakEditMode = false, breakPoints, onToggleBreak, extraParts,
-  partOptions, selectedPartId, onSelectPart,
+  partOptions, selectedPartId, onSelectPart, lockSwing,
 }, ref) {
   const [partMenuOpen, setPartMenuOpen] = useState(false);
   const partMenuRef = useRef<HTMLDivElement>(null);
@@ -1033,6 +1037,13 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
   // (i.e. when a new piece is loaded), so the user never has to toggle the
   // style themselves. The user can still override manually after this fires.
   useEffect(() => {
+    // 솔로 데이터베이스 등 lockSwing 은 차트 genre 와 무관하게 스윙으로 고정한다 —
+    // 코드 차트에서 라틴/보사로 바꾼 전역 style 이 솔로 재생에 새지 않도록.
+    if (lockSwing) {
+      if (getPlayerSettings().style !== 'swing') setPlayerSetting('style', 'swing');
+      if (getPlayerSettings().genre !== 'Medium Swing') setPlayerSetting('genre', 'Medium Swing');
+      return;
+    }
     const inferred = inferPlayStyle(data.genre);
     if (inferred && inferred !== getPlayerSettings().style) {
       setPlayerSetting('style', inferred);
@@ -1041,7 +1052,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     if (genre && genre !== getPlayerSettings().genre) {
       setPlayerSetting('genre', genre);
     }
-  }, [data.genre]);
+  }, [data.genre, lockSwing]);
   const [mixerOpen, setMixerOpen] = useState(false);
   const [drumKitError, setDrumKitError] = useState<string | null>(null);
   const metroOn = settings.metroEnabled;

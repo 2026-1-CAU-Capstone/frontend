@@ -588,14 +588,21 @@ interface LickCardProps {
   visible: boolean;
   compact?: boolean;
   displayId?: number;
+  /* 좁은 폭(폰)에서 악보가 컨테이너보다 길 때, 가로 스크롤 대신 폭에 맞춰 축소해
+   * 전체가 한눈에 보이도록 한다. 가독성 하한(0.5)까지 축소 후에도 넘치면 스크롤.
+   * 기본은 off — 관리자용 LicksPage는 기존 고정간격+스크롤 동작을 유지한다. */
+  fitToWidth?: boolean;
   onDelete?: () => void;
   onEdit?: () => void;
   onTranspose?: () => void;
   onPractice?: () => void;
+  /* Special 검수 후보용 — 승인(실 DB 저장) 콜백 + 이미 저장됨 여부. */
+  onApprove?: () => void;
+  saved?: boolean;
   onClick?: () => void;
 }
 
-export function LickCard({ lick, width, visible, compact, displayId, onDelete, onEdit, onTranspose, onPractice, onClick }: LickCardProps) {
+export function LickCard({ lick, width, visible, compact, displayId, fitToWidth, onDelete, onEdit, onTranspose, onPractice, onApprove, saved, onClick }: LickCardProps) {
   const svgRef = useRef<HTMLDivElement>(null);
   const renderedRef = useRef(false);
 
@@ -832,8 +839,13 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
     const naturalW = decorTotal + baseTotal * MULT_DEFAULT;
 
     const mult = MULT_DEFAULT;
-    const scale = 1;
-    const scroll = naturalW > cardInner;
+    // fitToWidth(폰): 컨테이너보다 길면 폭에 맞춰 축소(가독성 하한 0.5). 축소 후에도
+    // 넘치면 그때만 가로 스크롤. off면 기존처럼 축소 없이 스크롤.
+    const overflowW = naturalW > cardInner;
+    const scale = fitToWidth && overflowW && cardInner > 0
+      ? Math.max(0.5, cardInner / naturalW)
+      : 1;
+    const scroll = naturalW * scale > cardInner + 1;
     const svgW = naturalW;
 
     const measWidths = baseWidths.map((w) => w * mult);
@@ -1202,7 +1214,7 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
     }
     noteElMapRef.current = noteMap;
     } // end renderLick
-  }, [visible, width, containerW, lick]);
+  }, [visible, width, containerW, lick, fitToWidth]);
 
   const keyNorm = (() => {
     const k = lick.key || '';
@@ -1218,6 +1230,18 @@ export function LickCard({ lick, width, visible, compact, displayId, onDelete, o
         <LickId>#{displayId ?? lick.id}</LickId>
         <Performer>{lick.performer}</Performer>
         <Title>{lick.title}</Title>
+        {onApprove && (
+          <PlayBtn
+            onClick={(e) => { e.stopPropagation(); if (!saved) onApprove(); }}
+            disabled={saved}
+            style={saved
+              ? { color: '#2a6e3f', borderColor: '#86c7ab', opacity: 0.7, cursor: 'default' }
+              : { color: '#fff', background: '#2a6e3f', borderColor: '#2a6e3f' }}
+            title={saved ? '이미 실 DB에 저장됨' : '이 릭을 릭 DB에 저장(승인)'}
+          >
+            {saved ? '✓ 저장됨' : '＋ 저장'}
+          </PlayBtn>
+        )}
         <PlayBtn $active={playing} onClick={(e) => { e.stopPropagation(); togglePlay(); }} style={{ color: '#2a6e3f', borderColor: '#2a6e3f' }}>
           {playing ? '\u23F9 Stop' : '\u25B6 Play'}
         </PlayBtn>

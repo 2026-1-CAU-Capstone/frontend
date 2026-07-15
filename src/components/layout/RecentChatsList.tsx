@@ -625,6 +625,20 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
         }
       } catch { /* fall through */ }
     }
+    // 최종 폴백 — 차트 채팅인데 복원 정보(projectPublicId·로컬 route·프로젝트
+    // 매칭)가 전부 없는 경우. 대표 사례: 내장 데모 차트(All of Me Analyzed)에서
+    // 시작한 채팅 — 백엔드 프로젝트가 없고, 로컬 chartMeta는 로그인 시마다
+    // 지워진다(auth.ts USER_SCOPED_CACHE_KEYS). 예전엔 홈 단독 채팅으로
+    // 떨어졌지만, 코드차트 채팅은 "차트 + 옆 채팅" 레이아웃이 의도이므로
+    // 기본 차트 화면으로 보낸다 (sheet도 동일하게 악보 화면으로).
+    if (kind === 'chord') {
+      navigate(appendChatParam('/mychord', publicId));
+      return;
+    }
+    if (kind === 'sheet') {
+      navigate(appendChatParam('/note', publicId));
+      return;
+    }
     navigate('/');
   }, [navigate]);
 

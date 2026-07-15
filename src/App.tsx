@@ -3,12 +3,14 @@ import { HashRouter, Routes, Route, Navigate, useSearchParams } from 'react-rout
 import { AppPreviewProvider } from './contexts/AppPreviewContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { GlobalPlayerProvider } from './lib/player';
-import { BottomTabBar } from './components/layout/BottomTabBar';
+import { NativeBottomBar } from './components/native/NativeBottomBar';
+import { AiChatSheet } from './components/native/AiChatSheet';
 import HomePage from './pages/HomePage';
 import { IntroScreen } from './components/common/IntroScreen';
 import { AudioErrorBoundary } from './components/common/AudioErrorBoundary';
 import { AudioLifecycleGuard } from './components/common/AudioLifecycleGuard';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { AdminRoute } from './components/auth/AdminRoute';
 
 /* Sheet-music tab pages — split out of the initial bundle so that vexflow
  * (~1.1 MB) and OSMD only load when the user navigates into a chord/note/
@@ -27,9 +29,11 @@ const InputPage           = lazy(() => import('./pages/InputPage'));
 const EditorPage          = lazy(() => import('./pages/EditorPage'));
 const YoutubeOnsetPage    = lazy(() => import('./pages/YoutubeOnsetPage'));
 const StemSplitterPage    = lazy(() => import('./pages/StemSplitterPage'));
+const AmtPage             = lazy(() => import('./pages/AmtPage'));
 const IntroPage           = lazy(() => import('./pages/IntroPage'));
 const LoginPage           = lazy(() => import('./pages/LoginPage'));
 const SharedChartPage     = lazy(() => import('./pages/SharedChartPage'));
+const UserProfilePage     = lazy(() => import('./pages/UserProfilePage'));
 
 /* Recent-Chats(사이드바)에서 코드차트 → 코드차트로 이동하면 `/mychord` 라우트는
  * 그대로고 `?project=`(또는 `?song=`) 쿼리만 바뀐다. 같은 라우트라 React Router는
@@ -107,11 +111,15 @@ export default function App() {
           <Route path="/input" element={<ProtectedRoute><InputPage /></ProtectedRoute>} />
           <Route path="/youtube-onset" element={<ProtectedRoute><YoutubeOnsetPage /></ProtectedRoute>} />
           <Route path="/stems" element={<ProtectedRoute><StemSplitterPage /></ProtectedRoute>} />
+          {/* AMT (자동 채보) 실험 — admin 전용. AdminRoute 가 로그인 + admin 등급을
+              모두 검사하고, 비관리자는 홈으로 되돌린다. */}
+          <Route path="/amt" element={<AdminRoute><AmtPage /></AdminRoute>} />
           <Route path="/my-licks" element={<ProtectedRoute><MyLicksPage /></ProtectedRoute>} />
           <Route path="/my-charts" element={<ProtectedRoute><MyChordChartsPage /></ProtectedRoute>} />
           <Route path="/my-sheets" element={<ProtectedRoute><MySheetProjectsPage /></ProtectedRoute>} />
           <Route path="/lick-practice/:id" element={<ProtectedRoute><Lick12KeyPage /></ProtectedRoute>} />
           <Route path="/editor" element={<ProtectedRoute><EditorPage /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><UserProfilePage /></ProtectedRoute>} />
           <Route path="/login" element={<LoginPage />} />
           {/* Public shared-chart viewer — chart data rides in the URL hash
               (#/v?d=…), so anyone with the link can view it read-only without
@@ -127,7 +135,9 @@ export default function App() {
           <Route path="/preview/chord" element={<ChordPage />} />
           <Route path="/preview/mychord" element={<KeyedChordPage mychordMode />} />
           <Route path="/preview/note" element={<NotePage />} />
-          <Route path="/preview" element={<Navigate to="/preview/chord" replace />} />
+          {/* 새 네이티브 홈(F14.8) 프리뷰 — 설치 없이 브라우저/폰 사파리로 검수 */}
+          <Route path="/preview/home" element={<HomePage />} />
+          <Route path="/preview" element={<Navigate to="/preview/home" replace />} />
           {/* Legacy routes — SoloGeneratorPage & LickInputPage merged into
               the unified EditorPage (mode=solo|lick). Keep redirects so old
               bookmarks / external links still land in the right place. */}
@@ -136,9 +146,17 @@ export default function App() {
         </Routes>
         </Suspense>
         </AudioErrorBoundary>
-        {/* Native-only 5-tab bottom navigation. No-ops on web; the component
-         *  reads useIsNativeUi() which is also true under /preview/*. */}
-        <BottomTabBar />
+        {/* Native-only bottom bar (검색 · AI에게 질문하기 · +) — 기존 5탭
+         *  BottomTabBar 전면 대체. No-ops on web; the component reads
+         *  useIsNativeUi() which is also true under /preview/*. */}
+        <NativeBottomBar />
+        {/* AI 채팅 풀하이트 시트 — 하단 바와 달리 라우트 숨김 없이 상주해
+         *  채팅 중 페이지 이동에도 대화가 유지된다. 라우트 트리의
+         *  AudioErrorBoundary 밖에 있어 자체 바운더리 없이는 렌더 크래시가
+         *  앱 전체를 흰 화면으로 날렸다 — 여기서 따로 감싼다. */}
+        <AudioErrorBoundary>
+          <AiChatSheet />
+        </AudioErrorBoundary>
         </GlobalPlayerProvider>
         </AppPreviewProvider>
         </NotificationProvider>

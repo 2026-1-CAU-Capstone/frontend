@@ -9,7 +9,7 @@ import { RightChatPanel } from '../components/layout/RightChatPanel';
 import { MobileChatFab } from '../components/layout/MobileChatFab';
 import { setActiveChat } from '../api/chat';
 import { NoteSheet, type NoteSheetHandle } from '../components/notesheet/NoteSheet';
-import { SettingsGearButton } from '../components/auth/SettingsGearButton';
+import { AnalysisSettingsModal } from '../components/common/AnalysisSettingsModal';
 import { KeyControl } from '../components/leadsheet/LeadSheet';
 import { SessionPicker, type SessionInstrument } from '../components/chord/SessionPicker';
 import {
@@ -20,7 +20,7 @@ import { useAutoHighlight } from '../hooks/useAutoHighlight';
 import { sampleMelody } from '../data/sampleMelody';
 import type { NoteSheetData, MeasureInfo, NoteInfo } from '../data/sampleMelody';
 import type { ChordOverlay } from '../data/types';
-import { noteSongs, externalSongs, manualSongs, leadsheetSongs } from '../data/noteSongs';
+import { noteSongs, externalSongs, externalCollections, manualSongs, leadsheetSongs } from '../data/noteSongs';
 import type { SongGroup } from '../data/noteSongs';
 import { loadMidiMelody } from '../lib/note/midiMelodyParser';
 import { loadXmlParts, loadMxlParts, sortPartsByMelody, type ScorePart } from '../lib/note/xmlMelodyParser';
@@ -356,80 +356,6 @@ const SongSelect = styled.select`
   max-width: 420px;
 `;
 
-const SearchWrap = styled.div`
-  position: relative;
-`;
-
-const SearchInput = styled.input`
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.82rem;
-  padding: 3px 8px 3px 24px;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 4px;
-  background: ${({ theme }) => theme.colors.bgPrimary};
-  color: ${({ theme }) => theme.colors.textPrimary};
-  width: 220px;
-  outline: none;
-  &:focus { border-color: ${({ theme }) => theme.colors.textSecondary}; }
-  &::placeholder { color: ${({ theme }) => theme.colors.textSecondary}; opacity: 0.6; }
-
-  ${mq.mobile} {
-    width: 100%;
-  }
-`;
-
-const SearchIcon = styled.span`
-  position: absolute;
-  left: 7px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 0.75rem;
-  color: ${({ theme }) => theme.colors.textSecondary};
-  pointer-events: none;
-`;
-
-const SearchResults = styled.div`
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  max-height: 320px;
-  overflow-y: auto;
-  background: ${({ theme }) => theme.colors.bgPrimary};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 6px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-  z-index: 200;
-`;
-
-const SearchItem = styled.button<{ $active?: boolean }>`
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 6px 10px;
-  border: none;
-  background: ${({ $active, theme }) => $active ? theme.colors.bgSecondary : 'transparent'};
-  color: ${({ theme }) => theme.colors.textPrimary};
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.82rem;
-  cursor: pointer;
-  &:hover { background: ${({ theme }) => theme.colors.bgSecondary}; }
-`;
-
-const SearchComposer = styled.span`
-  display: block;
-  color: ${({ theme }) => theme.colors.textSecondary};
-  font-size: 0.75rem;
-  margin-top: 2px;
-`;
-
-const CollectionTag = styled.span`
-  color: ${({ theme }) => theme.colors.textSecondary};
-  margin-left: 4px;
-  font-size: 0.72rem;
-  opacity: 0.7;
-`;
-
 /* In-flow center group (transport controls) — mirrors ChordPage's BarCenter. */
 const BarCenter = styled.div`
   display: flex;
@@ -458,65 +384,6 @@ const ToolBtn = styled.button<{ $lit?: boolean }>`
   &:hover { background: rgba(0, 0, 0, 0.06); }
 `;
 
-const ToolWrap = styled.div`
-  position: relative;
-  display: inline-flex;
-`;
-
-const AnalysisDrop = styled.div`
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: 90;
-  width: 248px;
-  background: #fff;
-  border: 1px solid #e6e6e6;
-  border-radius: 14px;
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.2);
-  padding: 6px 16px 12px;
-  font-family: 'Pretendard', sans-serif;
-`;
-
-const ToggleRow = styled.label<{ $disabled?: boolean }>`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 11px 2px;
-  border-top: 1px solid #f0f0f0;
-  cursor: ${({ $disabled }) => ($disabled ? 'default' : 'pointer')};
-  opacity: ${({ $disabled }) => ($disabled ? 0.4 : 1)};
-
-  &:first-of-type { border-top: none; }
-`;
-
-const ToggleLabel = styled.span`
-  font-size: 0.95rem;
-  color: #2a2a2a;
-`;
-
-const Switch = styled.span<{ $on?: boolean }>`
-  position: relative;
-  width: 42px;
-  height: 24px;
-  border-radius: 999px;
-  background: ${({ $on }) => ($on ? '#3b82f6' : '#d4d4d8')};
-  transition: background 0.18s;
-  flex-shrink: 0;
-
-  &::after {
-    content: '';
-    position: absolute;
-    top: 2px;
-    left: ${({ $on }) => ($on ? '20px' : '2px')};
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #fff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-    transition: left 0.18s;
-  }
-`;
-
 /* ─── tool icons (Lucide, 24×24 stroke) — copied from ChordPage ─────────── */
 const ShareIcon = () => (
   <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -540,6 +407,14 @@ const LightbulbIcon = ({ lit }: { lit: boolean }) => (
     <path d="M9 18h6" />
     <path d="M10 22h4" />
     <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" />
+  </svg>
+);
+
+/* 톱니 = 고급 설정 모달(F3.17). ChordPage 와 동일한 아이콘. */
+const GearIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
   </svg>
 );
 
@@ -664,13 +539,12 @@ export default function NotePage() {
     else setActiveChat(null);
   }, []);
   const { autoHighlight, toggleAutoHighlight } = useAutoHighlight(true);
-  /* Mirror the toolbar's 분석 보기 toggle into the settings 디스플레이 tab. */
-  const displaySettings = useMemo(() => [
-    { id: 'autoHighlight', label: '분석 보기', active: autoHighlight, onToggle: toggleAutoHighlight },
-  ], [autoHighlight, toggleAutoHighlight]);
 
   /* song state */
   const [songGroup, setSongGroup] = useState<SongGroup | '__sample__'>('__sample__');
+  /* External은 데이터셋(PDMX/McKenzie/…)별로 나눠서 본다 — 하나의 거대한
+   * 드롭다운에 전부 섞어 보여주지 않는다. */
+  const [externalCollection, setExternalCollection] = useState<string>(externalCollections[0].id);
   const [songId, setSongId] = useState(SAMPLE_ID);
   const [sheet, setSheet] = useState<NoteSheetData | null>(sampleMelody);
   /* Multi-part scores (PDMX etc.): every part parsed separately. `parts[0]`
@@ -683,8 +557,10 @@ export default function NotePage() {
     if (songGroup === '__sample__') return [];
     if (songGroup === 'manual') return manualSongs;
     if (songGroup === 'leadsheet') return leadsheetSongs;
-    return externalSongs;
-  }, [songGroup]);
+    // external → 선택된 데이터셋(collection) 안으로만 좁힌다.
+    const coll = externalCollections.find((c) => c.id === externalCollection);
+    return coll ? coll.songs : externalSongs;
+  }, [songGroup, externalCollection]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -770,8 +646,9 @@ export default function NotePage() {
       return toggleBreakPoint(prev, bar, restStart);
     });
   }, [sheet]);
-  const [lightMenuOpen, setLightMenuOpen] = useState(false);
-  const lightMenuRef = useRef<HTMLDivElement>(null);
+  /* 고급 설정 모달(F3.17) — ChordPage 와 동일. 악보 분석은 코드 분석 필터가
+   * 없으므로 filters 를 넘기지 않아 '악기 이조' 탭만 열린다. */
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const handlePlayPause = useCallback(() => {
     noteSheetRef.current?.togglePlay();
@@ -792,18 +669,6 @@ export default function NotePage() {
   const handleTempoChange = useCallback((n: number) => {
     noteSheetRef.current?.setTempo(n);
   }, []);
-
-  // Close the analysis (lightbulb) dropdown on outside click.
-  useEffect(() => {
-    if (!lightMenuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (lightMenuRef.current && !lightMenuRef.current.contains(e.target as Node)) {
-        setLightMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [lightMenuOpen]);
 
   /* ── measure-range selection (for note-chat) ───────────────────────────
    *  Mirrors ChordPage's chord-selection flow: user toggles selection mode
@@ -848,10 +713,6 @@ export default function NotePage() {
     return buildNoteSelectionData(transposedSheet, noteSelectedRanges);
   }, [transposedSheet, noteSelectedRanges]);
 
-  /* search state */
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchOpen, setSearchOpen] = useState(false);
-  const searchRef = useRef<HTMLDivElement>(null);
 
   /* load selected song */
   useEffect(() => {
@@ -883,9 +744,9 @@ export default function NotePage() {
           const d = await loadMidiMelody(url, song.title, song.composer);
           loadedParts = [{ id: 'P1', name: 'Part 1', data: d }];
         } else if (song.fileType === 'mxl') {
-          loadedParts = sortPartsByMelody(await loadMxlParts(url, song.title));
+          loadedParts = sortPartsByMelody(await loadMxlParts(url, song.title, song.pianoPerformance ? { pianoPerformance: true } : undefined));
         } else {
-          loadedParts = sortPartsByMelody(await loadXmlParts(url, song.title));
+          loadedParts = sortPartsByMelody(await loadXmlParts(url, song.title, song.pianoPerformance ? { pianoPerformance: true } : undefined));
         }
         // Manual-clone chord overlay applies to the primary (displayed) part.
         if (song.chordJazzIndex !== undefined && loadedParts[0]) {
@@ -948,27 +809,6 @@ export default function NotePage() {
     [selectedPartId, partsTransposed],
   );
 
-  /* search filter */
-  const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    const q = searchQuery.toLowerCase();
-    const pool = songGroup === '__sample__' ? noteSongs : filteredSongs;
-    return pool
-      .filter((s) => s.title.toLowerCase().includes(q) || s.composer.toLowerCase().includes(q))
-      .slice(0, 30);
-  }, [searchQuery, songGroup, filteredSongs]);
-
-  /* close search on outside click */
-  useEffect(() => {
-    if (!searchOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setSearchOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [searchOpen]);
 
   /* resizable right panel */
   const [rightPanelWidth, setRightPanelWidth] = useState(300);
@@ -1016,10 +856,13 @@ export default function NotePage() {
                   const g = e.target.value as SongGroup | '__sample__';
                   setSongGroup(g);
                   if (g === '__sample__') setSongId(SAMPLE_ID);
-                  else {
-                    const list = g === 'manual' ? manualSongs
-                      : g === 'leadsheet' ? leadsheetSongs
-                      : externalSongs;
+                  else if (g === 'external') {
+                    // 데이터셋 선택은 그대로 두고, 그 안의 첫 곡으로.
+                    const coll = externalCollections.find((c) => c.id === externalCollection);
+                    const list = coll ? coll.songs : externalSongs;
+                    if (list.length > 0) setSongId(list[0].id);
+                  } else {
+                    const list = g === 'manual' ? manualSongs : leadsheetSongs;
                     if (list.length > 0) setSongId(list[0].id);
                   }
                 }}
@@ -1029,6 +872,21 @@ export default function NotePage() {
                 <option value="leadsheet">Lead Sheet</option>
                 <option value="external">External</option>
               </SongSelect>
+              {songGroup === 'external' && (
+                <SongSelect
+                  value={externalCollection}
+                  onChange={(e) => {
+                    const collId = e.target.value;
+                    setExternalCollection(collId);
+                    const coll = externalCollections.find((c) => c.id === collId);
+                    if (coll && coll.songs.length > 0) setSongId(coll.songs[0].id);
+                  }}
+                >
+                  {externalCollections.map((c) => (
+                    <option key={c.id} value={c.id}>{c.label} ({c.songs.length})</option>
+                  ))}
+                </SongSelect>
+              )}
               {songGroup !== '__sample__' && (
                 <SongSelect value={songId} onChange={(e) => setSongId(e.target.value)}>
                   {filteredSongs.map((song) => (
@@ -1039,40 +897,6 @@ export default function NotePage() {
                 </SongSelect>
               )}
             </>
-          }
-          rightExtra={
-            <SearchWrap ref={searchRef}>
-              <SearchIcon>&#128269;</SearchIcon>
-              <SearchInput
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setSearchOpen(true); }}
-                onFocus={() => setSearchOpen(true)}
-              />
-              {searchOpen && searchQuery.trim() && (
-                <SearchResults>
-                  {searchResults.length === 0 ? (
-                    <SearchItem as="div">No results</SearchItem>
-                  ) : (
-                    searchResults.map((song) => (
-                      <SearchItem
-                        key={song.id}
-                        onClick={() => {
-                          setSongGroup(song.group);
-                          setSongId(song.id);
-                          setSearchQuery('');
-                          setSearchOpen(false);
-                        }}
-                      >
-                        {song.title}
-                        <SearchComposer>{song.composer}</SearchComposer>
-                        <CollectionTag>[{song.collection}]</CollectionTag>
-                      </SearchItem>
-                    ))
-                  )}
-                </SearchResults>
-              )}
-            </SearchWrap>
           }
         />
 
@@ -1097,25 +921,19 @@ export default function NotePage() {
               <ToolBtn type="button" title="Editor에서 수정" onClick={() => navigate('/editor?mode=solo')}>
                 <PencilIcon />
               </ToolBtn>
-              <ToolWrap ref={lightMenuRef}>
-                <ToolBtn
-                  type="button"
-                  title="분석 보기"
-                  $lit={autoHighlight}
-                  onClick={() => setLightMenuOpen((v) => !v)}
-                >
-                  <LightbulbIcon lit={autoHighlight} />
-                </ToolBtn>
-                {lightMenuOpen && (
-                  <AnalysisDrop>
-                    <ToggleRow onClick={toggleAutoHighlight}>
-                      <ToggleLabel style={{ fontWeight: 700 }}>분석 보기</ToggleLabel>
-                      <Switch $on={autoHighlight} />
-                    </ToggleRow>
-                  </AnalysisDrop>
-                )}
-              </ToolWrap>
-              <SettingsGearButton displaySettings={displaySettings} />
+              {/* 전구 = 분석 보기 ON/OFF 마스터 토글만. 세부 설정은 톱니 모달.
+               * ChordPage(F3.17) 와 동일한 패턴 — 드롭다운 없이 즉시 토글한다. */}
+              <ToolBtn
+                type="button"
+                title={autoHighlight ? '분석 보기 끄기' : '분석 보기 켜기'}
+                $lit={autoHighlight}
+                onClick={toggleAutoHighlight}
+              >
+                <LightbulbIcon lit={autoHighlight} />
+              </ToolBtn>
+              <ToolBtn type="button" title="고급 설정" onClick={() => setSettingsOpen(true)}>
+                <GearIcon />
+              </ToolBtn>
             </BarRight>
           </TransportBar>
 
@@ -1237,6 +1055,9 @@ export default function NotePage() {
       {shareModalOpen && (
         <ShareLinkModal url={shareUrl} onClose={() => setShareModalOpen(false)} />
       )}
+
+      {/* 고급 설정 — filters 미전달 → '악기 이조' 탭만 표시(악보 분석엔 코드 분석 필터가 없음). */}
+      <AnalysisSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </PageContainer>
   );
 }

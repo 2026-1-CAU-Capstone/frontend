@@ -24,6 +24,17 @@ export interface AuthUser {
   publicId: string;
   username: string;
   name?: string;
+  /** 사용자 등급 — GET /v1/auth/me 응답에서 채워진다 (예: 'ADMIN'/'USER').
+   *  login 응답(TokenResponse)에는 없으므로 login() 직후 fetchMe()로 보강. */
+  role?: string;
+}
+
+/** Admin 여부 — /v1/auth/me 의 등급(role)이 판별 기준. 백엔드가 아직 role을
+ *  안 내려주는 동안은 아이디 'admin'을 임시 인정(role 배포 시 자동 대체). */
+export function isAdminUser(user: AuthUser | null): boolean {
+  if (!user) return false;
+  if (user.role) return user.role.toUpperCase().includes('ADMIN');
+  return user.username === 'admin';
 }
 
 interface TokenResponse {
@@ -352,6 +363,10 @@ export async function login(username: string, password: string): Promise<AuthUse
    * new user. */
   clearUserScopedCaches();
   notifyAuth(true, user);
+  /* login 응답에는 role(등급)이 없다 — /v1/auth/me 로 백그라운드 보강.
+   * fetchMe가 setCachedUser + notifyAuth 를 다시 호출하므로 role 을 쓰는
+   * UI(admin 사이드바 등)는 도착 즉시 갱신된다. 실패해도 로그인은 유효. */
+  fetchMe().catch(() => { /* 다음 bootstrapAuth 에서 재시도 */ });
   return user;
 }
 

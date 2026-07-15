@@ -331,8 +331,15 @@ export function createGlobalPlayer(
     // must bust the same-sig early return or the stale-swung melody keeps
     // playing against the newly-straight rhythm section.
     const settings = getPlayerSettings();
-    const effStyle = config.style ?? genreToStyleId(settings.genre, settings.style);
-    const sig = computeMelodySig(input) + `|${effStyle}|${config.feel ?? ''}`;
+    // 릭은 항상 스윙으로 재생 — 코드 차트에서 라틴/보사로 바꿔 전역 style/genre가
+    // 바뀌어도 릭(및 릭 12키 연습) feel 은 스윙으로 고정한다. 멜로디 프리스윙과
+    // 아래 엔진 seed(style) 양쪽에 동일 적용해야 리듬섹션까지 스윙이 된다.
+    const forceSwing = input.kind === "lick";
+    const effStyle = forceSwing
+      ? "medium-swing"
+      : (config.style ?? genreToStyleId(settings.genre, settings.style));
+    const effFeel = forceSwing ? undefined : config.feel;
+    const sig = computeMelodySig(input) + `|${effStyle}|${effFeel ?? ''}`;
     if (backingPlayerMelody && backingPlayerMelodySig === sig) {
       return backingPlayerMelody;
     }
@@ -365,7 +372,7 @@ export function createGlobalPlayer(
     // rhythm section go straight while the melody stayed pre-swung (flams).
     // Resolve the same way the engine does: explicit config first, then the
     // global genre mapping (effStyle computed above, also part of the sig).
-    const swingRatio = melodySwingRatio(chart, { bpm: tempo, style: effStyle, feel: config.feel });
+    const swingRatio = melodySwingRatio(chart, { bpm: tempo, style: effStyle, feel: effFeel });
     // Multi-part: flatten the displayed part + any extraParts into one melody
     // timeline so every part sounds together. MelodyNote[] is a flat list, so
     // overlapping notes from different parts coexist (polyphony) cleanly.
@@ -410,8 +417,15 @@ export function createGlobalPlayer(
       bpm: tempo,
       melody,
     };
-    if (config.style !== undefined) seed.style = config.style;
-    if (config.feel !== undefined) seed.feel = config.feel;
+    if (forceSwing) {
+      // 릭: 엔진 리듬섹션(피아노 컴핑/베이스/드럼)도 스윙으로. seed.style 은
+      // mixSettingsIntoConfig 에서 전역 genre 매핑을 덮어쓴다(base wins) — feel 은
+      // 스타일에서 유도되게 두어 bossa/latin feel 이 새지 않도록 명시하지 않는다.
+      seed.style = "medium-swing";
+    } else {
+      if (config.style !== undefined) seed.style = config.style;
+      if (config.feel !== undefined) seed.feel = config.feel;
+    }
     if (config.loop !== undefined) seed.loop = config.loop;
     if (config.repeatCount !== undefined) seed.repeatCount = config.repeatCount;
     // Editor practice comp — seed only for 'sheet' (the Editor's kind) so a

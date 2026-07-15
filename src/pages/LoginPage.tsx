@@ -24,11 +24,8 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const usernameRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const t = setTimeout(() => usernameRef.current?.focus(), 80);
-    return () => clearTimeout(t);
-  }, []);
+  /* 마운트 시 자동 포커스하지 않는다 — 로그인 화면에서 키보드가 곧바로 튀어
+   * 올라오면 헤드라인/로고가 가려진다. 사용자가 입력창을 직접 탭할 때 뜬다. */
 
   const handleSocial = (name: string) => {
     setError(`${name} 로그인은 곧 지원됩니다.`);
@@ -53,11 +50,10 @@ export default function LoginPage() {
 
   return (
     <Page>
-      <Brand onClick={() => navigate('/')}>
-        <BrandLogoImage height={34} scaleX={1.05} />
-      </Brand>
-
       <Center>
+        <BrandMark onClick={() => navigate('/')}>
+          <BrandLogoImage height={40} scaleX={1.05} />
+        </BrandMark>
         <Headline>
           더 깊이 듣고,
           <br />더 빠르게 배우세요
@@ -99,8 +95,6 @@ export default function LoginPage() {
             </ContinueBtn>
           </Form>
         </Card>
-
-        <HomeLink onClick={() => navigate('/')}>← 홈으로 돌아가기</HomeLink>
       </Center>
     </Page>
   );
@@ -156,22 +150,16 @@ const Page = styled.div`
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Pretendard', sans-serif;
 `;
 
-const Brand = styled.button`
-  position: absolute;
-  top: 28px;
-  left: 36px;
+/* 로고 — 헤드라인 바로 위 중앙. 탭하면 홈으로. */
+const BrandMark = styled.button`
   display: flex;
   align-items: center;
-  gap: 9px;
+  justify-content: center;
   border: none;
   background: transparent;
   cursor: pointer;
   padding: 0;
-
-  @media (max-width: 600px) {
-    top: 20px;
-    left: 20px;
-  }
+  margin-bottom: 18px;
 `;
 
 const Center = styled.div`
@@ -297,16 +285,4 @@ const ContinueBtn = styled.button`
   &:disabled { cursor: default; }
   &[aria-busy='true'] { background: rgba(0, 0, 0, 0.22); opacity: 1; }
   &:disabled:not([aria-busy='true']) { opacity: 0.32; }
-`;
-
-const HomeLink = styled.button`
-  margin-top: 24px;
-  border: none;
-  background: transparent;
-  font-size: 13.5px;
-  color: rgba(0, 0, 0, 0.45);
-  cursor: pointer;
-  font-family: inherit;
-  padding: 6px;
-  &:hover { color: #000; }
 `;

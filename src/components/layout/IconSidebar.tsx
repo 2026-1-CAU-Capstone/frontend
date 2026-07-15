@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../../styles/theme';
 import { BrandLogoImage } from '../common/BrandLogoImage';
-import { getCachedUser, onAuthChange, type AuthUser } from '../../api/auth';
+import { getCachedUser, onAuthChange, isAdminUser, type AuthUser } from '../../api/auth';
 import { UserMenu } from '../auth/UserMenu';
 import { RecentChatsList } from './RecentChatsList';
 import { ChatSearchModal } from '../chat/ChatSearchModal';
@@ -601,6 +601,19 @@ const StemsIcon = () => (
   </svg>
 );
 
+/* AMT (자동 채보) — 영상/오디오 파형에서 음표를 뽑아내는 실험 도구라
+ * 파형 위 음표 심볼로 표현. */
+const AmtIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2 12h3l2-5 3 10 2-7 2 4h6" />
+    <circle cx="19" cy="16" r="2" />
+    <path d="M21 16V8" />
+  </svg>
+);
+
+/* Admin 드롭업 전용 도구 목록. 음원 분리는 전역 기능이라 여기 대신 아래
+ * USER_TOOLS(모든 유저 평면 버튼)에 있고, OMR 단독 진입(/input)은 내 코드
+ * 차트 / 내 악보 차트의 업로드 플로우가 대신하므로 admin 도구로만 남긴다. */
 const NAV = [
   { path: '/chord', icon: ChordIcon, label: 'Chord Analysis' },
   { path: '/note', icon: NoteIcon, label: 'Note Analysis' },
@@ -609,6 +622,11 @@ const NAV = [
   { path: '/editor', icon: EditorIcon, label: 'Editor' },
   { path: '/youtube-onset', icon: VideoIcon, label: 'YouTube Onset' },
   { path: '/input', icon: OmrIcon, label: 'OMR' },
+  { path: '/amt', icon: AmtIcon, label: 'AMT' },
+] as const;
+
+/* 모든 사용자에게 노출되는 하단 도구 — 드롭다운 없이 평면 버튼. */
+const USER_TOOLS = [
   { path: '/stems', icon: StemsIcon, label: '음원 분리' },
 ] as const;
 
@@ -780,6 +798,9 @@ export function IconSidebar({
   };
 
   const loggedIn = authUser !== null;
+  /* Admin 게이트 — GET /v1/auth/me 의 등급(role)으로 판별(isAdminUser).
+   * login 직후엔 fetchMe()가 role을 백그라운드 보강 → onAuthChange로 갱신됨. */
+  const isAdmin = isAdminUser(authUser);
 
   /* Chat nav defaults: navigate to '/' so tool pages get a "back to chat"
    * affordance, while HomePage can pass its own handlers for in-page actions.
@@ -986,37 +1007,55 @@ export function IconSidebar({
       <RecentChatsList expanded={expanded} loggedIn={loggedIn} />
       </ScrollArea>
 
-      {/* Admin drop-up — clicking opens a popover ABOVE the button that
-       * contains the legacy tool nav (Chord / Note / Lick / Solo / Editor /
-       * YouTube / OMR). Sits just above the profile/Max-plan row. */}
-      <AdminBlock ref={adminBlockRef} $expanded={expanded}>
-        {adminOpen && (
-          <AdminDropup $expanded={expanded} role="menu">
-            {NAV.map(({ path, icon: Icon, label }) => (
-              <AdminItem
-                key={path}
-                $active={pathname.startsWith(path)}
-                role="menuitem"
-                onClick={() => { navigate(path); setAdminOpen(false); }}
-              >
-                <Icon />
-                <span>{label}</span>
-              </AdminItem>
-            ))}
-          </AdminDropup>
-        )}
-        <AdminBtn
-          $expanded={expanded}
-          $on={adminOpen}
-          onClick={() => setAdminOpen((o) => !o)}
-          aria-haspopup="menu"
-          aria-expanded={adminOpen}
-          title="Admin"
-        >
-          <AdminIcon />
-          {expanded && <span>Admin</span>}
-        </AdminBtn>
-      </AdminBlock>
+      {/* 하단 도구 — 일반 사용자에겐 음원 분리 + OMR 평면 버튼만 노출.
+       * (구 드롭다운의 나머지 도구는 admin 전용 드롭업으로 이동) */}
+      {USER_TOOLS.map(({ path, icon: Icon, label }) => (
+        <AdminBlock key={path} $expanded={expanded}>
+          <AdminBtn
+            $expanded={expanded}
+            $on={pathname.startsWith(path)}
+            onClick={() => navigate(path)}
+            title={label}
+          >
+            <Icon />
+            {expanded && <span>{label}</span>}
+          </AdminBtn>
+        </AdminBlock>
+      ))}
+
+      {/* Admin drop-up — admin 계정에만 노출. 팝오버가 버튼 위로 열리며
+       * 전체 도구 nav (Chord / Note / Lick / Solo / Editor / YouTube /
+       * OMR / 음원 분리)를 담는다. */}
+      {isAdmin && (
+        <AdminBlock ref={adminBlockRef} $expanded={expanded}>
+          {adminOpen && (
+            <AdminDropup $expanded={expanded} role="menu">
+              {NAV.map(({ path, icon: Icon, label }) => (
+                <AdminItem
+                  key={path}
+                  $active={pathname.startsWith(path)}
+                  role="menuitem"
+                  onClick={() => { navigate(path); setAdminOpen(false); }}
+                >
+                  <Icon />
+                  <span>{label}</span>
+                </AdminItem>
+              ))}
+            </AdminDropup>
+          )}
+          <AdminBtn
+            $expanded={expanded}
+            $on={adminOpen}
+            onClick={() => setAdminOpen((o) => !o)}
+            aria-haspopup="menu"
+            aria-expanded={adminOpen}
+            title="Admin"
+          >
+            <AdminIcon />
+            {expanded && <span>Admin</span>}
+          </AdminBtn>
+        </AdminBlock>
+      )}
 
       {loggedIn && authUser ? (
         <UserMenu user={authUser} compact={!expanded} />

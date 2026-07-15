@@ -4,13 +4,15 @@ import styled from 'styled-components';
 import {
   Renderer, Stave, StaveNote, Voice, Formatter, Beam, Accidental, Dot, BarlineType, VoltaType, StaveTie, Tuplet, Repetition,
 } from 'vexflow';
-/* Click-to-hear / lick playback uses the shared app-wide piano singleton. */
-import { getGlobalKeyboard } from '../lib/player/GlobalKeyboard';
+/* 릭 재생(스윙 + 왼손 피아노 컴핑 + 베이스/드럼)은 릭 데이터베이스·내 릭과
+ * 동일한 통합 릭 플레이어(kind:'lick')를 쓴다 — 예전의 GlobalKeyboard 멜로디
+ * 단선 재생(컴핑·베이스·드럼 없음)을 대체한다. */
+import { useGlobalPlayer, warmupPlayerOnce } from '../lib/player';
+import { claimPlaybackUi, releasePlaybackUi } from '../lib/player/playbackClaim';
+import { prepareLickIntro } from '../lib/note/anacrusis';
 import { useCountInIntro } from '../hooks/useCountInIntro';
-import { PATTERN_SIMPLE } from '../lib/note/countInPatterns';
-import { swungBeats } from '../lib/note/swing';
 import { resolveMeasureAccidental, type RenderAcc } from '../lib/note/measureAccidentals';
-import type { NoteInfo, MeasureInfo } from '../data/sampleMelody';
+import type { NoteInfo, MeasureInfo, NoteSheetData } from '../data/sampleMelody';
 import { loadUserLicks, type LickEntry } from '../data/lickData';
 import { getLickVideo, type LickVideo } from '../data/lickVideos';
 import { YoutubeEmbed } from '../components/common/YoutubeEmbed';
@@ -586,8 +588,6 @@ function renderMeasures(el: HTMLDivElement, measures: MeasureInfo[], minWidth: n
 
 /* ─── piano playback ─────────────────────────────────────────────────── */
 
-/* Lick playback shares the app-wide piano via getGlobalKeyboard(). */
-
 /* ─── styled ──────────────────────────────────────────────────────────── */
 
 const Page = styled.div`
@@ -737,9 +737,10 @@ const RightCol = styled.div`
 
 /* ─── key row component ───────────────────────────────────────────────── */
 
-function KeyRow({ keyName, measures, width, isOriginal, defaultBpm, video }: {
-  keyName: string; measures: MeasureInfo[]; width: number; isOriginal: boolean; defaultBpm: number; video?: LickVideo;
+function KeyRow({ keyName, sheetData, width, isOriginal, defaultBpm, video }: {
+  keyName: string; sheetData: NoteSheetData; width: number; isOriginal: boolean; defaultBpm: number; video?: LickVideo;
 }) {
+  const measures = sheetData.measures;
   const svgRef = useRef<HTMLDivElement>(null);
   const renderedRef = useRef(false);
   const visRef = useRef<HTMLDivElement>(null);
@@ -749,7 +750,6 @@ function KeyRow({ keyName, measures, width, isOriginal, defaultBpm, video }: {
   const [bpmText, setBpmText] = useState(String(defaultBpm));
   const [showVideo, setShowVideo] = useState(false);
   useEffect(() => { setBpm(defaultBpm); setBpmText(String(defaultBpm)); }, [defaultBpm]);
-  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const el = visRef.current;
@@ -768,106 +768,66 @@ function KeyRow({ keyName, measures, width, isOriginal, defaultBpm, video }: {
     renderMeasures(svgRef.current, measures, width, keyName);
   }, [visible, width, measures]);
 
-  const countIn = useCountInIntro();
+  /* ── 통합 릭 플레이어 (스윙 + 왼손 피아노 컴핑 + 베이스/드럼) ──
+   * 릭 데이터베이스의 LickCard 와 동일한 재생 경로. 이 조로 이조한 sheetData 를
+   * kind:'lick' 으로 태우면 GlobalPlayer 가 스윙 리듬섹션까지 붙여 재생한다. */
+  const { player } = useGlobalPlayer();
+  const countIn = useCountInIntro({ scoped: true });
+
+  /* bar/note/done 구독 해제 핸들 — 수동 정지(player.stop()은 done 미emit)·언마운트
+   * 어디서든 풀 수 있게 ref 로 보관(전역 싱글톤 버스 리스너 누적 방지). */
+  const playUnsubsRef = useRef<Array<() => void>>([]);
+  const releasePlaySubs = useCallback(() => {
+    playUnsubsRef.current.forEach((fn) => { try { fn(); } catch { /* noop */ } });
+    playUnsubsRef.current = [];
+  }, []);
+  useEffect(() => releasePlaySubs, [releasePlaySubs]);
+
+  const releaseUi = useCallback(() => {
+    releasePlaySubs();
+    setPlaying(false);
+  }, [releasePlaySubs]);
+  useEffect(() => () => releasePlaybackUi(releaseUi), [releaseUi]);
+
+  /* 화면에 보이면 오디오 엔진(피아노/베이스/드럼 + 리드)을 미리 예열 — 첫 재생 즉시. */
+  useEffect(() => {
+    if (!visible) return;
+    warmupPlayerOnce(player, { kind: 'lick', data: sheetData });
+  }, [visible, player, sheetData]);
 
   const handlePlay = useCallback(async () => {
     if (playing || countIn.active) {
-      abortRef.current?.abort();
+      player.stop();
       countIn.cancel();
-      setPlaying(false);
+      releaseUi();
+      releasePlaybackUi(releaseUi);
       return;
     }
+    claimPlaybackUi(releaseUi); // 다른 카드/행의 재생 UI 소유권 회수
     setPlaying(true);
-    // 카운트인과 병렬로 piano soundfont 로드 — 첫 재생 지연 제거.
-    const kb = getGlobalKeyboard();
-    const loadPromise = kb.ensureReady();
-    // 릭 재생: BPM 무관하게 SIMPLE 카운트인.
-    const cin = await countIn.run({ bpm, pattern: PATTERN_SIMPLE, bars: 1, forceEnabled: true });
-    if (!cin.ok) { setPlaying(false); return; }
-    await loadPromise;
-    const abort = new AbortController();
-    abortRef.current = abort;
-    const beatDur = 60 / bpm;
-    // Swing-feel beat→seconds projection. Off-beat 8ths sit later in the
-    // beat (long-short feel). Quarters and larger durations are unaffected.
-    const toSec = (beatPos: number) => swungBeats(beatPos) * beatDur;
+    const preload = player.preload({ kind: 'lick', data: sheetData }).catch(() => {});
+    player.unlock({ kind: 'lick', data: sheetData });
+    const intro = await prepareLickIntro(player, countIn, sheetData, bpm, preload);
+    if (!intro.ok) {
+      setPlaying(false);
+      releasePlaybackUi(releaseUi);
+      return;
+    }
+    releasePlaySubs();
+    playUnsubsRef.current = [
+      player.on('done', () => {
+        releaseUi();
+        releasePlaybackUi(releaseUi);
+      }),
+    ];
+    player.setConfig({ bpm });
     try {
-      // Align the first note with the count-in's downbeat. cin.downbeatInSec
-      // captures the setTimeout slop between cin resolve and here.
-      if (cin.downbeatInSec > 0) {
-        await new Promise<void>((resolve, reject) => {
-          const timer = setTimeout(resolve, cin.downbeatInSec * 1000);
-          abort.signal.addEventListener(
-            'abort',
-            () => { clearTimeout(timer); reject('stop'); },
-            { once: true },
-          );
-        });
-      }
-      // Flatten all notes for tie handling
-      const allNotes = measures.flatMap(m => m.notes);
-      let mt = 0; // cumulative beat cursor (straight-time beats)
-      let ni = 0;
-      while (ni < allNotes.length) {
-        if (abort.signal.aborted) throw 'stop';
-        const n = allNotes[ni];
-        const isRest = n.duration.endsWith('r');
-        const baseDur = n.duration.replace(/r$/, '');
-        let beats = DUR_BEATS[baseDur] ?? 1;
-        if (n.dotted) beats *= 1.5;
-        if (n.tuplet && n.tuplet >= 2) {
-          const denom = Math.pow(2, Math.floor(Math.log2(n.tuplet - 1)));
-          beats *= denom / n.tuplet;
-        }
-
-        // Merge tied notes
-        if (!isRest && n.tie) {
-          let look = ni + 1;
-          while (look < allNotes.length) {
-            const ln = allNotes[look];
-            const lb = ln.duration.replace(/r$/, '');
-            let lbeats = DUR_BEATS[lb] ?? 1;
-            if (ln.dotted) lbeats *= 1.5;
-            if (ln.tuplet && ln.tuplet >= 2) {
-              const denom = Math.pow(2, Math.floor(Math.log2(ln.tuplet - 1)));
-              lbeats *= denom / ln.tuplet;
-            }
-            beats += lbeats;
-            if (!ln.tie) { look++; break; }
-            look++;
-          }
-          const sec = toSec(mt + beats) - toSec(mt);
-          const acc = n.accidentals?.[0] as '#' | 'b' | 'n' | undefined;
-          const midi = noteToMidi(n.keys[0], acc === 'n' ? undefined : acc);
-          kb.play(String(midi), { duration: sec * 0.9, gain: 3 });
-          await new Promise<void>((resolve, reject) => {
-            const timer = setTimeout(resolve, sec * 1000);
-            abort.signal.addEventListener('abort', () => { clearTimeout(timer); reject('stop'); }, { once: true });
-          });
-          mt += beats;
-          ni = look;
-          continue;
-        }
-
-        const sec = toSec(mt + beats) - toSec(mt);
-        if (!isRest) {
-          const acc = n.accidentals?.[0] as '#' | 'b' | 'n' | undefined;
-          const midi = noteToMidi(n.keys[0], acc === 'n' ? undefined : acc);
-          kb.play(String(midi), { duration: sec * 0.9, gain: 3 });
-        }
-        await new Promise<void>((resolve, reject) => {
-          const timer = setTimeout(resolve, sec * 1000);
-          abort.signal.addEventListener('abort', () => { clearTimeout(timer); reject('stop'); }, { once: true });
-        });
-        mt += beats;
-        ni++;
-      }
-    } catch { /* stopped */ }
-    kb.stopAll();
-    setPlaying(false);
-  }, [playing, measures, bpm]);
-
-  useEffect(() => () => { abortRef.current?.abort(); }, []);
+      await player.play({ kind: 'lick', data: intro.data }, intro.opts);
+    } catch {
+      releaseUi();
+      releasePlaybackUi(releaseUi);
+    }
+  }, [playing, countIn, player, sheetData, bpm, releaseUi, releasePlaySubs]);
 
   return (
     <KeySection ref={visRef}>
@@ -1010,7 +970,11 @@ export default function Lick12KeyPage() {
           <KeyRow
             key={keyName}
             keyName={keyName}
-            measures={transposeMeasures(lick.sheetData.measures, semitones)}
+            sheetData={{
+              ...lick.sheetData,
+              key: keyName,
+              measures: transposeMeasures(lick.sheetData.measures, semitones),
+            }}
             width={sheetWidth}
             isOriginal={semitones === 0}
             defaultBpm={bpm}

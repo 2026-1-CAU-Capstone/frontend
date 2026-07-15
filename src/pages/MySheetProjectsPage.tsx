@@ -3,7 +3,6 @@ import { useDismissable } from '../hooks/useDismissable';
 import { useViewModePref } from '../hooks/useViewModePref';
 import {
   CardMeta,
-  Header,
   HeaderActions,
   IconOnlyBtn,
   Kebab,
@@ -11,7 +10,6 @@ import {
   KebabMenuIcon,
   KebabMenuItem,
   KeyChip,
-  List,
   ListMain,
   ListNewRow,
   ListRow,
@@ -28,16 +26,23 @@ import {
   SortLabel,
   SortWrap,
   TimeChip,
-  Title,
   ViewToggle,
   ViewToggleBtn,
-  Grid,
   KebabMenu,
   SortMenu,
-  PageBody,
   ListThumb,
+  DetailHeader,
+  DetailHeaderRow,
+  DetailBackBtn,
+  DetailTitle,
+  DetailBody,
+  CardGrid,
+  CardList,
+  CardPanel,
 } from '../components/projects/sharedStyles';
 import { isComposingEvent } from '../lib/ime';
+import { useNavigate } from 'react-router-dom';
+import { useIsNativeUi } from '../contexts/AppPreviewContext';
 import styled from 'styled-components';
 import { IconSidebar } from '../components/layout/IconSidebar';
 import { NoteSheet } from '../components/notesheet/NoteSheet';
@@ -102,6 +107,8 @@ function formatComposer(composer: string | undefined): string {
 }
 
 export default function MySheetProjectsPage() {
+  const navigate = useNavigate();
+  const isNativeUi = useIsNativeUi();
   const [viewMode, setViewMode] = useViewModePref(VIEW_MODE_STORAGE_KEY);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -367,12 +374,17 @@ export default function MySheetProjectsPage() {
 
   return (
     <Page>
-      <IconSidebar />
-      <PageBody>
-        <Header>
-          <Title>내 악보 차트</Title>
+      {!isNativeUi && <IconSidebar />}
+      <DetailBody>
+        <DetailHeader>
+          {/* 한 줄: 뒤로가기(좌) · 제목(가운데) · 선택~정렬(우) */}
+          <DetailHeaderRow>
+            <DetailBackBtn type="button" aria-label="뒤로" onClick={() => navigate(-1)}>
+              <BackArrow />
+            </DetailBackBtn>
+            <DetailTitle>내 악보 차트</DetailTitle>
           <HeaderActions>
-            <PillBtn type="button" onClick={toggleSelectMode}>{selectMode ? '완료' : '선택'}</PillBtn>
+            <PillBtn type="button" onClick={toggleSelectMode}>{selectMode ? '취소' : '선택'}</PillBtn>
             <ViewToggle>
               <ViewToggleBtn
                 type="button"
@@ -413,9 +425,9 @@ export default function MySheetProjectsPage() {
                 </SortMenu>
               )}
             </SortWrap>
-            <PillBtn type="button"><GearIcon /> 설정</PillBtn>
           </HeaderActions>
-        </Header>
+          </DetailHeaderRow>
+        </DetailHeader>
 
         {/* 페이지 레벨 에러 — 삭제/일괄삭제 실패는 생성 모달 밖에서 발생하므로
           * ModalError(모달 내부)만으론 사용자에게 아무 피드백이 없었다.
@@ -428,7 +440,8 @@ export default function MySheetProjectsPage() {
         )}
 
         {viewMode === 'grid' ? (
-          <Grid>
+          <CardPanel>
+          <CardGrid $native={isNativeUi}>
             <NewCard type="button" onClick={openCreateModal}>
               <PlusIcon />
               <NewLabel>신규</NewLabel>
@@ -540,9 +553,11 @@ export default function MySheetProjectsPage() {
                 )}
               </SheetCard>
             ))}
-          </Grid>
+          </CardGrid>
+          </CardPanel>
         ) : (
-          <List>
+          <CardPanel>
+          <CardList $native={isNativeUi}>
             <ListNewRow type="button" onClick={openCreateModal}>
               <ListThumb $tone="new"><PlusIcon /></ListThumb>
               <ListMain>
@@ -569,7 +584,8 @@ export default function MySheetProjectsPage() {
                 <KeyChip>{extractKeyFromTitle(song.title)}</KeyChip>
               </ListRow>
             ))}
-          </List>
+          </CardList>
+          </CardPanel>
         )}
 
         {createOpen && (
@@ -688,7 +704,7 @@ export default function MySheetProjectsPage() {
             </ModalCard>
           </ModalBackdrop>
         )}
-      </PageBody>
+      </DetailBody>
     </Page>
   );
 }
@@ -791,10 +807,9 @@ const SortIcon = () => (
   </svg>
 );
 
-const GearIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <circle cx="12" cy="12" r="3" />
-    <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z" />
+const BackArrow = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="15 18 9 12 15 6" />
   </svg>
 );
 

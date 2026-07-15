@@ -8,6 +8,7 @@ import { RightChatPanel } from '../components/layout/RightChatPanel';
 import { setActiveChat, getCachedChatList } from '../api/chat';
 import { MobileChatFab } from '../components/layout/MobileChatFab';
 import { LeadSheet, KeyControl, isMinorKey, shiftKey } from '../components/leadsheet/LeadSheet';
+import { KeySuggestPrompt } from '../components/leadsheet/KeySuggestPrompt';
 import { SessionPicker, type SessionInstrument } from '../components/chord/SessionPicker';
 import { useAnalysisFilters } from '../hooks/useAnalysisFilters';
 import { AnalysisSettingsModal } from '../components/common/AnalysisSettingsModal';
@@ -177,7 +178,7 @@ const CenterColumn = styled.div<{ $reverse?: boolean }>`
 
 /* White transport bar above the lead sheet (BPM/repeat/transport on the left,
  * key dropdown centered). Zoom & fullscreen stay inside the sheet. */
-const TransportBar = styled.div<{ $bottom?: boolean }>`
+const TransportBar = styled.div<{ $bottom?: boolean; $safeTop?: boolean }>`
   position: relative;
   /* Lift the bar (and therefore its dropdowns) above the lead sheet, which is
    * a later sibling and would otherwise paint over the open menus. */
@@ -192,6 +193,8 @@ const TransportBar = styled.div<{ $bottom?: boolean }>`
   background: ${({ theme }) => theme.colors.bgPrimary};
   flex-shrink: 0;
   min-width: 0;
+  box-sizing: border-box;
+  width: 100%;
 
   ${({ $bottom, theme }) => $bottom
     ? `
@@ -202,6 +205,25 @@ const TransportBar = styled.div<{ $bottom?: boolean }>`
       border-bottom: 1px solid ${theme.colors.border};
       padding: 5px 10px;
     `}
+
+  /* 네이티브: 이 바가 화면 최상단이라(웹의 TopToolbar 는 숨김) 상태바·
+   * 다이나믹아일랜드 아래로 내려오도록 safe-area 상단 인셋을 준다. 웹에서는
+   * TopToolbar 가 위에 있어 이 인셋을 주면 안 되므로 prop 으로 게이팅한다.
+   * (env(safe-area-inset-top) 은 위치를 모르는 뷰포트 상수라 mid-page 바에
+   *  그대로 주면 웹 모바일에서도 잘못 밀린다.)
+   *
+   * 또한 네이티브(폰)에서는 컨트롤이 한 줄에 다 안 들어가 좌측 컨트롤
+   * (장르·조성·세션)이 잘렸다. nowrap 은 웹의 '리사이즈 가능한 채팅 패널'
+   * 때문이었는데 네이티브엔 그 제약이 없으므로 wrap 을 허용해 여러 줄로
+   * 흐르게 한다 — 가로 넘침/클리핑 0, 드롭다운도 overflow:visible 유지. */
+  ${({ $safeTop, $bottom }) => (!$bottom && $safeTop)
+    ? `
+      padding-top: calc(5px + env(safe-area-inset-top, 0px));
+      flex-wrap: wrap;
+      row-gap: 4px;
+      justify-content: center;
+    `
+    : ''}
 `;
 
 /* Second toolbar row shown only in edit mode — the chord "modify tool".
@@ -240,32 +262,53 @@ const EditSaveBtn = styled.button`
   &:hover { background: #18803f; }
 `;
 
-const BarLeft = styled.div`
+const BarLeft = styled.div<{ $native?: boolean }>`
   display: flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
+  /* 네이티브: 1행을 통째로 차지(전폭) → 사이드바가 좌상단, 장르·조성·세션이
+   * 그 뒤로. zoom 으로 크기·여백을 줄여 한 줄에 여유롭게 담는다. */
+  ${({ $native }) => $native && `
+    flex: 1 0 100%;
+    justify-content: flex-start;
+    gap: 4px;
+    zoom: 0.9;
+  `}
 `;
 
 /* In-flow (not absolutely centered) so it never paints over the left/right
  * groups when the bar narrows. flex:1 lets it fill the middle and center its
  * content; min-width:0 lets it give up space first as the bar compacts. */
-const BarCenter = styled.div`
+const BarCenter = styled.div<{ $native?: boolean }>`
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   flex: 1 1 auto;
   min-width: 0;
+  /* 네이티브: 2행 왼쪽. 오른쪽 아이콘 그룹과 같은 줄에 들어가도록 zoom 으로
+   * 축소 + 간격 최소화. (zoom 은 transform:scale 과 달리 차지 폭도 줄인다.) */
+  ${({ $native }) => $native && `
+    flex: 0 1 auto;
+    gap: 2px;
+    zoom: 0.72;
+  `}
 `;
 
 /* Right-aligned tool icons (share / edit / analysis / settings). Kept intact
  * (the left/center groups absorb the squeeze first). */
-const BarRight = styled.div`
+const BarRight = styled.div<{ $native?: boolean }>`
   display: flex;
   align-items: center;
   gap: 2px;
   flex-shrink: 0;
+  /* 네이티브: 2행 오른쪽. BarCenter 와 같은 줄. zoom 으로 아이콘 축소. */
+  ${({ $native }) => $native && `
+    gap: 0;
+    zoom: 0.72;
+    margin-left: auto;
+  `}
 `;
 
 const ToolBtn = styled.button<{ $lit?: boolean }>`
@@ -284,6 +327,74 @@ const ToolBtn = styled.button<{ $lit?: boolean }>`
   ${({ $lit }) => $lit && 'filter: drop-shadow(0 0 4px rgba(232, 168, 56, 0.55));'}
 
   &:hover { background: rgba(0, 0, 0, 0.06); }
+`;
+
+/* ─── native 전용 배치 (iRealPro 참고 — 컴포넌트 디자인은 기존 그대로, 배치만
+ * 재구성): 상단은 뒤로가기 + 유틸 아이콘만 남은 얇은 한 줄. BPM·반복·조성·
+ * 장르·세션·재생 등 나머지 컨트롤은 화면 하단 고정 패널로 내려간다
+ * (BottomControlPanel, 3행: [BPM|반복|조성] / [장르·세션] / [분석·정지·재생·믹서]).
+ * ──────────────────────────────────────────────────────────────────────── */
+
+const NativeTopBar = styled.div`
+  position: relative;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  flex-shrink: 0;
+  padding: calc(6px + env(safe-area-inset-top, 0px)) 8px 6px;
+`;
+
+const NativeTopBarSpacer = styled.div`
+  flex: 1 1 auto;
+`;
+
+/* 하단 고정 패널의 실제 콘텐츠 높이(3행 합) — 스페이서와 정확히 맞춰야
+ * 마지막 코드 줄이 패널에 가리지 않는다. */
+const BOTTOM_PANEL_CONTENT_HEIGHT = 148;
+
+const BottomControlPanel = styled.div`
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  border-top: 1px solid ${({ theme }) => theme.colors.border};
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+`;
+
+/* CenterColumn 안, LeadSheet 뒤에 두는 자리표시자 — BottomControlPanel 이
+ * 코드 차트 마지막 줄을 덮지 않도록 그만큼 스크롤 영역을 줄여준다. */
+const BottomPanelSpacer = styled.div`
+  flex: 0 0 auto;
+  height: calc(${BOTTOM_PANEL_CONTENT_HEIGHT}px + env(safe-area-inset-bottom, 0px));
+`;
+
+const BottomPanelRow = styled.div<{ $divider?: boolean }>`
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 8px;
+  padding: 0 12px;
+  ${({ $divider, theme }) => $divider && `border-top: 1px solid ${theme.colors.border};`}
+`;
+
+const BottomPanelRow1 = styled(BottomPanelRow)`
+  height: 46px;
+`;
+
+const BottomPanelRow2 = styled(BottomPanelRow)`
+  height: 44px;
+  gap: 14px;
+`;
+
+const BottomPanelRow3 = styled(BottomPanelRow)`
+  height: 58px;
 `;
 
 /* ─── native-only sidebar (slide-in song list, iRealPro-style) ─────────── */
@@ -408,6 +519,12 @@ const SidebarIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="3" y="4" width="18" height="16" rx="2" />
     <line x1="9" y1="4" x2="9" y2="20" />
+  </svg>
+);
+
+const BackIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M15 5 L8 12 L15 19" />
   </svg>
 );
 
@@ -719,73 +836,6 @@ const SongSelect = styled.select`
 `;
 
 
-const SearchWrap = styled.div`
-  position: relative;
-`;
-
-const SearchInput = styled.input`
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.82rem;
-  padding: 3px 8px 3px 24px;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 4px;
-  background: ${({ theme }) => theme.colors.bgPrimary};
-  color: ${({ theme }) => theme.colors.textPrimary};
-  width: 220px;
-  outline: none;
-  &:focus { border-color: ${({ theme }) => theme.colors.textSecondary}; }
-  &::placeholder { color: ${({ theme }) => theme.colors.textSecondary}; opacity: 0.6; }
-
-  ${mq.mobile} {
-    width: 100%;
-  }
-`;
-
-const SearchIcon = styled.span`
-  position: absolute;
-  left: 7px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 0.75rem;
-  color: ${({ theme }) => theme.colors.textSecondary};
-  pointer-events: none;
-`;
-
-const SearchResults = styled.div`
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  max-height: 320px;
-  overflow-y: auto;
-  background: ${({ theme }) => theme.colors.bgPrimary};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 6px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-  z-index: 200;
-`;
-
-const SearchItem = styled.button<{ $active?: boolean }>`
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 6px 10px;
-  border: none;
-  background: ${({ $active, theme }) => $active ? theme.colors.bgSecondary : 'transparent'};
-  color: ${({ theme }) => theme.colors.textPrimary};
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.82rem;
-  cursor: pointer;
-  &:hover { background: ${({ theme }) => theme.colors.bgSecondary}; }
-`;
-
-const SearchComposer = styled.span`
-  display: block;
-  color: ${({ theme }) => theme.colors.textSecondary};
-  font-size: 0.75rem;
-  margin-top: 2px;
-`;
-
 const LoadingState = styled.div`
   flex: 1;
   display: flex;
@@ -906,9 +956,6 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   const [sheet, setSheet] = useState<LeadSheetData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchOpen, setSearchOpen] = useState(false);
-  const searchRef = useRef<HTMLDivElement>(null);
 
   /* Chord-chart edit mode (frontend-only; no per-user backend yet). Edits are
    * collected by source index ("system-bar-chord") and applied on save.
@@ -1435,33 +1482,6 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     return () => { cancelled = true; };
   }, [songId]);
 
-  const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    const q = searchQuery.toLowerCase();
-    /* My Chord Chart only ever surfaces the single analyzed "All of Me" chart,
-     * never the 1460-song iRealPro library. */
-    if (mychordMode) {
-      return 'all of me'.includes(q)
-        ? [{ index: -1, title: 'All of Me', composer: 'Gerald Marks', style: 'Medium Swing', key: 'C' } as SongEntry]
-        : [];
-    }
-    return songIndex
-      .filter((s) => s.title.toLowerCase().includes(q) || s.composer.toLowerCase().includes(q))
-      .slice(0, 30);
-  }, [searchQuery, songIndex, mychordMode]);
-
-  // Close search on outside click
-  useEffect(() => {
-    if (!searchOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setSearchOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [searchOpen]);
-
   /* 분석 설정 모달(AnalysisSettingsModal)은 자체 backdrop 클릭/Esc 로 닫힌다. */
 
 
@@ -1558,6 +1578,15 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     (k: string) => setChartKey(shiftKey(k, -instrumentOffset)),
     [instrumentOffset],
   );
+
+  /* 조성 재해석 — 코드 심볼은 그대로 두고 차트에 '적힌' 조성만 고친다.
+   * sheet.key 만 갱신하면 위 effect 가 chartKey 를 따라오게 하므로
+   * selectedKey === originalKey 가 되어 이조는 일어나지 않는다.
+   * (chartKey 를 별도로 건드리면 LeadSheet 가 새 키로 transpose 해버린다.)
+   * TODO(backend): 저장된 코드 프로젝트라면 updateChordProject 로 영속화 필요. */
+  const handleApplySuggestedKey = useCallback((k: string) => {
+    setSheet((s) => (s ? { ...s, key: k } : s));
+  }, []);
 
   /* Enter/leave chord-chart edit mode. Entering clears any pending edits;
    * leaving via the pencil discards them (Save is the only commit path). */
@@ -1701,58 +1730,30 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
               </SongSelect>
             </>
           }
-          rightExtra={
-            <SearchWrap ref={searchRef}>
-              <SearchIcon>&#128269;</SearchIcon>
-              <SearchInput
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setSearchOpen(true); }}
-                onFocus={() => setSearchOpen(true)}
-              />
-              {searchOpen && searchQuery.trim() && (
-                <SearchResults>
-                  {searchResults.length === 0 ? (
-                    <SearchItem as="div">No results</SearchItem>
-                  ) : (
-                    searchResults.map((song) => (
-                      <SearchItem
-                        key={song.index}
-                        onClick={() => {
-                          setSongId(mychordMode ? ANALYZED_SONG_ID : String(song.index));
-                          setSearchQuery('');
-                          setSearchOpen(false);
-                        }}
-                      >
-                        {song.title}
-                        <SearchComposer>{song.composer}</SearchComposer>
-                      </SearchItem>
-                    ))
-                  )}
-                </SearchResults>
-              )}
-            </SearchWrap>
-          }
         />
         )}
 
         <MainArea>
         <CenterColumn>
-          {/* White transport bar — always at the top of the score column
-           *  (web AND native; the planned bottom NativeChordPlayer was never
-           *  shipped and has been removed). */}
-          <TransportBar>
-            <BarLeft>
-              {isNativeUi && (
-                <ToolBtn type="button" title="곡 목록" onClick={() => setSidebarOpen((v) => !v)}>
-                  <SidebarIcon />
-                </ToolBtn>
-              )}
+          {/* 웹: 기존 한 줄 툴바 그대로. 네이티브: 아이콘만 남은 얇은
+           *  NativeTopBar + 화면 하단 고정 BottomControlPanel 로 분리
+           *  (iRealPro 참고 배치 — 컴포넌트 자체는 기존 것 그대로 재배치만). */}
+          {!isNativeUi && (
+          <TransportBar $safeTop={isNativeUi}>
+            <BarLeft $native={isNativeUi}>
               <GenreSelect />
               <KeyControl selectedKey={writtenKey} onChange={setWrittenKey} isMinor={isMinorKey(writtenKey)} />
+              {/* 조성 재해석 제안(모달 → 거절 시 말풍선). 이조 중이거나 편집 중엔
+               * 띄우지 않는다 — 무엇이 원본 조성인지 모호해지기 때문. */}
+              <KeySuggestPrompt
+                data={sheet}
+                storageId={songId}
+                enabled={!editMode && chartKey === chartOriginalKey}
+                onApply={handleApplySuggestedKey}
+              />
               <SessionPicker value={session} onChange={setSession} />
             </BarLeft>
-            <BarCenter>
+            <BarCenter $native={isNativeUi}>
               <MixerButton
                 inlineLick
                 breakEditMode={breakEditMode}
@@ -1766,22 +1767,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
               <RepeatControl repeatCount={repeatCount} onRepeatChange={setRepeatCount} disabled={!sheet || loading} />
               <TransportButtons playing={isPlaying} onPlayPause={handlePlayPause} onStop={handleStop} disabled={!sheet || loading} />
             </BarCenter>
-            <BarRight>
-              {isNativeUi && (
-                <>
-                  <ToolBtn
-                    type="button"
-                    title={chatOpen ? 'AI 채팅 닫기' : 'AI 채팅 열기'}
-                    $lit={chatOpen}
-                    onClick={() => setChatOpen((v) => !v)}
-                  >
-                    <ChatIcon />
-                  </ToolBtn>
-                  <ToolBtn type="button" title="믹서" onClick={() => setMixerSheetOpen(true)}>
-                    <MixerIcon />
-                  </ToolBtn>
-                </>
-              )}
+            <BarRight $native={isNativeUi}>
               <ToolBtn type="button" title="공유" onClick={handleShare} disabled={!sheet || loading}>
                 <ShareIcon />
               </ToolBtn>
@@ -1807,6 +1793,38 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
               </ToolBtn>
             </BarRight>
           </TransportBar>
+          )}
+
+          {isNativeUi && (
+            <NativeTopBar>
+              <ToolBtn type="button" title="뒤로가기" onClick={() => navigate(-1)}>
+                <BackIcon />
+              </ToolBtn>
+              <NativeTopBarSpacer />
+              <ToolBtn
+                type="button"
+                title={chatOpen ? 'AI 채팅 닫기' : 'AI 채팅 열기'}
+                $lit={chatOpen}
+                onClick={() => setChatOpen((v) => !v)}
+              >
+                <ChatIcon />
+              </ToolBtn>
+              <ToolBtn
+                type="button"
+                title={editMode ? '수정 종료' : '직접 수정'}
+                $lit={editMode}
+                onClick={toggleEditMode}
+              >
+                <PencilIcon />
+              </ToolBtn>
+              <ToolBtn type="button" title="공유" onClick={handleShare} disabled={!sheet || loading}>
+                <ShareIcon />
+              </ToolBtn>
+              <ToolBtn type="button" title="고급 설정" onClick={() => setAnalysisMenuOpen(true)}>
+                <GearIcon />
+              </ToolBtn>
+            </NativeTopBar>
+          )}
 
           {editMode && (
             <EditBar>
@@ -1922,7 +1940,56 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
             <LoadingState>{error ?? (loading ? 'Loading chart...' : 'Loading song list...')}</LoadingState>
           )}
 
+          {/* BottomControlPanel(고정)에 가려지는 만큼 스크롤 영역을 미리 줄여
+           *  마지막 코드 줄이 패널 밑에 숨지 않게 한다. */}
+          {isNativeUi && <BottomPanelSpacer />}
+
         </CenterColumn>
+
+        {isNativeUi && (
+          <BottomControlPanel>
+            <BottomPanelRow1>
+              <BpmControl tempo={tempo} onTempoChange={setTempo} disabled={!sheet || loading} />
+              <RepeatControl repeatCount={repeatCount} onRepeatChange={setRepeatCount} disabled={!sheet || loading} />
+              <KeyControl selectedKey={writtenKey} onChange={setWrittenKey} isMinor={isMinorKey(writtenKey)} />
+              {/* 조성 재해석 제안(모달 → 거절 시 말풍선). 이조 중이거나 편집 중엔
+               * 띄우지 않는다 — 무엇이 원본 조성인지 모호해지기 때문. */}
+              <KeySuggestPrompt
+                data={sheet}
+                storageId={songId}
+                enabled={!editMode && chartKey === chartOriginalKey}
+                onApply={handleApplySuggestedKey}
+              />
+            </BottomPanelRow1>
+            <BottomPanelRow2 $divider>
+              <GenreSelect />
+              <SessionPicker value={session} onChange={setSession} />
+            </BottomPanelRow2>
+            <BottomPanelRow3 $divider>
+              <ToolBtn
+                type="button"
+                title={filters.showAnalysis ? '분석 보기 끄기' : '분석 보기 켜기'}
+                $lit={filters.showAnalysis}
+                onClick={() => toggleFilter('showAnalysis')}
+              >
+                <LightbulbIcon lit={filters.showAnalysis} />
+              </ToolBtn>
+              <MixerButton
+                inlineLick
+                breakEditMode={breakEditMode}
+                onToggleBreakEdit={() => setBreakEditMode((v) => !v)}
+                loopEditMode={loopEditMode}
+                onToggleLoopEdit={handleToggleLoopEdit}
+                loopRegion={loopRegion}
+                onClearLoop={handleClearLoop}
+              />
+              <TransportButtons playing={isPlaying} onPlayPause={handlePlayPause} onStop={handleStop} disabled={!sheet || loading} />
+              <ToolBtn type="button" title="믹서" onClick={() => setMixerSheetOpen(true)}>
+                <MixerIcon />
+              </ToolBtn>
+            </BottomPanelRow3>
+          </BottomControlPanel>
+        )}
 
         {!isNativeUi && !isCompactLayout && <ResizeDivider ref={dividerRef} onMouseDown={onDividerMouseDown} />}
 

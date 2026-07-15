@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useEffect, useContext } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useContext, useRef } from 'react';
 import { safeVideoUrl } from '../../lib/safeVideoUrl';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -11,7 +11,7 @@ import { LickRecommendMessage, LickRecommendList, jsonToLickEntry } from './Lick
 import { StemSplitMessage } from './StemSplitMessage';
 import type { LickEntry } from '../../data/lickData';
 import { ChatChartCard } from './ChatChartCard';
-import { parseChatChart, splitChordTables } from '../../lib/chatChartParser';
+import { parseChatChart, splitChordTables, type ChatChart } from '../../lib/chatChartParser';
 import styled, { keyframes } from 'styled-components';
 
 /* Inline section label — small black filled SQUARE sized to the surrounding
@@ -629,6 +629,16 @@ function ChatMessageImpl({
   const selectedChords = message.role === 'user' ? message.selectedChords ?? [] : [];
   const userImages = message.role === 'user' ? message.images ?? [] : [];
 
+  /* ```chart JSON → ChatChart cache, keyed by the exact fenced JSON text.
+   * Once a chart block finishes streaming its JSON never changes again, but
+   * `content` below recomputes on every subsequent token (more text keeps
+   * streaming after it) — without this cache we'd re-parse AND re-create a
+   * fresh chart object every token, forcing ChatChartCard's memo-wrapped
+   * VexFlow render to redo the full lead-sheet layout dozens of times per
+   * message. On memory-constrained mobile WebViews this repeated churn was
+   * crashing the whole app to a blank white screen mid-answer. */
+  const chartCacheRef = useRef<Map<string, ChatChart | null>>(new Map());
+
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(message.content).then(() => {
       setCopied(true);
@@ -766,7 +776,9 @@ function ChatMessageImpl({
         continue;
       }
 
-      const parsed = parseChatChart(cm[1]);
+      const cache = chartCacheRef.current;
+      if (!cache.has(cm[1])) cache.set(cm[1], parseChatChart(cm[1]));
+      const parsed = cache.get(cm[1]) ?? null;
       if (parsed) {
         segments.push(<ChatChartCard key={`chart-${cm.index}`} chart={parsed} />);
       } else {
