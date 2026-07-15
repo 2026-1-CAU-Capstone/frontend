@@ -21,6 +21,7 @@ import { analyzeHarmony, formatKeyDisplay } from '../../lib/harmonyAnalyzer';
 import type { AnalysisFilters } from '../../hooks/useAnalysisFilters';
 import { useCompactLayout } from '../../hooks/useCompactLayout';
 import { useIsNativeLandscape } from '../../hooks/useIsNativeLandscape';
+import { useIsNativeUi } from '../../contexts/AppPreviewContext';
 import { usePlayerBarPosition } from '../../contexts/PlayerBarPositionContext';
 import { chordToInputString } from '../../lib/leadSheetChordEdit';
 import { breakBeatForBar, type BreakPoint } from '../../lib/breakPoints';
@@ -106,13 +107,15 @@ const ViewerOuter = styled.div<{ $fs?: boolean; $fit?: boolean }>`
   `}
 `;
 
-const Page = styled.div`
+const Page = styled.div<{ $web?: boolean }>`
   position: relative;
   background: #fff;
   width: 100%;
   box-shadow: ${({ theme }) => theme.shadows.xl};
   border-radius: 4px;
-  padding: 50px 32px 48px;
+  /* 웹 전용: 좌우 패딩(흰 배경 ↔ 첫/마지막 마디)을 32→14px로 조여 차트를 더
+   * 꽉 차게 보인다. 상하는 유지. 앱/프리뷰는 기존 32px. */
+  padding: ${({ $web }) => ($web ? '50px 14px 48px' : '50px 32px 48px')};
   font-family: ${CHORD_FONT};
   color: #000;
 
@@ -152,7 +155,7 @@ const SheetTitle = styled.h1`
   pointer-events: none;
 `;
 
-const MetaRow = styled.div`
+const MetaRow = styled.div<{ $web?: boolean }>`
   display: flex;
   justify-content: space-between;
   font-size: clamp(1.0rem, 1.8cqi, 1.3rem);
@@ -160,11 +163,13 @@ const MetaRow = styled.div`
   font-weight: 400;
   /* Margin-bottom must clear the SectionLabel of the first row, which floats
    * up by LABEL_OFFSET (66px). Set higher than SECTION_GAP+LABEL_OFFSET margin
-   * so the genre text never abuts the first A/B label. */
-  margin-bottom: 88px;
+   * so the genre text never abuts the first A/B label.
+   * 웹 전용: 첫 A/B 라벨(LABEL_OFFSET=52)만 살짝 넘기는 선(60px)까지 조여
+   * 제목↔첫 코드 여백을 줄인다. 앱/프리뷰는 기존 88px 유지. */
+  margin-bottom: ${({ $web }) => ($web ? '60px' : '88px')};
 
   @media (max-width: 960px) {
-    margin-bottom: 78px;
+    margin-bottom: ${({ $web }) => ($web ? '58px' : '78px')};
     font-size: 0.85rem;
   }
 `;
@@ -178,11 +183,12 @@ const MetaStyle = styled.span`
   color: inherit;
 `;
 
-const TitleRow = styled.div`
+const TitleRow = styled.div<{ $web?: boolean }>`
   position: relative;
   display: flex;
   align-items: center;
-  margin-bottom: 36px;
+  /* 웹 전용: 제목↔장르 간격도 함께 조인다. 앱/프리뷰는 기존 36px 유지. */
+  margin-bottom: ${({ $web }) => ($web ? '20px' : '36px')};
 `;
 
 const KeyDropdownWrap = styled.div`
@@ -1815,6 +1821,8 @@ export function LeadSheet({
    * to fit) instead of scrolling — mirrors iRealPro's landscape behaviour. */
   const isNativeLandscape = useIsNativeLandscape();
   const fitToScreen = isFullscreen || isNativeLandscape;
+  /* 웹 전용(실제 앱/프리뷰 아님)일 때만 제목↔첫 코드 세로 여백을 조인다. */
+  const isWebUi = !useIsNativeUi();
 
   // Scroll to top when zoom changes
   useEffect(() => {
@@ -2394,17 +2402,6 @@ export function LeadSheet({
       const resolvedBrackets: ResolvedBracket[] = [];
       const BRACKET_GAP = 4;   // px below row bottom
       const BRACKET_DEPTH = 10; // px height of the bracket
-      const BRACKET_UNHL_LIFT = 7; // px — non-highlighted ii-V brackets ride up a
-                                   // touch toward the chords (no band fills the
-                                   // row above them, so the default seam looks loose)
-
-      // Chord keys covered by a (rule-based) ii-V-I highlight span. A bracket
-      // whose ii AND V are both highlighted sits flush under the yellow band;
-      // a standalone ii-V (no highlight) gets lifted toward the chord text.
-      const highlightedKeys = new Set<string>();
-      for (const span of iiviSpans) {
-        for (const ck of span.chordKeys) highlightedKeys.add(ck);
-      }
 
       for (const spec of bracketSpecs) {
         const el1 = chordElsRef.current[spec.chordId1];
@@ -2417,18 +2414,16 @@ export function LeadSheet({
         const x1 = lx(rect1.left) + lw(rect1.width) / 2;
         const x2 = lx(rect2.left) + lw(rect2.width) / 2;
 
-        /* yBase는 같은 행의 grid 하단(BARLINE_GAP 안쪽) 기준으로 통일.
-         * 코드 텍스트 bottom은 superscript/subscript 유무에 따라 달라지므로
-         * chord rect를 쓰면 같은 행에서도 브래킷 높이가 어긋남. */
+        /* yBase는 같은 행의 grid 하단(BARLINE_GAP 안쪽) 기준으로 통일. 코드
+         * 텍스트 bottom은 superscript/subscript 유무에 따라 달라지므로 chord
+         * rect를 쓰면 같은 행에서도 브래킷 높이가 어긋남. 하이라이트 여부와
+         * 무관하게 모든 ii-V 브래킷이 동일한 grid 하단 기준선을 공유한다. */
         const siStr = spec.chordId1.split('-')[0];
         const gridEl = gridElsRef.current[Number(siStr)];
         const gridRect = gridEl?.getBoundingClientRect();
-        const isHighlighted =
-          highlightedKeys.has(spec.chordId1) && highlightedKeys.has(spec.chordId2);
-        const lift = isHighlighted ? 0 : BRACKET_UNHL_LIFT;
-        const yBase = (gridRect
+        const yBase = gridRect
           ? ly(gridRect.bottom - BARLINE_GAP * scale) + BRACKET_GAP
-          : Math.max(ly(rect1.bottom), ly(rect2.bottom)) + BRACKET_GAP) - lift;
+          : Math.max(ly(rect1.bottom), ly(rect2.bottom)) + BRACKET_GAP;
         const yBottom = yBase + BRACKET_DEPTH;
 
         resolvedBrackets.push({
@@ -2462,7 +2457,7 @@ export function LeadSheet({
       // two abutting bands don't print numerals on top of each other.
       const roleAt = (s: IIVISpan, idx: number) =>
         s.chordRoles[idx]
-          ?? (s.kind === 'minor' ? ['ii°', 'V', 'i'][idx] : ['ii', 'V', 'I'][idx])
+          ?? (s.kind === 'minor' ? ['iiø', 'V', 'i'][idx] : ['ii', 'V', 'I'][idx])
           ?? '';
       const iKeys = new Set<string>();
       const iiRoleByKey = new Map<string, string>();
@@ -2626,7 +2621,7 @@ export function LeadSheet({
             const isPivotI = !!pivot && kIdx === span.chordKeys.length - 1;
             if (pivot && kIdx === 0) continue;
             const role = span.chordRoles[kIdx]
-              ?? (span.kind === 'minor' ? ['ii°', 'V', 'i'][kIdx] : ['ii', 'V', 'I'][kIdx])
+              ?? (span.kind === 'minor' ? ['iiø', 'V', 'i'][kIdx] : ['ii', 'V', 'I'][kIdx])
               ?? '';
             const el = chordElsRef.current[ck];
             if (!el) continue;
@@ -2948,7 +2943,7 @@ export function LeadSheet({
         </>
       )}
       <PageShell style={wrapperStyle}>
-      <Page ref={pageRef} style={pageStyle}>
+      <Page ref={pageRef} style={pageStyle} $web={isWebUi}>
         {(af.showArrows || af.showIIVI) && (
           <ArrowLayer viewBox={`0 0 ${Math.max(arrowFrame.width, 1)} ${Math.max(arrowFrame.height, 1)}`}>
             <defs>
@@ -3159,10 +3154,10 @@ export function LeadSheet({
           />
         ))}
 
-        <TitleRow>
+        <TitleRow $web={isWebUi}>
           <SheetTitle>{resolvedData.title}</SheetTitle>
         </TitleRow>
-        <MetaRow>
+        <MetaRow $web={isWebUi}>
           {styleSlot ?? <MetaStyle>{resolvedData.style}</MetaStyle>}
           <span>{resolvedData.composer}</span>
         </MetaRow>

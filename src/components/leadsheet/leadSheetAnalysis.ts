@@ -116,7 +116,7 @@ export function detectIIVBrackets(data: LeadSheetData): BracketSpec[] {
 /** A continuous highlight span covering one ii-V-I progression. */
 export interface IIVISpan {
   chordKeys: string[];              // ordered chord keys from ii through I
-  chordRoles: string[];             // parallel to chordKeys: always 'ii'/'V'/'I' for display
+  chordRoles: string[];             // parallel to chordKeys: 'ii'/'V'/'I' (major) or 'iiø'/'V'/'i' (minor)
   label: string;                    // e.g. "G Minor 2-5-1"
   kind: 'major' | 'minor';
 }
@@ -205,7 +205,7 @@ export function detectIIVI(data: LeadSheetData): IIVISpan[] {
         groups[i + 1].chordKeys[groups[i + 1].chordKeys.length - 1],
         iActualKey,
       ],
-      chordRoles: ['ii', 'V', 'I'],
+      chordRoles: kind === 'minor' ? ['iiø', 'V', 'i'] : ['ii', 'V', 'I'],
       label,
       kind,
     });
@@ -239,7 +239,7 @@ export function detectIIVI(data: LeadSheetData): IIVISpan[] {
                 vGroup.chordKeys[vGroup.chordKeys.length - 1],
                 iGroup.chordKeys[0],
               ],
-              chordRoles: ['ii', 'V', 'I'],
+              chordRoles: kind === 'minor' ? ['iiø', 'V', 'i'] : ['ii', 'V', 'I'],
               label,
               kind,
             });
@@ -288,7 +288,7 @@ export function detectIIVI(data: LeadSheetData): IIVISpan[] {
                     vG.chordKeys[vG.chordKeys.length - 1],
                     repeatIGroup.chordKeys[0],
                   ],
-                  chordRoles: ['ii', 'V', 'I'],
+                  chordRoles: kind === 'minor' ? ['iiø', 'V', 'i'] : ['ii', 'V', 'I'],
                   label: `${tc.root ?? ''}${tcAcc} ${kind === 'major' ? 'Major' : 'Minor'} 2-5-1`,
                   kind,
                 });
