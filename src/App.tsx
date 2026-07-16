@@ -10,7 +10,6 @@ import { IntroScreen } from './components/common/IntroScreen';
 import { AudioErrorBoundary } from './components/common/AudioErrorBoundary';
 import { AudioLifecycleGuard } from './components/common/AudioLifecycleGuard';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
-import { AdminRoute } from './components/auth/AdminRoute';
 
 /* Sheet-music tab pages — split out of the initial bundle so that vexflow
  * (~1.1 MB) and OSMD only load when the user navigates into a chord/note/
@@ -29,7 +28,6 @@ const InputPage           = lazy(() => import('./pages/InputPage'));
 const EditorPage          = lazy(() => import('./pages/EditorPage'));
 const YoutubeOnsetPage    = lazy(() => import('./pages/YoutubeOnsetPage'));
 const StemSplitterPage    = lazy(() => import('./pages/StemSplitterPage'));
-const AmtPage             = lazy(() => import('./pages/AmtPage'));
 const IntroPage           = lazy(() => import('./pages/IntroPage'));
 const LoginPage           = lazy(() => import('./pages/LoginPage'));
 const SharedChartPage     = lazy(() => import('./pages/SharedChartPage'));
@@ -111,9 +109,6 @@ export default function App() {
           <Route path="/input" element={<ProtectedRoute><InputPage /></ProtectedRoute>} />
           <Route path="/youtube-onset" element={<ProtectedRoute><YoutubeOnsetPage /></ProtectedRoute>} />
           <Route path="/stems" element={<ProtectedRoute><StemSplitterPage /></ProtectedRoute>} />
-          {/* AMT (자동 채보) 실험 — admin 전용. AdminRoute 가 로그인 + admin 등급을
-              모두 검사하고, 비관리자는 홈으로 되돌린다. */}
-          <Route path="/amt" element={<AdminRoute><AmtPage /></AdminRoute>} />
           <Route path="/my-licks" element={<ProtectedRoute><MyLicksPage /></ProtectedRoute>} />
           <Route path="/my-charts" element={<ProtectedRoute><MyChordChartsPage /></ProtectedRoute>} />
           <Route path="/my-sheets" element={<ProtectedRoute><MySheetProjectsPage /></ProtectedRoute>} />

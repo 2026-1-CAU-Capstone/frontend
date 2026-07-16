@@ -601,16 +601,6 @@ const StemsIcon = () => (
   </svg>
 );
 
-/* AMT (자동 채보) — 영상/오디오 파형에서 음표를 뽑아내는 실험 도구라
- * 파형 위 음표 심볼로 표현. */
-const AmtIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M2 12h3l2-5 3 10 2-7 2 4h6" />
-    <circle cx="19" cy="16" r="2" />
-    <path d="M21 16V8" />
-  </svg>
-);
-
 /* Admin 드롭업 전용 도구 목록. 음원 분리는 전역 기능이라 여기 대신 아래
  * USER_TOOLS(모든 유저 평면 버튼)에 있고, OMR 단독 진입(/input)은 내 코드
  * 차트 / 내 악보 차트의 업로드 플로우가 대신하므로 admin 도구로만 남긴다. */
@@ -622,7 +612,6 @@ const NAV = [
   { path: '/editor', icon: EditorIcon, label: 'Editor' },
   { path: '/youtube-onset', icon: VideoIcon, label: 'YouTube Onset' },
   { path: '/input', icon: OmrIcon, label: 'OMR' },
-  { path: '/amt', icon: AmtIcon, label: 'AMT' },
 ] as const;
 
 /* 모든 사용자에게 노출되는 하단 도구 — 드롭다운 없이 평면 버튼. */
