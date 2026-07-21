@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../../styles/theme';
@@ -601,9 +601,9 @@ const StemsIcon = () => (
   </svg>
 );
 
-/* Admin 드롭업 전용 도구 목록. 음원 분리는 전역 기능이라 여기 대신 아래
- * USER_TOOLS(모든 유저 평면 버튼)에 있고, OMR 단독 진입(/input)은 내 코드
- * 차트 / 내 악보 차트의 업로드 플로우가 대신하므로 admin 도구로만 남긴다. */
+/* Admin 전용 도구 목록(평면 버튼으로 나열됨). 음원 분리는 전역 기능이라 여기
+ * 대신 아래 USER_TOOLS(모든 유저 평면 버튼)에 있고, OMR 단독 진입(/input)은
+ * 내 코드 차트 / 내 악보 차트의 업로드 플로우가 대신하므로 admin 도구로만 남긴다. */
 const NAV = [
   { path: '/chord', icon: ChordIcon, label: 'Chord Analysis' },
   { path: '/note', icon: NoteIcon, label: 'Note Analysis' },
@@ -619,23 +619,11 @@ const USER_TOOLS = [
   { path: '/stems', icon: StemsIcon, label: '음원 분리' },
 ] as const;
 
-/* ── Admin drop-up ───────────────────────────────────────────────────────
- * Sits just above the bottom UserMenu / PromoCard row. Clicking the button
- * opens a popover that slides UPWARD from the button, listing the legacy NAV
- * tools (Chord/Note/Lick/Solo/Editor/YouTube/OMR). Closes on outside-click
- * or after a nav-item click. */
+/* ── Admin 전용 도구 (평면 버튼) ──────────────────────────────────────────
+ * USER_TOOLS(음원 분리)와 같은 패턴 — admin 계정에만 노출되는 레거시 NAV
+ * 도구(Chord/Note/Lick/Solo/Editor/YouTube/OMR)를 드롭업 없이 그대로 쌓는다. */
 
-const AdminIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <rect x="3"  y="3"  width="6" height="6" rx="1" />
-    <rect x="15" y="3"  width="6" height="6" rx="1" />
-    <rect x="3"  y="15" width="6" height="6" rx="1" />
-    <rect x="15" y="15" width="6" height="6" rx="1" />
-  </svg>
-);
-
-/* Wraps the button + popover so position:absolute on the popover anchors to
- * the button, not the whole Rail. */
+/* Wraps each admin nav item so its layout matches USER_TOOLS' AdminBlock. */
 const AdminBlock = styled.div<{ $expanded?: boolean }>`
   position: relative;
   width: 100%;
@@ -645,8 +633,8 @@ const AdminBlock = styled.div<{ $expanded?: boolean }>`
   margin-bottom: 6px;
 `;
 
-/* Admin trigger — visually a NavBtn so it fits the rest of the rail. The
- * $on prop highlights it while the dropup is open. */
+/* Admin nav item — visually a NavBtn so it fits the rest of the rail. The
+ * $on prop highlights the item matching the current route. */
 const AdminBtn = styled.button<{ $expanded?: boolean; $on?: boolean }>`
   ${({ $expanded }) => ($expanded
     ? `
@@ -679,54 +667,6 @@ const AdminBtn = styled.button<{ $expanded?: boolean; $on?: boolean }>`
   overflow: hidden;
 
   &:hover { background: rgba(0, 0, 0, 0.06); color: #1a1a1a; }
-`;
-
-/* Popover anchored to the bottom of AdminBlock and growing upward. min-width
- * keeps labels readable even when the rail is collapsed (52px). */
-const AdminDropup = styled.div<{ $expanded?: boolean }>`
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: ${({ $expanded }) => ($expanded ? '0' : '8px')};
-  ${({ $expanded }) => ($expanded ? 'right: 0;' : '')}
-  min-width: 220px;
-  max-width: calc(100vw - 80px);
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 12px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.06);
-  padding: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  z-index: 60;
-  /* Subtle slide-up reveal. */
-  animation: adminDropupIn 0.14s ease-out;
-  @keyframes adminDropupIn {
-    from { opacity: 0; transform: translateY(4px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-`;
-
-const AdminItem = styled.button<{ $active?: boolean }>`
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  height: 36px;
-  padding: 0 10px;
-  border: none;
-  border-radius: 8px;
-  background: ${({ $active }) => ($active ? 'rgba(0, 0, 0, 0.06)' : 'transparent')};
-  color: #1a1a1a;
-  cursor: pointer;
-  font-family: ${({ theme }) => theme.fonts.ui};
-  font-size: 13.5px;
-  font-weight: 500;
-  text-align: left;
-  white-space: nowrap;
-
-  &:hover { background: rgba(0, 0, 0, 0.06); }
-  svg { flex-shrink: 0; }
 `;
 
 interface IconSidebarProps {
@@ -798,26 +738,6 @@ export function IconSidebar({
   const handleNewChat = onNewChat ?? (() => { setActiveChat(null); navigate('/'); });
   const handleOpenChatHistory = onOpenChatHistory ?? (() => navigate('/'));
   const chatEnabled = isLoggedInUser !== undefined ? isLoggedInUser : loggedIn;
-
-  /* Admin drop-up state. Closes when the user clicks outside the block
-   * or presses Escape — both standard popover dismissal patterns. */
-  const [adminOpen, setAdminOpen] = useState(false);
-  const adminBlockRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!adminOpen) return;
-    const onPointerDown = (e: MouseEvent | TouchEvent) => {
-      if (!adminBlockRef.current?.contains(e.target as Node)) setAdminOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setAdminOpen(false); };
-    document.addEventListener('mousedown', onPointerDown);
-    document.addEventListener('touchstart', onPointerDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown);
-      document.removeEventListener('touchstart', onPointerDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [adminOpen]);
 
   /* Cmd/Ctrl+K toggles the chat-search modal globally — matches the
    * familiar shortcut from Claude / ChatGPT / Linear / VSCode. */
@@ -996,8 +916,8 @@ export function IconSidebar({
       <RecentChatsList expanded={expanded} loggedIn={loggedIn} />
       </ScrollArea>
 
-      {/* 하단 도구 — 일반 사용자에겐 음원 분리 + OMR 평면 버튼만 노출.
-       * (구 드롭다운의 나머지 도구는 admin 전용 드롭업으로 이동) */}
+      {/* 하단 도구 — 모든 사용자에게 음원 분리 평면 버튼 노출.
+       * (admin 전용 도구 목록은 바로 아래, 역시 평면 버튼) */}
       {USER_TOOLS.map(({ path, icon: Icon, label }) => (
         <AdminBlock key={path} $expanded={expanded}>
           <AdminBtn
@@ -1012,39 +932,21 @@ export function IconSidebar({
         </AdminBlock>
       ))}
 
-      {/* Admin drop-up — admin 계정에만 노출. 팝오버가 버튼 위로 열리며
-       * 전체 도구 nav (Chord / Note / Lick / Solo / Editor / YouTube /
-       * OMR / 음원 분리)를 담는다. */}
-      {isAdmin && (
-        <AdminBlock ref={adminBlockRef} $expanded={expanded}>
-          {adminOpen && (
-            <AdminDropup $expanded={expanded} role="menu">
-              {NAV.map(({ path, icon: Icon, label }) => (
-                <AdminItem
-                  key={path}
-                  $active={pathname.startsWith(path)}
-                  role="menuitem"
-                  onClick={() => { navigate(path); setAdminOpen(false); }}
-                >
-                  <Icon />
-                  <span>{label}</span>
-                </AdminItem>
-              ))}
-            </AdminDropup>
-          )}
+      {/* Admin 전용 도구 — 드롭업 없이 음원 분리와 동일하게 평면 나열
+       * (Chord / Note / Lick / Solo / Editor / YouTube / OMR). */}
+      {isAdmin && NAV.map(({ path, icon: Icon, label }) => (
+        <AdminBlock key={path} $expanded={expanded}>
           <AdminBtn
             $expanded={expanded}
-            $on={adminOpen}
-            onClick={() => setAdminOpen((o) => !o)}
-            aria-haspopup="menu"
-            aria-expanded={adminOpen}
-            title="Admin"
+            $on={pathname.startsWith(path)}
+            onClick={() => navigate(path)}
+            title={label}
           >
-            <AdminIcon />
-            {expanded && <span>Admin</span>}
+            <Icon />
+            {expanded && <span>{label}</span>}
           </AdminBtn>
         </AdminBlock>
-      )}
+      ))}
 
       {loggedIn && authUser ? (
         <UserMenu user={authUser} compact={!expanded} />

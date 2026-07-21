@@ -31,6 +31,7 @@ const StemSplitterPage    = lazy(() => import('./pages/StemSplitterPage'));
 const IntroPage           = lazy(() => import('./pages/IntroPage'));
 const LoginPage           = lazy(() => import('./pages/LoginPage'));
 const SharedChartPage     = lazy(() => import('./pages/SharedChartPage'));
+const LickOnsetPage       = lazy(() => import('./pages/LickOnsetPage'));
 const UserProfilePage     = lazy(() => import('./pages/UserProfilePage'));
 
 /* Recent-Chats(사이드바)에서 코드차트 → 코드차트로 이동하면 `/mychord` 라우트는
@@ -123,6 +124,9 @@ export default function App() {
           {/* Standalone public marketing page — not linked from any in-app
               navigation. Reachable only via the direct URL (#/intro). */}
           <Route path="/intro" element={<IntroPage />} />
+          {/* 내부 검증 페이지 — 파커 릭 vs Omnibook 원본 대조. 정적 JSON 기반이라
+              비보호(직접 URL로만 접근, 앱 내 링크 없음). */}
+          <Route path="/lickonset" element={<LickOnsetPage />} />
           {/* /preview/* — browser-side design preview of app-only screens.
               AppPreviewProvider at the app root flips when pathname starts
               with /preview, so isNativeUi/isNativeLandscape pick it up

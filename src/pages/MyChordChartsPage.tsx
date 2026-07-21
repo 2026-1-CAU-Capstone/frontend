@@ -301,6 +301,12 @@ export default function MyChordChartsPage() {
    * data, etc.) doesn't POST /analyze every poll cycle forever. */
   const analyzeFailCountRef = useRef<Map<string, number>>(new Map());
   const MAX_AUTO_ANALYZE_RETRIES = 3;
+  /* OMR 폴링 타임아웃 — 백엔드 완료 콜백이 유실되면 progress 100 인 채
+   * PROCESSING 에 영원히 고착된다(실측). 카드가 무한 "처리 중"으로 남지 않게
+   * 첫 폴링 후 일정 시간이 지나면 로컬에서 FAILED 로 강등한다(서버 상태는
+   * 안 건드림 — 새로고침하면 다시 폴링을 시도한다). */
+  const OMR_POLL_TIMEOUT_MS = 5 * 60_000;
+  const omrPollStartRef = useRef<Map<string, number>>(new Map());
 
   /* ── Onboarding "새 프로젝트 생성" modal (replaces the old 신규 dropdown) ── */
   const [onboardOpen, setOnboardOpen] = useState(false);
@@ -353,20 +359,39 @@ export default function MyChordChartsPage() {
   useEffect(() => {
     if (!activePollIds) return;
     const ids = activePollIds.split(',');
+    // 타임아웃 기준점: 이 id 를 처음 폴링하기 시작한 시각.
+    const now = Date.now();
+    ids.forEach((id) => {
+      if (!omrPollStartRef.current.has(id)) omrPollStartRef.current.set(id, now);
+    });
     const pollOnce = () => {
       ids.forEach((id) => {
         getChordProjectOmrStatus(id)
           .then(async (status) => {
+            const startedAt = omrPollStartRef.current.get(id) ?? now;
+            const timedOut = (status.status === 'PENDING' || status.status === 'PROCESSING')
+              && Date.now() - startedAt > OMR_POLL_TIMEOUT_MS;
+            if (timedOut || status.status === 'COMPLETED' || status.status === 'FAILED') {
+              omrPollStartRef.current.delete(id); // 종결 — 기준점 정리
+            }
             setProjects((prev) => prev.map((p) => (
               p.publicId === id
-                ? {
-                  ...p,
-                  omrStatus: status.status,
-                  omrProgress: status.progress,
-                  omrFailureReason: status.failureReason,
-                }
+                ? (timedOut
+                  ? {
+                    ...p,
+                    omrStatus: 'FAILED',
+                    omrProgress: status.progress,
+                    omrFailureReason: '처리 시간 초과(서버 응답 지연) — 다시 시도해 주세요.',
+                  }
+                  : {
+                    ...p,
+                    omrStatus: status.status,
+                    omrProgress: status.progress,
+                    omrFailureReason: status.failureReason,
+                  })
                 : p
             )));
+            if (timedOut) return; // 아래 완료 후처리(analyze)로 내려가지 않음
             /* OMR just finished → kick off analysis once. ChordInfo is in
              * the DB at this point, but no AnalysisResult exists yet — the
              * SheetPreview's GET /analysis would 400 (CHORD_PROJECT_005)

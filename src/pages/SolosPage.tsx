@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { keyframes, css } from 'styled-components';
 import { mq } from '../styles/theme';
 import { exportScoreSvgToPdf } from '../lib/note/scoreToPdf';
 import { IconSidebar } from '../components/layout/IconSidebar';
@@ -24,6 +24,7 @@ import {
 import { useNotification } from '../contexts/NotificationContext';
 import { buildMergedSoloDraft } from '../lib/mergeSolos';
 import { OMRUploadModal } from '../components/common/OMRUploadModal';
+import type { OMRMetadata } from '../api/licks';
 import {
   transposeLick,
   normalizeKeyInput,
@@ -36,6 +37,8 @@ import {
   normalizeNoteKeyDisplay,
   transposeNoteSheet,
 } from '../lib/note/transposeNoteSheet';
+import { bakeExplicitAccidentals } from '../lib/note/resolvePitches';
+import type { LickEntry } from '../data/lickData';
 
 
 /* Large page size because the backend currently ignores the `performer`
@@ -164,6 +167,32 @@ const MergeDoBtn = styled.button`
   cursor: pointer;
   &:hover:not(:disabled) { background: #18803f; }
   &:disabled { opacity: 0.45; cursor: not-allowed; }
+`;
+
+/* 구간 선택 토글 — 켜져 있는 동안 마디 클릭이 선택으로 동작. */
+const SelModeBtn = styled.button<{ $on?: boolean }>`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  border: 1.5px solid ${({ $on }) => ($on ? '#1f9a52' : 'rgba(0,0,0,0.18)')};
+  border-radius: 5px;
+  background: ${({ $on }) => ($on ? 'rgba(31,154,82,0.12)' : 'transparent')};
+  color: ${({ $on }) => ($on ? '#17773e' : '#444')};
+  cursor: pointer;
+  white-space: nowrap;
+  &:hover { border-color: #1f9a52; }
+`;
+
+/* 구간 선택 모드 안내줄 — 프리뷰 헤더 바로 아래. */
+const SelHintBar = styled.div`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.76rem;
+  color: #17773e;
+  background: rgba(31, 154, 82, 0.08);
+  border-bottom: 1px solid rgba(31, 154, 82, 0.25);
+  padding: 5px 12px;
+  flex-shrink: 0;
 `;
 
 /* Ordered pick indicator shown on each row while merging. */
@@ -391,6 +420,146 @@ const ErrorBanner = styled.div`
   font-size: 0.82rem;
 `;
 
+/* ─── OMR status panel ──────────────────────────────────────────────────
+ * A persistent, always-visible panel (bottom-right) that shows every
+ * in-flight / just-finished OMR solo job in real time: 인식 중 → 완료 / 오류.
+ * Fed by the background OMR flow (createSoloViaOMR promise) and, when the
+ * backend /omr-status endpoint is available, live progress polling. */
+
+const spin = keyframes`to { transform: rotate(360deg); }`;
+/* Indeterminate sweep for the progress track while OMR is running and the
+ * backend reports no numeric progress (0). */
+const indeterminate = keyframes`
+  0%   { left: -35%; width: 35%; }
+  60%  { left: 100%; width: 35%; }
+  100% { left: 100%; width: 35%; }
+`;
+
+const OmrPanel = styled.div`
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: ${({ theme }) => theme.zIndex.toast};
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(340px, calc(100vw - 32px));
+  ${mq.mobile} { right: 10px; bottom: 10px; }
+`;
+
+const OmrCard = styled.div<{ $status: 'PROCESSING' | 'COMPLETED' | 'FAILED' }>`
+  border: 1px solid
+    ${({ $status }) =>
+      $status === 'FAILED' ? '#e0a0a0' : $status === 'COMPLETED' ? '#a3d9b8' : '#e6d3a0'};
+  border-radius: 10px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  box-shadow: ${({ theme }) => theme.shadows.md};
+  padding: 12px 14px;
+  font-family: 'Pretendard', sans-serif;
+`;
+
+const OmrTop = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const OmrIcon = styled.span<{ $status: 'PROCESSING' | 'COMPLETED' | 'FAILED' }>`
+  flex: none;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  ${({ $status }) =>
+    $status === 'PROCESSING' &&
+    css`
+      border: 2px solid rgba(180, 134, 11, 0.25);
+      border-top-color: #B8860B;
+      border-radius: 50%;
+      animation: ${spin} 0.8s linear infinite;
+    `}
+  color: ${({ $status }) => ($status === 'FAILED' ? '#c0392b' : $status === 'COMPLETED' ? '#1f9a52' : 'inherit')};
+`;
+
+const OmrLabel = styled.div`
+  flex: 1;
+  min-width: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.textPrimary};
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const OmrDismiss = styled.button`
+  flex: none;
+  border: none;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  &:hover { color: ${({ theme }) => theme.colors.textPrimary}; }
+`;
+
+const OmrStatusText = styled.div<{ $status: 'PROCESSING' | 'COMPLETED' | 'FAILED' }>`
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: ${({ $status, theme }) =>
+    $status === 'FAILED' ? '#c0392b' : $status === 'COMPLETED' ? '#17773e' : theme.colors.textSecondary};
+  word-break: break-word;
+`;
+
+const OmrBar = styled.div`
+  position: relative;
+  margin-top: 8px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(180, 134, 11, 0.14);
+  overflow: hidden;
+`;
+
+const OmrBarFill = styled.div<{ $progress: number }>`
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 3px;
+  background: #B8860B;
+  ${({ $progress }) =>
+    $progress > 0
+      ? css`left: 0; width: ${Math.min(100, Math.max(0, $progress))}%; transition: width 0.4s ease;`
+      : css`animation: ${indeterminate} 1.3s ease-in-out infinite;`}
+`;
+
+const OmrOpenBtn = styled.button`
+  margin-top: 10px;
+  width: 100%;
+  padding: 7px 0;
+  border: none;
+  border-radius: 6px;
+  background: #1f9a52;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  &:hover { background: #18803f; }
+`;
+
+/** One OMR job tracked by the status panel. `progress` 0 ⇒ indeterminate bar. */
+interface SoloOmrJob {
+  id: string;
+  label: string;
+  status: 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  progress: number;
+  failureReason?: string | null;
+  publicId?: string;
+  solo?: SoloResponse;
+}
+
 /* ─── component ─────────────────────────────────────────────────────── */
 
 export default function SolosPage() {
@@ -405,9 +574,9 @@ export default function SolosPage() {
   const [filterInstrument, setFilterInstrument] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
+  const refreshPerformers = useCallback(() => {
     setPerformersLoading(true);
-    listSoloPerformers()
+    return listSoloPerformers()
       .then((facets) => {
         // backend already counts; sort by count desc then name for a stable directory
         const sorted = [...facets].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
@@ -416,6 +585,8 @@ export default function SolosPage() {
       .catch(() => { /* 실패 시 빈 목록 유지 */ })
       .finally(() => setPerformersLoading(false));
   }, []);
+
+  useEffect(() => { void refreshPerformers(); }, [refreshPerformers]);
 
   const visiblePerformers = useMemo(() => {
     const q = performerQuery.trim().toLowerCase();
@@ -444,12 +615,20 @@ export default function SolosPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [pdfBusy, setPdfBusy] = useState<string | null>(null);
   const [omrOpen, setOmrOpen] = useState(false);
+  /* Live OMR status panel: one card per in-flight / just-finished job. */
+  const [omrJobs, setOmrJobs] = useState<SoloOmrJob[]>([]);
   /* Merge mode: pick solos in click order (numbered 1,2,3…) → concatenate
    * their measures into one new solo. */
   const [mergeMode, setMergeMode] = useState(false);
   const [mergeIds, setMergeIds] = useState<string[]>([]);
   const [mergeBusy, setMergeBusy] = useState(false);
   const previewBodyRef = useRef<HTMLDivElement>(null);
+  /* 구간 선택 → 릭 저장: NoteSheet 의 selectable/selectedRanges 프리미티브에
+   * 연결. 인덱스는 현재 표시 중인 previewSheet.measures 기준(이조돼도 마디
+   * 수는 불변이라 유지 가능; 솔로가 바뀌면 초기화). */
+  const [lickSelectMode, setLickSelectMode] = useState(false);
+  const [lickRanges, setLickRanges] = useState<Array<[number, number]>>([]);
+  const [lickSaving, setLickSaving] = useState(false);
 
   /* token so concurrent fetches (e.g. fast performer-switching) can be
    * discarded when stale. */
@@ -577,6 +756,12 @@ export default function SolosPage() {
     setPreviewKey(originalDisplayKey);
   }, [selected?.publicId, originalDisplayKey]);
 
+  /* 다른 솔로로 이동하면 진행 중이던 구간 선택은 무효 — 초기화. */
+  useEffect(() => {
+    setLickSelectMode(false);
+    setLickRanges([]);
+  }, [selected?.publicId]);
+
   const previewSheet = useMemo(() => {
     // List items arrive metadata-only (no sheetData) — the selection effect
     // below fetches the full solo and merges it in, after which this recomputes.
@@ -591,6 +776,105 @@ export default function SolosPage() {
     };
     return previewKey === sheet.key ? sheet : transposeNoteSheet(sheet, previewKey);
   }, [selected, previewKey, originalDisplayKey]);
+
+  /* 선택된 마디 수(중복 제거) — 저장 버튼 라벨/활성화용. */
+  const lickSelCount = useMemo(() => {
+    if (lickRanges.length === 0 || !previewSheet) return 0;
+    const seen = new Set<number>();
+    for (const [a, b] of lickRanges) {
+      const lo = Math.max(0, Math.min(a, b));
+      const hi = Math.min(previewSheet.measures.length - 1, Math.max(a, b));
+      for (let i = lo; i <= hi; i++) seen.add(i);
+    }
+    return seen.size;
+  }, [lickRanges, previewSheet]);
+
+  /** 선택 구간을 "지금 화면에 보이는 그대로"(이조 반영) 릭으로 백엔드에 저장.
+   *  악보(score) 임시표 의미론을 explicit 으로 구운 뒤 저장 — 릭 렌더러/플레이어
+   *  (LickCard, non-courtesy)와 데이터 의미가 정확히 일치해야 반음이 안 틀린다. */
+  const handleSaveLickFromSelection = useCallback(async () => {
+    if (!selected || !previewSheet || lickSaving) return;
+    // 범위 병합 → 오름차순 마디 인덱스 (Cmd/Ctrl 다중 구간도 순서대로 이어붙임)
+    const seen = new Set<number>();
+    const idxs: number[] = [];
+    const sorted = [...lickRanges]
+      .map(([a, b]) => [Math.min(a, b), Math.max(a, b)] as [number, number])
+      .sort((x, y) => x[0] - y[0]);
+    for (const [lo, hi] of sorted) {
+      for (let i = Math.max(0, lo); i <= Math.min(previewSheet.measures.length - 1, hi); i++) {
+        if (!seen.has(i)) { seen.add(i); idxs.push(i); }
+      }
+    }
+    if (idxs.length === 0) return;
+    const LICK_MAX_BARS = 8;
+    if (idxs.length > LICK_MAX_BARS) {
+      notify({ kind: 'error', title: '릭 저장 불가', message: `릭은 최대 ${LICK_MAX_BARS}마디예요 — 지금 ${idxs.length}마디가 선택돼 있어요.` });
+      return;
+    }
+    // 마디 통째 슬라이스 + 경계 정리: 구조 마커(도돌이/볼타/내비/브래킷)와
+    // 구간 밖으로 이어지던 tie/gliss 는 릭에서 무의미하므로 제거.
+    const sliced = idxs.map((i) => {
+      const m = previewSheet.measures[i];
+      const { repeatStart, repeatEnd, volta, navigation, bracket, anacrusis, ...rest } = m;
+      void repeatStart; void repeatEnd; void volta; void navigation; void bracket; void anacrusis;
+      return { ...rest, notes: m.notes.map((n) => ({ ...n })) };
+    });
+    const firstNotes = sliced[0].notes;
+    if (firstNotes.length > 0) delete firstNotes[0].tieContinuation;
+    const lastNotes = sliced[sliced.length - 1].notes;
+    if (lastNotes.length > 0) {
+      delete lastNotes[lastNotes.length - 1].tie;
+      delete lastNotes[lastNotes.length - 1].gliss;
+    }
+    const baked = bakeExplicitAccidentals(sliced, previewSheet.key);
+    const totalN = baked.reduce((s, m) => s + m.notes.filter((n) => !n.duration.endsWith('r')).length, 0);
+    if (totalN === 0) {
+      notify({ kind: 'error', title: '릭 저장 불가', message: '선택 구간에 음표가 없어요.' });
+      return;
+    }
+    const rangeLabel = idxs.length === 1 ? `m.${idxs[0] + 1}` : `m.${idxs[0] + 1}–${idxs[idxs.length - 1] + 1}`;
+    const title = `${selected.title} (${rangeLabel})`;
+    const chords = baked.map((m) => m.chord ?? '');
+    setLickSaving(true);
+    try {
+      const { computeLickFeatures, saveUserLick, invalidateLicksCache } = await import('../data/lickData');
+      const { createLick } = await import('../api/licks');
+      const entry: LickEntry = {
+        id: Date.now(),
+        performer: selected.performer || 'Unknown',
+        title,
+        album: selected.album ?? '',
+        instrument: selected.instrument || '',
+        style: selected.style ?? '',
+        tempo: selected.tempo ?? previewSheet.tempo ?? null,
+        key: previewSheet.key,
+        rhythmfeel: selected.rhythmFeel ?? '',
+        tag: 'solo-excerpt',
+        chords,
+        nEvents: totalN,
+        label: `${selected.performer || 'Unknown'} — ${title}${chords.filter(Boolean).length ? ` (${chords.filter(Boolean).join(' → ')})` : ''}`,
+        sheetData: {
+          title,
+          composer: selected.performer ?? '',
+          key: previewSheet.key,
+          timeSignature: previewSheet.timeSignature || '4/4',
+          tempo: previewSheet.tempo,
+          measures: baked,
+        },
+        ...computeLickFeatures(baked),
+      };
+      const persisted = await createLick(entry);
+      invalidateLicksCache();
+      saveUserLick(persisted);
+      notify({ kind: 'success', title: '릭 저장 완료', message: `${selected.title} ${rangeLabel} · ${idxs.length}마디를 릭으로 저장했어요.` });
+      setLickRanges([]);
+      setLickSelectMode(false);
+    } catch (e) {
+      notify({ kind: 'error', title: '릭 저장 실패', message: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setLickSaving(false);
+    }
+  }, [selected, previewSheet, lickRanges, lickSaving, notify]);
 
   /* OMR upload → backend persists the Solo and returns it. Jump into the
    * Editor (solo mode) pre-loaded with the result so the user can review/edit
@@ -656,22 +940,61 @@ export default function SolosPage() {
     }
   }, [notify, openSoloInEditor]);
 
-  /** Poll /v1/solos/{id}/omr-status in the background until OMR finishes, then
-   *  raise a top-right toast. Fire-and-forget: the notification provider lives
-   *  at the app root, so the toast still appears even if the user has navigated
-   *  away from this page. Gives up after MAX_MS so a stuck job can't poll
-   *  forever. */
-  /* publicId → pending timeout. 동일 솔로 중복 폴러 방지 + 정리 가능하게 추적.
-   * (기존엔 타이머 id를 버려서 로그아웃/삭제 후에도 최대 5분간 5초 간격 요청이
-   * 계속됐고, 같은 파일 연속 업로드 시 폴러가 누적됐다.) */
+  /* ── OMR status panel: background jobs ─────────────────────────────────
+   * OMR runs in the background (modal closes on submit) and each job shows a
+   * live status card via the panel at the bottom-right. The authoritative
+   * terminal signal is the createSoloViaOMR promise; /omr-status polling only
+   * fills in progress % / early completion when the backend supports it
+   * (currently the solos endpoint may 500 — handled gracefully). */
+
+  // setState guard: the detached upload promise can resolve after the page
+  // unmounts (user navigated away) — don't setState then.
+  const mountedRef = useRef(true);
+  // Set true in the effect BODY (not just useRef's initial value): React
+  // StrictMode runs mount effects setup→cleanup→setup, so relying on the
+  // initial value leaves mountedRef stuck at false after the first cleanup,
+  // which made upsertOmrJob bail out and the panel never appear.
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  const upsertOmrJob = useCallback((id: string, patch: Partial<SoloOmrJob>) => {
+    if (!mountedRef.current) return;
+    setOmrJobs((prev) => {
+      const i = prev.findIndex((j) => j.id === id);
+      if (i === -1) {
+        return [...prev, { id, label: '새 솔로', status: 'PROCESSING', progress: 0, ...patch }];
+      }
+      const next = prev.slice();
+      next[i] = { ...next[i], ...patch };
+      return next;
+    });
+  }, []);
+
+  /* publicId → pending timeout. 동일 솔로 중복 폴러 방지 + 정리 가능하게 추적. */
   const omrPollersRef = useRef<Map<string, number>>(new Map());
+  const dismissOmrJob = useCallback((id: string) => {
+    setOmrJobs((prev) => {
+      const job = prev.find((j) => j.id === id);
+      if (job?.publicId) {
+        const t = omrPollersRef.current.get(job.publicId);
+        if (t) { window.clearTimeout(t); omrPollersRef.current.delete(job.publicId); }
+      }
+      return prev.filter((j) => j.id !== id);
+    });
+  }, []);
   useEffect(() => () => {
-    // 언마운트: 모든 폴러 정지 (토스트 알림은 페이지를 떠나면 의미 없음)
+    // 언마운트: 모든 폴러 정지
     omrPollersRef.current.forEach((t) => window.clearTimeout(t));
     omrPollersRef.current.clear();
   }, []);
 
-  const pollSoloOmr = useCallback((publicId: string) => {
+  /** Best-effort poll of /v1/solos/{id}/omr-status → updates the job card's
+   *  progress/status. The solos endpoint may be unavailable (500); such errors
+   *  are swallowed and the card stays "인식 중" until the promise or MAX_MS
+   *  resolves it — so a broken status endpoint never hangs a card forever. */
+  const pollSoloOmrIntoJob = useCallback((jobId: string, publicId: string) => {
     const INTERVAL_MS = 5000; // OMR takes tens of seconds — slow poll keeps the request rate low
     const MAX_MS = 5 * 60_000;
     if (omrPollersRef.current.has(publicId)) return; // 중복 폴러 방지
@@ -681,33 +1004,25 @@ export default function SolosPage() {
       try {
         const st = await getSoloOmrStatus(publicId);
         if (st.status === 'COMPLETED') {
-          notify({
-            kind: 'success',
-            title: 'OMR 완료',
-            message: '솔로 악보 인식이 끝났어요.',
-            action: { label: '열기', onClick: () => void fetchAndOpenSolo(publicId) },
-          });
+          upsertOmrJob(jobId, { status: 'COMPLETED', progress: 100, publicId });
+          void refreshPerformers();
           return;
         }
         if (st.status === 'FAILED') {
-          notify({
-            kind: 'error',
-            title: 'OMR 실패',
-            message: st.failureReason ?? '악보 인식에 실패했어요.',
-          });
+          upsertOmrJob(jobId, { status: 'FAILED', failureReason: st.failureReason ?? '악보 인식에 실패했어요.' });
           return;
         }
+        if (st.progress > 0) upsertOmrJob(jobId, { progress: st.progress });
       } catch (e) {
         // 인증 만료(401/403)면 더 폴링해도 영원히 실패 — 즉시 종료.
         const msg = e instanceof Error ? e.message : '';
         if (/\b401\b|\b403\b/.test(msg)) return;
-        /* 그 외 일시 오류 — best-effort로 계속 */
+        /* 그 외(엔드포인트 500 등) — 무시하고 계속: 완료는 아래 MAX_MS 또는 promise가 확정한다 */
       }
       if (Date.now() - startedAt > MAX_MS) {
-        notify({
-          kind: 'info',
-          title: 'OMR 지연',
-          message: '처리가 오래 걸리고 있어요. 잠시 후 목록에서 확인해 주세요.',
+        upsertOmrJob(jobId, {
+          status: 'FAILED',
+          failureReason: '처리 상태를 확인하지 못했어요. 목록에서 다시 확인해 주세요.',
         });
         return;
       }
@@ -715,39 +1030,48 @@ export default function SolosPage() {
       omrPollersRef.current.set(publicId, t);
     };
     void tick();
-  }, [notify, fetchAndOpenSolo]);
+  }, [upsertOmrJob, refreshPerformers]);
 
-  const handleSoloOMRCreated = useCallback(async (solo: SoloResponse) => {
-    setOmrOpen(false);
-    // The OMR 201 response may be minimal (no sheetData yet) — either because
-    // the response is trimmed OR because OMR is still running asynchronously on
-    // the server. Re-fetch once by publicId to catch the "done, just trimmed"
-    // case; if it's still empty, OMR is in flight → poll omr-status and toast
-    // when it lands (no blocking alert).
-    let full = solo;
-    if ((!full?.sheetData || !full.sheetData.measures?.length) && solo?.publicId) {
-      try {
-        full = await getSolo(solo.publicId);
-      } catch (e) {
-        console.error('[solo OMR] getSolo로 전체 솔로 조회 실패:', e);
+  /* Kick off a background OMR job from the modal's onBackgroundStart. */
+  const omrJobSeq = useRef(0);
+  const startSoloOmrJob = useCallback(async (file: File, metadata: OMRMetadata) => {
+    const id = `omr-${Date.now()}-${omrJobSeq.current++}`;
+    const label = metadata.title?.trim() || metadata.performer?.trim() || file.name || '새 솔로';
+    upsertOmrJob(id, { id, label, status: 'PROCESSING', progress: 0 });
+    try {
+      const solo = await createSoloViaOMR(file, metadata);
+      if (solo?.sheetData?.measures?.length) {
+        upsertOmrJob(id, { status: 'COMPLETED', progress: 100, publicId: solo.publicId, solo });
+        void refreshPerformers(); // 새 솔로가 연주자 목록에 바로 반영되게
+        return;
       }
+      if (solo?.publicId) {
+        // Response minimal — one full fetch to catch "done, just trimmed",
+        // else OMR is in flight → poll (best-effort).
+        try {
+          const full = await getSolo(solo.publicId);
+          if (full?.sheetData?.measures?.length) {
+            upsertOmrJob(id, { status: 'COMPLETED', progress: 100, publicId: full.publicId, solo: full });
+            void refreshPerformers();
+            return;
+          }
+        } catch { /* fall through to poll */ }
+        upsertOmrJob(id, { publicId: solo.publicId });
+        pollSoloOmrIntoJob(id, solo.publicId);
+        return;
+      }
+      upsertOmrJob(id, { status: 'FAILED', failureReason: '서버 응답에 악보 데이터가 없어요.' });
+    } catch (e) {
+      upsertOmrJob(id, { status: 'FAILED', failureReason: e instanceof Error ? e.message : 'OMR 인식 실패' });
     }
-    if (full?.sheetData && full.sheetData.measures?.length) {
-      openSoloInEditor(full);
-      return;
-    }
-    if (!solo?.publicId) {
-      notify({ kind: 'error', title: 'OMR 오류', message: '서버 응답에 식별자가 없어 진행 상태를 확인할 수 없어요.' });
-      return;
-    }
-    // Still processing — let the user keep working; notify when finished.
-    notify({
-      kind: 'info',
-      title: 'OMR 처리 중',
-      message: '솔로 악보를 인식하고 있어요. 완료되면 알려드릴게요.',
-    });
-    pollSoloOmr(solo.publicId);
-  }, [notify, openSoloInEditor, pollSoloOmr]);
+  }, [upsertOmrJob, pollSoloOmrIntoJob, refreshPerformers]);
+
+  /* Panel "에디터로 열기" — open the finished solo, then clear its card. */
+  const openOmrJob = useCallback((job: SoloOmrJob) => {
+    if (job.solo?.sheetData?.measures?.length) openSoloInEditor(job.solo);
+    else if (job.publicId) void fetchAndOpenSolo(job.publicId);
+    dismissOmrJob(job.id);
+  }, [openSoloInEditor, fetchAndOpenSolo, dismissOmrJob]);
 
   const toggleMergePick = useCallback((id: string) => {
     setMergeIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -1095,6 +1419,32 @@ export default function SolosPage() {
                         {(selected.performer ?? '—')} · {selected.instrument} · original {originalDisplayKey}{selected.sheetData?.measures?.length ? ` · ${selected.sheetData.measures.length} bars` : ''}
                       </PreviewMeta>
                       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <SelModeBtn
+                          type="button"
+                          $on={lickSelectMode}
+                          onClick={() => {
+                            setLickSelectMode((v) => {
+                              if (v) setLickRanges([]); // 끌 때 선택도 정리
+                              return !v;
+                            });
+                          }}
+                        >
+                          {lickSelectMode ? '구간 선택 종료' : '구간 선택'}
+                        </SelModeBtn>
+                        {lickSelectMode && lickSelCount > 0 && (
+                          <>
+                            <MergeDoBtn
+                              type="button"
+                              disabled={lickSaving}
+                              onClick={() => { void handleSaveLickFromSelection(); }}
+                            >
+                              {lickSaving ? '저장 중…' : `릭으로 저장 (${lickSelCount}마디)`}
+                            </MergeDoBtn>
+                            <RefreshBtn type="button" onClick={() => setLickRanges([])}>
+                              선택 해제
+                            </RefreshBtn>
+                          </>
+                        )}
                         <BpmControl tempo={soloTempo} onTempoChange={handleSoloTempo} />
                         <TransportButtons
                           playing={soloPlaying}
@@ -1103,6 +1453,11 @@ export default function SolosPage() {
                         />
                       </div>
                     </PreviewHeader>
+                    {lickSelectMode && (
+                      <SelHintBar>
+                        마디를 클릭해 구간을 선택하세요 — Shift+클릭: 범위 확장 · 다시 클릭: 해제 · 최대 8마디
+                      </SelHintBar>
+                    )}
                     <PreviewBody ref={previewBodyRef}>
                       {previewSheet && (
                         <NoteSheet
@@ -1117,6 +1472,9 @@ export default function SolosPage() {
                           lockSwing
                           onPlayingChange={setSoloPlaying}
                           onTempoChange={setSoloTempo}
+                          selectable={lickSelectMode}
+                          selectedRanges={lickRanges}
+                          onSelectionChange={setLickRanges}
                         />
                       )}
                     </PreviewBody>
@@ -1135,9 +1493,41 @@ export default function SolosPage() {
         open={omrOpen}
         onClose={() => setOmrOpen(false)}
         title="OMR로 솔로 생성"
+        submitLabel="인식 시작 (백그라운드)"
         upload={createSoloViaOMR}
-        onCreated={handleSoloOMRCreated}
+        onBackgroundStart={startSoloOmrJob}
       />
+
+      {omrJobs.length > 0 && (
+        <OmrPanel role="status" aria-live="polite">
+          {omrJobs.map((job) => (
+            <OmrCard key={job.id} $status={job.status}>
+              <OmrTop>
+                <OmrIcon $status={job.status} aria-hidden>
+                  {job.status === 'COMPLETED' ? '✓' : job.status === 'FAILED' ? '!' : ''}
+                </OmrIcon>
+                <OmrLabel title={job.label}>{job.label}</OmrLabel>
+                <OmrDismiss onClick={() => dismissOmrJob(job.id)} aria-label="닫기">×</OmrDismiss>
+              </OmrTop>
+              <OmrStatusText $status={job.status}>
+                {job.status === 'PROCESSING'
+                  ? (job.progress > 0 ? `악보 인식 중… ${Math.round(job.progress)}%` : '악보 인식 중…')
+                  : job.status === 'COMPLETED'
+                    ? '인식 완료'
+                    : (job.failureReason || '악보 인식에 실패했어요.')}
+              </OmrStatusText>
+              {job.status === 'PROCESSING' && (
+                <OmrBar>
+                  <OmrBarFill $progress={job.progress} />
+                </OmrBar>
+              )}
+              {job.status === 'COMPLETED' && (
+                <OmrOpenBtn onClick={() => openOmrJob(job)}>에디터로 열기</OmrOpenBtn>
+              )}
+            </OmrCard>
+          ))}
+        </OmrPanel>
+      )}
     </PageContainer>
   );
 }

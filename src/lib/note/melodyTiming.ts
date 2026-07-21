@@ -5,22 +5,34 @@
 // 음이름 → 한 옥타브 내 반음 인덱스 (vexToMidi/chordToMidi 내부 전용).
 const SEMI_MAP: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
 
-export const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25 };
+export const DUR_BEATS: Record<string, number> = {
+  w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25, '32': 0.125, '64': 0.0625,
+};
 
-export function vexToMidi(key: string, acc?: '#' | 'b' | 'n'): number {
+export function vexToMidi(key: string, acc?: '#' | 'b' | 'n' | '##' | 'bb'): number {
   const [n, o] = key.split('/');
-  let s = SEMI_MAP[n] ?? 0;
+  // 'eb/4' 같은 baked 표기(글자에 임시표 포함)도 지원 — 첫 글자만 음이름.
+  let s = SEMI_MAP[n[0]] ?? 0;
+  const baked = n.slice(1);
+  if (baked === '#') s += 1;
+  else if (baked === 'b') s -= 1;
+  else if (baked === '##') s += 2;
+  else if (baked === 'bb') s -= 2;
   if (acc === '#') s += 1;
-  if (acc === 'b') s -= 1;
+  else if (acc === 'b') s -= 1;
+  else if (acc === '##') s += 2;
+  else if (acc === 'bb') s -= 2;
   return (parseInt(o) + 1) * 12 + s;
 }
 
-export function getBeats(dur: string, dotted?: boolean, tuplet?: number): number {
-  const base = dur.replace(/r$/, '');
+export function getBeats(dur: string, dotted?: boolean, tuplet?: number, tupletNormal?: number): number {
+  // 'r'(쉼표)·'d'(점 축약 표기) 접미는 길이 계산에서 제거 — dotted 는 별도 플래그.
+  const base = dur.replace(/[rd]+$/, '');
   let b = DUR_BEATS[base] ?? 1;
   if (dotted) b *= 1.5;
   if (tuplet && tuplet >= 2) {
-    const denom = Math.pow(2, Math.floor(Math.log2(tuplet - 1)));
+    // XML의 normal-notes(예: 5:3, 7:6)를 우선, 없으면 2의 거듭제곱 휴리스틱.
+    const denom = tupletNormal ?? Math.pow(2, Math.floor(Math.log2(tuplet - 1)));
     b *= denom / tuplet;
   }
   return b;

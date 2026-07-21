@@ -15,9 +15,15 @@ interface Props<T> {
   title: string;
   /** Submit button label once a file is chosen. */
   submitLabel?: string;
-  /** Performs the upload and resolves with the created entity. */
+  /** Performs the upload and resolves with the created entity. Ignored when
+   *  `onBackgroundStart` is provided (the parent owns the upload then). */
   upload: (file: File, metadata: OMRMetadata) => Promise<T>;
-  onCreated: (result: T) => void;
+  onCreated?: (result: T) => void;
+  /** When provided, the modal does NOT run the upload itself. On submit it
+   *  prepares (file, metadata) — stitching PDFs into a single image — then hands
+   *  them to the parent and closes immediately, so OMR can run in the background
+   *  with progress shown in the parent's own status panel. */
+  onBackgroundStart?: (file: File, metadata: OMRMetadata) => void;
 }
 
 const INSTRUMENT_OPTIONS: { value: string; label: string }[] = [
@@ -42,6 +48,7 @@ export function OMRUploadModal<T>({
   submitLabel = '인식 후 에디터로 열기',
   upload,
   onCreated,
+  onBackgroundStart,
 }: Props<T>) {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -174,9 +181,17 @@ export function OMRUploadModal<T>({
           toUpload = await pdfToStitchedImage(file);
         }
       }
+      // Background mode: hand the prepared file to the parent, close now, and
+      // let the parent run OMR + show progress in its status panel.
+      if (onBackgroundStart) {
+        reset();
+        onClose();
+        onBackgroundStart(toUpload, cleaned);
+        return;
+      }
       const result = await upload(toUpload, cleaned);
       reset();
-      onCreated(result);
+      onCreated?.(result);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'OMR 인식 실패';
       setError(msg);

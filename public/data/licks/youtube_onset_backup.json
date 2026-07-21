@@ -1,0 +1,86 @@
+[
+  {
+    "publicId": "fcfe73d6-33d5-4c8a-be51-861483460d7f",
+    "performer": "Charlie Parker",
+    "title": "Billie's Bounce",
+    "album": "The Complete Savoy & Dial Master Takes",
+    "key": "F",
+    "tempo": 150,
+    "video": {
+      "videoId": "gVVffSREjd4",
+      "startSec": 40.597,
+      "endSec": 45.732,
+      "url": "https://youtu.be/gVVffSREjd4?si=mySiGny5kZtqSQDg"
+    }
+  },
+  {
+    "publicId": "10262547-2dab-411e-9a3e-d4871c982fbd",
+    "performer": "Hank Mobley",
+    "title": "This I Dig Of You",
+    "album": "Soul Station (1960)",
+    "key": "Bb",
+    "tempo": 200,
+    "video": {
+      "videoId": "nJ-i3i2B9O0",
+      "startSec": 181.297,
+      "endSec": 185.781,
+      "url": "https://youtu.be/nJ-i3i2B9O0?si=z3qs05RsS4ssP_lY"
+    }
+  },
+  {
+    "publicId": "20b0b057-2de7-4804-a1d6-ce10e70e9b73",
+    "performer": "Charlie Parker",
+    "title": "Moose The Mooche",
+    "album": "",
+    "key": "Bb",
+    "tempo": 200,
+    "video": {
+      "videoId": "Opg4aZC0BLA",
+      "startSec": 50.162,
+      "endSec": 54.534,
+      "url": "https://youtu.be/Opg4aZC0BLA?si=VvwrHxsi-2ocEaH1"
+    }
+  },
+  {
+    "publicId": "e7935648-6aeb-4c17-8dc5-945e98371d81",
+    "performer": "Charlie Parker",
+    "title": "Blues For Alice",
+    "album": "Bird: The Complete Charlie Parker On Verve",
+    "key": "F",
+    "tempo": 120,
+    "video": {
+      "videoId": "G7USMqAH8qk",
+      "startSec": 68.712,
+      "endSec": 72.824,
+      "url": "https://youtu.be/G7USMqAH8qk?si=Ow5CkhcDBCg2jAr9"
+    }
+  },
+  {
+    "publicId": "caf4467f-0dc0-42dc-a00c-d4507195212d",
+    "performer": "Charlie Parker",
+    "title": "Scrapple From The Apple",
+    "album": "The Dial Masters - Original Choice Takes",
+    "key": "F",
+    "tempo": 120,
+    "video": {
+      "videoId": "HSeiIvBdAis",
+      "startSec": 52.319,
+      "endSec": 55.522,
+      "url": "https://youtu.be/HSeiIvBdAis?si=UVVa2QDkBM4UedlG"
+    }
+  },
+  {
+    "publicId": "067696ea-2567-4aeb-b631-5bedcc14beba",
+    "performer": "Charlie Parker",
+    "title": "Warmin' Up a Riff",
+    "album": "The Complete Savoy & Dial Master Takes",
+    "key": "Ab",
+    "tempo": 200,
+    "video": {
+      "videoId": "g3tETxZY7Vo",
+      "startSec": 50.604,
+      "endSec": 55.108,
+      "url": "https://www.youtube.com/watch?v=g3tETxZY7Vo&list=RDg3tETxZY7Vo&start_radio=1"
+    }
+  }
+]

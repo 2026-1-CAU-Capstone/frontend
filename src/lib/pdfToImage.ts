@@ -11,8 +11,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
  *  capped so a multi-page stitch doesn't balloon in size. */
 const TARGET_WIDTH = 1700;
 
-/** Render a PDF File into a single stitched JPEG File (all pages stacked). */
-export async function pdfToStitchedImage(pdfFile: File): Promise<File> {
+/** 내부 공용: PDF 전 페이지를 페이지별 canvas 로 래스터라이즈. */
+async function renderPdfPages(pdfFile: File): Promise<HTMLCanvasElement[]> {
   const buffer = await pdfFile.arrayBuffer();
   const doc = await pdfjsLib.getDocument({ data: buffer }).promise;
 
@@ -38,6 +38,22 @@ export async function pdfToStitchedImage(pdfFile: File): Promise<File> {
   }
 
   if (canvases.length === 0) throw new Error('PDF에 페이지가 없습니다.');
+  return canvases;
+}
+
+function canvasToJpeg(canvas: HTMLCanvasElement, name: string): Promise<File> {
+  return new Promise<File>((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(new File([b], name, { type: 'image/jpeg' })) : reject(new Error('이미지 변환 실패'))),
+      'image/jpeg',
+      0.92,
+    );
+  });
+}
+
+/** Render a PDF File into a single stitched JPEG File (all pages stacked). */
+export async function pdfToStitchedImage(pdfFile: File): Promise<File> {
+  const canvases = await renderPdfPages(pdfFile);
 
   const width = Math.max(...canvases.map((c) => c.width));
   const height = canvases.reduce((sum, c) => sum + c.height, 0);
@@ -56,12 +72,22 @@ export async function pdfToStitchedImage(pdfFile: File): Promise<File> {
     y += c.height;
   }
 
-  const blob = await new Promise<Blob>((resolve, reject) => {
-    out.toBlob((b) => (b ? resolve(b) : reject(new Error('이미지 변환 실패'))), 'image/jpeg', 0.92);
-  });
-
   const name = pdfFile.name.replace(/\.pdf$/i, '') + '.jpg';
-  return new File([blob], name, { type: 'image/jpeg' });
+  return canvasToJpeg(out, name);
+}
+
+/** PDF 를 페이지별 JPEG File 배열로 변환.
+ *
+ *  멀티페이지 OMR 대비용(백엔드 합의: PDF → 페이지별 단일 이미지 OMR → JSON
+ *  병합). 백엔드 배치 API 가 "페이지 이미지들"을 받는 형태로 나오면 이 결과를
+ *  그대로 넘기고, 결과 병합은 lib/note/mergeOmrSheets 를 쓴다. 그 전까지
+ *  업로드 경로는 기존 pdfToStitchedImage(한 장 합치기)를 유지한다. */
+export async function pdfToPageImages(pdfFile: File): Promise<File[]> {
+  const canvases = await renderPdfPages(pdfFile);
+  const stem = pdfFile.name.replace(/\.pdf$/i, '');
+  return Promise.all(
+    canvases.map((c, i) => canvasToJpeg(c, `${stem}.p${String(i + 1).padStart(2, '0')}.jpg`)),
+  );
 }
 
 /** Number of pages in a PDF (for preview labelling). */

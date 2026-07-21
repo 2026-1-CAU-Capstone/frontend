@@ -8,6 +8,12 @@ import type { NoteInfo, NoteSheetData } from "../../../data/sampleMelody";
 import type { Chart, DrumPiece } from "../types";
 import { leadSheetToChart } from "./leadSheetToChart";
 import { gmPercToDrumPiece } from "../../note/gmInstruments";
+import {
+  keySigLetterMap,
+  soundingAccidental,
+  type AccGlyph,
+  type AccidentalStyle,
+} from "../../note/resolvePitches";
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Adapter: NoteSheetData (per-note melody data with bar-level chord strings)
@@ -103,12 +109,20 @@ export function noteSheetToChart(sheet: NoteSheetData): Chart {
  * //   { midi: 76, beatOffset: 2,    durationBeats: 0.75 },
  * // ]
  */
-export function extractMelody(sheet: NoteSheetData): MelodyNote[] {
+export interface ExtractMelodyOpts {
+  /** 임시표 의미론 — 'score'(기본): 조표+마디 내 상속(NoteSheet/OMR 악보),
+   *  'explicit': 필드가 곧 소리(릭/에디터 데이터, LickCard 렌더와 쌍). */
+  accidentalStyle?: AccidentalStyle;
+}
+
+export function extractMelody(sheet: NoteSheetData, opts?: ExtractMelodyOpts): MelodyNote[] {
+  const style: AccidentalStyle = opts?.accidentalStyle ?? "score";
   const out: MelodyNote[] = [];
   let ottavaShift = 0; // ±12 while inside an 8va/8vb bracket
   // Apply the sheet's key signature to bare notes so playback pitch matches
-  // what the rendered key signature makes the reader see/hear.
-  const keySig = keySigAccidentals(sheet.key);
+  // what the rendered key signature makes the reader see/hear. Mid-piece key
+  // overrides (measure.key) switch the signature from that bar on.
+  let keySig = keySigLetterMap(sheet.key);
   // Pin every measure to the engine's fixed bar grid: bar `mi` starts at
   // `mi * beatsPerBar`, mirroring renderChart's `barStart = bi * secPerBar`.
   // Globally accumulating note durations instead (the old behaviour) let any
@@ -130,6 +144,11 @@ export function extractMelody(sheet: NoteSheetData): MelodyNote[] {
   let openTies = new Map<number, number>();
 
   sheet.measures.forEach((measure, mi) => {
+    if (measure.key) keySig = keySigLetterMap(measure.key);
+    // 표준 기보 규칙: 임시표는 같은 마디의 같은 글자+옥타브에 지속된다.
+    // (같은 마디의 두 번째 B♭은 글리프 없이 저장되므로, 이 상태 추적 없이는
+    //  내추럴로 오재생됐다 — 마디마다 새 맵.)
+    const active = new Map<string, AccGlyph>();
     const barStartBeat = mi * beatsPerBar;
     let intra = 0; // beats elapsed from the start of THIS measure
     for (let srcNi = 0; srcNi < measure.notes.length; srcNi++) {
@@ -145,7 +164,10 @@ export function extractMelody(sheet: NoteSheetData): MelodyNote[] {
         for (let i = 0; i < note.keys.length; i++) {
           const raw = vexKeyToMidi(
             note.keys[i],
-            effectiveAccidental(note.keys[i], note.accidentals?.[i], keySig),
+            soundingAccidental(
+              active, keySig, note.keys[i],
+              note.accidentals?.[i] as AccGlyph | undefined, style,
+            ),
           );
           if (raw == null) continue;
           const midi = raw + ottavaShift;
@@ -329,46 +351,7 @@ function vexKeyToMidi(
   return (oct + 1) * 12 + pc + semitones;
 }
 
-/* ─── key signature → playback pitch ──────────────────────────────────────
- * The NoteSheet renderer draws a key signature (via VexFlow's addKeySignature),
- * so a bare note letter on the staff SOUNDS altered (e.g. a plain "b/4" in B♭
- * major reads/sounds as B♭). Playback must apply the same alteration or the
- * melody comes out in the wrong key. Mirrors NoteSheet's `keySigAccidentals`. */
-const KS_FLAT_ORDER = ["b", "e", "a", "d", "g", "c", "f"];
-const KS_SHARP_ORDER = ["f", "c", "g", "d", "a", "e", "b"];
-const KS_FLAT_COUNT: Record<string, number> = {
-  F: 1, Bb: 2, Eb: 3, Ab: 4, Db: 5, Gb: 6, Cb: 7,
-  Dm: 1, Gm: 2, Cm: 3, Fm: 4, Bbm: 5, Ebm: 6, Abm: 7,
-};
-const KS_SHARP_COUNT: Record<string, number> = {
-  G: 1, D: 2, A: 3, E: 4, B: 5, "F#": 6, "C#": 7,
-  Em: 1, Bm: 2, "F#m": 3, "C#m": 4, "G#m": 5, "D#m": 6, "A#m": 7,
-};
-
-/** Letters a key signature alters, e.g. "Bb"/"Bb-maj"/"B♭ major" → {b:'b', e:'b'}. */
-function keySigAccidentals(rawKey: string | undefined): Map<string, "b" | "#"> {
-  const map = new Map<string, "b" | "#">();
-  if (!rawKey) return map;
-  let k = rawKey.trim().replace(/♭/g, "b").replace(/♯/g, "#");
-  const dash = k.match(/^([A-G][b#]?)-(maj|min)$/i);
-  if (dash) k = dash[2].toLowerCase().startsWith("min") ? `${dash[1]}m` : dash[1];
-  else k = k.replace(/\s*(major|maj)$/i, "").replace(/\s*(minor|min)$/i, "m").trim();
-  const nF = KS_FLAT_COUNT[k];
-  if (nF) { for (let i = 0; i < nF; i++) map.set(KS_FLAT_ORDER[i], "b"); return map; }
-  const nS = KS_SHARP_COUNT[k];
-  if (nS) { for (let i = 0; i < nS; i++) map.set(KS_SHARP_ORDER[i], "#"); }
-  return map;
-}
-
-/** Effective accidental for a note key: an explicit override wins; a baked
- *  accidental in the key string ("bb/4", "f#/5") is already absolute; a bare
- *  letter takes the key signature's alteration (what makes it match the eye). */
-function effectiveAccidental(
-  keyStr: string,
-  explicit: "#" | "b" | "n" | "##" | "bb" | undefined,
-  keySig: Map<string, "b" | "#">,
-): "#" | "b" | "n" | "##" | "bb" | undefined {
-  if (explicit) return explicit;
-  if (/^[a-gA-G](#{1,2}|b{1,2}|n)\//.test(keyStr)) return undefined; // baked
-  return keySig.get(keyStr[0]?.toLowerCase());
-}
+/* 조표·마디 내 임시표 지속의 피치 해석은 lib/note/resolvePitches.ts 로 통합
+ * (keySigLetterMap + soundingAccidental). 과거 이 파일의 keySigAccidentals/
+ * effectiveAccidental 은 마디 내 상속을 몰라 같은 마디의 두 번째 B♭ 등이
+ * 내추럴로 오재생됐다. */

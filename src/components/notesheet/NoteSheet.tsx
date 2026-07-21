@@ -108,7 +108,8 @@ async function __ensureVexflow() {
   StaveHairpin = vf.StaveHairpin;
   __vexflowLoaded = true;
 }
-import type { NoteSheetData, MeasureInfo } from '../../data/sampleMelody';
+import type { NoteSheetData, MeasureInfo, NoteInfo } from '../../data/sampleMelody';
+import { keySigLetterMap, soundingAccidental, type AccGlyph } from '../../lib/note/resolvePitches';
 import { useGlobalPlayer } from '../../lib/player';
 import type { AnacrusisNote } from '../../lib/player';
 import { useCountInIntro } from '../../hooks/useCountInIntro';
@@ -285,18 +286,21 @@ function noteToMidi(key: string, acc?: '#' | 'b' | 'n' | '##' | 'bb'): number {
 
 /** Compute the playable beat-length of a measure (sum of its notes), used for
  *  anacrusis detection. Mirrors the player's per-note beat formula. */
+function noteBeatsOf(n: NoteInfo): number {
+  const base = n.duration.replace(/[dr]/g, '');
+  let b = DUR_BEATS[base] ?? 1;
+  if (n.dotted) b *= 1.5;
+  if (n.tuplet && n.tuplet >= 2) {
+    // XML normal-notes(5:3, 7:6 등) 우선, 없으면 2의 거듭제곱 휴리스틱.
+    const denom = n.tupletNormal ?? Math.pow(2, Math.floor(Math.log2(n.tuplet - 1)));
+    b *= denom / n.tuplet;
+  }
+  return b;
+}
+
 function measureBeats(m: MeasureInfo): number {
   let beats = 0;
-  for (const n of m.notes) {
-    const base = n.duration.replace(/[dr]/g, '');
-    let b = DUR_BEATS[base] ?? 1;
-    if (n.dotted) b *= 1.5;
-    if (n.tuplet && n.tuplet >= 2) {
-      const denom = Math.pow(2, Math.floor(Math.log2(n.tuplet - 1)));
-      b *= denom / n.tuplet;
-    }
-    beats += b;
-  }
+  for (const n of m.notes) beats += noteBeatsOf(n);
   return beats;
 }
 
@@ -1198,17 +1202,19 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
       // Schedule pickup notes through the GlobalPlayer anacrusis API.
       const anacrusisNotes: AnacrusisNote[] = [];
       let beatCursor = 0;
+      // 픽업 마디 피치도 본편(어댑터)과 동일하게 score 의미론으로 해석 —
+      // 조표·마디 내 임시표 지속을 무시하면 픽업만 반음 틀리게 들린다.
+      const pickupKeySig = keySigLetterMap(firstMeas.key ?? data.key);
+      const pickupActive = new Map<string, AccGlyph>();
       for (const n of firstMeas.notes) {
-        const base = n.duration.replace(/[dr]/g, '');
-        let b = DUR_BEATS[base] ?? 1;
-        if (n.dotted) b *= 1.5;
-        if (n.tuplet && n.tuplet >= 2) {
-          const denom = Math.pow(2, Math.floor(Math.log2(n.tuplet - 1)));
-          b *= denom / n.tuplet;
-        }
+        const b = noteBeatsOf(n);
         const isRest = n.duration.endsWith('r');
         if (!isRest && !n.tieContinuation) {
-          const midi = noteToMidi(n.keys[0], n.accidentals?.[0]);
+          const acc = soundingAccidental(
+            pickupActive, pickupKeySig, n.keys[0],
+            n.accidentals?.[0] as AccGlyph | undefined, 'score',
+          );
+          const midi = noteToMidi(n.keys[0], acc);
           const when = pickupStart + beatCursor * beatDur;
           const dur = Math.max(b * beatDur * 0.9, 0.04);
           anacrusisNotes.push({ pitch: midi, startAt: when, durationSec: dur });
@@ -1407,30 +1413,106 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     }
   }, [data, width, breakEditMode, breakPoints, onToggleBreak, renderTick]);
 
-  /* ── selection highlight (admin region picker) ────────────────────── */
+  /* ── selection highlight (region picker) ──────────────────────────────
+   * 요구 스타일: 마디 전체를 투명한 색으로 칠하고 가장자리만 굵은 선.
+   * 마디별 사각형을 따로 그리면 이웃 마디 사이에 내부 경계선이 생기므로,
+   * 범위를 "같은 줄의 연속 구간" 단위로 병합해 구간당 하나의 rect 를 그린다. */
   useEffect(() => {
     const svg = svgRef.current?.querySelector('svg');
     if (!svg) return;
     svg.querySelectorAll('.m-sel').forEach((n) => n.remove());
-    const ranges = selectedRanges ?? [];
-    for (const [start, end] of ranges) {
-      const lo = Math.max(0, Math.min(start, end));
-      const hi = Math.max(start, end);
-      for (let i = lo; i <= hi; i++) {
+    /* 겹치거나 "맞닿은"([2,3]+[4,4]) 범위를 먼저 하나로 병합 — 클릭 토글이
+     * 마디별 개별 범위를 쌓기 때문에, 병합 없이는 인접 마디마다 상자가 따로
+     * 그려져 경계가 이중선으로 보인다. */
+    const merged: Array<[number, number]> = [...(selectedRanges ?? [])]
+      .map(([a, b]) => [Math.min(a, b), Math.max(a, b)] as [number, number])
+      .sort((x, y) => x[0] - y[0])
+      .reduce<Array<[number, number]>>((acc, cur) => {
+        const last = acc[acc.length - 1];
+        if (last && cur[0] <= last[1] + 1) last[1] = Math.max(last[1], cur[1]);
+        else acc.push([...cur] as [number, number]);
+        return acc;
+      }, []);
+
+    const CR = 6; // corner radius
+    const drawSeg = (
+      x: number, y: number, w: number,
+      openL: boolean, openR: boolean, // 줄바꿈으로 이어지는 쪽은 모서리를 연다
+    ) => {
+      const h = unscaledLineHRef.current - 16;
+      const top = y + 8;
+      const bot = top + h;
+      const right = x + w;
+      // 채움: 열린 변은 직각, 닫힌 변만 라운드.
+      const fillD =
+        `M ${openL ? x : x + CR},${top}` +
+        ` L ${openR ? right : right - CR},${top}` +
+        (openR ? '' : ` Q ${right},${top} ${right},${top + CR}`) +
+        ` L ${right},${openR ? bot : bot - CR}` +
+        (openR ? '' : ` Q ${right},${bot} ${right - CR},${bot}`) +
+        ` L ${openL ? x : x + CR},${bot}` +
+        (openL ? '' : ` Q ${x},${bot} ${x},${bot - CR}`) +
+        ` L ${x},${openL ? top : top + CR}` +
+        (openL ? '' : ` Q ${x},${top} ${x + CR},${top}`) +
+        ' Z';
+      const fill = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      fill.setAttribute('class', 'm-sel');
+      fill.setAttribute('d', fillD);
+      fill.setAttribute('fill', 'rgba(35, 149, 88, 0.14)');
+      fill.setAttribute('stroke', 'none');
+      fill.setAttribute('pointer-events', 'none');
+      svg.appendChild(fill);
+      // 테두리: 위/아래 변은 항상, 세로 변은 닫힌 쪽만 — 줄 끝에서 상자를
+      // 닫지 않아 다음 줄로 "이어지는" 모양이 된다.
+      let strokeD: string;
+      if (!openL && !openR) {
+        strokeD = fillD;
+      } else if (openL && openR) {
+        strokeD = `M ${x},${top} L ${right},${top} M ${x},${bot} L ${right},${bot}`;
+      } else if (openL) {
+        // 오른쪽만 닫힘: 좌상 → 우상 → (라운드) → 우하 → 좌하 한 획.
+        strokeD =
+          `M ${x},${top} L ${right - CR},${top}` +
+          ` Q ${right},${top} ${right},${top + CR}` +
+          ` L ${right},${bot - CR}` +
+          ` Q ${right},${bot} ${right - CR},${bot}` +
+          ` L ${x},${bot}`;
+      } else {
+        // 왼쪽만 닫힘: 우상 → 좌상 → (라운드) → 좌하 → 우하 한 획.
+        strokeD =
+          `M ${right},${top} L ${x + CR},${top}` +
+          ` Q ${x},${top} ${x},${top + CR}` +
+          ` L ${x},${bot - CR}` +
+          ` Q ${x},${bot} ${x + CR},${bot}` +
+          ` L ${right},${bot}`;
+      }
+      const stroke = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      stroke.setAttribute('class', 'm-sel');
+      stroke.setAttribute('d', strokeD);
+      stroke.setAttribute('fill', 'none');
+      stroke.setAttribute('stroke', '#1f9a52');
+      stroke.setAttribute('stroke-width', '3');
+      stroke.setAttribute('stroke-linecap', 'round');
+      stroke.setAttribute('pointer-events', 'none');
+      svg.appendChild(stroke);
+    };
+
+    for (const [lo, hi] of merged) {
+      // 같은 y(줄)에 연속으로 붙은 마디들을 한 세그먼트로 묶는다.
+      type Seg = { x: number; y: number; w: number };
+      const segs: Seg[] = [];
+      let cur: Seg | null = null;
+      for (let i = Math.max(0, lo); i <= hi; i++) {
         const r = measureRectsRef.current[i];
         if (!r) continue;
-        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        rect.setAttribute('class', 'm-sel');
-        rect.setAttribute('x', String(r.x));
-        rect.setAttribute('y', String(r.y + 10));
-        rect.setAttribute('width', String(r.w));
-        rect.setAttribute('height', String(unscaledLineHRef.current - 20));
-        rect.setAttribute('fill', 'rgba(35, 149, 88, 0.62)');
-        rect.setAttribute('stroke', 'rgba(19, 111, 65, 0.95)');
-        rect.setAttribute('stroke-width', '2');
-        rect.setAttribute('rx', '4');
-        svg.insertBefore(rect, svg.firstChild);
+        if (cur && r.y !== cur.y) { segs.push(cur); cur = null; }
+        if (!cur) cur = { x: r.x, y: r.y, w: 0 };
+        cur.w = r.x + r.w - cur.x;
       }
+      if (cur) segs.push(cur);
+      segs.forEach((s, si) => {
+        drawSeg(s.x, s.y, s.w, si > 0, si < segs.length - 1);
+      });
     }
   }, [selectedRanges, data, renderTick]);
 
@@ -1930,6 +2012,15 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
         //      use the prevIs16Triplet/postTupletMerged trick to glue 16th-trip+8th.
         const beams: Beam[] = [];
         let beamGroup: StaveNote[] = [];
+        // 투플렛 브래킷 규칙용 빔 멤버십: 투플렛 그룹이 자기 빔과 정확히
+        // 일치할 때만 숫자-온리(브래킷 생략)가 허용된다. 더 긴 빔 속에 섞인
+        // 투플렛은 브래킷을 강제해 "어느 음까지가 N연음인지"를 명확히 한다.
+        const beamOf = new Map<StaveNote, { id: number; size: number }>();
+        const pushBeam = (grp: StaveNote[]) => {
+          const id = beams.length;
+          for (const g of grp) beamOf.set(g, { id, size: grp.length });
+          beams.push(new Beam(grp, beamAutoStem));
+        };
         // When any note carries an explicit stem direction (MusicXML import),
         // pass auto_stem=false so Beam respects each note's stem_direction
         // rather than averaging pitch positions (which would flip the stems
@@ -1960,7 +2051,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
             }
             // Rest, non-beamable, or noBeam → flush group.
             if (isRest || !isBeamable || sourceNote?.noBeam) {
-              if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, beamAutoStem));
+              if (beamGroup.length >= 2) pushBeam(beamGroup);
               beamGroup = [];
               continue;
             }
@@ -1973,11 +2064,11 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
             beamGroup.push(vn);
 
             if (sourceNote?.beamBreak) {
-              if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, beamAutoStem));
+              if (beamGroup.length >= 2) pushBeam(beamGroup);
               beamGroup = [];
             }
           }
-          if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, beamAutoStem));
+          if (beamGroup.length >= 2) pushBeam(beamGroup);
         } else {
           // Heuristic mode (legacy auto-beaming for manually-authored licks).
           let groupBeats = 0;
@@ -1997,7 +2088,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
             if (noteDots > 0 || dur.endsWith('d')) noteBeats *= 1.5;
 
             if (postTupletMerged && beamGroup.length > 0) {
-              if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, beamAutoStem));
+              if (beamGroup.length >= 2) pushBeam(beamGroup);
               beamGroup = []; groupBeats = 0; postTupletMerged = false;
             }
             if (tupletN !== inTupletN && beamGroup.length > 0) {
@@ -2005,7 +2096,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
               if (prevIs16Triplet && isBeamable && !isRest && !isTuplet) {
                 postTupletMerged = true;
               } else {
-                if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, beamAutoStem));
+                if (beamGroup.length >= 2) pushBeam(beamGroup);
                 beamGroup = [];
                 if (!isTuplet) groupBeats = 0;
               }
@@ -2018,27 +2109,27 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
                 const has16 = dur === '16' || dur === '16d' || beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
                 const boundary = has16 ? 1 : 2;
                 if (groupBeats > 0 && Math.floor((groupBeats - 0.001) / boundary) !== Math.floor((newGroupBeats - 0.001) / boundary) && beamGroup.length > 0) {
-                  if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, beamAutoStem));
+                  if (beamGroup.length >= 2) pushBeam(beamGroup);
                   beamGroup = []; groupBeats = 0;
                 }
               }
               beamGroup.push(vn);
               if (!isTuplet) groupBeats += noteBeats;
               if (isTuplet && beamGroup.length === tupletN) {
-                beams.push(new Beam(beamGroup, beamAutoStem));
+                pushBeam(beamGroup);
                 beamGroup = []; groupBeats = 0; postTupletMerged = false;
                 continue;
               }
               if (measure.notes[sourceIdx]?.beamBreak) {
-                if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, beamAutoStem));
+                if (beamGroup.length >= 2) pushBeam(beamGroup);
                 beamGroup = []; groupBeats = 0; postTupletMerged = false;
               }
             } else {
-              if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, beamAutoStem));
+              if (beamGroup.length >= 2) pushBeam(beamGroup);
               beamGroup = []; groupBeats = 0; postTupletMerged = false;
             }
           }
-          if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, beamAutoStem));
+          if (beamGroup.length >= 2) pushBeam(beamGroup);
         }
 
         const voice = new Voice({ numBeats, beatValue });
@@ -2063,8 +2154,22 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
         }
 
         // ── Tuplet brackets — any N-tuplet (3, 5, 6, 7, …). Walk measure.notes but
-        //    skip graces; map real indices → vfNotes via vfNoteIdxOf. ──
+        //    skip graces; map real indices → vfNotes via vfNoteIdxOf.
+        //
+        //    그룹 완결은 "개수 == N"이 아니라 박자 수학으로 판정한다:
+        //    같은 N 이 연속되는 동안 무스케일 박자를 누적해, (누적/N)이 2의
+        //    거듭제곱 박자 단위(…1/4, 1/2, 1, 2…)가 되는 지점이 한 브래킷.
+        //    → [8분,4분] 3연음(2개 음)이나 [8,8,16,16] 3연음(4개 음)처럼
+        //    불균등 분할도 정확히 한 그룹으로 묶인다. 라벨은 그룹 크기가
+        //    아니라 선언된 N("3","5",…)을 그대로 쓴다 — 예전 구현은 그룹
+        //    크기를 라벨로 써서 [8분,4분] 3연음이 "2"로 찍혔다. ──
         {
+          const rawBeats = (src: NoteInfo): number => {
+            const base = src.duration.replace(/[rd]+$/, '');
+            let b = DUR_BEATS[base] ?? 1;
+            if (src.dotted) b *= 1.5;
+            return b;
+          };
           let ti = 0;
           while (ti < measure.notes.length) {
             if (measure.notes[ti].grace) { ti++; continue; }
@@ -2075,11 +2180,23 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
               // The first note of the tuplet group carries the bracket preference.
               const bracketAttr = measure.notes[startTi].tupletBracket;
               const tupletNormalFromData = measure.notes[startTi].tupletNormal;
-              while (ti < measure.notes.length && measure.notes[ti].tuplet === n && group.length < n) {
-                if (measure.notes[ti].grace) { ti++; continue; }
+              // 한 브래킷의 무스케일 목표치 = N × (그룹 첫 음의 길이).
+              // [8,8,8]·[8,4분] 3연음은 1.5, [16×6] 6연음은 1.5, [16×5] 5연음은
+              // 1.25 — 첫 음이 브래킷의 기준 단위라는 표기 관례를 그대로 쓴다.
+              // (분할 변형: [8,8,16,16]도 누적 1.5 에서 닫혀 "3" 하나 ✓)
+              const target = n * rawBeats(measure.notes[startTi]);
+              let unscaled = 0;
+              while (ti < measure.notes.length) {
+                const src = measure.notes[ti];
+                if (src.grace) { ti++; continue; }
+                if (src.tuplet !== n) break;
                 const vIdx = vfNoteIdxOf[ti];
-                if (vIdx >= 0) group.push(vfNotes[vIdx]);
+                if (vIdx >= 0) {
+                  group.push(vfNotes[vIdx]);
+                  unscaled += rawBeats(src);
+                }
                 ti++;
+                if (unscaled >= target - 1e-6) break; // 한 브래킷 완결
               }
               if (group.length >= 2) {
                 const stemDown = group[0].getStemDirection() === -1;
@@ -2087,10 +2204,23 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
                 // like 7:6, 5:3). Fall back to power-of-2 heuristic when
                 // the data lacks the explicit denominator.
                 const notesOccupied = tupletNormalFromData ?? Math.pow(2, Math.floor(Math.log2(n - 1)));
+                // 브래킷 규칙:
+                //  · 그룹이 자기 빔과 1:1 일치 → 숫자만(관례; XML bracket=yes면 존중)
+                //  · 빔이 전혀 없는 투플렛 → 브래킷 강제(안 그리면 범위 불명)
+                //  · 더 긴 빔 "안에" 섞인 투플렛 → 숫자만 — 여기서 브래킷을
+                //    강제하면 VexFlow가 빔 위로 기울어진 브래킷 선을 그려
+                //    빔과 X자로 교차한다(Confirmation m73/m75에서 실측).
+                const first = beamOf.get(group[0]);
+                const exactSpan = !!first
+                  && group.length === first.size
+                  && group.every((g) => beamOf.get(g)?.id === first.id);
+                const anyBeamed = group.some((g) => beamOf.has(g));
                 const tupletOpts: { numNotes: number; notesOccupied: number; bracketed?: boolean } = {
-                  numNotes: group.length, notesOccupied,
+                  numNotes: n, notesOccupied,
+                  bracketed: exactSpan
+                    ? (bracketAttr ?? false)
+                    : anyBeamed ? false : (bracketAttr ?? true),
                 };
-                if (bracketAttr !== undefined) tupletOpts.bracketed = bracketAttr;
                 const tuplet = new Tuplet(group, tupletOpts);
                 if (stemDown) tuplet.setTupletLocation(-1);
                 tuplet.setContext(ctx).draw();

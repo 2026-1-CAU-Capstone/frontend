@@ -12,7 +12,7 @@ import type { MeasureInfo, NoteInfo } from '../data/sampleMelody';
 import { getGlobalKeyboard } from '../lib/player/GlobalKeyboard';
 import { useCountInIntro } from './useCountInIntro';
 import { swungBeats } from '../lib/note/swing';
-import { DUR_BEATS, vexToMidi, getBeats, chordToMidi } from '../lib/note/melodyTiming';
+import { vexToMidi, getBeats, chordToMidi } from '../lib/note/melodyTiming';
 import { expandMeasures } from '../lib/note/expandMeasures';
 
 export interface UseNoteSheetPlaybackArgs {
@@ -183,15 +183,21 @@ export function useNoteSheetPlayback(
         // to -1 (truthy!) and shifted every highlight one bar off from pass 2 on.
         const miOffset = loopCount === 0 ? 0 : Math.max(0, allMeasures.findIndex((m) => !!m.chord));
 
-        // Build flat note list with beat-position tracking for inline piano comping
-        type FlatNote = { note: NoteInfo; mi: number; ni: number; emIdx: number; beatPos: number };
+        // Build flat note list with beat-position tracking for inline piano comping.
+        // ottavaShift: 8va/8vb 브래킷 구간의 ±12 — 렌더와 소리를 일치시킨다.
+        type FlatNote = { note: NoteInfo; mi: number; ni: number; emIdx: number; beatPos: number; ottava: number };
         const flat: FlatNote[] = [];
+        let ottavaShift = 0;
         for (let ei = 0; ei < expandedMeasures.length; ei++) {
           const em = expandedMeasures[ei];
           let bp = 0;
           for (let ni = 0; ni < em.m.notes.length; ni++) {
-            flat.push({ note: em.m.notes[ni], mi: em.origMi + miOffset, ni, emIdx: ei, beatPos: bp });
-            bp += getBeats(em.m.notes[ni].duration, em.m.notes[ni].dotted, em.m.notes[ni].tuplet);
+            const nt = em.m.notes[ni];
+            if (nt.ottavaStart === '8va') ottavaShift = 12;
+            else if (nt.ottavaStart === '8vb') ottavaShift = -12;
+            flat.push({ note: nt, mi: em.origMi + miOffset, ni, emIdx: ei, beatPos: bp, ottava: ottavaShift });
+            if (nt.ottavaEnd) ottavaShift = 0;
+            bp += getBeats(nt.duration, nt.dotted, nt.tuplet, nt.tupletNormal);
           }
         }
 
@@ -268,15 +274,9 @@ export function useNoteSheetPlayback(
         let i = 0;
         while (i < flat.length) {
           await checkPause();
-          const { note: n, mi, ni, emIdx, beatPos } = flat[i];
+          const { note: n, mi, ni, emIdx, beatPos, ottava } = flat[i];
           const isRest = n.duration.endsWith('r');
-          const baseDur = n.duration.replace(/r$/, '');
-          let beats = DUR_BEATS[baseDur] ?? 1;
-          if (n.dotted) beats *= 1.5;
-          if (n.tuplet && n.tuplet >= 2) {
-            const denom = Math.pow(2, Math.floor(Math.log2(n.tuplet - 1)));
-            beats *= denom / n.tuplet;
-          }
+          const beats = getBeats(n.duration, n.dotted, n.tuplet, n.tupletNormal);
 
           if (!isRest) highlight(mi, ni);
 
@@ -287,13 +287,7 @@ export function useNoteSheetPlayback(
             let look = i + 1;
             while (look < flat.length) {
               const ln = flat[look].note;
-              const lb = ln.duration.replace(/r$/, '');
-              let lbeats = DUR_BEATS[lb] ?? 1;
-              if (ln.dotted) lbeats *= 1.5;
-              if (ln.tuplet && ln.tuplet >= 2) {
-                const denom = Math.pow(2, Math.floor(Math.log2(ln.tuplet - 1)));
-                lbeats *= denom / ln.tuplet;
-              }
+              const lbeats = getBeats(ln.duration, ln.dotted, ln.tuplet, ln.tupletNormal);
               tieSegs.push({ emIdx: flat[look].emIdx, beatPos: flat[look].beatPos, beats: lbeats });
               if (!ln.tie) { look++; break; }
               look++;
@@ -301,8 +295,12 @@ export function useNoteSheetPlayback(
             const totalBeats = tieSegs.reduce((s, seg) => s + seg.beats, 0);
             const sec = beatRange(beatPos, totalBeats);
             const acc = n.accidentals?.[0] as '#' | 'b' | 'n' | undefined;
-            const midi = vexToMidi(n.keys[0], acc);
-            kb.play(String(midi), { duration: sec * 0.9, gain: 3 });
+            // 화음(keys 2+)은 전부 동시에 — 인덱스별 임시표 존중.
+            for (let ki = 0; ki < n.keys.length; ki++) {
+              const kAcc = (n.accidentals?.[ki] ?? (ki === 0 ? acc : undefined)) as '#' | 'b' | 'n' | undefined;
+              const midi = vexToMidi(n.keys[ki], kAcc) + ottava;
+              kb.play(String(midi), { duration: sec * 0.9, gain: 3 });
+            }
             for (const seg of tieSegs) {
               await waitWithComp(seg.beats, seg.emIdx, seg.beatPos);
             }
@@ -312,9 +310,11 @@ export function useNoteSheetPlayback(
 
           const sec = beatRange(beatPos, beats);
           if (!isRest) {
-            const acc = n.accidentals?.[0] as '#' | 'b' | 'n' | undefined;
-            const midi = vexToMidi(n.keys[0], acc);
-            kb.play(String(midi), { duration: sec * 0.9, gain: 3 });
+            for (let ki = 0; ki < n.keys.length; ki++) {
+              const kAcc = n.accidentals?.[ki] as '#' | 'b' | 'n' | undefined;
+              const midi = vexToMidi(n.keys[ki], kAcc) + ottava;
+              kb.play(String(midi), { duration: sec * 0.9, gain: 3 });
+            }
           }
           await waitWithComp(beats, emIdx, beatPos);
           i++;

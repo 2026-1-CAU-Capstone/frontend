@@ -8,6 +8,12 @@ const API_BASE = import.meta.env.DEV ? '/api' : 'https://jazzify.p-e.kr/api';
 
 interface LickResponse {
   publicId: string;
+  /** 비동기 OMR 진행 상태 — POST /v1/licks/omr 직후엔 PENDING/PROCESSING 셸이
+   *  돌아오고, 완성본은 GET /v1/licks/{id} 재조회로 확인한다(릭엔 별도
+   *  omr-status 엔드포인트가 없음). 일반 생성 릭에는 없을 수 있어 optional. */
+  omrStatus?: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | string | null;
+  omrProgress?: number | null;
+  omrFailureReason?: string | null;
   performer: string;
   title: string;
   album: string | null;
@@ -241,10 +247,33 @@ export interface OMRMetadata {
   userId?: string;
 }
 
-/** POST /v1/licks/omr — upload a sheet PNG/JPG/JPEG. Backend runs OMR,
- *  parses MusicXML, joins chord assignments, persists, returns the saved
- *  Lick. Metadata fields are optional (extracted from MusicXML when
- *  omitted). Errors surface as Error with the backend `detail` / `message`. */
+/** GET /v1/licks/{publicId} — 단건 조회 (비동기 OMR 완성 확인용). */
+export async function getLickRaw(publicId: string): Promise<LickResponse> {
+  const res = await authFetch(`${API_BASE}/v1/licks/${encodeURIComponent(publicId)}`);
+  if (!res.ok) {
+    let detail = '';
+    try {
+      const j = await res.json() as { message?: string };
+      detail = j.message || '';
+    } catch { /* ignore */ }
+    throw new Error(`릭 조회 실패 (${res.status}) ${detail}`.trim());
+  }
+  const json: { data: LickResponse } = await res.json();
+  return json.data;
+}
+
+/* 비동기 OMR 폴링 파라미터 — OMR은 수십 초 걸리므로 4초 간격, 최대 3분. */
+const LICK_OMR_POLL_INTERVAL_MS = 4_000;
+const LICK_OMR_POLL_MAX_MS = 3 * 60_000;
+
+/** POST /v1/licks/omr — upload a sheet PNG/JPG/JPEG.
+ *
+ *  백엔드가 OMR을 비동기로 전환함: POST 는 즉시 201 + `omrStatus:"PROCESSING"`
+ *  셸(빈 sheetData)을 반환하고, 완성본은 릭 재조회로 확인해야 한다(릭엔
+ *  omr-status 엔드포인트가 없어 GET /v1/licks/{id} 의 omrStatus 를 본다).
+ *  이 함수가 내부에서 완료까지 폴링하므로 호출부(OMRUploadModal 등) 계약은
+ *  기존 동기 시절 그대로 — resolve 시점에 완성된 LickEntry 를 준다.
+ *  FAILED → omrFailureReason 으로 throw, 타임아웃(3분) → throw. */
 export async function createLickViaOMR(file: File, metadata: OMRMetadata = {}): Promise<LickEntry> {
   const form = new FormData();
   form.append('file', file);
@@ -269,7 +298,35 @@ export async function createLickViaOMR(file: File, metadata: OMRMetadata = {}): 
     throw new Error(`OMR 실패 (${res.status}${code ? ' · ' + code : ''}) ${detail}`.trim());
   }
   const json: { data: LickResponse } = await res.json();
-  return toLickEntry(json.data);
+  const shell = json.data;
+
+  // 과거 동기 계약(omrStatus 없음) 또는 즉시 완료 → 그대로 반환.
+  if (!shell.omrStatus || shell.omrStatus === 'COMPLETED') return toLickEntry(shell);
+  if (shell.omrStatus === 'FAILED') {
+    throw new Error(shell.omrFailureReason || '악보 인식(OMR)에 실패했습니다.');
+  }
+
+  // PENDING/PROCESSING → 완료까지 재조회 폴링.
+  const startedAt = Date.now();
+  for (;;) {
+    await new Promise((r) => setTimeout(r, LICK_OMR_POLL_INTERVAL_MS));
+    let cur: LickResponse;
+    try {
+      cur = await getLickRaw(shell.publicId);
+    } catch (e) {
+      // 인증 만료(401/403)는 더 기다려도 영원히 실패 — 즉시 중단.
+      const msg = e instanceof Error ? e.message : '';
+      if (/\b401\b|\b403\b/.test(msg)) throw e;
+      cur = shell; // 일시 오류 — 다음 틱에 재시도
+    }
+    if (cur.omrStatus === 'COMPLETED') return toLickEntry(cur);
+    if (cur.omrStatus === 'FAILED') {
+      throw new Error(cur.omrFailureReason || '악보 인식(OMR)에 실패했습니다.');
+    }
+    if (Date.now() - startedAt > LICK_OMR_POLL_MAX_MS) {
+      throw new Error('악보 인식이 시간 내에 끝나지 않았습니다(서버 지연). 잠시 후 다시 시도해 주세요.');
+    }
+  }
 }
 
 /* ── Delete ───────────────────────────────────────────────────────────────── */

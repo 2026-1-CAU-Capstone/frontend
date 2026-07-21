@@ -6,7 +6,7 @@ import { IconSidebar } from '../components/layout/IconSidebar';
 import {
   Renderer, Stave, StaveNote, Voice, Formatter, Beam, Accidental, Dot, BarlineType, StaveTie, Tuplet, Repetition,
   TextBracket, TextBracketPosition, Articulation, Annotation, AnnotationVerticalJustify,
-  Ornament, Tremolo, Curve,
+  Ornament, Tremolo, Curve, StaveConnector,
 } from 'vexflow';
 import { PianoKeyboard, playMidi, type PianoNote } from '../components/notesheet/PianoKeyboard';
 import type { NoteInfo, MeasureInfo, NavigationMarker, NoteSheetData } from '../data/sampleMelody';
@@ -16,6 +16,7 @@ import type { NoteInfo, MeasureInfo, NavigationMarker, NoteSheetData } from '../
 import { useEditorBackingPlayback } from '../hooks/useEditorBackingPlayback';
 import { GenreSelect, BpmControl, RepeatControl, TransportButtons, MixerButton } from '../components/backing/BackingPlayerBar';
 import { DUR_BEATS, vexToMidi, getBeats } from '../lib/note/melodyTiming';
+import { bakeExplicitAccidentals } from '../lib/note/resolvePitches';
 import { resolveMeasureAccidental, type RenderAcc } from '../lib/note/measureAccidentals';
 import { normalizeChord, formatChordDisplay } from '../lib/jazz-harmony';
 import { createSolo, updateSolo } from '../api/solos';
@@ -43,8 +44,41 @@ function convertAcc(pn: PianoNote, mode: 'b' | '#'): { vexKey: string; acc?: 'b'
 }
 
 
+/* ─── 화음(chord) 쌓기 ─────────────────────────────────────────────────── */
+
+const LETTER_ORDER: Record<string, number> = { c: 0, d: 1, e: 2, f: 3, g: 4, a: 5, b: 6 };
+
+/** 보표상 위치 순서 (옥타브 → 글자). VexFlow 화음 keys는 낮은음부터. */
+function diatonicRank(vexKey: string): number {
+  const [np, oct] = vexKey.split('/');
+  return (parseInt(oct, 10) || 0) * 7 + (LETTER_ORDER[np?.[0]?.toLowerCase() ?? 'c'] ?? 0);
+}
+
+/** 음표에 화음 톤 추가 — 같은 자리 음이면 제거(토글), 아니면 정렬 삽입.
+ *  accidentals 는 keys 인덱스에 맞춰 재매핑한다. 쉼표에는 쌓지 않는다. */
+function addKeyToNote(n: NoteInfo, vexKey: string, acc: NonNullable<NoteInfo['accidentals']>[number] | undefined): NoteInfo {
+  if (n.duration.endsWith('r')) return n;
+  const pairs = n.keys.map((k, i) => ({ k, a: n.accidentals?.[i] }));
+  const existing = pairs.findIndex((p) => p.k === vexKey);
+  if (existing >= 0) {
+    if (pairs.length === 1) return n; // 마지막 남은 음은 제거하지 않음
+    pairs.splice(existing, 1);
+  } else {
+    const rank = diatonicRank(vexKey);
+    let at = pairs.findIndex((p) => diatonicRank(p.k) > rank);
+    if (at < 0) at = pairs.length;
+    pairs.splice(at, 0, { k: vexKey, a: acc });
+  }
+  const accOut: NonNullable<NoteInfo['accidentals']> = {};
+  pairs.forEach((p, i) => { if (p.a) accOut[i] = p.a; });
+  const next: NoteInfo = { ...n, keys: pairs.map((p) => p.k) };
+  if (Object.keys(accOut).length) next.accidentals = accOut;
+  else delete next.accidentals;
+  return next;
+}
+
 function measureBeats(notes: NoteInfo[]): number {
-  return notes.reduce((s, n) => s + getBeats(n.duration, n.dotted, n.tuplet), 0);
+  return notes.reduce((s, n) => s + getBeats(n.duration, n.dotted, n.tuplet, n.tupletNormal), 0);
 }
 
 /* ─── measure normalization ───────────────────────────────────────────────
@@ -184,6 +218,10 @@ const NAV_REPETITION: Record<NavigationMarker, number[]> = {
 
 const SHEET_SCALE = 1.35;
 const LINE_HEIGHT = 170;
+/* 양손(그랜드 스태프): 트레블 stave 상단 → 베이스 stave 상단 오프셋과,
+ * 줄당 추가 높이. 베이스 줄 아래에도 편집 바가 뜰 여백을 남긴다. */
+const GRAND_BASS_DY = 100;
+const GRAND_EXTRA = 115;
 /* MARGIN.top: chord 라벨(28px high) 이 stave 위에 충분한 여유를 두고 들어갈 공간. */
 const MARGIN = { top: 50, left: 10, right: 10, bottom: 10 };
 /** Soft cap on bars per line. The actual line break is driven by the
@@ -204,8 +242,11 @@ const NOTE_W: Record<string, number> = {
 /** Fallback when a measure is empty / unrecognised. */
 const FIXED_BAR_W = 200;
 
-interface MeasurePos { idx: number; x: number; y: number; w: number; chordX: number; }
-interface NotePos { mi: number; ni: number; x: number; y: number; w: number; h: number; }
+/** staff: 'bass' = 그랜드 스태프의 왼손(낮은음자리표) 행. 없으면 트레블. */
+interface MeasurePos { idx: number; x: number; y: number; w: number; chordX: number; staff?: 'bass'; }
+interface NotePos { mi: number; ni: number; x: number; y: number; w: number; h: number; staff?: 'bass'; }
+type StaffId = 'treble' | 'bass';
+interface NoteSel { mi: number; ni: number; staff?: StaffId; }
 
 /** Intrinsic visual width for one measure based on its notes — not used for
  *  pixel-perfect placement (the Formatter does that), but as the weight when
@@ -226,12 +267,12 @@ function measureWidth(m: MeasureInfo): number {
   return Math.max(w + 22, 150);
 }
 
-function packLines(measures: MeasureInfo[], availW: number): number[][] {
+function packLines(measures: MeasureInfo[], availW: number, widths?: number[]): number[][] {
   const lines: number[][] = [];
   let line: number[] = [];
   let usedW = 0;
   for (let i = 0; i < measures.length; i++) {
-    const mw = measureWidth(measures[i]);
+    const mw = widths?.[i] ?? measureWidth(measures[i]);
     const decor = line.length === 0 ? (lines.length === 0 ? DECOR_FIRST : DECOR_OTHER) : 0;
     if (line.length > 0 && (usedW + mw > availW || line.length >= MAX_PER_LINE)) {
       lines.push(line);
@@ -309,16 +350,189 @@ function drawGlissLine(svgEl: SVGElement, fromNote: StaveNote, toNote: StaveNote
   svgEl.appendChild(txt);
 }
 
-function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number, currentIdx: number, positions: MeasurePos[], sheetKey?: string, notePositions?: NotePos[], selectedNote?: { mi: number; ni: number } | null, noteElMap?: Map<string, SVGElement>) {
+/** NoteInfo → VexFlow StaveNote — 트레블/베이스 공용. 임시표는 keys 인덱스
+ *  전부에 옥타브 인식 규칙으로 붙인다(화음 지원). */
+function buildVfNote(
+  n: NoteInfo,
+  clef: 'treble' | 'bass',
+  activeAcc: Map<string, RenderAcc>,
+  keySigAcc: Map<string, 'b' | '#'>,
+): StaveNote {
+  const isRest = n.duration.endsWith('r');
+  const dur = buildDuration(n.duration, n.dotted);
+  const restKey = clef === 'bass' ? 'd/3' : 'b/4';
+  const note = new StaveNote({ keys: isRest ? [restKey] : n.keys, duration: dur, clef, autoStem: true });
+  if (n.dotted) Dot.buildAndAttach([note]);
+
+  if (!isRest) {
+    // Octave-aware accidental rule — single shared helper, every chord tone.
+    for (let ki = 0; ki < n.keys.length; ki++) {
+      const realAcc = n.accidentals?.[ki] as RenderAcc | undefined;
+      const glyph = resolveMeasureAccidental(activeAcc, keySigAcc, n.keys[ki], realAcc);
+      if (glyph) note.addModifier(new Accidental(glyph), ki);
+    }
+  }
+
+  // ── Articulations / fermata / dynamics ─────────────────────────
+  // Same rendering rules as NoteSheet (the master reference). Position
+  // 3 = above, 4 = below. Articulations flip to the stem's OPPOSITE
+  // side; marcato is conventionally always above; fermata always above.
+  if (n.articulations) {
+    const ART_VF: Record<string, string> = {
+      staccato: 'a.', staccatissimo: 'av',
+      accent: 'a>', tenuto: 'a-',
+      marcato: 'a^', 'detached-legato': 'a-.',
+    };
+    for (const a of n.articulations) {
+      const code = ART_VF[a];
+      if (!code) continue;
+      const stemUp = note.getStemDirection() === 1;
+      const forceAbove = a === 'marcato';
+      const pos = (forceAbove || !stemUp) ? 3 : 4;
+      note.addModifier(new Articulation(code).setPosition(pos), 0);
+    }
+  }
+  if (n.fermata) {
+    note.addModifier(new Articulation('a@a').setPosition(3), 0);
+  }
+  if (n.dynamics) {
+    const ann = new Annotation(n.dynamics);
+    ann.setVerticalJustification(AnnotationVerticalJustify.BOTTOM);
+    note.addModifier(ann, 0);
+  }
+  if (n.ornaments) {
+    const ORN_VF: Record<string, string> = {
+      trill: 'tr', mordent: 'mordent',
+      'inverted-mordent': 'mordent_inverted',
+      turn: 'turn', 'inverted-turn': 'turn_inverted',
+    };
+    for (const o of n.ornaments) {
+      if (o === 'tremolo') { note.addModifier(new Tremolo(3), 0); continue; }
+      const code = ORN_VF[o];
+      if (code) note.addModifier(new Ornament(code), 0);
+    }
+  }
+
+  return note;
+}
+
+/** 한 마디의 빔 그룹 계산 — 트레블/베이스 공용 (renderSheet 본문에서 추출). */
+function buildBeams(msNotes: NoteInfo[], vfNotes: StaveNote[]): Beam[] {
+  const beams: Beam[] = [];
+  let beamGroup: StaveNote[] = [];
+  let groupBeats = 0;
+  let inTupletN = 0;
+  let postTupletMerged = false;
+
+  for (let ni = 0; ni < vfNotes.length; ni++) {
+    const vn = vfNotes[ni];
+    const tupletN = msNotes[ni].tuplet ?? 0;
+    const isTuplet = tupletN >= 3;
+    const dur = vn.getDuration();
+    const isBeamable = dur === '8' || dur === '16' || dur === '8d' || dur === '16d';
+    const isRest = vn.isRest();
+    const noteDots = vn.getModifiersByType('Dot')?.length ?? 0;
+    let noteBeats = DUR_BEATS[dur.replace('d', '')] ?? 1;
+    if (noteDots > 0 || dur.endsWith('d')) noteBeats *= 1.5;
+
+    if (postTupletMerged && beamGroup.length > 0) {
+      if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
+      beamGroup = [];
+      groupBeats = 0;
+      postTupletMerged = false;
+    }
+
+    if (tupletN !== inTupletN && beamGroup.length > 0) {
+      const prevIs16Triplet = inTupletN === 3 && beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
+      if (prevIs16Triplet && isBeamable && !isRest && !isTuplet) {
+        postTupletMerged = true;
+      } else {
+        if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
+        beamGroup = [];
+        if (!isTuplet) groupBeats = 0;
+      }
+    }
+    inTupletN = tupletN;
+
+    if (isBeamable && !isRest) {
+      if (!isTuplet && !postTupletMerged) {
+        const newGroupBeats = groupBeats + noteBeats;
+        const has16 = dur === '16' || dur === '16d' || beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
+        const boundary = has16 ? 1 : 2;
+        if (groupBeats > 0 && Math.floor((groupBeats - 0.001) / boundary) !== Math.floor((newGroupBeats - 0.001) / boundary) && beamGroup.length > 0) {
+          if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
+          beamGroup = [];
+          groupBeats = 0;
+        }
+      }
+      beamGroup.push(vn);
+      if (!isTuplet) groupBeats += noteBeats;
+      if (isTuplet && beamGroup.length === tupletN) {
+        beams.push(new Beam(beamGroup, true));
+        beamGroup = [];
+        groupBeats = 0;
+        postTupletMerged = false;
+        continue;
+      }
+      if (msNotes[ni].beamBreak) {
+        if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
+        beamGroup = [];
+        groupBeats = 0;
+        postTupletMerged = false;
+      }
+    } else {
+      if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
+      beamGroup = [];
+      groupBeats = 0;
+      postTupletMerged = false;
+    }
+  }
+  if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
+  return beams;
+}
+
+/** 투플렛 브래킷 렌더 — 트레블/베이스 공용 (renderSheet 본문에서 추출). */
+function drawTupletBrackets(msNotes: NoteInfo[], vfNotes: StaveNote[], ctx: ReturnType<Renderer['getContext']>): void {
+  let ti = 0;
+  while (ti < msNotes.length) {
+    const n = msNotes[ti].tuplet;
+    if (n && n >= 3) {
+      const group: StaveNote[] = [];
+      while (ti < msNotes.length && msNotes[ti].tuplet === n && group.length < n) {
+        group.push(vfNotes[ti]);
+        ti++;
+      }
+      if (group.length >= 2) {
+        const stemDown = group[0].getStemDirection() === -1;
+        const notesOccupied = Math.pow(2, Math.floor(Math.log2(n - 1)));
+        const tuplet = new Tuplet(group, { numNotes: group.length, notesOccupied });
+        if (stemDown) tuplet.setTupletLocation(-1);
+        tuplet.setContext(ctx).draw();
+      }
+    } else {
+      ti++;
+    }
+  }
+}
+
+function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number, currentIdx: number, positions: MeasurePos[], sheetKey?: string, notePositions?: NotePos[], selectedNote?: NoteSel | null, noteElMap?: Map<string, SVGElement>, bassMeasures?: MeasureInfo[] | null) {
   positions.length = 0;
   if (notePositions) notePositions.length = 0;
   if (noteElMap) noteElMap.clear();
   el.innerHTML = '';
   if (measures.length === 0) return;
+  const grand = !!bassMeasures;
+  const EMPTY_BASS: MeasureInfo = { notes: [] };
+  const bassAt = (i: number): MeasureInfo => bassMeasures?.[i] ?? EMPTY_BASS;
+  const lineH = grand ? LINE_HEIGHT + GRAND_EXTRA : LINE_HEIGHT;
   const innerW = width / SHEET_SCALE;
   const totalW = innerW - MARGIN.left - MARGIN.right;
-  const lines = packLines(measures, totalW);
-  const totalH = MARGIN.top + lines.length * LINE_HEIGHT + MARGIN.bottom;
+  /* 양손이면 마디 폭은 두 보표 중 밀도가 높은 쪽 기준. */
+  const widths = measures.map((m, i) => grand
+    ? Math.max(measureWidth(m), measureWidth(bassAt(i)))
+    : measureWidth(m));
+  const lines = packLines(measures, totalW, widths);
+  const totalH = MARGIN.top + lines.length * lineH + MARGIN.bottom;
   const renderer = new Renderer(el, Renderer.Backends.SVG);
   renderer.resize(innerW, totalH);
   const ctx = renderer.getContext();
@@ -330,6 +544,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
     el.style.height = `${totalH * SHEET_SCALE}px`;
   }
   const allVfNotes: { mi: number; ni: number; vfNote: StaveNote }[] = [];
+  const allBassVfNotes: { mi: number; ni: number; vfNote: StaveNote }[] = [];
   let tieCarryAcc: Map<string, RenderAcc> | undefined;
   const keySigAcc = keySigAccidentals(sheetKey || 'C');
 
@@ -337,7 +552,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
     const indices = lines[li];
     const isFirstLine = li === 0;
     const isLastLine = li === lines.length - 1;
-    const y = MARGIN.top + li * LINE_HEIGHT;
+    const y = MARGIN.top + li * lineH;
     const decorW = isFirstLine ? DECOR_FIRST : DECOR_OTHER;
     const availForBars = totalW - decorW;
 
@@ -347,7 +562,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
      * less content than the soft cap, in which case bars keep their
      * natural width (left-aligned) so a short final phrase doesn't
      * stretch out cartoonishly. */
-    const intrinsics = indices.map((idx) => measureWidth(measures[idx]));
+    const intrinsics = indices.map((idx) => widths[idx]);
     const totalIntrinsic = intrinsics.reduce((s, w) => s + w, 0);
     const shouldStretch =
       !isLastLine || indices.length >= MAX_PER_LINE || totalIntrinsic > availForBars;
@@ -438,7 +653,31 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       }
 
       const measure = measures[m];
-      if (measure.notes.length === 0) {
+      const bassM = grand ? bassAt(m) : EMPTY_BASS;
+
+      /* ── 양손: 트레블 아래 베이스 보표 + brace/barline 연결선 ── */
+      let bassStave: Stave | null = null;
+      if (grand) {
+        bassStave = new Stave(x, y + GRAND_BASS_DY, w);
+        if (firstInLine) {
+          bassStave.addClef('bass');
+          if (sheetKey && sheetKey !== 'C') bassStave.addKeySignature(sheetKey);
+          if (isFirstLine) bassStave.addTimeSignature('4/4');
+        }
+        if (mData.repeatStart) bassStave.setBegBarType(BarlineType.REPEAT_BEGIN);
+        if (mData.repeatEnd) bassStave.setEndBarType(BarlineType.REPEAT_END);
+        else if (isLast) bassStave.setEndBarType(BarlineType.END);
+        else bassStave.setEndBarType(BarlineType.SINGLE);
+        bassStave.setContext(ctx).draw();
+        if (firstInLine) {
+          new StaveConnector(stave, bassStave).setType(StaveConnector.type.BRACE).setContext(ctx).draw();
+          new StaveConnector(stave, bassStave).setType(StaveConnector.type.SINGLE_LEFT).setContext(ctx).draw();
+        }
+        new StaveConnector(stave, bassStave).setType(StaveConnector.type.SINGLE_RIGHT).setContext(ctx).draw();
+        positions.push({ idx: m, x: chordX, y: y + GRAND_BASS_DY, w: w - (firstInLine ? decorW : 0) - 4, chordX, staff: 'bass' });
+      }
+
+      if (measure.notes.length === 0 && bassM.notes.length === 0) {
         x += w;
         continue;
       }
@@ -446,61 +685,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       const activeAcc: Map<string, RenderAcc> = tieCarryAcc ? new Map(tieCarryAcc) : new Map();
       tieCarryAcc = undefined;
 
-      const vfNotes = measure.notes.map((n) => {
-        const isRest = n.duration.endsWith('r');
-        const dur = buildDuration(n.duration, n.dotted);
-        const note = new StaveNote({ keys: isRest ? ['b/4'] : n.keys, duration: dur, autoStem: true });
-        if (n.dotted) Dot.buildAndAttach([note]);
-
-        if (!isRest) {
-          // Octave-aware accidental rule — single shared helper.
-          const realAcc = n.accidentals?.[0] as 'b' | '#' | undefined;
-          const glyph = resolveMeasureAccidental(activeAcc, keySigAcc, n.keys[0], realAcc);
-          if (glyph) note.addModifier(new Accidental(glyph), 0);
-        }
-
-        // ── Articulations / fermata / dynamics ─────────────────────────
-        // Same rendering rules as NoteSheet (the master reference). Position
-        // 3 = above, 4 = below. Articulations flip to the stem's OPPOSITE
-        // side; marcato is conventionally always above; fermata always above.
-        if (n.articulations) {
-          const ART_VF: Record<string, string> = {
-            staccato: 'a.', staccatissimo: 'av',
-            accent: 'a>', tenuto: 'a-',
-            marcato: 'a^', 'detached-legato': 'a-.',
-          };
-          for (const a of n.articulations) {
-            const code = ART_VF[a];
-            if (!code) continue;
-            const stemUp = note.getStemDirection() === 1;
-            const forceAbove = a === 'marcato';
-            const pos = (forceAbove || !stemUp) ? 3 : 4;
-            note.addModifier(new Articulation(code).setPosition(pos), 0);
-          }
-        }
-        if (n.fermata) {
-          note.addModifier(new Articulation('a@a').setPosition(3), 0);
-        }
-        if (n.dynamics) {
-          const ann = new Annotation(n.dynamics);
-          ann.setVerticalJustification(AnnotationVerticalJustify.BOTTOM);
-          note.addModifier(ann, 0);
-        }
-        if (n.ornaments) {
-          const ORN_VF: Record<string, string> = {
-            trill: 'tr', mordent: 'mordent',
-            'inverted-mordent': 'mordent_inverted',
-            turn: 'turn', 'inverted-turn': 'turn_inverted',
-          };
-          for (const o of n.ornaments) {
-            if (o === 'tremolo') { note.addModifier(new Tremolo(3), 0); continue; }
-            const code = ORN_VF[o];
-            if (code) note.addModifier(new Ornament(code), 0);
-          }
-        }
-
-        return note;
-      });
+      const vfNotes = measure.notes.map((n) => buildVfNote(n, 'treble', activeAcc, keySigAcc));
 
       const lastNote = measure.notes[measure.notes.length - 1];
       if (lastNote?.tie && !lastNote.duration.endsWith('r')) {
@@ -510,116 +695,52 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         }
       }
 
-      const voice = new Voice({ numBeats: 4, beatValue: 4 });
-      voice.setStrict(false);
-      voice.addTickables(vfNotes);
-      /* Use formatToStave so the formatter respects the stave's actual
-       * note-area boundaries (getNoteStartX() / getNoteEndX()). With the
-       * naïve format(voices, width) call the last notehead/flag can extend
-       * past the barline because `width` constrains note ANCHOR positions,
-       * not their right edges. */
-      new Formatter().joinVoices([voice]).formatToStave([voice], stave);
-
-      const beams: Beam[] = [];
-      let beamGroup: StaveNote[] = [];
-      let groupBeats = 0;
-      let inTupletN = 0;
-      let postTupletMerged = false;
-
-      for (let ni = 0; ni < vfNotes.length; ni++) {
-        const vn = vfNotes[ni];
-        const tupletN = measure.notes[ni].tuplet ?? 0;
-        const isTuplet = tupletN >= 3;
-        const dur = vn.getDuration();
-        const isBeamable = dur === '8' || dur === '16' || dur === '8d' || dur === '16d';
-        const isRest = vn.isRest();
-        const noteDots = vn.getModifiersByType('Dot')?.length ?? 0;
-        let noteBeats = DUR_BEATS[dur.replace('d', '')] ?? 1;
-        if (noteDots > 0 || dur.endsWith('d')) noteBeats *= 1.5;
-
-        if (postTupletMerged && beamGroup.length > 0) {
-          if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
-          beamGroup = [];
-          groupBeats = 0;
-          postTupletMerged = false;
-        }
-
-        if (tupletN !== inTupletN && beamGroup.length > 0) {
-          const prevIs16Triplet = inTupletN === 3 && beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
-          if (prevIs16Triplet && isBeamable && !isRest && !isTuplet) {
-            postTupletMerged = true;
-          } else {
-            if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
-            beamGroup = [];
-            if (!isTuplet) groupBeats = 0;
-          }
-        }
-        inTupletN = tupletN;
-
-        if (isBeamable && !isRest) {
-          if (!isTuplet && !postTupletMerged) {
-            const newGroupBeats = groupBeats + noteBeats;
-            const has16 = dur === '16' || dur === '16d' || beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
-            const boundary = has16 ? 1 : 2;
-            if (groupBeats > 0 && Math.floor((groupBeats - 0.001) / boundary) !== Math.floor((newGroupBeats - 0.001) / boundary) && beamGroup.length > 0) {
-              if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
-              beamGroup = [];
-              groupBeats = 0;
-            }
-          }
-          beamGroup.push(vn);
-          if (!isTuplet) groupBeats += noteBeats;
-          if (isTuplet && beamGroup.length === tupletN) {
-            beams.push(new Beam(beamGroup, true));
-            beamGroup = [];
-            groupBeats = 0;
-            postTupletMerged = false;
-            continue;
-          }
-          if (measure.notes[ni].beamBreak) {
-            if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
-            beamGroup = [];
-            groupBeats = 0;
-            postTupletMerged = false;
-          }
-        } else {
-          if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
-          beamGroup = [];
-          groupBeats = 0;
-          postTupletMerged = false;
-        }
+      /* 보표별 voice 구성 — 양손이면 두 voice를 한 Formatter로 묶어 세로 정렬.
+       * formatToStave 는 stave의 실제 note-area 경계(getNoteStartX/EndX)를
+       * 존중한다 — naïve format(voices, width)은 마지막 음표 머리/기가 barline
+       * 을 넘을 수 있다. */
+      const voices: Voice[] = [];
+      let voice: Voice | null = null;
+      if (vfNotes.length > 0) {
+        voice = new Voice({ numBeats: 4, beatValue: 4 });
+        voice.setStrict(false);
+        voice.addTickables(vfNotes);
+        voices.push(voice);
       }
-      if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
+      let bassVfNotes: StaveNote[] = [];
+      let bassVoice: Voice | null = null;
+      if (grand && bassM.notes.length > 0 && bassStave) {
+        const bassActive: Map<string, RenderAcc> = new Map();
+        bassVfNotes = bassM.notes.map((n) => buildVfNote(n, 'bass', bassActive, keySigAcc));
+        bassVoice = new Voice({ numBeats: 4, beatValue: 4 });
+        bassVoice.setStrict(false);
+        bassVoice.addTickables(bassVfNotes);
+        voices.push(bassVoice);
+      }
+      if (bassStave) {
+        // 클레프/조표 폭이 달라도 두 보표의 음표 시작 x를 맞춘다.
+        try { Stave.formatBegModifiers([stave, bassStave]); } catch { /* noop */ }
+      }
+      const fmt = new Formatter();
+      voices.forEach((v) => fmt.joinVoices([v]));
+      fmt.formatToStave(voices, stave);
 
-      voice.draw(ctx, stave);
+      const beams = voice ? buildBeams(measure.notes, vfNotes) : [];
+      const bassBeams = bassVoice ? buildBeams(bassM.notes, bassVfNotes) : [];
+
+      if (voice) voice.draw(ctx, stave);
       beams.forEach((bm) => bm.setContext(ctx).draw());
+      if (bassVoice && bassStave) bassVoice.draw(ctx, bassStave);
+      bassBeams.forEach((bm) => bm.setContext(ctx).draw());
 
-      // Render tuplet brackets — any N-tuplet (3, 5, 6, 7, …) with the correct number above
-      {
-        let ti = 0;
-        while (ti < measure.notes.length) {
-          const n = measure.notes[ti].tuplet;
-          if (n && n >= 3) {
-            const group: StaveNote[] = [];
-            while (ti < measure.notes.length && measure.notes[ti].tuplet === n && group.length < n) {
-              group.push(vfNotes[ti]);
-              ti++;
-            }
-            if (group.length >= 2) {
-              const stemDown = group[0].getStemDirection() === -1;
-              const notesOccupied = Math.pow(2, Math.floor(Math.log2(n - 1)));
-              const tuplet = new Tuplet(group, { numNotes: group.length, notesOccupied });
-              if (stemDown) tuplet.setTupletLocation(-1);
-              tuplet.setContext(ctx).draw();
-            }
-          } else {
-            ti++;
-          }
-        }
-      }
+      drawTupletBrackets(measure.notes, vfNotes, ctx);
+      if (bassVfNotes.length) drawTupletBrackets(bassM.notes, bassVfNotes, ctx);
 
       for (let ni = 0; ni < vfNotes.length; ni++) {
         allVfNotes.push({ mi: m, ni, vfNote: vfNotes[ni] });
+      }
+      for (let ni = 0; ni < bassVfNotes.length; ni++) {
+        allBassVfNotes.push({ mi: m, ni, vfNote: bassVfNotes[ni] });
       }
 
       x += w;
@@ -781,8 +902,33 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
     }
   }
 
+  // Bass ties — 왼손 파트는 같은 줄 안의 단순 타이만 그린다.
+  if (grand && allBassVfNotes.length) {
+    const byPos = new Map<string, { vfNote: StaveNote; mi: number }>();
+    allBassVfNotes.forEach((e) => byPos.set(`${e.mi}-${e.ni}`, { vfNote: e.vfNote, mi: e.mi }));
+    for (let mi = 0; mi < measures.length; mi++) {
+      const bm = bassAt(mi);
+      for (let ni = 0; ni < bm.notes.length; ni++) {
+        if (!bm.notes[ni].tie) continue;
+        const from = byPos.get(`${mi}-${ni}`);
+        const to = byPos.get(`${mi}-${ni + 1}`) ?? byPos.get(`${mi + 1}-0`);
+        if (!from || !to) continue;
+        if (measureLine.get(from.mi) !== measureLine.get(to.mi)) continue;
+        try {
+          new StaveTie({ firstNote: from.vfNote, lastNote: to.vfNote, firstIndexes: [0], lastIndexes: [0] }).setContext(ctx).draw();
+        } catch (e) { console.warn('bass tie draw failed', e); }
+      }
+    }
+  }
+
   // Collect note bounding boxes for click detection & highlight selected note
   if (svgEl) {
+    for (const entry of allBassVfNotes) {
+      const bb = entry.vfNote.getBoundingBox();
+      if (bb && notePositions) {
+        notePositions.push({ mi: entry.mi, ni: entry.ni, x: bb.getX(), y: bb.getY(), w: bb.getW(), h: bb.getH(), staff: 'bass' });
+      }
+    }
     for (const entry of allVfNotes) {
       const bb = entry.vfNote.getBoundingBox();
       if (bb && notePositions) {
@@ -792,7 +938,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         const svgNode = entry.vfNote.getSVGElement();
         if (svgNode) noteElMap.set(`${entry.mi}-${entry.ni}`, svgNode as SVGElement);
       }
-      if (selectedNote && entry.mi === selectedNote.mi && entry.ni === selectedNote.ni) {
+      if (selectedNote && selectedNote.staff !== 'bass' && entry.mi === selectedNote.mi && entry.ni === selectedNote.ni) {
         const RED = '#d32f2f';
         const applyRed = (el: Element) => {
           const s = (el as SVGElement).style;
@@ -822,6 +968,36 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         try { const flagEl = (entry.vfNote as any).flag?.elem; if (flagEl) applyRed(flagEl); } catch {}
       }
     }
+    // 베이스 보표 선택 음표 하이라이트 (트레블과 동일 규칙)
+    if (selectedNote?.staff === 'bass') {
+      const entry = allBassVfNotes.find((e) => e.mi === selectedNote.mi && e.ni === selectedNote.ni);
+      if (entry) {
+        const RED = '#d32f2f';
+        const applyRed = (elm: Element) => {
+          const s = (elm as SVGElement).style;
+          s.fill = RED; s.stroke = RED;
+          elm.querySelectorAll('*').forEach((c) => {
+            const cs = (c as SVGElement).style;
+            cs.fill = RED; cs.stroke = RED;
+          });
+        };
+        const noteSvg = entry.vfNote.getSVGElement();
+        if (noteSvg) {
+          applyRed(noteSvg);
+          let parent = noteSvg.parentElement;
+          while (parent && parent !== (svgEl as unknown as HTMLElement)) {
+            const cls = parent.getAttribute('class') || '';
+            if (cls.includes('vf-stavenote') || cls.includes('vf-stemmablenote')) {
+              applyRed(parent);
+              break;
+            }
+            parent = parent.parentElement;
+          }
+        }
+        try { const stemEl = (entry.vfNote as any).stem?.elem; if (stemEl) applyRed(stemEl); } catch {}
+        try { const flagEl = (entry.vfNote as any).flag?.elem; if (flagEl) applyRed(flagEl); } catch {}
+      }
+    }
   }
 }
 
@@ -834,9 +1010,58 @@ const DUR_KEYS = [
   { value: 'q', title: 'Quarter (1 beat)' },
   { value: '8', title: 'Eighth (1/2 beat)' },
   { value: '16', title: '16th (1/4 beat)' },
+  { value: '32', title: '32nd (1/8 beat)' },
 ];
 
 /* ─── styled ───────────────────────────────────────────────────────────── */
+
+/* 선택된 마디 외곽선 — 점선 골드 박스(악보를 가리지 않게 채움은 옅게). */
+const MeasureSelOutline = styled.div`
+  position: absolute;
+  border: 2px dashed #b8860b;
+  border-radius: 6px;
+  background: rgba(184, 134, 11, 0.05);
+  pointer-events: none;
+  z-index: 3;
+`;
+
+/* 선택된 마디 바로 아래 뜨는 마디 편집 바 — 삽입/삭제. */
+const MeasureEditBarBox = styled.div`
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+  font-family: 'Pretendard', sans-serif;
+
+  .mlabel {
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: #8a6d1a;
+    margin-right: 2px;
+    white-space: nowrap;
+  }
+  button {
+    font-family: inherit;
+    font-size: 0.74rem;
+    font-weight: 600;
+    padding: 3px 8px;
+    border: 1px solid rgba(0, 0, 0, 0.14);
+    border-radius: 5px;
+    background: #fafafa;
+    color: #333;
+    cursor: pointer;
+    white-space: nowrap;
+    &:hover { border-color: #b8860b; background: #fff; }
+    &.danger { color: #c0392b; }
+    &.danger:hover { border-color: #c0392b; }
+  }
+`;
 
 const Page = styled.div`
   display: flex;
@@ -1467,6 +1692,16 @@ export default function EditorPage() {
 
   const [measures, setMeasures] = useState<MeasureInfo[]>([]);
   const [curNotes, setCurNotes] = useState<NoteInfo[]>([]);
+  /* 양손(그랜드 스태프) — 'single'(기본) | 'grand'. grand일 때 bassMeasures가
+   * 왼손(낮은음자리표) 파트로 measures와 인덱스 1:1 정렬된다. single로 되돌려도
+   * 데이터는 보존되고 렌더/저장에서만 제외된다. */
+  const [staffMode, setStaffMode] = useState<'single' | 'grand'>('single');
+  const [bassMeasures, setBassMeasures] = useState<MeasureInfo[]>([]);
+  /* 화음 모드 — ON이면 피아노 입력이 새 음표 대신 마지막(또는 선택된) 음표에
+   * 음을 쌓는다. */
+  const [chordInput, setChordInput] = useState(false);
+  /* 양손 모드에서 클릭으로 활성화된 베이스 마디 — 🎹 입력이 이 마디로 간다. */
+  const [selectedBassMeasure, setSelectedBassMeasure] = useState<number | null>(null);
   const [curChord1, setCurChord1] = useState('');
   const [curChord2, setCurChord2] = useState('');
 
@@ -1523,7 +1758,14 @@ export default function EditorPage() {
   const notePositionsRef = useRef<NotePos[]>([]);
   const noteElMapRef = useRef<Map<string, SVGElement>>(new Map());
   const [notePositions, setNotePositions] = useState<NotePos[]>([]);
-  const [selectedNote, setSelectedNote] = useState<{ mi: number; ni: number } | null>(null);
+  const [selectedNote, setSelectedNote] = useState<NoteSel | null>(null);
+  /* 마디 단위 선택 — 음표가 없는(빈) 마디도 클릭으로 잡아서 삽입/삭제할 수
+   * 있게 한다(OMR 교정 워크플로: 마디 사이 삽입·잘못 쪼개진 마디 삭제). */
+  const [selectedMeasure, setSelectedMeasure] = useState<number | null>(null);
+  /* 마디 내 삽입 모드 — 선택한 음표의 왼쪽/오른쪽에 새 음표를 끼워 넣는다.
+   * ni = "이 인덱스 자리에 삽입"(기존 ni 앞). 입력할 때마다 ni+1로 전진해
+   * 연속 입력이 자연스럽게 이어진다. 음표/마디 선택이 바뀌면 해제. */
+  const [insertPos, setInsertPos] = useState<NoteSel | null>(null);
   const [noteChordEditing, setNoteChordEditing] = useState(false);
   const [noteChordValue, setNoteChordValue] = useState('');
   const noteChordInputRef = useRef<HTMLInputElement>(null);
@@ -1541,8 +1783,18 @@ export default function EditorPage() {
     // mashed up with stale autosave content.
     if (prefillSheet) {
       try {
-        const normalized = splitMeasuresByBeats(prefillSheet.measures, 4);
+        // 솔로(OMR/MusicXML) 데이터는 score 임시표 의미론(조표+마디 상속) —
+        // 에디터/에디터 재생은 explicit(필드=소리) 의미론이므로 로드 시점에
+        // 명시 임시표로 구워 반음 어긋남을 차단한다. (릭·초안 로드는 이미
+        // explicit 데이터라 굽지 않음.)
+        const normalized = splitMeasuresByBeats(
+          bakeExplicitAccidentals(prefillSheet.measures, prefillSheet.key), 4,
+        );
         setMeasures(normalized);
+        if (Array.isArray(prefillSheet.bassMeasures) && prefillSheet.bassMeasures.length > 0) {
+          setBassMeasures(bakeExplicitAccidentals(prefillSheet.bassMeasures, prefillSheet.key));
+          setStaffMode('grand');
+        }
         setCurNotes([]);
         setCurChord1('');
         setCurChord2('');
@@ -1587,6 +1839,11 @@ export default function EditorPage() {
         } else {
           console.warn('[EditorPage] editingLick has no measures', editingLick);
         }
+        const lickBass = (sd as { bassMeasures?: MeasureInfo[] } | null)?.bassMeasures;
+        if (Array.isArray(lickBass) && lickBass.length > 0) {
+          setBassMeasures(lickBass);
+          setStaffMode('grand');
+        }
         setCurNotes([]);
         setCurChord1('');
         setCurChord2('');
@@ -1603,6 +1860,8 @@ export default function EditorPage() {
       const d = JSON.parse(raw);
       if (!d || typeof d !== 'object') return;
       if (Array.isArray(d.measures)) setMeasures(splitMeasuresByBeats(d.measures, 4));
+      if (Array.isArray(d.bassMeasures) && d.bassMeasures.length > 0) setBassMeasures(d.bassMeasures);
+      if (d.staffMode === 'grand') setStaffMode('grand');
       if (Array.isArray(d.curNotes)) setCurNotes(d.curNotes);
       if (typeof d.curChord1 === 'string') setCurChord1(d.curChord1);
       if (typeof d.curChord2 === 'string') setCurChord2(d.curChord2);
@@ -1625,8 +1884,8 @@ export default function EditorPage() {
    * 전부 넣던 이전 구현은 키 입력마다 타이머가 0부터 리셋돼 "10초마다"가 아니라
    * "마지막 입력 후 10초 무입력"이어야 저장됐다 — 연속 입력 중 크래시하면
    * 드래프트가 한 번도 안 남았다. */
-  const draftRef = useRef({ measures, curNotes, curChord1, curChord2, composer, genre, sheetTitle, sheetKey, bpm });
-  draftRef.current = { measures, curNotes, curChord1, curChord2, composer, genre, sheetTitle, sheetKey, bpm };
+  const draftRef = useRef({ measures, bassMeasures, staffMode, curNotes, curChord1, curChord2, composer, genre, sheetTitle, sheetKey, bpm });
+  draftRef.current = { measures, bassMeasures, staffMode, curNotes, curChord1, curChord2, composer, genre, sheetTitle, sheetKey, bpm };
   useEffect(() => {
     const intv = setInterval(() => {
       try {
@@ -1638,6 +1897,7 @@ export default function EditorPage() {
         const isEmpty =
           d.measures.length === 0 &&
           d.curNotes.length === 0 &&
+          d.bassMeasures.every((m) => m.notes.length === 0) &&
           !d.curChord1 && !d.curChord2;
         if (isEmpty) { localStorage.removeItem(DRAFT_KEY); return; }
         localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
@@ -1648,11 +1908,11 @@ export default function EditorPage() {
     return () => clearInterval(intv);
   }, []);
 
-  const editUndoStack = useRef<{ measures: MeasureInfo[]; curNotes: NoteInfo[]; curChord1: string; curChord2: string; repeatStart: boolean; repeatEnd: boolean; volta: 0 | 1 | 2; navigation: NavigationMarker | ''; bracket: boolean }[]>([]);
+  const editUndoStack = useRef<{ measures: MeasureInfo[]; bassMeasures: MeasureInfo[]; curNotes: NoteInfo[]; curChord1: string; curChord2: string; repeatStart: boolean; repeatEnd: boolean; volta: 0 | 1 | 2; navigation: NavigationMarker | ''; bracket: boolean }[]>([]);
   const pushEditUndo = useCallback(() => {
-    editUndoStack.current.push({ measures: measures.map((m) => ({ ...m, notes: m.notes.map((n) => ({ ...n })) })), curNotes: curNotes.map((n) => ({ ...n })), curChord1, curChord2, repeatStart, repeatEnd, volta, navigation, bracket });
+    editUndoStack.current.push({ measures: measures.map((m) => ({ ...m, notes: m.notes.map((n) => ({ ...n })) })), bassMeasures: bassMeasures.map((m) => ({ ...m, notes: m.notes.map((n) => ({ ...n })) })), curNotes: curNotes.map((n) => ({ ...n })), curChord1, curChord2, repeatStart, repeatEnd, volta, navigation, bracket });
     if (editUndoStack.current.length > 50) editUndoStack.current.shift();
-  }, [measures, curNotes, curChord1, curChord2, repeatStart, repeatEnd, volta, navigation, bracket]);
+  }, [measures, bassMeasures, curNotes, curChord1, curChord2, repeatStart, repeatEnd, volta, navigation, bracket]);
 
   const curBeats = useMemo(() => measureBeats(curNotes), [curNotes]);
 
@@ -1673,6 +1933,12 @@ export default function EditorPage() {
   }, [measures, curNotes, curChord, repeatStart, repeatEnd, volta, navigation, bracket]);
 
   const currentIdx = curNotes.length > 0 || curChord ? measures.length : -1;
+
+  /* 렌더/저장/재생용 베이스 파트 — 트레블(allMeasures) 길이에 맞춰 패딩. */
+  const bassAll = useMemo<MeasureInfo[] | null>(() => {
+    if (staffMode !== 'grand') return null;
+    return allMeasures.map((_, i) => bassMeasures[i] ?? { notes: [] });
+  }, [staffMode, allMeasures, bassMeasures]);
 
   useEffect(() => {
     if (bpmManualRef.current) return;
@@ -1768,9 +2034,11 @@ export default function EditorPage() {
     return () => ro.disconnect();
   }, []);
 
-  const updateNote = useCallback((mi: number, ni: number, updater: (n: NoteInfo) => NoteInfo) => {
+  const updateNote = useCallback((mi: number, ni: number, updater: (n: NoteInfo) => NoteInfo, staff?: StaffId) => {
     pushEditUndo();
-    if (mi < measures.length) {
+    if (staff === 'bass') {
+      setBassMeasures((prev) => prev.map((m, i) => i === mi ? { ...m, notes: m.notes.map((n, j) => j === ni ? updater(n) : n) } : m));
+    } else if (mi < measures.length) {
       setMeasures((prev) => prev.map((m, i) => i === mi ? { ...m, notes: m.notes.map((n, j) => j === ni ? updater(n) : n) } : m));
     } else {
       setCurNotes((prev) => prev.map((n, j) => j === ni ? updater(n) : n));
@@ -1799,7 +2067,15 @@ export default function EditorPage() {
       next.splice(idx, 0, fresh);
       return next;
     });
+    // 베이스 파트도 같은 자리에 빈 마디를 넣어 1:1 정렬 유지.
+    setBassMeasures((prev) => {
+      if (prev.length === 0 || mi >= prev.length) return prev;
+      const next = [...prev];
+      next.splice(Math.max(0, mi), 0, { notes: [] });
+      return next;
+    });
     setSelectedNote(null);
+    setSelectedBassMeasure(null);
   }, [pushEditUndo]);
 
   /** Insert a fresh empty measure AFTER the given measure index. */
@@ -1812,7 +2088,14 @@ export default function EditorPage() {
       next.splice(idx, 0, fresh);
       return next;
     });
+    setBassMeasures((prev) => {
+      if (prev.length === 0 || mi + 1 >= prev.length) return prev;
+      const next = [...prev];
+      next.splice(mi + 1, 0, { notes: [] });
+      return next;
+    });
     setSelectedNote(null);
+    setSelectedBassMeasure(null);
   }, [pushEditUndo]);
 
   /** Remove the measure at `mi`. Selection is cleared if it pointed at the
@@ -1820,16 +2103,61 @@ export default function EditorPage() {
   const deleteMeasure = useCallback((mi: number) => {
     pushEditUndo();
     setMeasures((prev) => prev.filter((_, i) => i !== mi));
+    setBassMeasures((prev) => (mi < prev.length ? prev.filter((_, i) => i !== mi) : prev));
     setSelectedNote(null);
+    setSelectedBassMeasure(null);
   }, [pushEditUndo]);
 
   /* Tie toggling is already wired into the existing note edit panel via
    * updateNote(...) — see the 'Tie' button row in the selected-note UI. */
 
-  /** Delete a single note at (mi, ni). */
-  const deleteNote = useCallback((mi: number, ni: number) => {
+  /** 마디 내 임의 위치에 음표/쉼표 삽입 (committed·열린 마디·베이스 모두). */
+  const insertNoteAt = useCallback((mi: number, ni: number, note: NoteInfo, staff?: StaffId) => {
+    pushEditUndo();
+    if (staff === 'bass') {
+      setBassMeasures((prev) => prev.map((m, i) => {
+        if (i !== mi) return m;
+        const notes = [...m.notes];
+        notes.splice(Math.max(0, Math.min(ni, notes.length)), 0, note);
+        return { ...m, notes };
+      }));
+    } else if (mi < measures.length) {
+      setMeasures((prev) => prev.map((m, i) => {
+        if (i !== mi) return m;
+        const notes = [...m.notes];
+        notes.splice(Math.max(0, Math.min(ni, notes.length)), 0, note);
+        return { ...m, notes };
+      }));
+    } else {
+      setCurNotes((prev) => {
+        const notes = [...prev];
+        notes.splice(Math.max(0, Math.min(ni, notes.length)), 0, note);
+        return notes;
+      });
+    }
+  }, [measures.length, pushEditUndo]);
+
+  /** 이 음표 "오른쪽"의 같은 마디 내용 전부 삭제 (ni 이후만, 마디 한정). */
+  const deleteNotesAfter = useCallback((mi: number, ni: number) => {
     pushEditUndo();
     if (mi < measures.length) {
+      setMeasures((prev) => prev.map((m, i) => (
+        i === mi ? { ...m, notes: m.notes.slice(0, ni + 1) } : m
+      )));
+    } else {
+      setCurNotes((prev) => prev.slice(0, ni + 1));
+    }
+  }, [measures.length, pushEditUndo]);
+
+  /** Delete a single note at (mi, ni). */
+  const deleteNote = useCallback((mi: number, ni: number, staff?: StaffId) => {
+    pushEditUndo();
+    if (staff === 'bass') {
+      setBassMeasures((prev) => prev.map((m, i) => {
+        if (i !== mi) return m;
+        return { ...m, notes: m.notes.filter((_, j) => j !== ni) };
+      }));
+    } else if (mi < measures.length) {
       setMeasures((prev) => prev.map((m, i) => {
         if (i !== mi) return m;
         return { ...m, notes: m.notes.filter((_, j) => j !== ni) };
@@ -1839,6 +2167,38 @@ export default function EditorPage() {
     }
     setSelectedNote(null);
   }, [measures.length, pushEditUndo]);
+
+  /** 선택된 음표를 보표 한 칸(다음/이전 글자)씩 올리거나 내린다.
+   *  다이어토닉 스텝이므로 임시표는 지우고 순수 글자 피치로 이동 —
+   *  필요한 b/#는 이동 후 임시표 버튼으로 다시 붙인다. */
+  const stepSelectedNote = useCallback((dir: 1 | -1) => {
+    if (!selectedNote) return;
+    const srcM = selectedNote.staff === 'bass' ? bassMeasures[selectedNote.mi] : allMeasures[selectedNote.mi];
+    const cur = srcM?.notes[selectedNote.ni];
+    if (!cur || cur.duration.endsWith('r')) return;
+    const LETTERS = ['c', 'd', 'e', 'f', 'g', 'a', 'b'];
+    const stepKey = (k: string): string | null => {
+      const [notePart, octStr] = k.split('/');
+      const letter = notePart[0].toLowerCase();
+      let idx = LETTERS.indexOf(letter);
+      if (idx < 0) return null;
+      let oct = parseInt(octStr, 10);
+      idx += dir;
+      if (idx > 6) { idx = 0; oct += 1; }
+      else if (idx < 0) { idx = 6; oct -= 1; }
+      if (oct < 1 || oct > 7) return null; // 가청·표기 범위 밖 이동 방지
+      return `${LETTERS[idx]}/${oct}`;
+    };
+    // 화음이면 모든 키를 같이 한 칸 이동 — 하나라도 범위를 벗어나면 취소.
+    const newKeys = cur.keys.map(stepKey);
+    if (newKeys.some((k) => k === null)) return;
+    updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+      const updated = { ...n, keys: newKeys as string[] };
+      delete updated.accidentals;
+      return updated;
+    }, selectedNote.staff);
+    playMidi(vexToMidi(newKeys[0] as string));
+  }, [selectedNote, allMeasures, bassMeasures, updateNote]);
 
   const handleNotePress = useCallback((pn: PianoNote) => {
     const conv = convertAcc(pn, accMode === 'n' ? 'b' : accMode);
@@ -1864,8 +2224,33 @@ export default function EditorPage() {
       }
     }
 
-    // If a note is selected, replace its pitch instead of adding a new note
+    // 삽입 모드 — 지정 위치에 끼워 넣고 삽입점을 한 칸 전진(연속 입력).
+    if (insertPos) {
+      const ni: NoteInfo = { keys: [conv.vexKey], duration, dotted: dotted || undefined };
+      if (!respelled && accMode === 'n') ni.accidentals = { 0: 'n' };
+      else if (conv.acc) ni.accidentals = { 0: conv.acc };
+      if (tripletMode) ni.tuplet = 3;
+      insertNoteAt(insertPos.mi, insertPos.ni, ni, insertPos.staff);
+      setInsertPos({ ...insertPos, ni: insertPos.ni + 1 });
+      if (tripletMode) {
+        tripletCountRef.current += 1;
+        if (tripletCountRef.current >= 3) {
+          setTripletMode(false);
+          tripletCountRef.current = 0;
+        }
+      }
+      return;
+    }
+
+    // 화음 톤으로 쓸 임시표 글리프 (b/#/n — respell 시 생략).
+    const chordAcc = respelled ? undefined : accMode === 'n' ? ('n' as const) : conv.acc;
+
+    // If a note is selected: 화음 모드면 그 음표에 음을 쌓고, 아니면 음정 교체.
     if (selectedNote) {
+      if (chordInput) {
+        updateNote(selectedNote.mi, selectedNote.ni, (n) => addKeyToNote(n, conv.vexKey, chordAcc), selectedNote.staff);
+        return;
+      }
       const acc: Record<number, 'b' | '#' | 'n'> | undefined =
         respelled ? undefined
         : accMode === 'n' ? { 0: 'n' as const }
@@ -1879,7 +2264,83 @@ export default function EditorPage() {
           delete updated.accidentals;
         }
         return updated;
+      }, selectedNote.staff);
+      return;
+    }
+
+    // 화음 모드(선택 없음) — 현재 입력 대상의 마지막 음표에 쌓는다.
+    // 쌓을 음표가 없으면 아래 기본 흐름으로 떨어져 새 음표를 만든다.
+    if (chordInput) {
+      const stackLast = (notes: NoteInfo[]): NoteInfo[] =>
+        notes.map((n, i) => (i === notes.length - 1 ? addKeyToNote(n, conv.vexKey, chordAcc) : n));
+      if (staffMode === 'grand' && selectedBassMeasure != null) {
+        if ((bassMeasures[selectedBassMeasure]?.notes.length ?? 0) > 0) {
+          pushEditUndo();
+          setBassMeasures((prev) => prev.map((m, i) => (i === selectedBassMeasure ? { ...m, notes: stackLast(m.notes) } : m)));
+          return;
+        }
+      } else if (selectedMeasure != null && selectedMeasure < measures.length) {
+        if ((measures[selectedMeasure]?.notes.length ?? 0) > 0) {
+          pushEditUndo();
+          setMeasures((prev) => prev.map((m, i) => (i === selectedMeasure ? { ...m, notes: stackLast(m.notes) } : m)));
+          return;
+        }
+      } else if (curNotes.length > 0) {
+        pushEditUndo();
+        setCurNotes((prev) => stackLast(prev));
+        return;
+      }
+    }
+
+    // 양손: 활성화된 베이스 마디로 입력 (트레블 기본 — 베이스는 마디 클릭 후).
+    if (staffMode === 'grand' && selectedBassMeasure != null) {
+      pushEditUndo();
+      const ni: NoteInfo = { keys: [conv.vexKey], duration, dotted: dotted || undefined };
+      if (!respelled && accMode === 'n') ni.accidentals = { 0: 'n' };
+      else if (conv.acc) ni.accidentals = { 0: conv.acc };
+      if (tripletMode) ni.tuplet = 3;
+      setBassMeasures((prev) => {
+        const next = [...prev];
+        while (next.length <= selectedBassMeasure) next.push({ notes: [] });
+        next[selectedBassMeasure] = { ...next[selectedBassMeasure], notes: [...next[selectedBassMeasure].notes, ni] };
+        return next;
       });
+      if (tripletMode) {
+        tripletCountRef.current += 1;
+        if (tripletCountRef.current >= 3) {
+          setTripletMode(false);
+          tripletCountRef.current = 0;
+        }
+      }
+      return;
+    }
+
+    // 마디가 선택돼 있으면 그 마디의 끝에 음표를 추가 — 중간에 삽입한 빈
+    // 마디를 피아노로 바로 채우는 OMR 교정 플로우. (열린 입력 마디가 아니라
+    // 선택된 committed 마디로 들어간다.)
+    if (selectedMeasure != null && selectedMeasure < measures.length) {
+      pushEditUndo();
+      const ni: NoteInfo = { keys: [conv.vexKey], duration, dotted: dotted || undefined };
+      if (!respelled && accMode === 'n') ni.accidentals = { 0: 'n' };
+      else if (conv.acc) ni.accidentals = { 0: conv.acc };
+      if (tripletMode) ni.tuplet = 3;
+      setMeasures((prev) => prev.map((m, i) => {
+        if (i !== selectedMeasure) return m;
+        const notes = [...m.notes];
+        if (tieNext && notes.length > 0) {
+          notes[notes.length - 1] = { ...notes[notes.length - 1], tie: true };
+        }
+        notes.push(ni);
+        return { ...m, notes };
+      }));
+      if (tieNext) setTieNext(false);
+      if (tripletMode) {
+        tripletCountRef.current += 1;
+        if (tripletCountRef.current >= 3) {
+          setTripletMode(false);
+          tripletCountRef.current = 0;
+        }
+      }
       return;
     }
 
@@ -1939,16 +2400,43 @@ export default function EditorPage() {
         tripletCountRef.current = 0;
       }
     }
-  }, [duration, dotted, accMode, tieNext, tripletMode, curNotes, measures.length, maybeAutoClose, pushEditUndo, selectedNote, updateNote]);
+  }, [duration, dotted, accMode, tieNext, tripletMode, curNotes, measures, maybeAutoClose, pushEditUndo, selectedNote, selectedMeasure, insertPos, insertNoteAt, updateNote, chordInput, staffMode, selectedBassMeasure, bassMeasures]);
 
   const handleRest = useCallback((dur?: string) => {
-    pushEditUndo();
     const d = dur ?? duration;
     const ni: NoteInfo = { keys: ['b/4'], duration: d + 'r', dotted: dotted || undefined };
     if (tripletMode) ni.tuplet = 3;
-    const newNotes = [...curNotes, ni];
-    setCurNotes(newNotes);
-    maybeAutoClose(newNotes);
+    // 삽입 모드 — 쉼표도 지정 위치에 끼워 넣는다 (insertNoteAt이 undo 푸시).
+    if (insertPos) {
+      insertNoteAt(insertPos.mi, insertPos.ni, ni, insertPos.staff);
+      setInsertPos({ ...insertPos, ni: insertPos.ni + 1 });
+      if (tripletMode) {
+        tripletCountRef.current += 1;
+        if (tripletCountRef.current >= 3) {
+          setTripletMode(false);
+          tripletCountRef.current = 0;
+        }
+      }
+      return;
+    }
+    pushEditUndo();
+    // 선택된 마디가 있으면 쉼표도 그 마디로 (피아노 입력과 동일 규칙).
+    if (staffMode === 'grand' && selectedBassMeasure != null) {
+      setBassMeasures((prev) => {
+        const next = [...prev];
+        while (next.length <= selectedBassMeasure) next.push({ notes: [] });
+        next[selectedBassMeasure] = { ...next[selectedBassMeasure], notes: [...next[selectedBassMeasure].notes, ni] };
+        return next;
+      });
+    } else if (selectedMeasure != null && selectedMeasure < measures.length) {
+      setMeasures((prev) => prev.map((m, i) => (
+        i === selectedMeasure ? { ...m, notes: [...m.notes, ni] } : m
+      )));
+    } else {
+      const newNotes = [...curNotes, ni];
+      setCurNotes(newNotes);
+      maybeAutoClose(newNotes);
+    }
     if (tripletMode) {
       tripletCountRef.current += 1;
       if (tripletCountRef.current >= 3) {
@@ -1956,12 +2444,13 @@ export default function EditorPage() {
         tripletCountRef.current = 0;
       }
     }
-  }, [duration, dotted, tripletMode, curNotes, maybeAutoClose, pushEditUndo]);
+  }, [duration, dotted, tripletMode, curNotes, measures.length, maybeAutoClose, pushEditUndo, selectedMeasure, insertPos, insertNoteAt, staffMode, selectedBassMeasure]);
 
   const handleUndo = useCallback(() => {
     if (editUndoStack.current.length > 0) {
       const snap = editUndoStack.current.pop()!;
       setMeasures(snap.measures);
+      setBassMeasures(snap.bassMeasures ?? []);
       setCurNotes(snap.curNotes);
       setCurChord1(snap.curChord1);
       setCurChord2(snap.curChord2);
@@ -1994,9 +2483,11 @@ export default function EditorPage() {
 
   const handleClear = useCallback(() => {
     setMeasures([]);
+    setBassMeasures([]);
     setCurNotes([]);
     setCurChord1('');
     setCurChord2('');
+    setSelectedBassMeasure(null);
     try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
   }, []);
 
@@ -2031,6 +2522,16 @@ export default function EditorPage() {
       // beams across the page (the bug screenshot).
       const normalized = splitMeasuresByBeats(chordNormalized, 4);
       setMeasures(normalized);
+      // 양손 파트 — bassMeasures가 있으면 양손 모드로 복원. (마디 분할은 치지
+      // 않는다 — 트레블과 인덱스 1:1 정렬이 깨지므로 그대로 싣는다.)
+      if (Array.isArray(data.bassMeasures) && data.bassMeasures.length > 0) {
+        setBassMeasures(data.bassMeasures as MeasureInfo[]);
+        setStaffMode('grand');
+      } else {
+        setBassMeasures([]);
+        setStaffMode('single');
+      }
+      setSelectedBassMeasure(null);
       setCurNotes([]);
       setCurChord1('');
       setCurChord2('');
@@ -2060,6 +2561,16 @@ export default function EditorPage() {
       if (e.key === '4') { e.preventDefault(); setDuration('q'); setDotted(false); }
       if (e.key === '8') { e.preventDefault(); setDuration('8'); setDotted(false); }
       if (e.key === '6') { e.preventDefault(); setDuration('16'); setDotted(false); }
+      if (e.key === '3') { e.preventDefault(); setDuration('32'); setDotted(false); }
+
+      if (e.key === 'Escape') { setInsertPos(null); setSelectedNote(null); setSelectedMeasure(null); setSelectedBassMeasure(null); }
+
+      // 선택 음표 피치 스텝 — ↑/↓ 로 보표 한 칸씩 (마우스로 고른 뒤 미세 조정).
+      if (selectedNote && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        e.preventDefault();
+        stepSelectedNote(e.key === 'ArrowUp' ? 1 : -1);
+        return;
+      }
 
       // Note navigation — < / > (or ArrowLeft/Right) cycles selection through
       // every note/rest in the score in order.
@@ -2092,7 +2603,7 @@ export default function EditorPage() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [handleUndo, closeMeasure, allMeasures, selectedNote]);
+  }, [handleUndo, closeMeasure, allMeasures, selectedNote, stepSelectedNote]);
 
   useEffect(() => {
     const el = svgRef.current;
@@ -2100,7 +2611,7 @@ export default function EditorPage() {
     if (allMeasures.length === 0) { el.innerHTML = ''; positionsRef.current = []; setMeasurePositions([]); notePositionsRef.current = []; return; }
     const validKey = sheetKey && (FLAT_KEYS[sheetKey] != null || SHARP_KEYS[sheetKey] != null || sheetKey === 'C') ? sheetKey : undefined;
     try {
-      renderSheet(el, allMeasures, Math.max(sheetWidth, 300), currentIdx, positionsRef.current, validKey, notePositionsRef.current, selectedNote, noteElMapRef.current);
+      renderSheet(el, allMeasures, Math.max(sheetWidth, 300), currentIdx, positionsRef.current, validKey, notePositionsRef.current, selectedNote, noteElMapRef.current, bassAll);
     } catch {
       positionsRef.current.length = 0;
       notePositionsRef.current.length = 0;
@@ -2108,22 +2619,25 @@ export default function EditorPage() {
     }
     setMeasurePositions([...positionsRef.current]);
     setNotePositions([...notePositionsRef.current]);
-  }, [allMeasures, sheetWidth, currentIdx, sheetKey, selectedNote]);
+  }, [allMeasures, bassAll, sheetWidth, currentIdx, sheetKey, selectedNote]);
 
   const selNoteInfo = useMemo<NoteInfo | null>(() => {
     if (!selectedNote) return null;
-    const m = allMeasures[selectedNote.mi];
+    const m = selectedNote.staff === 'bass' ? bassMeasures[selectedNote.mi] : allMeasures[selectedNote.mi];
     if (!m) return null;
     return m.notes[selectedNote.ni] ?? null;
-  }, [selectedNote, allMeasures]);
+  }, [selectedNote, allMeasures, bassMeasures]);
 
   useEffect(() => {
-    if (selectedNote && !allMeasures[selectedNote.mi]?.notes[selectedNote.ni]) {
+    if (!selectedNote) return;
+    const m = selectedNote.staff === 'bass' ? bassMeasures[selectedNote.mi] : allMeasures[selectedNote.mi];
+    if (!m?.notes[selectedNote.ni]) {
       setSelectedNote(null);
     }
-  }, [allMeasures, selectedNote]);
+  }, [allMeasures, bassMeasures, selectedNote]);
 
   const handleSheetClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    setInsertPos(null); // 악보 클릭 = 삽입 모드 종료 (새 선택으로 전환)
     const el = svgRef.current;
     if (!el) return;
     const svgEl = el.querySelector('svg');
@@ -2142,15 +2656,47 @@ export default function EditorPage() {
       if (dist < bestDist && dist < 25) { bestDist = dist; best = np; }
     }
     if (best) {
-      if (selectedNote && selectedNote.mi === best.mi && selectedNote.ni === best.ni) {
+      const staff = best.staff;
+      if (selectedNote && selectedNote.mi === best.mi && selectedNote.ni === best.ni && selectedNote.staff === staff) {
         setSelectedNote(null);
       } else {
-        setSelectedNote({ mi: best.mi, ni: best.ni });
+        setSelectedNote({ mi: best.mi, ni: best.ni, ...(staff ? { staff } : {}) });
       }
-    } else {
-      setSelectedNote(null);
+      setSelectedMeasure(null);
+      setSelectedBassMeasure(null);
+      return;
     }
-  }, [selectedNote]);
+    setSelectedNote(null);
+    // 음표 근처가 아니면 마디 히트테스트 — 빈 마디도 선택 가능. 트레블은
+    // committed 만(입력 중인 열린 마디는 기존 입력 플로우가 담당), 베이스는
+    // 렌더된 모든 마디(열린 마디 아래 포함).
+    const grand = staffMode === 'grand';
+    let bestM: { idx: number; staff?: 'bass' } | null = null;
+    let bestMDist = Infinity;
+    for (const p of positionsRef.current) {
+      if (p.staff !== 'bass' && p.idx >= measures.length) continue;
+      if (cx < p.x - 6 || cx > p.x + p.w + 6) continue;
+      // 양손이면 각 보표 행의 실제 stave 중심 근처로만 판정(행 겹침 방지).
+      const centerY = grand ? p.y + 52 : p.y + LINE_HEIGHT / 2;
+      const range = grand ? 55 : LINE_HEIGHT / 2;
+      const dy = Math.abs(cy - centerY);
+      if (dy < range && dy < bestMDist) { bestMDist = dy; bestM = { idx: p.idx, staff: p.staff }; }
+    }
+    if (bestM === null) {
+      setSelectedMeasure(null);
+      setSelectedBassMeasure(null);
+      return;
+    }
+    if (bestM.staff === 'bass') {
+      setSelectedMeasure(null);
+      const idx = bestM.idx;
+      setSelectedBassMeasure((prev) => (prev === idx ? null : idx));
+    } else {
+      setSelectedBassMeasure(null);
+      const idx = bestM.idx;
+      setSelectedMeasure((prev) => (prev === idx ? null : idx));
+    }
+  }, [selectedNote, measures.length, staffMode]);
 
   // (moved before handleNotePress)
 
@@ -2159,7 +2705,14 @@ export default function EditorPage() {
     return allMeasures[selectedNote.mi] ?? null;
   }, [selectedNote, allMeasures]);
 
-  const totalNotes = measures.reduce((s, m) => s + m.notes.length, 0) + curNotes.length;
+  const totalNotes = measures.reduce((s, m) => s + m.notes.length, 0) + curNotes.length
+    + (staffMode === 'grand' ? bassMeasures.reduce((s, m) => s + m.notes.length, 0) : 0);
+
+  /* 저장/복사/재생에 포함할 베이스 파트 — 양손 모드이고 내용이 있을 때만. */
+  const bassForOut = useMemo<MeasureInfo[] | null>(() => {
+    if (!bassAll) return null;
+    return bassAll.some((m) => m.notes.length > 0) ? bassAll : null;
+  }, [bassAll]);
 
   /* build JSON — lead sheet format */
   const jsonOutput = useMemo(() => {
@@ -2172,9 +2725,10 @@ export default function EditorPage() {
       timeSignature: '4/4',
       tempo: bpm,
       measures: allMeasures,
+      ...(bassForOut ? { bassMeasures: bassForOut } : {}),
     };
     return JSON.stringify(entry, null, 2);
-  }, [allMeasures, sheetTitle, composer, genre, sheetKey, bpm]);
+  }, [allMeasures, bassForOut, sheetTitle, composer, genre, sheetKey, bpm]);
 
   /* 재생 — 입력한 멜로디를 풀 백킹 밴드(베이스/드럼/피아노 1·3박 컴핑)와 함께
    * GlobalPlayer(kind:'sheet')로 돌린다. 코드차트와 동일한 backing 엔진. */
@@ -2186,10 +2740,24 @@ export default function EditorPage() {
     tempo: bpm,
     ...(genre ? { genre } : {}),
     measures: allMeasures,
-  }), [sheetTitle, composer, sheetKey, bpm, genre, allMeasures, mode]);
+    ...(bassForOut ? { bassMeasures: bassForOut } : {}),
+  }), [sheetTitle, composer, sheetKey, bpm, genre, allMeasures, bassForOut, mode]);
+
+  /* 양손 재생 — 베이스 파트를 extraParts(멀티파트 병합 타임라인)로 함께 소리낸다. */
+  const buildBassParts = useCallback((): NoteSheetData[] => {
+    if (!bassForOut) return [];
+    return [{
+      title: 'Left Hand',
+      composer: composer || 'Unknown',
+      key: sheetKey,
+      timeSignature: '4/4',
+      tempo: bpm,
+      measures: bassForOut,
+    }];
+  }, [bassForOut, composer, sheetKey, bpm]);
 
   const { playing, handlePlayPause, handleStop, countInOverlay } =
-    useEditorBackingPlayback({ buildSheet, bpm, repeatCount, noteElMapRef });
+    useEditorBackingPlayback({ buildSheet, buildExtraParts: buildBassParts, bpm, repeatCount, noteElMapRef });
 
   // Update a specific chord slot (0 or 1) for a given measure
   const updateMeasureChordSlot = useCallback((idx: number, slot: 0 | 1, value: string) => {
@@ -2226,6 +2794,7 @@ export default function EditorPage() {
           timeSignature: '4/4',
           tempo: bpm,
           measures: allMeasures,
+          bassMeasures: bassForOut ?? undefined,
         });
         const titleLow = (sheetTitle || 'Untitled').toLowerCase();
         const performerLow = (composer || 'Unknown').toLowerCase();
@@ -2283,6 +2852,7 @@ export default function EditorPage() {
             timeSignature: '4/4',
             tempo: bpm,
             measures: allMeasures,
+            ...(bassForOut ? { bassMeasures: bassForOut } : {}),
           },
           ...computeLickFeatures(allMeasures),
         };
@@ -2305,7 +2875,7 @@ export default function EditorPage() {
       // Leave the overlay up if we're navigating; only restore on failure.
       if (!navigated) setSaving(false);
     }
-  }, [mode, allMeasures, sheetTitle, composer, genre, sheetKey, bpm, saving, editingLickId, navigate]);
+  }, [mode, allMeasures, bassForOut, sheetTitle, composer, genre, sheetKey, bpm, saving, editingLickId, navigate]);
 
   const handleCopy = useCallback(() => {
     if (!jsonOutput) return;
@@ -2344,6 +2914,7 @@ export default function EditorPage() {
         };
       });
     setMeasures((prev) => prev.map((m) => ({ ...m, notes: shift(m.notes) })));
+    setBassMeasures((prev) => prev.map((m) => ({ ...m, notes: shift(m.notes) })));
     setCurNotes((prev) => shift(prev));
   }, [pushEditUndo]);
 
@@ -2365,6 +2936,20 @@ export default function EditorPage() {
         >
           <option value="solo">Solo</option>
           <option value="lick">Lick</option>
+        </KeySelect>
+        <MetaLabel>보표</MetaLabel>
+        <KeySelect
+          value={staffMode}
+          onChange={(e) => {
+            const v = e.target.value as 'single' | 'grand';
+            setStaffMode(v);
+            if (v === 'single') { setSelectedBassMeasure(null); setSelectedNote((s) => (s?.staff === 'bass' ? null : s)); }
+          }}
+          style={{ minWidth: 96, fontWeight: 700 }}
+          title="한손 = 높은음자리표 한 줄 · 양손 = 그랜드 스태프(위 트레블 / 아래 베이스)"
+        >
+          <option value="single">한손 악보</option>
+          <option value="grand">양손 악보</option>
         </KeySelect>
         <Sep />
         <MetaLabel>Title</MetaLabel>
@@ -2472,6 +3057,19 @@ export default function EditorPage() {
           style={{ fontSize: '0.95rem', fontWeight: 700 }}
         >
           3
+        </DurBtn>
+        <DurBtn
+          $active={chordInput}
+          onClick={() => setChordInput((v) => !v)}
+          title="화음 모드 — ON이면 피아노 입력이 마지막(또는 선택한) 음표에 음을 쌓습니다. 같은 음을 다시 누르면 제거."
+          style={{ fontSize: '1.05rem', fontWeight: 700, lineHeight: 1 }}
+        >
+          <svg width="18" height="22" viewBox="0 0 18 22" style={{ display: 'block' }}>
+            <line x1="13.5" y1="2" x2="13.5" y2="17" stroke="currentColor" strokeWidth="1.6" />
+            <ellipse cx="9.5" cy="17" rx="4.2" ry="3" fill="currentColor" />
+            <ellipse cx="9.5" cy="11" rx="4.2" ry="3" fill="currentColor" />
+            <ellipse cx="9.5" cy="5" rx="4.2" ry="3" fill="currentColor" />
+          </svg>
         </DurBtn>
         <DurBtn
           $active={ottavaMode === '8va'}
@@ -2589,14 +3187,60 @@ export default function EditorPage() {
       <PianoArea>
         <PianoKeyboard onNotePress={handleNotePress} mute />
       </PianoArea>
-      <KeyHint>1=whole &middot; 2=half &middot; 4=quarter &middot; 8=8th &middot; 6=16th &middot; L=tie &middot; T=triplet &middot; Enter=close measure &middot; Backspace=undo</KeyHint>
+      <KeyHint>1=whole &middot; 2=half &middot; 4=quarter &middot; 8=8th &middot; 6=16th &middot; 3=32nd &middot; L=tie &middot; T=triplet &middot; Enter=close measure &middot; Backspace=undo</KeyHint>
 
-      {selectedNote && selNoteInfo && (
+      {insertPos && (
         <NoteEditBar>
           <NoteEditLabel>
-            Note: {selNoteInfo.keys[0]} ({selNoteInfo.duration.replace('r', ' rest')})
+            ✏️ 삽입 모드 — {insertPos.staff === 'bass' ? '왼손 ' : ''}마디 {insertPos.mi + 1}, 위치 {insertPos.ni + 1} · 피아노/쉼표로 입력하면 여기에 끼워집니다
+          </NoteEditLabel>
+          <Sep />
+          <NoteEditBtn onClick={() => setInsertPos(null)}>완료 (Esc)</NoteEditBtn>
+        </NoteEditBar>
+      )}
+
+      {selectedNote && selectedNote.staff !== 'bass' && selNoteInfo && (
+        <NoteEditBar>
+          <NoteEditLabel>
+            Note: {selNoteInfo.keys.join(' ')} ({selNoteInfo.duration.replace('r', ' rest')})
             {selNoteInfo.accidentals?.[0] === 'b' ? ' \u266D' : selNoteInfo.accidentals?.[0] === '#' ? ' \u266F' : selNoteInfo.accidentals?.[0] === 'n' ? ' \u266E' : ''}
           </NoteEditLabel>
+          {!selNoteInfo.duration.endsWith('r') && (
+            <>
+              <NoteEditBtn title="\uD55C \uCE78 \uC62C\uB9AC\uAE30 (\u2191)" onClick={() => stepSelectedNote(1)}>\u25B2</NoteEditBtn>
+              <NoteEditBtn title="\uD55C \uCE78 \uB0B4\uB9AC\uAE30 (\u2193)" onClick={() => stepSelectedNote(-1)}>\u25BC</NoteEditBtn>
+            </>
+          )}
+          <Sep />
+          {/* \uB9C8\uB514 \uB0B4 \uD3B8\uC9D1: \uC774 \uC74C\uD45C \uC88C/\uC6B0\uC5D0 \uB07C\uC6CC\uB123\uAE30 \u00B7 \uC0AD\uC81C \u00B7 \uC624\uB978\uCABD \uC804\uBD80 \uC0AD\uC81C */}
+          <NoteEditBtn
+            title="\uC774 \uC74C\uD45C \uC67C\uCABD\uC5D0 \uC0BD\uC785 \u2014 \uD53C\uC544\uB178/\uC27C\uD45C\uB85C \uC785\uB825"
+            onClick={() => {
+              setInsertPos({ mi: selectedNote.mi, ni: selectedNote.ni });
+              setSelectedNote(null);
+            }}
+          >\u25C0 \uC67C\uCABD \uC0BD\uC785</NoteEditBtn>
+          <NoteEditBtn
+            title="\uC774 \uC74C\uD45C \uC624\uB978\uCABD\uC5D0 \uC0BD\uC785 \u2014 \uD53C\uC544\uB178/\uC27C\uD45C\uB85C \uC785\uB825"
+            onClick={() => {
+              setInsertPos({ mi: selectedNote.mi, ni: selectedNote.ni + 1 });
+              setSelectedNote(null);
+            }}
+          >\uC624\uB978\uCABD \uC0BD\uC785 \u25B6</NoteEditBtn>
+          <NoteEditBtn
+            title="\uC774 \uC74C\uD45C/\uC27C\uD45C \uC0AD\uC81C"
+            onClick={() => deleteNote(selectedNote.mi, selectedNote.ni)}
+          >\uD83D\uDDD1 \uC0AD\uC81C</NoteEditBtn>
+          <NoteEditBtn
+            title="\uAC19\uC740 \uB9C8\uB514\uC5D0\uC11C \uC774 \uC74C\uD45C \uC624\uB978\uCABD \uB0B4\uC6A9 \uC804\uBD80 \uC0AD\uC81C"
+            onClick={() => {
+              const total = allMeasures[selectedNote.mi]?.notes.length ?? 0;
+              const after = total - selectedNote.ni - 1;
+              if (after <= 0) return;
+              if (!window.confirm(`\uC774 \uC74C\uD45C \uC624\uB978\uCABD\uC758 ${after}\uAC1C(\uAC19\uC740 \uB9C8\uB514)\uB97C \uC0AD\uC81C\uD560\uAE4C\uC694?`)) return;
+              deleteNotesAfter(selectedNote.mi, selectedNote.ni);
+            }}
+          >\u2192\uB05D \uC0AD\uC81C</NoteEditBtn>
           <Sep />
 
           <NoteEditBtn
@@ -2973,11 +3617,67 @@ export default function EditorPage() {
         </NoteEditBar>
       )}
 
+      {/* ── 왼손(베이스 보표) 음표 편집 바 — 추가·수정·삭제 핵심 기능 ── */}
+      {selectedNote && selectedNote.staff === 'bass' && selNoteInfo && (
+        <NoteEditBar>
+          <NoteEditLabel>
+            🎼 왼손 Note: {selNoteInfo.keys.join(' ')} ({selNoteInfo.duration.replace('r', ' rest')})
+            {selNoteInfo.accidentals?.[0] === 'b' ? ' ♭' : selNoteInfo.accidentals?.[0] === '#' ? ' ♯' : selNoteInfo.accidentals?.[0] === 'n' ? ' ♮' : ''}
+          </NoteEditLabel>
+          {!selNoteInfo.duration.endsWith('r') && (
+            <>
+              <NoteEditBtn title="한 칸 올리기 (↑)" onClick={() => stepSelectedNote(1)}>▲</NoteEditBtn>
+              <NoteEditBtn title="한 칸 내리기 (↓)" onClick={() => stepSelectedNote(-1)}>▼</NoteEditBtn>
+            </>
+          )}
+          <Sep />
+          <NoteEditBtn
+            title="이 음표 왼쪽에 삽입 — 피아노/쉼표로 입력"
+            onClick={() => {
+              setInsertPos({ mi: selectedNote.mi, ni: selectedNote.ni, staff: 'bass' });
+              setSelectedNote(null);
+            }}
+          >◀ 왼쪽 삽입</NoteEditBtn>
+          <NoteEditBtn
+            title="이 음표 오른쪽에 삽입 — 피아노/쉼표로 입력"
+            onClick={() => {
+              setInsertPos({ mi: selectedNote.mi, ni: selectedNote.ni + 1, staff: 'bass' });
+              setSelectedNote(null);
+            }}
+          >오른쪽 삽입 ▶</NoteEditBtn>
+          <Sep />
+          {!selNoteInfo.duration.endsWith('r') && (['b', '#', 'n'] as const).map((g) => (
+            <NoteEditBtn
+              key={g}
+              $active={selNoteInfo.accidentals?.[0] === g}
+              onClick={() => {
+                updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                  const cur = n.accidentals?.[0];
+                  if (cur === g) {
+                    const { ...rest } = n;
+                    delete rest.accidentals;
+                    return rest;
+                  }
+                  return { ...n, accidentals: { 0: g } };
+                }, 'bass');
+              }}
+            ><span style={{ fontFamily: 'serif' }}>{g === 'b' ? '♭' : g === '#' ? '♯' : '♮'}</span></NoteEditBtn>
+          ))}
+          <Sep />
+          <NoteEditBtn
+            onClick={() => deleteNote(selectedNote.mi, selectedNote.ni, 'bass')}
+            style={{ color: '#c0392b' }}
+          >🗑 삭제</NoteEditBtn>
+          <NoteEditBtn onClick={() => setSelectedNote(null)}>× Deselect</NoteEditBtn>
+        </NoteEditBar>
+      )}
+
       <SheetArea ref={sheetAreaRef}>
         {totalNotes === 0 && <EmptyHint>Type chord &rarr; play notes &rarr; Enter or | to close measure</EmptyHint>}
         <div style={{ position: 'relative' }} onClick={handleSheetClick}>
           <div ref={svgRef} />
           {measurePositions.map((pos) => {
+            if (pos.staff === 'bass') return null; // 코드는 트레블(오른손) 마디에만
             const chord = allMeasures[pos.idx]?.chord ?? '';
             const [c1, c2] = splitChords(chord);
             const halfW = pos.w * SHEET_SCALE / 2;
@@ -2988,7 +3688,7 @@ export default function EditorPage() {
              * area start when no notes exist yet. Volta/bracket marks above
              * the stave still need their own horizontal offset to clear. */
             const firstNote = notePositions
-              .filter((np) => np.mi === pos.idx)
+              .filter((np) => np.mi === pos.idx && !np.staff)
               .reduce<NotePos | null>((best, cur) => (best === null || cur.x < best.x ? cur : best), null);
             const baseLeft = firstNote ? firstNote.x - 4 : pos.chordX;
             const chordLeft = hasVolta ? baseLeft + 8 : hasBracket ? baseLeft + 12 : baseLeft;
@@ -3017,16 +3717,103 @@ export default function EditorPage() {
               </span>
             );
           })}
+          {selectedMeasure != null && (() => {
+            const pos = measurePositions.find((p) => p.idx === selectedMeasure && !p.staff);
+            if (!pos) return null;
+            const noteCnt = measures[selectedMeasure]?.notes.length ?? 0;
+            const grand = staffMode === 'grand';
+            return (
+              <span onClick={(e) => e.stopPropagation()}>
+                <MeasureSelOutline
+                  style={{
+                    left: (pos.x - 3) * SHEET_SCALE,
+                    top: (pos.y + 14) * SHEET_SCALE,
+                    width: (pos.w + 6) * SHEET_SCALE,
+                    height: ((grand ? 90 : LINE_HEIGHT - 28)) * SHEET_SCALE,
+                  }}
+                />
+                <MeasureEditBarBox
+                  style={{
+                    left: Math.max(4, pos.x * SHEET_SCALE),
+                    top: (pos.y + (grand ? LINE_HEIGHT + GRAND_EXTRA - 42 : LINE_HEIGHT - 12)) * SHEET_SCALE,
+                  }}
+                >
+                  <span className="mlabel">마디 {selectedMeasure + 1} · 🎹 입력은 이 마디로</span>
+                  <button
+                    type="button"
+                    title="이 마디 앞에 빈 마디 삽입"
+                    onClick={() => {
+                      insertMeasureBefore(selectedMeasure);
+                      setSelectedMeasure(selectedMeasure + 1); // 선택은 원래 마디를 따라감
+                    }}
+                  >◀ 앞에 삽입</button>
+                  <button
+                    type="button"
+                    title="이 마디 뒤에 빈 마디 삽입"
+                    onClick={() => insertMeasureAfter(selectedMeasure)}
+                  >뒤에 삽입 ▶</button>
+                  <button
+                    type="button"
+                    className="danger"
+                    title="이 마디 삭제"
+                    onClick={() => {
+                      if (noteCnt > 0 && !window.confirm(`마디 ${selectedMeasure + 1}(음표 ${noteCnt}개)를 삭제할까요?`)) return;
+                      deleteMeasure(selectedMeasure);
+                      setSelectedMeasure(null);
+                    }}
+                  >🗑 삭제</button>
+                  <button type="button" onClick={() => setSelectedMeasure(null)}>닫기</button>
+                </MeasureEditBarBox>
+              </span>
+            );
+          })()}
+          {selectedBassMeasure != null && staffMode === 'grand' && (() => {
+            const pos = measurePositions.find((p) => p.idx === selectedBassMeasure && p.staff === 'bass');
+            if (!pos) return null;
+            const noteCnt = bassMeasures[selectedBassMeasure]?.notes.length ?? 0;
+            return (
+              <span onClick={(e) => e.stopPropagation()}>
+                <MeasureSelOutline
+                  style={{
+                    left: (pos.x - 3) * SHEET_SCALE,
+                    top: (pos.y + 14) * SHEET_SCALE,
+                    width: (pos.w + 6) * SHEET_SCALE,
+                    height: 90 * SHEET_SCALE,
+                  }}
+                />
+                <MeasureEditBarBox
+                  style={{
+                    left: Math.max(4, pos.x * SHEET_SCALE),
+                    top: (pos.y + 104) * SHEET_SCALE,
+                  }}
+                >
+                  <span className="mlabel">🎼 왼손 마디 {selectedBassMeasure + 1} · 🎹 입력은 이 마디로</span>
+                  <button
+                    type="button"
+                    className="danger"
+                    title="이 왼손 마디의 음표 전부 삭제"
+                    onClick={() => {
+                      if (noteCnt > 0 && !window.confirm(`왼손 마디 ${selectedBassMeasure + 1}(음표 ${noteCnt}개)를 비울까요?`)) return;
+                      pushEditUndo();
+                      setBassMeasures((prev) => prev.map((m, i) => (i === selectedBassMeasure ? { ...m, notes: [] } : m)));
+                    }}
+                  >🗑 비우기</button>
+                  <button type="button" onClick={() => setSelectedBassMeasure(null)}>닫기</button>
+                </MeasureEditBarBox>
+              </span>
+            );
+          })()}
           {notePositions.map((np) => {
+            if (np.staff === 'bass') return null; // 음표별 코드 라벨은 트레블만
             const note = allMeasures[np.mi]?.notes[np.ni];
             if (!note?.chord) return null;
             if (noteChordEditing && selectedNote && selectedNote.mi === np.mi && selectedNote.ni === np.ni) return null;
-            const mpos = measurePositions.find((p) => p.idx === np.mi);
+            const mpos = measurePositions.find((p) => p.idx === np.mi && !p.staff);
             const chordY = mpos ? mpos.y - 20 : np.y - 26;
             // Clamp width to next note position or measure end so per-note
             // chord labels never bleed into the next note or next bar.
             const nextInBar = notePositions
-              .filter((p) => p.mi === np.mi && p.x > np.x)
+              .filter((p) => p.mi === np.mi && !p.staff && p.x > np.x)
               .reduce<NotePos | null>((best, cur) => (best === null || cur.x < best.x ? cur : best), null);
             const rightBoundary = nextInBar
               ? nextInBar.x - 2
@@ -3042,9 +3829,9 @@ export default function EditorPage() {
             );
           })}
           {noteChordEditing && selectedNote && (() => {
-            const np = notePositions.find((p) => p.mi === selectedNote.mi && p.ni === selectedNote.ni);
+            const np = notePositions.find((p) => p.mi === selectedNote.mi && p.ni === selectedNote.ni && !p.staff);
             if (!np) return null;
-            const mpos = measurePositions.find((p) => p.idx === selectedNote.mi);
+            const mpos = measurePositions.find((p) => p.idx === selectedNote.mi && !p.staff);
             const chordY = mpos ? mpos.y - 20 : np.y - 26;
             return (
               <NoteChordOverlayInput

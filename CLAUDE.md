@@ -62,6 +62,13 @@ curl -s -H "Authorization: Bearer $TOKEN" https://jazzify.p-e.kr/api/v1/chord-pr
   - 진짜 시크릿(관리자 PW, 외부 API 키): **백엔드에만**.
 - ⚠️ 알려진 노출: `VITE_RAG_TOKEN`은 `VITE_` 라서 배포 시 공개됨 → 추후 백엔드 프록시로 가리는 게 숙제.
 
+## 문서서버 읽기/검색 — `jazzify-docs` MCP (읽기는 이걸 우선)
+
+문서서버(`doc.jazzify.p-e.kr`)의 문서를 **읽거나 검색**할 때는 `jazzify-docs` MCP 도구를 쓴다. 백엔드 스펙·문서·업무 진행상황이 궁금하면 추측하거나 사용자에게 복붙받지 말고 MCP로 직접 확인한다.
+
+- **조회 흐름**: `get_current_agent`(역할·`canWrite` 확인) → `list_document_types`/`list_document_tags`/`list_document_statuses`(입력용 ID·enum) → `search_documents`(제목·작성자·타입·태그·업무상태 기반, **본문 전문검색 불가** — 제목 키워드로 찾는다) → `get_document`(Markdown 본문·메타). 과거 버전은 `list_document_revisions`/`get_document_revision`.
+- **쓰기 충돌 주의(중요)**: 아래 스크립트 흐름으로 관리하는 **추적 문서(기능명세서 #17, BR 문서 #6~#11 등)** 는 계속 `scripts/doc-upload.sh` + id 매핑으로만 갱신한다. MCP `create_document`는 **새 id·`AI 생성` 태그로 중복 문서**를 만드니, 추적 문서를 MCP로 새로 만들지 말 것. MCP 쓰기(`create_document`/`update_document`/`update_document_status`)는 **ADMIN 키**만 가능하고, 수정 시 `get_document`로 최신 `currentVersion`을 읽어 `expectedVersion`으로 넘겨야 한다(stale 오류 시 재조회·병합 후 재시도).
+
 ## 백엔드 요구사항 문서 작성·업로드
 
 백엔드에 넘길 요구사항을 문서서버(`doc.jazzify.p-e.kr`)에 올릴 때는 **`docs/backendrequirements/BACKEND_REQUIREMENTS.md` 를 먼저 읽고** 그 규칙을 그대로 따른다. 그 파일 하나에 양식·업로드 방법이 전부 있다.
@@ -85,20 +92,21 @@ curl -s -H "Authorization: Bearer $TOKEN" https://jazzify.p-e.kr/api/v1/chord-pr
 |---|---|---|
 | #2 | 백엔드 본문 양식(안필온) | (미러) `docs/Backend_AI_Docs.md` |
 | #6~#11 | 백엔드 요구사항 6범주 | `docs/backendrequirements/01~06-*.md` (01=#6 … **05-미디어추론=#10** … 06=#11) |
-| #12 | Jazzify 기능 명세서 | `docs/기능명세서.md` |
+| #17 | Jazzify 기능 명세서 (구 #12 — 서버에서 삭제돼 2026-07-17 재생성) | `docs/기능명세서.md` |
+| #16 | 백엔드 요구사항 BR-24~29 (2026-07-17) | `docs/backendrequirements/2026-07-17-악보프로젝트-OMR파이프라인-프로필-릭.md` |
 
 ## 기능 명세서 유지·동기화 (필수)
 
-**단일 소스**: `docs/기능명세서.md` (문서서버 **#12**, `type: 기능 명세`). 과거의 `기능명세서.html`/루트 `기능명세서.md`는 **삭제됨** — 이 파일이 유일 소스다.
+**단일 소스**: `docs/기능명세서.md` (문서서버 **#17** — 구 #12가 서버에서 삭제되어 2026-07-17 재생성, `type: 기능 명세`). 과거의 `기능명세서.html`/루트 `기능명세서.md`는 **삭제됨** — 이 파일이 유일 소스다.
 
 기능(화면·동작·상태·API 연동·결함·백엔드 요구사항 등) 명세에 영향을 주는 변경을 하면 **매번 다음 두 가지를 함께** 수행한다:
 
 1. **로컬 문서 수정**: `docs/기능명세서.md` 를 고친다. front-matter의 `updated:` 를 오늘 날짜로 갱신한다. 기능표(M1~)·결함(§6)·백엔드 요구사항(BR-*)은 기존 표/섹션 양식을 그대로 유지한다.
-2. **문서서버 재업로드**: 아래로 **#12 문서를 덮어쓴다**. (마지막 인자 `12` = 문서 id. 빼면 새 문서가 생기니 반드시 붙일 것.)
+2. **문서서버 재업로드**: 아래로 **#17 문서를 덮어쓴다**. (마지막 인자 `17` = 문서 id. 빼면 새 문서가 생기니 반드시 붙일 것. `.env.local`은 repo 루트(`../.env.local`)에 있음.)
    ```bash
-   set -a; source .env.local; set +a
-   scripts/doc-upload.sh docs/기능명세서.md 12
-   # 성공 시: HTTP/1.1 302 · Location: .../documents/12
+   set -a; source ../.env.local; set +a
+   scripts/doc-upload.sh docs/기능명세서.md 17
+   # 성공 시: HTTP/1.1 302 · Location: .../documents/17
    ```
 
 - 문서 양식·업로드 함정은 `docs/backendrequirements/BACKEND_REQUIREMENTS.md` §6 참조(과거 `AI_COLLAB_GUIDE.md`는 `docs/archive/`로 이동). front-matter(`title/type/targets`)는 유지한다.

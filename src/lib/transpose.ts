@@ -1,16 +1,31 @@
 import type { NoteSheetData, MeasureInfo, NoteInfo } from '../data/sampleMelody';
+import { keySigLetterMap } from './note/resolvePitches';
 
 /* ─── pitch helpers ──────────────────────────────────────────────────── */
 
-const FLAT_NOTES: { letter: string; acc?: 'b' }[] = [
+const FLAT_NOTES: { letter: string; acc?: 'b' | '#' }[] = [
   { letter: 'c' }, { letter: 'd', acc: 'b' }, { letter: 'd' },
   { letter: 'e', acc: 'b' }, { letter: 'e' }, { letter: 'f' },
   { letter: 'g', acc: 'b' }, { letter: 'g' }, { letter: 'a', acc: 'b' },
   { letter: 'a' }, { letter: 'b', acc: 'b' }, { letter: 'b' },
 ];
 
+const SHARP_NOTES: { letter: string; acc?: 'b' | '#' }[] = [
+  { letter: 'c' }, { letter: 'c', acc: '#' }, { letter: 'd' },
+  { letter: 'd', acc: '#' }, { letter: 'e' }, { letter: 'f' },
+  { letter: 'f', acc: '#' }, { letter: 'g' }, { letter: 'g', acc: '#' },
+  { letter: 'a' }, { letter: 'a', acc: '#' }, { letter: 'b' },
+];
+
 const SEMI_MAP: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
 const KEY_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+const KEY_NAMES_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+/** 대상 키의 조표가 플랫 계열이면 true. 조표 없음(C/Am)은 재즈 관례상 플랫. */
+export function keyPrefersFlats(key: string): boolean {
+  for (const v of keySigLetterMap(key).values()) return v === 'b';
+  return true;
+}
 const NAME_TO_SEMI: Record<string, number> = {
   C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3,
   E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8,
@@ -25,20 +40,21 @@ function noteToMidi(key: string, acc?: 'b' | '#' | 'n'): number {
   return (parseInt(oct) + 1) * 12 + semi;
 }
 
-function midiToNote(midi: number): { key: string; acc?: 'b' } {
+function midiToNote(midi: number, useFlats: boolean): { key: string; acc?: 'b' | '#' } {
   const pc = ((midi % 12) + 12) % 12;
   const oct = Math.floor(midi / 12) - 1;
-  const { letter, acc } = FLAT_NOTES[pc];
+  const { letter, acc } = (useFlats ? FLAT_NOTES : SHARP_NOTES)[pc];
   return { key: `${letter}/${oct}`, acc };
 }
 
 /* ─── chord transpose ────────────────────────────────────────────────── */
 
 /** Transpose a chord symbol like "G-7", "F△7", "C7/E" by N semitones. */
-export function transposeChord(chord: string, semitones: number): string {
+export function transposeChord(chord: string, semitones: number, useFlats = true): string {
   if (!chord) return chord;
   const m = chord.match(/^([A-G][b#]?)(.*)/);
   if (!m) return chord;
+  const names = useFlats ? KEY_NAMES : KEY_NAMES_SHARP;
   const rootSemi = NAME_TO_SEMI[m[1]] ?? 0;
   const newSemi = ((rootSemi + semitones) % 12 + 12) % 12;
 
@@ -49,19 +65,19 @@ export function transposeChord(chord: string, semitones: number): string {
     const bassSemi = NAME_TO_SEMI[slash[2]];
     if (bassSemi !== undefined) {
       const newBass = ((bassSemi + semitones) % 12 + 12) % 12;
-      suffix = `${slash[1]}/${KEY_NAMES[newBass]}${slash[3]}`;
+      suffix = `${slash[1]}/${names[newBass]}${slash[3]}`;
     }
   }
-  return KEY_NAMES[newSemi] + suffix;
+  return names[newSemi] + suffix;
 }
 
 /** Transpose a measure-level chord field which may contain multiple chords
  *  separated by 2+ spaces (e.g. "G-7  C7"). */
-function transposeMeasureChord(chord: string, semitones: number): string {
+function transposeMeasureChord(chord: string, semitones: number, useFlats: boolean): string {
   // Keep separators by using a capturing group split
   return chord
     .split(/(\s{2,})/)
-    .map((p) => (/^\s+$/.test(p) ? p : transposeChord(p, semitones)))
+    .map((p) => (/^\s+$/.test(p) ? p : transposeChord(p, semitones, useFlats)))
     .join('');
 }
 
@@ -70,19 +86,19 @@ function transposeMeasureChord(chord: string, semitones: number): string {
 const MIDI_F6 = 89; // upper soft bound
 const MIDI_F3 = 53; // lower soft bound
 
-function transposeMeasures(measures: MeasureInfo[], semitones: number): MeasureInfo[] {
+function transposeMeasures(measures: MeasureInfo[], semitones: number, useFlats: boolean): MeasureInfo[] {
   if (semitones === 0) return measures.map((m) => ({ ...m }));
 
   const midiValues: number[] = [];
   const transposed: MeasureInfo[] = measures.map((m) => ({
     ...m,
-    chord: m.chord ? transposeMeasureChord(m.chord, semitones) : m.chord,
+    chord: m.chord ? transposeMeasureChord(m.chord, semitones, useFlats) : m.chord,
     notes: m.notes.map((n) => {
       if (n.duration.endsWith('r')) return { ...n };
       const acc = n.accidentals?.[0] as 'b' | '#' | 'n' | undefined;
       const midi = noteToMidi(n.keys[0], acc === 'n' ? undefined : acc) + semitones;
       midiValues.push(midi);
-      const tr = midiToNote(midi);
+      const tr = midiToNote(midi, useFlats);
       const next: NoteInfo = { ...n, keys: [tr.key], accidentals: undefined };
       if (tr.acc) next.accidentals = { 0: tr.acc };
       return next;
@@ -105,7 +121,7 @@ function transposeMeasures(measures: MeasureInfo[], semitones: number): MeasureI
       if (n.duration.endsWith('r')) return n;
       const acc = n.accidentals?.[0] as 'b' | '#' | 'n' | undefined;
       const midi = noteToMidi(n.keys[0], acc === 'n' ? undefined : acc) + octShift;
-      const tr = midiToNote(midi);
+      const tr = midiToNote(midi, useFlats);
       const next: NoteInfo = { ...n, keys: [tr.key], accidentals: undefined };
       if (tr.acc) next.accidentals = { 0: tr.acc };
       return next;
@@ -190,13 +206,16 @@ export function transposeLick(
   const newRoot = toKey.split('-')[0];
   const newKey = `${newRoot}-${oldMode}`;
 
+  // 실제 기보 관례: 대상 조표가 샵 계열이면 샵으로, 플랫 계열이면 플랫으로 스펠링.
+  const useFlats = keyPrefersFlats(newKey);
+
   return {
     key: newKey,
-    chords: chords.map((c) => transposeChord(c, semis)),
+    chords: chords.map((c) => transposeChord(c, semis, useFlats)),
     sheetData: {
       ...sheet,
       key: newKey,
-      measures: transposeMeasures(sheet.measures, semis),
+      measures: transposeMeasures(sheet.measures, semis, useFlats),
     },
   };
 }

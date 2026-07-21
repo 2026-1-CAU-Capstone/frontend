@@ -91,6 +91,9 @@ export interface NoteSheetData {
   /** True when this part is a channel-10 percussion staff — its notes are GM
    *  percussion keys played through the drum sampler, not pitched. */
   isDrum?: boolean;
+  /** 양손(그랜드 스태프) 악보의 왼손(낮은음자리표) 파트. `measures`와 같은
+   *  인덱스로 마디가 1:1 정렬된다(모자라면 빈 마디). 존재하면 양손 악보. */
+  bassMeasures?: MeasureInfo[];
 }
 
 /* ─── Sample: 16-bar jazz melody in C major ─────────────────────────────── */

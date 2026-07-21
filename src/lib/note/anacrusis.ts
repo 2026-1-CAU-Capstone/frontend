@@ -13,7 +13,7 @@
 
 import type { NoteSheetData, MeasureInfo } from '../../data/sampleMelody';
 import type { AnacrusisNote } from '../player';
-import { DUR_BEATS } from './melodyTiming';
+import { getBeats } from './melodyTiming';
 import { PATTERN_SIMPLE, type Pattern } from './countInPatterns';
 import { extractMelody } from '../backing/adapters/noteSheetToChart';
 
@@ -21,14 +21,7 @@ import { extractMelody } from '../backing/adapters/noteSheetToChart';
 function measureBeats(m: MeasureInfo): number {
   let beats = 0;
   for (const n of m.notes) {
-    const base = n.duration.replace(/[dr]/g, '');
-    let b = DUR_BEATS[base] ?? 1;
-    if (n.dotted) b *= 1.5;
-    if (n.tuplet && n.tuplet >= 2) {
-      const denom = Math.pow(2, Math.floor(Math.log2(n.tuplet - 1)));
-      b *= denom / n.tuplet;
-    }
-    beats += b;
+    beats += getBeats(n.duration, n.dotted, n.tuplet, n.tupletNormal);
   }
   return beats;
 }
@@ -61,7 +54,8 @@ export function planAnacrusis(data: NoteSheetData, tempo: number, ctxNow: number
   const cinStart = ctxNow + 0.06; // mirrors useCountInIntro's internal click lead
   const pickupStart = cinStart + (tsNum - firstBeats) * beatDur;
   const songStart = cinStart + tsNum * beatDur; // downbeat after the 1-bar count-in
-  const notes: AnacrusisNote[] = extractMelody(data)
+  // 이 플래너는 릭 재생 전용(prepareLickIntro) — explicit 임시표 의미론.
+  const notes: AnacrusisNote[] = extractMelody(data, { accidentalStyle: 'explicit' })
     .filter((n) => n.srcMi === 0)
     .map((n) => ({
       pitch: n.midi,

@@ -150,6 +150,7 @@ export function buildUserSoloDraft(opts: {
   timeSignature: string;
   tempo: number;
   measures: MeasureInfo[];
+  bassMeasures?: MeasureInfo[];
   instrument?: SoloInstrument;
   source?: SoloSource;
 }): SoloDraft {
@@ -161,6 +162,7 @@ export function buildUserSoloDraft(opts: {
     tempo: opts.tempo,
     ...(opts.genre ? { genre: opts.genre } : {}),
     measures: opts.measures,
+    ...(opts.bassMeasures ? { bassMeasures: opts.bassMeasures } : {}),
   };
   return {
     source: opts.source ?? 'user',

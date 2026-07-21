@@ -1195,7 +1195,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
       const wf = f <= 0.5 ? f * 2 * r : r + (f - 0.5) * 2 * (1 - r);
       return beat + wf;
     };
-    const melody = extractMelody(lickSheet)
+    const melody = extractMelody(lickSheet, { accidentalStyle: 'explicit' })
       .filter((m) => m.beatOffset >= startBeat)
       .map((m) => {
         const onset = swing(m.beatOffset);

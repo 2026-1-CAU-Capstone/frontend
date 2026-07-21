@@ -91,6 +91,26 @@ function parseNavigationWords(raw: string): NavigationMarker | null {
   return null;
 }
 
+/* Greedy power-of-two rest decomposition. `gapTicks` is a duration in MusicXML
+ * <divisions> ticks; returns the rest NoteInfos that fill it (w/h/q/8/16),
+ * snapped to a 16th grid. Used to pad the melody line when the chosen voice is
+ * silent for part of a bar (the other staff carries the time in a grand-staff
+ * transcription). Matches lickData.beatsToRests' non-dotted convention. */
+const REST_UNITS: [number, string][] = [[4, 'wr'], [2, 'hr'], [1, 'qr'], [0.5, '8r'], [0.25, '16r']];
+function ticksToRests(gapTicks: number, divisions: number): NoteInfo[] {
+  if (!(divisions > 0)) return [];
+  let beats = Math.round((gapTicks / divisions) * 4) / 4; // snap to 16th grid
+  const out: NoteInfo[] = [];
+  let guard = 0;
+  while (beats > 0.001 && guard++ < 64) {
+    const unit = REST_UNITS.find(([b]) => beats >= b - 1e-6);
+    if (!unit) break;
+    out.push({ keys: ['b/4'], duration: unit[1] });
+    beats -= unit[0];
+  }
+  return out;
+}
+
 /* ─── core parser ────────────────────────────────────────────────────── */
 
 interface ParserState {
@@ -147,15 +167,24 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
 
   // Initial attributes (key/divisions/time) — scoped to THIS part when given,
   // since transposing instruments carry their own key/divisions.
-  const firstAttr = (partEl ?? doc).querySelector('attributes');
-  const initialFifths = parseInt(text(firstAttr, 'fifths') ?? '0', 10);
-  const beats    = text(firstAttr, 'beats') ?? '4';
-  const beatType = text(firstAttr, 'beat-type') ?? '4';
+  //
+  // homr (and some other engravers) SPLIT the opening <attributes> into several
+  // blocks in the first measure — e.g. divisions+staves in one block, key+time+
+  // clef in the next. Reading a single `querySelector('attributes')` then drops
+  // the key/time entirely (→ wrong key signature, wrong metre). Read each field
+  // from the FIRST MEASURE's descendants instead: querySelector returns the
+  // first occurrence in document order = the initial value (a later mid-piece
+  // change is still handled per-measure below).
+  const firstMeasure = (partEl ?? doc).querySelector('measure');
+  const attrScope: Element = firstMeasure ?? partEl ?? doc.documentElement;
+  const initialFifths = parseInt(text(attrScope, 'fifths') ?? '0', 10);
+  const beats    = text(attrScope, 'time > beats') ?? '4';
+  const beatType = text(attrScope, 'time > beat-type') ?? '4';
   const timeSig  = `${beats}/${beatType}`;
   const initialKey = KEY_NAMES[initialFifths + 7] ?? 'C';
   // <divisions>N</divisions> = ticks per quarter note. Needed for inferring
   // a note's type (whole/half/quarter/…) when <type> is missing.
-  const initialDivisions = parseInt(text(firstAttr, 'divisions') ?? '1', 10) || 1;
+  const initialDivisions = parseInt(text(attrScope, 'divisions') ?? '1', 10) || 1;
   const initialBeatsPerMeasure = parseInt(beats, 10) || 4;
 
   // Tempo: prefer <sound tempo="N"/>; fall back to <metronome><per-minute>N</per-minute></metronome>.
@@ -260,9 +289,25 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
     let pendingSlurStart = false;
     let pendingSlurStop = false;
 
+    // Time cursor (in <divisions> ticks) so we can (a) honour <backup>/<forward>
+    // and (b) rest-pad gaps where the melody voice is silent. emitTimes[k] is the
+    // {startTick,durTicks} of measure.notes[k], filled in lockstep with each push.
+    let curTick = 0;
+    const emitTimes: { startTick: number; durTicks: number }[] = [];
+
     // Walk measure children in document order.
     for (const child of Array.from(mEl.children)) {
       const tag = child.tagName;
+
+      /* ── <backup>/<forward>: move the time cursor (voice layering) ──── */
+      if (tag === 'backup') {
+        curTick -= parseInt(text(child, 'duration') ?? '0', 10) || 0;
+        continue;
+      }
+      if (tag === 'forward') {
+        curTick += parseInt(text(child, 'duration') ?? '0', 10) || 0;
+        continue;
+      }
 
       /* ── <attributes>: mid-piece time/key change ─────────────────── */
       if (tag === 'attributes') {
@@ -313,14 +358,26 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
           if (dir === 'forward') measure.repeatStart = true;
           else if (dir === 'backward') measure.repeatEnd = true;
         }
-        const endingEl = child.querySelector('ending');
-        if (endingEl) {
-          const num = parseInt(endingEl.getAttribute('number') ?? '0', 10);
-          const type = endingEl.getAttribute('type');
-          if (type === 'start' && num >= 1) {
-            currentVolta = num;
-            measure.volta = num;
-          } else if ((type === 'stop' || type === 'discontinue') && location !== 'left') {
+        // A single barline may carry several <ending> elements — homr emits a
+        // combined volta as separate numbers (…number="4"…number="1"). The model
+        // holds one volta int, so represent the span by its LOWEST number.
+        const endingEls = child.querySelectorAll('ending');
+        if (endingEls.length > 0) {
+          let startNum: number | undefined;
+          let hasStop = false;
+          for (const e of endingEls) {
+            const num = parseInt(e.getAttribute('number') ?? '0', 10);
+            const type = e.getAttribute('type');
+            if (type === 'start' && num >= 1) {
+              startNum = startNum === undefined ? num : Math.min(startNum, num);
+            } else if (type === 'stop' || type === 'discontinue') {
+              hasStop = true;
+            }
+          }
+          if (startNum !== undefined) {
+            currentVolta = startNum;
+            measure.volta = startNum;
+          } else if (hasStop && location !== 'left') {
             // ending stops at the right barline of THIS measure → clear after
             // this iteration so next measure has no volta.
             currentVolta = undefined;
@@ -463,42 +520,57 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
       if (tag !== 'note') continue;
       const nEl = child;
 
-      // Skip simultaneous chord tones (top note only).
-      if (nEl.querySelector('chord')) {
-        /* pianoPerformance: MusicXML chord 그룹은 "첫 노트 + <chord/> 서브"
-         * 구조인데 첫 노트가 항상 최고음이 아니다(맥켄지 정량화본 실측:
-         * 최저음이 첫 노트인 그룹 ~16%). first-note만 남기면 보이싱의 바닥
-         * 음이 멜로디로 남아 "갑자기 낮은 음"이 찍힌다 — 서브노트가 직전
-         * 대표 노트보다 높으면 대표의 피치를 교체해 그룹 최고음을 남긴다. */
-        if (opts?.pianoPerformance) {
-          const last = measure.notes[measure.notes.length - 1];
-          const subPitch = nEl.querySelector('pitch');
-          if (last && !last.duration.endsWith('r') && subPitch) {
-            const sStep = (text(subPitch, 'step') ?? 'C').toUpperCase();
-            const sOct = parseInt(text(subPitch, 'octave') ?? '4', 10);
-            const sAlt = parseInt(text(subPitch, 'alter') ?? '0', 10) || 0;
-            const subMidi = (sOct + 1) * 12 + (STEP_SEMIS[sStep] ?? 0) + sAlt;
-            const [lStep, lOct] = last.keys[0].split('/');
-            const lAcc = last.accidentals?.[0];
-            const lAlt = lAcc === '#' ? 1 : lAcc === 'b' ? -1 : lAcc === '##' ? 2 : lAcc === 'bb' ? -2 : 0;
-            const lastMidi = (parseInt(lOct, 10) + 1) * 12 + (STEP_SEMIS[lStep.toUpperCase()] ?? 0) + lAlt;
-            if (subMidi > lastMidi) {
-              last.keys[0] = `${sStep.toLowerCase()}/${sOct}`;
-              if (sAlt === 1) last.accidentals = { 0: '#' };
-              else if (sAlt === -1) last.accidentals = { 0: 'b' };
-              else if (sAlt === 2) last.accidentals = { 0: '##' };
-              else if (sAlt === -2) last.accidentals = { 0: 'bb' };
-              else delete last.accidentals;
-            }
+      // Time bookkeeping: only the FIRST note of a chord group and standalone
+      // notes/rests advance the cursor; <chord> sub-notes are simultaneous and
+      // grace notes steal no metric time. `advance` is added to curTick at every
+      // exit of this note branch (0 for chord/grace).
+      const advDurTxt = text(nEl, 'duration');
+      const advDurTicks = advDurTxt ? (parseInt(advDurTxt, 10) || 0) : 0;
+      const isChordTone = !!nEl.querySelector('chord');
+      const isGraceTone = !!nEl.querySelector('grace');
+      const advance = (isChordTone || isGraceTone) ? 0 : advDurTicks;
+      const startTick = curTick;
+
+      // Chord tones: keep only the HIGHEST-sounding note of the group on the
+      // melody line. The first <note> of a MusicXML chord isn't always the top
+      // (homr/OMR and music21 quantisations often list an inner/lower voice
+      // first), so replace the group's representative note when a sub-tone is
+      // higher. Single-line lead sheets have no <chord> groups → never runs.
+      if (isChordTone) {
+        const chordVoice = text(nEl, 'voice');
+        // Only merge into the melody line if this chord tone belongs to the
+        // melody voice — otherwise a left-hand chord would corrupt the last
+        // melody note.
+        if (chordVoice && chordVoice !== melodyVoice) { curTick += advance; continue; }
+        const last = measure.notes[measure.notes.length - 1];
+        const subPitch = nEl.querySelector('pitch');
+        if (last && !last.duration.endsWith('r') && subPitch) {
+          const sStep = (text(subPitch, 'step') ?? 'C').toUpperCase();
+          const sOct = parseInt(text(subPitch, 'octave') ?? '4', 10);
+          const sAlt = parseInt(text(subPitch, 'alter') ?? '0', 10) || 0;
+          const subMidi = (sOct + 1) * 12 + (STEP_SEMIS[sStep] ?? 0) + sAlt;
+          const [lStep, lOct] = last.keys[0].split('/');
+          const lAcc = last.accidentals?.[0];
+          const lAlt = lAcc === '#' ? 1 : lAcc === 'b' ? -1 : lAcc === '##' ? 2 : lAcc === 'bb' ? -2 : 0;
+          const lastMidi = (parseInt(lOct, 10) + 1) * 12 + (STEP_SEMIS[lStep.toUpperCase()] ?? 0) + lAlt;
+          if (subMidi > lastMidi) {
+            last.keys[0] = `${sStep.toLowerCase()}/${sOct}`;
+            if (sAlt === 1) last.accidentals = { 0: '#' };
+            else if (sAlt === -1) last.accidentals = { 0: 'b' };
+            else if (sAlt === 2) last.accidentals = { 0: '##' };
+            else if (sAlt === -2) last.accidentals = { 0: 'bb' };
+            else delete last.accidentals;
           }
         }
+        curTick += advance;
         continue;
       }
 
       // Single-voice extraction — 기본은 voice 1, pianoPerformance 모드에선
-      // 위에서 마디별로 고른 최고-평균-피치 voice.
+      // 위에서 마디별로 고른 최고-평균-피치 voice. 다른 voice도 시간은 흐르므로
+      // curTick 은 advance 시키고 건너뛴다.
       const voiceText = text(nEl, 'voice');
-      if (voiceText && voiceText !== melodyVoice) continue;
+      if (voiceText && voiceText !== melodyVoice) { curTick += advance; continue; }
 
       // ── Tie / Slur handling
       const tieEls = nEl.querySelectorAll('tie');
@@ -641,12 +713,14 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
           restNote.restInBeam = true;
         }
         measure.notes.push(restNote);
+        emitTimes.push({ startTick, durTicks: advDurTicks });
         flatNoteIdx++;
+        curTick += advance;
         continue;
       }
 
       const pitchEl = nEl.querySelector('pitch');
-      if (!pitchEl) continue;
+      if (!pitchEl) { curTick += advance; continue; }
 
       const step   = (text(pitchEl, 'step') ?? 'C').toLowerCase();
       const octave = text(pitchEl, 'octave') ?? '4';
@@ -659,7 +733,9 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
         if (tuplet) bassRest.tuplet = tuplet;
         if (tupletNormal) bassRest.tupletNormal = tupletNormal;
         measure.notes.push(bassRest);
+        emitTimes.push({ startTick, durTicks: advDurTicks });
         flatNoteIdx++;
+        curTick += advance;
         continue;
       }
 
@@ -791,7 +867,36 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
       if (stemTxt === 'up' || stemTxt === 'down') ni.stem = stemTxt;
 
       measure.notes.push(ni);
+      emitTimes.push({ startTick, durTicks: advDurTicks });
       flatNoteIdx++;
+      curTick += advance;
+    }
+
+    // ── Rest-pad the melody line so the bar sums to a full measure ────────
+    // The chosen voice is often silent for part of a grand-staff bar (the other
+    // staff carries the time via <backup>). Rebuild measure.notes from the
+    // time-positioned emissions, inserting rests for every gap (leading /
+    // interior / trailing). Well-formed single-voice bars have no gaps → the
+    // output is identical to the emitted sequence.
+    // Pickup (anacrusis) bars are intentionally short — never pad them.
+    const measureTicks = state.beatsPerMeasure * state.divisions;
+    if (measure.notes.length > 0 && measureTicks > 0 && !measure.anacrusis) {
+      const rebuilt: NoteInfo[] = [];
+      let filled = 0;
+      for (let k = 0; k < measure.notes.length; k++) {
+        const st = emitTimes[k]?.startTick ?? filled;
+        const dt = emitTimes[k]?.durTicks ?? 0;
+        if (st > filled) {
+          for (const r of ticksToRests(st - filled, state.divisions)) rebuilt.push(r);
+          filled = st;
+        }
+        rebuilt.push(measure.notes[k]);
+        filled = Math.max(filled, st + dt);
+      }
+      if (measureTicks > filled) {
+        for (const r of ticksToRests(measureTicks - filled, state.divisions)) rebuilt.push(r);
+      }
+      measure.notes = rebuilt;
     }
 
     // Empty measure → whole rest (preserves bar count).

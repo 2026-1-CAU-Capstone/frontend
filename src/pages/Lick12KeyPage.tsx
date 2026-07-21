@@ -17,18 +17,27 @@ import { loadUserLicks, type LickEntry } from '../data/lickData';
 import { getLickVideo, type LickVideo } from '../data/lickVideos';
 import { YoutubeEmbed } from '../components/common/YoutubeEmbed';
 import { formatChordDisplay } from '../lib/jazz-harmony';
+import { keyPrefersFlats } from '../lib/transpose';
 
 /* ─── transposition helpers ───────────────────────────────────────────── */
 
-const FLAT_NOTES: { letter: string; acc?: 'b' }[] = [
+const FLAT_NOTES: { letter: string; acc?: 'b' | '#' }[] = [
   { letter: 'c' }, { letter: 'd', acc: 'b' }, { letter: 'd' },
   { letter: 'e', acc: 'b' }, { letter: 'e' }, { letter: 'f' },
   { letter: 'g', acc: 'b' }, { letter: 'g' }, { letter: 'a', acc: 'b' },
   { letter: 'a' }, { letter: 'b', acc: 'b' }, { letter: 'b' },
 ];
 
+const SHARP_NOTES: { letter: string; acc?: 'b' | '#' }[] = [
+  { letter: 'c' }, { letter: 'c', acc: '#' }, { letter: 'd' },
+  { letter: 'd', acc: '#' }, { letter: 'e' }, { letter: 'f' },
+  { letter: 'f', acc: '#' }, { letter: 'g' }, { letter: 'g', acc: '#' },
+  { letter: 'a' }, { letter: 'a', acc: '#' }, { letter: 'b' },
+];
+
 const SEMI_MAP: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
 const KEY_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+const KEY_NAMES_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const NAME_TO_SEMI: Record<string, number> = {
   'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3,
   'E': 4, 'F': 5, 'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8,
@@ -50,39 +59,39 @@ function noteToMidi(key: string, acc?: 'b' | '#' | 'n'): number {
   return (parseInt(oct) + 1) * 12 + semi;
 }
 
-function midiToNote(midi: number): { key: string; acc?: 'b' } {
+function midiToNote(midi: number, useFlats: boolean): { key: string; acc?: 'b' | '#' } {
   const pc = ((midi % 12) + 12) % 12;
   const oct = Math.floor(midi / 12) - 1;
-  const { letter, acc } = FLAT_NOTES[pc];
+  const { letter, acc } = (useFlats ? FLAT_NOTES : SHARP_NOTES)[pc];
   return { key: `${letter}/${oct}`, acc };
 }
 
-function transposeChord(chord: string, semitones: number): string {
+function transposeChord(chord: string, semitones: number, useFlats: boolean): string {
   if (!chord) return chord;
   const m = chord.match(/^([A-G][b#]?)(.*)/);
   if (!m) return chord;
   const rootSemi = NAME_TO_SEMI[m[1]] ?? 0;
   const newSemi = ((rootSemi + semitones) % 12 + 12) % 12;
-  return KEY_NAMES[newSemi] + m[2];
+  return (useFlats ? KEY_NAMES : KEY_NAMES_SHARP)[newSemi] + m[2];
 }
 
 const MIDI_F6 = 89; // upper bound (inclusive)
 const MIDI_F3 = 53; // lower bound (inclusive)
 
-function transposeMeasures(measures: MeasureInfo[], semitones: number): MeasureInfo[] {
+function transposeMeasures(measures: MeasureInfo[], semitones: number, useFlats: boolean): MeasureInfo[] {
   if (semitones === 0) return measures;
 
   // First pass: transpose all notes
   const midiValues: number[] = [];
   const transposed = measures.map(m => ({
     ...m,
-    chord: m.chord ? transposeChord(m.chord, semitones) : m.chord,
+    chord: m.chord ? transposeChord(m.chord, semitones, useFlats) : m.chord,
     notes: m.notes.map(n => {
       if (n.duration.endsWith('r')) return { ...n };
       const acc = n.accidentals?.[0] as 'b' | '#' | 'n' | undefined;
       const midi = noteToMidi(n.keys[0], acc === 'n' ? undefined : acc) + semitones;
       midiValues.push(midi);
-      const tr = midiToNote(midi);
+      const tr = midiToNote(midi, useFlats);
       const newNote: NoteInfo = { keys: [tr.key], duration: n.duration, dotted: n.dotted, tie: n.tie, tuplet: n.tuplet };
       if (tr.acc) newNote.accidentals = { 0: tr.acc };
       return newNote;
@@ -105,7 +114,7 @@ function transposeMeasures(measures: MeasureInfo[], semitones: number): MeasureI
       if (n.duration.endsWith('r')) return n;
       const acc = n.accidentals?.[0] as 'b' | '#' | 'n' | undefined;
       const midi = noteToMidi(n.keys[0], acc === 'n' ? undefined : acc) + octShift;
-      const tr = midiToNote(midi);
+      const tr = midiToNote(midi, useFlats);
       const newNote: NoteInfo = { keys: [tr.key], duration: n.duration, dotted: n.dotted, tie: n.tie, tuplet: n.tuplet };
       if (tr.acc) newNote.accidentals = { 0: tr.acc };
       return newNote;
@@ -973,7 +982,7 @@ export default function Lick12KeyPage() {
             sheetData={{
               ...lick.sheetData,
               key: keyName,
-              measures: transposeMeasures(lick.sheetData.measures, semitones),
+              measures: transposeMeasures(lick.sheetData.measures, semitones, keyPrefersFlats(keyName)),
             }}
             width={sheetWidth}
             isOriginal={semitones === 0}

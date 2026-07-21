@@ -1,4 +1,12 @@
 import type { MeasureInfo, NoteSheetData } from '../../data/sampleMelody';
+import {
+  keySigLetterMap,
+  normalizeKeyName,
+  soundingAccidental,
+  midiFromKey,
+  emitScoreAccidentals,
+  type AccGlyph,
+} from './resolvePitches';
 
 export const ALL_KEYS_MAJOR = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'] as const;
 export const ALL_KEYS_MINOR = ['Cm', 'Dbm', 'Dm', 'Ebm', 'Em', 'Fm', 'F#m', 'Gm', 'Abm', 'Am', 'Bbm', 'Bm'] as const;
@@ -7,37 +15,26 @@ const NOTE_TO_PC: Record<string, number> = {
   C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11,
 };
 
-const FLAT_KEYS = new Set(['C', 'F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb']);
+/* 조표가 플랫 계열(또는 C/Am — 재즈 관례상 플랫 선호)인 키의 임시표 스펠링. */
+const FLAT_SPELLING_KEYS = new Set([
+  'C', 'F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb',
+  'Am', 'Dm', 'Gm', 'Cm', 'Fm', 'Bbm', 'Ebm', 'Abm',
+]);
 
-const PC_FLAT: [string, 'b' | '#' | undefined][] = [
-  ['C', undefined], ['D', 'b'], ['D', undefined], ['E', 'b'], ['E', undefined],
-  ['F', undefined], ['G', 'b'], ['G', undefined], ['A', 'b'], ['A', undefined],
-  ['B', 'b'], ['B', undefined],
+const PC_FLAT: [string, AccGlyph | undefined][] = [
+  ['c', undefined], ['d', 'b'], ['d', undefined], ['e', 'b'], ['e', undefined],
+  ['f', undefined], ['g', 'b'], ['g', undefined], ['a', 'b'], ['a', undefined],
+  ['b', 'b'], ['b', undefined],
 ];
 
-const PC_SHARP: [string, 'b' | '#' | undefined][] = [
-  ['C', undefined], ['C', '#'], ['D', undefined], ['D', '#'], ['E', undefined],
-  ['F', undefined], ['F', '#'], ['G', undefined], ['G', '#'], ['A', undefined],
-  ['A', '#'], ['B', undefined],
+const PC_SHARP: [string, AccGlyph | undefined][] = [
+  ['c', undefined], ['c', '#'], ['d', undefined], ['d', '#'], ['e', undefined],
+  ['f', undefined], ['f', '#'], ['g', undefined], ['g', '#'], ['a', undefined],
+  ['a', '#'], ['b', undefined],
 ];
 
-const KEY_SIG_NOTES: Record<string, Set<string>> = {
-  C: new Set(),
-  G: new Set(['F#']), D: new Set(['F#', 'C#']), A: new Set(['F#', 'C#', 'G#']),
-  E: new Set(['F#', 'C#', 'G#', 'D#']), B: new Set(['F#', 'C#', 'G#', 'D#', 'A#']),
-  'F#': new Set(['F#', 'C#', 'G#', 'D#', 'A#', 'E#']),
-  F: new Set(['Bb']), Bb: new Set(['Bb', 'Eb']), Eb: new Set(['Bb', 'Eb', 'Ab']),
-  Ab: new Set(['Bb', 'Eb', 'Ab', 'Db']), Db: new Set(['Bb', 'Eb', 'Ab', 'Db', 'Gb']),
-  Gb: new Set(['Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb']),
-};
-
-const MINOR_TO_MAJOR: Record<string, string> = {
-  Cm: 'Eb', 'C#m': 'E', Dbm: 'E', Dm: 'F', 'D#m': 'F#', Ebm: 'Gb',
-  Em: 'G', Fm: 'Ab', 'F#m': 'A', Gm: 'Bb', 'G#m': 'B', Abm: 'B',
-  Am: 'C', 'A#m': 'Db', Bbm: 'Db', Bm: 'D',
-};
-
-const CHORD_KEY_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+const CHORD_KEY_NAMES_FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+const CHORD_KEY_NAMES_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const CHORD_NAME_TO_SEMI: Record<string, number> = {
   C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3,
   E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8,
@@ -63,69 +60,14 @@ export function keyToPc(key: string): number {
   return ((NOTE_TO_PC[root] ?? 0) + (acc === '#' ? 1 : acc === 'b' ? -1 : 0) + 12) % 12;
 }
 
-function transposeNoteKey(
-  vexKey: string,
-  accidental: '#' | 'b' | 'n' | undefined,
-  semitones: number,
-  useFlats: boolean,
-): { key: string; acc?: '#' | 'b' | 'n' } {
-  const [notePart, octStr] = vexKey.split('/');
-  const noteName = notePart.toUpperCase();
-
-  let origPc = NOTE_TO_PC[noteName] ?? 0;
-  if (accidental === '#') origPc += 1;
-  else if (accidental === 'b') origPc -= 1;
-  const origMidi = parseInt(octStr, 10) * 12 + origPc;
-  const newMidi = origMidi + semitones;
-  const newOctave = Math.floor(newMidi / 12);
-  const newPcInOctave = ((newMidi % 12) + 12) % 12;
-
-  const table = useFlats ? PC_FLAT : PC_SHARP;
-  const [newNote, newAcc] = table[newPcInOctave];
-
-  let finalOctave = newOctave;
-  const finalMidi = finalOctave * 12 + newPcInOctave;
-  if (finalMidi >= 84) finalOctave -= 1;
-  else if (finalMidi < 48) finalOctave += 1;
-
-  return { key: `${newNote.toLowerCase()}/${finalOctave}`, acc: newAcc };
-}
-
-function transposeChord(chord: string, semitones: number): string {
+function transposeChord(chord: string, semitones: number, useFlats: boolean): string {
   if (!chord) return chord;
+  const names = useFlats ? CHORD_KEY_NAMES_FLAT : CHORD_KEY_NAMES_SHARP;
   return chord.replace(/([A-G][b#]?)/g, (match) => {
     const rootSemi = CHORD_NAME_TO_SEMI[match] ?? 0;
     const newSemi = ((rootSemi + semitones) % 12 + 12) % 12;
-    return CHORD_KEY_NAMES[newSemi];
+    return names[newSemi];
   });
-}
-
-function transposeMeasure(measure: MeasureInfo, semitones: number, targetKey: string): MeasureInfo {
-  const useFlats = FLAT_KEYS.has(targetKey.replace(/m$/i, ''));
-  const majorKey = MINOR_TO_MAJOR[targetKey] ?? targetKey.replace(/m$/i, '');
-  const keySigNotes = KEY_SIG_NOTES[majorKey] ?? new Set();
-
-  return {
-    ...measure,
-    key: measure.key ? normalizeNoteKeyDisplay(transposeSheetKey(measure.key, semitones)) : measure.key,
-    chord: measure.chord ? transposeChord(measure.chord, semitones) : measure.chord,
-    notes: measure.notes.map((n) => {
-      if (n.duration.endsWith('r')) return n;
-      const origAcc = n.accidentals?.[0] as '#' | 'b' | 'n' | undefined;
-      const { key: newKey, acc: newAcc } = transposeNoteKey(n.keys[0], origAcc, semitones, useFlats);
-      const noteName = newKey.split('/')[0].toUpperCase();
-      const fullNote = newAcc ? `${noteName}${newAcc}` : noteName;
-      let finalAcc: Record<number, '#' | 'b' | 'n'> | undefined;
-      if (newAcc && keySigNotes.has(fullNote)) {
-        finalAcc = undefined;
-      } else if (newAcc) {
-        finalAcc = { 0: newAcc };
-      } else if (keySigNotes.has(`${noteName}b`) || keySigNotes.has(`${noteName}#`)) {
-        finalAcc = { 0: 'n' };
-      }
-      return { ...n, keys: [newKey], accidentals: finalAcc };
-    }),
-  };
 }
 
 function transposeSheetKey(key: string, semitones: number): string {
@@ -136,15 +78,69 @@ function transposeSheetKey(key: string, semitones: number): string {
   return roots.find((k) => keyToPc(k) === pc) ?? normalized;
 }
 
+/**
+ * 악보 전체 이조.
+ *
+ * 원 데이터는 'score' 임시표 의미론(조표 + 마디 내 상속)으로 해석해 각 음의
+ * "진짜 소리 피치"를 먼저 구하고, 최단 방향(±6반음 이내)으로 균일 이동해
+ * 멜로디 윤곽을 보존한 뒤, 대상 조성 관례(플랫/샤프 키)로 리스펠링하고
+ * 최소 표기 임시표(조표·마디 상속으로 함의되면 생략, 필요 시 ♮)를 재-방출한다.
+ *
+ * 이전 구현의 세 가지 결함을 고친다:
+ *  1) 마디 내 상속·조표 무시 → 이조 후 일부 음이 반음 틀림(b 누락처럼 보임)
+ *  2) keys[0]만 이조 → 화음 음 유실
+ *  3) 음표별 옥타브 클램프 → 멜로디 윤곽 파괴
+ */
 export function transposeNoteSheet(data: NoteSheetData, targetKeyRaw: string): NoteSheetData {
   const originalKey = normalizeNoteKeyDisplay(data.key);
   const targetKey = normalizeNoteKeyDisplay(targetKeyRaw);
-  const semitones = (keyToPc(targetKey) - keyToPc(originalKey) + 12) % 12;
-  if (semitones === 0 && data.key === targetKey) return data;
+  const up = (keyToPc(targetKey) - keyToPc(originalKey) + 12) % 12;
+  if (up === 0 && data.key === targetKey) return data;
+  // 최단 방향: +7 이 아니라 -5 로 — 전체 레지스터 이동을 최소화해 윤곽 보존.
+  const semitones = up > 6 ? up - 12 : up;
 
-  return {
-    ...data,
-    key: targetKey,
-    measures: data.measures.map((m) => transposeMeasure(m, semitones, targetKey)),
-  };
+  const useFlats = FLAT_SPELLING_KEYS.has(normalizeKeyName(targetKey));
+  const table = useFlats ? PC_FLAT : PC_SHARP;
+
+  /* 1) 소스 의미론으로 소리 피치 확정 → 이동 → 리스펠링. */
+  let srcKeySig = keySigLetterMap(originalKey);
+  type Sounding = { vexKey: string; acc: AccGlyph | undefined };
+  const perNote: Sounding[][][] = [];
+  const outMeasures: MeasureInfo[] = data.measures.map((m) => {
+    if (m.key) srcKeySig = keySigLetterMap(m.key);
+    const active = new Map<string, AccGlyph>();
+    const soundRow: Sounding[][] = [];
+    const notes = m.notes.map((n) => {
+      if (n.duration.endsWith('r')) { soundRow.push([]); return n; }
+      const per: Sounding[] = n.keys.map((k, ki) => {
+        const srcAcc = soundingAccidental(
+          active, srcKeySig, k, n.accidentals?.[ki] as AccGlyph | undefined, 'score',
+        );
+        const newMidi = midiFromKey(k, srcAcc) + semitones;
+        const pc = ((newMidi % 12) + 12) % 12;
+        const [letter, acc] = table[pc];
+        // 스펠링된 글자의 내추럴 pc 로부터 옥타브 역산 — B/C 경계 안전
+        // (테이블은 Cb/B# 를 만들지 않으므로 floor 로 충분).
+        const octave = Math.floor((newMidi - (acc ? ({ '#': 1, b: -1, n: 0, '##': 2, bb: -2 } as const)[acc] : 0)) / 12) - 1;
+        return { vexKey: `${letter}/${octave}`, acc };
+      });
+      soundRow.push(per);
+      // keys 는 여기서 갈아끼우고, accidentals 는 아래 emit 단계가 다시 계산.
+      return { ...n, keys: per.map((p) => p.vexKey) };
+    });
+    perNote.push(soundRow);
+    return {
+      ...m,
+      key: m.key ? normalizeNoteKeyDisplay(transposeSheetKey(m.key, ((semitones % 12) + 12) % 12)) : m.key,
+      chord: m.chord ? transposeChord(m.chord, ((semitones % 12) + 12) % 12, useFlats) : m.chord,
+      notes: notes.map((n) => (
+        n.chord ? { ...n, chord: transposeChord(n.chord, ((semitones % 12) + 12) % 12, useFlats) } : n
+      )),
+    };
+  });
+
+  /* 2) 대상 조성 기준 최소 표기 임시표 재-방출. */
+  const emitted = emitScoreAccidentals(perNote, outMeasures, targetKey);
+
+  return { ...data, key: targetKey, measures: emitted };
 }

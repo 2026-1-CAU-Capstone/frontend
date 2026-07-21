@@ -381,7 +381,9 @@ export function createGlobalPlayer(
       ...((input.kind === "sheet" && input.extraParts) ? input.extraParts : []),
     ];
     const melody: MelodyNote[] = sheetsToSound.flatMap((sheet) =>
-      extractMelody(sheet).map((m) => {
+      // 릭 데이터는 explicit 임시표 의미론(필드가 곧 소리 — LickCard 렌더와 쌍),
+      // 악보(sheet/solo)는 score 의미론(조표+마디 내 상속) — 눈에 보이는 그대로 재생.
+      extractMelody(sheet, { accidentalStyle: input.kind === "lick" ? "explicit" : "score" }).map((m) => {
         const onset = swungBeats(m.beatOffset, swingRatio);
         const end = swungBeats(m.beatOffset + m.durationBeats, swingRatio);
         return { ...m, beatOffset: onset, durationBeats: Math.max(0.05, end - onset) };

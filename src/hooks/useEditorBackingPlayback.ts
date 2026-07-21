@@ -20,6 +20,9 @@ import type { NoteSheetData } from '../data/sampleMelody';
 interface UseEditorBackingPlaybackArgs {
   /** 재생 시점에 현재 마디로부터 NoteSheetData를 만든다. */
   buildSheet: () => NoteSheetData;
+  /** 함께 소리 낼 추가 파트(양손 에디터의 왼손 등). 마디는 buildSheet의
+   *  measures와 인덱스 1:1 정렬 — 도돌이 전개를 여기서 동일하게 적용한다. */
+  buildExtraParts?: () => NoteSheetData[];
   bpm: number;
   /** 반복 횟수(상단 RepeatControl). */
   repeatCount: number;
@@ -36,7 +39,7 @@ export interface EditorBackingPlayback {
 }
 
 export function useEditorBackingPlayback(
-  { buildSheet, bpm, repeatCount, noteElMapRef }: UseEditorBackingPlaybackArgs,
+  { buildSheet, buildExtraParts, bpm, repeatCount, noteElMapRef }: UseEditorBackingPlaybackArgs,
 ): EditorBackingPlayback {
   const { player } = useGlobalPlayer();
   const countIn = useCountInIntro();
@@ -125,15 +128,21 @@ export function useEditorBackingPlayback(
     const expanded = expandMeasures(src.measures);
     origMiRef.current = expanded.map((e) => e.origMi);
     const data: NoteSheetData = { ...src, measures: expanded.map((e) => e.m) };
+    // 추가 파트(왼손 등)도 같은 도돌이 전개를 인덱스 매핑으로 적용.
+    const extras = (buildExtraParts?.() ?? []).map((part) => ({
+      ...part,
+      measures: expanded.map((e) => part.measures[e.origMi] ?? { notes: [] }),
+    }));
+    const extraParts = extras.length > 0 ? extras : undefined;
 
     const resuming = pausedRef.current;
     pausedRef.current = false;
     setPlaying(true);
     // preload 실패 .catch: 카운트인 대기 중의 rejection이 AudioLifecycleGuard의
     // stopAllAudio를 트리거하지 않게 한다(play()가 어차피 재로드).
-    const preload = p.preload({ kind: 'sheet', data }).catch(() => {});
+    const preload = p.preload({ kind: 'sheet', data, extraParts }).catch(() => {});
     // 클릭 제스처 안에서 동기로 ctx resume(콜드 첫 재생 무음 방지).
-    p.unlock({ kind: 'sheet', data });
+    p.unlock({ kind: 'sheet', data, extraParts });
 
     // 재개(pause 후)면 카운트인 생략 — 멈춘 자리에서 바로 이어감. 새 시작이면
     // 카운트인 "1 2 3 4" 후 다운비트에 정렬.
@@ -146,11 +155,11 @@ export function useEditorBackingPlayback(
     // 에디터 전용: 1·3박 피아노 컴핑.
     p.setConfig({ bpm, repeatCount, pianoComp1And3: true });
     try {
-      await p.play({ kind: 'sheet', data }, downbeatInSec !== undefined ? { downbeatInSec } : {});
+      await p.play({ kind: 'sheet', data, extraParts }, downbeatInSec !== undefined ? { downbeatInSec } : {});
     } catch {
       setPlaying(false); // play()는 'error' emit 후 rethrow — 버튼 고착 방지.
     }
-  }, [player, playing, countIn, buildSheet, bpm, repeatCount, highlightNote]);
+  }, [player, playing, countIn, buildSheet, buildExtraParts, bpm, repeatCount, highlightNote]);
 
   return { playing, handlePlayPause, handleStop, countInOverlay: countIn.overlay };
 }
