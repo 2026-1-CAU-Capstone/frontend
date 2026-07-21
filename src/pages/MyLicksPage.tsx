@@ -26,7 +26,7 @@ import {
 import { LickCard } from '../components/notesheet/LickCard';
 import { PianoKeyboard, type PianoNote } from '../components/notesheet/PianoKeyboard';
 import { MelodyPreview } from '../components/notesheet/MelodyPreview';
-import { loadLicks, loadFrontendLicks, loadBackupLicks, loadUserLicks, invalidateLicksCache, type LickEntry } from '../data/lickData';
+import { loadMyLicks, invalidateLicksCache, type LickEntry } from '../data/lickData';
 import { transposeLick, normalizeKeyInput, formatKeyDisplay } from '../lib/transpose';
 import { OMRUploadModal } from '../components/common/OMRUploadModal';
 import { createLickViaOMR } from '../api/licks';
@@ -137,6 +137,59 @@ const OMRBtn = styled.button`
   transition: opacity 0.12s, transform 0.1s;
   &:hover { opacity: 0.85; }
   &:active { transform: scale(0.97); }
+`;
+
+/* "추가하기" 드롭다운 — 트리거(OMRBtn 재사용) + 메뉴를 감싸는 앵커. */
+const AddWrap = styled.div`
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+`;
+
+const Caret = styled.span<{ $open?: boolean }>`
+  font-size: 0.7rem;
+  line-height: 1;
+  transform: rotate(${({ $open }) => ($open ? '180deg' : '0deg')});
+  transition: transform 0.14s;
+`;
+
+const AddMenu = styled.div`
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  min-width: 230px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`;
+
+const AddMenuItem = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-family: 'Pretendard', sans-serif;
+  color: ${({ theme }) => theme.colors.textPrimary};
+  transition: background 0.12s;
+
+  &:hover { background: ${({ theme }) => theme.colors.bgSecondary}; }
+
+  span { font-size: 1.05rem; line-height: 1; flex-shrink: 0; }
+  div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  strong { font-size: 0.85rem; font-weight: 600; }
+  small { font-size: 0.72rem; color: ${({ theme }) => theme.colors.textSecondary}; }
 `;
 
 const MelodyBtn = styled.button<{ $active?: boolean }>`
@@ -255,29 +308,6 @@ const Sentinel = styled.div`
   height: 1px;
 `;
 
-const SourceToggleWrap = styled.div`
-  display: flex;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 5px;
-  overflow: hidden;
-  flex-shrink: 0;
-`;
-
-const SourceBtn = styled.button<{ $active?: boolean }>`
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.78rem;
-  padding: 2px 10px;
-  border: none;
-  background: ${({ $active, theme }) => ($active ? theme.colors.textPrimary : theme.colors.bgPrimary)};
-  color: ${({ $active, theme }) => ($active ? theme.colors.bgPrimary : theme.colors.textSecondary)};
-  cursor: pointer;
-  font-weight: ${({ $active }) => ($active ? 600 : 400)};
-  transition: background 0.12s, color 0.12s;
-  &:hover {
-    background: ${({ $active, theme }) => ($active ? theme.colors.textPrimary : theme.colors.border)};
-  }
-`;
-
 
 /* ─── melody similarity ──────────────────────────────────────────────── */
 
@@ -386,12 +416,16 @@ export default function MyLicksPage() {
    *   backend  — live /v1/licks (현재 비어있음, 복구 대기)
    *   frontend — 백엔드 wipe 직전 snapshot 145개 (public/data/licks/backend_backup_licks.json)
    *   static   — WJazzD 정적 ~8000개 + user_licks.json (브라우저용 폴백 풀) */
-  const [lickSource, setLickSource] = useState<'backend' | 'frontend' | 'static'>('backend');
+  /* 생성/삭제/수정 후 목록을 다시 읽기 위한 트리거. */
+  const [reloadKey, setReloadKey] = useState(0);
 
   /* lick data */
   const [allLicks, setAllLicks] = useState<LickEntry[]>([]);
   const [loadingLicks, setLoadingLicks] = useState(true);
 
+  /* "내 릭"은 백엔드 전체 DB가 아니라 내가 만든 릭만 담는다 — 처음엔 비어
+   * 있고, 에디터 저장·OMR 생성·채팅 카드 저장으로만 채워진다. 전체 릭 목록은
+   * 릭 데이터베이스(LicksPage) 쪽이 담당한다. */
   useEffect(() => {
     setLoadingLicks(true);
     setAllLicks([]);
@@ -399,26 +433,10 @@ export default function MyLicksPage() {
     setFilterStyle('');
     setFilterChord('');
     setSearchQuery('');
-    if (lickSource === 'backend') {
-      loadLicks()
-        .then((licks) => { setAllLicks(licks); setLoadingLicks(false); })
-        .catch((err) => { console.error('Failed to load backend licks:', err); setLoadingLicks(false); });
-    } else if (lickSource === 'frontend') {
-      loadBackupLicks()
-        .then((licks) => { setAllLicks(licks); setLoadingLicks(false); })
-        .catch((err) => { console.error('Failed to load backup snapshot licks:', err); setLoadingLicks(false); });
-    } else {
-      // 'static'
-      loadFrontendLicks()
-        .then((licks) =>
-          loadUserLicks().then((userLicks) => {
-            setAllLicks([...userLicks, ...licks]);
-            setLoadingLicks(false);
-          }),
-        )
-        .catch((err) => { console.error('Failed to load static licks:', err); setLoadingLicks(false); });
-    }
-  }, [lickSource]);
+    loadMyLicks()
+      .then((licks) => { setAllLicks(licks); setLoadingLicks(false); })
+      .catch((err) => { console.error('Failed to load my licks:', err); setLoadingLicks(false); });
+  }, [reloadKey]);
 
   /* OMR modal state — click "OMR로 생성하기" → opens LickOMRModal. On
    * successful upload the modal returns the persisted LickEntry; we drop
@@ -426,8 +444,25 @@ export default function MyLicksPage() {
    * the unified Editor (lick mode) pre-loaded with the OMR result so the
    * user can review/edit immediately. */
   const [omrOpen, setOmrOpen] = useState(false);
+  /* "추가하기" 드롭다운 — 에디터 직접 입력 / OMR 생성 두 갈래. */
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const addMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!addMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!addMenuRef.current?.contains(e.target as Node)) setAddMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setAddMenuOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [addMenuOpen]);
   const handleOMRCreated = useCallback((lick: LickEntry) => {
     invalidateLicksCache();
+    setReloadKey((k) => k + 1);
     setOmrOpen(false);
     navigate('/editor?mode=lick', { state: { editingLick: lick } });
   }, [navigate]);
@@ -614,15 +649,41 @@ export default function MyLicksPage() {
         <MainArea>
         <CenterColumn>
               <ToolBar>
-                <SourceToggleWrap>
-                  <SourceBtn $active={lickSource === 'backend'} onClick={() => setLickSource('backend')}>Backend</SourceBtn>
-                  <SourceBtn $active={lickSource === 'frontend'} onClick={() => setLickSource('frontend')}>Frontend</SourceBtn>
-                  <SourceBtn $active={lickSource === 'static'} onClick={() => setLickSource('static')}>Static</SourceBtn>
-                </SourceToggleWrap>
-
-                <OMRBtn onClick={() => setOmrOpen(true)} title="악보 이미지를 업로드해 OMR로 릭 생성">
-                  📄 OMR로 생성하기
-                </OMRBtn>
+                <AddWrap ref={addMenuRef}>
+                  <OMRBtn
+                    onClick={() => setAddMenuOpen((v) => !v)}
+                    title="새 릭 추가"
+                    aria-haspopup="menu"
+                    aria-expanded={addMenuOpen}
+                  >
+                    ＋ 추가하기
+                    <Caret $open={addMenuOpen} aria-hidden>▾</Caret>
+                  </OMRBtn>
+                  {addMenuOpen && (
+                    <AddMenu role="menu">
+                      <AddMenuItem
+                        role="menuitem"
+                        onClick={() => { setAddMenuOpen(false); navigate('/editor?mode=lick'); }}
+                      >
+                        <span aria-hidden>🎼</span>
+                        <div>
+                          <strong>에디터로 추가하기</strong>
+                          <small>악보를 직접 입력해 만듭니다</small>
+                        </div>
+                      </AddMenuItem>
+                      <AddMenuItem
+                        role="menuitem"
+                        onClick={() => { setAddMenuOpen(false); setOmrOpen(true); }}
+                      >
+                        <span aria-hidden>📄</span>
+                        <div>
+                          <strong>OMR로 생성하기</strong>
+                          <small>악보 이미지를 올려 자동 변환합니다</small>
+                        </div>
+                      </AddMenuItem>
+                    </AddMenu>
+                  )}
+                </AddWrap>
 
                 <MelodyBtn
                   $active={melodySearch}
@@ -741,9 +802,9 @@ export default function MyLicksPage() {
                         width={feedWidth}
                         fitToWidth
                         displayId={rankedLicks.length - i}
-                        onDelete={lickSource === 'backend' ? () => handleDeleteLick(lick) : undefined}
-                        onEdit={lickSource === 'backend' ? () => handleEditLick(lick) : undefined}
-                        onTranspose={lickSource === 'backend' ? () => handleTransposeLick(lick) : undefined}
+                        onDelete={() => handleDeleteLick(lick)}
+                        onEdit={() => handleEditLick(lick)}
+                        onTranspose={() => handleTransposeLick(lick)}
                         onPractice={() => navigate(`/lick-practice/${lick.id}`, { state: { lick } })}
                       />
                     </div>

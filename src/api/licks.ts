@@ -8,6 +8,10 @@ const API_BASE = import.meta.env.DEV ? '/api' : 'https://jazzify.p-e.kr/api';
 
 interface LickResponse {
   publicId: string;
+  /** 소유자 uuid + 출처. "내 릭"이 백엔드 전체에서 자기 것만 고를 때 쓴다
+   *  (GET /v1/licks 에 owner 필터가 없어 클라에서 거른다 — BR-10). */
+  userId?: string;
+  source?: 'user' | 'weimar' | 'curated' | 'unknown';
   /** 비동기 OMR 진행 상태 — POST /v1/licks/omr 직후엔 PENDING/PROCESSING 셸이
    *  돌아오고, 완성본은 GET /v1/licks/{id} 재조회로 확인한다(릭엔 별도
    *  omr-status 엔드포인트가 없음). 일반 생성 릭에는 없을 수 있어 optional. */
@@ -57,6 +61,9 @@ interface ApiResponse<T> {
 export function toLickEntry(r: LickResponse): LickEntry {
   return {
     id: r.publicId,
+    // "내 릭" 필터용 — 소유자/출처를 그대로 실어 보낸다 (loadMyLicks 참조).
+    ...(r.userId ? { userId: r.userId } : {}),
+    ...(r.source ? { source: r.source } : {}),
     performer: r.performer,
     title: r.title,
     album: r.album ?? undefined,
@@ -93,7 +100,9 @@ interface CreateLickRequest {
   performer: string;
   title: string;
   album: string | null;
-  instrument: string;
+  /* 백엔드 enum(as/ts/tp/p/g/b/voc/cl/unknown). 매칭 안 되면 null 로 보내
+   * 서버 기본값에 맡긴다 — 빈 문자열은 enum 위반이라 400 이 난다. */
+  instrument: string | null;
   style: string | null;
   tempo: number | null;
   key: string;
@@ -109,25 +118,71 @@ interface CreateLickRequest {
   durationClasses: number[];
 }
 
+/* ── 백엔드 enum 정규화 ─────────────────────────────────────────────
+ *
+ * LickCreateRequest 의 style/instrument/rhythmFeel/harmonicContext 는 서버에서
+ * enum 으로 검증된다. 프론트 값은 자유 문자열이라(에디터의 장르 메뉴는
+ * "Medium Swing"·"Bossa Nova" 같은 표시용 라벨) 그대로 보내면 400
+ * "잘못된 입력값입니다" 로 튕긴다. 매칭되지 않으면 null 로 보내 서버 기본값에
+ * 맡긴다 — 저장 자체가 실패하는 것보다 낫다. (스펙: GET /v3/api-docs) */
+const STYLE_ENUM = new Set(['SWING', 'BEBOP', 'HARDBOP', 'COOL', 'MODAL', 'FUSION']);
+const INSTRUMENT_ENUM = new Set(['as', 'ts', 'tp', 'p', 'g', 'b', 'voc', 'cl', 'unknown']);
+const RHYTHM_ENUM = new Set(['SWING', 'STRAIGHT', 'BOSSA', 'LATIN']);
+const HARMONIC_ENUM = new Set(['ii-V-I', 'minor-ii-V', 'blues', 'modal', 'turnaround', 'other']);
+
+/** 에디터 장르 라벨("Medium Swing" 등) → 백엔드 style enum. 못 맞추면 null. */
+function toStyleEnum(v?: string | null): string | null {
+  if (!v) return null;
+  const u = v.trim().toUpperCase();
+  if (STYLE_ENUM.has(u)) return u;
+  if (u.includes('BEBOP')) return 'BEBOP';
+  if (u.includes('HARD')) return 'HARDBOP';
+  if (u.includes('COOL')) return 'COOL';
+  if (u.includes('MODAL')) return 'MODAL';
+  if (u.includes('FUSION') || u.includes('FUNK')) return 'FUSION';
+  if (u.includes('SWING') || u.includes('BALLAD') || u.includes('SHUFFLE')) return 'SWING';
+  return null;
+}
+
+/** 장르 라벨 → rhythmFeel enum. 라틴 계열은 BOSSA/LATIN, 나머지는 SWING. */
+function toRhythmEnum(rhythm?: string | null, style?: string | null): string | null {
+  const src = (rhythm || style || '').trim().toUpperCase();
+  if (!src) return null;
+  if (RHYTHM_ENUM.has(src)) return src;
+  if (src.includes('BOSSA')) return 'BOSSA';
+  if (src.includes('SAMBA') || src.includes('LATIN') || src.includes('CHA') || src.includes('AFRO')) return 'LATIN';
+  if (src.includes('STRAIGHT')) return 'STRAIGHT';
+  if (src.includes('SWING') || src.includes('BEBOP') || src.includes('BALLAD')) return 'SWING';
+  return null;
+}
+
+function toInstrumentEnum(v?: string | null): string | null {
+  if (!v) return null;
+  const s = v.trim().toLowerCase();
+  if (INSTRUMENT_ENUM.has(s)) return s;
+  const MAP: Record<string, string> = {
+    sax: 'as', alto: 'as', 'alto sax': 'as', tenor: 'ts', 'tenor sax': 'ts',
+    trumpet: 'tp', piano: 'p', guitar: 'g', bass: 'b', vocal: 'voc', voice: 'voc', clarinet: 'cl',
+  };
+  return MAP[s] ?? null;
+}
+
 /**
  * Create a new lick via POST. Returns the persisted entry (with backend
  * publicId as the new id).
  */
 export async function createLick(entry: LickEntry): Promise<LickEntry> {
-  // 백엔드 harmonicContext는 enum (blues / other / null만 안전). 임의값 보내면 500.
-  // 임의 tag 값은 무시하고 null 전송 → 서버가 "other"로 자동 분류.
-  const HARMONIC_ENUM = new Set(['blues', 'other', 'major', 'minor']);
   const harmonicContext = entry.tag && HARMONIC_ENUM.has(entry.tag) ? entry.tag : null;
 
   const body: CreateLickRequest = {
     performer: entry.performer,
     title: entry.title,
     album: entry.album ?? '',
-    instrument: entry.instrument,
-    style: entry.style || null,
+    instrument: toInstrumentEnum(entry.instrument),
+    style: toStyleEnum(entry.style),
     tempo: entry.tempo,
     key: entry.key,
-    rhythmFeel: entry.rhythmfeel || null,
+    rhythmFeel: toRhythmEnum(entry.rhythmfeel, entry.style),
     timeSignature: entry.sheetData.timeSignature || '4/4',
     chords: entry.chords.filter((c) => c.length > 0), // 빈 문자열 제거 (백엔드 검증)
     harmonicContext,
@@ -165,18 +220,18 @@ export async function createLick(entry: LickEntry): Promise<LickEntry> {
 /* ── Update (PUT) ─────────────────────────────────────────────────────────── */
 
 export async function updateLick(publicId: string, entry: LickEntry): Promise<LickEntry> {
-  const HARMONIC_ENUM = new Set(['blues', 'other', 'major', 'minor']);
+  // enum 정규화는 createLick 과 동일 규칙 (백엔드 검증에 400 나지 않도록).
   const harmonicContext = entry.tag && HARMONIC_ENUM.has(entry.tag) ? entry.tag : null;
 
   const body: CreateLickRequest = {
     performer: entry.performer,
     title: entry.title,
     album: entry.album ?? '',
-    instrument: entry.instrument,
-    style: entry.style || null,
+    instrument: toInstrumentEnum(entry.instrument),
+    style: toStyleEnum(entry.style),
     tempo: entry.tempo,
     key: entry.key,
-    rhythmFeel: entry.rhythmfeel || null,
+    rhythmFeel: toRhythmEnum(entry.rhythmfeel, entry.style),
     timeSignature: entry.sheetData.timeSignature || '4/4',
     chords: entry.chords.filter((c) => c.length > 0),
     harmonicContext,

@@ -8,6 +8,7 @@ import {
   TextBracket, TextBracketPosition, Articulation, Annotation, AnnotationVerticalJustify,
   Ornament, Tremolo, Curve, StaveConnector,
 } from 'vexflow';
+import { minWidthForNotes, barWidthFromMin, heuristicWidth, packLines } from '../lib/notesheet/sheetLayout';
 import { PianoKeyboard, playMidi, type PianoNote } from '../components/notesheet/PianoKeyboard';
 import type { NoteInfo, MeasureInfo, NavigationMarker, NoteSheetData } from '../data/sampleMelody';
 
@@ -224,69 +225,19 @@ const GRAND_BASS_DY = 100;
 const GRAND_EXTRA = 115;
 /* MARGIN.top: chord 라벨(28px high) 이 stave 위에 충분한 여유를 두고 들어갈 공간. */
 const MARGIN = { top: 50, left: 10, right: 10, bottom: 10 };
-/** Soft cap on bars per line. The actual line break is driven by the
- *  per-measure intrinsic width (see `measureWidth`), so this only bites
- *  for very thin measures (lots of whole notes) that would otherwise
- *  fit a dozen-plus to a line and look like a crammed timeline. */
+/** Soft cap on bars per line. The actual line break is driven by each measure's
+ *  real VexFlow width (measured via `minWidthForNotes`), so this only bites for
+ *  very thin measures (lots of whole notes) that would otherwise fit a
+ *  dozen-plus to a line and look like a crammed timeline. */
 const MAX_PER_LINE = 8;
 const DECOR_FIRST = 70;
 const DECOR_OTHER = 35;
-/** Intrinsic width per duration token. Heuristic — VexFlow's Formatter does
- *  the fine-grained spacing inside the cell, but the cell itself must be at
- *  least this wide so a bar full of 8th/16th notes isn't compressed into
- *  the same width as one whole note. Tuned empirically: 4 quarter notes
- *  → ~205px, 8 eighth notes → ~245px, 16 sixteenths → ~320px. */
-const NOTE_W: Record<string, number> = {
-  w: 90, h: 64, q: 42, '8': 26, '16': 18, '32': 14,
-};
-/** Fallback when a measure is empty / unrecognised. */
-const FIXED_BAR_W = 200;
 
 /** staff: 'bass' = 그랜드 스태프의 왼손(낮은음자리표) 행. 없으면 트레블. */
 interface MeasurePos { idx: number; x: number; y: number; w: number; chordX: number; staff?: 'bass'; }
 interface NotePos { mi: number; ni: number; x: number; y: number; w: number; h: number; staff?: 'bass'; }
 type StaffId = 'treble' | 'bass';
 interface NoteSel { mi: number; ni: number; staff?: StaffId; }
-
-/** Intrinsic visual width for one measure based on its notes — not used for
- *  pixel-perfect placement (the Formatter does that), but as the weight when
- *  we proportionally divide each line's available width across its bars. A
- *  16th-rich bar gets more pixels than a half-note-rich one. */
-function measureWidth(m: MeasureInfo): number {
-  if (!m.notes || m.notes.length === 0) return FIXED_BAR_W;
-  let w = 0;
-  for (const n of m.notes) {
-    const base = n.duration.replace(/r$/, '');
-    let nw = NOTE_W[base] ?? 26;
-    if (n.dotted) nw *= 1.4;
-    if (n.tuplet && n.tuplet >= 3) nw *= 0.85;
-    if (n.accidentals?.[0]) nw += 6;
-    w += nw;
-  }
-  /* Leading/trailing padding for chord text + the barline glyph. */
-  return Math.max(w + 22, 150);
-}
-
-function packLines(measures: MeasureInfo[], availW: number, widths?: number[]): number[][] {
-  const lines: number[][] = [];
-  let line: number[] = [];
-  let usedW = 0;
-  for (let i = 0; i < measures.length; i++) {
-    const mw = widths?.[i] ?? measureWidth(measures[i]);
-    const decor = line.length === 0 ? (lines.length === 0 ? DECOR_FIRST : DECOR_OTHER) : 0;
-    if (line.length > 0 && (usedW + mw > availW || line.length >= MAX_PER_LINE)) {
-      lines.push(line);
-      line = [i];
-      usedW = (lines.length === 0 ? DECOR_FIRST : DECOR_OTHER) + mw;
-    } else {
-      if (line.length === 0) usedW = decor;
-      line.push(i);
-      usedW += mw;
-    }
-  }
-  if (line.length > 0) lines.push(line);
-  return lines;
-}
 
 function buildDuration(dur: string, dotted?: boolean): string {
   if (!dotted) return dur;
@@ -528,10 +479,37 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
   const innerW = width / SHEET_SCALE;
   const totalW = innerW - MARGIN.left - MARGIN.right;
   /* 양손이면 마디 폭은 두 보표 중 밀도가 높은 쪽 기준. */
-  const widths = measures.map((m, i) => grand
-    ? Math.max(measureWidth(m), measureWidth(bassAt(i)))
-    : measureWidth(m));
-  const lines = packLines(measures, totalW, widths);
+  const keySigAcc = keySigAccidentals(sheetKey || 'C');
+
+  /* 마디 폭 사전 측정 — 자체 추정 테이블 대신 VexFlow에게 실제로 필요한 최소
+   * 폭을 물어본다. 여기서 만드는 StaveNote는 측정 전용이고, 아래 렌더 루프는
+   * 자기 것을 새로 만든다 — 같은 노트를 두 Voice에 넣으면 tickContext가
+   * 덮어써지기 때문에 인스턴스를 분리한다.
+   * 임시표 상태(tieCarry)는 렌더 루프와 똑같이 마디 순서대로 전파해야 측정폭이
+   * 실제 렌더와 일치한다. packLines가 순서를 보존하므로 이 전제가 성립한다. */
+  let probeCarry: Map<string, RenderAcc> | undefined;
+  const widths = measures.map((m, i) => {
+    const active: Map<string, RenderAcc> = probeCarry ? new Map(probeCarry) : new Map();
+    probeCarry = undefined;
+    const probe = m.notes.map((n) => buildVfNote(n, 'treble', active, keySigAcc));
+    const last = m.notes[m.notes.length - 1];
+    if (last?.tie && !last.duration.endsWith('r')) {
+      const acc = last.accidentals?.[0] as 'b' | '#' | undefined;
+      if (acc) probeCarry = new Map([[last.keys[0], acc]]);
+    }
+    let minW = minWidthForNotes(probe);
+    let floor = heuristicWidth(m.notes);
+    if (grand) {
+      const bassActive: Map<string, RenderAcc> = new Map();
+      const bassProbe = bassAt(i).notes.map((n) => buildVfNote(n, 'bass', bassActive, keySigAcc));
+      minW = Math.max(minW, minWidthForNotes(bassProbe));
+      floor = Math.max(floor, heuristicWidth(bassAt(i).notes));
+    }
+    return barWidthFromMin(minW, floor);
+  });
+  const lines = packLines(widths, totalW, {
+    decorFirst: DECOR_FIRST, decorOther: DECOR_OTHER, maxPerLine: MAX_PER_LINE,
+  });
   const totalH = MARGIN.top + lines.length * lineH + MARGIN.bottom;
   const renderer = new Renderer(el, Renderer.Backends.SVG);
   renderer.resize(innerW, totalH);
@@ -546,7 +524,6 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
   const allVfNotes: { mi: number; ni: number; vfNote: StaveNote }[] = [];
   const allBassVfNotes: { mi: number; ni: number; vfNote: StaveNote }[] = [];
   let tieCarryAcc: Map<string, RenderAcc> | undefined;
-  const keySigAcc = keySigAccidentals(sheetKey || 'C');
 
   for (let li = 0; li < lines.length; li++) {
     const indices = lines[li];
@@ -1437,7 +1414,7 @@ function splitChord(chord: string): { base: string; ext: string; tensions: { acc
   let remaining = rest.slice(ext.length);
   const tensions: { acc: string; num: string }[] = [];
   while (remaining.length > 0) {
-    const t = remaining.match(/^([♭♯\u266D\u266F#b]*)(\d+|alt)/);
+    const t = remaining.match(/^([♭♯♭♯#b]*)(\d+|alt)/);
     if (!t) break;
     tensions.push({ acc: t[1], num: t[2] });
     remaining = remaining.slice(t[0].length);
@@ -1445,7 +1422,7 @@ function splitChord(chord: string): { base: string; ext: string; tensions: { acc
   return { base: m[1], ext, tensions };
 }
 
-/* formatChordDisplay imported from src/lib/jazz-harmony \u2014 see top of file. */
+/* formatChordDisplay imported from src/lib/jazz-harmony — see top of file. */
 
 function ChordCell({ value, onChange, style }: {
   value: string;
@@ -1471,7 +1448,7 @@ function ChordCell({ value, onChange, style }: {
       ) : (
         <ChordCellDisplay>
           {value ? (() => {
-            const dimMatch = base.match(/^(.*?)([\u00F8\u00B0])$/);
+            const dimMatch = base.match(/^(.*?)([ø°])$/);
             const baseText = dimMatch ? dimMatch[1] : base;
             const dimSymbol = dimMatch ? dimMatch[2] : '';
             return <>
@@ -1731,6 +1708,30 @@ export default function EditorPage() {
   const [tieNext, setTieNext] = useState(false);
   const [tripletMode, setTripletMode] = useState(false);
   const tripletCountRef = useRef(0);
+  /* 지속 연음("3+") — 3연음처럼 3개에서 자동 해제되지 않고, 사용자가 버튼을
+   * 다시 누를 때까지 입력하는 음표를 계속 한 묶음으로 이어붙인다. 음표가
+   * 하나 들어올 때마다 그룹 전체의 tuplet 값을 현재 개수(N)로 다시 찍어서
+   * 4·5·6·7… 연음이 실시간으로 만들어진다. (렌더러/박자 계산은 이미 임의 N을
+   * 지원하므로 입력 UI만 열어 주면 된다.) */
+  const [sustainTuplet, setSustainTuplet] = useState(false);
+  const sustainCountRef = useRef(0);
+
+  /* 두 모드는 상호 배타 — 하나를 켜면 다른 쪽은 끄고 카운터를 초기화한다. */
+  const toggleTripletMode = useCallback(() => {
+    setTripletMode((v) => {
+      if (!v) { tripletCountRef.current = 0; setSustainTuplet(false); sustainCountRef.current = 0; }
+      return !v;
+    });
+  }, []);
+
+  const toggleSustainTuplet = useCallback(() => {
+    setSustainTuplet((v) => {
+      // 끄는 순간 그룹이 확정된다. 다음에 켜면 새 그룹으로 시작.
+      sustainCountRef.current = 0;
+      if (!v) { setTripletMode(false); tripletCountRef.current = 0; }
+      return !v;
+    });
+  }, []);
   /* ── 8va / 8vb bracket toggle. Activate before entering notes, then call
    *    handleOttavaToggle(same kind) on the last note to close. Same UX as
    *    LickCreator. */
@@ -1958,6 +1959,9 @@ export default function EditorPage() {
       const chord = joinChords(curChord1Ref.current, curChord2Ref.current);
       setMeasures((prev) => [...prev, { notes, chord: chord || undefined }]);
       setCurNotes([]);
+      // 마디가 닫히면 지속 연음 그룹도 확정 — 다음 마디는 새 묶음으로 센다
+      // (연음 그룹이 마디선을 넘어가면 렌더러가 묶지 못한다).
+      sustainCountRef.current = 0;
       setCurChord1('');
       setCurChord2('');
       setTimeout(() => chord1Ref.current?.focus(), 50);
@@ -2390,6 +2394,16 @@ export default function EditorPage() {
       newNotes = [...curNotes, ni];
     }
 
+    /* 지속 연음: 방금 넣은 음표까지 포함해 마지막 N개를 하나의 N연음으로
+     * 다시 찍는다(3→4→5…). 렌더러는 "연속된 같은 tuplet 값"을 한 그룹으로
+     * 묶으므로 이 재태깅만으로 화면·재생이 즉시 N연음이 된다. */
+    if (sustainTuplet) {
+      const n = sustainCountRef.current + 1;
+      sustainCountRef.current = n;
+      const start = Math.max(0, newNotes.length - n);
+      newNotes = newNotes.map((nt, i) => (i >= start ? { ...nt, tuplet: n } : nt));
+    }
+
     setCurNotes(newNotes);
     maybeAutoClose(newNotes);
 
@@ -2400,7 +2414,7 @@ export default function EditorPage() {
         tripletCountRef.current = 0;
       }
     }
-  }, [duration, dotted, accMode, tieNext, tripletMode, curNotes, measures, maybeAutoClose, pushEditUndo, selectedNote, selectedMeasure, insertPos, insertNoteAt, updateNote, chordInput, staffMode, selectedBassMeasure, bassMeasures]);
+  }, [duration, dotted, accMode, tieNext, tripletMode, sustainTuplet, curNotes, measures, maybeAutoClose, pushEditUndo, selectedNote, selectedMeasure, insertPos, insertNoteAt, updateNote, chordInput, staffMode, selectedBassMeasure, bassMeasures]);
 
   const handleRest = useCallback((dur?: string) => {
     const d = dur ?? duration;
@@ -2481,7 +2495,16 @@ export default function EditorPage() {
     }
   }, [curNotes.length, measures]);
 
+  /* 악보를 전부 비운다. 되돌릴 수 없는 동작이므로 (1) 내용이 있으면 확인을 받고
+   * (2) pushEditUndo로 스냅샷을 남겨 Backspace(Undo)로 복구할 수 있게 한다.
+   * 저장된 초안도 함께 지운다 — 안 그러면 새로고침 때 지운 악보가 되살아난다.
+   * 음표 수는 totalNotes가 이 아래에서 선언되므로(TDZ) 여기서 직접 센다. */
   const handleClear = useCallback(() => {
+    const noteCount = measures.reduce((s, m) => s + m.notes.length, 0) + curNotes.length
+      + (staffMode === 'grand' ? bassMeasures.reduce((s, m) => s + m.notes.length, 0) : 0);
+    if (noteCount > 0
+      && !window.confirm(`악보를 모두 지울까요? (음표 ${noteCount}개)\nUndo(Backspace)로 되돌릴 수 있습니다.`)) return;
+    pushEditUndo();
     setMeasures([]);
     setBassMeasures([]);
     setCurNotes([]);
@@ -2489,7 +2512,7 @@ export default function EditorPage() {
     setCurChord2('');
     setSelectedBassMeasure(null);
     try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
-  }, []);
+  }, [measures, curNotes, bassMeasures, staffMode, pushEditUndo]);
 
   const handleLoadJson = useCallback(() => {
     try {
@@ -2552,10 +2575,22 @@ export default function EditorPage() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      // Ctrl+Z(Win/Linux) · Cmd+Z(macOS) = undo. Backspace와 동일 동작이며, 위의
+      // 입력창 가드 덕에 제목·코드 입력 중에는 브라우저 기본 undo가 그대로 동작한다.
+      // Shift 조합은 redo 관례라 제외한다(현재 redo 스택 없음).
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+        e.preventDefault();
+        handleUndo();
+        return;
+      }
       if (e.key === 'Backspace') { e.preventDefault(); handleUndo(); }
       if (e.key === 'Enter') { if (isComposingEvent(e)) return; e.preventDefault(); closeMeasure(); }
       if (e.key === 'l' || e.key === 'L') { e.preventDefault(); setTieNext((v) => !v); }
-      if (e.key === 't' || e.key === 'T') { e.preventDefault(); setTripletMode((v) => { if (!v) tripletCountRef.current = 0; return !v; }); }
+      if (e.key === 't' || e.key === 'T') {
+        e.preventDefault();
+        // Shift+T = 지속 연음(3+), T = 기존 3연음
+        if (e.shiftKey) toggleSustainTuplet(); else toggleTripletMode();
+      }
       if (e.key === '1') { e.preventDefault(); setDuration('w'); setDotted(false); }
       if (e.key === '2') { e.preventDefault(); setDuration('h'); setDotted(false); }
       if (e.key === '4') { e.preventDefault(); setDuration('q'); setDotted(false); }
@@ -2603,7 +2638,7 @@ export default function EditorPage() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [handleUndo, closeMeasure, allMeasures, selectedNote, stepSelectedNote]);
+  }, [handleUndo, closeMeasure, allMeasures, selectedNote, stepSelectedNote, toggleTripletMode, toggleSustainTuplet]);
 
   useEffect(() => {
     const el = svgRef.current;
@@ -2990,15 +3025,24 @@ export default function EditorPage() {
           Oct +1
         </JsonBtn>
         <Spacer />
+        <JsonBtn
+          $bg="#c62828"
+          $hover="#ad1f1f"
+          onClick={handleClear}
+          disabled={totalNotes === 0}
+          title="악보 전체 지우기 — 확인 후 삭제, Undo(Backspace)로 복구 가능"
+        >
+          Clear
+        </JsonBtn>
         <JsonBtn $bg="#26a69a" $hover="#00897b" onClick={handleCopy} disabled={totalNotes === 0}>
-          {copied ? '\u2713 Copied!' : 'Copy JSON'}
+          {copied ? '✓ Copied!' : 'Copy JSON'}
         </JsonBtn>
         <JsonBtn $bg="#7b1fa2" $hover="#6a1b9a" onClick={() => { setShowLoadModal(true); setLoadJsonText(''); setLoadJsonError(''); }}>
           Load JSON
         </JsonBtn>
         {/* YouTube Onset button removed from Editor toolbar */}
         <JsonBtn $bg="#ef6c00" $hover="#e65100" onClick={handleSave} disabled={totalNotes === 0 || saving}>
-          {saving ? '\u2026 \uc800\uc7a5 \uc911' : saveError ? '\u26a0 Save failed' : (mode === 'solo' ? 'Save Solo' : 'Save Lick')}
+          {saving ? '… 저장 중' : saveError ? '⚠ Save failed' : (mode === 'solo' ? 'Save Solo' : 'Save Lick')}
         </JsonBtn>
       </Header>
 
@@ -3052,11 +3096,19 @@ export default function EditorPage() {
         </DurBtn>
         <DurBtn
           $active={tripletMode}
-          onClick={() => setTripletMode((v) => { if (!v) tripletCountRef.current = 0; return !v; })}
-          title="Triplet mode (T)"
+          onClick={toggleTripletMode}
+          title="3연음 — 3개 입력하면 자동 해제 (T)"
           style={{ fontSize: '0.95rem', fontWeight: 700 }}
         >
           3
+        </DurBtn>
+        <DurBtn
+          $active={sustainTuplet}
+          onClick={toggleSustainTuplet}
+          title="지속 연음 — 다시 누를 때까지 계속 한 묶음으로 이어붙입니다 (4·5·6·7연음). 단축키 Shift+T"
+          style={{ fontSize: '0.95rem', fontWeight: 700 }}
+        >
+          3+
         </DurBtn>
         <DurBtn
           $active={chordInput}
@@ -3122,7 +3174,7 @@ export default function EditorPage() {
           title="Segno"
           style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.5rem', lineHeight: 1 }}
         >
-          {'\uE047'}
+          {''}
         </DurBtn>
         <DurBtn
           $active={navigation === 'coda'}
@@ -3130,7 +3182,7 @@ export default function EditorPage() {
           title="Coda"
           style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.5rem', lineHeight: 1 }}
         >
-          {'\uE048'}
+          {''}
         </DurBtn>
         <DurBtn
           $active={navigation === 'fine'}
@@ -3146,7 +3198,7 @@ export default function EditorPage() {
           title="To Coda"
           style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '0.85rem', lineHeight: 1 }}
         >
-          <span style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '0.7rem', fontWeight: 700, fontStyle: 'italic', marginRight: 1 }}>To</span>{'\uE048'}
+          <span style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '0.7rem', fontWeight: 700, fontStyle: 'italic', marginRight: 1 }}>To</span>{''}
         </DurBtn>
         <NavSelect
           value={navigation && ['dc', 'dcAlCoda', 'dcAlFine', 'ds', 'dsAlCoda', 'dsAlFine'].includes(navigation) ? navigation : ''}
@@ -3187,7 +3239,7 @@ export default function EditorPage() {
       <PianoArea>
         <PianoKeyboard onNotePress={handleNotePress} mute />
       </PianoArea>
-      <KeyHint>1=whole &middot; 2=half &middot; 4=quarter &middot; 8=8th &middot; 6=16th &middot; 3=32nd &middot; L=tie &middot; T=triplet &middot; Enter=close measure &middot; Backspace=undo</KeyHint>
+      <KeyHint>1=whole &middot; 2=half &middot; 4=quarter &middot; 8=8th &middot; 6=16th &middot; 3=32nd &middot; L=tie &middot; T=triplet &middot; Enter=close measure &middot; Backspace/Ctrl+Z=undo</KeyHint>
 
       {insertPos && (
         <NoteEditBar>
@@ -3203,44 +3255,44 @@ export default function EditorPage() {
         <NoteEditBar>
           <NoteEditLabel>
             Note: {selNoteInfo.keys.join(' ')} ({selNoteInfo.duration.replace('r', ' rest')})
-            {selNoteInfo.accidentals?.[0] === 'b' ? ' \u266D' : selNoteInfo.accidentals?.[0] === '#' ? ' \u266F' : selNoteInfo.accidentals?.[0] === 'n' ? ' \u266E' : ''}
+            {selNoteInfo.accidentals?.[0] === 'b' ? ' ♭' : selNoteInfo.accidentals?.[0] === '#' ? ' ♯' : selNoteInfo.accidentals?.[0] === 'n' ? ' ♮' : ''}
           </NoteEditLabel>
           {!selNoteInfo.duration.endsWith('r') && (
             <>
-              <NoteEditBtn title="\uD55C \uCE78 \uC62C\uB9AC\uAE30 (\u2191)" onClick={() => stepSelectedNote(1)}>\u25B2</NoteEditBtn>
-              <NoteEditBtn title="\uD55C \uCE78 \uB0B4\uB9AC\uAE30 (\u2193)" onClick={() => stepSelectedNote(-1)}>\u25BC</NoteEditBtn>
+              <NoteEditBtn title="한 칸 올리기 (↑)" onClick={() => stepSelectedNote(1)}>▲</NoteEditBtn>
+              <NoteEditBtn title="한 칸 내리기 (↓)" onClick={() => stepSelectedNote(-1)}>▼</NoteEditBtn>
             </>
           )}
           <Sep />
-          {/* \uB9C8\uB514 \uB0B4 \uD3B8\uC9D1: \uC774 \uC74C\uD45C \uC88C/\uC6B0\uC5D0 \uB07C\uC6CC\uB123\uAE30 \u00B7 \uC0AD\uC81C \u00B7 \uC624\uB978\uCABD \uC804\uBD80 \uC0AD\uC81C */}
+          {/* 마디 내 편집: 이 음표 좌/우에 끼워넣기 · 삭제 · 오른쪽 전부 삭제 */}
           <NoteEditBtn
-            title="\uC774 \uC74C\uD45C \uC67C\uCABD\uC5D0 \uC0BD\uC785 \u2014 \uD53C\uC544\uB178/\uC27C\uD45C\uB85C \uC785\uB825"
+            title="이 음표 왼쪽에 삽입 — 피아노/쉼표로 입력"
             onClick={() => {
               setInsertPos({ mi: selectedNote.mi, ni: selectedNote.ni });
               setSelectedNote(null);
             }}
-          >\u25C0 \uC67C\uCABD \uC0BD\uC785</NoteEditBtn>
+          >◀ 왼쪽 삽입</NoteEditBtn>
           <NoteEditBtn
-            title="\uC774 \uC74C\uD45C \uC624\uB978\uCABD\uC5D0 \uC0BD\uC785 \u2014 \uD53C\uC544\uB178/\uC27C\uD45C\uB85C \uC785\uB825"
+            title="이 음표 오른쪽에 삽입 — 피아노/쉼표로 입력"
             onClick={() => {
               setInsertPos({ mi: selectedNote.mi, ni: selectedNote.ni + 1 });
               setSelectedNote(null);
             }}
-          >\uC624\uB978\uCABD \uC0BD\uC785 \u25B6</NoteEditBtn>
+          >오른쪽 삽입 ▶</NoteEditBtn>
           <NoteEditBtn
-            title="\uC774 \uC74C\uD45C/\uC27C\uD45C \uC0AD\uC81C"
+            title="이 음표/쉼표 삭제"
             onClick={() => deleteNote(selectedNote.mi, selectedNote.ni)}
-          >\uD83D\uDDD1 \uC0AD\uC81C</NoteEditBtn>
+          >🗑 삭제</NoteEditBtn>
           <NoteEditBtn
-            title="\uAC19\uC740 \uB9C8\uB514\uC5D0\uC11C \uC774 \uC74C\uD45C \uC624\uB978\uCABD \uB0B4\uC6A9 \uC804\uBD80 \uC0AD\uC81C"
+            title="같은 마디에서 이 음표 오른쪽 내용 전부 삭제"
             onClick={() => {
               const total = allMeasures[selectedNote.mi]?.notes.length ?? 0;
               const after = total - selectedNote.ni - 1;
               if (after <= 0) return;
-              if (!window.confirm(`\uC774 \uC74C\uD45C \uC624\uB978\uCABD\uC758 ${after}\uAC1C(\uAC19\uC740 \uB9C8\uB514)\uB97C \uC0AD\uC81C\uD560\uAE4C\uC694?`)) return;
+              if (!window.confirm(`이 음표 오른쪽의 ${after}개(같은 마디)를 삭제할까요?`)) return;
               deleteNotesAfter(selectedNote.mi, selectedNote.ni);
             }}
-          >\u2192\uB05D \uC0AD\uC81C</NoteEditBtn>
+          >→끝 삭제</NoteEditBtn>
           <Sep />
 
           <NoteEditBtn
@@ -3406,12 +3458,12 @@ export default function EditorPage() {
               $active={selMeasure.navigation === 'segno'}
               onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: m.navigation === 'segno' ? undefined : 'segno' }))}
               style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.1rem' }}
-            >{'\uE047'}</NoteEditBtn>
+            >{''}</NoteEditBtn>
             <NoteEditBtn
               $active={selMeasure.navigation === 'coda'}
               onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: m.navigation === 'coda' ? undefined : 'coda' }))}
               style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.1rem' }}
-            >{'\uE048'}</NoteEditBtn>
+            >{''}</NoteEditBtn>
             <NoteEditBtn
               $active={selMeasure.navigation === 'fine'}
               onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: m.navigation === 'fine' ? undefined : 'fine' }))}
@@ -3421,7 +3473,7 @@ export default function EditorPage() {
               $active={selMeasure.navigation === 'toCoda'}
               onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: m.navigation === 'toCoda' ? undefined : 'toCoda' }))}
               style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '0.75rem' }}
-            ><span style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '0.6rem', fontWeight: 700, fontStyle: 'italic', marginRight: 1 }}>To</span>{'\uE048'}</NoteEditBtn>
+            ><span style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '0.6rem', fontWeight: 700, fontStyle: 'italic', marginRight: 1 }}>To</span>{''}</NoteEditBtn>
             <NavSelect
               value={selMeasure.navigation && ['dc', 'dcAlCoda', 'dcAlFine', 'ds', 'dsAlCoda', 'dsAlFine'].includes(selMeasure.navigation) ? selMeasure.navigation : ''}
               onChange={(e) => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: (e.target.value as NavigationMarker) || undefined }))}

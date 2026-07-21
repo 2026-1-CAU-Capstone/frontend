@@ -1,4 +1,5 @@
 import type { NoteSheetData, MeasureInfo, NoteInfo } from './sampleMelody';
+import { getCachedUser } from '../api/auth';
 
 /* ─── Raw lick JSON shape (from extract_licks.py) ─────────────────── */
 
@@ -41,6 +42,11 @@ export interface LickEntry {
    *  a UUID which is meaningless to show users — this is the human-facing
    *  number. Assigned in fetchAllLicks(); undefined for non-backend sources. */
   displayNumber?: number;
+  /** 백엔드 소유자 uuid. "내 릭"은 이 값이 현재 로그인 사용자의 publicId 와
+   *  같은 것만 골라 보여준다 (GET /v1/licks 에 owner 필터가 없어 클라에서 거른다). */
+  userId?: string;
+  /** 백엔드 출처 구분. 사용자가 직접 만든 릭만 'user'. */
+  source?: 'user' | 'weimar' | 'curated' | 'unknown';
   performer: string;
   title: string;
   album?: string;
@@ -408,7 +414,16 @@ export function computeLickFeatures(measures: MeasureInfo[]): {
 
 /* ─── User-created lick persistence (localStorage + seed file) ──── */
 
+/* 로컬 릭 저장소 — 로그인 사용자별로 네임스페이스를 나눈다. 같은 기기에서
+ * 계정을 바꿔도 이전 사용자의 릭이 보이지 않는다. 레거시 전역 키
+ * ('jazzify_user_licks')는 마이그레이션하지 않는다 — "내 릭은 처음엔 비어
+ * 있고 직접 만든 것만" 이 원칙이라, 옛 공용 데이터를 새 계정에 끌어오지 않는다. */
 const STORAGE_KEY = 'jazzify_user_licks';
+
+function userLicksKey(): string {
+  const me = getCachedUser();
+  return me?.publicId ? `${STORAGE_KEY}:${me.publicId}` : `${STORAGE_KEY}:guest`;
+}
 
 let seedLicks: LickEntry[] | null = null;
 
@@ -431,7 +446,7 @@ async function loadSeedLicks(): Promise<LickEntry[]> {
 
 function loadLocalLicks(): LickEntry[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(userLicksKey());
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     // Corrupt/foreign value under our key (non-array) → treat as empty
@@ -466,6 +481,45 @@ export async function loadUserLicks(): Promise<LickEntry[]> {
   return filtered;
 }
 
+/* ─── "내 릭" (로그인 사용자 전용) ───────────────────────────────
+ *
+ * 릭 데이터베이스(관리자 화면)와 달리 여기엔 백엔드 전체 릭이 들어오면 안 된다.
+ * 처음엔 비어 있고, 사용자가 직접 만든 릭(에디터 저장 / OMR 생성 / 채팅 카드
+ * 저장)만 쌓인다. 구성:
+ *   1) 백엔드에 저장된 릭 중 `source==='user'` 이고 `userId === 내 publicId` 인 것
+ *   2) 로컬에만 있는 릭(사용자별 localStorage 네임스페이스)
+ * seed 파일(user_licks.json)은 의도적으로 병합하지 않는다 — 그게 "처음부터
+ * 남의 릭이 들어차 있던" 원인이었다.
+ *
+ * GET /v1/licks 에 owner 필터가 없어(BR-10) 전체를 받아 클라에서 거른다.
+ * 백엔드에 필터가 생기면 fetchAllLicks 대신 그 쿼리로 바꾸면 된다. */
+export async function loadMyLicks(): Promise<LickEntry[]> {
+  const me = getCachedUser();
+  const local = loadLocalLicks();
+
+  let mine: LickEntry[] = [];
+  if (me?.publicId) {
+    try {
+      const all = await loadLicks();
+      mine = all.filter((l) => l.source === 'user' && l.userId === me.publicId);
+    } catch (e) {
+      // 백엔드 실패는 치명적이지 않다 — 로컬 릭만으로 화면을 채운다.
+      console.warn('[lickData] loadMyLicks: backend fetch failed, local only', e);
+    }
+  }
+
+  // 백엔드가 진실원천 — 같은 id 는 백엔드 판을 남기고 로컬 중복을 버린다.
+  const backendIds = new Set(mine.map((l) => String(l.id)));
+  const merged = [...mine, ...local.filter((l) => !backendIds.has(String(l.id)))];
+
+  // AI 생성 릭 제외 (음수 id 또는 performer === 'AI 생성')
+  return merged.filter((l) => {
+    const idNum = typeof l.id === 'number' ? l.id : Number(l.id);
+    if (Number.isFinite(idNum) && idNum < 0) return false;
+    return l.performer !== 'AI 생성';
+  });
+}
+
 export function loadUserLicksSync(): LickEntry[] {
   const filtered = loadLocalLicks().filter((l) => {
     const idNum = typeof l.id === 'number' ? l.id : Number(l.id);
@@ -489,7 +543,7 @@ export function saveUserLick(lick: LickEntry): void {
   // a failed local mirror must not surface as "save failed" after the
   // backend save already succeeded (EditorPage flow).
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+    localStorage.setItem(userLicksKey(), JSON.stringify(existing));
   } catch (e) {
     console.warn('[lickData] saveUserLick: localStorage write failed', e);
   }
@@ -498,7 +552,7 @@ export function saveUserLick(lick: LickEntry): void {
 export function deleteUserLick(id: number | string): void {
   const existing = loadLocalLicks().filter((l) => String(l.id) !== String(id));
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+    localStorage.setItem(userLicksKey(), JSON.stringify(existing));
   } catch (e) {
     console.warn('[lickData] deleteUserLick: localStorage write failed', e);
   }

@@ -113,6 +113,59 @@ const OMRBtn = styled.button`
   &:active { transform: scale(0.97); }
 `;
 
+/* "추가하기" 드롭다운 — 트리거(OMRBtn 재사용) + 메뉴 앵커. (내 릭과 동일) */
+const AddWrap = styled.div`
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+`;
+
+const Caret = styled.span<{ $open?: boolean }>`
+  font-size: 0.7rem;
+  line-height: 1;
+  transform: rotate(${({ $open }) => ($open ? '180deg' : '0deg')});
+  transition: transform 0.14s;
+`;
+
+const AddMenu = styled.div`
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  min-width: 230px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`;
+
+const AddMenuItem = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-family: 'Pretendard', sans-serif;
+  color: ${({ theme }) => theme.colors.textPrimary};
+  transition: background 0.12s;
+
+  &:hover { background: ${({ theme }) => theme.colors.bgSecondary}; }
+
+  span { font-size: 1.05rem; line-height: 1; flex-shrink: 0; }
+  div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  strong { font-size: 0.85rem; font-weight: 600; }
+  small { font-size: 0.72rem; color: ${({ theme }) => theme.colors.textSecondary}; }
+`;
+
 const MelodyBtn = styled.button<{ $active?: boolean }>`
   font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
@@ -417,6 +470,22 @@ export default function LicksPage() {
    * the unified Editor (lick mode) pre-loaded with the OMR result so the
    * user can review/edit immediately. */
   const [omrOpen, setOmrOpen] = useState(false);
+  /* "추가하기" 드롭다운 — 에디터 직접 입력 / OMR 생성 두 갈래. (내 릭과 동일) */
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const addMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!addMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!addMenuRef.current?.contains(e.target as Node)) setAddMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setAddMenuOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [addMenuOpen]);
   const handleOMRCreated = useCallback((lick: LickEntry) => {
     invalidateLicksCache();
     setOmrOpen(false);
@@ -622,9 +691,41 @@ export default function LicksPage() {
                   <SourceBtn $active={lickSource === 'special'} onClick={() => setLickSource('special')}>✨ 파커 후보</SourceBtn>
                 </SourceToggleWrap>
 
-                <OMRBtn onClick={() => setOmrOpen(true)} title="악보 이미지를 업로드해 OMR로 릭 생성">
-                  📄 OMR로 생성하기
-                </OMRBtn>
+                <AddWrap ref={addMenuRef}>
+                  <OMRBtn
+                    onClick={() => setAddMenuOpen((v) => !v)}
+                    title="새 릭 추가"
+                    aria-haspopup="menu"
+                    aria-expanded={addMenuOpen}
+                  >
+                    ＋ 추가하기
+                    <Caret $open={addMenuOpen} aria-hidden>▾</Caret>
+                  </OMRBtn>
+                  {addMenuOpen && (
+                    <AddMenu role="menu">
+                      <AddMenuItem
+                        role="menuitem"
+                        onClick={() => { setAddMenuOpen(false); navigate('/editor?mode=lick'); }}
+                      >
+                        <span aria-hidden>🎼</span>
+                        <div>
+                          <strong>에디터로 추가하기</strong>
+                          <small>악보를 직접 입력해 만듭니다</small>
+                        </div>
+                      </AddMenuItem>
+                      <AddMenuItem
+                        role="menuitem"
+                        onClick={() => { setAddMenuOpen(false); setOmrOpen(true); }}
+                      >
+                        <span aria-hidden>📄</span>
+                        <div>
+                          <strong>OMR로 생성하기</strong>
+                          <small>악보 이미지를 올려 자동 변환합니다</small>
+                        </div>
+                      </AddMenuItem>
+                    </AddMenu>
+                  )}
+                </AddWrap>
 
                 <MelodyBtn
                   $active={melodySearch}

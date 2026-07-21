@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
-import { login, getCachedUser } from '../api/auth';
+import { login, signup, getCachedUser } from '../api/auth';
 import { BrandLogoImage } from '../components/common/BrandLogoImage';
 
 const BG = '#f5f1e9';
@@ -19,6 +19,11 @@ export default function LoginPage() {
     if (getCachedUser()) navigate(fromPath, { replace: true });
   }, [navigate, fromPath]);
 
+  /* 로그인 ↔ 회원가입 한 화면 토글. 회원가입은 name 입력이 하나 더 붙고,
+   * 성공하면 api/auth 의 signup() 이 곧바로 login() 까지 태워 토큰을 받으므로
+   * 여기서는 동일하게 fromPath 로 보내면 된다. */
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -27,26 +32,60 @@ export default function LoginPage() {
   /* 마운트 시 자동 포커스하지 않는다 — 로그인 화면에서 키보드가 곧바로 튀어
    * 올라오면 헤드라인/로고가 가려진다. 사용자가 입력창을 직접 탭할 때 뜬다. */
 
+  const isSignup = mode === 'signup';
+
+  const switchMode = (next: 'login' | 'signup') => {
+    setMode(next);
+    setError(null);
+    setPassword('');
+    if (next === 'login') setName('');
+  };
+
   const handleSocial = (name: string) => {
     setError(`${name} 로그인은 곧 지원됩니다.`);
+  };
+
+  /* 백엔드 SignupRequest 제약(OpenAPI)과 동일하게 클라에서도 먼저 막는다:
+   * name 1~50 · username 2~10 · password 8~20 + 영문/숫자 각 1자 이상. */
+  const validateSignup = (): string | null => {
+    const n = name.trim();
+    const u = username.trim();
+    if (n.length < 1 || n.length > 50) return '이름은 1~50자로 입력해 주세요.';
+    if (u.length < 2 || u.length > 10) return '아이디는 2~10자로 입력해 주세요.';
+    if (password.length < 8 || password.length > 20) return '비밀번호는 8~20자로 입력해 주세요.';
+    if (!/^(?=.*[A-Za-z])(?=.*\d).+$/.test(password)) return '비밀번호는 영문과 숫자를 모두 포함해야 합니다.';
+    return null;
   };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     if (!username.trim() || !password) return;
+    if (isSignup) {
+      const invalid = validateSignup();
+      if (invalid) { setError(invalid); return; }
+    }
     setSubmitting(true);
     try {
-      await login(username.trim(), password);
+      if (isSignup) {
+        await signup(name.trim(), username.trim(), password);
+      } else {
+        await login(username.trim(), password);
+      }
       navigate(fromPath, { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : '로그인에 실패했습니다.');
+      setError(
+        err instanceof Error
+          ? err.message
+          : isSignup ? '회원가입에 실패했습니다.' : '로그인에 실패했습니다.',
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
-  const canSubmit = !!username.trim() && !!password && !submitting;
+  const canSubmit =
+    !!username.trim() && !!password && (!isSignup || !!name.trim()) && !submitting;
 
   return (
     <Page>
@@ -69,31 +108,51 @@ export default function LoginPage() {
           <OrLabel>또는</OrLabel>
 
           <Form onSubmit={submit}>
+            {isSignup && (
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="이름을 입력하세요"
+                autoComplete="name"
+                maxLength={50}
+                disabled={submitting}
+              />
+            )}
             <input
               ref={usernameRef}
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="아이디를 입력하세요"
-              autoComplete="username"
+              placeholder={isSignup ? '아이디 (2~10자)' : '아이디를 입력하세요'}
+              autoComplete={isSignup ? 'off' : 'username'}
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
+              maxLength={isSignup ? 10 : undefined}
               disabled={submitting}
             />
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="비밀번호를 입력하세요"
-              autoComplete="current-password"
+              placeholder={isSignup ? '비밀번호 (8~20자, 영문+숫자)' : '비밀번호를 입력하세요'}
+              autoComplete={isSignup ? 'new-password' : 'current-password'}
+              maxLength={isSignup ? 20 : undefined}
               disabled={submitting}
             />
             {error && <ErrorMsg>{error}</ErrorMsg>}
             <ContinueBtn type="submit" disabled={!canSubmit} aria-busy={submitting}>
-              {submitting ? <Spinner aria-label="로딩 중" /> : '로그인'}
+              {submitting ? <Spinner aria-label="로딩 중" /> : isSignup ? '회원가입' : '로그인'}
             </ContinueBtn>
           </Form>
+
+          <SwitchRow>
+            {isSignup ? '이미 계정이 있으신가요?' : '아직 계정이 없으신가요?'}
+            <SwitchLink type="button" onClick={() => switchMode(isSignup ? 'login' : 'signup')} disabled={submitting}>
+              {isSignup ? '로그인' : '회원가입'}
+            </SwitchLink>
+          </SwitchRow>
         </Card>
       </Center>
     </Page>
@@ -261,6 +320,32 @@ const ErrorMsg = styled.div`
   padding: 0 4px;
   font-size: 12.5px;
   color: #c0392b;
+`;
+
+/* 로그인 ↔ 회원가입 전환 — 카드 하단 중앙. */
+const SwitchRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 13.5px;
+  color: rgba(0, 0, 0, 0.5);
+`;
+
+const SwitchLink = styled.button`
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  font-family: inherit;
+  color: #1a1a1a;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+
+  &:hover:not(:disabled) { opacity: 0.7; }
+  &:disabled { cursor: default; opacity: 0.4; }
 `;
 
 const ContinueBtn = styled.button`
