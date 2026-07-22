@@ -918,7 +918,11 @@ export default function NotePage() {
               <ToolBtn type="button" title="공유" onClick={handleShare} disabled={!sheet || loading}>
                 <ShareIcon />
               </ToolBtn>
-              <ToolBtn type="button" title="Editor에서 수정" onClick={() => navigate('/editor?mode=solo')}>
+              <ToolBtn
+                type="button"
+                title="Editor에서 수정"
+                onClick={() => navigate('/editor?mode=solo', sheet ? { state: { prefillSheet: sheet } } : undefined)}
+              >
                 <PencilIcon />
               </ToolBtn>
               {/* 전구 = 분석 보기 ON/OFF 마스터 토글만. 세부 설정은 톱니 모달.

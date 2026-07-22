@@ -38,6 +38,16 @@ export function getBeats(dur: string, dotted?: boolean, tuplet?: number, tupletN
   return b;
 }
 
+/** 메트릭 박 길이 — 꾸밈음(grace)은 시간을 훔치지 않으므로 0박.
+ *  (렌더러가 다음 실음의 GraceNoteGroup 수식으로 그려 0박 소비.) 마디 길이·
+ *  분할·픽업 감지 등 "박 합"이 필요한 모든 곳은 이 헬퍼를 써야 정박이 안 밀린다. */
+export function noteMetricBeats(n: {
+  duration: string; dotted?: boolean; tuplet?: number; tupletNormal?: number; grace?: boolean;
+}): number {
+  if (n.grace) return 0;
+  return getBeats(n.duration, n.dotted, n.tuplet, n.tupletNormal);
+}
+
 export function chordToMidi(chord: string): number[] {
   if (!chord) return [];
   // Root note

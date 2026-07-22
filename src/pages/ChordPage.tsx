@@ -13,6 +13,7 @@ import { SessionPicker, type SessionInstrument } from '../components/chord/Sessi
 import { useAnalysisFilters } from '../hooks/useAnalysisFilters';
 import { AnalysisSettingsModal } from '../components/common/AnalysisSettingsModal';
 import { allOfMe } from '../data/allOfMe';
+import { getExampleChart } from '../data/exampleCharts';
 import type { LeadSheetData } from '../data/leadSheetTypes';
 import type { ChordOverlay } from '../data/types';
 import { getSongIndex, getSong, type SongEntry } from '../lib/ireal/irealLoader';
@@ -22,7 +23,7 @@ import { analysisToLeadSheet } from '../lib/chordProjectToLeadSheet';
 import { getCachedAnalysisEntry, setCachedAnalysis } from '../lib/analysisCache';
 import { leadSheetToChart } from '../lib/backing';
 import { extractMelody } from '../lib/backing/adapters/noteSheetToChart';
-import { getSwingRatio } from '../lib/note/swing';
+import { getSwingRatio, swingMelody } from '../lib/note/swing';
 import { useGlobalPlayer, type ChartInput } from '../lib/player';
 import { getPlayerSettings, inferGenre, inferPlayStyle, setPlayerSetting, subscribePlayerSettings, TRANSPOSING_INSTRUMENT_OFFSET } from '../lib/note/playerSettings';
 import { GenreSelect, MixerButton, BpmControl, RepeatControl, TransportButtons, BackingMixer } from '../components/backing/BackingPlayerBar';
@@ -51,6 +52,9 @@ const EMPTY_SONG_ID = '__empty__';
  * Distinguishes a backend project publicId from iReal numeric ids and the two
  * sentinels above, so the loader fetches the saved chart. */
 const PROJECT_ID_PREFIX = 'project:';
+/* `songId` prefix for a built-in 예시 차트 (opened via `/mychord?example=<id>`).
+ * 정적 프론트 데이터라 백엔드 fetch 없이 EXAMPLE_CHARTS 에서 바로 렌더한다. */
+const EXAMPLE_ID_PREFIX = 'example:';
 const EMPTY_BARS_PER_SYSTEM = 4;
 const EMPTY_SYSTEM_COUNT = 4;
 function makeEmptySheet(): LeadSheetData {
@@ -936,6 +940,9 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     // through to the All Of Me default.
     const proj = searchParams.get('project');
     if (proj) return `${PROJECT_ID_PREFIX}${proj}`;
+    // 기본 예시 차트 — `/mychord?example=<id>` (정적, 백엔드 미사용).
+    const ex = searchParams.get('example');
+    if (ex) return `${EXAMPLE_ID_PREFIX}${ex}`;
     return mychordMode ? ANALYZED_SONG_ID : (searchParams.get('song') ?? ANALYZED_SONG_ID);
   });
 
@@ -943,6 +950,8 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     setSongIdRaw(id);
     if (id.startsWith(PROJECT_ID_PREFIX)) {
       setSearchParams({ project: id.slice(PROJECT_ID_PREFIX.length) }, { replace: true });
+    } else if (id.startsWith(EXAMPLE_ID_PREFIX)) {
+      setSearchParams({ example: id.slice(EXAMPLE_ID_PREFIX.length) }, { replace: true });
     } else if (id === EMPTY_SONG_ID) {
       // 빈 시트는 ?empty=1 형태가 정본 — `song=__empty__`로 쓰면 리마운트 후
       // 초기화 로직(mychordMode + empty=1 검사)이 못 알아보고 Analyzed로 빠진다.
@@ -1188,20 +1197,13 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     // Swing the lick's eighth-note grid (offbeat eighths land late) so it sits
     // in the jazz pocket. Done here — not in the engine — so ONLY the inline
     // lick swings, leaving note-analysis sheet/solo melodies untouched.
+    // swingMelody: 8분 펄스에만 스윙, 16분 런은 균등 유지(인간 연주 그대로).
     const r = getSwingRatio(tempo, 'medium-swing');
-    const swing = (b: number) => {
-      const beat = Math.floor(b);
-      const f = b - beat;
-      const wf = f <= 0.5 ? f * 2 * r : r + (f - 0.5) * 2 * (1 - r);
-      return beat + wf;
-    };
-    const melody = extractMelody(lickSheet, { accidentalStyle: 'explicit' })
-      .filter((m) => m.beatOffset >= startBeat)
-      .map((m) => {
-        const onset = swing(m.beatOffset);
-        const end = swing(m.beatOffset + m.durationBeats);
-        return { ...m, beatOffset: onset + offsetBeats, durationBeats: Math.max(0.05, end - onset) };
-      });
+    const swung = swingMelody(
+      extractMelody(lickSheet, { accidentalStyle: 'explicit' }).filter((m) => m.beatOffset >= startBeat),
+      r,
+    );
+    const melody = swung.map((m) => ({ ...m, beatOffset: m.beatOffset + offsetBeats }));
     globalPlayer.setConfig({ melody });
   }, [globalPlayer, inlineLick, sheet, tempo, playInlineLick]);
 
@@ -1387,6 +1389,15 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
       setSheet(loadChartEdit(songId) ?? withLeadSheetSelectionIds(allOfMe, ANALYZED_SONG_ID));
       setLoading(false);
       setError(null);
+      return;
+    }
+    if (songId.startsWith(EXAMPLE_ID_PREFIX)) {
+      // 기본 예시 차트 — 정적 분석 완료 LeadSheetData 를 바로 렌더(백엔드 없음).
+      // 로컬 편집(있으면)이 우선하는 다른 분기와 동일 규칙.
+      const ex = getExampleChart(songId.slice(EXAMPLE_ID_PREFIX.length));
+      setSheet(loadChartEdit(songId) ?? (ex ? withLeadSheetSelectionIds(ex.sheet, songId) : null));
+      setError(ex ? null : '예시 차트를 찾을 수 없습니다.');
+      setLoading(false);
       return;
     }
 

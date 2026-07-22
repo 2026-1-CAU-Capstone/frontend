@@ -153,6 +153,7 @@ export function buildUserSoloDraft(opts: {
   bassMeasures?: MeasureInfo[];
   instrument?: SoloInstrument;
   source?: SoloSource;
+  accidentalStyle?: 'explicit' | 'score';
 }): SoloDraft {
   const sheetData: NoteSheetData = {
     title: opts.title || 'Untitled',
@@ -163,6 +164,7 @@ export function buildUserSoloDraft(opts: {
     ...(opts.genre ? { genre: opts.genre } : {}),
     measures: opts.measures,
     ...(opts.bassMeasures ? { bassMeasures: opts.bassMeasures } : {}),
+    ...(opts.accidentalStyle ? { accidentalStyle: opts.accidentalStyle } : {}),
   };
   return {
     source: opts.source ?? 'user',

@@ -153,12 +153,18 @@ export function extractMelody(sheet: NoteSheetData, opts?: ExtractMelodyOpts): M
     let intra = 0; // beats elapsed from the start of THIS measure
     for (let srcNi = 0; srcNi < measure.notes.length; srcNi++) {
       const note = measure.notes[srcNi];
-      const beats = noteBeats(note);
+      // Grace notes steal NO metric time (the renderer draws them as a
+      // GraceNoteGroup modifier on the next real note — zero beats). Counting
+      // their written length shoved every later note late and overran the
+      // barline. Play them as a short crush landing just before the beat, and
+      // do NOT advance the intra-bar cursor.
+      const isGrace = !!note.grace;
+      const beats = isGrace ? 0 : noteBeats(note);
 
       if (note.ottavaStart === "8va") ottavaShift = 12;
       else if (note.ottavaStart === "8vb") ottavaShift = -12;
 
-      const nextOpen = new Map<number, number>();
+      const nextOpen = isGrace ? openTies : new Map<number, number>();
       const isRest = isRestNote(note);
       if (!isRest) {
         for (let i = 0; i < note.keys.length; i++) {
@@ -171,6 +177,21 @@ export function extractMelody(sheet: NoteSheetData, opts?: ExtractMelodyOpts): M
           );
           if (raw == null) continue;
           const midi = raw + ottavaShift;
+
+          if (isGrace) {
+            // Acciaccatura crush: a short note ending on the beat it decorates.
+            const GRACE_BEATS = 0.12;
+            out.push({
+              midi,
+              beatOffset: Math.max(barStartBeat, barStartBeat + intra - GRACE_BEATS),
+              durationBeats: GRACE_BEATS,
+              srcMi: mi,
+              srcNi,
+              ...(sheet.instrument ? { instrument: sheet.instrument } : {}),
+              ...(sheet.isDrum ? { drumPiece: gmPercToDrumPiece(midi) ?? undefined } : {}),
+            });
+            continue; // graces never open/absorb ties
+          }
 
           const absorbIdx = openTies.get(midi);
           if (absorbIdx != null) {
@@ -196,7 +217,7 @@ export function extractMelody(sheet: NoteSheetData, opts?: ExtractMelodyOpts): M
         }
       }
 
-      intra += beats;
+      intra += beats; // grace: beats===0, cursor unchanged
       openTies = nextOpen;
 
       if (note.ottavaEnd) ottavaShift = 0;

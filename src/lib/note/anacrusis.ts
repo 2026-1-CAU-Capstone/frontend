@@ -13,16 +13,14 @@
 
 import type { NoteSheetData, MeasureInfo } from '../../data/sampleMelody';
 import type { AnacrusisNote } from '../player';
-import { getBeats } from './melodyTiming';
+import { noteMetricBeats } from './melodyTiming';
 import { PATTERN_SIMPLE, type Pattern } from './countInPatterns';
 import { extractMelody } from '../backing/adapters/noteSheetToChart';
 
 /** Playable beat-length of a measure (sum of note durations, rests included). */
 function measureBeats(m: MeasureInfo): number {
   let beats = 0;
-  for (const n of m.notes) {
-    beats += getBeats(n.duration, n.dotted, n.tuplet, n.tupletNormal);
-  }
+  for (const n of m.notes) beats += noteMetricBeats(n);
   return beats;
 }
 

@@ -28,6 +28,8 @@ export interface NoteInfo {
   tie?: boolean;                                // tie to the NEXT note of same pitch
   tieContinuation?: boolean;                    // this note is the receiving end of a tie — visually rendered but absorbed into prev note's sound by the player
   gliss?: boolean;                              // glissando to the NEXT note
+  scoop?: boolean;                              // 스쿱 — 음표 앞에서 아래→위로 끌어올려 진입하는 곡선(재즈 슬라이드)
+  fall?: boolean;                               // 폴 — 음표 뒤에서 아래로 떨어지는 곡선(재즈 슬라이드)
   tuplet?: number;                              // actual-notes (e.g. 3 = triplet, 5 = quintuplet)
   tupletNormal?: number;                        // normal-notes — denominator in N:M ratio (e.g. 3:2, 5:4, 7:6). Inferred from `tuplet` when absent.
   tupletBracket?: boolean;                      // set on the FIRST note of a tuplet group; whether to draw the bracket (XML <tuplet bracket="yes|no">). Default true.
@@ -94,6 +96,10 @@ export interface NoteSheetData {
   /** 양손(그랜드 스태프) 악보의 왼손(낮은음자리표) 파트. `measures`와 같은
    *  인덱스로 마디가 1:1 정렬된다(모자라면 빈 마디). 존재하면 양손 악보. */
   bassMeasures?: MeasureInfo[];
+  /** 임시표 의미론. 'explicit'이면 조표를 무시하고 마디 안의 ♯/♭(마디 내 상속
+   *  포함)만으로 음정을 판단·표기한다(조표를 안 그린 악보 전용). 생략/'score'면
+   *  조표+마디 상속(기본). 렌더러(NoteSheet)·플레이어(GlobalPlayer) 공통 소비. */
+  accidentalStyle?: 'explicit' | 'score';
 }
 
 /* ─── Sample: 16-bar jazz melody in C major ─────────────────────────────── */

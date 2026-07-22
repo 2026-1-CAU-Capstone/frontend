@@ -400,9 +400,12 @@ function bucketSortKey(label: string): number {
   const i = BUCKET_ORDER.indexOf(label);
   if (i >= 0) return i;
   /* YYYY년 M월 buckets sort by negated year*12+month so newer months come
-   * first (smaller key = earlier in the list). */
+   * first (smaller key = earlier in the list). The base constant must exceed
+   * any real year*12+month (~24k) or the key goes negative and month buckets
+   * jump ABOVE 오늘/지난 7일 — which is exactly the "6월 → 오늘 → 지난 7일"
+   * misorder this fixes. */
   const m = label.match(/^(\d{4})년 (\d{1,2})월$/);
-  if (m) return BUCKET_ORDER.length + (9999 - (parseInt(m[1], 10) * 12 + parseInt(m[2], 10)));
+  if (m) return BUCKET_ORDER.length + (999999 - (parseInt(m[1], 10) * 12 + parseInt(m[2], 10)));
   return Number.MAX_SAFE_INTEGER;
 }
 
@@ -609,7 +612,10 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
       return;
     }
     // Local origin tag (exact captured route; covers sheet + legacy chats).
-    if (route) {
+    // Only trust the captured route for CHART chats. A plain global/direct chat
+    // must never follow a stale chart route left in local chartMeta — otherwise
+    // clicking it opens the code chart ("jazzify 창") instead of the chat.
+    if (kind && route) {
       navigate(appendChatParam(route, publicId));
       return;
     }

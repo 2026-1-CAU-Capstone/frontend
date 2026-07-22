@@ -630,7 +630,7 @@ const AdminBlock = styled.div<{ $expanded?: boolean }>`
   display: flex;
   flex-direction: column;
   align-items: ${({ $expanded }) => ($expanded ? 'stretch' : 'center')};
-  margin-bottom: 6px;
+  margin-bottom: 2px;
 `;
 
 /* Admin nav item — visually a NavBtn so it fits the rest of the rail. The
@@ -639,15 +639,15 @@ const AdminBtn = styled.button<{ $expanded?: boolean; $on?: boolean }>`
   ${({ $expanded }) => ($expanded
     ? `
       width: 100%;
-      height: 38px;
+      height: 32px;
       padding: 0 10px;
       justify-content: flex-start;
-      border-radius: 10px;
+      border-radius: 9px;
       gap: 12px;
     `
     : `
-      width: 36px;
-      height: 36px;
+      width: 32px;
+      height: 32px;
       justify-content: center;
       border-radius: 50%;
       gap: 0;
@@ -661,7 +661,7 @@ const AdminBtn = styled.button<{ $expanded?: boolean; $on?: boolean }>`
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
   font-family: ${({ theme }) => theme.fonts.ui};
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;

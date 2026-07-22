@@ -12,7 +12,7 @@ import type { MeasureInfo, NoteInfo } from '../data/sampleMelody';
 import { getGlobalKeyboard } from '../lib/player/GlobalKeyboard';
 import { useCountInIntro } from './useCountInIntro';
 import { swungBeats } from '../lib/note/swing';
-import { vexToMidi, getBeats, chordToMidi } from '../lib/note/melodyTiming';
+import { vexToMidi, noteMetricBeats, chordToMidi } from '../lib/note/melodyTiming';
 import { expandMeasures } from '../lib/note/expandMeasures';
 
 export interface UseNoteSheetPlaybackArgs {
@@ -106,7 +106,11 @@ export function useNoteSheetPlayback(
       }
     }
 
-    const beatDur = 60 / bpm;
+    // tempo 가드 — OMR/외부 데이터의 0·음수·NaN이 beatDur를 Infinity/음수로
+    // 만들어 전체 솔로가 한 번에 터지거나 무한 대기하는 걸 막는다(엔진 경로와
+    // 동일한 방어). 유효하지 않으면 안전한 기본값으로.
+    const safeBpm = Number.isFinite(bpm) && bpm > 0 ? bpm : 120;
+    const beatDur = 60 / safeBpm;
     // Swung-time projection: distance between two straight-beat positions in
     // wall-clock seconds, after the swing-feel non-linear remap. Off-beat 8ths
     // sit ~24% later inside the beat. Quarter notes and downbeats land exactly
@@ -185,6 +189,9 @@ export function useNoteSheetPlayback(
 
         // Build flat note list with beat-position tracking for inline piano comping.
         // ottavaShift: 8va/8vb 브래킷 구간의 ±12 — 렌더와 소리를 일치시킨다.
+        // swungBeatPos: 문맥 기반 스윙 온셋(마디 내, 8분 펄스에만 — 16분 런은
+        // 균등). swingMelody와 동일 규칙을 마디 로컬 beatPos에 적용한다.
+        // ottavaShift: 8va/8vb 브래킷 구간의 ±12 — 렌더와 소리를 일치시킨다.
         type FlatNote = { note: NoteInfo; mi: number; ni: number; emIdx: number; beatPos: number; ottava: number };
         const flat: FlatNote[] = [];
         let ottavaShift = 0;
@@ -197,7 +204,7 @@ export function useNoteSheetPlayback(
             else if (nt.ottavaStart === '8vb') ottavaShift = -12;
             flat.push({ note: nt, mi: em.origMi + miOffset, ni, emIdx: ei, beatPos: bp, ottava: ottavaShift });
             if (nt.ottavaEnd) ottavaShift = 0;
-            bp += getBeats(nt.duration, nt.dotted, nt.tuplet, nt.tupletNormal);
+            bp += noteMetricBeats(nt);
           }
         }
 
@@ -276,7 +283,7 @@ export function useNoteSheetPlayback(
           await checkPause();
           const { note: n, mi, ni, emIdx, beatPos, ottava } = flat[i];
           const isRest = n.duration.endsWith('r');
-          const beats = getBeats(n.duration, n.dotted, n.tuplet, n.tupletNormal);
+          const beats = noteMetricBeats(n);
 
           if (!isRest) highlight(mi, ni);
 
@@ -287,13 +294,15 @@ export function useNoteSheetPlayback(
             let look = i + 1;
             while (look < flat.length) {
               const ln = flat[look].note;
-              const lbeats = getBeats(ln.duration, ln.dotted, ln.tuplet, ln.tupletNormal);
+              const lbeats = noteMetricBeats(ln);
               tieSegs.push({ emIdx: flat[look].emIdx, beatPos: flat[look].beatPos, beats: lbeats });
               if (!ln.tie) { look++; break; }
               look++;
             }
             const totalBeats = tieSegs.reduce((s, seg) => s + seg.beats, 0);
-            const sec = beatRange(beatPos, totalBeats);
+            // 스윙 좁은 슬롯/빠른 템포에서 sec이 0에 수렴해 클릭·무음이 되지
+            // 않게 하한(약 25ms). 엔진 경로의 Math.max(0.05,…)와 같은 방어.
+            const sec = Math.max(0.025, beatRange(beatPos, totalBeats));
             const acc = n.accidentals?.[0] as '#' | 'b' | 'n' | undefined;
             // 화음(keys 2+)은 전부 동시에 — 인덱스별 임시표 존중.
             for (let ki = 0; ki < n.keys.length; ki++) {
@@ -308,7 +317,7 @@ export function useNoteSheetPlayback(
             continue;
           }
 
-          const sec = beatRange(beatPos, beats);
+          const sec = Math.max(0.025, beatRange(beatPos, beats));
           if (!isRest) {
             for (let ki = 0; ki < n.keys.length; ki++) {
               const kAcc = n.accidentals?.[ki] as '#' | 'b' | 'n' | undefined;

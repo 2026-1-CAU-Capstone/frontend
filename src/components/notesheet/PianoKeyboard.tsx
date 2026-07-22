@@ -97,12 +97,12 @@ for (const [k, v] of Object.entries(KEY_MAP)) {
 
 /* ─── sound ──────────────────────────────────────────────────────────── */
 
-export async function playMidi(midi: number) {
+export async function playMidi(midi: number, gain = 2) {
   const kb = getGlobalKeyboard();
   // Best-effort: trigger lazy load so the next click works; play() returns
   // null on the very first call before samples land — that's intentional.
   await kb.ensureReady();
-  kb.play(String(midi), { duration: 0.5, gain: 2 });
+  kb.play(String(midi), { duration: 0.5, gain });
 }
 
 /* ─── styled ─────────────────────────────────────────────────────────── */

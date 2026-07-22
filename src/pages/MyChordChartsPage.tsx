@@ -50,6 +50,7 @@ import { IconSidebar } from '../components/layout/IconSidebar';
 import { useIsNativeUi } from '../contexts/AppPreviewContext';
 import { LeadSheet } from '../components/leadsheet/LeadSheet';
 import type { LeadSheetData } from '../data/leadSheetTypes';
+import { EXAMPLE_CHARTS, getDismissedExamples, dismissExample } from '../data/exampleCharts';
 import { analysisToLeadSheet } from '../lib/chordProjectToLeadSheet';
 import { getFreshCachedSheet, setCachedAnalysis, clearCachedAnalysis } from '../lib/analysisCache';
 import { saveOmrSourceImage, deleteOmrSourceImage } from '../lib/omrImageStore';
@@ -136,6 +137,10 @@ interface FileNode {
   /** Stored gradient string for the (mock) thumbnail. Defaults to gray. */
   gradient?: string;
   status?: 'failed';
+  /** 기본 예시 차트(프론트 상수, 백엔드 미저장) — 삭제는 localStorage dismiss. */
+  isExample?: boolean;
+  /** 예시 카드가 프리뷰/열기에 쓰는 정적 분석 완료 LeadSheetData. */
+  exampleSheet?: LeadSheetData;
 }
 
 interface Store {
@@ -241,6 +246,8 @@ export default function MyChordChartsPage() {
   const [dragOverParent, setDragOverParent] = useState(false);
   const [projects, setProjects] = useState<ChordProject[]>([]);
   const [projectLoading, setProjectLoading] = useState(false);
+  /* 기본 예시 차트 중 이 기기에서 삭제(dismiss)한 id 집합. */
+  const [dismissedExamples, setDismissedExamples] = useState<Set<string>>(() => getDismissedExamples());
   const [projectError, setProjectError] = useState<string | null>(null);
   const [creatingProject, setCreatingProject] = useState(false);
   const [newProjectTitle, setNewProjectTitle] = useState('');
@@ -454,8 +461,24 @@ export default function MyChordChartsPage() {
   /* Computed: contents of the current folder. */
   const currentFolders = useMemo<FolderNode[]>(() => [], []);
   const currentFiles = useMemo<FileNode[]>(
-    () => currentFolderId === null
-      ? projects.map((project) => ({
+    () => {
+      if (currentFolderId !== null) return [];
+      /* 루트 폴더 최상단에 기본 예시 3곡(삭제 안 한 것만)을 먼저 깐다. */
+      const exampleNodes: FileNode[] = EXAMPLE_CHARTS
+        .filter((e) => !dismissedExamples.has(e.id))
+        .map((e) => ({
+          id: `__example__${e.id}`,
+          parentId: null,
+          kind: 'sheet' as const,
+          title: e.title,
+          date: today(),
+          keySignature: e.keySignature,
+          timeSignature: e.timeSignature,
+          omrStatus: 'COMPLETED',
+          isExample: true,
+          exampleSheet: e.sheet,
+        }));
+      const projectNodes: FileNode[] = projects.map((project) => ({
         id: project.publicId,
         parentId: null,
         kind: 'sheet' as const,
@@ -469,9 +492,10 @@ export default function MyChordChartsPage() {
         omrProgress: project.omrProgress,
         omrFailureReason: project.omrFailureReason,
         project,
-      }))
-      : [],
-    [projects, currentFolderId],
+      }));
+      return [...exampleNodes, ...projectNodes];
+    },
+    [projects, currentFolderId, dismissedExamples],
   );
 
   /* Breadcrumb chain root→current (excluding the home root). */
@@ -722,6 +746,12 @@ export default function MyChordChartsPage() {
     setEditTarget({ id });
     setEditTitle(title);
     setEditKey(key || 'C_MAJOR');
+  };
+
+  /* 예시 카드 "삭제(숨기기)" — 백엔드 삭제가 아니라 localStorage dismiss(기기 단위). */
+  const handleDismissExample = (fileId: string): void => {
+    dismissExample(fileId.replace('__example__', ''));
+    setDismissedExamples(getDismissedExamples());
   };
   const confirmEdit = async (): Promise<void> => {
     if (!editTarget) return;
@@ -1082,6 +1112,10 @@ export default function MyChordChartsPage() {
                 // 데이터가 없으므로 분석 페이지로 이동하지 않는다.
                 if (file.omrStatus === 'PENDING' || file.omrStatus === 'PROCESSING') return;
                 if (file.id.startsWith(UPLOADING_ID_PREFIX)) return;
+                if (file.isExample) {
+                  navigate(`/mychord?example=${encodeURIComponent(file.id.replace('__example__', ''))}`);
+                  return;
+                }
                 navigate(`/mychord?project=${encodeURIComponent(file.id)}`);
               }}
               $selected={selectMode && selectedIds.has(file.id)}
@@ -1099,7 +1133,7 @@ export default function MyChordChartsPage() {
               )}
               {file.kind === 'sheet' ? (
                 <SheetCardInner>
-                  <SheetPreview project={file.project} />
+                  <SheetPreview project={file.project} sheet={file.exampleSheet} />
                   {!selectMode
                     && file.omrStatus !== 'PENDING' && file.omrStatus !== 'PROCESSING' && (
                     <HoverOverlay className="sheet-hover-overlay" aria-hidden>
@@ -1148,18 +1182,27 @@ export default function MyChordChartsPage() {
               </Kebab>
               {kebabMenuId === file.id && (
                 <KebabMenu ref={kebabMenuRef} role="menu" onClick={(e) => e.stopPropagation()}>
-                  <KebabMenuItem type="button" onClick={() => openEdit(file.id, file.title, file.keySignature ?? 'C_MAJOR')}>
-                    <KebabMenuIcon><RenameIcon /></KebabMenuIcon>
-                    <span>정보 변경</span>
-                  </KebabMenuItem>
-                  <KebabMenuItem type="button" onClick={() => { setKebabMenuId(null); alert('이동: 추후 구현'); }}>
-                    <KebabMenuIcon><MoveIcon /></KebabMenuIcon>
-                    <span>이동</span>
-                  </KebabMenuItem>
-                  <KebabMenuItem type="button" $danger onClick={() => { setKebabMenuId(null); setDeleteTarget({ id: file.id, title: file.title }); }}>
-                    <KebabMenuIcon><TrashIcon /></KebabMenuIcon>
-                    <span>삭제</span>
-                  </KebabMenuItem>
+                  {file.isExample ? (
+                    <KebabMenuItem type="button" $danger onClick={() => { setKebabMenuId(null); handleDismissExample(file.id); }}>
+                      <KebabMenuIcon><TrashIcon /></KebabMenuIcon>
+                      <span>삭제(숨기기)</span>
+                    </KebabMenuItem>
+                  ) : (
+                    <>
+                      <KebabMenuItem type="button" onClick={() => openEdit(file.id, file.title, file.keySignature ?? 'C_MAJOR')}>
+                        <KebabMenuIcon><RenameIcon /></KebabMenuIcon>
+                        <span>정보 변경</span>
+                      </KebabMenuItem>
+                      <KebabMenuItem type="button" onClick={() => { setKebabMenuId(null); alert('이동: 추후 구현'); }}>
+                        <KebabMenuIcon><MoveIcon /></KebabMenuIcon>
+                        <span>이동</span>
+                      </KebabMenuItem>
+                      <KebabMenuItem type="button" $danger onClick={() => { setKebabMenuId(null); setDeleteTarget({ id: file.id, title: file.title }); }}>
+                        <KebabMenuIcon><TrashIcon /></KebabMenuIcon>
+                        <span>삭제</span>
+                      </KebabMenuItem>
+                    </>
+                  )}
                 </KebabMenu>
               )}
             </VideoCard>
@@ -1227,6 +1270,10 @@ export default function MyChordChartsPage() {
                 // 데이터가 없으므로 분석 페이지로 이동하지 않는다.
                 if (file.omrStatus === 'PENDING' || file.omrStatus === 'PROCESSING') return;
                 if (file.id.startsWith(UPLOADING_ID_PREFIX)) return;
+                if (file.isExample) {
+                  navigate(`/mychord?example=${encodeURIComponent(file.id.replace('__example__', ''))}`);
+                  return;
+                }
                 navigate(`/mychord?project=${encodeURIComponent(file.id)}`);
               }}
               $selected={selectMode && selectedIds.has(file.id)}
@@ -2150,7 +2197,7 @@ const ProjectPreviewState = styled.div`
   text-align: center;
 `;
 
-function SheetPreview({ project }: { project?: ChordProject }) {
+function SheetPreview({ project, sheet }: { project?: ChordProject; sheet?: LeadSheetData }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const scalerRef = useRef<HTMLDivElement>(null);
   const [previewScale, setPreviewScale] = useState({ scale: 0.13, offsetY: 0 });
@@ -2176,6 +2223,12 @@ function SheetPreview({ project }: { project?: ChordProject }) {
   }, []);
 
   useEffect(() => {
+    // 정적 예시 차트 — 백엔드 fetch 없이 넘겨받은 sheet 를 바로 렌더한다.
+    if (sheet) {
+      setData(sheet);
+      setPreviewState(sheet.systems.length > 0 ? 'ready' : 'empty');
+      return;
+    }
     if (!project) {
       setPreviewState('empty');
       setData(null);
@@ -2257,7 +2310,7 @@ function SheetPreview({ project }: { project?: ChordProject }) {
         }
       });
     return () => { cancelled = true; };
-  }, [project, shouldRender]);
+  }, [project, shouldRender, sheet]);
 
   useEffect(() => {
     const wrap = wrapRef.current;

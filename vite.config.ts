@@ -1,9 +1,35 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin, type ViteDevServer } from 'vite'
 import react from '@vitejs/plugin-react'
+import { exec } from 'node:child_process'
+
+/* dev 전용: 서버가 준비되면 크롬(외부 브라우저)에서 자동으로 연다.
+ * Vite의 `--open`/`BROWSER` 경로는 macOS + VSCode 통합 터미널에서 조용히
+ * 실패(내부 Simple Browser로 빠지거나 아무것도 안 열림)하는 경우가 있어,
+ * 확실한 `open -a "Google Chrome"` 로 직접 띄운다. 실제 리슨 포트를 읽으므로
+ * 5173→5174 처럼 포트가 밀려도 맞는 URL을 연다. 프로세스당 1회만(재시작 시
+ * 중복 탭 방지). build에는 영향 없음(apply:'serve'). */
+function openInChrome(): Plugin {
+  let opened = false
+  return {
+    name: 'open-in-chrome',
+    apply: 'serve',
+    configureServer(server: ViteDevServer) {
+      server.httpServer?.once('listening', () => {
+        if (opened) return
+        opened = true
+        const addr = server.httpServer!.address()
+        const port = typeof addr === 'object' && addr ? addr.port : (server.config.server.port ?? 5173)
+        exec(`open -a "Google Chrome" "http://localhost:${port}/"`, (err) => {
+          if (err) server.config.logger.warn(`[open-in-chrome] ${err.message}`)
+        })
+      })
+    },
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), openInChrome()],
   server: {
     /* host:true → 0.0.0.0 바인딩 (LAN/Tailscale 등 외부 인터페이스 노출).
      * iOS 디바이스의 Capacitor WebView가 capacitor.config.ts 의 dev url로

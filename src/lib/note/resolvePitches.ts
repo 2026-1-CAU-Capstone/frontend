@@ -124,8 +124,17 @@ interface SoundingNote {
   acc: AccGlyph | undefined;
 }
 
-/** score 의미론으로 최소 표기 임시표를 다시 계산해 붙인다.
- *  (조표·마디 상속으로 함의되는 글리프는 생략, 취소가 필요하면 'n'.) */
+/** 소리 피치에 표기 임시표를 다시 붙인다 — **조표 기준** 명시.
+ *
+ *  규칙: 음의 소리 임시표가 그 글자의 조표 기본값과 다르면 항상 글리프를
+ *  붙이고(비다이어토닉·조표 취소 내추럴 포함), 같으면 생략한다(조표가 제공).
+ *
+ *  마디 내 "상속"으로 생략하지 않는 이유: 이 데이터는 courtesy 렌더러
+ *  (measureAccidentals, NoteSheet)와 score 플레이어가 함께 읽는다. 렌더러는
+ *  "임시표 필드 없음"을 (조표에 없는 글자면) 내추럴 취소로 해석하므로, 상속
+ *  최소화로 둘째 음의 글리프를 생략하면 조표 밖 임시표(예: C조의 반복 A♭)가
+ *  화면에 내추럴로 잘못 그려진다. XML 파서도 <alter>마다 임시표를 명시
+ *  저장하므로, 그 표현(조표 대비 명시)에 맞춘다 — 소리·표시 둘 다 정확. */
 export function emitScoreAccidentals(
   perNoteSounding: SoundingNote[][][],  // [measure][note][keyIdx]
   measures: MeasureInfo[],
@@ -134,7 +143,7 @@ export function emitScoreAccidentals(
   let keySig = keySigLetterMap(sheetKey);
   return measures.map((m, mi) => {
     if (m.key) keySig = keySigLetterMap(m.key); // 곡 중간 조성 변경(이미 이조된 값)
-    const active = new Map<string, AccGlyph>();
+    const active = new Map<string, AccGlyph>(); // 마디 내 pitch별 유효 임시표
     return {
       ...m,
       notes: m.notes.map((n, ni) => {
@@ -146,13 +155,21 @@ export function emitScoreAccidentals(
         sounding.forEach((s, ki) => {
           keys[ki] = s.vexKey;
           const letter = s.vexKey.split('/')[0];
-          const inherited = active.get(s.vexKey) ?? keySig.get(letter);
-          const effInherited: AccGlyph | undefined = inherited === 'n' ? undefined : inherited;
-          const wanted = s.acc; // undefined = natural
-          if (wanted !== effInherited) {
-            const glyph: AccGlyph = wanted ?? 'n';
-            (accOut ??= {})[ki] = glyph;
-            active.set(s.vexKey, glyph);
+          const keySigDefault = keySig.get(letter) ?? undefined; // 'b'|'#'|undefined(natural)
+          const wanted = s.acc ?? undefined;                     // undefined = natural
+          // 이 시점 독자의 기본 가정: 마디 내 앞선 임시표가 있으면 그것, 없으면 조표.
+          const inBar = active.get(s.vexKey);
+          const assumed = (inBar ?? keySigDefault) === 'n' ? undefined : (inBar ?? keySigDefault);
+          // 명시 조건: (1) 조표와 다름 — 비다이어토닉은 반복돼도 매번 명시해야
+          // courtesy 렌더러가 상속 취소로 오표시하지 않는다(중복은 렌더러가
+          // 알아서 억제). (2) 마디 내 유효 상태와 다름 — 앞선 내추럴/임시표를
+          // 덮어써 소리를 보존한다. 둘 중 하나면 글리프를 붙인다.
+          if (wanted !== keySigDefault || wanted !== assumed) {
+            (accOut ??= {})[ki] = wanted ?? 'n';
+            active.set(s.vexKey, wanted ?? 'n');
+          } else {
+            // 생략해도 독자·플레이어가 같은 소리로 읽는 경우만 여기 온다.
+            active.set(s.vexKey, wanted ?? 'n');
           }
         });
         return { ...n, keys, accidentals: accOut };

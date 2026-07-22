@@ -146,6 +146,17 @@ const handCraftedManualSongs: NoteSongEntry[] = [
     fileType: 'json',
     loadUrl: async () => '/data/data-jazzstandards-main/Autumn_Leaves.json',
   },
+  // DEV 전용 테스트: 그랜드스태프(양손+화음) 파서 검증용 homr OMR 출력.
+  // fileType 'xml' + pianoPerformance 미지정 → grandStaff 자동 감지.
+  ...(import.meta.env.DEV ? [{
+    id: 'manual:__grandstaff_test__',
+    title: '[TEST] Blues In F (grand staff)',
+    composer: 'Stijn Wauters',
+    collection: 'manual' as const,
+    group: 'manual' as const,
+    fileType: 'xml' as const,
+    loadUrl: async () => '/data/omrtest/score.musicxml',
+  }] : []),
 ];
 
 /* ── OMR'd from /Users/benzity/Documents/DEV/auto/pdf2png/output/leadsheet ──

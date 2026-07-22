@@ -110,6 +110,7 @@ async function __ensureVexflow() {
 }
 import type { NoteSheetData, MeasureInfo, NoteInfo } from '../../data/sampleMelody';
 import { keySigLetterMap, soundingAccidental, type AccGlyph } from '../../lib/note/resolvePitches';
+import { expandMeasures } from '../../lib/note/expandMeasures';
 import { useGlobalPlayer } from '../../lib/player';
 import type { AnacrusisNote } from '../../lib/player';
 import { useCountInIntro } from '../../hooks/useCountInIntro';
@@ -287,6 +288,7 @@ function noteToMidi(key: string, acc?: '#' | 'b' | 'n' | '##' | 'bb'): number {
 /** Compute the playable beat-length of a measure (sum of its notes), used for
  *  anacrusis detection. Mirrors the player's per-note beat formula. */
 function noteBeatsOf(n: NoteInfo): number {
+  if (n.grace) return 0; // 꾸밈음은 메트릭 시간 0박(픽업 감지 과다계수 방지)
   const base = n.duration.replace(/[dr]/g, '');
   let b = DUR_BEATS[base] ?? 1;
   if (n.dotted) b *= 1.5;
@@ -1072,6 +1074,9 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
   const measureRectsRef = useRef<{ x: number; y: number; w: number }[]>([]);
   const noteElMapRef = useRef<Map<string, SVGElement>>(new Map());
   const prevNoteKeyRef = useRef<string | null>(null);
+  /* 재생용으로 도돌이/볼타/D.C.를 전개하면 srcMi가 전개-인덱스가 되므로,
+   * 하이라이트를 원본 마디로 환원하는 매핑. play() 직전에 채운다. */
+  const origMiRef = useRef<number[]>([]);
 
   // note highlight helpers
   const colorNote = useCallback((key: string, color: string) => {
@@ -1100,8 +1105,9 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
 
   // subscribe to GlobalPlayer events
   useEffect(() => {
-    const unsubBar = player.on('bar', (barIndex) => setActiveMeasure(barIndex));
-    const unsubNote = player.on('note', (mi, ni) => highlightNote(mi, ni));
+    // 전개 재생 시 이벤트의 mi는 전개-인덱스 → origMi로 환원해 원본 마디를 칠한다.
+    const unsubBar = player.on('bar', (barIndex) => setActiveMeasure(origMiRef.current[barIndex] ?? barIndex));
+    const unsubNote = player.on('note', (mi, ni) => highlightNote(origMiRef.current[mi] ?? mi, ni));
     const unsubDone = player.on('done', () => { setPlaying(false); });
     const unsubError = player.on('drumKitError', (msg) => {
       setDrumKitError(typeof msg === 'string' ? msg : msg.message);
@@ -1159,6 +1165,18 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     // suspended during mount warmup — the cause of the first-play-after-cold-
     // entry silence. This is the in-gesture resume.
     p.unlock({ kind: 'sheet', data, extraParts });
+
+    // ── 도돌이/볼타/D.C./D.S./Coda/Fine 전개 ───────────────────────────────
+    // 렌더러는 원본 마디(반복 기호 포함)를 그리지만, 재생은 사람이 읽는
+    // 반복 순서대로 들려야 한다. play() 직전에 전개하고, origMiRef로 하이라이트를
+    // 원본 마디로 환원한다(이벤트의 mi는 전개-인덱스). extraParts도 동일 구조로
+    // 전개(파트 간 반복 마커는 일치한다고 가정).
+    const expandedMain = expandMeasures(data.measures);
+    origMiRef.current = expandedMain.map((e) => e.origMi);
+    const expData: NoteSheetData = { ...data, measures: expandedMain.map((e) => e.m) };
+    const expExtra: NoteSheetData[] | undefined = extraParts?.map((pt) => ({
+      ...pt, measures: expandMeasures(pt.measures).map((e) => e.m),
+    }));
 
     // ── Anacrusis (pickup) handling ───────────────────────────────────────
     // If the song opens with a pickup measure (shorter than the time
@@ -1225,10 +1243,13 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
 
       const cin = await countIn.run({ bpm: tempo });
       if (!cin.ok) { p.cancelAnacrusis(); setPlaying(false); return; }
-      const strippedData: NoteSheetData = { ...data, measures: data.measures.slice(1) };
+      // 픽업(전개본 첫 마디)을 떼고 재생. measureOffset:1이 bar/note 이벤트의
+      // mi에 +1을 더하므로(재생인덱스 → 전개본 인덱스), origMiRef는 자르지
+      // 않는다 — origMiRef[전개본 인덱스] = 원본 마디로 하이라이트가 정확히 환원된다.
+      const strippedData: NoteSheetData = { ...expData, measures: expData.measures.slice(1) };
       p.setConfig({ bpm: tempo });
       try {
-        await p.play({ kind: 'sheet', data: strippedData, extraParts }, { startAt: songStart, measureOffset: 1 });
+        await p.play({ kind: 'sheet', data: strippedData, extraParts: expExtra }, { startAt: songStart, measureOffset: 1 });
       } catch {
         // play() rethrows after emitting 'error' — unhandled it would both
         // freeze the ▶ button on "playing" and trip AudioLifecycleGuard.
@@ -1248,7 +1269,8 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
       if (!cin.ok) { setPlaying(false); return; }
       p.setConfig({ bpm: tempo });
       try {
-        await p.play({ kind: 'sheet', data, extraParts }, { downbeatInSec: cin.downbeatInSec });
+        // 전개본으로 재생 — 도돌이/볼타/D.C. 반영. origMiRef로 하이라이트 환원.
+        await p.play({ kind: 'sheet', data: expData, extraParts: expExtra }, { downbeatInSec: cin.downbeatInSec });
       } catch {
         setPlaying(false); // see anacrusis branch — same guard
       }
@@ -1706,7 +1728,10 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     const allVfNotes: { mi: number; ni: number; vfNote: StaveNote; keys: string[] }[] = [];
     const measureLine = new Map<number, number>();
     const sheetKey = data.key ?? 'C';
-    const keySigAcc = keySigAccidentals(sheetKey);
+    // 조표 무시(explicit): 조표를 그리지 않고 keySig를 비워 마디 안의 임시표만으로
+    // 판단한다(조표 없는 악보). 그 외에는 조표+마디 상속(courtesy) 기본.
+    const explicitAcc = data.accidentalStyle === 'explicit';
+    const keySigAcc = explicitAcc ? new Map<string, 'b' | '#'>() : keySigAccidentals(sheetKey);
     const useFlats = isKeyFlat(sheetKey);
     type Acc = 'b' | '#' | 'n' | '##' | 'bb';
     let tieCarryAcc: Map<string, Acc> | undefined;
@@ -1749,11 +1774,11 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
           // VexFlow only accepts plain keys ("G", "Em") — normalise jazz-style
           // strings like "G-maj" / "Eb-min" first or it throws BadKeySignature.
           const vexKey = normalizeVexKey(data.key);
-          if (vexKey !== 'C') stave.addKeySignature(vexKey);
+          if (!explicitAcc && vexKey !== 'C') stave.addKeySignature(vexKey);
           if (isFirstLine) stave.addTimeSignature(data.timeSignature);
         }
         // Mid-piece changes (MusicXML <attributes> emitted mid-stream).
-        if (measure.key && !firstInLine) {
+        if (!explicitAcc && measure.key && !firstInLine) {
           stave.addKeySignature(normalizeVexKey(measure.key));
         }
         if (measure.timeSignature) {
@@ -1932,7 +1957,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
             // (e.g. {keys:['c/4','eb/4','g/4'], accidentals:{1:'b'}}) resolve too.
             for (let ki = 0; ki < keys.length; ki++) {
               const acc = ki === 0 ? realAcc : (n.accidentals?.[ki] as Acc | undefined);
-              const glyph = resolveMeasureAccidental(activeAcc, keySigAcc, keys[ki], acc, { courtesy: true });
+              const glyph = resolveMeasureAccidental(activeAcc, keySigAcc, keys[ki], acc, { courtesy: !explicitAcc });
               if (glyph) note.addModifier(new Accidental(glyph), ki);
             }
           }

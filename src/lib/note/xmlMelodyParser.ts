@@ -150,6 +150,11 @@ export interface XmlParseOpts {
    *  미만 노트는 쉼표로 치환한다. 리드시트/singe-voice 악보(Omnibook 등)에는
    *  켜지 말 것. */
   pianoPerformance?: boolean;
+  /** Grand-staff (piano, 2-stave) mode: keep BOTH staves and ALL chord tones.
+   *  staff 1 → `measures` (treble/RH), staff 2 → `bassMeasures` (bass/LH); each
+   *  chord group becomes one multi-key NoteInfo. Auto-enabled when a part has
+   *  `<staves>2</staves>` and pianoPerformance is off. */
+  grandStaff?: boolean;
 }
 
 /* 피치 근사용 반음 오프셋 (voice 평균 피치 비교에만 사용 — alter 무시). */
@@ -951,6 +956,220 @@ function kindToSymbol(kind: string): string {
   return MAP[kind] ?? kind;
 }
 
+/* ─── Grand-staff (piano) parser ─────────────────────────────────────────
+ * A focused two-stave parser that preserves polyphony the single-line
+ * parseXmlDoc intentionally drops: it keeps BOTH staves and ALL chord tones.
+ *
+ *   staff 1 (voice 1, treble/RH) → NoteSheetData.measures
+ *   staff 2 (voice 5, bass/LH)   → NoteSheetData.bassMeasures  (1:1 by index)
+ *   a <chord> group → one NoteInfo with keys[] (sorted low→high) + per-index
+ *                     accidentals
+ *
+ * Time is tracked in <divisions> ticks (honouring <backup>/<forward>) so each
+ * stave's line is rebuilt with rests for gaps — the same technique as the
+ * single-line path. Kept separate so the lead-sheet/pianoPerformance paths are
+ * untouched. Covers what OMR piano output needs: pitch, chord, duration/dot,
+ * tie, beam, accidental, rest. (slur/ornament/dynamics/tuplet are out of scope
+ * here — add if a source needs them.) */
+
+interface ChordTone { key: string; acc?: '#' | 'b' | 'n' | '##' | 'bb'; midi: number }
+interface StaffEvent { startTick: number; durTicks: number; ni: NoteInfo; tones: ChordTone[] }
+
+/** Read one <note>'s pitch → a ChordTone (key string + accidental + midi for
+ *  sorting). Mirrors the single-line accidental rules. */
+function readChordTone(nEl: Element, pitchEl: Element, keySigLetters: Set<string>): ChordTone {
+  const step = (text(pitchEl, 'step') ?? 'C').toLowerCase();
+  const octave = text(pitchEl, 'octave') ?? '4';
+  const accText = text(nEl, 'accidental');
+  const alterTxt = text(pitchEl, 'alter');
+  const alterVal = alterTxt !== null ? parseInt(alterTxt, 10) : null;
+  let acc: ChordTone['acc'];
+  if (accText && ACC_MAP[accText]) acc = ACC_MAP[accText];
+  else if (alterVal === 1) acc = '#';
+  else if (alterVal === -1) acc = 'b';
+  else if (alterVal === 2) acc = '##';
+  else if (alterVal === -2) acc = 'bb';
+  else if (alterVal === 0 && keySigLetters.has(step)) acc = 'n';
+  const midi = (parseInt(octave, 10) + 1) * 12 + (STEP_SEMIS[step.toUpperCase()] ?? 0) + (alterVal ?? 0);
+  return { key: `${step}/${octave}`, acc, midi };
+}
+
+/** Sort a note's accumulated chord tones low→high and bake keys[] + accidentals. */
+function finalizeChord(ev: StaffEvent): void {
+  if (ev.tones.length === 0) return; // rest
+  const tones = ev.tones.slice().sort((a, b) => a.midi - b.midi);
+  ev.ni.keys = tones.map((t) => t.key);
+  const acc: Record<number, '#' | 'b' | 'n' | '##' | 'bb'> = {};
+  let has = false;
+  tones.forEach((t, i) => { if (t.acc) { acc[i] = t.acc; has = true; } });
+  if (has) ev.ni.accidentals = acc; else delete ev.ni.accidentals;
+}
+
+/** Rebuild one stave's measure notes from time-positioned events, padding gaps
+ *  with rests so the bar sums to a full measure. */
+function reconstructStave(events: StaffEvent[], measureTicks: number, divisions: number): NoteInfo[] {
+  const out: NoteInfo[] = [];
+  let filled = 0;
+  for (const e of events) {
+    if (e.startTick > filled) {
+      for (const r of ticksToRests(e.startTick - filled, divisions)) out.push(r);
+      filled = e.startTick;
+    }
+    finalizeChord(e);
+    out.push(e.ni);
+    filled = Math.max(filled, e.startTick + e.durTicks);
+  }
+  if (measureTicks > filled) {
+    for (const r of ticksToRests(measureTicks - filled, divisions)) out.push(r);
+  }
+  if (out.length === 0) out.push({ keys: ['b/4'], duration: 'wr' });
+  return out;
+}
+
+function parseGrandStaff(doc: Document, fallbackTitle: string, partEl?: Element): NoteSheetData {
+  const xmlTitle = text(doc.documentElement, 'work-title') ?? text(doc.documentElement, 'movement-title');
+  const title = (xmlTitle && xmlTitle !== 'Music21 Fragment') ? xmlTitle : fallbackTitle;
+  const composer = text(doc.documentElement, 'creator[type="composer"]') ?? 'Unknown';
+
+  const firstMeasure = (partEl ?? doc).querySelector('measure');
+  const attrScope: Element = firstMeasure ?? partEl ?? doc.documentElement;
+  const initialFifths = parseInt(text(attrScope, 'fifths') ?? '0', 10);
+  const beats = text(attrScope, 'time > beats') ?? '4';
+  const beatType = text(attrScope, 'time > beat-type') ?? '4';
+  const timeSig = `${beats}/${beatType}`;
+  const initialKey = KEY_NAMES[initialFifths + 7] ?? 'C';
+
+  const state = {
+    divisions: parseInt(text(attrScope, 'divisions') ?? '1', 10) || 1,
+    beatsPerMeasure: parseInt(beats, 10) || 4,
+    fifths: initialFifths,
+    keySigLetters: keySigLettersFor(initialFifths),
+  };
+
+  const soundEl = doc.querySelector('sound[tempo]');
+  const tempo = soundEl ? Math.round(parseFloat(soundEl.getAttribute('tempo')!)) : undefined;
+  const docHasBeams = doc.querySelector('beam') !== null;
+
+  const partMeasures = partEl
+    ? partEl.querySelectorAll(':scope > measure')
+    : doc.querySelectorAll('part > measure');
+
+  const measures: MeasureInfo[] = [];
+  const bassMeasures: MeasureInfo[] = [];
+
+  for (let mi = 0; mi < partMeasures.length; mi++) {
+    const mEl = partMeasures[mi];
+    const ev: { 1: StaffEvent[]; 2: StaffEvent[] } = { 1: [], 2: [] };
+    let curTick = 0;
+
+    for (const child of Array.from(mEl.children)) {
+      const tag = child.tagName;
+      if (tag === 'attributes') {
+        const f = text(child, 'fifths');
+        if (f !== null) { const fi = parseInt(f, 10); if (!Number.isNaN(fi)) { state.fifths = fi; state.keySigLetters = keySigLettersFor(fi); } }
+        const bt = text(child, 'time > beats'); if (bt) state.beatsPerMeasure = parseInt(bt, 10) || state.beatsPerMeasure;
+        const dv = text(child, 'divisions'); if (dv) { const d = parseInt(dv, 10); if (d > 0) state.divisions = d; }
+        continue;
+      }
+      if (tag === 'backup') { curTick -= parseInt(text(child, 'duration') ?? '0', 10) || 0; continue; }
+      if (tag === 'forward') { curTick += parseInt(text(child, 'duration') ?? '0', 10) || 0; continue; }
+      if (tag !== 'note') continue;
+
+      const nEl = child;
+      const staff: 1 | 2 = (text(nEl, 'staff') ?? '1') === '2' ? 2 : 1;
+      const isChordTone = !!nEl.querySelector('chord');
+      const isGrace = !!nEl.querySelector('grace');
+      const durTxt = text(nEl, 'duration');
+      const durTicks = durTxt ? (parseInt(durTxt, 10) || 0) : 0;
+      const advance = (isChordTone || isGrace) ? 0 : durTicks;
+      const startTick = curTick;
+
+      // Chord tone: fold this pitch into the last note of the SAME stave.
+      if (isChordTone) {
+        const list = ev[staff];
+        const pitchEl = nEl.querySelector('pitch');
+        const last = list.length ? list[list.length - 1] : null;
+        if (last && last.tones.length > 0 && pitchEl) {
+          last.tones.push(readChordTone(nEl, pitchEl, state.keySigLetters));
+        }
+        curTick += advance; // 0
+        continue;
+      }
+
+      // duration → VexFlow type (derive from ticks if <type> missing)
+      let typeStr = text(nEl, 'type');
+      if (!typeStr && Number.isFinite(durTicks) && state.divisions > 0) {
+        const nb = durTicks / state.divisions;
+        if (Math.abs(nb - state.beatsPerMeasure) < 0.01) typeStr = 'whole';
+        else if (nb >= 6) typeStr = 'whole';
+        else if (nb >= 3) typeStr = 'half';
+        else if (nb >= 1.5) typeStr = 'quarter';
+        else if (nb >= 0.75) typeStr = 'eighth';
+        else if (nb >= 0.375) typeStr = '16th';
+        else if (nb >= 0.1875) typeStr = '32nd';
+        else typeStr = '64th';
+      }
+      typeStr = typeStr ?? 'quarter';
+      const vf = TYPE_TO_VF[typeStr] ?? 'q';
+      const isDotted = !!nEl.querySelector('dot');
+
+      const restEl = nEl.querySelector('rest');
+      if (restEl) {
+        const isMeasureAttr = restEl.getAttribute('measure') === 'yes';
+        const isFull = isMeasureAttr
+          || (!text(nEl, 'type') && state.divisions > 0
+              && Math.abs(durTicks / state.divisions - state.beatsPerMeasure) < 0.01);
+        const rn: NoteInfo = { keys: ['b/4'], duration: isFull ? 'wr' : vf + 'r' };
+        if (isDotted) rn.dotted = true;
+        ev[staff].push({ startTick, durTicks, ni: rn, tones: [] });
+        curTick += advance;
+        continue;
+      }
+
+      const pitchEl = nEl.querySelector('pitch');
+      if (!pitchEl) { curTick += advance; continue; }
+
+      const ni: NoteInfo = { keys: [], duration: vf };
+      if (isDotted) ni.dotted = true;
+      if (isGrace) {
+        ni.grace = true;
+        if (nEl.querySelector('grace')?.getAttribute('slash') === 'yes') ni.graceSlash = true;
+      }
+      // Tie
+      let tieStart = false, tieStop = false;
+      for (const t of nEl.querySelectorAll('tie')) {
+        const tt = t.getAttribute('type');
+        if (tt === 'start') tieStart = true;
+        if (tt === 'stop') tieStop = true;
+      }
+      if (tieStart) ni.tie = true;
+      if (tieStop && !tieStart) ni.tieContinuation = true;
+      // Primary beam
+      if (BEAMABLE_XML_TYPES.has(typeStr) && !isGrace && docHasBeams) {
+        let pb: string | null = null;
+        for (const be of nEl.querySelectorAll('beam')) {
+          if ((be.getAttribute('number') ?? '1') === '1') { pb = (be.textContent ?? '').trim(); break; }
+        }
+        if (pb === null) ni.noBeam = true;
+        else if (pb === 'end') ni.beamBreak = true;
+      }
+      ev[staff].push({
+        startTick,
+        durTicks: isGrace ? 0 : durTicks,
+        ni,
+        tones: [readChordTone(nEl, pitchEl, state.keySigLetters)],
+      });
+      curTick += advance;
+    }
+
+    const measureTicks = state.beatsPerMeasure * state.divisions;
+    measures.push({ notes: reconstructStave(ev[1], measureTicks, state.divisions) });
+    bassMeasures.push({ notes: reconstructStave(ev[2], measureTicks, state.divisions) });
+  }
+
+  return { title, composer, key: initialKey, timeSignature: timeSig, tempo, measures, bassMeasures };
+}
+
 /* ─── Multi-part support ─────────────────────────────────────────────── */
 
 export interface ScorePart {
@@ -1025,7 +1244,13 @@ function parseAllParts(doc: Document, fallbackTitle: string, opts?: XmlParseOpts
   return partEls.map((pEl, i) => {
     const id = pEl.getAttribute('id') ?? `P${i + 1}`;
     const inst = instruments.get(id);
-    const data = parseXmlDoc(doc, fallbackTitle, pEl, opts);
+    // Grand-staff (2-stave piano) → keep both hands + chords. Auto-detected from
+    // <staves>2</staves>; the pianoPerformance melody-extraction mode opts out.
+    const staves = parseInt(pEl.querySelector('staves')?.textContent ?? '1', 10) || 1;
+    const useGrand = opts?.grandStaff || (staves >= 2 && !opts?.pianoPerformance);
+    const data = useGrand
+      ? parseGrandStaff(doc, fallbackTitle, pEl)
+      : parseXmlDoc(doc, fallbackTitle, pEl, opts);
     // Attach per-part timbre so playback uses the real instrument sound.
     if (inst) { data.instrument = inst.instrument; data.isDrum = inst.isDrum; }
     return { id, name: names.get(id) ?? `Part ${i + 1}`, data };

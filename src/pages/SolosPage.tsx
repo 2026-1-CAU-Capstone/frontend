@@ -277,6 +277,30 @@ const RowSub = styled.div`
   white-space: nowrap;
 `;
 
+/** Monospace publicId chip under the sub-line. Click to copy the full key. */
+const SoloIdChip = styled.button<{ $copied?: boolean }>`
+  margin-top: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font-family: ${({ theme }) => theme.fonts.chord};
+  font-size: 0.68rem;
+  line-height: 1.2;
+  color: ${({ $copied, theme }) => ($copied ? '#1f9a52' : theme.colors.textSecondary)};
+  opacity: 0.85;
+  &:hover { color: ${({ theme }) => theme.colors.gold}; opacity: 1; }
+  & > span.id {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+`;
+
 const RowActions = styled.div`
   display: flex;
   gap: 6px;
@@ -601,6 +625,24 @@ export default function SolosPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const copyId = useCallback((id: string) => {
+    const done = () => {
+      setCopiedId(id);
+      window.setTimeout(() => setCopiedId((c) => (c === id ? null : c)), 1200);
+    };
+    // navigator.clipboard needs a secure context; fall back to a temp textarea.
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(id).then(done).catch(() => {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = id; ta.style.position = 'fixed'; ta.style.opacity = '0';
+          document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+          document.body.removeChild(ta); done();
+        } catch { /* ignore */ }
+      });
+    }
+  }, []);
   const [previewKey, setPreviewKey] = useState('C');
   /* Solo preview playback — count-in + global player live inside NoteSheet;
    * we drive it via its imperative handle and mirror its play/tempo state so
@@ -1363,6 +1405,15 @@ export default function SolosPage() {
                             <RowSub>
                               {(s.performer ?? '—')} · {s.instrument} · {formatKeyDisplay(toWeimarKey(s.key ?? s.sheetData?.key ?? 'C') ?? 'C-maj')}
                             </RowSub>
+                            <SoloIdChip
+                              type="button"
+                              $copied={copiedId === s.publicId}
+                              title="고유 키 복사"
+                              onClick={(e) => { e.stopPropagation(); copyId(String(s.publicId)); }}
+                            >
+                              <span className="id">{s.publicId}</span>
+                              <span aria-hidden>{copiedId === s.publicId ? '✓ 복사됨' : '📋'}</span>
+                            </SoloIdChip>
                           </RowMain>
                           {!mergeMode && (
                           <RowActions>

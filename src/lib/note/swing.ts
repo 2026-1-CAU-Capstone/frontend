@@ -63,8 +63,17 @@ export function getSwingRatio(bpm: number, style?: FeelId): number {
 /** Map a straight beat position to its swung version. Reads the current ratio
  *  from playerSettings unless `ratio` is supplied (tests / pinned contexts).
  *
- *  Straight 8ths land at 0, 0.5, 1.0, 1.5, ...
- *  Swung 8ths (ratio = 0.62) land at 0, 0.62, 1.0, 1.62, ...
+ *  Swing is an **8th-note-grid** feel: each straight 8th slot boundary
+ *  (0, 0.5, 1.0, 1.5, …) maps to the swung grid (0, R, 1, 1+R, …). Positions
+ *  *inside* a slot (16th notes, triplet-16ths, any finer subdivision) keep
+ *  their EVEN spacing within that slot — they are linearly interpolated
+ *  between the slot's swung endpoints, not re-folded.
+ *
+ *    Straight 8ths → 0, 0.5, 1.0, 1.5, …
+ *    Swung 8ths (R=0.62) → 0, 0.62, 1.0, 1.62, …
+ *    16ths in beat 0 (0, .25, .5, .75) → 0, 0.31, 0.62, 0.81  (even inside
+ *      each swung half — NOT the old 0, .354, .708, .854 that squashed the
+ *      2nd half of the beat and made fast 16th runs sound smeared/rushed).
  *
  *  Pass `ratio = 0.5` for straight (no-swing) projection. */
 export function swungBeats(beats: number, ratio?: number): number {
@@ -74,4 +83,60 @@ export function swungBeats(beats: number, ratio?: number): number {
   const frac = beats - whole;
   if (frac < 0.5) return whole + frac * (r / 0.5);
   return whole + r + (frac - 0.5) * ((1 - r) / 0.5);
+}
+
+const EIGHTH_EPS = 1e-6;
+/** True when a beat position sits exactly on the 8th-note grid (…0, 0.5, 1…). */
+function onEighthGrid(beat: number): boolean {
+  const x = beat * 2;
+  return Math.abs(x - Math.round(x)) < EIGHTH_EPS;
+}
+
+/**
+ * Apply jazz swing to a melody the way a HUMAN does: the long-short lilt lives
+ * on the **8th-note pulse**, while faster subdivisions (16th runs, etc.) are
+ * played EVEN (straight). A stateless position→position map can't do this —
+ * it would either stretch/squash the 16ths (old behaviour, "smeared") or cram
+ * the last 16th of each beat against the downbeat. So swing is decided
+ * per-note, with knowledge of each note's duration:
+ *
+ *   swing a note's onset  ⇔  it starts on the 8th grid AND is an 8th-or-longer.
+ *
+ * 16th-or-shorter notes, and notes starting off the 8th grid (syncopated 16th
+ * placements), keep their straight onset. Result: 8th lines swing fully; fast
+ * 16th runs stay even; mixed figures do the musically-correct thing (the 8th
+ * component swings, the 16ths inside a beat stay even).
+ *
+ * Returns new notes with swung `beatOffset`; `durationBeats` is re-derived from
+ * the gap to the next onset so nothing overlaps or inverts (monotonic).
+ * Requires `notes` sorted by beatOffset (extractMelody already is).
+ */
+export function swingMelody<T extends { beatOffset: number; durationBeats: number }>(
+  notes: T[],
+  ratio: number,
+): T[] {
+  if (ratio === 0.5 || notes.length === 0) return notes;
+  const EIGHTH = 0.5 - 1e-6; // an 8th note is 0.5 beat; guard float drift
+  const swings = notes.map((n) => onEighthGrid(n.beatOffset) && n.durationBeats >= EIGHTH);
+  const swungOnset = notes.map((n, i) =>
+    swings[i] ? swungBeats(n.beatOffset, ratio) : n.beatOffset,
+  );
+  // Self length after swing: swung notes stretch/compress their own span (the
+  // on-beat 8th becomes the "long", the off-beat 8th the "short"); straight
+  // notes keep their length. Mapping the END the same way preserves the
+  // long-short articulation the old per-endpoint code got right.
+  const swungEnd = notes.map((n, i) => {
+    const end = n.beatOffset + n.durationBeats;
+    return swings[i] ? swungBeats(end, ratio) : end;
+  });
+  return notes.map((n, i) => {
+    const onset = swungOnset[i];
+    const selfLen = swungEnd[i] - onset;
+    // Cap at the gap to the next onset so nothing overlaps/inverts, but never
+    // extend across a rest (self length is shorter there). Floor keeps a fast
+    // note audible instead of collapsing to a click.
+    const gap = i + 1 < notes.length ? swungOnset[i + 1] - onset : selfLen;
+    const dur = Math.max(0.05, Math.min(selfLen, gap));
+    return { ...n, beatOffset: onset, durationBeats: dur };
+  });
 }

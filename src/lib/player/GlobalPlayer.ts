@@ -70,7 +70,7 @@ import {
   extractMelody,
   type MelodyNote,
 } from "../backing/adapters/noteSheetToChart";
-import { swungBeats } from "../note/swing";
+import { swingMelody } from "../note/swing";
 import { melodySwingRatio } from "../backing/engine";
 import type { Chart, BackingPlayer, BackingConfig } from "../backing/types";
 import type { LeadSheetData } from "../../data/leadSheetTypes";
@@ -383,11 +383,13 @@ export function createGlobalPlayer(
     const melody: MelodyNote[] = sheetsToSound.flatMap((sheet) =>
       // 릭 데이터는 explicit 임시표 의미론(필드가 곧 소리 — LickCard 렌더와 쌍),
       // 악보(sheet/solo)는 score 의미론(조표+마디 내 상속) — 눈에 보이는 그대로 재생.
-      extractMelody(sheet, { accidentalStyle: input.kind === "lick" ? "explicit" : "score" }).map((m) => {
-        const onset = swungBeats(m.beatOffset, swingRatio);
-        const end = swungBeats(m.beatOffset + m.durationBeats, swingRatio);
-        return { ...m, beatOffset: onset, durationBeats: Math.max(0.05, end - onset) };
-      }),
+      // 스윙은 8분 펄스에만(swingMelody): 16분 런은 균등 유지 — 인간 연주 그대로.
+      swingMelody(
+        // 시트가 accidentalStyle을 명시하면 그걸 따르고(조표 무시 = explicit),
+        // 없으면 릭=explicit·악보=score 기본값.
+        extractMelody(sheet, { accidentalStyle: sheet.accidentalStyle ?? (input.kind === "lick" ? "explicit" : "score") }),
+        swingRatio,
+      ),
     );
 
     // ── Fast path: REUSE the live engine when only the CONTENT changed within
