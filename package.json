@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:local": "JAZZIFY_API_TARGET=http://localhost:8080 vite",
     "api:types": "openapi-typescript https://jazzify.p-e.kr/api/v3/api-docs -o src/api/schema.d.ts",
     "build": "tsc -b && vite build",
     "lint": "eslint .",

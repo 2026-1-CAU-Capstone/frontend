@@ -29,9 +29,103 @@
    jq -r '.components.schemas.ChordProjectResponse' /tmp/jazzify_openapi.json
    ```
 
-- API base: dev는 vite proxy `/api` → `https://jazzify.p-e.kr`, prod는 `https://jazzify.p-e.kr/api`. 경로는 `/v1/...`.
+- API base: dev는 vite proxy `/api` → 기본 `https://jazzify.p-e.kr`(전환은 아래 "로컬 백엔드"), prod는 `https://jazzify.p-e.kr/api`. 경로는 `/v1/...`.
 - 모든 응답은 `{ data: ... }` 봉투(`ApiResponse*`)로 감싸진다.
 - **스펙 문서만 무인증**이고, 실제 데이터 엔드포인트는 Bearer 토큰 필요(아래).
+
+## ⛔ 이 작업공간에서 `../backend` 코드를 수정하지 않는다 (읽기 전용)
+
+**여기(Claude Code)에서 하는 일은 프론트엔드 코드 + 백엔드 "요구사항 문서" 작성뿐이다.**
+백엔드 구현은 사용자가 **옆의 IntelliJ 에서 직접** 수행한다.
+
+- `../backend/**` 는 **읽기 전용**이다. Edit/Write 로 고치지 말 것 — 담당 영역(LLM/RAG/analysis/omr)이라도 마찬가지다.
+- 백엔드에 변경이 필요하면 **코드를 고치는 대신** 요구사항 문서(`docs/backendrequirements/`)로 쓰거나, 무엇을 어떻게 고치면 되는지 **설명**한다.
+- 예외: 사용자가 그 파일을 명시하며 "여기서 고쳐달라"고 직접 지시한 경우에만. 그때도 먼저 확인한다.
+- 읽기(코드 확인·구조 파악·설정값 조회)와 로컬 기동/검증(gradlew bootRun, curl)은 자유롭게 해도 된다.
+
+## 백엔드 소스는 `../backend` 에 있다 — 추측하지 말고 직접 읽는다
+
+백엔드는 같은 repo의 **`../backend`** (Spring Boot / Gradle / Java, 패키지 `com.jazzify.backend`)에 있다.
+백엔드 동작·구조가 궁금하면 **OpenAPI 스펙과 함께 실제 소스를 직접 확인**한다. 사용자에게 묻거나 추측하지 말 것.
+
+- 요구사항 문서(`docs/backendrequirements/`)를 쓸 때도 **먼저 해당 도메인 코드를 읽고** 실제 구조·엔드포인트·에러코드에 맞춰 쓴다.
+- 설정값(포트·context-path·CORS·외부 서버 주소)은 `../backend/src/main/resources/application-{dev,prod}.yml` 과 `.env.dev.example` 이 1차 출처다.
+- 백엔드 자체 AI 지침은 `../backend/Agents.md` 에 있다(중복 작성 말고 그걸 참조).
+
+**주요 위치**
+| 영역 | 경로 (`../backend/src/main/java/com/jazzify/backend/`) |
+|---|---|
+| RAG | `domain/rag` |
+| Rule-based 분석 | `domain/analysis` |
+| LLM 채팅 | `domain/chat` · `shared/llm` |
+| 임베딩 | `domain/embedding` · `shared/embedding` |
+| OMR/AMT | `shared/omr` |
+
+## 백엔드 담당 경계 — 3단계 (백엔드 담당자와 합의됨, 2026-07-22)
+
+사용자가 직접 수정하는 영역은 **LLM · RAG · Rule-based Engine · AMT/OMR** 이다. 단 그 안에서도
+**다른 사람 코드가 물고 있는 계약**이 있어 3단계로 나뉜다.
+
+### 🟢 자유 — 마음대로 수정
+`domain/rag` · `domain/chat` · `domain/embedding` · `shared/embedding` · `shared/llm`
+→ 백엔드 담당자 코드가 의존하지 않는다. 조율 없이 진행.
+
+### 🟡 조건부 — 내부 로직은 자유, **공개 계약은 변경 전 반드시 사용자에게 알린다**
+
+**`domain/analysis`** — `chordproject`가 의존
+| 건드리기 전 알릴 것 | 현재 형태 |
+|---|---|
+| `HarmonicAnalysisService` public 시그니처 | `analyze(String text, String key, String title, String timeSignature)` · `explain(...)` (동일 인자) |
+| `AnalysisExplanationResponse` DTO 모양 | `domain/analysis/dto/response/` |
+
+**`shared/omr`** — `chordproject`·`sheetproject`·`solo`(전부 백엔드 담당자 영역)가 의존
+- ⛔ **`OmrProcessingStatus` enum 상수 `PENDING`·`PROCESSING`·`COMPLETED`·`FAILED` 는 이름 변경·삭제 절대 금지.**
+  이 엔티티들에 **DB로 영속**되어 있어 리네임하면 기존 데이터가 깨진다. **추가는 OK.**
+- ⚠️ `OmrClient` · `OmrProperties` · `OmrCallbackDomain` · `OmrFileValidator` 의 public API 변경도 조율 필요.
+
+> 위 계약을 바꿔야 하는 변경을 제안할 때는, 코드를 고치기 전에 **"이건 백엔드 담당자와 조율이 필요하다"**고 먼저 말한다.
+
+### 🔴 금지 — 수정 대상으로 제안하지 않는다
+`domain/user` · `domain/chordproject` · `domain/sheetproject` · `domain/solo` · `domain/storagefile` · `core/security` 등
+(백엔드 담당자 소유. 버그를 발견하면 고치지 말고 **보고만** 한다.)
+
+## 백엔드 전환 — 운영 ↔ 로컬 (이 두 명령만 쓴다)
+
+프론트는 **항상 `localhost:5173`** 이고, **백엔드만** 바뀐다. 전환은 npm script 두 개가 전부다.
+
+```bash
+npm run dev          # → 백엔드: https://jazzify.p-e.kr   (운영, 기본)
+npm run dev:local    # → 백엔드: http://localhost:8080    (IntelliJ 로컬)
+```
+
+사용자에게 실행 방법을 안내할 때는 **이 두 명령으로 안내한다.** `JAZZIFY_API_TARGET=… npm run dev` 를 매번
+치게 하지 말 것(그 방식은 8080 이 아닌 다른 주소를 쓸 때만).
+
+**확인**: 부팅 로그 한 줄로 현재 대상이 보인다.
+```
+➜  API 프록시:  /api → http://localhost:8080  (로컬 백엔드)
+➜  API 프록시:  /api → https://jazzify.p-e.kr  (운영 서버)
+```
+
+**주의**
+- **전환하려면 dev 서버를 껐다 켠다**(`Ctrl+C` → 다른 명령). vite.config는 부팅 시 1회 로드라 HMR로는 안 바뀐다.
+- **로컬은 계정 DB가 운영과 별개** — 운영 계정으로 로그인되지 않는다. 로컬에선 회원가입부터. 전환 직후 401은 정상.
+- 값은 **호스트까지만** — `/api`를 붙이면 `/api/api/...` 가 되어 404.
+- vite proxy에 **`rewrite`를 넣지 말 것** — 백엔드 context-path가 `/api`라 경로를 그대로 넘겨야 한다.
+
+**동작 구조**: `dev:local` 은 `JAZZIFY_API_TARGET` 환경변수를 세팅해 vite proxy target 을 바꾼다.
+`.env.local`(frontend/ 또는 repo 루트)에 `JAZZIFY_API_TARGET` 을 넣어두면 `npm run dev` 도 그쪽을 본다.
+다른 포트·호스트가 필요할 때만 이 환경변수를 직접 쓴다. 상세는 `docs/로컬백엔드-전환.md`.
+
+### 로컬 백엔드 기동 (참고)
+
+IntelliJ `dev` 프로파일로 실행한다(설정은 `../backend/src/main/resources/.env` — 팀 통일 위치, gitignore됨).
+사전 조건: docker `jazzify-db`(pgvector) · `jazzify-redis` 실행. 기동 시 `RagBootstrapRunner` 가
+`../backend/data/explanation/` 의 22개 txt를 자동 색인한다(**22 docs / 285 chunks**, 재기동해도 중복 없음).
+
+```bash
+curl -s http://localhost:8080/api/v1/rag/health   # → documentCount 22 / chunkCount 285
+```
 
 ## 인증 호출 테스트 (로그인 → 토큰)
 
