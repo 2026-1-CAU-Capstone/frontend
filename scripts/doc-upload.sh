@@ -3,7 +3,7 @@
 # usage: JAZZIFY_DOCS_ID=.. JAZZIFY_DOCS_PW=.. scripts/doc-upload.sh <file.md> [docId]
 set -euo pipefail
 BASE="https://doc.jazzify.p-e.kr"; J=$(mktemp); BODY=$(mktemp); FILE="$1"; DOCID="${2:-}"
-typeid(){ case "$1" in "AI 문서") echo 1;; "기술 정리") echo 2;; "기능 명세") echo 4;; *) echo 3;; esac; }
+typeid(){ case "$1" in "AI 문서") echo 1;; "기술 정리") echo 2;; "기능 명세") echo 4;; "백엔드 요구사항") echo 5;; *) echo 3;; esac; }
 teamid(){ case "$1" in 백엔드) echo 1;; 프론트) echo 2;; AI) echo 3;; OMR) echo 4;; *) echo "";; esac; }
 fm(){ sed -n "s/^$1:[[:space:]]*//p" "$FILE" | head -1; }
 title=$(fm title); typeId=$(typeid "$(fm type)")

@@ -1,6 +1,6 @@
 ---
 title: 2026-07-22 · 악보 sheetData 필드 보존(조표무시 등) 2건
-type: 기능 명세
+type: 백엔드 요구사항
 targets: [백엔드]
 status: 제안
 owner: 최영현

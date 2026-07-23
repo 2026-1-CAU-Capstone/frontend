@@ -167,6 +167,7 @@ curl -s -H "Authorization: Bearer $TOKEN" https://jazzify.p-e.kr/api/v1/chord-pr
 
 백엔드에 넘길 요구사항을 문서서버(`doc.jazzify.p-e.kr`)에 올릴 때는 **`docs/backendrequirements/BACKEND_REQUIREMENTS.md` 를 먼저 읽고** 그 규칙을 그대로 따른다. 그 파일 하나에 양식·업로드 방법이 전부 있다.
 
+- **문서 타입**: front-matter `type:` 를 **항상 `백엔드 요구사항`**(documentTypeId=5)으로 둔다. `기능 명세`(4)가 아니다 — 그건 기능명세서(#17) 전용. (2026-07-23 사용자 지시)
 - **제목**: `YYYY-MM-DD · <설명적 제목> N건` (생성날짜 맨 앞, 범주는 본문 `🏷 범주(태그):` 로). 문서는 날짜별로 계속 누적된다.
 - **본문**: 기능마다 `기능 요약 / 상황 설명 / 기능 상세(사용자·권한·시나리오·동작조건·검증조건·기대결과)` + 상태(✅/🟡/⬜). 백엔드 코드/DB 구현 지시는 넣지 않는다(외부 API 계약만 `제안`으로).
 - **업로드**: `.env.local`의 `JAZZIFY_DOCS_ID`/`JAZZIFY_DOCS_PW` 로 `scripts/doc-upload.sh <파일>` (신규) 또는 `scripts/doc-upload.sh <파일> <문서id>` (수정).

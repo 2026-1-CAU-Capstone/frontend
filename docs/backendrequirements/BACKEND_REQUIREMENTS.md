@@ -15,7 +15,7 @@
 ```yaml
 ---
 title: YYYY-MM-DD · <설명적 제목> N건   # ★ 생성날짜 맨 앞 + 내용 설명(예: "인증 관련 요구사항 2건"). 범주명을 제목으로 쓰지 말 것.
-type: 기능 명세                         # 요구사항 = 항상 "기능 명세"
+type: 백엔드 요구사항                     # 요구사항 = 항상 "백엔드 요구사항" (documentTypeId=5). 기능 명세(4)가 아님
 targets: [백엔드]                       # OMR 연동 포함 시 [백엔드, OMR]
 status: 제안                            # 제안 → 합의 → 구현중 → 완료 / 폐기
 owner: 최영현
@@ -91,9 +91,9 @@ JAZZIFY_DOCS_ID=.. JAZZIFY_DOCS_PW=.. scripts/doc-upload.sh docs/backendrequirem
 **ID 매핑 (확정)**
 | documentTypeId | 팀 ID(targetTeamIds) |
 |---|---|
-| 1 = AI 문서 · 2 = 기술 정리 · 3 = 기타 · **4 = 기능 명세** ← 요구사항 | 1 = 백엔드 · 2 = 프론트 · 3 = AI · 4 = OMR |
+| 1 = AI 문서 · 2 = 기술 정리 · 3 = 기타 · 4 = 기능 명세 · **5 = 백엔드 요구사항** ← 요구사항 | 1 = 백엔드 · 2 = 프론트 · 3 = AI · 4 = OMR |
 
-front-matter 매핑: `type→documentTypeId`(요구사항=4), `targets→targetTeamIds`, 본문→`markdownContent`.
+front-matter 매핑: `type→documentTypeId`(**요구사항=5 "백엔드 요구사항"**), `targets→targetTeamIds`, 본문→`markdownContent`.
 
 **엔드포인트**: 생성 `POST /documents/new` · 수정 `POST /documents/{id}/edit` · 원문 `GET /documents/{id}/markdown` · 로그인 `POST /auth/login`(form: email/password/_csrf).
 

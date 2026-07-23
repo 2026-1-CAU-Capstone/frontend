@@ -1,6 +1,6 @@
 ---
 title: 2026-07-15 · API 계약·스키마 위생 요구사항 1건
-type: 기능 명세
+type: 백엔드 요구사항
 targets: [백엔드]
 status: 제안
 owner: 최영현
