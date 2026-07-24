@@ -7,9 +7,11 @@ import { NativeBottomBar } from './components/native/NativeBottomBar';
 import { AiChatSheet } from './components/native/AiChatSheet';
 import HomePage from './pages/HomePage';
 import { IntroScreen } from './components/common/IntroScreen';
+import { BackendBadge } from './components/layout/BackendBadge';
 import { AudioErrorBoundary } from './components/common/AudioErrorBoundary';
 import { AudioLifecycleGuard } from './components/common/AudioLifecycleGuard';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { AdminRoute } from './components/auth/AdminRoute';
 
 /* Sheet-music tab pages — split out of the initial bundle so that vexflow
  * (~1.1 MB) and OSMD only load when the user navigates into a chord/note/
@@ -33,6 +35,7 @@ const LoginPage           = lazy(() => import('./pages/LoginPage'));
 const SharedChartPage     = lazy(() => import('./pages/SharedChartPage'));
 const LickOnsetPage       = lazy(() => import('./pages/LickOnsetPage'));
 const UserProfilePage     = lazy(() => import('./pages/UserProfilePage'));
+const RagAdminPage        = lazy(() => import('./pages/RagAdminPage'));
 
 /* Recent-Chats(사이드바)에서 코드차트 → 코드차트로 이동하면 `/mychord` 라우트는
  * 그대로고 `?project=`(또는 `?song=`) 쿼리만 바뀐다. 같은 라우트라 React Router는
@@ -88,6 +91,7 @@ export default function App() {
 
   return (
     <>
+      <BackendBadge />
       {showIntro && <IntroScreen onDone={handleIntroDone} />}
       <HashRouter>
         <NotificationProvider>
@@ -116,6 +120,8 @@ export default function App() {
           <Route path="/lick-practice/:id" element={<ProtectedRoute><Lick12KeyPage /></ProtectedRoute>} />
           <Route path="/editor" element={<ProtectedRoute><EditorPage /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><UserProfilePage /></ProtectedRoute>} />
+          {/* RAG 문서 관리 — admin 전용. AdminRoute 가 로그인 + admin 등급을 검사. */}
+          <Route path="/admin/rag" element={<AdminRoute><RagAdminPage /></AdminRoute>} />
           <Route path="/login" element={<LoginPage />} />
           {/* Public shared-chart viewer — chart data rides in the URL hash
               (#/v?d=…), so anyone with the link can view it read-only without

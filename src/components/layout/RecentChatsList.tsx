@@ -154,11 +154,15 @@ const LabelText = styled.span`
   white-space: nowrap;
 `;
 
-/* Chord chart = 2×2 grid of chord boxes; Sheet = staff lines + a note head. */
+/* Chord chart glyph — "내 코드 차트"(MyChordChartIcon)와 동일한 모양(격자).
+ * 색은 ChartBadge 가 gold 배경 + 흰색(currentColor)으로 유지. */
 const ChordChartGlyph = () => (
-  <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.3">
-    <rect x="1" y="1" width="10" height="10" rx="1.5" />
-    <path d="M6 1.5v9M1.5 6h9" />
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <path d="M3 9h18" />
+    <path d="M3 15h18" />
+    <path d="M9 9v12" />
+    <path d="M15 9v12" />
   </svg>
 );
 const SheetChartGlyph = () => (

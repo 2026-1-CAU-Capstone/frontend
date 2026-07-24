@@ -6,6 +6,7 @@ import { mq } from '../styles/theme';
 import { RightChatPanel } from '../components/layout/RightChatPanel';
 import { BrandLogoImage } from '../components/common/BrandLogoImage';
 import { IconSidebar } from '../components/layout/IconSidebar';
+import { AdminToolsDock } from '../components/layout/AdminToolsDock';
 import { AuthTopBar } from '../components/layout/AuthTopBar';
 import { AccountModal } from '../components/chat/AccountModal';
 import { NativeHomeDashboard } from '../components/native/NativeHomeDashboard';
@@ -942,6 +943,9 @@ export default function HomePage() {
         onConfirm={resetChat}
         onLogin={() => { setConfirmNewChatOpen(false); navigate('/login'); }}
       />
+
+      {/* admin 계정 전용 도구 런처 — 우측 하단 독립 위젯(내부에서 admin 게이트). */}
+      <AdminToolsDock />
     </Wrapper>
   );
 }

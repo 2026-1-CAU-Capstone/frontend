@@ -526,13 +526,14 @@ export interface paths {
          *     ### 요청 형식
          *     `multipart/form-data`로 전송해야 합니다.
          *
-         *     ### 필수 파트
+         *     ### multipart 파트
          *     | 파라미터 | 타입 | 설명 |
          *     |---------|------|------|
          *     | `file` | file | 악보 이미지 파일. `png`, `jpg`, `jpeg`만 허용 |
+         *     | `metadata` | string(JSON) | 사용자 메타데이터 JSON 문자열. 모든 속성을 생략한 `{}`도 허용 |
          *
-         *     ### 선택 파라미터 (form field)
-         *     모든 필드는 선택입니다. 사용자가 입력한 값은 callback 완료 후 OMR 결과보다 우선 적용됩니다.
+         *     ### `metadata` JSON 속성
+         *     모든 속성은 선택입니다. 사용자가 입력한 값은 callback 완료 후 OMR 결과보다 우선 적용됩니다.
          *     `title`을 입력한 경우 생성 전에 `(title, performer)` 중복 검사를 수행합니다.
          *
          *     | 파라미터 | 타입 | 설명 |
@@ -560,12 +561,12 @@ export interface paths {
          *     7. Solo 데이터 채우기 및 `omrStatus=COMPLETED`, 실패 시 `FAILED`
          *
          *     ### 상태 확인
-         *     Solo에는 전용 `/omr-status` API가 없습니다.
-         *     `GET /v1/solos/{publicId}` 응답의 `omrStatus`, `omrProgress`, `omrFailureReason`를 확인하세요.
+         *     `GET /v1/solos/{publicId}/omr-status` 응답의 `status`, `progress`, `failureReason`을 확인하세요.
          *
          *     ### 에러
          *     - `400 OMR_004`: 지원하지 않는 파일 형식
          *     - `400 OMR_005`: 빈 파일
+         *     - `400 GLOBAL_002`: `metadata` JSON 파싱 실패 또는 DTO validation 실패
          *     - `500 OMR_007`: 업로드 파일 읽기 실패
          *     - `503 OMR_001`: OMR 서버 미설정
          *     - `502 OMR_008`: OMR 서버 작업 제출 실패
@@ -715,7 +716,7 @@ export interface paths {
         };
         /**
          * RAG 문서 목록 조회
-         * @description RAG 문서를 페이지 단위로 조회합니다.
+         * @description RAG 문서를 페이지 단위로 조회합니다. status 를 지정하지 않으면 반려 문서는 제외됩니다.
          */
         get: operations["getDocuments"];
         put?: never;
@@ -724,6 +725,46 @@ export interface paths {
          * @description RAG 문서를 생성하고 즉시 청크/임베딩을 재색인합니다.
          */
         post: operations["createDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rag/documents/{publicId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * RAG 문서 반려
+         * @description 문서를 반려 상태로 바꿉니다. 삭제와 달리 기록이 남아 재검수 대상에서 빠지며, 확정 문서를 반려하면 벡터 색인에서도 제거됩니다.
+         */
+        post: operations["rejectDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rag/documents/{publicId}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * RAG 문서 확정
+         * @description 후보·반려 문서를 standard/lesson 으로 확정하고, 이때 비로소 청킹·임베딩해 검색 대상에 포함시킵니다.
+         */
+        post: operations["confirmDocument"];
         delete?: never;
         options?: never;
         head?: never;
@@ -927,18 +968,19 @@ export interface paths {
         /**
          * OMR로 릭 생성 (악보 파일 업로드)
          * @description 악보 이미지 파일을 MusicVision OMR 서버에 비동기로 제출하고 `isOMR=true`인 Lick을 생성합니다.
-         *     	이 API는 최종 MusicXML 파싱 결과를 즉시 반환하지 않습니다. 응답의 `publicId`를 저장한 뒤 단건 조회 API로 `omrStatus`를 확인하세요.
+         *     	이 API는 최종 MusicXML 파싱 결과를 즉시 반환하지 않습니다. 응답의 `publicId`를 저장한 뒤 전용 `/omr-status` API로 처리 상태를 확인하세요.
          *
          *     ### 요청 형식
          *     `multipart/form-data`로 전송해야 합니다.
          *
-         *     ### 필수 파트
+         *     ### multipart 파트
          *     | 파라미터 | 타입 | 설명 |
          *     |---------|------|------|
          *     | `file` | file | 악보 이미지 파일. `png`, `jpg`, `jpeg`만 허용 |
+         *     | `metadata` | string(JSON) | 사용자 메타데이터 JSON 문자열. 모든 속성을 생략한 `{}`도 허용 |
          *
-         *     ### 선택 파라미터 (form field)
-         *     모든 필드는 선택입니다. 사용자가 입력한 값은 callback 완료 후 OMR 결과보다 우선 적용됩니다.
+         *     ### `metadata` JSON 속성
+         *     모든 속성은 선택입니다. 사용자가 입력한 값은 callback 완료 후 OMR 결과보다 우선 적용됩니다.
          *
          *     | 파라미터 | 타입 | 설명 |
          *     |---------|------|------|
@@ -965,12 +1007,12 @@ export interface paths {
          *     7. Lick 데이터 채우기 및 `omrStatus=COMPLETED`, 실패 시 `FAILED`
          *
          *     ### 상태 확인
-         *     Lick에는 전용 `/omr-status` API가 없습니다.
-         *     `GET /v1/licks/{publicId}` 응답의 `omrStatus`, `omrProgress`, `omrFailureReason`를 확인하세요.
+         *     `GET /v1/licks/{publicId}/omr-status` 응답의 `status`, `progress`, `failureReason`을 확인하세요.
          *
          *     ### 에러
          *     - `400 OMR_004`: 지원하지 않는 파일 형식
          *     - `400 OMR_005`: 빈 파일
+         *     - `400 GLOBAL_002`: `metadata` JSON 파싱 실패 또는 DTO validation 실패
          *     - `500 OMR_007`: 업로드 파일 읽기 실패
          *     - `503 OMR_001`: OMR 서버 미설정
          *     - `502 OMR_008`: OMR 서버 작업 제출 실패
@@ -1474,6 +1516,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/solos/{publicId}/omr-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 솔로 OMR 진행 상태 조회
+         * @description 비동기 OMR로 생성한 Solo의 현재 처리 상태를 조회합니다.
+         *
+         *     - `status`: `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`
+         *     - `progress`: 0~100 진행률. 처리 중이고 `omrJobId`가 있으면 MusicVision의 최신 진행률을 우선 사용합니다.
+         *     - `failureReason`: 실패 시 원인 메시지
+         *
+         *     MusicVision 상태 조회가 일시적으로 실패하면 DB에 마지막으로 저장된 진행률을 반환합니다.
+         *     존재하지 않는 `publicId`이면 `404 SOLO_001`을 반환합니다.
+         */
+        get: operations["getOmrStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/solos/performers": {
         parameters: {
             query?: never;
@@ -1541,7 +1610,7 @@ export interface paths {
          *
          *     MusicVision status 조회가 일시적으로 실패하면 DB에 마지막으로 저장된 progress를 fallback으로 반환합니다.
          */
-        get: operations["getOmrStatus"];
+        get: operations["getOmrStatus_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1582,6 +1651,53 @@ export interface paths {
          * @description RAG 활성화 여부와 청크 적재 상태를 조회합니다.
          */
         get: operations["health"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rag/documents/{publicId}/chunks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * RAG 문서 청크 목록 조회
+         * @description 문서가 색인되며 나뉜 청크(섹션)를 sectionId 오름차순으로 조회합니다.
+         */
+        get: operations["getDocumentChunks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/licks/{publicId}/omr-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 릭 OMR 진행 상태 조회
+         * @description 비동기 OMR로 생성한 Lick의 현재 처리 상태를 조회합니다.
+         *
+         *     - `status`: `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`
+         *     - `progress`: 0~100 진행률. 처리 중이고 `omrJobId`가 있으면 MusicVision의 최신 진행률을 우선 사용합니다.
+         *     - `failureReason`: 실패 시 원인 메시지
+         *
+         *     MusicVision 상태 조회가 일시적으로 실패하면 DB에 마지막으로 저장된 진행률을 반환합니다.
+         *     존재하지 않는 `publicId`이면 `404 LICK_001`을 반환합니다.
+         */
+        get: operations["getOmrStatus_2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1679,7 +1795,7 @@ export interface paths {
          *
          *     MusicVision status 조회가 일시적으로 실패하면 DB에 마지막으로 저장된 progress를 fallback으로 반환합니다.
          */
-        get: operations["getOmrStatus_1"];
+        get: operations["getOmrStatus_3"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2025,11 +2141,13 @@ export interface components {
             publicId?: string;
             slug?: string;
             sourceType?: string;
+            status?: string;
             title?: string;
             content?: string;
             metadata?: {
                 [key: string]: string;
             };
+            sourceUrl?: string;
             topicTags?: string[];
             /** Format: int32 */
             embeddingVersion?: number;
@@ -2231,21 +2349,6 @@ export interface components {
             sheetData: components["schemas"]["SheetDataRequest"];
             features?: components["schemas"]["SimilarityFeaturesRequest"];
         };
-        SoloOmrRequest: {
-            title?: string;
-            performer?: string;
-            composer?: string;
-            album?: string;
-            source?: string;
-            instrument?: string;
-            style?: string;
-            /** Format: int32 */
-            tempo?: number;
-            key?: string;
-            timeSignature?: string;
-            rhythmFeel?: string;
-            userId?: string;
-        };
         OmrCallbackRequest: {
             job_id?: string;
             status?: string;
@@ -2253,8 +2356,8 @@ export interface components {
             musicxml_path?: string;
             chord_assignments_path?: string;
             error?: string;
-            completed?: boolean;
             failed?: boolean;
+            completed?: boolean;
         };
         ApiResponseVoid: {
             data?: Record<string, never>;
@@ -2280,6 +2383,13 @@ export interface components {
             metadata: {
                 [key: string]: string;
             };
+            topicTags?: string[];
+        };
+        RagDocumentConfirmRequest: {
+            sourceType?: string;
+            slug?: string;
+            title?: string;
+            content?: string;
             topicTags?: string[];
         };
         LickCreateRequest: {
@@ -2308,21 +2418,6 @@ export interface components {
             targetChord?: string;
             sheetData: components["schemas"]["SheetDataRequest"];
             features?: components["schemas"]["SimilarityFeaturesRequest"];
-        };
-        LickOmrRequest: {
-            title?: string;
-            performer?: string;
-            composer?: string;
-            album?: string;
-            source?: string;
-            instrument?: string;
-            style?: string;
-            /** Format: int32 */
-            tempo?: number;
-            key?: string;
-            timeSignature?: string;
-            rhythmFeel?: string;
-            userId?: string;
         };
         EmbeddingProbeRequest: {
             texts?: string[];
@@ -2436,9 +2531,17 @@ export interface components {
             images?: components["schemas"]["ChatImageRequest"][];
             /** Format: uuid */
             chatPublicId?: string;
-            useRag?: boolean;
+            /**
+             * @description RAG 사용 여부. null 또는 미입력 시 false
+             * @default false
+             */
+            useRag: boolean;
             chordContextText?: string;
-            suppressInlineChart?: boolean;
+            /**
+             * @description 인라인 차트 출력 억제 여부. null 또는 미입력 시 false
+             * @default false
+             */
+            suppressInlineChart: boolean;
         };
         JsonNode: Record<string, never>;
         StreamingResponseBody: Record<string, never>;
@@ -2531,38 +2634,50 @@ export interface components {
             data?: components["schemas"]["PageSoloResponse"];
         };
         PageSoloResponse: {
-            /** Format: int64 */
-            totalElements?: number;
             /** Format: int32 */
             totalPages?: number;
+            /** Format: int64 */
+            totalElements?: number;
             first?: boolean;
             last?: boolean;
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
             /** Format: int32 */
             size?: number;
             content?: components["schemas"]["SoloResponse"][];
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
-            /** Format: int32 */
-            numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
             empty?: boolean;
         };
         PageableObject: {
-            /** Format: int64 */
-            offset?: number;
-            sort?: components["schemas"]["SortObject"];
             paged?: boolean;
             /** Format: int32 */
             pageNumber?: number;
             /** Format: int32 */
             pageSize?: number;
             unpaged?: boolean;
+            /** Format: int64 */
+            offset?: number;
+            sort?: components["schemas"]["SortObject"];
         };
         SortObject: {
-            empty?: boolean;
             sorted?: boolean;
             unsorted?: boolean;
+            empty?: boolean;
+        };
+        ApiResponseSoloOmrStatusResponse: {
+            data?: components["schemas"]["SoloOmrStatusResponse"];
+        };
+        SoloOmrStatusResponse: {
+            /** Format: uuid */
+            publicId?: string;
+            /** @enum {string} */
+            status?: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+            /** Format: int32 */
+            progress?: number;
+            failureReason?: string;
         };
         ApiResponseListSoloMetadataValueCountResponse: {
             data?: components["schemas"]["SoloMetadataValueCountResponse"][];
@@ -2576,21 +2691,21 @@ export interface components {
             data?: components["schemas"]["PageSheetProjectResponse"];
         };
         PageSheetProjectResponse: {
-            /** Format: int64 */
-            totalElements?: number;
             /** Format: int32 */
             totalPages?: number;
+            /** Format: int64 */
+            totalElements?: number;
             first?: boolean;
             last?: boolean;
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
             /** Format: int32 */
             size?: number;
             content?: components["schemas"]["SheetProjectResponse"][];
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
-            /** Format: int32 */
-            numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
             empty?: boolean;
         };
         ApiResponseSheetProjectOmrStatusResponse: {
@@ -2639,6 +2754,7 @@ export interface components {
             status?: string;
             enabled?: boolean;
             embeddingConfigured?: boolean;
+            embeddingReachable?: boolean;
             llmConfigured?: boolean;
             /** Format: int64 */
             documentCount?: number;
@@ -2649,21 +2765,21 @@ export interface components {
             data?: components["schemas"]["PageRagDocumentSummaryResponse"];
         };
         PageRagDocumentSummaryResponse: {
-            /** Format: int64 */
-            totalElements?: number;
             /** Format: int32 */
             totalPages?: number;
+            /** Format: int64 */
+            totalElements?: number;
             first?: boolean;
             last?: boolean;
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
             /** Format: int32 */
             size?: number;
             content?: components["schemas"]["RagDocumentSummaryResponse"][];
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
-            /** Format: int32 */
-            numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
             empty?: boolean;
         };
         RagDocumentSummaryResponse: {
@@ -2671,6 +2787,7 @@ export interface components {
             publicId?: string;
             slug?: string;
             sourceType?: string;
+            status?: string;
             title?: string;
             topicTags?: string[];
             /** Format: int32 */
@@ -2678,26 +2795,53 @@ export interface components {
             /** Format: int64 */
             chunkCount?: number;
         };
+        ApiResponseListRagDocumentChunkResponse: {
+            data?: components["schemas"]["RagDocumentChunkResponse"][];
+        };
+        RagDocumentChunkResponse: {
+            chunkId?: string;
+            sectionId?: string;
+            /** Format: int32 */
+            level?: number;
+            title?: string;
+            instruction?: string;
+            response?: string;
+            topicTags?: string[];
+            source?: string;
+            sourceUrl?: string;
+        };
         ApiResponsePageLickResponse: {
             data?: components["schemas"]["PageLickResponse"];
         };
         PageLickResponse: {
-            /** Format: int64 */
-            totalElements?: number;
             /** Format: int32 */
             totalPages?: number;
+            /** Format: int64 */
+            totalElements?: number;
             first?: boolean;
             last?: boolean;
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
             /** Format: int32 */
             size?: number;
             content?: components["schemas"]["LickResponse"][];
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
-            /** Format: int32 */
-            numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
             empty?: boolean;
+        };
+        ApiResponseLickOmrStatusResponse: {
+            data?: components["schemas"]["LickOmrStatusResponse"];
+        };
+        LickOmrStatusResponse: {
+            /** Format: uuid */
+            publicId?: string;
+            /** @enum {string} */
+            status?: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+            /** Format: int32 */
+            progress?: number;
+            failureReason?: string;
         };
         ApiResponseListLickMetadataValueCountResponse: {
             data?: components["schemas"]["LickMetadataValueCountResponse"][];
@@ -2719,21 +2863,21 @@ export interface components {
             data?: components["schemas"]["PageChordProjectResponse"];
         };
         PageChordProjectResponse: {
-            /** Format: int64 */
-            totalElements?: number;
             /** Format: int32 */
             totalPages?: number;
+            /** Format: int64 */
+            totalElements?: number;
             first?: boolean;
             last?: boolean;
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
             /** Format: int32 */
             size?: number;
             content?: components["schemas"]["ChordProjectResponse"][];
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
-            /** Format: int32 */
-            numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
             empty?: boolean;
         };
         ApiResponseChordProjectOmrStatusResponse: {
@@ -2767,21 +2911,21 @@ export interface components {
             updatedAt?: string;
         };
         PageChatSummaryResponse: {
-            /** Format: int64 */
-            totalElements?: number;
             /** Format: int32 */
             totalPages?: number;
+            /** Format: int64 */
+            totalElements?: number;
             first?: boolean;
             last?: boolean;
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
             /** Format: int32 */
             size?: number;
             content?: components["schemas"]["ChatSummaryResponse"][];
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
-            /** Format: int32 */
-            numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
             empty?: boolean;
         };
         ApiResponseChatDetailResponse: {
@@ -2852,6 +2996,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseSoloResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -2914,6 +3067,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseSoloResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -2970,6 +3132,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -3034,6 +3205,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseSoloResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -3092,6 +3272,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseVoid"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -3148,6 +3337,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseSheetProjectResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -3212,6 +3410,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseSheetProjectResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -3270,6 +3477,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseVoid"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -3326,6 +3542,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseRagDocumentResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -3390,6 +3615,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseRagDocumentResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -3448,6 +3682,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseVoid"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -3504,6 +3747,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseLickResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -3568,6 +3820,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseLickResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -3624,6 +3885,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -3688,6 +3958,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseLickResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -3746,6 +4025,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseVoid"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -3802,6 +4090,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseChordProjectResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -3866,6 +4163,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseChordProjectResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -3922,6 +4228,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -3987,6 +4302,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseStorageFileResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -4045,6 +4369,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponsePageSoloResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -4107,6 +4440,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseSoloResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -4157,7 +4499,7 @@ export interface operations {
                 "multipart/form-data": {
                     /** Format: binary */
                     file: string;
-                    metadata?: components["schemas"]["SoloOmrRequest"];
+                    metadata: string;
                 };
             };
         };
@@ -4169,6 +4511,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseSoloResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -4234,6 +4585,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseVoid"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -4290,6 +4650,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponsePageSheetProjectResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -4350,6 +4719,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseSheetProjectResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -4416,6 +4794,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseSheetProjectOmrCreateResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -4479,6 +4866,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseVoid"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -4521,6 +4917,7 @@ export interface operations {
         parameters: {
             query: {
                 sourceType?: string;
+                status?: string;
                 q?: string;
                 pageable: components["schemas"]["Pageable"];
             };
@@ -4537,6 +4934,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponsePageRagDocumentSummaryResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -4599,6 +5005,153 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseRagDocumentResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    rejectDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publicId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseRagDocumentResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    confirmDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publicId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RagDocumentConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseRagDocumentResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -4657,6 +5210,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponsePageLickResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -4719,6 +5281,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseLickResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -4769,7 +5340,7 @@ export interface operations {
                 "multipart/form-data": {
                     /** Format: binary */
                     file: string;
-                    metadata?: components["schemas"]["LickOmrRequest"];
+                    metadata: string;
                 };
             };
         };
@@ -4781,6 +5352,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseLickResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -4846,6 +5426,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseVoid"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -4906,6 +5495,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseEmbeddingProbeResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -4962,6 +5560,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponsePageChordProjectResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -5022,6 +5629,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseChordProjectResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -5086,6 +5702,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseListChordInfoResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -5142,6 +5767,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseAnalysisResultResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -5208,6 +5842,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseChordProjectOmrCreateResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -5271,6 +5914,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseVoid"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -5329,6 +5981,15 @@ export interface operations {
                 };
                 content: {
                     "text/plain": components["schemas"]["StreamingResponseBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -5391,6 +6052,15 @@ export interface operations {
                     "text/plain": components["schemas"]["StreamingResponseBody"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -5449,6 +6119,15 @@ export interface operations {
                 };
                 content: {
                     "text/plain": components["schemas"]["StreamingResponseBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -5511,6 +6190,15 @@ export interface operations {
                     "text/plain": components["schemas"]["StreamingResponseBody"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -5571,6 +6259,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseSignUpResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -5627,6 +6324,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseTokenResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -5681,6 +6387,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -5743,6 +6458,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseTokenResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -5801,6 +6525,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseMapStringObject"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -5863,6 +6596,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseAnalysisExplanationResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -5917,6 +6659,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["UserProfileResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -5977,6 +6728,82 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseStorageFileResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getOmrStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publicId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseSoloOmrStatusResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -6033,6 +6860,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListSoloMetadataValueCountResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -6093,6 +6929,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseListSoloMetadataValueCountResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -6131,7 +6976,7 @@ export interface operations {
             };
         };
     };
-    getOmrStatus: {
+    getOmrStatus_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -6149,6 +6994,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseSheetProjectOmrStatusResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -6214,6 +7068,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseRagSearchResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -6268,6 +7131,149 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseRagHealthResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getDocumentChunks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publicId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListRagDocumentChunkResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getOmrStatus_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publicId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseLickOmrStatusResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -6328,6 +7334,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseListLickMetadataValueCountResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -6386,6 +7401,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseListLickMetadataValueCountResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -6442,6 +7466,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseEmbeddingHealthResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -6480,7 +7513,7 @@ export interface operations {
             };
         };
     };
-    getOmrStatus_1: {
+    getOmrStatus_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -6498,6 +7531,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseChordProjectOmrStatusResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -6558,6 +7600,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseAnalysisExplanationResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -6614,6 +7665,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseAnalysisResultResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -6674,6 +7734,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponsePageChatSummaryResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -6730,6 +7799,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseChatDetailResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */
@@ -6790,6 +7868,15 @@ export interface operations {
                     "*/*": components["schemas"]["ApiResponseVoid"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Unauthorized */
             401: {
                 headers: {
@@ -6844,6 +7931,15 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseCustomPrincipal"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Unauthorized */

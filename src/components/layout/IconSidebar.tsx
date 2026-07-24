@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../../styles/theme';
 import { BrandLogoImage } from '../common/BrandLogoImage';
-import { getCachedUser, onAuthChange, isAdminUser, type AuthUser } from '../../api/auth';
+import { getCachedUser, onAuthChange, type AuthUser } from '../../api/auth';
 import { UserMenu } from '../auth/UserMenu';
 import { RecentChatsList } from './RecentChatsList';
 import { ChatSearchModal } from '../chat/ChatSearchModal';
@@ -279,6 +279,23 @@ const MyLibBlock = styled.div`
   width: 100%;
 `;
 
+/* 내 릭 아래 도구 묶음(음원 분리·카피하기·연습하기·커뮤니티) — 라이브러리와
+ * 같은 간격(margin-top)으로 약간 내려 배치. */
+const ToolNavBlock = styled(MyLibBlock)``;
+
+/* "준비중" 배지 — 확장 모드에서만 라벨 옆에 작게. */
+const Soon = styled.span`
+  margin-left: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #9aa4ae;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 6px;
+  padding: 1px 5px;
+  line-height: 1.4;
+  ${mq.phone} { display: none; }
+`;
+
 const NavLabel = styled.span<{ $expanded?: boolean }>`
   display: ${({ $expanded }) => ($expanded ? 'inline' : 'none')};
 
@@ -505,37 +522,7 @@ function ChatIcon() {
   );
 }
 
-/* ── Tool nav icons ───────────────────────────────────────────────────── */
-
-const ChordIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 18V5l12-2v13" />
-    <circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
-  </svg>
-);
-
-const NoteIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 18V4" /><path d="M12 4l6 2" /><circle cx="9" cy="18" r="3" />
-  </svg>
-);
-
-const LickIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-    <line x1="3" y1="8" x2="21" y2="8" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="16" x2="21" y2="16" />
-    <line x1="8" y1="5" x2="8" y2="19" /><line x1="16" y1="5" x2="16" y2="19" />
-  </svg>
-);
-
-const SoloIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
-    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-    <line x1="12" y1="19" x2="12" y2="22" /><line x1="8" y1="22" x2="16" y2="22" />
-  </svg>
-);
-
-/* ── personal-library icons (Lucide-style, distinct from the admin nav) ── */
+/* ── personal-library icons (Lucide-style) ── */
 
 /* 내 코드 차트 — table/grid (a chord chart is a grid of bars). Sized to match
  * the chat-nav icons above (18px / strokeWidth 1.7) so the rows align. */
@@ -571,28 +558,6 @@ const MyLickIcon = () => (
   </svg>
 );
 
-const EditorIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-  </svg>
-);
-
-const VideoIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="23 7 16 12 23 17 23 7" />
-    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-  </svg>
-);
-
-const OmrIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-    <polyline points="14 2 14 8 20 8" />
-    <line x1="8" y1="13" x2="16" y2="13" /><line x1="8" y1="17" x2="13" y2="17" />
-  </svg>
-);
-
 /* 음원 분리 — 믹서 페이더 3열. */
 const StemsIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -601,73 +566,40 @@ const StemsIcon = () => (
   </svg>
 );
 
-/* Admin 전용 도구 목록(평면 버튼으로 나열됨). 음원 분리는 전역 기능이라 여기
- * 대신 아래 USER_TOOLS(모든 유저 평면 버튼)에 있고, OMR 단독 진입(/input)은
- * 내 코드 차트 / 내 악보 차트의 업로드 플로우가 대신하므로 admin 도구로만 남긴다. */
-const NAV = [
-  { path: '/chord', icon: ChordIcon, label: 'Chord Analysis' },
-  { path: '/note', icon: NoteIcon, label: 'Note Analysis' },
-  { path: '/licks', icon: LickIcon, label: 'Lick Database' },
-  { path: '/solos', icon: SoloIcon, label: 'Solo Database' },
-  { path: '/editor', icon: EditorIcon, label: 'Editor' },
-  { path: '/youtube-onset', icon: VideoIcon, label: 'YouTube Onset' },
-  { path: '/input', icon: OmrIcon, label: 'OMR' },
+/* 카피하기 — 색소폰. Material Design Icons(mdi:saxophone) 원본, Apache-2.0. */
+const SaxIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+    <path d="M4 2a1 1 0 0 0-1 1a1 1 0 0 0 1 1a3 3 0 0 1 3 3v8.5c0 3.6 2.9 6.5 6.5 6.5s6.5-2.9 6.5-6.5V13a1 1 0 0 0 1-1a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1a1 1 0 0 0 1 1v2a1 1 0 0 1-1 1a1 1 0 0 1-1-1v-4a1 1 0 0 0 1-1a1 1 0 0 0-1-1V8a1 1 0 0 0 1-1a1 1 0 0 0-1-1v-.5A3.5 3.5 0 0 0 8.5 2z" />
+  </svg>
+);
+
+/* 연습하기 — 메트로놈. */
+const PracticeIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 4 h6 l3 16 H6 Z" />
+    <line x1="7" y1="15" x2="17" y2="15" />
+    <line x1="12" y1="15" x2="15" y2="7" />
+  </svg>
+);
+
+/* 커뮤니티 — 두 사람. */
+const CommunityIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="9" cy="8" r="3" />
+    <path d="M3 20 v-1 a6 6 0 0 1 12 0 v1" />
+    <path d="M16 5.5 a3 3 0 0 1 0 5.4" />
+    <path d="M17.5 20 v-1 a6 6 0 0 0 -3.2 -5.2" />
+  </svg>
+);
+
+/* 개인 라이브러리 아래 도구 묶음 — 내 릭 밑에 약간 여백 두고 배치. 음원 분리는
+ * 활성(/stems), 나머지는 준비중(비활성). 넷 다 로그인 시에만 사용 가능. */
+const LIB_TOOLS = [
+  { icon: StemsIcon,     label: '음원 분리', to: '/stems' as string | undefined, soon: false },
+  { icon: SaxIcon,       label: '카피하기',  to: undefined as string | undefined, soon: true },
+  { icon: PracticeIcon,  label: '연습하기',  to: undefined as string | undefined, soon: true },
+  { icon: CommunityIcon, label: '커뮤니티',  to: undefined as string | undefined, soon: true },
 ] as const;
-
-/* 모든 사용자에게 노출되는 하단 도구 — 드롭다운 없이 평면 버튼. */
-const USER_TOOLS = [
-  { path: '/stems', icon: StemsIcon, label: '음원 분리' },
-] as const;
-
-/* ── Admin 전용 도구 (평면 버튼) ──────────────────────────────────────────
- * USER_TOOLS(음원 분리)와 같은 패턴 — admin 계정에만 노출되는 레거시 NAV
- * 도구(Chord/Note/Lick/Solo/Editor/YouTube/OMR)를 드롭업 없이 그대로 쌓는다. */
-
-/* Wraps each admin nav item so its layout matches USER_TOOLS' AdminBlock. */
-const AdminBlock = styled.div<{ $expanded?: boolean }>`
-  position: relative;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: ${({ $expanded }) => ($expanded ? 'stretch' : 'center')};
-  margin-bottom: 2px;
-`;
-
-/* Admin nav item — visually a NavBtn so it fits the rest of the rail. The
- * $on prop highlights the item matching the current route. */
-const AdminBtn = styled.button<{ $expanded?: boolean; $on?: boolean }>`
-  ${({ $expanded }) => ($expanded
-    ? `
-      width: 100%;
-      height: 32px;
-      padding: 0 10px;
-      justify-content: flex-start;
-      border-radius: 9px;
-      gap: 12px;
-    `
-    : `
-      width: 32px;
-      height: 32px;
-      justify-content: center;
-      border-radius: 50%;
-      gap: 0;
-    `)}
-
-  display: flex;
-  align-items: center;
-  border: none;
-  background: ${({ $on }) => ($on ? 'rgba(0, 0, 0, 0.08)' : 'transparent')};
-  color: ${({ $on }) => ($on ? '#1a1a1a' : '#2a2a2a')};
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-  font-family: ${({ theme }) => theme.fonts.ui};
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-
-  &:hover { background: rgba(0, 0, 0, 0.06); color: #1a1a1a; }
-`;
 
 interface IconSidebarProps {
   /** Suppress the "로그인하세요" promo card. */
@@ -727,9 +659,6 @@ export function IconSidebar({
   };
 
   const loggedIn = authUser !== null;
-  /* Admin 게이트 — GET /v1/auth/me 의 등급(role)으로 판별(isAdminUser).
-   * login 직후엔 fetchMe()가 role을 백그라운드 보강 → onAuthChange로 갱신됨. */
-  const isAdmin = isAdminUser(authUser);
 
   /* Chat nav defaults: navigate to '/' so tool pages get a "back to chat"
    * affordance, while HomePage can pass its own handlers for in-page actions.
@@ -907,6 +836,46 @@ export function IconSidebar({
         )}
       </MyLibBlock>
 
+      {/* 내 릭 밑 도구 묶음 — 음원 분리(활성) + 카피하기/연습하기/커뮤니티(준비중).
+       *  넷 다 로그인 시에만 활성(라이브러리 항목과 동일 게이팅). */}
+      <ToolNavBlock>
+        {expanded ? (
+          <>
+            {LIB_TOOLS.map(({ icon: Icon, label, to, soon }) => (
+              <NavBtn
+                key={label}
+                $expanded={true}
+                $active={!soon && !!to && loggedIn && pathname.startsWith(to)}
+                onClick={!loggedIn || soon || !to ? undefined : () => navigate(to)}
+                disabled={!loggedIn || soon}
+                title={!loggedIn ? '로그인 필요' : soon ? `${label} (준비중)` : label}
+              >
+                <Icon />
+                <NavLabel $expanded={true}>{label}</NavLabel>
+                {soon && <Soon>준비중</Soon>}
+              </NavBtn>
+            ))}
+          </>
+        ) : (
+          <>
+            {LIB_TOOLS.map(({ icon: Icon, label, to, soon }) => (
+              <NavBtnWrap key={label}>
+                <NavBtn
+                  $expanded={false}
+                  $active={!soon && !!to && loggedIn && pathname.startsWith(to)}
+                  onClick={!loggedIn || soon || !to ? undefined : () => navigate(to)}
+                  disabled={!loggedIn || soon}
+                  title={!loggedIn ? '로그인 필요' : soon ? `${label} (준비중)` : label}
+                >
+                  <Icon />
+                </NavBtn>
+                <NavTooltip>{!loggedIn ? '로그인 필요' : soon ? `${label} (준비중)` : label}</NavTooltip>
+              </NavBtnWrap>
+            ))}
+          </>
+        )}
+      </ToolNavBlock>
+
       <Divider $expanded={expanded} />
 
       {/* "최근 채팅" — per-user chat history list (Jazzify backend /v1/chat).
@@ -915,38 +884,6 @@ export function IconSidebar({
        * the ScrollArea's flex:1 fills the gap. */}
       <RecentChatsList expanded={expanded} loggedIn={loggedIn} />
       </ScrollArea>
-
-      {/* 하단 도구 — 모든 사용자에게 음원 분리 평면 버튼 노출.
-       * (admin 전용 도구 목록은 바로 아래, 역시 평면 버튼) */}
-      {USER_TOOLS.map(({ path, icon: Icon, label }) => (
-        <AdminBlock key={path} $expanded={expanded}>
-          <AdminBtn
-            $expanded={expanded}
-            $on={pathname.startsWith(path)}
-            onClick={() => navigate(path)}
-            title={label}
-          >
-            <Icon />
-            {expanded && <span>{label}</span>}
-          </AdminBtn>
-        </AdminBlock>
-      ))}
-
-      {/* Admin 전용 도구 — 드롭업 없이 음원 분리와 동일하게 평면 나열
-       * (Chord / Note / Lick / Solo / Editor / YouTube / OMR). */}
-      {isAdmin && NAV.map(({ path, icon: Icon, label }) => (
-        <AdminBlock key={path} $expanded={expanded}>
-          <AdminBtn
-            $expanded={expanded}
-            $on={pathname.startsWith(path)}
-            onClick={() => navigate(path)}
-            title={label}
-          >
-            <Icon />
-            {expanded && <span>{label}</span>}
-          </AdminBtn>
-        </AdminBlock>
-      ))}
 
       {loggedIn && authUser ? (
         <UserMenu user={authUser} compact={!expanded} />

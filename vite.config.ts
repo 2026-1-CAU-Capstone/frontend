@@ -58,6 +58,12 @@ export default defineConfig(({ mode }) => {
   const apiTarget = env.JAZZIFY_API_TARGET || 'https://jazzify.p-e.kr'
 
   return {
+    /* 현재 dev proxy 백엔드 대상을 클라이언트에 노출 (admin 전용 백엔드 배지용).
+     * JAZZIFY_API_TARGET 은 VITE_ 접두사가 아니라 기본으론 번들에 안 실리므로
+     * 여기서 명시적으로 주입한다. dev 서버 부팅 시점 값이 그대로 박힌다. */
+    define: {
+      'import.meta.env.VITE_API_TARGET': JSON.stringify(apiTarget),
+    },
     plugins: [react(), openInChrome(), logApiTarget(apiTarget)],
     server: {
       /* host:true → 0.0.0.0 바인딩 (LAN/Tailscale 등 외부 인터페이스 노출).
