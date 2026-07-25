@@ -3,6 +3,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { ghostHead } from '../../lib/note/ghostNote';
 import type { MutableRefObject } from 'react';
 import styled from 'styled-components';
 import {
@@ -241,7 +242,7 @@ export function buildVfNotes(measure: MeasureInfo, kAcc: Map<string, 'b' | '#'>)
   const active = new Map<string, RenderAcc>();
   return measure.notes.map((n) => {
     const isRest = n.duration.endsWith('r');
-    const note = new StaveNote({ keys: isRest ? ['b/4'] : n.keys, duration: buildDur(n.duration, n.dotted), autoStem: true });
+    const note = new StaveNote({ keys: isRest ? ['b/4'] : n.keys, duration: buildDur(n.duration, n.dotted), autoStem: true, ...ghostHead(n) });
     if (n.dotted) Dot.buildAndAttach([note]);
     if (!isRest) {
       const realAcc = n.accidentals?.[0] as 'b' | '#' | undefined;

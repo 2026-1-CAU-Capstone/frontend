@@ -292,6 +292,8 @@ export async function updateLickVideo(publicId: string, video: LickVideoPayload)
 export interface OMRMetadata {
   title?: string;
   performer?: string;
+  /** 백엔드 SoloOmrRequest 가 받는 작곡자 필드 (대량 큐 업로드의 'candidate' 표시에 사용). */
+  composer?: string;
   album?: string;
   source?: 'user' | 'weimar' | 'curated';
   instrument?: string;

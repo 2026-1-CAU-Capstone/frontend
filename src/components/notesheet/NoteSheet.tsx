@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState, useCallback } from 'react';
+import { ghostHead } from '../../lib/note/ghostNote';
 import styled from 'styled-components';
 // vexflow는 ~1 MB이므로 dynamic import로 lazy-load.
 // 렌더링 useEffect 내부에서 await import('vexflow') 로 사용.
@@ -27,6 +28,7 @@ import type {
   TextBracketPosition as TextBracketPositionT,
   Tremolo as TremoloT,
   StaveHairpin as StaveHairpinT,
+  StaveConnector as StaveConnectorT,
 } from 'vexflow';
 // Type aliases — `StaveNote` etc. used as type annotations in the code below.
 type Renderer = RendererT;
@@ -78,6 +80,7 @@ let TextBracket: typeof TextBracketT;
 let TextBracketPosition: typeof TextBracketPositionT;
 let Tremolo: typeof TremoloT;
 let StaveHairpin: typeof StaveHairpinT;
+let StaveConnector: typeof StaveConnectorT;
 let __vexflowLoaded = false;
 async function __ensureVexflow() {
   if (__vexflowLoaded) return;
@@ -106,6 +109,7 @@ async function __ensureVexflow() {
   TextBracketPosition = vf.TextBracketPosition;
   Tremolo = vf.Tremolo;
   StaveHairpin = vf.StaveHairpin;
+  StaveConnector = vf.StaveConnector;
   __vexflowLoaded = true;
 }
 import type { NoteSheetData, MeasureInfo, NoteInfo } from '../../data/sampleMelody';
@@ -130,8 +134,9 @@ import {
   type PlayerSettings,
 } from '../../lib/note/playerSettings';
 import { FullscreenButton, useFullscreen } from '../common/FullscreenButton';
-import { formatChordDisplay } from '../../lib/jazz-harmony';
+import { formatChordDisplay, chordBaseSegments, chordExtStyle, splitChordParts } from '../../lib/jazz-harmony';
 import { resolveMeasureAccidental } from '../../lib/note/measureAccidentals';
+import { drawScoopFall } from '../../lib/note/scoopFall';
 
 /* ─── constants ─────────────────────────────────────────────────────────── */
 
@@ -151,19 +156,8 @@ const CHORD_FONT = "'MuseJazz Text', 'Pretendard', sans-serif";
  * source of truth shared with LickCard / Lick12KeyPage. */
 const formatChord = formatChordDisplay;
 
-function splitChordParts(formatted: string): { base: string; ext: string; tension: string; bass?: string } {
-  // Slash chord — the bass after '/' is rendered at full size (NOT tension).
-  let bass: string | undefined;
-  let body = formatted;
-  const slashIdx = formatted.indexOf('/');
-  if (slashIdx > 0) {
-    body = formatted.slice(0, slashIdx);
-    bass = formatted.slice(slashIdx);   // includes leading '/'
-  }
-  const m = body.match(/^(\D*?)(\d+)(.*)$/);
-  if (!m) return { base: body, ext: '', tension: '', ...(bass ? { bass } : {}) };
-  return { base: m[1], ext: m[2], tension: m[3] || '', ...(bass ? { bass } : {}) };
-}
+/* splitChordParts 는 lib/jazz-harmony/chord-glyph 로 승격됐다 — 에디터를 포함한
+ * 모든 렌더러가 같은 분해 로직(분수코드 베이스 포함)을 쓰게 하기 위함. */
 
 function appendChordSVG(
   svgEl: SVGElement, x: number, y: number,
@@ -177,29 +171,19 @@ function appendChordSVG(
   txt.setAttribute('font-weight', '200');
   txt.setAttribute('fill', '#000');
 
-  // Render base — split out the diminished sign (°) so it can be drawn at
-  // ~1.4x size (raw glyph is too small to read at chord-label sizes).
-  if (base.includes('°')) {
-    const dimSize = Math.round(size * 1.4);
-    for (const seg of base.split(/(°)/g)) {
-      if (!seg) continue;
-      const sp = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-      sp.setAttribute('font-size', String(seg === '°' ? dimSize : size));
-      sp.textContent = seg;
-      txt.appendChild(sp);
-    }
-  } else {
-    const baseSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-    baseSpan.setAttribute('font-size', String(size));
-    baseSpan.textContent = base;
-    txt.appendChild(baseSpan);
+  for (const seg of chordBaseSegments(base, size)) {
+    const sp = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+    sp.setAttribute('font-size', String(seg.fontSize));
+    sp.textContent = seg.text;
+    txt.appendChild(sp);
   }
 
   if (ext) {
     const extSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-    extSpan.setAttribute('font-size', String(Math.round(size * 0.85)));
-    extSpan.setAttribute('dx', base.endsWith('\u25B3') ? '-1' : '1');
-    extSpan.setAttribute('dy', String(-size * 0.18));
+    const extStyle = chordExtStyle(base, ext, size);
+    extSpan.setAttribute('font-size', String(extStyle.fontSize));
+    extSpan.setAttribute('dx', extStyle.dx);
+    extSpan.setAttribute('dy', extStyle.dy);
     extSpan.textContent = ext;
     txt.appendChild(extSpan);
 
@@ -233,13 +217,17 @@ const MAX_PER_LINE = 8;
 
 /* Responsive: on narrow screens render at desktop size then CSS-scale down.
  * This keeps VexFlow's native proportions crisp. */
-function getBarLayout(containerW: number) {
+function getBarLayout(containerW: number, grand = false) {
   // Always render with desktop-size constants
-  const decorFirst = 80, decorOther = 40, lineH = 170;
+  // 양손(그랜드 스태프)은 아래에 베이스 보표가 한 줄 더 붙으므로 줄 높이를 키운다.
+  const decorFirst = 80, decorOther = 40, lineH = grand ? 170 + GRAND_BASS_DY : 170;
   // Scale factor: shrink proportionally below 800px
   const scale = containerW < 1000 ? Math.max(0.42, containerW / 1000) : 1;
   return { decorFirst, decorOther, lineH, scale };
 }
+
+/** 양손 악보에서 트레블 보표 y 로부터 베이스 보표까지의 간격(px). */
+const GRAND_BASS_DY = 92;
 
 const FIXED_BAR_W = 175;
 const DECOR_FIRST = 80;
@@ -351,26 +339,9 @@ function keySigAccidentals(rawKey: string): Map<string, 'b' | '#'> {
   return map;
 }
 
-function isKeyFlat(rawKey: string): boolean {
-  return normalizeVexKey(rawKey) in KS_FLAT_KEYS;
-}
-
-/* Enharmonic: sharp → flat (e.g. f#/4 → g/4 with 'b') */
-const SHARP_TO_FLAT: Record<string, { letter: string; acc: 'b' }> = {
-  'c': { letter: 'd', acc: 'b' },
-  'd': { letter: 'e', acc: 'b' },
-  'f': { letter: 'g', acc: 'b' },
-  'g': { letter: 'a', acc: 'b' },
-  'a': { letter: 'b', acc: 'b' },
-  // e# → f (natural), b# → c (natural) — not flats
-};
-
-function enharmonicToFlat(key: string, _acc: '#'): { key: string; acc: 'b' } | null {
-  const [letter, octave] = key.split('/');
-  const mapped = SHARP_TO_FLAT[letter];
-  if (!mapped) return null; // e# or b# — skip
-  return { key: `${mapped.letter}/${octave}`, acc: mapped.acc };
-}
+/* 이명동음 강제 변환(플랫 조성에서 샵 → 플랫)은 제거했다 — 저장된 표기가
+ * 정본이고 화면이 임의로 리스펠하면 에디터와 어긋난다. 자세한 이유는 음표
+ * 렌더 루프의 주석 참조. */
 
 /* ─── glissando ──────────────────────────────────────────────────────── */
 function drawGlissLine(svgEl: SVGElement, fromNote: StaveNote, toNote: StaveNote) {
@@ -898,10 +869,12 @@ const AttribLine = styled.div`
   line-height: 1.2;
 `;
 
-const SvgContainer = styled.div<{ $seekable?: boolean }>`
+const SvgContainer = styled.div<{ $seekable?: boolean; $selecting?: boolean }>`
   width: 100%;
   padding: 0 20px 40px;
   ${({ $seekable }) => $seekable && 'cursor: pointer;'}
+  /* 구간 선택 모드: Shift+클릭이 브라우저 텍스트 선택을 일으키지 않게. */
+  ${({ $selecting }) => $selecting && 'cursor: pointer; user-select: none;'}
 
   @media (max-width: 960px) {
     padding: 0 4px 20px;
@@ -914,6 +887,46 @@ function buildDuration(dur: string, dotted?: boolean): string {
   if (!dotted) return dur;
   if (dur.endsWith('r')) return dur.slice(0, -1) + 'd' + 'r';
   return dur + 'd';
+}
+
+/* 양손(그랜드 스태프) 왼손 보표용 음표 빌더.
+ *
+ * 오른손(트레블)은 선택·타이·튜플렛·빔·아티큘레이션까지 전부 그리는 기존 경로를
+ * 그대로 쓰고, 왼손은 **읽기용 표시**에 필요한 것(음높이·길이·점·임시표·쉼표)만
+ * 만든다. 임시표는 프로젝트 규칙대로 반드시 `resolveMeasureAccidental`(옥타브 인식)
+ * 을 경유한다 — 음이름만으로 키를 잡으면 옥타브가 다른 같은 음이 잘못 표기된다. */
+function buildBassStaveNotes(
+  measure: { notes: NoteInfo[] } | undefined,
+  keySigAcc: Map<string, 'b' | '#'> | undefined,
+  explicitAcc: boolean,
+): StaveNote[] {
+  if (!measure?.notes?.length) return [];
+  const active = new Map<string, 'b' | '#' | 'n' | '##' | 'bb'>(); // 마디 단위 임시표 상태
+  const out: StaveNote[] = [];
+  for (const n of measure.notes) {
+    const isRest = n.duration.endsWith('r');
+    const keys = isRest ? ['d/3'] : n.keys;   // 베이스 보표 쉼표는 3옥타브 D 위치
+    const dur = buildDuration(n.duration, n.dotted);
+    let note: StaveNote;
+    try {
+      note = new StaveNote({ keys, duration: dur, autoStem: true, ...ghostHead(n) });
+    } catch {
+      continue; // 깨진 음표 하나가 악보 전체를 못 그리게 만들지 않는다
+    }
+    if (n.dotted) Dot.buildAndAttach([note]);
+    if (!isRest) {
+      for (let ki = 0; ki < keys.length; ki++) {
+        const glyph = resolveMeasureAccidental(
+          active, keySigAcc, keys[ki],
+          n.accidentals?.[ki],
+          { courtesy: !explicitAcc },
+        );
+        if (glyph) note.addModifier(new Accidental(glyph), ki);
+      }
+    }
+    out.push(note);
+  }
+  return out;
 }
 
 /* buildVfNotes is now inlined in the render loop for context-aware accidentals */
@@ -1456,67 +1469,44 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
         return acc;
       }, []);
 
-    const CR = 6; // corner radius
+    /* 세로 범위: rect.y = 보표 윗선. 코드기호는 baseline y+12(24px)라 위로 약
+     * 18px 삐져나오고, 음표·아래 덧줄은 보표 아래로 약 25px 내려간다.
+     * → 위는 코드기호까지 덮고, 아래는 짧게 끊는다(예전엔 줄높이 170 전체를
+     *   칠해 상자가 통째로 아래로 쏠려 보였다). */
+    const SEL_TOP_PAD = 24;   // 보표 윗선 위로
+    const SEL_BOT_PAD = 62;   // 보표 윗선 아래로
     const drawSeg = (
       x: number, y: number, w: number,
       openL: boolean, openR: boolean, // 줄바꿈으로 이어지는 쪽은 모서리를 연다
     ) => {
-      const h = unscaledLineHRef.current - 16;
-      const top = y + 8;
-      const bot = top + h;
+      const top = y - SEL_TOP_PAD;
+      const bot = y + SEL_BOT_PAD;
       const right = x + w;
-      // 채움: 열린 변은 직각, 닫힌 변만 라운드.
-      const fillD =
-        `M ${openL ? x : x + CR},${top}` +
-        ` L ${openR ? right : right - CR},${top}` +
-        (openR ? '' : ` Q ${right},${top} ${right},${top + CR}`) +
-        ` L ${right},${openR ? bot : bot - CR}` +
-        (openR ? '' : ` Q ${right},${bot} ${right - CR},${bot}`) +
-        ` L ${openL ? x : x + CR},${bot}` +
-        (openL ? '' : ` Q ${x},${bot} ${x},${bot - CR}`) +
-        ` L ${x},${openL ? top : top + CR}` +
-        (openL ? '' : ` Q ${x},${top} ${x + CR},${top}`) +
-        ' Z';
-      const fill = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      // 채움: 단순 사각형(가로 테두리를 없앴으므로 모서리 라운드는 무의미).
+      const fill = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       fill.setAttribute('class', 'm-sel');
-      fill.setAttribute('d', fillD);
+      fill.setAttribute('x', String(x));
+      fill.setAttribute('y', String(top));
+      fill.setAttribute('width', String(w));
+      fill.setAttribute('height', String(bot - top));
       fill.setAttribute('fill', 'rgba(35, 149, 88, 0.14)');
       fill.setAttribute('stroke', 'none');
       fill.setAttribute('pointer-events', 'none');
       svg.appendChild(fill);
-      // 테두리: 위/아래 변은 항상, 세로 변은 닫힌 쪽만 — 줄 끝에서 상자를
-      // 닫지 않아 다음 줄로 "이어지는" 모양이 된다.
-      let strokeD: string;
-      if (!openL && !openR) {
-        strokeD = fillD;
-      } else if (openL && openR) {
-        strokeD = `M ${x},${top} L ${right},${top} M ${x},${bot} L ${right},${bot}`;
-      } else if (openL) {
-        // 오른쪽만 닫힘: 좌상 → 우상 → (라운드) → 우하 → 좌하 한 획.
-        strokeD =
-          `M ${x},${top} L ${right - CR},${top}` +
-          ` Q ${right},${top} ${right},${top + CR}` +
-          ` L ${right},${bot - CR}` +
-          ` Q ${right},${bot} ${right - CR},${bot}` +
-          ` L ${x},${bot}`;
-      } else {
-        // 왼쪽만 닫힘: 우상 → 좌상 → (라운드) → 좌하 → 우하 한 획.
-        strokeD =
-          `M ${right},${top} L ${x + CR},${top}` +
-          ` Q ${x},${top} ${x},${top + CR}` +
-          ` L ${x},${bot - CR}` +
-          ` Q ${x},${bot} ${x + CR},${bot}` +
-          ` L ${right},${bot}`;
-      }
-      const stroke = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      stroke.setAttribute('class', 'm-sel');
-      stroke.setAttribute('d', strokeD);
-      stroke.setAttribute('fill', 'none');
-      stroke.setAttribute('stroke', '#1f9a52');
-      stroke.setAttribute('stroke-width', '3');
-      stroke.setAttribute('stroke-linecap', 'round');
-      stroke.setAttribute('pointer-events', 'none');
-      svg.appendChild(stroke);
+      // 테두리: 세로변만 — 위/아래 가로선은 그리지 않는다(악보 선과 겹쳐 지저분).
+      const vline = (vx: number) => {
+        const ln = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        ln.setAttribute('class', 'm-sel');
+        ln.setAttribute('d', `M ${vx},${top} L ${vx},${bot}`);
+        ln.setAttribute('fill', 'none');
+        ln.setAttribute('stroke', '#1f9a52');
+        ln.setAttribute('stroke-width', '3');
+        ln.setAttribute('stroke-linecap', 'round');
+        ln.setAttribute('pointer-events', 'none');
+        svg.appendChild(ln);
+      };
+      if (!openL) vline(x);
+      if (!openR) vline(right);
     };
 
     for (const [lo, hi] of merged) {
@@ -1546,8 +1536,9 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
    *   - click in whitespace → no-op (use the Clear button to wipe all)
    */
   useEffect(() => {
-    const svg = svgRef.current?.querySelector('svg');
-    if (!svg || !selectable || !onSelectionChange) return;
+    const host = svgRef.current;
+    const svg = host?.querySelector('svg');
+    if (!host || !svg || !selectable || !onSelectionChange) return;
     const handler = (e: MouseEvent) => {
       const pt = (svg as SVGSVGElement).createSVGPoint();
       pt.x = e.clientX;
@@ -1556,12 +1547,15 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
       if (!ctm) return;
       const local = pt.matrixTransform(ctm.inverse());
       const lineH = unscaledLineHRef.current;
+      /* 히트 영역은 보표 윗선 기준 위로 34px(코드기호) ~ 아래로 lineH-34 까지.
+       * 예전엔 r.y 부터라 코드기호를 눌러도 아무 마디에도 맞지 않았다. */
+      const HIT_UP = 34;
       let hit = -1;
       for (let i = 0; i < measureRectsRef.current.length; i++) {
         const r = measureRectsRef.current[i];
         if (!r) continue;
         if (local.x >= r.x && local.x <= r.x + r.w
-            && local.y >= r.y && local.y <= r.y + lineH) {
+            && local.y >= r.y - HIT_UP && local.y <= r.y + lineH - HIT_UP) {
           hit = i;
           break;
         }
@@ -1589,9 +1583,15 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
         onSelectionChange([...ranges, [hit, hit]]);
       }
     };
-    (svg as SVGSVGElement).addEventListener('click', handler);
-    return () => { (svg as SVGSVGElement).removeEventListener('click', handler); };
-  }, [selectable, selectedRanges, onSelectionChange, data]);
+    /* 리스너는 SVG가 아니라 **컨테이너 div** 에 건다. SVG 루트는 칠해진
+     * 도형(음표·보표선·글자)만 히트 테스트 대상이어서, 마디 안 빈 공간을
+     * 클릭하면 이벤트가 SVG를 그대로 통과해 아무 일도 일어나지 않았다
+     * ("마디가 잘 안 눌러짐"의 실제 원인). 좌표 변환은 그대로 SVG CTM 을 쓴다. */
+    host.addEventListener('click', handler);
+    return () => { host.removeEventListener('click', handler); };
+    /* renderTick 필수: 본 렌더는 async(dynamic vexflow)라 SVG 노드가 통째로
+     * 교체된다. 이게 없으면 재렌더 후 예전 SVG 기준으로 좌표를 환산한다. */
+  }, [selectable, selectedRanges, onSelectionChange, data, renderTick]);
 
   /* ── click → seek to measure (playing OR paused; not in selection mode) ── */
   useEffect(() => {
@@ -1675,7 +1675,10 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
 
     function renderNotation(el: HTMLDivElement) {
 
-    const layout = getBarLayout(width);
+    /* 양손(그랜드 스태프) 여부는 **데이터가 결정한다** — OMR MusicXML `<staves>2`
+     * 로 파싱된 결과가 `bassMeasures` 로 들어온다. 사용자에게 묻지 않는다. */
+    const grand = Array.isArray(data.bassMeasures) && data.bassMeasures.length > 0;
+    const layout = getBarLayout(width, grand);
     lineHRef.current = layout.lineH * layout.scale;
     unscaledLineHRef.current = layout.lineH;
     // Render at virtual (unscaled) size, then CSS-scale down
@@ -1732,7 +1735,6 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     // 판단한다(조표 없는 악보). 그 외에는 조표+마디 상속(courtesy) 기본.
     const explicitAcc = data.accidentalStyle === 'explicit';
     const keySigAcc = explicitAcc ? new Map<string, 'b' | '#'>() : keySigAccidentals(sheetKey);
-    const useFlats = isKeyFlat(sheetKey);
     type Acc = 'b' | '#' | 'n' | '##' | 'bb';
     let tieCarryAcc: Map<string, Acc> | undefined;
 
@@ -1827,6 +1829,31 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
         stave.setContext(ctx).draw();
         stavePositions[m] = { x, y, w };
 
+        /* ── 양손: 트레블 아래 베이스 보표 + brace/barline 연결선 ──────────
+         * 좌표계(rects/stavePositions)는 트레블 기준을 그대로 유지한다 —
+         * 구간 선택·재생 하이라이트·스크롤이 모두 그 값에 걸려 있다. */
+        let bassStave: Stave | null = null;
+        if (grand) {
+          bassStave = new Stave(x, y + GRAND_BASS_DY, w);
+          if (firstInLine) {
+            bassStave.addClef('bass');
+            const vexKey = normalizeVexKey(data.key);
+            if (!explicitAcc && vexKey !== 'C') bassStave.addKeySignature(vexKey);
+            if (isFirstLine) bassStave.addTimeSignature(data.timeSignature);
+          }
+          if (measure.timeSignature) bassStave.addTimeSignature(measure.timeSignature);
+          if (measure.repeatStart) bassStave.setBegBarType(BarlineType.REPEAT_BEGIN);
+          if (measure.repeatEnd) bassStave.setEndBarType(BarlineType.REPEAT_END);
+          else if (isLastBar) bassStave.setEndBarType(BarlineType.END);
+          bassStave.setContext(ctx).draw();
+          // 줄 시작에는 brace + 좌측 연결선, 매 마디 끝에는 우측 연결선.
+          if (firstInLine) {
+            new StaveConnector(stave, bassStave).setType(StaveConnector.type.BRACE).setContext(ctx).draw();
+            new StaveConnector(stave, bassStave).setType(StaveConnector.type.SINGLE_LEFT).setContext(ctx).draw();
+          }
+          new StaveConnector(stave, bassStave).setType(StaveConnector.type.SINGLE_RIGHT).setContext(ctx).draw();
+        }
+
         // ── Notes ──
         measureLine.set(m, li);
 
@@ -1847,18 +1874,17 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
           const isRest = n.duration.endsWith('r');
           const dur = buildDuration(n.duration, n.dotted);
 
-          // Enharmonic: convert sharps to flats in flat keys
-          let keys = n.keys;
-          let realAcc = n.accidentals?.[0] as Acc | undefined;
-          // Enharmonic flat-key conversion: single sharp → flat. Skip double
-          // sharps (rare; converting C## → D would mis-spell the note).
-          if (!isRest && useFlats && realAcc === '#') {
-            const conv = enharmonicToFlat(n.keys[0], '#');
-            if (conv) {
-              keys = [conv.key];
-              realAcc = conv.acc;
-            }
-          }
+          /* 저장된 표기를 그대로 쓴다 — 이명동음 강제 변환 없음.
+           *
+           * 예전엔 플랫 조성(F 등)에서 저장된 샵을 무조건 플랫으로 바꿔 그렸다
+           * (f#/4 → g♭/4). 그 결과 에디터에서 일부러 샵으로 적어 저장한 음이
+           * 솔로 DB 화면에선 전부 플랫으로 보여 "저장한 것과 다르게 보이는"
+           * 불일치가 생겼다(Charlie Parker - Confirmation 실측: 저장 데이터엔
+           * 샵 34개가 그대로 있는데 화면은 전부 플랫). 표기는 작성자의 의도이며
+           * 저장값이 곧 정본이므로, 화면이 임의로 리스펠하지 않는다.
+           * (수입 데이터의 표기가 나쁘면 그건 임포트 시점에 바로잡을 일이다.) */
+          const keys = n.keys;
+          const realAcc = n.accidentals?.[0] as Acc | undefined;
 
           if (n.grace) {
             // Build a GraceNote — not added to vfNotes (not a tickable).
@@ -1880,8 +1906,8 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
             ? undefined
             : n.stem === 'up' ? 1 : n.stem === 'down' ? -1 : undefined;
           const note = explicitStemDir !== undefined && !isRest
-            ? new StaveNote({ keys, duration: dur, stemDirection: explicitStemDir })
-            : new StaveNote({ keys: isRest ? ['b/4'] : keys, duration: dur, autoStem: true });
+            ? new StaveNote({ keys, duration: dur, stemDirection: explicitStemDir, ...ghostHead(n) })
+            : new StaveNote({ keys: isRest ? ['b/4'] : keys, duration: dur, autoStem: true, ...ghostHead(n) });
           if (n.dotted) Dot.buildAndAttach([note]);
 
           // Attach accumulated grace notes (if any) as a GraceNoteGroup modifier.
@@ -1986,13 +2012,8 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
           for (let ki = 0; ki < lastNote.keys.length; ki++) {
             const accForKi = lastNote.accidentals?.[ki] as Acc | undefined;
             if (!accForKi) continue;
-            let tieKey = lastNote.keys[ki];
-            let tieAcc: Acc = accForKi;
-            if (useFlats && tieAcc === '#') {
-              const conv = enharmonicToFlat(tieKey, '#');
-              if (conv) { tieKey = conv.key; tieAcc = conv.acc; }
-            }
-            carry.set(tieKey, tieAcc);
+            // 저장된 표기 그대로 (위 음표 렌더와 동일 — 이명동음 변환 없음).
+            carry.set(lastNote.keys[ki], accForKi);
           }
           if (carry.size > 0) tieCarryAcc = carry;
         }
@@ -2161,8 +2182,27 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
         voice.setStrict(false);
         voice.addTickables(vfNotes);
 
-        new Formatter().joinVoices([voice]).formatToStave([voice], stave);
+        /* 양손이면 두 보표의 voice 를 **한 Formatter 로 묶어** 같은 시간축에
+         * 정렬한다(따로 format 하면 좌우가 어긋난다). */
+        const bassVfNotes = grand
+          ? buildBassStaveNotes(data.bassMeasures?.[m], keySigAcc, explicitAcc)
+          : [];
+        let bassVoice: Voice | null = null;
+        if (grand && bassVfNotes.length > 0) {
+          bassVoice = new Voice({ numBeats, beatValue });
+          bassVoice.setStrict(false);
+          bassVoice.addTickables(bassVfNotes);
+        }
+        if (bassVoice) {
+          new Formatter()
+            .joinVoices([voice])
+            .joinVoices([bassVoice])
+            .formatToStave([voice, bassVoice], stave);
+        } else {
+          new Formatter().joinVoices([voice]).formatToStave([voice], stave);
+        }
         voice.draw(ctx, stave);
+        if (bassVoice && bassStave) bassVoice.draw(ctx, bassStave);
         beams.forEach((bm) => bm.setContext(ctx).draw());
 
         // Store SVG elements for note highlighting. Key by the SOURCE note
@@ -2423,6 +2463,26 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
       }
     }
 
+    // Draw scoop / fall marks (재즈 슬라이드). 에디터(EditorPage)와 **같은 공용
+    // 함수**(lib/note/scoopFall)를 써서 두 화면의 표기가 갈리지 않게 한다.
+    const svgElSf = el.querySelector('svg');
+    if (svgElSf) {
+      flatIdx = 0;
+      for (let mi = 0; mi < data.measures.length; mi++) {
+        const measure = data.measures[mi];
+        for (let ni = 0; ni < measure.notes.length; ni++) {
+          const n = measure.notes[ni];
+          if (n.grace) continue;
+          const entry = allVfNotes[flatIdx];
+          if (entry && !n.duration.endsWith('r')) {
+            if (n.scoop) drawScoopFall(svgElSf, entry.vfNote, 'scoop');
+            if (n.fall) drawScoopFall(svgElSf, entry.vfNote, 'fall');
+          }
+          flatIdx++;
+        }
+      }
+    }
+
     // Draw intro brackets — small arcs inside bracketed measures
     const svgElBracket = el.querySelector('svg');
     if (svgElBracket) {
@@ -2569,7 +2629,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
         <Composer>{data.composer}</Composer>
       </Header>
 
-      <SvgContainer ref={svgRef} $seekable={playing && !selectable} />
+      <SvgContainer ref={svgRef} $seekable={playing && !selectable} $selecting={selectable} />
 
       {!hideTransport && (
       <PlayerBar>

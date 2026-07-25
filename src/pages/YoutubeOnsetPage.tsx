@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { BackButton } from '../components/common/BackButton';
 import styled from 'styled-components';
 import { YoutubeOnsetParser } from '../components/common/YoutubeOnsetParser';
 import { IconSidebar } from '../components/layout/IconSidebar';
@@ -10,7 +11,7 @@ export default function YoutubeOnsetPage() {
       <IconSidebar />
       <PageBody>
         <TopBar>
-          <BackBtn onClick={() => navigate(-1)}>← Back</BackBtn>
+          <BackButton onClick={() => navigate(-1)} label="뒤로" />
           <Title>YouTube Onset Parser</Title>
         </TopBar>
         <Content>
@@ -44,22 +45,10 @@ const TopBar = styled.div`
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: calc(env(safe-area-inset-top, 0px) + 10px) 20px 10px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px;  /* 가로 여백 16px — Solo DB 상단바 기준으로 통일 */
   background: ${({ theme }) => theme.colors.bgSecondary};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   flex-shrink: 0;
-`;
-
-const BackBtn = styled.button`
-  padding: 6px 12px;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 6px;
-  background: ${({ theme }) => theme.colors.bgPrimary};
-  color: ${({ theme }) => theme.colors.textPrimary};
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.82rem;
-  cursor: pointer;
-  &:hover { border-color: ${({ theme }) => theme.colors.gold}; }
 `;
 
 const Title = styled.h1`

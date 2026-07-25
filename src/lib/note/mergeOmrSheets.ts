@@ -21,6 +21,18 @@ export function mergeOmrSheets(pages: NoteSheetData[]): NoteSheetData {
   const [first, ...rest] = pages;
   const merged: NoteSheetData = { ...first, measures: [...first.measures] };
 
+  /* 양손(그랜드스태프) 페이지 대응 — 한 페이지라도 bassMeasures 가 있으면 왼손을
+   * 함께 이어붙인다. 예전엔 measures 만 병합해서 멀티페이지 양손 악보의 왼손이
+   * 통째로 사라졌다. 왼손이 없는 페이지는 오른손 마디 수만큼 빈 마디로 채워
+   * `measures` 와 인덱스 1:1 정렬을 유지한다(NoteSheetData.bassMeasures 규약). */
+  const anyGrand = pages.some((p) => Array.isArray(p.bassMeasures) && p.bassMeasures.length > 0);
+  const padBass = (page: NoteSheetData) => {
+    const bass = page.bassMeasures ?? [];
+    if (bass.length >= page.measures.length) return bass.slice(0, page.measures.length);
+    return [...bass, ...Array.from({ length: page.measures.length - bass.length }, () => ({ notes: [] }))];
+  };
+  const mergedBass = anyGrand ? [...padBass(first)] : null;
+
   let prevTs = first.timeSignature || '4/4';
   for (const page of rest) {
     const pageTs = page.timeSignature || '4/4';
@@ -30,9 +42,12 @@ export function mergeOmrSheets(pages: NoteSheetData[]): NoteSheetData {
         : m
     ));
     merged.measures.push(...measures);
+    if (mergedBass) mergedBass.push(...padBass(page));
     // 페이지 내 마지막 오버라이드가 있으면 그것이 다음 페이지와의 비교 기준.
     const lastOverride = [...page.measures].reverse().find((m) => m.timeSignature)?.timeSignature;
     prevTs = lastOverride || pageTs;
   }
+
+  if (mergedBass) merged.bassMeasures = mergedBass;
   return merged;
 }

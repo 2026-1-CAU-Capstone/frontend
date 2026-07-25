@@ -477,46 +477,7 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
 
       /* ── <harmony>: chord change at this position ───────────────── */
       if (tag === 'harmony') {
-        const root  = text(child, 'root-step') ?? '';
-        const alter = text(child, 'root-alter');
-        const kindEl = child.querySelector('kind');
-        const kind  = (kindEl?.textContent ?? '').trim();
-        const acc   = alter === '1' ? '#' : alter === '-1' ? 'b' : '';
-        // Prefer the engraver-supplied text="…" hint when present (e.g. text="7"
-        // for dominant, text="m7b5" for half-diminished). Otherwise fall back to
-        // a kind-keyed default — using '' for plain major triads (Omnibook
-        // convention: just the root letter) and '°' for plain diminished.
-        const kindText = kindEl?.getAttribute('text');
-        const baseSuffix = (kindText !== null && kindText !== undefined)
-          ? kindText
-          : kindToSymbol(kind);
-
-        // <degree>: added/altered/subtracted tones (e.g. add9, b5, #11).
-        // Append to chord symbol so e.g. C7 + degree(#11) → "C7#11".
-        let degreeSuffix = '';
-        for (const dEl of Array.from(child.querySelectorAll('degree'))) {
-          const dVal = text(dEl, 'degree-value') ?? '';
-          const dAlt = text(dEl, 'degree-alter') ?? '0';
-          const dType = (text(dEl, 'degree-type') ?? 'add').toLowerCase();
-          const altSign = dAlt === '1' ? '#' : dAlt === '-1' ? 'b' : '';
-          if (dType === 'subtract' || dType === 'remove') {
-            degreeSuffix += `(no${dVal})`;
-          } else {
-            // 'add' / 'alter' → just append "altSign + value" (e.g. "#11", "b5").
-            degreeSuffix += `${altSign}${dVal}`;
-          }
-        }
-
-        // <bass>: slash chord — e.g. C/G.
-        const bassStep = text(child, 'bass-step');
-        const bassAlter = text(child, 'bass-alter');
-        let bassPart = '';
-        if (bassStep) {
-          const bAcc = bassAlter === '1' ? '#' : bassAlter === '-1' ? 'b' : '';
-          bassPart = `/${bassStep}${bAcc}`;
-        }
-
-        const sym = root + acc + baseSuffix + degreeSuffix + bassPart;
+        const sym = harmonySymbol(child);
         if (sym && measureChords[measureChords.length - 1] !== sym) measureChords.push(sym);
         continue;
       }
@@ -924,6 +885,53 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
   };
 }
 
+/* ─── <harmony> → chord symbol ────────────────────────────────────────
+ * 단일 라인(parseXmlDoc)과 양손(parseGrandStaff) 파서가 **같은 규칙**으로 코드
+ * 심볼을 만들도록 공용화한 헬퍼. 예전엔 parseXmlDoc 안에만 있어서 그랜드스태프
+ * (OMR 피아노 악보) 결과에는 코드 심볼이 아예 붙지 않았다. */
+export function harmonySymbol(harmonyEl: Element): string {
+  const root  = text(harmonyEl, 'root-step') ?? '';
+  const alter = text(harmonyEl, 'root-alter');
+  const kindEl = harmonyEl.querySelector('kind');
+  const kind  = (kindEl?.textContent ?? '').trim();
+  const acc   = alter === '1' ? '#' : alter === '-1' ? 'b' : '';
+  // Prefer the engraver-supplied text="…" hint when present (e.g. text="7"
+  // for dominant, text="m7b5" for half-diminished). Otherwise fall back to
+  // a kind-keyed default — using '' for plain major triads (Omnibook
+  // convention: just the root letter) and '°' for plain diminished.
+  const kindText = kindEl?.getAttribute('text');
+  const baseSuffix = (kindText !== null && kindText !== undefined)
+    ? kindText
+    : kindToSymbol(kind);
+
+  // <degree>: added/altered/subtracted tones (e.g. add9, b5, #11).
+  // Append to chord symbol so e.g. C7 + degree(#11) → "C7#11".
+  let degreeSuffix = '';
+  for (const dEl of Array.from(harmonyEl.querySelectorAll('degree'))) {
+    const dVal = text(dEl, 'degree-value') ?? '';
+    const dAlt = text(dEl, 'degree-alter') ?? '0';
+    const dType = (text(dEl, 'degree-type') ?? 'add').toLowerCase();
+    const altSign = dAlt === '1' ? '#' : dAlt === '-1' ? 'b' : '';
+    if (dType === 'subtract' || dType === 'remove') {
+      degreeSuffix += `(no${dVal})`;
+    } else {
+      // 'add' / 'alter' → just append "altSign + value" (e.g. "#11", "b5").
+      degreeSuffix += `${altSign}${dVal}`;
+    }
+  }
+
+  // <bass>: slash chord — e.g. C/G.
+  const bassStep = text(harmonyEl, 'bass-step');
+  const bassAlter = text(harmonyEl, 'bass-alter');
+  let bassPart = '';
+  if (bassStep) {
+    const bAcc = bassAlter === '1' ? '#' : bassAlter === '-1' ? 'b' : '';
+    bassPart = `/${bassStep}${bAcc}`;
+  }
+
+  return root + acc + baseSuffix + degreeSuffix + bassPart;
+}
+
 /* ─── MusicXML chord kind → symbol ───────────────────────────────────── */
 
 function kindToSymbol(kind: string): string {
@@ -1060,10 +1068,18 @@ function parseGrandStaff(doc: Document, fallbackTitle: string, partEl?: Element)
   for (let mi = 0; mi < partMeasures.length; mi++) {
     const mEl = partMeasures[mi];
     const ev: { 1: StaffEvent[]; 2: StaffEvent[] } = { 1: [], 2: [] };
+    /* 코드 심볼은 오른손(트레블) 마디에만 붙인다 — 그랜드스태프에서 <harmony> 는
+     * staff 지정 없이 마디 단위로 오고, 렌더러도 트레블 위에만 코드를 그린다. */
+    const measureChords: string[] = [];
     let curTick = 0;
 
     for (const child of Array.from(mEl.children)) {
       const tag = child.tagName;
+      if (tag === 'harmony') {
+        const sym = harmonySymbol(child);
+        if (sym && measureChords[measureChords.length - 1] !== sym) measureChords.push(sym);
+        continue;
+      }
       if (tag === 'attributes') {
         const f = text(child, 'fifths');
         if (f !== null) { const fi = parseInt(f, 10); if (!Number.isNaN(fi)) { state.fifths = fi; state.keySigLetters = keySigLettersFor(fi); } }
@@ -1163,7 +1179,10 @@ function parseGrandStaff(doc: Document, fallbackTitle: string, partEl?: Element)
     }
 
     const measureTicks = state.beatsPerMeasure * state.divisions;
-    measures.push({ notes: reconstructStave(ev[1], measureTicks, state.divisions) });
+    const trebleMeasure: MeasureInfo = { notes: reconstructStave(ev[1], measureTicks, state.divisions) };
+    // 마디 안 코드 변화는 공백 2칸으로 이어 붙인다(렌더러가 이걸로 분할한다).
+    if (measureChords.length > 0) trebleMeasure.chord = measureChords.join('  ');
+    measures.push(trebleMeasure);
     bassMeasures.push({ notes: reconstructStave(ev[2], measureTicks, state.divisions) });
   }
 
@@ -1273,6 +1292,15 @@ function extractXmlFromMxl(buf: Uint8Array): string {
 }
 
 /* ─── Public loaders ─────────────────────────────────────────────────── */
+
+/** MusicXML **문자열**을 파싱한다 (URL fetch 없이). OMR 결과처럼 응답 본문으로
+ *  받은 원문(`omrResult.pages[].musicXml`)을 그대로 넘기는 용도.
+ *  `<staves>2</staves>` 면 parseAllParts 가 자동으로 그랜드스태프(양손)로 파싱한다. */
+export function parseXmlString(xmlText: string, fallbackTitle: string, opts?: XmlParseOpts): ScorePart[] {
+  const doc = new DOMParser().parseFromString(xmlText, 'application/xml');
+  if (doc.querySelector('parsererror')) throw new Error('MusicXML 파싱에 실패했습니다.');
+  return parseAllParts(doc, fallbackTitle, opts);
+}
 
 export async function loadXmlParts(url: string, fallbackTitle: string, opts?: XmlParseOpts): Promise<ScorePart[]> {
   const res = await fetch(url);

@@ -1,4 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { BackButton } from '../components/common/BackButton';
+import { KeyControl, isMinorKey } from '../components/leadsheet/LeadSheet';
+import { ghostHead } from '../lib/note/ghostNote';
 import { isComposingEvent } from '../lib/ime';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
@@ -21,8 +24,10 @@ import { GenreSelect, BpmControl, RepeatControl, TransportButtons, MixerButton }
 import { DUR_BEATS, vexToMidi, noteMetricBeats } from '../lib/note/melodyTiming';
 import { bakeExplicitAccidentals } from '../lib/note/resolvePitches';
 import { resolveMeasureAccidental, type RenderAcc } from '../lib/note/measureAccidentals';
-import { normalizeChord, formatChordDisplay } from '../lib/jazz-harmony';
+import { drawScoopFall } from '../lib/note/scoopFall';
+import { normalizeChord, formatChordDisplay, splitChordParts } from '../lib/jazz-harmony';
 import { createSolo, updateSolo } from '../api/solos';
+import { ContextMenu } from '../components/common/ContextMenu';
 import { buildUserSoloDraft, invalidateSolosCache, loadAllSolos, pushSoloToCache, updateSoloInCache } from '../data/soloData';
 import { saveUserLick, computeLickFeatures, type LickEntry } from '../data/lickData';
 import { NoteIcon, RestIcon } from '../components/notesheet/NotationIcon';
@@ -255,9 +260,14 @@ function shiftDiatonicKey(k: string, steps: number): string | null {
 /* 양손(그랜드 스태프): 트레블 stave 상단 → 베이스 stave 상단 오프셋과,
  * 줄당 추가 높이. 베이스 줄 아래에도 편집 바가 뜰 여백을 남긴다. */
 const GRAND_BASS_DY = 100;
+/** 마디 클릭 판정에서 오선 5줄 바깥으로 허용하는 여유(px). 오선 바로 위는
+ *  코드 심볼 자리라 넉넉히 잡으면 행끼리 겹친다 — 작게 유지할 것. */
+const STAFF_HIT_PAD = 8;
 const GRAND_EXTRA = 115;
 /* MARGIN.top: chord 라벨(28px high) 이 stave 위에 충분한 여유를 두고 들어갈 공간. */
 const MARGIN = { top: 50, left: 10, right: 10, bottom: 10 };
+/* 대체(리하모니제이션) 코드 슬롯 수 — 마디 위 괄호 안에 뜨는 입력 칸 개수. */
+const ALT_SLOTS = 4;
 /** Soft cap on bars per line. The actual line break is driven by each measure's
  *  real VexFlow width (measured via `minWidthForNotes`), so this only bites for
  *  very thin measures (lots of whole notes) that would otherwise fit a
@@ -267,7 +277,11 @@ const DECOR_FIRST = 70;
 const DECOR_OTHER = 35;
 
 /** staff: 'bass' = 그랜드 스태프의 왼손(낮은음자리표) 행. 없으면 트레블. */
-interface MeasurePos { idx: number; x: number; y: number; w: number; chordX: number; staff?: 'bass'; }
+/** 마디 히트박스. `y`는 stave 원점(위쪽 여백 포함)이고, `staveTop`/`staveBot`은
+ *  실제 오선 5줄의 최상단/최하단 Y다. 마디 클릭 판정은 반드시 후자를 쓴다 —
+ *  stave 원점 위쪽 여백은 코드 심볼 자리라, 거기까지 판정에 넣으면 아래 행의
+ *  코드를 만질 때 윗행 마디가 잡힌다. */
+interface MeasurePos { idx: number; x: number; y: number; w: number; chordX: number; staveTop: number; staveBot: number; staff?: 'bass'; }
 interface NotePos { mi: number; ni: number; x: number; y: number; w: number; h: number; staff?: 'bass'; }
 type StaffId = 'treble' | 'bass';
 interface NoteSel { mi: number; ni: number; staff?: StaffId; }
@@ -334,28 +348,6 @@ function drawGlissLine(svgEl: SVGElement, fromNote: StaveNote, toNote: StaveNote
   svgEl.appendChild(txt);
 }
 
-/** 스쿱/폴(재즈 슬라이드) 곡선을 한 음표 노트헤드에 그린다.
- *  scoop = 앞에서 아래→위로 끌어올려 진입, fall = 뒤에서 아래로 하강. */
-function drawScoopFall(svgEl: SVGElement, vfNote: StaveNote, kind: 'scoop' | 'fall') {
-  const ys = vfNote.getYs();
-  if (!ys.length) return;
-  const y = ys[0];
-  const beginX = vfNote.getNoteHeadBeginX();
-  const endX = vfNote.getNoteHeadEndX();
-  const d = kind === 'scoop'
-    // 노트헤드 왼쪽 아래에서 시작해 위로 끌어올려 헤드 왼쪽 가장자리로 진입.
-    ? `M ${beginX - 12} ${y + 9} Q ${beginX - 11} ${y + 1} ${beginX - 1} ${y - 1}`
-    // 노트헤드 오른쪽에서 시작해 아래로 떨어짐.
-    : `M ${endX + 1} ${y - 1} Q ${endX + 11} ${y + 1} ${endX + 12} ${y + 10}`;
-  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  path.setAttribute('d', d);
-  path.setAttribute('stroke', '#333');
-  path.setAttribute('stroke-width', '2');
-  path.setAttribute('fill', 'none');
-  path.setAttribute('stroke-linecap', 'round');
-  svgEl.appendChild(path);
-}
-
 /** NoteInfo → VexFlow StaveNote — 트레블/베이스 공용. 임시표는 keys 인덱스
  *  전부에 옥타브 인식 규칙으로 붙인다(화음 지원). */
 function buildVfNote(
@@ -372,7 +364,14 @@ function buildVfNote(
   // 아래 공용 경로로 함께 처리한다.
   const note: StaveNote = n.grace
     ? new GraceNote({ keys: isRest ? [restKey] : n.keys, duration: dur, slash: n.graceSlash !== false, clef }) as unknown as StaveNote
-    : new StaveNote({ keys: isRest ? [restKey] : n.keys, duration: dur, clef, autoStem: true });
+    /* 고스트(데드) 노트는 X 노트헤드로 — VexFlow noteType 'x'. 쉼표엔 적용 안 함. */
+    : new StaveNote({
+        keys: isRest ? [restKey] : n.keys,
+        duration: dur,
+        clef,
+        autoStem: true,
+        ...ghostHead(n),
+      });
   if (n.dotted) Dot.buildAndAttach([note]);
 
   if (!isRest) {
@@ -526,7 +525,7 @@ function drawTupletBrackets(msNotes: NoteInfo[], vfNotes: StaveNote[], ctx: Retu
   }
 }
 
-function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number, currentIdx: number, positions: MeasurePos[], sheetKey?: string, notePositions?: NotePos[], selectedNote?: NoteSel | null, noteElMap?: Map<string, SVGElement>, bassMeasures?: MeasureInfo[] | null, explicitAcc?: boolean) {
+function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number, currentIdx: number, positions: MeasurePos[], sheetKey?: string, notePositions?: NotePos[], selectedNotes?: NoteSel[] | null, noteElMap?: Map<string, SVGElement>, bassMeasures?: MeasureInfo[] | null, explicitAcc?: boolean) {
   positions.length = 0;
   if (notePositions) notePositions.length = 0;
   if (noteElMap) noteElMap.clear();
@@ -674,7 +673,10 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       }
 
       const chordX = firstInLine ? x + decorW + 4 : x + 4;
-      positions.push({ idx: m, x: chordX, y, w: w - (firstInLine ? decorW : 0) - 4, chordX });
+      positions.push({
+        idx: m, x: chordX, y, w: w - (firstInLine ? decorW : 0) - 4, chordX,
+        staveTop: stave.getYForLine(0), staveBot: stave.getYForLine(4),
+      });
 
       if (m === currentIdx) {
         const svgEl = el.querySelector('svg');
@@ -712,7 +714,11 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
           new StaveConnector(stave, bassStave).setType(StaveConnector.type.SINGLE_LEFT).setContext(ctx).draw();
         }
         new StaveConnector(stave, bassStave).setType(StaveConnector.type.SINGLE_RIGHT).setContext(ctx).draw();
-        positions.push({ idx: m, x: chordX, y: y + GRAND_BASS_DY, w: w - (firstInLine ? decorW : 0) - 4, chordX, staff: 'bass' });
+        positions.push({
+          idx: m, x: chordX, y: y + GRAND_BASS_DY, w: w - (firstInLine ? decorW : 0) - 4, chordX,
+          staveTop: bassStave.getYForLine(0), staveBot: bassStave.getYForLine(4),
+          staff: 'bass',
+        });
       }
 
       if (measure.notes.length === 0 && bassM.notes.length === 0) {
@@ -1044,7 +1050,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         const svgNode = entry.vfNote.getSVGElement();
         if (svgNode) noteElMap.set(`${entry.mi}-${entry.ni}`, svgNode as SVGElement);
       }
-      if (selectedNote && selectedNote.staff !== 'bass' && entry.mi === selectedNote.mi && entry.ni === selectedNote.ni) {
+      if (selectedNotes?.some((s) => s.staff !== 'bass' && s.mi === entry.mi && s.ni === entry.ni)) {
         const RED = '#d32f2f';
         const applyRed = (el: Element) => {
           const s = (el as SVGElement).style;
@@ -1075,8 +1081,9 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       }
     }
     // 베이스 보표 선택 음표 하이라이트 (트레블과 동일 규칙)
-    if (selectedNote?.staff === 'bass') {
-      const entry = allBassVfNotes.find((e) => e.mi === selectedNote.mi && e.ni === selectedNote.ni);
+    for (const sel of selectedNotes ?? []) {
+      if (sel.staff !== 'bass') continue;
+      const entry = allBassVfNotes.find((e) => e.mi === sel.mi && e.ni === sel.ni);
       if (entry) {
         const RED = '#d32f2f';
         const applyRed = (elm: Element) => {
@@ -1192,22 +1199,12 @@ const Header = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: calc(env(safe-area-inset-top, 0px) + 10px) 20px 10px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px;  /* 가로 여백 16px — Solo DB 상단바 기준으로 통일 */
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ theme }) => theme.colors.bgSecondary};
 `;
 
-const BackBtn = styled.button`
-  font-size: 0.82rem;
-  padding: 4px 12px;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 6px;
-  background: transparent;
-  cursor: pointer;
-  color: ${({ theme }) => theme.colors.textSecondary};
-  &:hover { background: #f0f0f0; }
-`;
-
+/* 이전 페이지로 돌아가는 정사각형 버튼 — 홈이 아니라 히스토리 뒤로(-1). */
 const Title = styled.span`
   font-size: 1rem;
   font-weight: 700;
@@ -1244,6 +1241,17 @@ const KeySelect = styled.select`
 const MetaLabel = styled.span`
   font-size: 0.7rem;
   color: ${({ theme }) => theme.colors.textSecondary};
+`;
+
+/** 보표가 불러온 악보 데이터로 확정돼 수동 변경이 잠긴 상태 표시. */
+const LockedHint = styled.span`
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #8a7a52;
+  background: rgba(184, 134, 11, 0.12);
+  padding: 2px 6px;
+  border-radius: 5px;
+  white-space: nowrap;
 `;
 
 const ToolBar = styled.div`
@@ -1462,6 +1470,19 @@ const ChordCellWrap = styled.div<{ $hasValue?: boolean }>`
   &:hover { background: rgba(0,0,0,0.07); }
 `;
 
+/* 대체 코드 행의 양끝 괄호 — 활성화되면 항상 함께 그려진다. */
+const AltParen = styled.span`
+  position: absolute;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  font-family: 'MuseJazz Text', 'Pretendard', sans-serif;
+  font-size: 17px;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  pointer-events: none;
+  user-select: none;
+`;
+
 const ChordCellDisplay = styled.span`
   display: flex;
   align-items: baseline;
@@ -1526,37 +1547,43 @@ const ChordCellInput = styled.input`
 
 /* normalizeChord now imported from src/lib/jazz-harmony. */
 
-function splitChord(chord: string): { base: string; ext: string; tensions: { acc: string; num: string }[] } {
-  const m = chord.match(/^(\D*?)(\d.*)$/);
-  if (!m) return { base: chord, ext: '', tensions: [] };
-  const rest = m[2];
-  const extMatch = rest.match(/^(\d+)/);
-  const ext = extMatch ? extMatch[1] : '';
-  let remaining = rest.slice(ext.length);
-  const tensions: { acc: string; num: string }[] = [];
+/* 코드 분해(루트/퀄리티·확장·텐션·분수코드 베이스)는 lib/jazz-harmony 의
+ * splitChordParts 하나만 쓴다 — 뷰어(NoteSheet/LickCard/12키)와 100% 동일.
+ * 여기서는 그 tension 문자열을 에디터 표기용 acc/num 쌍으로만 더 쪼갠다. */
+function parseTensions(tension: string): { acc: string; num: string }[] {
+  const out: { acc: string; num: string }[] = [];
+  let remaining = tension;
   while (remaining.length > 0) {
-    const t = remaining.match(/^([♭♯♭♯#b]*)(\d+|alt)/);
+    const t = remaining.match(/^([♭♯#b]*)(\d+|alt)/);
     if (!t) break;
-    tensions.push({ acc: t[1], num: t[2] });
+    out.push({ acc: t[1], num: t[2] });
     remaining = remaining.slice(t[0].length);
   }
-  return { base: m[1], ext, tensions };
+  return out;
 }
 
 /* formatChordDisplay imported from src/lib/jazz-harmony — see top of file. */
 
-function ChordCell({ value, onChange, style }: {
+function ChordCell({ value, onChange, style, onContextMenu }: {
   value: string;
   onChange: (v: string) => void;
   style: React.CSSProperties;
+  /** 우클릭 → 대체 코드 추가/제거 드롭다운 */
+  onContextMenu?: (e: React.MouseEvent) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const formatted = formatChordDisplay(value);
-  const { base, ext, tensions } = splitChord(formatted);
+  const { base, ext, tension, bass } = splitChordParts(formatted);
+  const tensions = parseTensions(tension);
 
   return (
-    <ChordCellWrap $hasValue={!!value} style={style} onClick={() => { setEditing(true); setTimeout(() => inputRef.current?.focus(), 0); }}>
+    <ChordCellWrap
+      $hasValue={!!value}
+      style={style}
+      onContextMenu={onContextMenu}
+      onClick={() => { setEditing(true); setTimeout(() => inputRef.current?.focus(), 0); }}
+    >
       {editing ? (
         <ChordCellInput
           ref={inputRef}
@@ -1582,6 +1609,8 @@ function ChordCell({ value, onChange, style }: {
                   <ChordTensionNum>{t.num}</ChordTensionNum>
                 </span>
               ))}
+              {/* 분수코드 베이스(/F#) — 텐션이 아니라 루트와 같은 크기로. */}
+              {bass && <ChordBase>{bass}</ChordBase>}
             </>;
           })() : null}
         </ChordCellDisplay>
@@ -1832,6 +1861,12 @@ export default function EditorPage() {
     () => (editingLick ? String(editingLick.id) : null),
   );
 
+  /* 보표(한손/양손)는 **불러온 악보의 데이터가 진실**이다 — OMR MusicXML 의
+   * `<staves>` 로 판정된 결과가 `bassMeasures` 유무로 들어오므로, 불러온 악보에서는
+   * 사용자에게 묻지도, 임의로 바꾸지도 않는다(잠금). 빈 에디터에서 새로 채보할 때만
+   * 수동 선택이 필요하다(왼손 음표 입력 라우팅이 이 값에 달려 있다). */
+  const staffModeLocked = !!prefillSheet;
+
   const [measures, setMeasures] = useState<MeasureInfo[]>([]);
   const [curNotes, setCurNotes] = useState<NoteInfo[]>([]);
   /* 양손(그랜드 스태프) — 'single'(기본) | 'grand'. grand일 때 bassMeasures가
@@ -1846,6 +1881,10 @@ export default function EditorPage() {
   const [selectedBassMeasure, setSelectedBassMeasure] = useState<number | null>(null);
   const [curChord1, setCurChord1] = useState('');
   const [curChord2, setCurChord2] = useState('');
+  /* 열려있는(미확정) 마디의 대체 코드 — 확정 마디는 MeasureInfo.altChords 사용. */
+  const [curAltChords, setCurAltChords] = useState<string[] | undefined>(undefined);
+  /* 코드 칸 우클릭 드롭다운 (viewport 좌표 + 대상 마디 인덱스) */
+  const [chordMenu, setChordMenu] = useState<{ x: number; y: number; idx: number } | null>(null);
 
   // Join two chord slots into double-space format for storage
   const joinChords = (c1: string, c2: string) => {
@@ -1863,7 +1902,9 @@ export default function EditorPage() {
   const curChord = joinChords(curChord1, curChord2);
 
   const [composer, setComposer] = useState('');
-  const [genre, setGenre] = useState('');
+  /* 기본 장르 — 'Unknown'(미정). 사용자가 드롭다운에서 실제 장르를 고를 때까지
+   * 장르를 단정하지 않는다. 반주 느낌은 genreToStyle 기본값(swing)으로 재생된다. */
+  const [genre, setGenre] = useState('Unknown');
   const [sheetTitle, setSheetTitle] = useState('');
   const [sheetKey, setSheetKey] = useState('C');
   /* 조표 무시(explicit 임시표): 켜면 조표를 그리지 않고 마디 안의 ♯/♭만으로
@@ -1879,6 +1920,9 @@ export default function EditorPage() {
   /* 꾸밈음 입력 모드 — 켜져 있으면 피아노/삽입으로 만든 음이 acciaccatura
    * (슬래시 꾸밈음)로 생성된다. 메트릭 0박이라 마디 길이에 영향을 주지 않는다. */
   const [graceMode, setGraceMode] = useState(false);
+  /* 고스트(데드) 노트 모드 — 켜져 있으면 피아노로 입력한 음이 X 노트헤드로
+   * 만들어진다. graceMode 와 같은 "다음 입력에 적용" 방식. */
+  const [ghostMode, setGhostMode] = useState(false);
   const tripletCountRef = useRef(0);
   /* 지속 연음("3+") — 3연음처럼 3개에서 자동 해제되지 않고, 사용자가 버튼을
    * 다시 누를 때까지 입력하는 음표를 계속 한 묶음으로 이어붙인다. 음표가
@@ -1937,6 +1981,15 @@ export default function EditorPage() {
   const suppressClickRef = useRef(false);
   const [notePositions, setNotePositions] = useState<NotePos[]>([]);
   const [selectedNote, setSelectedNote] = useState<NoteSel | null>(null);
+  /* 복수 선택 — Ctrl/Cmd + 클릭으로 앵커(selectedNote) 위에 덧붙인 음표들.
+   * 앵커는 그대로 두고 여기에만 쌓으므로, 앵커가 바뀌면(=단일 선택 경로)
+   * 아래 효과가 통째로 비운다. 전체 선택 = [selectedNote, ...extraSel]. */
+  const [extraSel, setExtraSel] = useState<NoteSel[]>([]);
+  /** 현재 선택된 음표 전체(앵커 포함). 하이라이트·묶기의 단일 출처. */
+  const multiSel = useMemo<NoteSel[]>(
+    () => (selectedNote ? [selectedNote, ...extraSel] : []),
+    [selectedNote, extraSel],
+  );
   /* 마디 단위 선택 — 음표가 없는(빈) 마디도 클릭으로 잡아서 삽입/삭제할 수
    * 있게 한다(OMR 교정 워크플로: 마디 사이 삽입·잘못 쪼개진 마디 삭제). */
   const [selectedMeasure, setSelectedMeasure] = useState<number | null>(null);
@@ -2103,15 +2156,16 @@ export default function EditorPage() {
   curChord2Ref.current = curChord2;
 
   const allMeasures = useMemo<MeasureInfo[]>(() => {
-    if (curNotes.length === 0 && !curChord) return measures;
+    if (curNotes.length === 0 && !curChord && !curAltChords) return measures;
     const cur: MeasureInfo = { notes: curNotes, chord: curChord || undefined };
+    if (curAltChords) cur.altChords = curAltChords;
     if (repeatStart) cur.repeatStart = true;
     if (repeatEnd) cur.repeatEnd = true;
     if (volta) cur.volta = volta;
     if (navigation) cur.navigation = navigation;
     if (bracket) cur.bracket = true;
     return [...measures, cur];
-  }, [measures, curNotes, curChord, repeatStart, repeatEnd, volta, navigation, bracket]);
+  }, [measures, curNotes, curChord, curAltChords, repeatStart, repeatEnd, volta, navigation, bracket]);
 
   const currentIdx = curNotes.length > 0 || curChord ? measures.length : -1;
 
@@ -2384,6 +2438,34 @@ export default function EditorPage() {
     playMidi(vexToMidi(newKeys[0] as string));
   }, [selectedNote, allMeasures, bassMeasures, updateNote]);
 
+  /* 선택 음표를 바로 오른쪽 음표와 붙임줄(Tie)로 잇는다 — T 단축키.
+   * 붙임줄은 같은 자리의 음끼리만 성립하므로, 노트헤드 위치(keys)가 다르면
+   * 아무 것도 하지 않는다. 다음 음이 없거나 쉼표여도 무시. 이미 이어져 있으면 해제. */
+  const tieSelectedToNext = useCallback(() => {
+    if (!selectedNote) return;
+    const src = selectedNote.staff === 'bass' ? bassMeasures : allMeasures;
+    const cur = src[selectedNote.mi]?.notes[selectedNote.ni];
+    if (!cur || cur.duration.endsWith('r')) return;
+    // 다음 음표 — 같은 마디의 다음, 없으면 이후 마디의 첫 음표.
+    let next: NoteInfo | undefined;
+    if (selectedNote.ni + 1 < (src[selectedNote.mi]?.notes.length ?? 0)) {
+      next = src[selectedNote.mi].notes[selectedNote.ni + 1];
+    } else {
+      for (let mi = selectedNote.mi + 1; mi < src.length; mi++) {
+        if (src[mi].notes.length) { next = src[mi].notes[0]; break; }
+      }
+    }
+    if (!next || next.duration.endsWith('r')) return;
+    const sameNote = cur.keys.length === next.keys.length
+      && cur.keys.every((k, i) => k === next!.keys[i]);
+    if (!sameNote) return;   // 같은 음이 아니면 작동하지 않는다
+    updateNote(
+      selectedNote.mi, selectedNote.ni,
+      (n) => ({ ...n, tie: n.tie ? undefined : true }),
+      selectedNote.staff,
+    );
+  }, [selectedNote, allMeasures, bassMeasures, updateNote]);
+
   // 포인터 위치에서 가장 가까운 음표(25px 이내) 히트테스트 — 드래그 시작용.
   const noteAtPoint = useCallback((clientX: number, clientY: number): NotePos | null => {
     const svgEl = svgRef.current?.querySelector('svg');
@@ -2489,7 +2571,7 @@ export default function EditorPage() {
 
     // 삽입 모드 — 지정 위치에 끼워 넣고 삽입점을 한 칸 전진(연속 입력).
     if (insertPos) {
-      const ni: NoteInfo = { keys: [conv.vexKey], duration, dotted: dotted || undefined, ...(graceMode ? { grace: true as const, graceSlash: true as const } : {}) };
+      const ni: NoteInfo = { keys: [conv.vexKey], duration, dotted: dotted || undefined, ...(graceMode ? { grace: true as const, graceSlash: true as const } : {}), ...(ghostMode ? { ghost: true as const } : {}) };
       if (!respelled && accMode === 'n') ni.accidentals = { 0: 'n' };
       else if (conv.acc) ni.accidentals = { 0: conv.acc };
       if (tripletMode && !graceMode) ni.tuplet = 3;
@@ -2563,7 +2645,7 @@ export default function EditorPage() {
         // 피치뿐 아니라 음표 길이(duration)·점도 현재 툴바 선택값으로 교체한다
         // — "음표를 다른 것으로 바꾼 채 피아노를 누르면 음표 자체도 바뀜".
         // 쉼표였다면 'r' 없는 duration으로 실음이 된다.
-        const updated: NoteInfo = { ...n, keys: [conv.vexKey], duration, dotted: dotted || undefined };
+        const updated: NoteInfo = { ...n, keys: [conv.vexKey], duration, dotted: dotted || undefined, ...(ghostMode ? { ghost: true as const } : {}) };
         if (acc) updated.accidentals = acc;
         else delete updated.accidentals;
         return updated;
@@ -2598,7 +2680,7 @@ export default function EditorPage() {
     // 양손: 활성화된 베이스 마디로 입력 (트레블 기본 — 베이스는 마디 클릭 후).
     if (staffMode === 'grand' && selectedBassMeasure != null) {
       pushEditUndo();
-      const ni: NoteInfo = { keys: [conv.vexKey], duration, dotted: dotted || undefined, ...(graceMode ? { grace: true as const, graceSlash: true as const } : {}) };
+      const ni: NoteInfo = { keys: [conv.vexKey], duration, dotted: dotted || undefined, ...(graceMode ? { grace: true as const, graceSlash: true as const } : {}), ...(ghostMode ? { ghost: true as const } : {}) };
       if (!respelled && accMode === 'n') ni.accidentals = { 0: 'n' };
       else if (conv.acc) ni.accidentals = { 0: conv.acc };
       if (tripletMode && !graceMode) ni.tuplet = 3;
@@ -2623,7 +2705,7 @@ export default function EditorPage() {
     // 선택된 committed 마디로 들어간다.)
     if (selectedMeasure != null && selectedMeasure < measures.length) {
       pushEditUndo();
-      const ni: NoteInfo = { keys: [conv.vexKey], duration, dotted: dotted || undefined, ...(graceMode ? { grace: true as const, graceSlash: true as const } : {}) };
+      const ni: NoteInfo = { keys: [conv.vexKey], duration, dotted: dotted || undefined, ...(graceMode ? { grace: true as const, graceSlash: true as const } : {}), ...(ghostMode ? { ghost: true as const } : {}) };
       if (!respelled && accMode === 'n') ni.accidentals = { 0: 'n' };
       else if (conv.acc) ni.accidentals = { 0: conv.acc };
       if (tripletMode && !graceMode) ni.tuplet = 3;
@@ -2648,7 +2730,7 @@ export default function EditorPage() {
     }
 
     pushEditUndo();
-    const ni: NoteInfo = { keys: [conv.vexKey], duration, dotted: dotted || undefined, ...(graceMode ? { grace: true as const, graceSlash: true as const } : {}) };
+    const ni: NoteInfo = { keys: [conv.vexKey], duration, dotted: dotted || undefined, ...(graceMode ? { grace: true as const, graceSlash: true as const } : {}), ...(ghostMode ? { ghost: true as const } : {}) };
     if (!respelled && accMode === 'n') {
       ni.accidentals = { 0: 'n' };
     } else if (conv.acc) {
@@ -2713,7 +2795,7 @@ export default function EditorPage() {
         tripletCountRef.current = 0;
       }
     }
-  }, [duration, dotted, accMode, tieNext, tripletMode, sustainTuplet, graceMode, curNotes, measures, maybeAutoClose, pushEditUndo, selectedNote, selectedMeasure, insertPos, insertNoteAt, updateNote, chordInput, staffMode, selectedBassMeasure, bassMeasures, explicitAcc]);
+  }, [duration, dotted, accMode, tieNext, tripletMode, sustainTuplet, graceMode, ghostMode, curNotes, measures, maybeAutoClose, pushEditUndo, selectedNote, selectedMeasure, insertPos, insertNoteAt, updateNote, chordInput, staffMode, selectedBassMeasure, bassMeasures, explicitAcc]);
 
   /* ── MIDI 외부 기기 입력 ──────────────────────────────────────────────────
    * 선택된 MIDI 입력의 note-on 을 온스크린 피아노 입력과 동일 경로
@@ -2905,15 +2987,28 @@ export default function EditorPage() {
       if (e.key === 'l' || e.key === 'L') { e.preventDefault(); setTieNext((v) => !v); }
       if (e.key === 't' || e.key === 'T') {
         e.preventDefault();
-        // Shift+T = 지속 연음(3+), T = 기존 3연음
-        if (e.shiftKey) toggleSustainTuplet(); else toggleTripletMode();
+        // Shift+T = 지속 연음(3+). 음표가 선택돼 있으면 T = 오른쪽 음과 붙임줄,
+        // 선택이 없으면 셋잇단 토글('3' 키와 동일).
+        if (e.shiftKey) toggleSustainTuplet();
+        else if (selectedNote) tieSelectedToNext();
+        else toggleTripletMode();
+      }
+      // S = 선택 음표에 스쿱(재즈 슬라이드) 토글
+      if ((e.key === 's' || e.key === 'S') && selectedNote) {
+        e.preventDefault();
+        updateNote(
+          selectedNote.mi, selectedNote.ni,
+          (n) => ({ ...n, scoop: n.scoop ? undefined : true }),
+          selectedNote.staff,
+        );
       }
       if (e.key === '1') { e.preventDefault(); setDuration('w'); setDotted(false); }
       if (e.key === '2') { e.preventDefault(); setDuration('h'); setDotted(false); }
       if (e.key === '4') { e.preventDefault(); setDuration('q'); setDotted(false); }
       if (e.key === '8') { e.preventDefault(); setDuration('8'); setDotted(false); }
       if (e.key === '6') { e.preventDefault(); setDuration('16'); setDotted(false); }
-      if (e.key === '3') { e.preventDefault(); setDuration('32'); setDotted(false); }
+      // 3 = 셋잇단 토글 (32분음표는 툴바 버튼으로 입력)
+      if (e.key === '3') { e.preventDefault(); toggleTripletMode(); }
 
       if (e.key === 'Escape') { setInsertPos(null); setSelectedNote(null); setSelectedMeasure(null); setSelectedBassMeasure(null); }
 
@@ -2955,7 +3050,7 @@ export default function EditorPage() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [handleUndo, closeMeasure, allMeasures, selectedNote, stepSelectedNote, toggleTripletMode, toggleSustainTuplet]);
+  }, [handleUndo, closeMeasure, allMeasures, selectedNote, stepSelectedNote, toggleTripletMode, toggleSustainTuplet, tieSelectedToNext, updateNote]);
 
   useEffect(() => {
     const el = svgRef.current;
@@ -2963,7 +3058,7 @@ export default function EditorPage() {
     if (allMeasures.length === 0) { el.innerHTML = ''; positionsRef.current = []; setMeasurePositions([]); notePositionsRef.current = []; return; }
     const validKey = sheetKey && (FLAT_KEYS[sheetKey] != null || SHARP_KEYS[sheetKey] != null || sheetKey === 'C') ? sheetKey : undefined;
     try {
-      renderSheet(el, allMeasures, Math.max(sheetWidth, 300), currentIdx, positionsRef.current, validKey, notePositionsRef.current, selectedNote, noteElMapRef.current, bassAll, explicitAcc);
+      renderSheet(el, allMeasures, Math.max(sheetWidth, 300), currentIdx, positionsRef.current, validKey, notePositionsRef.current, multiSel, noteElMapRef.current, bassAll, explicitAcc);
     } catch {
       positionsRef.current.length = 0;
       notePositionsRef.current.length = 0;
@@ -2971,7 +3066,7 @@ export default function EditorPage() {
     }
     setMeasurePositions([...positionsRef.current]);
     setNotePositions([...notePositionsRef.current]);
-  }, [allMeasures, bassAll, sheetWidth, currentIdx, sheetKey, selectedNote, explicitAcc]);
+  }, [allMeasures, bassAll, sheetWidth, currentIdx, sheetKey, multiSel, explicitAcc]);
 
   const selNoteInfo = useMemo<NoteInfo | null>(() => {
     if (!selectedNote) return null;
@@ -2987,6 +3082,55 @@ export default function EditorPage() {
       setSelectedNote(null);
     }
   }, [allMeasures, bassMeasures, selectedNote]);
+
+  /* 앵커가 바뀌면(=단일 선택/이동/삭제 등 모든 기존 경로) 복수 선택 해제.
+   * Ctrl/Cmd 클릭은 앵커를 건드리지 않으므로 여기서 지워지지 않는다. */
+  useEffect(() => { setExtraSel((prev) => (prev.length ? [] : prev)); }, [selectedNote]);
+
+  /** N연음으로 묶을 수 있는 선택인지. 붙임(튜플렛)은 **한 보표·한 마디 안에서
+   *  연속된** 음표에만 성립하므로, 흩어진 선택은 묶지 않는다(null). */
+  const tupletGroupable = useMemo(() => {
+    if (multiSel.length < 3) return null;
+    const staff = multiSel[0].staff;
+    const mi = multiSel[0].mi;
+    if (multiSel.some((s) => s.staff !== staff || s.mi !== mi)) return null;
+    const nis = [...multiSel.map((s) => s.ni)].sort((a, b) => a - b);
+    for (let i = 1; i < nis.length; i++) if (nis[i] !== nis[i - 1] + 1) return null;
+    return { mi, staff, nis };
+  }, [multiSel]);
+
+  /** 현재 선택이 이미 그 N연음으로 묶여 있는지 — 3+ 버튼 활성 표시용. */
+  const selectionTupleted = useMemo(() => {
+    const g = tupletGroupable;
+    if (!g) return false;
+    const src = g.staff === 'bass' ? bassMeasures : allMeasures;
+    return g.nis.every((ni) => src[g.mi]?.notes[ni]?.tuplet === g.nis.length);
+  }, [tupletGroupable, allMeasures, bassMeasures]);
+
+  /** 선택한 N개를 N연음으로 묶는다(이미 그 N연음이면 해제). 렌더러는 "연속된
+   *  같은 tuplet 값"을 한 그룹으로 보므로 N개 전부에 tuplet=N 을 찍으면 된다.
+   *  undo 는 그룹 전체로 1회만 쌓이게 직접 setState 한다. */
+  const applyTupletToSelection = useCallback(() => {
+    const g = tupletGroupable;
+    if (!g) return;
+    const n = g.nis.length;
+    const src = g.staff === 'bass' ? bassMeasures : allMeasures;
+    const already = g.nis.every((ni) => src[g.mi]?.notes[ni]?.tuplet === n);
+    const patch = (notes: NoteInfo[]) => notes.map((nt, j) => {
+      if (!g.nis.includes(j)) return nt;
+      const u: NoteInfo = { ...nt, tuplet: n };
+      if (already) delete u.tuplet;
+      return u;
+    });
+    pushEditUndo();
+    if (g.staff === 'bass') {
+      setBassMeasures((prev) => prev.map((m, i) => (i === g.mi ? { ...m, notes: patch(m.notes) } : m)));
+    } else if (g.mi < measures.length) {
+      setMeasures((prev) => prev.map((m, i) => (i === g.mi ? { ...m, notes: patch(m.notes) } : m)));
+    } else {
+      setCurNotes((prev) => patch(prev));
+    }
+  }, [tupletGroupable, allMeasures, bassMeasures, measures.length, pushEditUndo]);
 
   const handleSheetClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     // 드래그(또는 음표 위 pointerdown)가 처리한 포인터의 뒤따르는 click은 한 번 무시.
@@ -3011,10 +3155,24 @@ export default function EditorPage() {
     }
     if (best) {
       const staff = best.staff;
-      if (selectedNote && selectedNote.mi === best.mi && selectedNote.ni === best.ni && selectedNote.staff === staff) {
+      const hit: NoteSel = { mi: best.mi, ni: best.ni, ...(staff ? { staff } : {}) };
+      const same = (a: NoteSel, b: NoteSel) => a.mi === b.mi && a.ni === b.ni && a.staff === b.staff;
+      // Ctrl(Win)/Cmd(Mac) + 클릭 = 복수 선택 토글. 앵커(selectedNote)는 건드리지
+      // 않는다 — 앵커가 바뀌면 복수 선택이 초기화되기 때문.
+      if ((e.ctrlKey || e.metaKey) && selectedNote) {
+        if (!same(hit, selectedNote)) {
+          setExtraSel((prev) => (prev.some((s) => same(s, hit))
+            ? prev.filter((s) => !same(s, hit))
+            : [...prev, hit]));
+        }
+        setSelectedMeasure(null);
+        setSelectedBassMeasure(null);
+        return;
+      }
+      if (selectedNote && same(hit, selectedNote)) {
         setSelectedNote(null);
       } else {
-        setSelectedNote({ mi: best.mi, ni: best.ni, ...(staff ? { staff } : {}) });
+        setSelectedNote(hit);
       }
       setSelectedMeasure(null);
       setSelectedBassMeasure(null);
@@ -3024,17 +3182,18 @@ export default function EditorPage() {
     // 음표 근처가 아니면 마디 히트테스트 — 빈 마디도 선택 가능. 트레블은
     // committed 만(입력 중인 열린 마디는 기존 입력 플로우가 담당), 베이스는
     // 렌더된 모든 마디(열린 마디 아래 포함).
-    const grand = staffMode === 'grand';
     let bestM: { idx: number; staff?: 'bass' } | null = null;
     let bestMDist = Infinity;
     for (const p of positionsRef.current) {
       if (p.staff !== 'bass' && p.idx >= measures.length) continue;
       if (cx < p.x - 6 || cx > p.x + p.w + 6) continue;
-      // 양손이면 각 보표 행의 실제 stave 중심 근처로만 판정(행 겹침 방지).
-      const centerY = grand ? p.y + 52 : p.y + LINE_HEIGHT / 2;
-      const range = grand ? 55 : LINE_HEIGHT / 2;
-      const dy = Math.abs(cy - centerY);
-      if (dy < range && dy < bestMDist) { bestMDist = dy; bestM = { idx: p.idx, staff: p.staff }; }
+      // 오선(5줄) 안을 눌렀을 때만 마디를 활성화한다. 오선 위쪽 여백은 코드
+      // 심볼 자리이고 아래쪽은 다음 행과 맞닿으므로, 그 여백까지 판정에 넣으면
+      // 아래 행의 코드를 만질 때 윗행 마디가 잡힌다(행 겹침). 양손 모드의
+      // 트레블/베이스도 각자 실제 오선 범위로 판정돼 서로 침범하지 않는다.
+      if (cy < p.staveTop - STAFF_HIT_PAD || cy > p.staveBot + STAFF_HIT_PAD) continue;
+      const dy = Math.abs(cy - (p.staveTop + p.staveBot) / 2);
+      if (dy < bestMDist) { bestMDist = dy; bestM = { idx: p.idx, staff: p.staff }; }
     }
     if (bestM === null) {
       setSelectedMeasure(null);
@@ -3050,7 +3209,7 @@ export default function EditorPage() {
       const idx = bestM.idx;
       setSelectedMeasure((prev) => (prev === idx ? null : idx));
     }
-  }, [selectedNote, measures.length, staffMode]);
+  }, [selectedNote, measures.length]);
 
   // (moved before handleNotePress)
 
@@ -3116,6 +3275,36 @@ export default function EditorPage() {
     useEditorBackingPlayback({ buildSheet, buildExtraParts: buildBassParts, bpm, repeatCount, noteElMapRef });
 
   // Update a specific chord slot (0 or 1) for a given measure
+  /* ── 대체(리하모니제이션) 코드 ─────────────────────────────────────────
+   * 마디 위에 괄호로 감싼 ALT_SLOTS 칸을 띄운다. 코드 칸(또는 대체 칸) 우클릭
+   * 드롭다운으로 켜고 끈다. 열린 마디는 curAltChords, 확정 마디는
+   * MeasureInfo.altChords 에 보관. */
+  const setMeasureAlt = useCallback((idx: number, next: string[] | undefined) => {
+    if (idx === measures.length) { setCurAltChords(next); return; }
+    setMeasures((prev) => prev.map((m, i) => {
+      if (i !== idx) return m;
+      if (!next) { const { altChords: _drop, ...rest } = m; return rest; }
+      return { ...m, altChords: next };
+    }));
+  }, [measures.length]);
+
+  const updateAltSlot = useCallback((idx: number, slot: number, value: string) => {
+    if (idx === measures.length) {
+      setCurAltChords((prev) => {
+        const next = [...(prev ?? Array(ALT_SLOTS).fill(''))];
+        next[slot] = value;
+        return next;
+      });
+      return;
+    }
+    setMeasures((prev) => prev.map((m, i) => {
+      if (i !== idx || !m.altChords) return m;
+      const next = [...m.altChords];
+      next[slot] = value;
+      return { ...m, altChords: next };
+    }));
+  }, [measures.length]);
+
   const updateMeasureChordSlot = useCallback((idx: number, slot: 0 | 1, value: string) => {
     if (idx === measures.length) {
       // Current (open) measure
@@ -3173,7 +3362,8 @@ export default function EditorPage() {
         invalidateSolosCache();
         try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
         navigated = true;
-        navigate('/solos');
+        /* 목록이 아니라 방금 저장한 그 악보로 — 수정사항을 바로 확인할 수 있게. */
+        navigate(`/solos?solo=${encodeURIComponent(persisted.publicId)}`);
       } else {
         // A solo is NOT a lick. A "lick" is a short phrase (a few bars); a full
         // chorus / solo must never be persisted to the lick store (it would
@@ -3282,7 +3472,7 @@ export default function EditorPage() {
       <IconSidebar />
       <PageBody>
       <Header>
-        <BackBtn onClick={() => navigate('/')}>&#8592; Home</BackBtn>
+        <BackButton onClick={() => navigate(-1)} label="이전 페이지" />
         <Title>Editor</Title>
         <Sep />
         <MetaLabel>Mode</MetaLabel>
@@ -3298,37 +3488,27 @@ export default function EditorPage() {
         <MetaLabel>보표</MetaLabel>
         <KeySelect
           value={staffMode}
+          disabled={staffModeLocked}
           onChange={(e) => {
             const v = e.target.value as 'single' | 'grand';
             setStaffMode(v);
             if (v === 'single') { setSelectedBassMeasure(null); setSelectedNote((s) => (s?.staff === 'bass' ? null : s)); }
           }}
-          style={{ minWidth: 96, fontWeight: 700 }}
-          title="한손 = 높은음자리표 한 줄 · 양손 = 그랜드 스태프(위 트레블 / 아래 베이스)"
+          style={{ minWidth: 96, fontWeight: 700, opacity: staffModeLocked ? 0.6 : 1 }}
+          title={staffModeLocked
+            ? `불러온 악보의 데이터로 확정됨 — ${staffMode === 'grand' ? '양손(그랜드 스태프)' : '한손'}. OMR/MusicXML 의 보표 수가 진실이므로 임의로 바꾸지 않는다.`
+            : '한손 = 높은음자리표 한 줄 · 양손 = 그랜드 스태프(위 트레블 / 아래 베이스)'}
         >
           <option value="single">한손 악보</option>
           <option value="grand">양손 악보</option>
         </KeySelect>
+        {staffModeLocked && <LockedHint title="불러온 악보의 보표 수로 자동 확정">🔒 자동</LockedHint>}
         <Sep />
         <MetaLabel>Title</MetaLabel>
         <MetaInput value={sheetTitle} onChange={(e) => setSheetTitle(e.target.value)} placeholder={mode === 'solo' ? 'e.g. Autumn Leaves' : 'e.g. ii-V Lick #3'} style={{ width: 160 }} />
         <MetaLabel>{mode === 'solo' ? 'Composer' : 'Performer'}</MetaLabel>
         <MetaInput value={composer} onChange={(e) => setComposer(e.target.value)} placeholder={mode === 'solo' ? 'e.g. Joseph Kosma' : 'e.g. Charlie Parker'} style={{ width: 160 }} />
-        <MetaLabel>{mode === 'solo' ? 'Genre' : 'Style'}</MetaLabel>
-        <MetaInput value={genre} onChange={(e) => setGenre(e.target.value)} placeholder={mode === 'solo' ? 'e.g. Bossa Nova' : 'e.g. Bebop'} style={{ width: 130 }} />
-        <MetaLabel>Key</MetaLabel>
-        <KeySelect value={sheetKey} onChange={(e) => setSheetKey(e.target.value)}>
-          <optgroup label="Major">
-            {['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'].map((k) => (
-              <option key={k} value={k}>{k}</option>
-            ))}
-          </optgroup>
-          <optgroup label="Minor">
-            {['Cm', 'C#m', 'Dm', 'Ebm', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Am', 'Bbm', 'Bm'].map((k) => (
-              <option key={k} value={k}>{k}</option>
-            ))}
-          </optgroup>
-        </KeySelect>
+        {/* Genre·Key 는 하단 트랜스포트 바로 이동 — 코드차트 상단바와 동일 배치. */}
         <JsonBtn
           $bg={explicitAcc ? '#00897b' : '#78909c'}
           $hover={explicitAcc ? '#00796b' : '#607d8b'}
@@ -3387,7 +3567,8 @@ export default function EditorPage() {
           클릭 시 팝오버(좁은 화면은 모달)로 트랙들을 띄운다. */}
       <TransportBar>
         <BarLeft>
-          <GenreSelect />
+          <GenreSelect value={genre} onChange={setGenre} />
+          <KeyControl selectedKey={sheetKey} onChange={setSheetKey} isMinor={isMinorKey(sheetKey)} />
         </BarLeft>
         <BarCenter>
           <MixerButton />
@@ -3461,6 +3642,19 @@ export default function EditorPage() {
             <line x1="9.7" y1="15" x2="9.7" y2="3" stroke="currentColor" strokeWidth="1.4" />
             <path d="M9.7 3 C 12 4, 13 6.5, 12 9" stroke="currentColor" strokeWidth="1.4" fill="none" />
             <line x1="4" y1="11" x2="13.5" y2="4.5" stroke="currentColor" strokeWidth="1.5" />
+          </svg>
+        </DurBtn>
+        <DurBtn
+          $active={ghostMode}
+          onClick={() => setGhostMode((v) => !v)}
+          title="고스트(데드) 노트 모드 — 켜고 피아노를 누르면 그 음이 X 노트헤드의 고스트 노트로 입력됩니다. 다시 누르면 해제."
+          style={{ fontSize: '1.05rem', fontWeight: 700, lineHeight: 1 }}
+        >
+          {/* X 노트헤드 + 기둥 */}
+          <svg width="18" height="22" viewBox="0 0 18 22" style={{ display: 'block' }}>
+            <line x1="4.5" y1="13.5" x2="10.5" y2="18.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+            <line x1="10.5" y1="13.5" x2="4.5" y2="18.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+            <line x1="11" y1="16" x2="11" y2="3.5" stroke="currentColor" strokeWidth="1.5" />
           </svg>
         </DurBtn>
         <DurBtn
@@ -3655,6 +3849,18 @@ export default function EditorPage() {
           <EditSection>
             <SectionCaption>표현</SectionCaption>
             <EditWrap>
+              {/* N연음 묶기 — Ctrl/Cmd+클릭으로 3개 이상 골랐을 때만 보인다.
+                  2개 이하면 자리만 남기고 숨겨(visibility) 옆 버튼이 밀리지 않게 한다. */}
+              <NoteEditBtn
+                $active={selectionTupleted}
+                disabled={multiSel.length >= 3 && !tupletGroupable}
+                onClick={applyTupletToSelection}
+                style={multiSel.length < 3 ? { visibility: 'hidden', pointerEvents: 'none' } : undefined}
+                title={multiSel.length < 3 ? undefined
+                  : tupletGroupable
+                    ? `선택한 ${multiSel.length}개를 ${multiSel.length}연음으로 ${selectionTupleted ? '해제' : '묶기'}`
+                    : '한 마디 안에서 연속된 음표만 묶을 수 있다'}
+              >3+</NoteEditBtn>
               {(() => {
                 if (selNoteInfo.duration.endsWith('r')) return null;
                 const flat: { mi: number; ni: number; note: NoteInfo }[] = [];
@@ -4062,6 +4268,17 @@ export default function EditorPage() {
               <NoteEditBtn title="한 칸 내리기 (↓)" onClick={() => stepSelectedNote(-1)}>▼</NoteEditBtn>
             </>
           )}
+          {/* N연음 묶기 — 트레블 표현 섹션과 동일 규칙(3개 이상일 때만 노출). */}
+          <NoteEditBtn
+            $active={selectionTupleted}
+            disabled={multiSel.length >= 3 && !tupletGroupable}
+            onClick={applyTupletToSelection}
+            style={multiSel.length < 3 ? { visibility: 'hidden', pointerEvents: 'none' } : undefined}
+            title={multiSel.length < 3 ? undefined
+              : tupletGroupable
+                ? `선택한 ${multiSel.length}개를 ${multiSel.length}연음으로 ${selectionTupleted ? '해제' : '묶기'}`
+                : '한 마디 안에서 연속된 음표만 묶을 수 있다'}
+          >3+</NoteEditBtn>
           <Sep />
           <NoteEditBtn
             title="이 음표 왼쪽에 삽입 — 피아노/쉼표로 입력"
@@ -4141,16 +4358,50 @@ export default function EditorPage() {
             const chordLeftPx = chordLeft * SHEET_SCALE;
             const c1MaxWidth = Math.max(28, halfW - 4);
             const c2MaxWidth = Math.max(28, measureRightPx - (chordLeftPx + halfW) - 2);
+            /* 대체 코드 행 — 코드 행 바로 위. 마디 폭을 ALT_SLOTS 등분하고
+             * 양끝에 괄호를 항상 붙인다. */
+            const alt = allMeasures[pos.idx]?.altChords;
+            const openMenu = (e: React.MouseEvent) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setChordMenu({ x: e.clientX, y: e.clientY, idx: pos.idx });
+            };
+            const measureLeftPx = pos.x * SHEET_SCALE;
+            const measureWpx = pos.w * SHEET_SCALE;
+            const altTop = (chordTop - 17) * SHEET_SCALE;
+            const altSlotW = (measureWpx - 18) / ALT_SLOTS; // 괄호 자리 확보
             return (
               <span key={pos.idx}>
+                {alt && (
+                  <>
+                    <AltParen style={{ left: measureLeftPx + 1, top: altTop }}>(</AltParen>
+                    {alt.slice(0, ALT_SLOTS).map((av, si) => (
+                      <ChordCell
+                        key={si}
+                        value={av}
+                        onChange={(v) => updateAltSlot(pos.idx, si, v)}
+                        onContextMenu={openMenu}
+                        style={{
+                          left: measureLeftPx + 10 + si * altSlotW,
+                          top: altTop,
+                          maxWidth: Math.max(24, altSlotW - 2),
+                          ...(av ? {} : { width: Math.max(24, altSlotW - 2) }),
+                        }}
+                      />
+                    ))}
+                    <AltParen style={{ left: measureLeftPx + measureWpx - 8, top: altTop }}>)</AltParen>
+                  </>
+                )}
                 <ChordCell
                   value={c1}
                   onChange={(v) => updateMeasureChordSlot(pos.idx, 0, v)}
+                  onContextMenu={openMenu}
                   style={{ left: chordLeftPx, top: chordTop * SHEET_SCALE, maxWidth: c1MaxWidth, ...(c1 ? {} : { width: 36 }) }}
                 />
                 <ChordCell
                   value={c2}
                   onChange={(v) => updateMeasureChordSlot(pos.idx, 1, v)}
+                  onContextMenu={openMenu}
                   style={{ left: chordLeftPx + halfW, top: chordTop * SHEET_SCALE, maxWidth: c2MaxWidth, ...(c2 ? {} : { width: 36 }) }}
                 />
               </span>
@@ -4310,6 +4561,23 @@ export default function EditorPage() {
           })()}
         </div>
       </SheetArea>
+
+      {chordMenu && (() => {
+        const has = !!allMeasures[chordMenu.idx]?.altChords;
+        return (
+          <ContextMenu
+            x={chordMenu.x}
+            y={chordMenu.y}
+            onClose={() => setChordMenu(null)}
+            items={[
+              has
+                ? { label: '대체 코드 제거', danger: true, onSelect: () => setMeasureAlt(chordMenu.idx, undefined) }
+                : { label: '대체 코드 추가', onSelect: () => setMeasureAlt(chordMenu.idx, Array(ALT_SLOTS).fill('')) },
+            ]}
+          />
+        );
+      })()}
+
 
       {showLoadModal && (
         <ModalOverlay onClick={() => setShowLoadModal(false)}>

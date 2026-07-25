@@ -271,6 +271,10 @@ export interface SoloOmrStatus {
   status: SoloOmrStatusValue;
   progress: number;             // 0..100 (0 when the backend doesn't report it)
   failureReason: string | null;
+  /** 다중 페이지 PDF 진행률 — 동기 변환이 끝난 전체 페이지 수(문서 #23). */
+  totalPages: number | null;
+  /** 결과 회수가 끝난 페이지 수. `completedPages / totalPages` 로 표시한다. */
+  completedPages: number | null;
 }
 
 /** True once OMR has stopped running (succeeded or failed) — poll until this. */
@@ -311,6 +315,8 @@ export async function getSoloOmrStatus(publicId: string): Promise<SoloOmrStatus>
     failureReason:
       (typeof d.failureReason === 'string' ? d.failureReason : null) ??
       (typeof d.error === 'string' ? d.error : null),
+    totalPages: typeof d.totalPages === 'number' ? d.totalPages : null,
+    completedPages: typeof d.completedPages === 'number' ? d.completedPages : null,
   };
 }
 

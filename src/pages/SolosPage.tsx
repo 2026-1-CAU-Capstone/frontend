@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import styled, { keyframes, css } from 'styled-components';
 import { mq } from '../styles/theme';
 import { exportScoreSvgToPdf } from '../lib/note/scoreToPdf';
 import { IconSidebar } from '../components/layout/IconSidebar';
-import { TopToolbar } from '../components/layout/TopToolbar';
 import { NoteSheet, type NoteSheetHandle } from '../components/notesheet/NoteSheet';
-import { BpmControl, TransportButtons } from '../components/backing/BackingPlayerBar';
+import { BpmControl, RepeatControl, TransportButtons, MixerButton, GenreSelect } from '../components/backing/BackingPlayerBar';
+import { KeyControl } from '../components/leadsheet/LeadSheet';
+import { useGlobalPlayer } from '../lib/player';
 import {
   deleteSolo,
   listSolos,
@@ -24,6 +25,7 @@ import {
 import { useNotification } from '../contexts/NotificationContext';
 import { buildMergedSoloDraft } from '../lib/mergeSolos';
 import { OMRUploadModal } from '../components/common/OMRUploadModal';
+import { BackButton } from '../components/common/BackButton';
 import type { OMRMetadata } from '../api/licks';
 import {
   transposeLick,
@@ -81,7 +83,8 @@ const ToolBar = styled.div`
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 16px;
+  /* 세로 여백을 넉넉히 — 연주자명 아래 개수까지 2줄이 들어간다. */
+  padding: 12px 16px;
   background: ${({ theme }) => theme.colors.bgSecondary};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   font-family: 'Pretendard', sans-serif;
@@ -90,23 +93,91 @@ const ToolBar = styled.div`
 
   ${mq.mobile} {
     gap: 6px;
-    padding: 6px 10px;
+    padding: 10px 10px;
   }
 `;
 
-const FilterSelect = styled.select`
+/* 인트로(연주자 디렉터리) 헤더 — 제목이 맨 위, 그 옆에 생성 버튼들. */
+const IntroHead = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  flex-wrap: wrap;
+`;
+
+const IntroTitle = styled.h1`
+  margin: 0;
   font-family: 'Pretendard', sans-serif;
-  font-size: 0.78rem;
-  padding: 2px 4px;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 4px;
-  background: ${({ theme }) => theme.colors.bgPrimary};
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
   color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
-const FilterLabel = styled.label`
+const IntroActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+`;
+
+/* 연주자명 + 개수 세로 스택 (개수가 연주자 바로 아래 오도록). */
+const PerformerBlock = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+`;
+
+const PerformerCount = styled.span`
+  font-size: 0.74rem;
   color: ${({ theme }) => theme.colors.textSecondary};
-  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+`;
+
+/* 좌측 컬럼 — 독립 검색 박스 + 목록 카드를 세로로 쌓는다.
+ * (폭은 SplitArea 의 grid 트랙이 정한다.) */
+const ListColumn = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+
+  /* 목록 카드가 남는 세로 공간을 채우도록. */
+  > *:last-child { flex: 1; min-height: 0; }
+`;
+
+/* 목록과 분리된 독립 검색 박스 — 목록 바로 위.
+ * 새로고침 버튼이 박스 '안' 오른쪽 끝에 들어간다. */
+const SearchBox = styled.div`
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 10px;
+  padding: 5px 10px;
+
+  input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    padding: 2px 0;
+    &:focus { border: none; outline: none; }
+  }
+`;
+
+/* 검색 박스 + 새로고침을 나란히 — 새로고침은 박스 '밖'의 독립 버튼. */
+const SearchRow = styled.div`
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 `;
 
 const SearchInput = styled.input`
@@ -122,16 +193,11 @@ const SearchInput = styled.input`
   &::placeholder { color: ${({ theme }) => theme.colors.textSecondary}; opacity: 0.6; }
 `;
 
-const CountText = styled.span`
-  color: ${({ theme }) => theme.colors.textSecondary};
-  margin-left: auto;
-  font-size: 0.78rem;
-`;
-
-const RefreshBtn = styled.button`
+const RefreshBtn = styled.button<{ $big?: boolean }>`
   font-family: 'Pretendard', sans-serif;
-  font-size: 0.78rem;
-  padding: 3px 10px;
+  font-size: ${({ $big }) => ($big ? '0.9rem' : '0.78rem')};
+  font-weight: ${({ $big }) => ($big ? 600 : 400)};
+  padding: ${({ $big }) => ($big ? '8px 15px' : '3px 10px')};
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 4px;
   background: ${({ theme }) => theme.colors.bgPrimary};
@@ -155,11 +221,12 @@ const OMRBtn = styled.button`
   &:hover { opacity: 0.9; }
 `;
 
-const MergeDoBtn = styled.button`
+const MergeDoBtn = styled.button<{ $big?: boolean }>`
   font-family: 'Pretendard', sans-serif;
-  font-size: 0.78rem;
+  font-size: ${({ $big }) => ($big ? '0.9rem' : '0.78rem')};
   font-weight: 700;
-  padding: 3px 12px;
+  padding: ${({ $big }) => ($big ? '8px 15px' : '3px 12px')};
+  border-radius: ${({ $big }) => ($big ? '6px' : '4px')};
   border: none;
   border-radius: 4px;
   background: #1f9a52;
@@ -169,19 +236,43 @@ const MergeDoBtn = styled.button`
   &:disabled { opacity: 0.45; cursor: not-allowed; }
 `;
 
-/* 구간 선택 토글 — 켜져 있는 동안 마디 클릭이 선택으로 동작. */
-const SelModeBtn = styled.button<{ $on?: boolean }>`
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.78rem;
-  font-weight: 600;
-  padding: 4px 12px;
-  border: 1.5px solid ${({ $on }) => ($on ? '#1f9a52' : 'rgba(0,0,0,0.18)')};
-  border-radius: 5px;
-  background: ${({ $on }) => ($on ? 'rgba(31,154,82,0.12)' : 'transparent')};
-  color: ${({ $on }) => ($on ? '#17773e' : '#444')};
+/* 내 코드 차트(ChordPage)의 ToolBtn 과 동일 — 테두리 없는 38x38 아이콘 버튼. */
+const ToolBtn = styled.button<{ $lit?: boolean }>`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: ${({ $lit }) => ($lit ? '#e8a838' : '#5b5b5b')};
   cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  ${({ $lit }) => $lit && 'filter: drop-shadow(0 0 4px rgba(232, 168, 56, 0.55));'}
+
+  &:hover:not(:disabled) { background: rgba(0, 0, 0, 0.06); }
+  &:disabled { opacity: 0.4; cursor: default; }
+`;
+
+/* Lick 구간 선택 버튼 — 장르/조성 드롭다운(GenreBtn·KeyButton)과 같은 크기·폰트. */
+const LickModeBtn = styled.button<{ $on?: boolean }>`
+  height: 32px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 1.04rem;
+  font-weight: 600;
+  color: ${({ $on }) => ($on ? '#17773e' : '#1a1a1a')};
+  background: ${({ $on }) => ($on ? 'rgba(31,154,82,0.10)' : '#fff')};
+  border: 1.5px solid ${({ $on }) => ($on ? '#1f9a52' : '#ccc')};
+  border-radius: 6px;
+  padding: 0 12px;
   white-space: nowrap;
-  &:hover { border-color: #1f9a52; }
+  cursor: pointer;
+  &:hover { border-color: ${({ $on }) => ($on ? '#1f9a52' : '#888')}; }
 `;
 
 /* 구간 선택 모드 안내줄 — 프리뷰 헤더 바로 아래. */
@@ -193,6 +284,145 @@ const SelHintBar = styled.div`
   border-bottom: 1px solid rgba(31, 154, 82, 0.25);
   padding: 5px 12px;
   flex-shrink: 0;
+`;
+
+/* 조성 패널 — 악보 헤더 바 바로 아래로 펼쳐진다 (Transpose / 조성만 변경). */
+/* 버튼에 앵커된 팝오버 — 전체 폭 바가 아니라 해당 버튼 아래로 겹쳐 뜬다. */
+const KeyPanelBar = styled.div`
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 45;
+  min-width: 360px;
+  font-family: 'Pretendard', sans-serif;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.06);
+  padding: 18px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+`;
+
+const KeyPanelTitle = styled.div`
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: ${({ theme }) => theme.colors.textPrimary};
+`;
+
+/* 음표 함께 이동 ｜ 키만 변경 — 예전 'Only key change' 버튼을 흡수한 세그먼트. */
+const ModeSwitch = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 9px;
+  background: ${({ theme }) => theme.colors.bgSecondary};
+`;
+
+const ModeTab = styled.button<{ $on?: boolean }>`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 8px 6px;
+  border: 1.5px solid ${({ $on }) => ($on ? '#1f9a52' : 'transparent')};
+  border-radius: 7px;
+  background: ${({ $on, theme }) => ($on ? theme.colors.bgPrimary : 'transparent')};
+  color: ${({ $on, theme }) => ($on ? '#17773e' : theme.colors.textSecondary)};
+  cursor: pointer;
+`;
+
+const ModeHint = styled.div`
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: ${({ theme }) => theme.colors.textSecondary};
+`;
+
+/* Lick 구간 선택 드롭다운 — 버튼 아래로 겹쳐 뜨는 모달성 패널. */
+const LickPanel = styled.div`
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 46;
+  min-width: 300px;
+  font-family: 'Pretendard', sans-serif;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.06);
+  padding: 16px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+`;
+
+const LickPanelHint = styled.div`
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: ${({ theme }) => theme.colors.textSecondary};
+`;
+
+const LickPanelCount = styled.div`
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: ${({ theme }) => theme.colors.textPrimary};
+`;
+
+/* 버튼 + 팝오버 앵커 래퍼. */
+const KeyAnchor = styled.div`
+  position: relative;
+  display: inline-flex;
+`;
+
+const KeyPanelRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+`;
+
+const KeyFromChip = styled.span`
+  font-size: 0.92rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  color: ${({ theme }) => theme.colors.textPrimary};
+`;
+
+const KeyInput = styled.input`
+  flex: 1;
+  min-width: 100px;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.92rem;
+  font-weight: 600;
+  padding: 7px 11px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 6px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  color: ${({ theme }) => theme.colors.textPrimary};
+  outline: none;
+  &:focus { border-color: ${({ theme }) => theme.colors.gold}; }
+`;
+
+const KeyPresetBtn = styled.button`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-align: left;
+  padding: 9px 14px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 8px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  color: ${({ theme }) => theme.colors.textPrimary};
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+
+  small { color: ${({ theme }) => theme.colors.textSecondary}; font-weight: 500; margin-left: 4px; }
+  &:hover:not(:disabled) { border-color: ${({ theme }) => theme.colors.gold}; background: ${({ theme }) => theme.colors.bgSecondary}; }
+  &:disabled { opacity: 0.5; cursor: default; }
 `;
 
 /* Ordered pick indicator shown on each row while merging. */
@@ -213,7 +443,8 @@ const MergeCheck = styled.span<{ $picked?: boolean }>`
 
 const SplitArea = styled.div<{ $single?: boolean }>`
   display: grid;
-  grid-template-columns: ${({ $single }) => ($single ? '1fr' : '380px minmax(0, 1fr)')};
+  /* 좌측(검색+목록) 폭을 380 → 320 으로 줄였다. */
+  grid-template-columns: ${({ $single }) => ($single ? '1fr' : '360px minmax(0, 1fr)')};
   gap: 12px;
   padding: 12px 16px;
   flex: 1;
@@ -241,84 +472,106 @@ const ListBody = styled.div`
 `;
 
 const Row = styled.div<{ $active?: boolean; $merge?: boolean }>`
+  position: relative;
   display: grid;
-  grid-template-columns: ${({ $merge }) => ($merge ? 'auto minmax(0, 1fr)' : 'minmax(0, 1fr) auto')};
+  grid-template-columns: ${({ $merge }) => ($merge ? 'auto minmax(0, 1fr)' : 'minmax(0, 1fr)')};
   gap: 8px;
   align-items: center;
   padding: 9px 12px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  background: ${({ $active, theme }) => ($active ? theme.colors.bgPrimary : 'transparent')};
+  /* 현재 열려 있는 악보는 굵은 링 + 살짝 진한 배경으로 확실히 구분한다. */
+  background: ${({ $active }) => ($active ? 'rgba(31,154,82,0.09)' : 'transparent')};
+  box-shadow: ${({ $active }) => ($active ? 'inset 0 0 0 2.5px rgba(31,154,82,0.6)' : 'none')};
   cursor: pointer;
   font-family: 'Pretendard', sans-serif;
   &:hover {
-    background: ${({ theme }) => theme.colors.bgPrimary};
+    background: ${({ $active, theme }) => ($active ? 'rgba(31,154,82,0.13)' : theme.colors.bgPrimary)};
   }
   &:last-child { border-bottom: 0; }
 `;
 
 const RowMain = styled.div`
   min-width: 0;
+  /* 우측 상단 아이콘과 겹치지 않게 제목 줄만 여백 확보. */
+  > *:first-child { padding-right: 100px; }
+`;
+
+/* 행 우측 상단 아이콘 묶음 — 테두리·배경 없이 아이콘만. */
+const RowIcons = styled.div`
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  z-index: 1;
+`;
+
+const RowIconBtn = styled.button`
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  cursor: pointer;
+  border-radius: 5px;
+  transition: color 0.12s, background 0.12s, opacity 0.12s;
+
+  &:hover:not(:disabled) {
+    color: ${({ theme }) => theme.colors.textPrimary};
+    background: rgba(0, 0, 0, 0.06);
+  }
+  &:disabled { opacity: 0.4; cursor: default; }
+  svg { display: block; }
 `;
 
 const RowTitle = styled.div`
-  font-weight: 600;
-  font-size: 0.9rem;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+  color: ${({ theme }) => theme.colors.textPrimary};
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 `;
 
-const RowSub = styled.div`
-  font-size: 0.74rem;
-  color: ${({ theme }) => theme.colors.textSecondary};
-  margin-top: 2px;
+/* 연주자 — 제목 바로 아래 (아이패드 iReal 목록 스타일). */
+const RowPerformer = styled.div`
+  font-size: 0.88rem;
+  color: ${({ theme }) => theme.colors.textPrimary};
+  margin-top: 1px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 `;
 
-/** Monospace publicId chip under the sub-line. Click to copy the full key. */
-const SoloIdChip = styled.button<{ $copied?: boolean }>`
-  margin-top: 3px;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  max-width: 100%;
-  border: none;
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
-  font-family: ${({ theme }) => theme.fonts.chord};
-  font-size: 0.68rem;
-  line-height: 1.2;
-  color: ${({ $copied, theme }) => ($copied ? '#1f9a52' : theme.colors.textSecondary)};
-  opacity: 0.85;
-  &:hover { color: ${({ theme }) => theme.colors.gold}; opacity: 1; }
-  & > span.id {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-`;
-
-const RowActions = styled.div`
+/* 스타일(좌) · bpm + 조성(우) — 흐린 한 줄. */
+const RowMetaLine = styled.div`
   display: flex;
-  gap: 6px;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 3px;
+  font-size: 0.78rem;
+  color: ${({ theme }) => theme.colors.textSecondary};
+
+  .style { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .right {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 14px;
+    flex: 0 0 auto;
+    font-variant-numeric: tabular-nums;
+  }
+  .bpm { display: inline-flex; align-items: baseline; gap: 3px; }
+  b { font-weight: 600; color: ${({ theme }) => theme.colors.textSecondary}; }
+  em { font-style: normal; min-width: 1.6em; text-align: right; }
 `;
 
-const RowBtn = styled.button<{ $color?: string }>`
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.72rem;
-  padding: 4px 8px;
-  border: 1px solid ${({ $color }) => $color ?? '#bbb'};
-  background: transparent;
-  color: ${({ $color }) => $color ?? '#444'};
-  border-radius: 4px;
-  cursor: pointer;
-  white-space: nowrap;
-  &:hover { background: rgba(0, 0, 0, 0.04); }
-  &:disabled { opacity: 0.5; cursor: not-allowed; }
-`;
 
 /* Performer directory (shown before a performer is picked). */
 const PerformerRow = styled.button`
@@ -359,19 +612,181 @@ const CountBadge = styled.span`
   padding: 2px 9px;
 `;
 
-const BackBtn = styled.button`
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.8rem;
-  font-weight: 600;
-  padding: 3px 10px;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 4px;
-  background: ${({ theme }) => theme.colors.bgPrimary};
-  color: ${({ theme }) => theme.colors.textPrimary};
+/* 전체 연주자로 돌아가기 — 글자 없이 1:1 정사각 라운드 블록(화살표만). */
+
+/* 새로고침 — 배경 없는 작은 아이콘 버튼. */
+const IconRefreshBtn = styled.button<{ $spinning?: boolean }>`
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.textSecondary};
   cursor: pointer;
-  white-space: nowrap;
-  &:hover { border-color: ${({ theme }) => theme.colors.gold}; }
+  transition: color 0.12s, opacity 0.12s;
+
+  &:hover:not(:disabled) { color: ${({ theme }) => theme.colors.textPrimary}; }
+  &:disabled { opacity: 0.5; cursor: default; }
+
+  svg { animation: ${({ $spinning }) => ($spinning ? 'soloRefreshSpin 0.9s linear infinite' : 'none')}; }
+  @keyframes soloRefreshSpin { to { transform: rotate(360deg); } }
 `;
+
+/* ── 공용 액션 아이콘 (악보 바 버튼 · 목록 행에서 같은 모양을 쓴다) ────── */
+/* ── 내 코드 차트와 동일 규격(26px · stroke 2)의 바 아이콘 ─────────────── */
+const IcoInfo = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" />
+  </svg>
+);
+const IcoPencil = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+  </svg>
+);
+const IcoDownload = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+  </svg>
+);
+const IcoTranspose = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="17 3 21 7 17 11" /><path d="M21 7H8a4 4 0 0 0-4 4" />
+    <polyline points="7 21 3 17 7 13" /><path d="M3 17h13a4 4 0 0 0 4-4" />
+  </svg>
+);
+const IcoTrash = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+    <path d="M10 11v6" /><path d="M14 11v6" />
+  </svg>
+);
+
+/* 목록 행의 미니 아이콘(연필·다운로드·휴지통). */
+const PencilGlyph = ({ s = 13 }: { s?: number }) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" />
+  </svg>
+);
+const DownloadGlyph = ({ s = 13 }: { s?: number }) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="7 10 12 15 17 10" />
+    <line x1="12" y1="15" x2="12" y2="3" />
+  </svg>
+);
+const TrashGlyph = ({ s = 13 }: { s?: number }) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+  </svg>
+);
+
+/* 조성 변경 팝오버 — Transpose 아이콘 아래로 겹쳐 뜨는 모달성 드롭다운.
+ * 예전의 'Only key change' 버튼을 여기 모드 선택으로 합쳤다:
+ *   음표 함께 이동 = 실제 이조 / 키만 변경 = 표기만 교체(파싱 교정용).
+ * 이조악기 프리셋(E♭→C, B♭→C)은 '음표 함께 이동' 에서만 활성. */
+function KeyChangePopover({
+  currentKey, value, onChange, onApplyTranspose, onApplyKeyOnly, onPreset, onClose, busy,
+}: {
+  currentKey: string;
+  value: string;
+  onChange: (v: string) => void;
+  onApplyTranspose: () => void;
+  onApplyKeyOnly: () => void;
+  onPreset: (semitones: number) => void;
+  onClose: () => void;
+  busy: boolean;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [mode, setMode] = useState<'notes' | 'keyOnly'>('notes');
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      // 버튼 자체 클릭은 토글이 처리 — 팝오버 밖이면 닫는다.
+      if (ref.current && !ref.current.parentElement?.contains(e.target as Node)) onClose();
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [onClose]);
+
+  const apply = () => { if (mode === 'notes') onApplyTranspose(); else onApplyKeyOnly(); };
+
+  return (
+    <KeyPanelBar ref={ref} role="dialog">
+      <KeyPanelTitle>Transpose</KeyPanelTitle>
+      <ModeSwitch role="tablist">
+        <ModeTab type="button" $on={mode === 'notes'} onClick={() => setMode('notes')}>
+          음표 함께 이동
+        </ModeTab>
+        <ModeTab type="button" $on={mode === 'keyOnly'} onClick={() => setMode('keyOnly')}>
+          키만 변경
+        </ModeTab>
+      </ModeSwitch>
+      <ModeHint>
+        {mode === 'notes'
+          ? '조표와 음표를 함께 옮긴다 — 실제 이조.'
+          : '음표는 그대로 두고 조성 표기만 교체한다 (파싱 교정용).'}
+      </ModeHint>
+      <KeyPanelRow>
+        <KeyFromChip>{currentKey}</KeyFromChip>
+        <span aria-hidden>→</span>
+        <KeyInput
+          autoFocus
+          placeholder="예: Bb, F#m"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && value.trim()) apply(); }}
+        />
+        <MergeDoBtn type="button" $big disabled={!value.trim() || busy} onClick={apply}>적용</MergeDoBtn>
+      </KeyPanelRow>
+
+      <KeyPresetBtn type="button" disabled={busy || mode !== 'notes'} onClick={() => onPreset(3)}>
+        E♭ → C 로 이조하기 <small>(알토 색소폰 · +3)</small>
+      </KeyPresetBtn>
+      <KeyPresetBtn type="button" disabled={busy || mode !== 'notes'} onClick={() => onPreset(-2)}>
+        B♭ → C 로 이조하기 <small>(테너 색소폰 · 트럼펫 · −2)</small>
+      </KeyPresetBtn>
+    </KeyPanelBar>
+  );
+}
+
+/** 백엔드 style/genre 는 대문자 enum(BEBOP) — 표시용 Title Case 로. */
+function formatStyleLabel(v: string | undefined | null): string {
+  if (!v) return '';
+  return v.trim().toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase());
+}
+
+/** ISO 문자열 → '2026년 5월 16일' (백엔드가 createdAt 을 주므로 프론트만으로 표시). */
+function formatAddedDate(iso: string | undefined | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+const PC_BY_LETTER: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+const PC_NAMES_FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+function shiftKeyBySemitones(weimarKey: string, semitones: number): string | null {
+  const disp = formatKeyDisplay(weimarKey).trim();     // 'F' | 'Gm'
+  const m = /^([A-G])([#b]?)(m?)$/i.exec(disp);
+  if (!m) return null;
+  const base = PC_BY_LETTER[m[1].toUpperCase()];
+  if (base == null) return null;
+  const pc = (base + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0) + 12) % 12;
+  const next = (((pc + semitones) % 12) + 12) % 12;
+  return normalizeKeyInput(PC_NAMES_FLAT[next] + (m[3] ? 'm' : ''));
+}
 
 const CurrentPerformer = styled.span`
   font-weight: 700;
@@ -389,29 +804,120 @@ const PreviewCard = styled.div`
   overflow: hidden;
 `;
 
+/* 좌(릭 구간 선택) / 중앙(믹서·BPM·트랜스포트) / 우(Edit~Delete) 3분할.
+ * 1fr auto 1fr 이라야 가운데 묶음이 바 정중앙에 온다. */
 const PreviewHeader = styled.div`
-  padding: 10px 14px;
+  position: relative;   /* 메타 드롭다운의 기준 */
+  padding: 6px 14px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 8px;
+  /* 믹서~재생 묶음은 아래 악보 제목과 같은 '바 정중앙'에 절대배치로 고정한다.
+   * 좌·우 그룹은 각각 절반 폭을 넘지 못하게 잘라, 폭이 좁으면 중앙 묶음 위로
+   * 겹치는 대신 그룹 안에서 두 줄로 접힌다. */
+  min-height: 36px;
+`;
+
+const BarLeft = styled.div`
+  display: flex;
+  align-items: center;
   flex-wrap: wrap;
-`;
-
-const PreviewTitle = styled.div`
-  font-family: 'Pretendard', sans-serif;
-  font-weight: 700;
-  font-size: 0.95rem;
+  gap: 7px;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: calc(50% - 130px);
 `;
 
-const PreviewMeta = styled.div`
+const BarCenter = styled.div`
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+`;
+
+const BarRight = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 7px;
+  min-width: 0;
+  max-width: calc(50% - 130px);
+  margin-left: auto;
+`;
+
+/* ⓘ 클릭 시 열리는 메타데이터 — 레이아웃을 밀지 않고 위로 겹쳐 뜨는 드롭다운. */
+const MetaPanel = styled.div`
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 14px;
+  z-index: 40;
+  min-width: 300px;
   font-family: 'Pretendard', sans-serif;
-  font-size: 0.78rem;
-  color: ${({ theme }) => theme.colors.textSecondary};
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.06);
+  padding: 11px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+`;
+
+const MetaRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.8rem;
+
+  > span:first-child {
+    flex: 0 0 64px;
+    color: ${({ theme }) => theme.colors.textSecondary};
+  }
+  > b {
+    font-weight: 600;
+    color: ${({ theme }) => theme.colors.textPrimary};
+  }
+`;
+
+const MetaIdValue = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+
+  code {
+    font-family: 'JetBrains Mono', 'Menlo', monospace;
+    font-size: 0.72rem;
+    color: ${({ theme }) => theme.colors.textSecondary};
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+`;
+
+const MetaCopyBtn = styled.button<{ $copied?: boolean }>`
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  padding: 0;
+  border: 1px solid ${({ theme, $copied }) => ($copied ? '#2a7a4a' : theme.colors.border)};
+  border-radius: 5px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  color: ${({ $copied, theme }) => ($copied ? '#2a7a4a' : theme.colors.textSecondary)};
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+
+  &:hover { border-color: ${({ theme }) => theme.colors.gold}; }
 `;
 
 const PreviewBody = styled.div`
@@ -471,7 +977,7 @@ const OmrPanel = styled.div`
   ${mq.mobile} { right: 10px; bottom: 10px; }
 `;
 
-const OmrCard = styled.div<{ $status: 'PROCESSING' | 'COMPLETED' | 'FAILED' }>`
+const OmrCard = styled.div<{ $status: SoloOmrJobStatus }>`
   border: 1px solid
     ${({ $status }) =>
       $status === 'FAILED' ? '#e0a0a0' : $status === 'COMPLETED' ? '#a3d9b8' : '#e6d3a0'};
@@ -488,7 +994,7 @@ const OmrTop = styled.div`
   gap: 8px;
 `;
 
-const OmrIcon = styled.span<{ $status: 'PROCESSING' | 'COMPLETED' | 'FAILED' }>`
+const OmrIcon = styled.span<{ $status: SoloOmrJobStatus }>`
   flex: none;
   width: 16px;
   height: 16px;
@@ -530,7 +1036,7 @@ const OmrDismiss = styled.button`
   &:hover { color: ${({ theme }) => theme.colors.textPrimary}; }
 `;
 
-const OmrStatusText = styled.div<{ $status: 'PROCESSING' | 'COMPLETED' | 'FAILED' }>`
+const OmrStatusText = styled.div<{ $status: SoloOmrJobStatus }>`
   margin-top: 6px;
   font-size: 0.78rem;
   color: ${({ $status, theme }) =>
@@ -573,21 +1079,166 @@ const OmrOpenBtn = styled.button`
   &:hover { background: #18803f; }
 `;
 
+/* ── 통합 OMR 큐 카드 (대량 직렬 파이프라인 집계) ─────────────────────── */
+const QueueCard = styled.div`
+  border: 1px solid #e6d3a0;
+  border-radius: 12px;
+  background: #fffdf7;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.14);
+  overflow: hidden;
+  font-family: ${({ theme }) => theme.fonts.ui};
+`;
+const QueueHead = styled.button`
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px 10px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+`;
+const QueueHeadIcon = styled.span<{ $running: boolean }>`
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  ${({ $running }) => ($running
+    ? css`
+        border: 2.5px solid rgba(184, 134, 11, 0.25);
+        border-top-color: #b8860b;
+        animation: ${spin} 0.9s linear infinite;
+      `
+    : css`
+        background: #1f9a52;
+        color: #fff;
+      `)}
+`;
+const QueueHeadMain = styled.span` flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; `;
+const QueueHeadTitle = styled.span`
+  display: flex; align-items: baseline; gap: 8px;
+  font-size: 0.92rem; font-weight: 800; color: #1a1a1a;
+`;
+const QueueHeadPct = styled.span` font-size: 0.78rem; font-weight: 700; color: #b8860b; `;
+const QueueHeadFail = styled.span`
+  font-size: 0.72rem; font-weight: 700; color: #c0392b;
+  background: rgba(196, 92, 92, 0.12); padding: 1px 7px; border-radius: 999px;
+`;
+const QueueHeadSub = styled.span`
+  font-size: 0.76rem; color: #8a7a52;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+`;
+const QueueChevron = styled.span<{ $open: boolean }>`
+  flex: none; color: #b09a5e; font-size: 15px; line-height: 1;
+  transform: rotate(${({ $open }) => ($open ? 180 : 0)}deg);
+  transition: transform 0.15s;
+`;
+/* 진행 바 — 완료(골드) + 오류(빨강) 구간을 이어 그린다. */
+const QueueBarTrack = styled.div`
+  position: relative; height: 6px; margin: 0 12px 12px;
+  background: rgba(0, 0, 0, 0.07); border-radius: 3px; overflow: hidden;
+`;
+const QueueBarDone = styled.div<{ $pct: number }>`
+  position: absolute; inset: 0 auto 0 0;
+  width: ${({ $pct }) => $pct}%;
+  background: linear-gradient(90deg, #d4a843, #b8860b);
+  transition: width 0.4s ease;
+`;
+const QueueBarFailSeg = styled.div<{ $left: number; $pct: number }>`
+  position: absolute; top: 0; bottom: 0;
+  left: ${({ $left }) => $left}%;
+  width: ${({ $pct }) => $pct}%;
+  background: #c45c5c;
+  transition: left 0.4s ease, width 0.4s ease;
+`;
+const QueueDetail = styled.div`
+  max-height: 320px;
+  overflow-y: auto;
+  border-top: 1px solid #f0e6cc;
+  padding: 6px;
+  scrollbar-width: thin;
+`;
+const QueueDetailRow = styled.div<{ $status: SoloOmrJobStatus }>`
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 8px;
+  border-radius: 9px;
+  cursor: ${({ onClick }) => (onClick ? 'pointer' : 'default')};
+  background: ${({ $status }) =>
+    $status === 'PROCESSING' ? 'rgba(184, 134, 11, 0.10)'
+    : $status === 'FAILED' ? 'rgba(196, 92, 92, 0.07)'
+    : 'transparent'};
+  ${({ onClick }) => (onClick ? css`&:hover { background: rgba(31, 154, 82, 0.08); }` : '')}
+`;
+const QueueRowIcon = styled.span<{ $status: SoloOmrJobStatus }>`
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10.5px;
+  font-weight: 800;
+  ${({ $status }) => $status === 'PROCESSING'
+    ? css`
+        border: 2.5px solid rgba(184, 134, 11, 0.25);
+        border-top-color: #b8860b;
+        animation: ${spin} 0.9s linear infinite;
+      `
+    : $status === 'COMPLETED'
+      ? css`background: #1f9a52; color: #fff;`
+      : $status === 'FAILED'
+        ? css`background: #c45c5c; color: #fff;`
+        : css`background: rgba(0, 0, 0, 0.06); color: #999;`}
+`;
+const QueueRowMain = styled.span` flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; `;
+const QueueRowName = styled.span`
+  font-size: 0.82rem; font-weight: 600; color: #2a2a2a;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+`;
+const QueueRowInfo = styled.span<{ $fail?: boolean }>`
+  font-size: 0.72rem;
+  color: ${({ $fail }) => ($fail ? '#c0392b' : '#8a7a52')};
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+`;
+const QueueRowRemove = styled.button`
+  flex: none; width: 20px; height: 20px; border: none; border-radius: 50%;
+  background: transparent; color: #b0b0b0; font-size: 14px; line-height: 1; cursor: pointer;
+  &:hover { background: rgba(196, 92, 92, 0.12); color: #c45c5c; }
+`;
+
 /** One OMR job tracked by the status panel. `progress` 0 ⇒ indeterminate bar. */
+/** QUEUED = 대량 큐에서 자기 차례를 기다리는 중(직렬 — 앞 파일이 끝나야 시작). */
+type SoloOmrJobStatus = 'QUEUED' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+
 interface SoloOmrJob {
   id: string;
   label: string;
-  status: 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  /** 대량 큐 소속 — true 면 개별 카드 대신 통합 큐 카드 한 장으로 집계 표시. */
+  fromQueue?: boolean;
+  status: SoloOmrJobStatus;
   progress: number;
   failureReason?: string | null;
   publicId?: string;
   solo?: SoloResponse;
+  /** 다중 페이지 PDF: 완료/전체 페이지 수 (백엔드 omr-status, 문서 #23). */
+  totalPages?: number | null;
+  completedPages?: number | null;
 }
 
 /* ─── component ─────────────────────────────────────────────────────── */
 
 export default function SolosPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { notify } = useNotification();
   /* selectedPerformer: '' = none chosen → show the performer directory.
    * Clicking a performer fetches that performer's solos. */
@@ -595,7 +1246,9 @@ export default function SolosPage() {
   const [performersLoading, setPerformersLoading] = useState(true);
   const [performerQuery, setPerformerQuery] = useState('');
   const [selectedPerformer, setSelectedPerformer] = useState('');
-  const [filterInstrument, setFilterInstrument] = useState('');
+  /* Instrument 드롭다운은 UI 에서 제거됨. 필터 로직은 휴면 상태로 남겨둔다
+   * (항상 '' → no-op). 다시 노출할 때 셋터만 되살리면 된다. */
+  const [filterInstrument] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
   const refreshPerformers = useCallback(() => {
@@ -656,6 +1309,13 @@ export default function SolosPage() {
   const handleSoloTempo = useCallback((n: number) => { noteSheetRef.current?.setTempo(n); }, []);
   const [busy, setBusy] = useState<string | null>(null);
   const [pdfBusy, setPdfBusy] = useState<string | null>(null);
+  /* 조성 패널 — 악보 바의 'Transpose' / '조성만 변경' 을 누르면 헤더 아래로 열린다.
+   *   'transpose' : 음표까지 함께 이조 (기존 동작) + 이조악기 프리셋 제공
+   *   'keyOnly'   : 음표·VexFlow 출력은 그대로 두고 조성 표기만 교체 (파싱 교정용) */
+  const [keyPanel, setKeyPanel] = useState<null | 'transpose' | 'keyOnly'>(null);
+  const [keyInput, setKeyInput] = useState('');
+  /* 제목 클릭 시 펼쳐지는 메타데이터 패널 (연주자·악기·장르·BPM·조성·고유 키). */
+  const [metaOpen, setMetaOpen] = useState(false);
   const [omrOpen, setOmrOpen] = useState(false);
   /* Live OMR status panel: one card per in-flight / just-finished job. */
   const [omrJobs, setOmrJobs] = useState<SoloOmrJob[]>([]);
@@ -671,6 +1331,18 @@ export default function SolosPage() {
   const [lickSelectMode, setLickSelectMode] = useState(false);
   const [lickRanges, setLickRanges] = useState<Array<[number, number]>>([]);
   const [lickSaving, setLickSaving] = useState(false);
+  /* Lick 구간 선택 드롭다운(모달성). 선택 모드 자체는 lickSelectMode. */
+  const [lickPanelOpen, setLickPanelOpen] = useState(false);
+  const lickPanelRef = useRef<HTMLDivElement>(null);
+  /* 장르 드롭다운 — 기본값은 솔로의 style(없으면 Unknown), 사용자가 바꾸면 override. */
+  const [genreOverride, setGenreOverride] = useState<string | null>(null);
+  /* 반복 횟수 — 내 코드 차트(ChordPage)와 완전히 동일한 배선:
+   * RepeatControl UI + globalPlayer.setConfig({ repeatCount }). 솔로는 1회 기본. */
+  const { player: globalPlayer } = useGlobalPlayer();
+  const [repeatCount, setRepeatCount] = useState(1);
+  useEffect(() => {
+    globalPlayer.setConfig({ repeatCount });
+  }, [globalPlayer, repeatCount]);
 
   /* token so concurrent fetches (e.g. fast performer-switching) can be
    * discarded when stale. */
@@ -726,11 +1398,6 @@ export default function SolosPage() {
   }, [loadPage]);
 
   /* Client-side filters applied on top of the loaded (per-performer) pages. */
-  const instruments = useMemo(
-    () => [...new Set(solos.map((s) => s.instrument).filter(Boolean))].sort(),
-    [solos],
-  );
-
   const visibleList = useMemo(() => {
     let list = solos;
     if (filterInstrument) list = list.filter((s) => s.instrument === filterInstrument);
@@ -750,11 +1417,45 @@ export default function SolosPage() {
     [solos, selectedId],
   );
 
+  /* `/solos?solo=<publicId>` 로 특정 솔로를 바로 연다. 에디터에서 저장한 뒤
+   * 방금 저장한 악보로 곧장 이동해 수정사항을 바로 확인하기 위한 진입점.
+   * 목록에 아직 그 항목이 없으면(다른 페이지) 단건 조회로 채워 넣는다. */
+  const deepLinkId = searchParams.get('solo');
+  const deepLinkDoneRef = useRef<string | null>(null);
   useEffect(() => {
+    if (!deepLinkId || deepLinkDoneRef.current === deepLinkId) return;
+    deepLinkDoneRef.current = deepLinkId;
+    /* 이 화면은 '연주자 선택 → 솔로 목록' 2단계다. 딥링크로 곧장 악보를 열려면
+     * 그 솔로의 연주자까지 함께 지정해야 연주자 디렉터리에 갇히지 않는다. */
+    void (async () => {
+      try {
+        const full = await getSolo(deepLinkId);
+        if (!full) return;
+        if (full.performer) {
+          // 그 연주자의 목록을 정상 경로로 적재(무한스크롤·필터 상태 일관성 유지).
+          setSelectedPerformer(full.performer);
+          setSolos([]);
+          setPage(0);
+          setIsLast(true);
+          setTotalElements(0);
+          await loadPage(full.performer, 0);
+        }
+        // 첫 페이지에 없더라도(뒤 페이지 항목) 미리보기가 가능하도록 주입.
+        setSolos((prev) => (prev.some((s) => s.publicId === full.publicId)
+          ? prev.map((s) => (s.publicId === full.publicId ? full : s))
+          : [full, ...prev]));
+        setSelectedId(full.publicId);
+      } catch { /* 실패하면 평소 흐름(연주자 디렉터리)으로 둔다 */ }
+    })();
+  }, [deepLinkId, loadPage]);
+
+  useEffect(() => {
+    // 딥링크로 지정된 솔로가 아직 로드 중이면 첫 항목으로 덮어쓰지 않는다.
+    if (deepLinkId && deepLinkDoneRef.current === deepLinkId && !selected) return;
     if (!selected && visibleList.length > 0) {
       setSelectedId(visibleList[0].publicId);
     }
-  }, [visibleList, selected]);
+  }, [visibleList, selected, deepLinkId]);
 
   /* Infinite scroll — fetch next page when sentinel enters viewport. */
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -798,10 +1499,31 @@ export default function SolosPage() {
     setPreviewKey(originalDisplayKey);
   }, [selected?.publicId, originalDisplayKey]);
 
+  /* 바의 장르 라벨 — style 이 비면 악기코드로 떨어지지 않고 Unknown. */
+  const genreLabel = genreOverride ?? (formatStyleLabel(selected?.style) || 'Unknown');
+
+  /* Lick 패널 바깥 클릭 / ESC → 닫기 (선택 모드는 유지). */
+  useEffect(() => {
+    if (!lickPanelOpen) return;
+    const onDown = (e: MouseEvent) => {
+      const anchor = lickPanelRef.current?.parentElement;
+      if (anchor && !anchor.contains(e.target as Node)) setLickPanelOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setLickPanelOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [lickPanelOpen]);
+
   /* 다른 솔로로 이동하면 진행 중이던 구간 선택은 무효 — 초기화. */
   useEffect(() => {
     setLickSelectMode(false);
     setLickRanges([]);
+    setLickPanelOpen(false);
+    setGenreOverride(null);
   }, [selected?.publicId]);
 
   const previewSheet = useMemo(() => {
@@ -1016,7 +1738,13 @@ export default function SolosPage() {
 
   /* publicId → pending timeout. 동일 솔로 중복 폴러 방지 + 정리 가능하게 추적. */
   const omrPollersRef = useRef<Map<string, number>>(new Map());
+  /* 대량 OMR 큐(직렬) 대기열 — 선언은 여기(사용처인 dismissOmrJob 위), 러너는 아래. */
+  const queueRef = useRef<{ jobId: string; file: File; meta: OMRMetadata }[]>([]);
+  const queueRunningRef = useRef(false);
+
   const dismissOmrJob = useCallback((id: string) => {
+    // 아직 시작 안 한 큐 항목이면 대기열에서도 뺀다(닫았는데 처리되면 안 되니까).
+    queueRef.current = queueRef.current.filter((q) => q.jobId !== id);
     setOmrJobs((prev) => {
       const job = prev.find((j) => j.id === id);
       if (job?.publicId) {
@@ -1054,7 +1782,12 @@ export default function SolosPage() {
           upsertOmrJob(jobId, { status: 'FAILED', failureReason: st.failureReason ?? '악보 인식에 실패했어요.' });
           return;
         }
-        if (st.progress > 0) upsertOmrJob(jobId, { progress: st.progress });
+        // 진행률 + 다중 페이지 PDF 의 페이지 카운트를 함께 반영.
+        upsertOmrJob(jobId, {
+          ...(st.progress > 0 ? { progress: st.progress } : {}),
+          totalPages: st.totalPages,
+          completedPages: st.completedPages,
+        });
       } catch (e) {
         // 인증 만료(401/403)면 더 폴링해도 영원히 실패 — 즉시 종료.
         const msg = e instanceof Error ? e.message : '';
@@ -1107,6 +1840,126 @@ export default function SolosPage() {
       upsertOmrJob(id, { status: 'FAILED', failureReason: e instanceof Error ? e.message : 'OMR 인식 실패' });
     }
   }, [upsertOmrJob, pollSoloOmrIntoJob, refreshPerformers]);
+
+  /* ── 대량 OMR 큐 — **직렬** 파이프라인 ────────────────────────────────
+   * OMR 서버는 동시 요청에 약하다(동시처리 제한 있음) — 파일을 한 번에 다
+   * 던지지 않고 하나가 **터미널 상태(COMPLETED/FAILED)에 도달한 뒤에야** 다음
+   * 파일을 업로드한다. 실패해도 큐는 멈추지 않고 다음 파일로 넘어간다.
+   *
+   * 규칙(대량 검수 파이프라인):
+   *  - 제목 = 파일명(확장자 제거) — 어떤 악보인지 추적 가능해야 하므로 강제.
+   *  - performer/composer = 'candidate' — 아직 사람 검수 전이라는 표시. 검수 후
+   *    수정 화면에서 진짜 이름으로 바꾼다. */
+  /** omr-status 를 터미널까지 기다린다(잡 카드에 진행률 반영). 문서 #23 규칙대로
+   *  프론트 자체 타임아웃으로 섣불리 실패 처리하지 않는다 — 상한(15분/파일)을
+   *  넘기면 "확인 실패"로 표시만 하고 다음 파일로 넘어간다. */
+  const waitSoloOmrTerminal = useCallback(async (jobId: string, publicId: string): Promise<void> => {
+    const INTERVAL_MS = 5000;
+    const MAX_MS = 15 * 60_000;
+    const startedAt = Date.now();
+    for (;;) {
+      if (!mountedRef.current) return;
+      try {
+        const st = await getSoloOmrStatus(publicId);
+        if (st.status === 'COMPLETED') {
+          upsertOmrJob(jobId, { status: 'COMPLETED', progress: 100, publicId });
+          void refreshPerformers();
+          return;
+        }
+        if (st.status === 'FAILED') {
+          upsertOmrJob(jobId, { status: 'FAILED', failureReason: st.failureReason ?? '악보 인식에 실패했어요.' });
+          return;
+        }
+        upsertOmrJob(jobId, {
+          ...(st.progress > 0 ? { progress: st.progress } : {}),
+          totalPages: st.totalPages,
+          completedPages: st.completedPages,
+        });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : '';
+        if (/\b401\b|\b403\b/.test(msg)) {
+          upsertOmrJob(jobId, { status: 'FAILED', failureReason: '로그인이 만료됐어요. 다시 로그인 후 확인해 주세요.' });
+          return;
+        }
+        /* 일시 오류(500 등) — 계속 폴링 */
+      }
+      if (Date.now() - startedAt > MAX_MS) {
+        upsertOmrJob(jobId, { status: 'FAILED', failureReason: '처리 상태를 확인하지 못했어요. 목록에서 다시 확인해 주세요.' });
+        return;
+      }
+      await new Promise<void>((r) => { window.setTimeout(r, INTERVAL_MS); });
+    }
+  }, [upsertOmrJob, refreshPerformers]);
+
+  const runSoloOmrQueue = useCallback(async () => {
+    if (queueRunningRef.current) return;
+    queueRunningRef.current = true;
+    try {
+      for (;;) {
+        const item = queueRef.current.shift();
+        if (!item) return;
+        if (!mountedRef.current) return;
+        const { jobId, file, meta } = item;
+        upsertOmrJob(jobId, { status: 'PROCESSING', progress: 0 });
+        try {
+          const solo = await createSoloViaOMR(file, meta);
+          if (solo?.sheetData?.measures?.length) {
+            // 드물게 응답에 이미 결과가 실려 오면 그대로 완료.
+            upsertOmrJob(jobId, { status: 'COMPLETED', progress: 100, publicId: solo.publicId, solo });
+            void refreshPerformers();
+          } else if (solo?.publicId) {
+            upsertOmrJob(jobId, { publicId: solo.publicId });
+            await waitSoloOmrTerminal(jobId, solo.publicId); // ★ 직렬의 핵심 — 끝날 때까지 대기
+          } else {
+            upsertOmrJob(jobId, { status: 'FAILED', failureReason: '서버 응답에 악보 데이터가 없어요.' });
+          }
+        } catch (e) {
+          upsertOmrJob(jobId, { status: 'FAILED', failureReason: e instanceof Error ? e.message : 'OMR 인식 실패' });
+        }
+      }
+    } finally {
+      queueRunningRef.current = false;
+    }
+  }, [upsertOmrJob, waitSoloOmrTerminal, refreshPerformers]);
+
+  /** 모달 "시작하기" — 큐 카드 등록 후 직렬 러너 기동(이미 돌고 있으면 뒤에 붙는다). */
+  const enqueueSoloOmrQueue = useCallback((files: File[], baseMeta: OMRMetadata) => {
+    for (const file of files) {
+      const jobId = `omr-${Date.now()}-${omrJobSeq.current++}`;
+      const title = file.name.replace(/\.(pdf|png|jpe?g)$/i, '');
+      queueRef.current.push({
+        jobId,
+        file,
+        meta: {
+          ...baseMeta,
+          title,                    // 제목 = 파일명 (강제)
+          performer: 'candidate',   // 검수 전 표시 (강제)
+          composer: 'candidate',
+          source: 'user',
+        },
+      });
+      upsertOmrJob(jobId, { id: jobId, label: title, status: 'QUEUED', progress: 0, fromQueue: true });
+    }
+    void runSoloOmrQueue();
+  }, [upsertOmrJob, runSoloOmrQueue]);
+
+  /** 통합 큐 카드 전체 닫기 — 대기열 비우고 큐 소속 카드 전부 제거.
+   *  (이미 서버에 올라간 진행 중 건은 서버에서 계속 돌지만 카드만 사라진다) */
+  const dismissQueueAll = useCallback(() => {
+    queueRef.current = [];
+    setOmrJobs((prev) => prev.filter((j) => !j.fromQueue));
+  }, []);
+
+  /* 통합 큐 카드 펼침 + 활성 행 자동 스크롤 */
+  const [queueOpen, setQueueOpen] = useState(false);
+  const queueListRef = useRef<HTMLDivElement>(null);
+  const queueActiveId = omrJobs.find((j) => j.fromQueue && j.status === 'PROCESSING')?.id ?? null;
+  useEffect(() => {
+    if (!queueOpen || !queueActiveId) return;
+    // 펼치거나 진행 항목이 바뀌면 그 행이 보이게 스크롤.
+    const el = queueListRef.current?.querySelector('[data-active="true"]');
+    el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [queueOpen, queueActiveId]);
 
   /* Panel "에디터로 열기" — open the finished solo, then clear its card. */
   const openOmrJob = useCallback((job: SoloOmrJob) => {
@@ -1220,7 +2073,8 @@ export default function SolosPage() {
     }
   }, [selectedId]);
 
-  const handleTranspose = useCallback(async (row: SoloResponse) => {
+  /** 음표까지 함께 이조. `newKeyRaw` 는 'Ab' · 'F#m' · 'Bb-maj' 등 자유 표기. */
+  const applyTranspose = useCallback(async (row: SoloResponse, newKeyRaw: string) => {
     // Row may be metadata-only (no sheetData) — fetch the full solo first.
     let solo = row;
     if (!solo.sheetData?.measures?.length) {
@@ -1231,24 +2085,16 @@ export default function SolosPage() {
     }
     if (!solo.sheetData) { alert('악보 데이터를 불러오지 못했습니다.'); return; }
     const fromWeimar = toWeimarKey(solo.key ?? solo.sheetData.key ?? 'C') ?? 'C-maj';
-    const currentDisplay = formatKeyDisplay(fromWeimar);
-    const input = window.prompt(
-      `"${solo.performer ?? '—'} — ${solo.title}"\n` +
-      `Original key: ${currentDisplay}\n` +
-      `New key (e.g. Ab, F#m, Bb-maj):`,
-      currentDisplay,
-    );
-    if (input === null) return;
-    const newWeimar = normalizeKeyInput(input);
+    const newWeimar = normalizeKeyInput(newKeyRaw);
     if (!newWeimar) {
-      alert(`Invalid key: "${input}"`);
+      alert(`조성을 알아볼 수 없습니다: "${newKeyRaw}"`);
       return;
     }
-    if (newWeimar === fromWeimar) return;
+    if (newWeimar === fromWeimar) { setKeyPanel(null); return; }
 
     const result = transposeLick(solo.sheetData, solo.chords ?? [], fromWeimar, newWeimar);
     if (!result) {
-      alert('Transpose failed (could not parse keys).');
+      alert('이조 실패 (조성을 해석하지 못했습니다).');
       return;
     }
 
@@ -1275,8 +2121,62 @@ export default function SolosPage() {
       };
       const updated = await updateSolo(solo.publicId, draft);
       setSolos((prev) => prev.map((s) => (s.publicId === solo.publicId ? updated : s)));
+      setKeyPanel(null);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Transpose 실패';
+      setError(msg);
+      setTimeout(() => setError(null), 4000);
+    } finally {
+      setBusy(null);
+    }
+  }, []);
+
+  /** 조성 표기만 교체 — 음표·VexFlow 출력은 1도 건드리지 않는다.
+   *
+   *  OMR/파싱이 조성을 잘못 잡았을 때 쓰는 교정 도구다. 이조(transposeLick)는
+   *  모든 음을 옮기지만 이건 `key` 필드만 바꾸므로 악보 모양이 그대로 유지된다. */
+  const applyKeyOnly = useCallback(async (row: SoloResponse, newKeyRaw: string) => {
+    let solo = row;
+    if (!solo.sheetData?.measures?.length) {
+      try {
+        const full = await getSolo(solo.publicId);
+        if (full?.sheetData) solo = full;
+      } catch { /* fall through */ }
+    }
+    if (!solo.sheetData) { alert('악보 데이터를 불러오지 못했습니다.'); return; }
+    const newWeimar = normalizeKeyInput(newKeyRaw);
+    if (!newWeimar) {
+      alert(`조성을 알아볼 수 없습니다: "${newKeyRaw}"`);
+      return;
+    }
+
+    setBusy(solo.publicId);
+    try {
+      const draft: SoloDraft = {
+        source: solo.source,
+        title: solo.title,
+        instrument: solo.instrument,
+        // measures 는 그대로 — key 표기만 교체한다.
+        sheetData: { ...solo.sheetData, key: formatKeyDisplay(newWeimar) },
+        userId: solo.userId ?? null,
+        sourceUrl: solo.sourceUrl ?? undefined,
+        performer: solo.performer ?? undefined,
+        album: solo.album ?? undefined,
+        style: solo.style ?? undefined,
+        tempo: solo.tempo ?? undefined,
+        key: newWeimar,
+        rhythmFeel: solo.rhythmFeel ?? undefined,
+        timeSignature: solo.timeSignature ?? undefined,
+        chords: solo.chords ?? undefined,
+        chordsPerNote: solo.chordsPerNote ?? undefined,
+        harmonicContext: solo.harmonicContext ?? undefined,
+        targetChord: solo.targetChord ?? undefined,
+      };
+      const updated = await updateSolo(solo.publicId, draft);
+      setSolos((prev) => prev.map((s) => (s.publicId === solo.publicId ? updated : s)));
+      setKeyPanel(null);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '조성 변경 실패';
       setError(msg);
       setTimeout(() => setError(null), 4000);
     } finally {
@@ -1288,58 +2188,44 @@ export default function SolosPage() {
     <PageContainer>
       <IconSidebar />
       <RightSection>
-        <TopToolbar />
-
+        {/* 상단 '돌아가기' 바 제거 — 솔로 DB 는 연주자 바가 최상단이다. */}
         <MainArea>
           <CenterColumn>
             <ToolBar>
               {!selectedPerformer ? (
-                <>
-                  <FilterLabel>연주자</FilterLabel>
-                  <SearchInput
-                    style={{ width: 220 }}
-                    placeholder="연주자 검색..."
-                    value={performerQuery}
-                    onChange={(e) => setPerformerQuery(e.target.value)}
-                  />
-                  <CountText>
-                    {performersLoading
-                      ? '연주자 불러오는 중…'
-                      : `${visiblePerformers.length.toLocaleString()} / ${performers.length.toLocaleString()} 연주자`}
-                  </CountText>
-                  <OMRBtn onClick={() => setOmrOpen(true)} title="악보 이미지를 업로드해 OMR로 솔로 생성">
-                    📄 OMR로 생성하기
-                  </OMRBtn>
-                </>
+                /* 인트로(연주자 디렉터리) — '내 코드 차트'와 같은 결:
+                 * 제목이 맨 위, 그 옆에 생성 버튼 2개. 검색은 아래 독립 박스. */
+                <IntroHead>
+                  {/* 시작 화면에서도 뒤로 — 앱 공통 '<' 와 동일 디자인. */}
+                  <BackButton onClick={() => navigate(-1)} label="이전 페이지" />
+                  <IntroTitle>Solo Database</IntroTitle>
+                  <IntroActions>
+                    <OMRBtn onClick={() => setOmrOpen(true)} title="악보 이미지를 업로드해 OMR로 솔로 생성">
+                      📄 OMR로 생성하기
+                    </OMRBtn>
+                    <OMRBtn onClick={() => navigate('/editor?mode=solo')} title="에디터에서 직접 솔로 작성">
+                      ✏ Editor로 생성하기
+                    </OMRBtn>
+                  </IntroActions>
+                </IntroHead>
               ) : (
                 <>
-                  <BackBtn onClick={() => handlePerformerChange('')}>← 전체 연주자</BackBtn>
-                  <CurrentPerformer>{selectedPerformer}</CurrentPerformer>
+                  <BackButton onClick={() => handlePerformerChange('')} label="전체 연주자" />
+                  {/* 연주자명 + 그 바로 아래 개수 (세로 스택) */}
+                  <PerformerBlock>
+                    <CurrentPerformer>{selectedPerformer}</CurrentPerformer>
+                    <PerformerCount>
+                      {mergeMode
+                        ? '합칠 솔로를 순서대로 클릭하세요 (번호 순으로 이어붙임)'
+                        : `${visibleList.length.toLocaleString()} / ${totalElements.toLocaleString()} solos${isLast ? '' : ' (스크롤로 더 불러오기)'}`}
+                    </PerformerCount>
+                  </PerformerBlock>
 
-                  <FilterLabel>Instrument</FilterLabel>
-                  <FilterSelect
-                    value={filterInstrument}
-                    onChange={(e) => setFilterInstrument(e.target.value)}
-                  >
-                    <option value="">All ({instruments.length})</option>
-                    {instruments.map((i) => <option key={i} value={i}>{i}</option>)}
-                  </FilterSelect>
+                  {/* 새로고침은 아래 검색 박스 안으로 옮겼다. */}
 
-                  <SearchInput
-                    style={{ width: 220 }}
-                    placeholder="제목 / 앨범 검색..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-
-                  <RefreshBtn
-                    onClick={() => loadPage(selectedPerformer, 0)}
-                    disabled={loading}
-                  >
-                    {loading ? '불러오는 중…' : '새로고침'}
-                  </RefreshBtn>
-
-                  {mergeMode ? (
+                  {/* 솔로 합치기 UI 는 화면에서만 감춘다 — mergeMode/handleMerge 구현은 유지.
+                   *  (합치기 진행 중이면 완료/취소는 계속 노출해 갇히지 않게 한다.) */}
+                  {mergeMode && (
                     <>
                       <MergeDoBtn
                         onClick={handleMerge}
@@ -1349,15 +2235,7 @@ export default function SolosPage() {
                       </MergeDoBtn>
                       <RefreshBtn onClick={exitMergeMode} disabled={mergeBusy}>취소</RefreshBtn>
                     </>
-                  ) : (
-                    <RefreshBtn onClick={() => setMergeMode(true)}>＋ 솔로 합치기</RefreshBtn>
                   )}
-
-                  <CountText>
-                    {mergeMode
-                      ? '합칠 솔로를 순서대로 클릭하세요 (번호 순으로 이어붙임)'
-                      : `${visibleList.length.toLocaleString()} / ${totalElements.toLocaleString()} solos${isLast ? '' : ' (스크롤로 더 불러오기)'}`}
-                  </CountText>
                 </>
               )}
             </ToolBar>
@@ -1365,6 +2243,45 @@ export default function SolosPage() {
             {error && <ErrorBanner>{error}</ErrorBanner>}
 
             <SplitArea $single={!selectedPerformer}>
+              <ListColumn>
+                {/* 인트로: 연주자 검색 — 곡 검색과 동일한 독립 박스 스타일. */}
+                {!selectedPerformer && (
+                  <SearchRow>
+                    <SearchBox>
+                      <SearchInput
+                        placeholder="연주자 검색..."
+                        value={performerQuery}
+                        onChange={(e) => setPerformerQuery(e.target.value)}
+                      />
+                    </SearchBox>
+                  </SearchRow>
+                )}
+                {/* 제목/앨범 검색 + 새로고침 — 서로 '독립된' 요소로 나란히.
+                    새로고침은 검색 input 테두리 밖에 있다. */}
+                {selectedPerformer && (
+                  <SearchRow>
+                    <SearchBox>
+                      <SearchInput
+                        placeholder="제목 / 앨범 검색..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                    </SearchBox>
+                    <IconRefreshBtn
+                      onClick={() => loadPage(selectedPerformer, 0)}
+                      disabled={loading}
+                      aria-label="새로고침"
+                      title={loading ? '불러오는 중…' : '새로고침'}
+                      $spinning={loading}
+                    >
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <polyline points="23 4 23 10 17 10" />
+                        <polyline points="1 20 1 14 7 14" />
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                      </svg>
+                    </IconRefreshBtn>
+                  </SearchRow>
+                )}
               <ListCard>
                 <ListBody ref={listBodyRef}>
                   {!selectedPerformer ? (
@@ -1400,54 +2317,44 @@ export default function SolosPage() {
                               {mergeIdx >= 0 ? mergeIdx + 1 : ''}
                             </MergeCheck>
                           )}
+                          {/* 행 우측 상단 아이콘 — 테두리·배경 없이 아이콘만. */}
+                          {!mergeMode && (
+                            <RowIcons>
+                              <RowIconBtn
+                                title="에디터에서 열기"
+                                aria-label="편집"
+                                onClick={(e) => { e.stopPropagation(); void editRow(s); }}
+                              >
+                                <PencilGlyph s={17} />
+                              </RowIconBtn>
+                              <RowIconBtn
+                                title="PDF 로 내려받기"
+                                aria-label="PDF 다운로드"
+                                disabled={pdfBusy === s.publicId}
+                                onClick={(e) => { e.stopPropagation(); handlePdfDownload(s); }}
+                              >
+                                <DownloadGlyph s={17} />
+                              </RowIconBtn>
+                              <RowIconBtn
+                                title="삭제"
+                                aria-label="삭제"
+                                onClick={(e) => { e.stopPropagation(); handleDelete(s); }}
+                              >
+                                <TrashGlyph s={17} />
+                              </RowIconBtn>
+                            </RowIcons>
+                          )}
                           <RowMain>
                             <RowTitle title={s.title}>{s.title}</RowTitle>
-                            <RowSub>
-                              {(s.performer ?? '—')} · {s.instrument} · {formatKeyDisplay(toWeimarKey(s.key ?? s.sheetData?.key ?? 'C') ?? 'C-maj')}
-                            </RowSub>
-                            <SoloIdChip
-                              type="button"
-                              $copied={copiedId === s.publicId}
-                              title="고유 키 복사"
-                              onClick={(e) => { e.stopPropagation(); copyId(String(s.publicId)); }}
-                            >
-                              <span className="id">{s.publicId}</span>
-                              <span aria-hidden>{copiedId === s.publicId ? '✓ 복사됨' : '📋'}</span>
-                            </SoloIdChip>
+                            <RowPerformer title={s.performer ?? ''}>{s.performer ?? '—'}</RowPerformer>
+                            <RowMetaLine>
+                              <span className="style">{formatStyleLabel(s.style) || 'Unknown'}</span>
+                              <span className="right">
+                                {s.tempo ? <span className="bpm"><b>{s.tempo}</b>BPM</span> : null}
+                                <em>{formatKeyDisplay(toWeimarKey(s.key ?? s.sheetData?.key ?? 'C') ?? 'C-maj')}</em>
+                              </span>
+                            </RowMetaLine>
                           </RowMain>
-                          {!mergeMode && (
-                          <RowActions>
-                            <RowBtn
-                              $color="#1976d2"
-                              onClick={(e) => { e.stopPropagation(); void editRow(s); }}
-                              title="Open this solo in the Editor"
-                            >
-                              ✏ Edit
-                            </RowBtn>
-                            <RowBtn
-                              $color="#388e3c"
-                              disabled={pdfBusy === s.publicId}
-                              onClick={(e) => { e.stopPropagation(); handlePdfDownload(s); }}
-                              title="Download this solo as PDF"
-                            >
-                              {pdfBusy === s.publicId ? '⏳' : '📄 PDF'}
-                            </RowBtn>
-                            <RowBtn
-                              $color="#7b1fa2"
-                              disabled={busy === s.publicId}
-                              onClick={(e) => { e.stopPropagation(); handleTranspose(s); }}
-                              title="Transpose (change original key & PUT to backend)"
-                            >
-                              {busy === s.publicId ? '⏳' : '⇋ Transpose'}
-                            </RowBtn>
-                            <RowBtn
-                              $color="#c62828"
-                              onClick={(e) => { e.stopPropagation(); handleDelete(s); }}
-                            >
-                              🗑
-                            </RowBtn>
-                          </RowActions>
-                          )}
                         </Row>
                         );
                       })}
@@ -1459,50 +2366,172 @@ export default function SolosPage() {
                   )}
                 </ListBody>
               </ListCard>
+              </ListColumn>
 
               {selectedPerformer && (
               <PreviewCard>
                 {selected ? (
                   <>
                     <PreviewHeader>
-                      <PreviewTitle title={selected.title}>{selected.title}</PreviewTitle>
-                      <PreviewMeta>
-                        {(selected.performer ?? '—')} · {selected.instrument} · original {originalDisplayKey}{selected.sheetData?.measures?.length ? ` · ${selected.sheetData.measures.length} bars` : ''}
-                      </PreviewMeta>
-                      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <SelModeBtn
-                          type="button"
-                          $on={lickSelectMode}
-                          onClick={() => {
-                            setLickSelectMode((v) => {
-                              if (v) setLickRanges([]); // 끌 때 선택도 정리
-                              return !v;
-                            });
-                          }}
-                        >
-                          {lickSelectMode ? '구간 선택 종료' : '구간 선택'}
-                        </SelModeBtn>
-                        {lickSelectMode && lickSelCount > 0 && (
-                          <>
-                            <MergeDoBtn
-                              type="button"
-                              disabled={lickSaving}
-                              onClick={() => { void handleSaveLickFromSelection(); }}
-                            >
-                              {lickSaving ? '저장 중…' : `릭으로 저장 (${lickSelCount}마디)`}
-                            </MergeDoBtn>
-                            <RefreshBtn type="button" onClick={() => setLickRanges([])}>
-                              선택 해제
-                            </RefreshBtn>
-                          </>
-                        )}
+                      {/* ── 좌: 장르 → 조성 → Lick 구간 선택 (내 코드 차트와 동일 배치) ── */}
+                      <BarLeft>
+                        <GenreSelect value={genreLabel} onChange={setGenreOverride} />
+                        <KeyControl
+                          selectedKey={previewKey}
+                          onChange={setPreviewKey}
+                          isMinor={noteKeyIsMinor(previewKey)}
+                          keys={allKeys}
+                        />
+                        <KeyAnchor>
+                          <LickModeBtn
+                            type="button"
+                            $on={lickSelectMode}
+                            onClick={() => setLickPanelOpen((v) => !v)}
+                          >
+                            Lick 구간 선택
+                          </LickModeBtn>
+                          {lickPanelOpen && (
+                            <LickPanel role="dialog" ref={lickPanelRef}>
+                              <KeyPanelTitle>Lick 구간 선택</KeyPanelTitle>
+                              <LickPanelHint>
+                                마디를 클릭해 구간을 선택한다. Shift+클릭으로 범위 확장,
+                                다시 클릭하면 해제 · 최대 8마디.
+                              </LickPanelHint>
+                              <MergeDoBtn
+                                type="button"
+                                $big
+                                onClick={() => {
+                                  setLickSelectMode((v) => {
+                                    if (v) setLickRanges([]); // 끌 때 선택도 정리
+                                    return !v;
+                                  });
+                                }}
+                              >
+                                {lickSelectMode ? '선택 모드 종료' : '선택 모드 시작'}
+                              </MergeDoBtn>
+                              {lickSelectMode && (
+                                <>
+                                  <LickPanelCount>선택: {lickSelCount}마디</LickPanelCount>
+                                  <MergeDoBtn
+                                    type="button"
+                                    $big
+                                    disabled={lickSaving || lickSelCount === 0}
+                                    onClick={() => { void handleSaveLickFromSelection(); }}
+                                  >
+                                    {lickSaving ? '저장 중…' : `릭으로 저장 (${lickSelCount}마디)`}
+                                  </MergeDoBtn>
+                                  <RefreshBtn
+                                    type="button"
+                                    $big
+                                    disabled={lickSelCount === 0}
+                                    onClick={() => setLickRanges([])}
+                                  >
+                                    선택 해제
+                                  </RefreshBtn>
+                                </>
+                              )}
+                            </LickPanel>
+                          )}
+                        </KeyAnchor>
+                      </BarLeft>
+                      {/* ── 중앙: 믹서 · BPM · 재생 ─────────────────────── */}
+                      <BarCenter>
+                        {/* 믹서 — 트랙별 악기·볼륨·S/M·드럼킷·베이스 모드·카운트인 전체. */}
+                        <MixerButton />
                         <BpmControl tempo={soloTempo} onTempoChange={handleSoloTempo} />
+                        <RepeatControl repeatCount={repeatCount} onRepeatChange={setRepeatCount} />
                         <TransportButtons
                           playing={soloPlaying}
                           onPlayPause={handleSoloPlayPause}
                           onStop={handleSoloStop}
                         />
-                      </div>
+                      </BarCenter>
+
+                      {/* ── 우: 정보 · Edit · PDF · Transpose · 삭제 ──────
+                          내 코드 차트의 ToolBtn(테두리 없는 38px 아이콘)과 동일. */}
+                      <BarRight>
+                        <ToolBtn
+                          type="button"
+                          title="상세 정보"
+                          $lit={metaOpen}
+                          aria-expanded={metaOpen}
+                          onClick={() => setMetaOpen((v) => !v)}
+                        >
+                          <IcoInfo />
+                        </ToolBtn>
+                        <ToolBtn type="button" title="에디터에서 열기" onClick={() => { void editRow(selected); }}>
+                          <IcoPencil />
+                        </ToolBtn>
+                        <ToolBtn
+                          type="button"
+                          title="PDF 로 내려받기"
+                          disabled={pdfBusy === selected.publicId}
+                          onClick={() => handlePdfDownload(selected)}
+                        >
+                          <IcoDownload />
+                        </ToolBtn>
+                        <KeyAnchor>
+                          <ToolBtn
+                            type="button"
+                            title="Transpose · 조성 변경"
+                            $lit={keyPanel === 'transpose'}
+                            disabled={busy === selected.publicId}
+                            onClick={() => {
+                              setKeyInput('');
+                              setKeyPanel((p) => (p === 'transpose' ? null : 'transpose'));
+                            }}
+                          >
+                            <IcoTranspose />
+                          </ToolBtn>
+                          {keyPanel === 'transpose' && (
+                            <KeyChangePopover
+                              currentKey={originalDisplayKey}
+                              value={keyInput}
+                              onChange={setKeyInput}
+                              busy={busy === selected.publicId}
+                              onApplyTranspose={() => { void applyTranspose(selected, keyInput.trim()); }}
+                              onApplyKeyOnly={() => { void applyKeyOnly(selected, keyInput.trim()); }}
+                              onPreset={(semi) => {
+                                const from = toWeimarKey(selected.key ?? selected.sheetData?.key ?? 'C') ?? 'C-maj';
+                                const to = shiftKeyBySemitones(from, semi);
+                                if (to) void applyTranspose(selected, to);
+                              }}
+                              onClose={() => setKeyPanel(null)}
+                            />
+                          )}
+                        </KeyAnchor>
+                        <ToolBtn type="button" title="삭제" onClick={() => handleDelete(selected)}>
+                          <IcoTrash />
+                        </ToolBtn>
+                      </BarRight>
+
+                      {/* 메타데이터 — 헤더에 앵커된 오버랩 드롭다운(레이아웃을 밀지 않음). */}
+                      {metaOpen && (
+                      <MetaPanel>
+                        <MetaRow><span>제목</span><b>{selected.title}</b></MetaRow>
+                        <MetaRow><span>연주자</span><b>{selected.performer ?? '—'}</b></MetaRow>
+                        <MetaRow><span>악기</span><b>{selected.instrument ?? '—'}</b></MetaRow>
+                        <MetaRow><span>장르</span><b>{formatStyleLabel(selected.style) || 'Unknown'}</b></MetaRow>
+                        <MetaRow><span>BPM</span><b>{selected.tempo ?? '—'}</b></MetaRow>
+                        <MetaRow><span>조성</span><b>{originalDisplayKey}</b></MetaRow>
+                        <MetaRow><span>마디 수</span><b>{selected.sheetData?.measures?.length ?? '—'}</b></MetaRow>
+                        <MetaRow><span>추가된 날짜</span><b>{formatAddedDate(selected.createdAt)}</b></MetaRow>
+                        <MetaRow>
+                          <span>고유 키</span>
+                          <MetaIdValue>
+                            <code>{selected.publicId}</code>
+                            <MetaCopyBtn
+                              type="button"
+                              $copied={copiedId === selected.publicId}
+                              title="고유 키 복사"
+                              onClick={() => copyId(String(selected.publicId))}
+                            >
+                              {copiedId === selected.publicId ? '✓' : '📋'}
+                            </MetaCopyBtn>
+                          </MetaIdValue>
+                        </MetaRow>
+                      </MetaPanel>
+                      )}
                     </PreviewHeader>
                     {lickSelectMode && (
                       <SelHintBar>
@@ -1514,9 +2543,6 @@ export default function SolosPage() {
                         <NoteSheet
                           ref={noteSheetRef}
                           data={previewSheet}
-                          selectedKey={previewKey}
-                          allKeys={allKeys}
-                          onKeyChange={setPreviewKey}
                           lineStartMeasureNumbers
                           forceAutoStem
                           hideTransport
@@ -1547,11 +2573,99 @@ export default function SolosPage() {
         submitLabel="인식 시작 (백그라운드)"
         upload={createSoloViaOMR}
         onBackgroundStart={startSoloOmrJob}
+        onQueueStart={enqueueSoloOmrQueue}
       />
 
       {omrJobs.length > 0 && (
         <OmrPanel role="status" aria-live="polite">
-          {omrJobs.map((job) => (
+          {/* ── 통합 큐 카드 — 대량 큐는 카드 한 장으로 집계, 클릭하면 상세 ── */}
+          {(() => {
+            const qJobs = omrJobs.filter((j) => j.fromQueue);
+            if (qJobs.length === 0) return null;
+            const done = qJobs.filter((j) => j.status === 'COMPLETED').length;
+            const failed = qJobs.filter((j) => j.status === 'FAILED').length;
+            const finished = done + failed;
+            const total = qJobs.length;
+            const pct = total > 0 ? Math.round((finished / total) * 100) : 0;
+            const active = qJobs.find((j) => j.status === 'PROCESSING');
+            const running = finished < total;
+            return (
+              <QueueCard>
+                <QueueHead
+                  type="button"
+                  onClick={() => setQueueOpen((v) => !v)}
+                  aria-expanded={queueOpen}
+                >
+                  <QueueHeadIcon $running={running} aria-hidden>{running ? '' : '✓'}</QueueHeadIcon>
+                  <QueueHeadMain>
+                    <QueueHeadTitle>
+                      OMR 큐 {finished}/{total}
+                      <QueueHeadPct>{pct}%</QueueHeadPct>
+                      {failed > 0 && <QueueHeadFail>오류 {failed}</QueueHeadFail>}
+                    </QueueHeadTitle>
+                    <QueueHeadSub>
+                      {active
+                        ? `지금: ${active.label}${active.totalPages && active.totalPages > 1 ? ` (${active.completedPages ?? 0}/${active.totalPages}p)` : ''}`
+                        : running ? '다음 악보 준비 중…' : failed > 0 ? '완료 — 일부 오류' : '모두 완료'}
+                    </QueueHeadSub>
+                  </QueueHeadMain>
+                  <QueueChevron $open={queueOpen} aria-hidden>⌄</QueueChevron>
+                  <OmrDismiss
+                    as="span"
+                    role="button"
+                    aria-label="큐 전체 닫기"
+                    onClick={(e: React.MouseEvent) => { e.stopPropagation(); dismissQueueAll(); }}
+                  >
+                    ×
+                  </OmrDismiss>
+                </QueueHead>
+                <QueueBarTrack>
+                  <QueueBarDone $pct={(done / total) * 100} />
+                  <QueueBarFailSeg $left={(done / total) * 100} $pct={(failed / total) * 100} />
+                </QueueBarTrack>
+                {queueOpen && (
+                  <QueueDetail ref={queueListRef}>
+                    {qJobs.map((job, i) => (
+                      <QueueDetailRow
+                        key={job.id}
+                        data-active={job.status === 'PROCESSING' ? 'true' : undefined}
+                        $status={job.status}
+                        onClick={job.status === 'COMPLETED' ? () => openOmrJob(job) : undefined}
+                        title={job.status === 'FAILED' ? (job.failureReason ?? undefined) : job.status === 'COMPLETED' ? '에디터로 열기' : undefined}
+                      >
+                        <QueueRowIcon $status={job.status} aria-hidden>
+                          {job.status === 'COMPLETED' ? '✓' : job.status === 'FAILED' ? '✕' : job.status === 'PROCESSING' ? '' : i + 1}
+                        </QueueRowIcon>
+                        <QueueRowMain>
+                          <QueueRowName>{job.label}</QueueRowName>
+                          {job.status === 'PROCESSING' && (
+                            <QueueRowInfo>
+                              인식 중{job.totalPages && job.totalPages > 1 ? ` · ${job.completedPages ?? 0}/${job.totalPages}페이지` : ''}{job.progress > 0 ? ` · ${Math.round(job.progress)}%` : ''}
+                            </QueueRowInfo>
+                          )}
+                          {job.status === 'FAILED' && (
+                            <QueueRowInfo $fail>{job.failureReason || '인식 실패'}</QueueRowInfo>
+                          )}
+                        </QueueRowMain>
+                        {job.status === 'QUEUED' && (
+                          <QueueRowRemove
+                            type="button"
+                            aria-label={`${job.label} 큐에서 제거`}
+                            onClick={(e) => { e.stopPropagation(); dismissOmrJob(job.id); }}
+                          >
+                            ×
+                          </QueueRowRemove>
+                        )}
+                      </QueueDetailRow>
+                    ))}
+                  </QueueDetail>
+                )}
+              </QueueCard>
+            );
+          })()}
+
+          {/* ── 단건 백그라운드 잡(큐 아님)은 기존 개별 카드 유지 ── */}
+          {omrJobs.filter((j) => !j.fromQueue).map((job) => (
             <OmrCard key={job.id} $status={job.status}>
               <OmrTop>
                 <OmrIcon $status={job.status} aria-hidden>
@@ -1561,8 +2675,17 @@ export default function SolosPage() {
                 <OmrDismiss onClick={() => dismissOmrJob(job.id)} aria-label="닫기">×</OmrDismiss>
               </OmrTop>
               <OmrStatusText $status={job.status}>
-                {job.status === 'PROCESSING'
-                  ? (job.progress > 0 ? `악보 인식 중… ${Math.round(job.progress)}%` : '악보 인식 중…')
+                {job.status === 'QUEUED'
+                  ? '대기 중 — 앞 악보가 끝나면 시작합니다'
+                  : job.status === 'PROCESSING'
+                  ? [
+                      '악보 인식 중…',
+                      // 다중 페이지 PDF: 몇 페이지까지 됐는지 함께 보여준다.
+                      job.totalPages && job.totalPages > 1
+                        ? `${job.completedPages ?? 0}/${job.totalPages}페이지`
+                        : null,
+                      job.progress > 0 ? `${Math.round(job.progress)}%` : null,
+                    ].filter(Boolean).join(' · ')
                   : job.status === 'COMPLETED'
                     ? '인식 완료'
                     : (job.failureReason || '악보 인식에 실패했어요.')}

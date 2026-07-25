@@ -4,7 +4,7 @@ type: 백엔드 요구사항
 targets: [백엔드]
 status: 제안
 owner: 최영현
-updated: 2026-07-22
+updated: 2026-07-25
 ---
 
 # 2026-07-22 · 악보 sheetData 필드 보존(조표무시 등) 2건
@@ -17,6 +17,39 @@ updated: 2026-07-22
 범례: ✅ 완료 · 🟡 진행중 · ⬜ 미시작
 - ⬜ 1. sheetData 임시표 의미론(accidentalStyle) 저장 (← BR-33)
 - ⬜ 2. sheetData/measure/note 스키마 전면 보존(pass-through) (← BR-34)
+
+---
+
+## 0. 실측 근거 — 2026-07-25 운영 서버 왕복 테스트
+
+아래 두 요구사항(BR-33·BR-34)의 근거다. `POST /v1/solos` → `GET /v1/solos/{id}` 로 직접 확인했다(테스트 솔로는 삭제 완료). **요청은 HTTP 200 성공으로 응답하는데** 필드가 사라진다 — 에러가 없어 사용자는 나중에 다시 열어봐야 유실을 안다.
+
+**보낸 값**
+```jsonc
+"sheetData": {
+  "title":"__diag", "composer":"TestComposer", "genre":"Bebop",
+  "key":"C", "timeSignature":"4/4", "tempo":120,
+  "accidentalStyle":"explicit",
+  "measures":[{ "chord":"D-7  G7",
+    "notes":[{ "keys":["c/5"], "duration":"q",
+               "chord":"Cmaj7", "articulations":["staccato"], "dynamics":"mf" }] }],
+  "bassMeasures":[{ "notes":[{ "keys":["c/3"], "duration":"q" }] }]
+}
+```
+
+**저장 후 결과**
+
+| 항목 | 결과 |
+|---|---|
+| 마디 코드 `measures[].chord` (`"D-7  G7"`) | ✅ 보존 |
+| **음표별 코드** `notes[].chord` (`"Cmaj7"`) | ❌ **유실** |
+| 아티큘레이션 `["staccato"]` · 셈여림 `"mf"` | ❌ 유실 |
+| **양손 왼손 파트** `bassMeasures` | ❌ **유실 (null)** |
+| `composer` · `genre` · `accidentalStyle` | ❌ 유실 (null) |
+
+저장 후 `sheetData` 최상위 키가 `["key","measures","tempo","timeSignature","title"]` 만 남는다.
+
+> ⚠️ `bassMeasures` 유실은 **문서 #20**(OMR 그랜드스태프 파싱, BR-32)과 직결된다 — OMR이 대보표를 제대로 파싱해 왼손을 채워도, 아래 BR-34가 해결되지 않으면 **저장 단계에서 다시 버려진다.** BR-34를 먼저 처리해야 BR-32의 결과가 남는다.
 
 ---
 
@@ -75,7 +108,7 @@ BR-33의 `accidentalStyle`은 빙산의 일각이다. 현재 타입 스키마가
     - (A) `sheetData`를 **미지 필드 보존 JSON(pass-through)** 로 저장(프론트 타입이 단일 소스, 이후 필드 추가에도 무無수정).
     - (B) 타입 스키마를 위 "버려지는 필드" 전체로 확장해 1:1 미러링.
   - 프론트 타입 계약 원천: `frontend/src/data/sampleMelody.ts`의 `NoteSheetData`/`MeasureInfo`/`NoteInfo`.
-- **검증 조건**: 각 기능 대표 필드를 포함한 `sheetData`를 PUT→GET 왕복해 바이트 동일 확인. 예) `measures[i].repeatStart`, `measures[i].notes[j].grace`, `measures[i].notes[j].ottavaStart`, `sheetData.bassMeasures[i].notes` 보존.
+- **검증 조건**: 각 기능 대표 필드를 포함한 `sheetData`를 PUT→GET 왕복해 바이트 동일 확인. 예) `measures[i].repeatStart`, `measures[i].notes[j].grace`, `measures[i].notes[j].ottavaStart`, `sheetData.bassMeasures[i].notes` 보존. 위 §0 페이로드를 그대로 재현해 5개 항목이 모두 ✅가 되면 완료로 본다.
 - **기대 결과 및 완료 기준**:
   - [ ] 위 "버려지는 필드"가 PUT→GET 왕복에서 전부 보존(값 없으면 부재 유지)
   - [ ] 양손(`bassMeasures`) 포함 솔로 저장·복원 정상(F7.11)

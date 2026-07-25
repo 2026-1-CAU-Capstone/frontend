@@ -69,11 +69,30 @@ export const SUGGEST_MARGIN = 12;
 /** 최선 후보조차 이 비율 넘게 설명 못 하고 으뜸 케이던스도 0이면 → 조성 없음. */
 const MODAL_UNEXPLAINED_RATIO = 0.35;
 
+/** 현재 키가 '스스로 설득력 있다'고 볼 설명 실패 상한. 이보다 잘 설명하고
+ *  토닉 근거가 하나라도 있으면 제안하지 않는다(오탐 방지). */
+const SELF_CONSISTENT_UNEXPLAINED = 0.15;
+
 /* harmonyAnalyzer 의 normalizeQualityForAnalysis() 가 뱉는 토큰 기준.
  * 으뜸화음 자격: 장조는 장3화음 계열, 단조는 단3화음 계열만. dom7 은 어느
  * 쪽에서도 으뜸이 아니며(딸림화음), min7b5·dim 도 아니다. */
 const MAJOR_TONIC_QUALITIES = new Set(['maj', 'maj7', 'maj6']);
 const MINOR_TONIC_QUALITIES = new Set(['min', 'min7', 'min6']);
+
+/** 블루스 관용 — I7·IV7·V7 이 전부 도미넌트인 형태.
+ *
+ *  블루스에서 으뜸화음은 장3화음이 아니라 **I7(도미넌트)** 이다. 이걸 모르면
+ *  진짜 으뜸조가 "으뜸화음 0회"로 채점돼 모든 토닉 항목에서 0점을 받고, 그
+ *  사이 ii 가 세컨더리 도미넌트로 토닉화된 관계단조가 이겨버린다.
+ *  (실측: F 블루스 → F 100.0 vs Gm 157.4. D7→Gm7 이 두 번 나와 Gm 이
+ *   케이던스·마지막케이던스를 싹쓸이. F 는 Eb·Bb·Cm 과 동점이라 신호 0.)
+ *
+ *  오검출 방지: dom7 세 개가 우연히 I·IV·V 자리에 놓이는 일은 흔하다
+ *  (All of Me 의 D7·G7·A7 → D 장조가 블루스로 오인될 수 있다). 그래서
+ *  "그 I7 이 실제로 곡의 중심인가"를 함께 요구한다 — 첫 코드가 I7 이거나,
+ *  I7 이 곡의 30% 이상을 차지할 것. */
+const W_BLUES = 60;
+const BLUES_TONIC_MIN_RATIO = 0.3;
 
 /* ── 타입 ─────────────────────────────────────────────────────────────── */
 
@@ -83,7 +102,7 @@ export interface KeyScore {
   score: number;
   /** 설명되지 않는 코드가 차지하는 비중(0~1). 낮을수록 좋다. */
   unexplainedRatio: number;
-  /** 으뜸화음으로 해결되는 ii-V-I(또는 V-I) 그룹 수. */
+  /** 으뜸화음으로 해결되는 '서로 다른' 딸림화음의 수(반복 제거). */
   tonicCadences: number;
   /** 으뜸화음이 차지하는 시간 비중(0~1). 높을수록 좋다. */
   tonicTimeRatio: number;
@@ -143,12 +162,45 @@ function isUnexplained(chord: LeadSheetChord): boolean {
   return !a.secondaryDominant && !a.subV && !a.modalInterchange;
 }
 
-/** 이 코드가 해당 조성의 으뜸화음인가 (근음 + 성질 둘 다). */
-function isTonicChord(chord: LeadSheetChord, keyPc: number, isMinor: boolean): boolean {
+/** 이 코드가 해당 조성의 으뜸화음인가 (근음 + 성질 둘 다).
+ *  `blues` 면 장조에서 I7(dom7)도 으뜸화음으로 인정한다(블루스 관용). */
+function isTonicChord(
+  chord: LeadSheetChord, keyPc: number, isMinor: boolean, blues = false,
+): boolean {
   const a = chord.analysis;
   if (!a || a.rootPc !== keyPc) return false;
   const q = a.normalizedQuality ?? '';
-  return isMinor ? MINOR_TONIC_QUALITIES.has(q) : MAJOR_TONIC_QUALITIES.has(q);
+  if (isMinor) return MINOR_TONIC_QUALITIES.has(q);
+  if (blues && q === 'dom7') return true;
+  return MAJOR_TONIC_QUALITIES.has(q);
+}
+
+/** 이 후보 조성에서 곡이 '블루스'인가 — I7·IV7·V7 이 모두 도미넌트로 존재하고,
+ *  그 I7 이 실제로 곡의 중심(첫 코드이거나 30% 이상)일 때. */
+function isBluesIn(chords: LeadSheetChord[], keyPc: number, isMinor: boolean): boolean {
+  if (isMinor) return false; // 단조 블루스는 별도 관용 — 여기선 다루지 않는다
+  const domRoots = new Set<number>();
+  let totalW = 0;
+  let tonicDomW = 0;
+  for (const c of chords) {
+    const a = c.analysis;
+    if (!a || a.rootPc == null) continue;
+    const w = c.durationBeats ?? 1;
+    totalW += w;
+    if (a.normalizedQuality === 'dom7') {
+      domRoots.add(a.rootPc);
+      if (a.rootPc === keyPc) tonicDomW += w;
+    }
+  }
+  const hasIIVV = domRoots.has(keyPc)
+    && domRoots.has((keyPc + 5) % 12)
+    && domRoots.has((keyPc + 7) % 12);
+  if (!hasIIVV) return false;
+
+  const first = chords[0]?.analysis;
+  const firstIsTonicDom = first?.rootPc === keyPc && first?.normalizedQuality === 'dom7';
+  const ratio = totalW > 0 ? tonicDomW / totalW : 0;
+  return firstIsTonicDom || ratio >= BLUES_TONIC_MIN_RATIO;
 }
 
 /* ── 채점 ─────────────────────────────────────────────────────────────── */
@@ -167,13 +219,31 @@ function scoreKey(data: LeadSheetData, key: string): KeyScore {
   }
 
   const { pc: keyPc, isMinor } = parseKey(key);
+  /* 블루스면 I7 을 으뜸화음으로 인정한다(아래 모든 토닉 판정에 전달). */
+  const blues = isBluesIn(chords, keyPc, isMinor);
 
   /* 코드 길이(박)로 가중한다. 한 박짜리 지나가는 코드가 네 박 코드와 같은
    * 무게를 갖는 건 부당하다. */
   let totalW = 0;
   let unexplainedW = 0;
   let tonicW = 0;
-  const tonicCadenceGroups = new Set<number>();
+  /* 으뜸화음으로 해결되는 '서로 다른 딸림화음'의 근음 집합.
+   *
+   * 그룹 인스턴스를 그대로 세면 같은 V-i 가 반복되는 형식(AABA)에서 부차 조성이
+   * 폭증한다 — 리듬 체인지의 G7→Cm7 은 9번 나오지만 이는 하나의 화성 장치가
+   * 반복된 것이지 9개의 독립 증거가 아니다(실측: 그 때문에 Cm 이 진짜 으뜸조
+   * Bb 를 이겼다). 딸림화음 근음으로 중복을 제거해 '토닉에 이르는 서로 다른
+   * 경로가 몇 개인가'를 센다. */
+  const tonicCadenceApproaches = new Set<number>();
+  /* groupId → 그 그룹의 V 코드 근음 (중복 제거 키). */
+  const groupVRoot = new Map<number, number>();
+  for (const chord of chords) {
+    const rp = chord.analysis?.rootPc;
+    if (rp == null) continue;
+    for (const g of chord.analysis?.groupMemberships ?? []) {
+      if (g.groupType === 'ii-V-I' && g.role === 'V') groupVRoot.set(g.groupId, rp);
+    }
+  }
   /* 곡에서 가장 늦게 등장하는 '완결 케이던스의 I 코드'. 키와 무관하게 결정되는
    * 고정 앵커이므로, 후보 키마다 "그게 내 으뜸화음인가"만 물으면 된다. */
   let lastCadenceI: { chord: LeadSheetChord; minorVariant: boolean } | null = null;
@@ -182,7 +252,7 @@ function scoreKey(data: LeadSheetData, key: string): KeyScore {
     const w = chord.durationBeats ?? 1;
     totalW += w;
     if (isUnexplained(chord)) unexplainedW += w;
-    if (isTonicChord(chord, keyPc, isMinor)) tonicW += w;
+    if (isTonicChord(chord, keyPc, isMinor, blues)) tonicW += w;
 
     for (const g of chord.analysis?.groupMemberships ?? []) {
       if (g.groupType === 'ii-V-I' && g.role === 'I' && g.variant !== 'incomplete') {
@@ -194,23 +264,40 @@ function scoreKey(data: LeadSheetData, key: string): KeyScore {
      * 그룹의 variant(장/단조)가 조성과 일치할 때만 그 케이던스를 인정한다. */
     for (const g of chord.analysis?.groupMemberships ?? []) {
       if (g.groupType !== 'ii-V-I' || g.role !== 'I' || g.variant === 'incomplete') continue;
-      if (!isTonicChord(chord, keyPc, isMinor)) continue;
+      if (!isTonicChord(chord, keyPc, isMinor, blues)) continue;
       if ((g.variant === 'minor') !== isMinor) continue;
-      tonicCadenceGroups.add(g.groupId);
+      const v = groupVRoot.get(g.groupId);
+      if (v != null) tonicCadenceApproaches.add(v);
     }
   }
 
-  const firstTonic = isTonicChord(chords[0], keyPc, isMinor);
-  const finalTonic = isTonicChord(chords[chords.length - 1], keyPc, isMinor);
+  const firstTonic = isTonicChord(chords[0], keyPc, isMinor, blues);
+  const finalTonic = isTonicChord(chords[chords.length - 1], keyPc, isMinor, blues);
 
   const unexplainedRatio = totalW > 0 ? unexplainedW / totalW : 1;
   const tonicTimeRatio = totalW > 0 ? tonicW / totalW : 0;
-  const tonicCadences = tonicCadenceGroups.size;
+  const tonicCadences = tonicCadenceApproaches.size;
+
+  /* 턴어라운드로 끝나는 차트(블루스·리듬 체인지 등)는 마지막 코드가 V7 이고
+   * 곡이 처음으로 되돌아간다. 이때 '마지막 완결 케이던스'는 차트 안에 적혀
+   * 있지 않지만 실제로는 첫 코드(으뜸화음)로 해결된다. 순환(wrap-around)
+   * 해석으로 이를 인정하지 않으면, 진짜 으뜸조가 마지막 케이던스 점수를 통째로
+   * 놓치고 반복 토닉화된 ii 에게 진다(실측: 리듬 체인지 Bb 113 vs Cm 168). */
+  const lastCh = chords[chords.length - 1];
+  const firstCh = chords[0];
+  const wrapResolvesToFirst =
+    lastCh.analysis?.normalizedQuality === 'dom7' &&
+    lastCh.analysis?.rootPc != null &&
+    firstCh.analysis?.rootPc != null &&
+    ((lastCh.analysis.rootPc + 5) % 12) === firstCh.analysis.rootPc;
+  const wrapCadenceTonic =
+    wrapResolvesToFirst && isTonicChord(firstCh, keyPc, isMinor, blues);
 
   const lastCadenceTonic =
-    lastCadenceI != null &&
-    isTonicChord(lastCadenceI.chord, keyPc, isMinor) &&
-    lastCadenceI.minorVariant === isMinor;
+    (lastCadenceI != null &&
+      isTonicChord(lastCadenceI.chord, keyPc, isMinor, blues) &&
+      lastCadenceI.minorVariant === isMinor) ||
+    wrapCadenceTonic;
 
   const score =
     100 * (1 - unexplainedRatio) +
@@ -218,7 +305,8 @@ function scoreKey(data: LeadSheetData, key: string): KeyScore {
     W_TONIC_CADENCE * Math.min(tonicCadences, MAX_TONIC_CADENCE_CREDIT) +
     (lastCadenceTonic ? W_LAST_CADENCE : 0) +
     (finalTonic ? W_FINAL_TONIC : 0) +
-    (firstTonic ? W_FIRST_TONIC : 0);
+    (firstTonic ? W_FIRST_TONIC : 0) +
+    (blues ? W_BLUES : 0);
 
   return { key, score, unexplainedRatio, tonicCadences, tonicTimeRatio, lastCadenceTonic, finalTonic, firstTonic };
 }
@@ -237,7 +325,24 @@ export function suggestKeys(data: LeadSheetData): KeySuggestion {
   const current = ranked.find((r) => r.key === currentKey) ?? best;
 
   const modal = best.unexplainedRatio > MODAL_UNEXPLAINED_RATIO && best.tonicCadences === 0;
-  const shouldSuggest = !modal && best.key !== currentKey && best.score - current.score >= SUGGEST_MARGIN;
+
+  /* 현재 키가 스스로 설득력 있으면 제안하지 않는다.
+   *
+   * 이 기능은 "현재 키가 틀렸을 때" 고쳐주는 것이지, "점수가 더 높은 후보가
+   * 있을 때마다" 바꾸라고 하는 게 아니다. 재즈에선 ii 가 반복 토닉화되어
+   * (리듬 체인지의 Cm, All of Me 의 Dm, F 블루스의 Gm) 부차 조성이 점수에서
+   * 진짜 으뜸조를 앞지르는 일이 구조적으로 흔하다. 오탐의 비용(사용자가 맞는
+   * 조성을 틀린 것으로 바꿔버림)이 미탐보다 훨씬 크므로, 현재 키가 ①코드를
+   * 잘 설명하고 ②토닉 근거를 하나라도 갖고 있으면 침묵한다. */
+  const currentIsSelfConsistent =
+    current.unexplainedRatio <= SELF_CONSISTENT_UNEXPLAINED &&
+    (current.firstTonic || current.finalTonic
+      || current.lastCadenceTonic || current.tonicCadences > 0);
+
+  const shouldSuggest = !modal
+    && !currentIsSelfConsistent
+    && best.key !== currentKey
+    && best.score - current.score >= SUGGEST_MARGIN;
 
   return { current, best, ranked, modal, shouldSuggest };
 }

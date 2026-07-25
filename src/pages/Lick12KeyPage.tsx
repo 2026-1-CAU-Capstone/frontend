@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { BackButton } from '../components/common/BackButton';
+import { ghostHead } from '../lib/note/ghostNote';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import {
@@ -16,7 +18,7 @@ import type { NoteInfo, MeasureInfo, NoteSheetData } from '../data/sampleMelody'
 import { loadUserLicks, type LickEntry } from '../data/lickData';
 import { getLickVideo, type LickVideo } from '../data/lickVideos';
 import { YoutubeEmbed } from '../components/common/YoutubeEmbed';
-import { formatChordDisplay } from '../lib/jazz-harmony';
+import { formatChordDisplay, chordBaseSegments, chordExtStyle, splitChordParts } from '../lib/jazz-harmony';
 import { keyPrefersFlats } from '../lib/transpose';
 
 /* ─── transposition helpers ───────────────────────────────────────────── */
@@ -267,7 +269,7 @@ function buildVfNotes(measure: MeasureInfo, initialAcc?: Map<string, RenderAcc>,
   return measure.notes.map((n) => {
     const isRest = n.duration.endsWith('r');
     const dur = buildDuration(n.duration, n.dotted);
-    const note = new StaveNote({ keys: isRest ? ['b/4'] : n.keys, duration: dur, autoStem: true });
+    const note = new StaveNote({ keys: isRest ? ['b/4'] : n.keys, duration: dur, autoStem: true, ...ghostHead(n) });
     if (n.dotted) Dot.buildAndAttach([note]);
     if (!isRest) {
       const realAcc = n.accidentals?.[0] as 'b' | '#' | undefined;
@@ -335,17 +337,11 @@ function drawGlissLine(svgEl: SVGElement, fromNote: StaveNote, toNote: StaveNote
   svgEl.appendChild(txt);
 }
 
-function splitChordParts(formatted: string): { base: string; ext: string; tension: string } {
-  const m = formatted.match(/^(\D*?)(\d+)(.*)$/);
-  if (!m) return { base: formatted, ext: '', tension: '' };
-  return { base: m[1], ext: m[2], tension: m[3] || '' };
-}
-
 function appendChordSVG(
   svgEl: SVGElement, x: number, y: number,
   chord: string, font: string, size: number,
 ) {
-  const { base, ext, tension } = splitChordParts(formatChord(chord));
+  const { base, ext, tension, bass } = splitChordParts(formatChord(chord));
   const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
   txt.setAttribute('x', String(x));
   txt.setAttribute('y', String(y));
@@ -354,27 +350,20 @@ function appendChordSVG(
   txt.setAttribute('stroke', '#333');
   txt.setAttribute('stroke-width', '0.3');
 
-  if (base.includes('°')) {
-    const dimSize = Math.round(size * 1.4);
-    for (const seg of base.split(/(°)/g)) {
-      if (!seg) continue;
-      const sp = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-      sp.setAttribute('font-size', String(seg === '°' ? dimSize : size));
-      sp.textContent = seg;
-      txt.appendChild(sp);
-    }
-  } else {
-    const baseSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-    baseSpan.setAttribute('font-size', String(size));
-    baseSpan.textContent = base;
-    txt.appendChild(baseSpan);
+  // Base (root + quality) — ° / △ sized per lib/jazz-harmony/chord-glyph.
+  for (const seg of chordBaseSegments(base, size)) {
+    const sp = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+    sp.setAttribute('font-size', String(seg.fontSize));
+    sp.textContent = seg.text;
+    txt.appendChild(sp);
   }
 
   if (ext) {
     const extSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-    extSpan.setAttribute('font-size', String(Math.round(size * 0.85)));
-    extSpan.setAttribute('dx', base.endsWith('\u25B3') ? '-1' : '1');
-    extSpan.setAttribute('dy', String(-size * 0.18));
+    const extStyle = chordExtStyle(base, ext, size);
+    extSpan.setAttribute('font-size', String(extStyle.fontSize));
+    extSpan.setAttribute('dx', extStyle.dx);
+    extSpan.setAttribute('dy', extStyle.dy);
     extSpan.textContent = ext;
     txt.appendChild(extSpan);
 
@@ -400,6 +389,17 @@ function appendChordSVG(
         txt.appendChild(accSpan);
       }
     }
+  }
+
+  // 분수코드 베이스(/F#) — 텐션이 아니라 루트와 같은 크기로 마지막에. 앞의
+  // ext/tension 이 위로 올라가 있으므로 baseline 으로 되돌린다. (NoteSheet 동일)
+  if (bass) {
+    const bassSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+    bassSpan.setAttribute('font-size', String(size));
+    bassSpan.setAttribute('dx', '1');
+    bassSpan.setAttribute('dy', tension ? String(size * 0.4) : (ext ? String(size * 0.18) : '0'));
+    bassSpan.textContent = bass;
+    txt.appendChild(bassSpan);
   }
 
   svgEl.appendChild(txt);
@@ -611,20 +611,9 @@ const Header = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: calc(env(safe-area-inset-top, 0px) + 10px) 20px 10px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px;  /* 가로 여백 16px — Solo DB 상단바 기준으로 통일 */
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ theme }) => theme.colors.bgSecondary};
-`;
-
-const BackBtn = styled.button`
-  font-size: 0.82rem;
-  padding: 4px 12px;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 6px;
-  background: transparent;
-  cursor: pointer;
-  color: ${({ theme }) => theme.colors.textSecondary};
-  &:hover { background: #f0f0f0; }
 `;
 
 const TitleText = styled.span`
@@ -957,7 +946,7 @@ export default function Lick12KeyPage() {
     return (
       <Page>
         <Header>
-          <BackBtn onClick={() => navigate(-1)}>&larr; Back</BackBtn>
+          <BackButton onClick={() => navigate(-1)} label="뒤로" />
           <TitleText>{notFound ? '릭을 찾을 수 없습니다' : 'Loading…'}</TitleText>
         </Header>
       </Page>
@@ -970,7 +959,7 @@ export default function Lick12KeyPage() {
   return (
     <Page>
       <Header>
-        <BackBtn onClick={() => navigate(-1)}>&larr; Back</BackBtn>
+        <BackButton onClick={() => navigate(-1)} label="뒤로" />
         <TitleText>12-Key Practice · 4도권</TitleText>
         <SubText>{lick.performer} — {lick.title}</SubText>
       </Header>

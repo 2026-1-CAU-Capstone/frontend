@@ -1,5 +1,6 @@
 ﻿import { useEffect, useRef, useState, useCallback } from 'react';
 import styled from 'styled-components';
+import { ghostHead } from '../../lib/note/ghostNote';
 // vexflow는 ~1 MB이므로 dynamic import로 lazy-load.
 // 렌더링 useEffect 내부에서 await import('vexflow') 로 사용.
 import type {
@@ -95,7 +96,7 @@ import { getLickVideo, lickYoutubeSearchUrl } from '../../data/lickVideos';
 import { useCountInIntro } from '../../hooks/useCountInIntro';
 import { prepareLickIntro } from '../../lib/note/anacrusis';
 import { resolveMeasureAccidental } from '../../lib/note/measureAccidentals';
-import { formatChordDisplay } from '../../lib/jazz-harmony';
+import { formatChordDisplay, chordBaseSegments, chordExtStyle, splitChordParts } from '../../lib/jazz-harmony';
 
 /* ─── layout constants ──────────────────────────────────────────────── */
 
@@ -139,19 +140,12 @@ function formatInstrument(inst: string | undefined): string {
   return INSTRUMENT_DISPLAY[inst.trim().toLowerCase()] ?? inst;
 }
 
-/** Split formatted chord into base, extension number, and tensions. */
-function splitChordParts(formatted: string): { base: string; ext: string; tension: string } {
-  const m = formatted.match(/^(\D*?)(\d+)(.*)$/);
-  if (!m) return { base: formatted, ext: '', tension: '' };
-  return { base: m[1], ext: m[2], tension: m[3] || '' };
-}
-
 /** Append chord text to SVG with superscript extension + smaller tension above. */
 function appendChordSVG(
   svgEl: SVGElement, x: number, y: number,
   chord: string, font: string, size: number,
 ) {
-  const { base, ext, tension } = splitChordParts(formatChord(chord));
+  const { base, ext, tension, bass } = splitChordParts(formatChord(chord));
   const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
   txt.setAttribute('x', String(x));
   txt.setAttribute('y', String(y));
@@ -160,39 +154,22 @@ function appendChordSVG(
   txt.setAttribute('stroke', '#333');
   txt.setAttribute('stroke-width', '0.3');
 
-  // Render base — split out the diminished sign (°) so it can be drawn at
-  // ~1.4x size (raw glyph is too small to read at chord-label sizes).
-  if (base.includes('°')) {
-    const dimSize = Math.round(size * 1.4);
-    for (const seg of base.split(/(°)/g)) {
-      if (!seg) continue;
-      const sp = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-      sp.setAttribute('font-size', String(seg === '°' ? dimSize : size));
-      sp.textContent = seg;
-      txt.appendChild(sp);
-    }
-  } else {
-    const baseSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-    baseSpan.setAttribute('font-size', String(size));
-    baseSpan.textContent = base;
-    txt.appendChild(baseSpan);
+  // Base (root + quality) — ° / △ sized per lib/jazz-harmony/chord-glyph.
+  for (const seg of chordBaseSegments(base, size)) {
+    const sp = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+    sp.setAttribute('font-size', String(seg.fontSize));
+    sp.textContent = seg.text;
+    txt.appendChild(sp);
   }
 
   if (ext) {
-    // Dominant 7: bare root (no \u25B3/\u00B0/\u00F8/- quality marker) followed by "7".
-    // Renders ~8 % larger, slightly lower, and nudged right vs. other
-    // 7-extensions \u2014 mirrors the same treatment applied in LeadSheet.
-    const isDom7 = ext === '7' && !/[\u25B3\u00B0\u00F8\-]/.test(base);
+    // Extension typography (maj7 / dominant-7 / default) is shared across every
+    // VexFlow chord label \u2014 see lib/jazz-harmony/chord-glyph.
+    const extStyle = chordExtStyle(base, ext, size);
     const extSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
-    extSpan.setAttribute(
-      'font-size',
-      String(Math.round(size * (isDom7 ? 0.92 : 0.85))),
-    );
-    extSpan.setAttribute(
-      'dx',
-      base.endsWith('\u25B3') ? '-1' : (isDom7 ? '3' : '1'),
-    );
-    extSpan.setAttribute('dy', String(isDom7 ? -size * 0.03 : -size * 0.18));
+    extSpan.setAttribute('font-size', String(extStyle.fontSize));
+    extSpan.setAttribute('dx', extStyle.dx);
+    extSpan.setAttribute('dy', extStyle.dy);
     extSpan.textContent = ext;
     txt.appendChild(extSpan);
 
@@ -219,6 +196,17 @@ function appendChordSVG(
         txt.appendChild(accSpan);
       }
     }
+  }
+
+  // 분수코드 베이스(/F#) — 텐션이 아니라 루트와 같은 크기로 마지막에. 앞의
+  // ext/tension 이 위로 올라가 있으므로 baseline 으로 되돌린다. (NoteSheet 동일)
+  if (bass) {
+    const bassSpan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+    bassSpan.setAttribute('font-size', String(size));
+    bassSpan.setAttribute('dx', '1');
+    bassSpan.setAttribute('dy', tension ? String(size * 0.4) : (ext ? String(size * 0.18) : '0'));
+    bassSpan.textContent = bass;
+    txt.appendChild(bassSpan);
   }
 
   svgEl.appendChild(txt);
@@ -522,6 +510,7 @@ function buildVfNotes(measure: MeasureInfo, initialAcc?: Map<string, LickAcc>, k
       keys: isRest ? ['b/4'] : n.keys,
       duration: dur,
       autoStem: true,
+      ...ghostHead(n),
     });
     if (n.dotted) Dot.buildAndAttach([note]);
 
@@ -1055,7 +1044,7 @@ export function LickCard({ lick, width, visible, compact, displayId, fitToWidth,
       }
     }
 
-    // Draw glissando lines + ghost note parentheses + 8va brackets
+    // Draw glissando lines + 8va brackets (고스트는 X 노트헤드로 통일 — ghostNote.ts)
     const svg = el.querySelector('svg');
     if (svg) {
       flatIdx = 0;
@@ -1073,35 +1062,6 @@ export function LickCard({ lick, width, visible, compact, displayId, fitToWidth,
             drawGlissLine(svg as SVGElement, vfNote, allVfNotes[flatIdx + 1]);
           }
 
-          // ── Ghost note: draw ( ) parentheses around note head ──
-          if (noteInfo.ghost && vfNote && !noteInfo.duration.endsWith('r')) {
-            const noteEl = vfNote.getSVGElement?.() as SVGGraphicsElement | undefined;
-            if (noteEl) {
-              const bbox = noteEl.getBBox?.();
-              if (bbox) {
-                const PAD = 3;
-                const cx = bbox.x - PAD;
-                const cy = bbox.y + bbox.height / 2;
-                const h = bbox.height * 0.55;
-                const bulge = 5;
-                // left paren
-                const lp = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                lp.setAttribute('d', `M${cx} ${cy - h} Q${cx - bulge} ${cy} ${cx} ${cy + h}`);
-                lp.setAttribute('fill', 'none');
-                lp.setAttribute('stroke', '#555');
-                lp.setAttribute('stroke-width', '1.5');
-                svg.appendChild(lp);
-                // right paren
-                const rx2 = bbox.x + bbox.width + PAD;
-                const rp = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                rp.setAttribute('d', `M${rx2} ${cy - h} Q${rx2 + bulge} ${cy} ${rx2} ${cy + h}`);
-                rp.setAttribute('fill', 'none');
-                rp.setAttribute('stroke', '#555');
-                rp.setAttribute('stroke-width', '1.5');
-                svg.appendChild(rp);
-              }
-            }
-          }
 
           // ── 8va bracket start ──
           if (noteInfo.ottavaStart && vfNote) {

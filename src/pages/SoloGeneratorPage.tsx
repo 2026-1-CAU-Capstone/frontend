@@ -1,4 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { BackButton } from '../components/common/BackButton';
+import { ghostHead } from '../lib/note/ghostNote';
 import { isComposingEvent } from '../lib/ime';
 import { useNavigate, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
@@ -435,7 +437,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       const vfNotes = measure.notes.map((n) => {
         const isRest = n.duration.endsWith('r');
         const dur = buildDuration(n.duration, n.dotted);
-        const note = new StaveNote({ keys: isRest ? ['b/4'] : n.keys, duration: dur, autoStem: true });
+        const note = new StaveNote({ keys: isRest ? ['b/4'] : n.keys, duration: dur, autoStem: true, ...ghostHead(n) });
         if (n.dotted) Dot.buildAndAttach([note]);
 
         if (!isRest) {
@@ -869,20 +871,9 @@ const Header = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 20px;
+  padding: 10px 16px;  /* 가로 여백 16px — Solo DB 상단바 기준 */
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ theme }) => theme.colors.bgSecondary};
-`;
-
-const BackBtn = styled.button`
-  font-size: 0.82rem;
-  padding: 4px 12px;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 6px;
-  background: transparent;
-  cursor: pointer;
-  color: ${({ theme }) => theme.colors.textSecondary};
-  &:hover { background: #f0f0f0; }
 `;
 
 const Title = styled.span`
@@ -2145,7 +2136,7 @@ export default function SoloGeneratorPage() {
     <Page>
       {countInOverlay}
       <Header>
-        <BackBtn onClick={() => navigate('/note')}>&#8592; Note</BackBtn>
+        <BackButton onClick={() => navigate('/note')} label="Note" />
         <Title>Solo Generator</Title>
         <Sep />
         <MetaLabel>Title</MetaLabel>

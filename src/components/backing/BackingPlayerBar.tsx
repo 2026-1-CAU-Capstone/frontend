@@ -92,6 +92,8 @@ const GENRES = [
   'New Orleans Swing', 'Straight 8ths',
   'Bossa Nova', 'Samba', 'Latin', 'Latin Swing', 'Cha-Cha', 'Afro-Cuban',
   'Funk', 'Jazz Waltz',
+  /* 미정/불명 — OMR·외부 악보처럼 장르를 알 수 없을 때. 연주 느낌은 swing 기본. */
+  'Unknown',
 ] as const;
 
 /** The engine supports two feels; map the (richer) genre menu onto them.
@@ -103,14 +105,21 @@ const genreToStyle = (g: string): PlayStyle => (BOSSA_GENRES.has(g) ? 'bossa' : 
 /* ── Genre — reflects the loaded song's genre (global playerSettings.genre)
  *  and lets the user override it. Picking a genre also sets the engine feel
  *  (swing|bossa) via genreToStyle. ──────────────────────────────────────── */
-export function GenreSelect() {
-  const [genre, setGenre] = useState<string>(() => getPlayerSettings().genre);
+export function GenreSelect({ value, onChange }: {
+  /** 제어 모드 — 넘기면 이 값이 라벨이 된다(에디터: 악보 자체의 장르).
+   *  생략하면 기존처럼 전역 playerSettings.genre 를 따른다(코드차트·뷰어). */
+  value?: string;
+  /** 제어 모드에서 선택 시 호출. 전역 playerSettings 도 함께 갱신되어 반주 느낌이 따라간다. */
+  onChange?: (genre: string) => void;
+} = {}) {
+  const [storeGenre, setStoreGenre] = useState<string>(() => getPlayerSettings().genre);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useOutsideClose(open, ref, () => setOpen(false));
   // Stay in sync with the store so loading a song (ChordPage/NoteSheet set
   // `genre` from the chart) updates the label without a manual selection.
-  useEffect(() => subscribePlayerSettings((s) => setGenre(s.genre)), []);
+  useEffect(() => subscribePlayerSettings((s) => setStoreGenre(s.genre)), []);
+  const genre = value ?? storeGenre;
   const up = usePlayerBarPosition() === 'bottom';
   return (
     <GenreDropdown ref={ref}>
@@ -121,7 +130,11 @@ export function GenreSelect() {
         <GenreMenu $up={up}>
           {GENRES.map((g) => (
             <GenreOpt key={g} type="button" $on={g === genre}
-              onClick={() => { setOpen(false); setPlayerSettings({ genre: g, style: genreToStyle(g) }); }}>
+              onClick={() => {
+                setOpen(false);
+                setPlayerSettings({ genre: g, style: genreToStyle(g) });
+                onChange?.(g);
+              }}>
               {g}
             </GenreOpt>
           ))}

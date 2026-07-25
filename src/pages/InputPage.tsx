@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
+import { BackButton } from '../components/common/BackButton';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../styles/theme';
@@ -28,29 +29,6 @@ const PageContainer = styled.div`
     padding: 24px 16px;
     justify-content: flex-start;
     padding-top: 48px;
-  }
-`;
-
-const BackBtn = styled.button`
-  position: absolute;
-  top: calc(env(safe-area-inset-top, 0px) + 24px);
-  left: calc(env(safe-area-inset-left, 0px) + 24px);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.85rem;
-  padding: 8px 14px;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 8px;
-  background: ${({ theme }) => theme.colors.bgSecondary};
-  color: ${({ theme }) => theme.colors.textSecondary};
-  cursor: pointer;
-  transition: all 0.15s;
-
-  &:hover {
-    color: ${({ theme }) => theme.colors.textPrimary};
-    border-color: ${({ theme }) => theme.colors.goldDark};
   }
 `;
 
@@ -267,21 +245,7 @@ export default function InputPage() {
     <AppShell>
       <IconSidebar />
       <PageContainer>
-      <BackBtn onClick={() => navigate('/')}>
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 14 14"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M9 2L4 7l5 5" />
-        </svg>
-        홈으로
-      </BackBtn>
+      <BackButton onClick={() => navigate('/')} label="홈으로" />
 
       <Title>악보 인식 (OMR)</Title>
       <Subtitle>악보 이미지를 업로드하면 자동으로 분석합니다</Subtitle>

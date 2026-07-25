@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { ghostHead } from '../../lib/note/ghostNote';
 import styled from 'styled-components';
 // vexflow는 ~1 MB이므로 dynamic import로 lazy-load.
 // renderSheet 호출 전에 await __ensureVexflow() 로 사용.
@@ -308,6 +309,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number)
           keys: isRest ? ['b/4'] : n.keys,
           duration: dur,
           autoStem: true,
+          ...ghostHead(n),
         });
         if (n.dotted) Dot.buildAndAttach([note]);
         if (!isRest) {
@@ -849,7 +851,7 @@ export function LickCreator({ width, onSave, onCancel }: LickCreatorProps) {
         <ToggleBtn
           $active={pendingGhost}
           $color="#888"
-          title="Next note will be a ghost note (parentheses)"
+          title="Next note will be a ghost note (X notehead)"
           onClick={() => setPendingGhost((v) => !v)}
         >
           (Ghost)

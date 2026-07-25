@@ -64,6 +64,10 @@ export type NavigationMarker =
 export interface MeasureInfo {
   notes: NoteInfo[];
   chord?: string;
+  /** 대체(리하모니제이션) 코드 — 이 마디 위에 괄호로 감싸 표시되는 슬롯들.
+   *  배열이 있으면 "활성화", 없으면 비활성. 빈 문자열 슬롯은 빈칸으로 렌더된다.
+   *  (에디터에서 코드 칸 우클릭 → 대체 코드 추가/제거) */
+  altChords?: string[];
   repeatStart?: boolean;   // 𝄆 repeat begin barline
   repeatEnd?: boolean;     // 𝄇 repeat end barline
   volta?: number;          // volta bracket ending number (1, 2, 3, ...)

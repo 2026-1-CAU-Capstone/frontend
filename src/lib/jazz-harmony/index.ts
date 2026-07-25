@@ -15,3 +15,7 @@ export {
   toJazzNotation, chordTypeToJazzText,
   normalizeChord, normalizeChordTypeset, isValidChord, formatChordDisplay,
 } from './jazz-notation';
+export {
+  chordBaseSegments, chordExtStyle, isDominant7, splitChordParts, TRIANGLE, DEGREE,
+  type ChordParts,
+} from './chord-glyph';

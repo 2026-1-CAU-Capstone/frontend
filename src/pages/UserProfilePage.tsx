@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { BackButton } from '../components/common/BackButton';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { getCachedUser, logout as apiLogout } from '../api/auth';
@@ -30,9 +31,7 @@ export default function UserProfilePage() {
     <Page>
       <Header>
         <HeaderTopRow>
-          <BackBtn type="button" aria-label="뒤로" onClick={() => navigate(-1)}>
-            <BackArrow />
-          </BackBtn>
+          <BackButton onClick={() => navigate(-1)} label="뒤로" />
           <HeaderTitle>프로필</HeaderTitle>
         </HeaderTopRow>
       </Header>
@@ -134,28 +133,6 @@ const HeaderTopRow = styled.div`
   display: flex;
   align-items: center;
   gap: 10px;
-`;
-
-const BackArrow = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="15 18 9 12 15 6" />
-  </svg>
-);
-
-const BackBtn = styled.button`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  margin-left: -4px;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: #1a1a1a;
-  cursor: pointer;
-
-  &:active { opacity: 0.55; }
 `;
 
 const HeaderTitle = styled.h1`

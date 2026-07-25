@@ -493,19 +493,30 @@ export const DetailHeaderRow = styled.div`
   gap: 10px;
 `;
 
+/* 앱 공통 뒤로 버튼과 **완전히 같은** 사각 chevron 디자인.
+ * 단일 소스는 components/common/BackButton.tsx (BackSquare) — 여기서 모양을
+ * 따로 손보지 말고 그쪽을 고친다. (예전엔 원형 투명 버튼이라 Solo DB 등과
+ * 모양이 달랐다.) */
 export const DetailBackBtn = styled.button`
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  margin-left: -4px;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: #1a1a1a;
+  padding: 0;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 7px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
-  &:active { opacity: 0.55; }
+  transition: border-color 0.12s, background 0.12s;
+
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.gold};
+    background: ${({ theme }) => theme.colors.bgSecondary};
+  }
+  &:active { transform: scale(0.94); }
 `;
 
 export const DetailTitle = styled.h1`

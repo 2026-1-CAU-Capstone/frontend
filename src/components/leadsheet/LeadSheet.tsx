@@ -1656,6 +1656,38 @@ interface ArrowPathSegment {
   markerEnd?: boolean;
 }
 
+/** 한 마디 셀의 실제 DOM 사각형.
+ *
+ *  ⚠️ `BarsGrid` 는 `repeat(4, ...)` **고정 4열 그리드**라 한 시스템이 5마디를
+ *  넘으면 다음 **줄로 접힌다**(리듬 체인지스처럼 8마디/시스템이면 4+4 두 줄).
+ *  그런데 오버레이 기하를 "시스템 = 가로 한 줄"로 가정하고 그리드 전체에서
+ *  산술 계산하면(x = gridLeft + bi*(gridWidth/마디수), y = gridTop,
+ *  height = grid 높이) 줄이 접히는 순간 전부 어긋난다 — 둘째 줄 마디의
+ *  하이라이트가 **첫째 줄에** 그려지고 높이는 두 줄을 덮는다.
+ *  그래서 좌표는 반드시 실제 셀에서 읽는다. */
+function barCellRect(grid: HTMLElement | null | undefined, si: number, bi: number): DOMRect | null {
+  const cell = grid?.querySelector(`[data-bar-cell="${si}-${bi}"]`) as HTMLElement | null;
+  return cell ? cell.getBoundingClientRect() : null;
+}
+
+/** 곡 전체에서 "한 줄" 높이의 중앙값(px, scale 보정). 그리드가 아니라 **마디
+ *  셀**을 재야 접힌 줄에서도 한 줄 높이가 나온다. */
+function medianBarCellHeight(
+  grids: Record<number, HTMLDivElement | null>, systemCount: number, scale: number, fallback: number,
+): number {
+  const hs: number[] = [];
+  for (let si = 0; si < systemCount; si++) {
+    const grid = grids[si];
+    if (!grid) continue;
+    grid.querySelectorAll('[data-bar-cell]').forEach((c) => {
+      hs.push((c as HTMLElement).getBoundingClientRect().height / scale);
+    });
+  }
+  if (hs.length === 0) return fallback;
+  hs.sort((a, b) => a - b);
+  return hs[Math.floor(hs.length / 2)];
+}
+
 interface ResolvedArrow {
   key: string;
   segments: ArrowPathSegment[];
@@ -1726,10 +1758,14 @@ export function KeyControl({
   selectedKey,
   onChange,
   isMinor,
+  keys: keysProp,
 }: {
   selectedKey: string;
   onChange: (key: string) => void;
   isMinor: boolean;
+  /** 선택지 목록 override — 솔로 DB 는 note 도메인의 조성 목록(Dbm/Abm 표기)을
+   *  써야 transposeNoteSheet 가 값을 인식한다. 생략하면 코드차트 기본 목록. */
+  keys?: readonly string[];
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -1742,7 +1778,7 @@ export function KeyControl({
     return () => document.removeEventListener('mousedown', close);
   }, [open]);
   const up = usePlayerBarPosition() === 'bottom';
-  const keys = isMinor ? ALL_MINOR_KEYS : ALL_MAJOR_KEYS;
+  const keys = keysProp ?? (isMinor ? ALL_MINOR_KEYS : ALL_MAJOR_KEYS);
   return (
     <KeyDropdownWrap ref={ref}>
       <KeyButton onClick={() => setOpen((v) => !v)}>
@@ -2138,8 +2174,11 @@ export function LeadSheet({
         //   yellow tab top    = gridTop + BARLINE_GAP - TAB_HEIGHT
         //   yellow panel bot  = gridTop + gridHeight - BARLINE_GAP
         const TAB_HEIGHT = 22;
-        const y      = (gridRect.top - pageRect.top) / scale + BARLINE_GAP - TAB_HEIGHT;
-        const height = gridRect.height / scale - 2 * BARLINE_GAP + TAB_HEIGHT;
+        // 시스템 단위 폴백. 실제 y/height 는 아래에서 **그 범위가 놓인 줄의 마디
+        // 셀**로 다시 잡는다 — 4열 그리드에서 접힌 둘째 줄 선택이 첫째 줄에
+        // 그려지거나 두 줄 높이가 되지 않도록.
+        const fallbackY      = (gridRect.top - pageRect.top) / scale + BARLINE_GAP - TAB_HEIGHT;
+        const fallbackHeight = gridRect.height / scale - 2 * BARLINE_GAP + TAB_HEIGHT;
 
         const isFirstRow = systemIndex === firstRowIdx;
         const isLastRow  = systemIndex === lastRowIdx;
@@ -2172,8 +2211,23 @@ export function LeadSheet({
             endFraction = chordSpanInBar(lastChords, maxChordIdx).end;
           }
 
-          let hlLeft  = gridRect.left + (minBi + startFraction) * barW;
-          let hlRight = gridRect.left + (maxBi + endFraction) * barW;
+          // 좌표는 실제 마디 셀에서 — 그리드 산술(gridWidth/마디수)은 4열에서
+          // 줄이 접히는 순간 x 도 y 도 전부 틀린다.
+          const minCell = barCellRect(gridEl, systemIndex, minBi);
+          const maxCell = barCellRect(gridEl, systemIndex, maxBi);
+          const y = minCell
+            ? (minCell.top - pageRect.top) / scale + BARLINE_GAP - TAB_HEIGHT
+            : fallbackY;
+          const height = minCell
+            ? minCell.height / scale - 2 * BARLINE_GAP + TAB_HEIGHT
+            : fallbackHeight;
+
+          let hlLeft  = minCell
+            ? minCell.left + startFraction * minCell.width
+            : gridRect.left + (minBi + startFraction) * barW;
+          let hlRight = maxCell
+            ? maxCell.left + endFraction * maxCell.width
+            : gridRect.left + (maxBi + endFraction) * barW;
 
           if (isMultiRow) {
             const isLastRangeInRow  = index === ranges.length - 1;
@@ -2198,7 +2252,9 @@ export function LeadSheet({
             const lastRangeIsSingleChord =
               minBi === maxBi && (selectedInLastBar?.size ?? 0) === 1;
             if (isLastRow && isLastRangeInRow && lastRangeIsSingleChord) {
-              hlRight = gridRect.left + (maxBi + I_CHORD_END_FRACTION) * barW;
+              hlRight = maxCell
+                ? maxCell.left + maxCell.width * I_CHORD_END_FRACTION
+                : gridRect.left + (maxBi + I_CHORD_END_FRACTION) * barW;
             }
           }
 
@@ -2303,10 +2359,19 @@ export function LeadSheet({
         const sourceRect = sourceEl.getBoundingClientRect();
         const targetRect = targetEl.getBoundingClientRect();
         const targetGridRect = gridElsRef.current[targetSystemIndex]?.getBoundingClientRect();
-        const isSameSystem = sourceSystemIndex === targetSystemIndex;
+        // ⚠️ "같은 시스템" ≠ "같은 줄". BarsGrid 는 4열 고정이라 5마디 이상
+        // 시스템은 줄이 접힌다. 줄이 다른데 같은-줄 아크를 그리면 아랫줄까지
+        // 곤두박질치는 **세로 화살표**가 된다 — 실제 마디 셀의 top 을 비교해
+        // 같은 줄일 때만 직접 연결하고, 아니면 "앞으로 해결됨" 아크로 뺀다.
+        const srcBi = Number(spec.sourceChordId.split('-')[1]);
+        const tgtBi = Number(spec.targetChordId.split('-')[1]);
+        const srcCell = barCellRect(gridElsRef.current[sourceSystemIndex], sourceSystemIndex, srcBi);
+        const tgtCell = barCellRect(gridElsRef.current[targetSystemIndex], targetSystemIndex, tgtBi);
+        const isSameRow = sourceSystemIndex === targetSystemIndex
+          && !!srcCell && !!tgtCell && Math.abs(srcCell.top - tgtCell.top) < 1;
 
         const targetSlotStartX = (() => {
-          if (!isSameSystem) return null;
+          if (!isSameRow) return null;
           const [, biStr, ciStr] = spec.targetChordId.split('-');
           const targetBarIndex = Number(biStr);
           const targetChordIndex = Number(ciStr);
@@ -2322,7 +2387,14 @@ export function LeadSheet({
           // If the target starts at the far-left system boundary, there is no
           // useful "before the bar" space; keep the arrow aimed near the chord.
           if (targetBarIndex === 0 && span.start === 0) return null;
-          return targetGridRect.left + (targetBarIndex + span.start) * barW;
+          // 실제 마디 셀 우선 — 4열에서 접힌 둘째 줄 마디는 그리드 산술로는
+          // 엉뚱한 x 가 나온다(8마디 시스템이면 폭이 절반으로 계산됨).
+          const targetCell = barCellRect(
+            gridElsRef.current[targetSystemIndex], targetSystemIndex, targetBarIndex,
+          );
+          return targetCell
+            ? targetCell.left + span.start * targetCell.width
+            : targetGridRect.left + (targetBarIndex + span.start) * barW;
         })();
 
         // Side-to-side: from right edge of source chord to left edge of target chord,
@@ -2338,18 +2410,18 @@ export function LeadSheet({
         const sourceTrunkRight = inlineTensionEl
           ? inlineTensionEl.getBoundingClientRect().left
           : sourceRect.right;
-        const x1 = lx(sourceTrunkRight) + (isSameSystem ? 10 : 7);
+        const x1 = lx(sourceTrunkRight) + (isSameRow ? 10 : 7);
         const y1 = ly(sourceRect.top + sourceRect.height * 0.5) - 4;
-        const targetEndScreenX = isSameSystem && targetSlotStartX != null
+        const targetEndScreenX = isSameRow && targetSlotStartX != null
           ? targetSlotStartX - 6 * scale
-          : targetRect.left - (isSameSystem ? 10 : 7) * scale;
+          : targetRect.left - (isSameRow ? 10 : 7) * scale;
         let x2 = lx(targetEndScreenX);
-        if (isSameSystem && x2 <= x1 + 18) {
+        if (isSameRow && x2 <= x1 + 18) {
           x2 = Math.max(lx(targetRect.left) - 10, x1 + 18);
         }
         const y2 = ly(targetRect.top + targetRect.height * 0.5) - 4;
 
-        if (isSameSystem) {
+        if (isSameRow) {
           const [, srcBiStr] = spec.sourceChordId.split('-');
           const [, tgtBiStr] = spec.targetChordId.split('-');
           const isSameBar = srcBiStr === tgtBiStr;
@@ -2439,15 +2511,9 @@ export function LeadSheet({
       // Canonical row height for THIS song — measured from the median of all
       // system grids so the value adapts per-song (longer songs may render
       // smaller chord rows) but stays uniform across rows within a single song.
-      const measuredHeights: number[] = [];
-      for (let si = 0; si < resolvedData.systems.length; si++) {
-        const el = gridElsRef.current[si];
-        if (el) measuredHeights.push(el.getBoundingClientRect().height / scale);
-      }
-      measuredHeights.sort((a, b) => a - b);
-      const canonicalRowHeight = measuredHeights.length > 0
-        ? measuredHeights[Math.floor(measuredHeights.length / 2)]
-        : BAR_H;
+      const canonicalRowHeight = medianBarCellHeight(
+        gridElsRef.current, resolvedData.systems.length, scale, BAR_H,
+      );
 
       // ── Pivot chords ──────────────────────────────────────────────────
       // A chord that is the I (resolution) of one 2-5-1 AND simultaneously the
@@ -2513,10 +2579,14 @@ export function LeadSheet({
 
           const gridRect = gridEl.getBoundingClientRect();
           const numBars = resolvedData.systems[si]?.bars.length ?? 4;
-          const barW = gridRect.width / numBars;
+          // 마디 폭·좌표는 그리드 산술이 아니라 **실제 셀**에서 읽는다. 4열에서
+          // 줄이 접히면 gridWidth/마디수 는 틀린 값이다(8마디면 실제의 절반).
+          const minCell = barCellRect(gridEl, si, minBi);
+          const maxCell = barCellRect(gridEl, si, maxBi);
+          const barW = minCell ? minCell.width : gridRect.width / numBars;
 
           // Collect positions from chord elements that are available
-          let hlLeft  = gridRect.left + minBi * barW;
+          let hlLeft  = minCell ? minCell.left : gridRect.left + minBi * barW;
           let hlRight = -Infinity;
           let minY = Infinity, maxY = -Infinity;
           for (const ck of rowCks) {
@@ -2538,14 +2608,14 @@ export function LeadSheet({
 
           // Fallback X: extend to end of last bar if no element was found
           if (hlRight === -Infinity) {
-            hlRight = gridRect.left + (maxBi + 1) * barW;
+            hlRight = maxCell ? maxCell.right : gridRect.left + (maxBi + 1) * barW;
           } else {
             const lastBar = resolvedData.systems[si]?.bars[maxBi];
             const lastBarChordCount = lastBar?.chords.filter(c => c.root).length ?? 0;
             if (lastBarChordCount === 1) {
               // 1-chord bar: prefer the bar midpoint (iReal-style half-bar
               // look), but never let it cut into the chord text.
-              const midpoint = gridRect.left + (maxBi + 0.5) * barW;
+              const midpoint = maxCell ? maxCell.left + maxCell.width / 2 : gridRect.left + (maxBi + 0.5) * barW;
               hlRight = Math.max(midpoint, chordRightFloor);
             } else {
               hlRight += HL_PAD_X * scale;
@@ -2570,7 +2640,9 @@ export function LeadSheet({
             if (r === 0) {
               hlRight = gridRect.right;
             } else if (r === rowIndices.length - 1) {
-              const midpoint = gridRect.left + (maxBi + I_CHORD_END_FRACTION) * barW;
+              const midpoint = maxCell
+                ? maxCell.left + maxCell.width * I_CHORD_END_FRACTION
+                : gridRect.left + (maxBi + I_CHORD_END_FRACTION) * barW;
               hlRight = Math.max(midpoint, chordRightFloor);
             } else {
               hlLeft = gridRect.left;
@@ -2584,7 +2656,9 @@ export function LeadSheet({
             if (si === rowIndices[rowIndices.length - 1]) {
               hlRight = gridRect.right;
             } else if (si === rowIndices[0]) {
-              const midpoint = gridRect.left + (maxBi + I_CHORD_END_FRACTION) * barW;
+              const midpoint = maxCell
+                ? maxCell.left + maxCell.width * I_CHORD_END_FRACTION
+                : gridRect.left + (maxBi + I_CHORD_END_FRACTION) * barW;
               hlRight = Math.max(midpoint, chordRightFloor);
             }
           }
@@ -2644,7 +2718,8 @@ export function LeadSheet({
             // canonicalRowHeight is measured once per song and shared across
             // every highlight in the song, so all rows are uniform — yet the
             // size still adapts naturally for songs with smaller/larger rows.
-            y: ly(gridRect.top) + BARLINE_GAP,
+            // Y 도 실제 마디 셀 기준 — 접힌 둘째 줄 밴드가 첫째 줄에 그려지지 않게.
+            y: ly((minCell ?? gridRect).top) + BARLINE_GAP,
             width: lw(hlRight - hlLeft),
             height: canonicalRowHeight - 2 * BARLINE_GAP,
             label: span.label,
@@ -2698,10 +2773,12 @@ export function LeadSheet({
         /* ── 세로 높이: 곡당 캐노니컬 행 높이를 사용해 ii-V-I 하이라이트와
          * 완전히 동일한 디자인 로직으로 정렬되도록 함. y는 각 행의 gridRect.top
          * 기준이지만 height는 곡 전체 공통이라 모든 블록이 한 곡 안에서 균일. */
-        const gridEl = gridElsRef.current[si];
-        const gridRect = gridEl?.getBoundingClientRect();
-        const hlY = gridRect
-          ? ly(gridRect.top) + BARLINE_GAP
+        // Y 는 **그 코드가 실제로 놓인 줄**의 마디 셀에서 읽는다. 시스템 그리드
+        // top 을 쓰면 4열에서 접힌 둘째 줄의 코드가 첫째 줄에 그려진다
+        // (리듬 체인지스 6마디 E♭7 의 IV 밴드가 2마디 C-7 위에 얹히던 원인).
+        const cellRect = barCell?.getBoundingClientRect();
+        const hlY = cellRect
+          ? ly(cellRect.top) + BARLINE_GAP
           : chordY - MI_HL_OFFSET_TOP;
         const hlHeight = canonicalRowHeight - 2 * BARLINE_GAP;
 
@@ -2822,15 +2899,9 @@ export function LeadSheet({
 
       // Canonical (median) row height, measured exactly like the yellow band
       // so the sky-blue overlay shares its top & bottom edges.
-      const measuredHeights: number[] = [];
-      for (let si = 0; si < resolvedData.systems.length; si++) {
-        const el = gridElsRef.current[si];
-        if (el) measuredHeights.push(el.getBoundingClientRect().height / scale);
-      }
-      measuredHeights.sort((a, b) => a - b);
-      const canonicalRowHeight = measuredHeights.length > 0
-        ? measuredHeights[Math.floor(measuredHeights.length / 2)]
-        : BAR_H;
+      const canonicalRowHeight = medianBarCellHeight(
+        gridElsRef.current, resolvedData.systems.length, scale, BAR_H,
+      );
 
       // Beat-proportional sub-region: a multi-chord bar paints only the active
       // chord's slot; a single-chord bar gets span {0,1} → the whole bar.
@@ -2838,10 +2909,16 @@ export function LeadSheet({
       const idx = Math.min(Math.max(activeChordIndex, 0), Math.max(chords.length - 1, 0));
       const { start, end } = chordSpanInBar(chords, idx);
 
+      // 재생 커서도 실제 셀 기준 — 그리드 산술을 쓰면 4열에서 접힌 둘째 줄
+      // 마디(5마디~)의 커서가 첫째 줄의 엉뚱한 x 에 찍힌다.
+      const cell = barCellRect(gridEl, mapping.si, mapping.bi);
+      const barLeft  = cell ? cell.left  : gridRect.left + mapping.bi * barW;
+      const barWidth = cell ? cell.width : barW;
+      const barTop   = cell ? cell.top   : gridRect.top;
       setActiveBarRect({
-        x: (gridRect.left + (mapping.bi + start) * barW - pageRect.left) / scale,
-        y: (gridRect.top - pageRect.top) / scale + BARLINE_GAP,
-        width: ((end - start) * barW) / scale,
+        x: (barLeft + start * barWidth - pageRect.left) / scale,
+        y: (barTop - pageRect.top) / scale + BARLINE_GAP,
+        width: ((end - start) * barWidth) / scale,
         height: canonicalRowHeight - 2 * BARLINE_GAP,
       });
     };

@@ -1,4 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { BackButton } from '../components/common/BackButton';
+import { ghostHead } from '../lib/note/ghostNote';
 import { isComposingEvent } from '../lib/ime';
 import { useNavigate, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
@@ -308,7 +310,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       const vfNotes = measure.notes.map((n) => {
         const isRest = n.duration.endsWith('r');
         const dur = buildDuration(n.duration, n.dotted);
-        const note = new StaveNote({ keys: isRest ? ['b/4'] : n.keys, duration: dur, autoStem: true });
+        const note = new StaveNote({ keys: isRest ? ['b/4'] : n.keys, duration: dur, autoStem: true, ...ghostHead(n) });
         if (n.dotted) Dot.buildAndAttach([note]);
 
         if (!isRest) {
@@ -635,7 +637,7 @@ const Header = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 20px;
+  padding: 10px 16px;  /* 가로 여백 16px — Solo DB 상단바 기준 */
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ theme }) => theme.colors.bgSecondary};
 `;
@@ -2063,9 +2065,7 @@ export default function LickInputPage() {
     <Page>
       {countIn.overlay}
       <Header>
-        <BackBtn onClick={() => navigate(editingId ? '/licks' : '/')}>
-          &#8592; {editingId ? 'Licks' : 'Home'}
-        </BackBtn>
+        <BackButton onClick={() => navigate(editingId ? '/licks' : '/')} label={editingId ? 'Licks' : 'Home'} />
         <Title>Lick JSON Tool</Title>
         <BackBtn onClick={() => navigate('/my-licks')}>My Licks</BackBtn>
         <Sep />

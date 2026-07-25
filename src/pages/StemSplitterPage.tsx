@@ -7,6 +7,7 @@
  * AI 분리(Demucs 급)는 GPU 백엔드 연동 시 separate() 호출부만 교체하면 된다
  * (음원분리_백엔드 요구사항.md). */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { BackButton } from '../components/common/BackButton';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 import { IconSidebar } from '../components/layout/IconSidebar';
@@ -359,7 +360,7 @@ export default function StemSplitterPage() {
       <IconSidebar />
       <PageBody>
         <TopBar>
-          <BackBtn onClick={() => navigate('/')}>← Home</BackBtn>
+          <BackButton onClick={() => navigate('/')} label="홈으로" />
           <Title>음원 분리 <DemoBadge>데모 모드 · EQ 근사</DemoBadge></Title>
           <Spacer />
           <PresetGroup>
@@ -577,22 +578,10 @@ const TopBar = styled.div`
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: calc(env(safe-area-inset-top, 0px) + 10px) 20px 10px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px;  /* 가로 여백 16px — Solo DB 상단바 기준으로 통일 */
   background: ${({ theme }) => theme.colors.bgSecondary};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   flex-shrink: 0;
-`;
-
-const BackBtn = styled.button`
-  padding: 6px 12px;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 6px;
-  background: ${({ theme }) => theme.colors.bgPrimary};
-  color: ${({ theme }) => theme.colors.textPrimary};
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.82rem;
-  cursor: pointer;
-  &:hover { background: rgba(0, 0, 0, 0.04); }
 `;
 
 const Title = styled.h1`
