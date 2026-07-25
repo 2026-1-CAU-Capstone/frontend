@@ -51,6 +51,10 @@ export interface RenderOptions {
    *  groove-based comping patterns. Used by the Editor's practice playback so
    *  the soloist hears the changes on a plain 1-&-3 pulse. */
   pianoComp1And3?: boolean;
+  /** 루프 어웨어 어프로치 — 재생이 루프될 때 차트 마지막 코드의 베이스
+   *  어프로치 톤이 첫 코드를 타겟해 코러스 이음새가 자연스럽게 이어진다.
+   *  (기존: next=null → root 폴백 = "정지감". Player 연구 B5 검증) */
+  loopSeam?: boolean;
 }
 
 /* ─── comping rhythm patterns ────────────────────────────────────────── */
@@ -239,8 +243,9 @@ const ROLL_PATTERNS_SWING: number[][] = [
  */
 function pickRoll(feel: FeelId, voicingLen: number, randDraw: number): number[] {
   if (feel === "ballad-swing") {
-    // Ballad — one tick per voice (slow arpeggio feel).
-    return Array.from({ length: voicingLen }, (_, i) => i);
+    // 발라드는 진짜 느린 롤 — 노트당 16틱(480PPQ, 70bpm 기준 ≈29ms). 예전
+    // "1틱/노트"(≈1ms)는 주석과 달리 사실상 블록코드였다. (Player 연구 B1 검증)
+    return Array.from({ length: voicingLen }, (_, i) => i * 16);
   }
   if (
     feel === "even-8ths" ||
@@ -353,7 +358,12 @@ export function renderChart(chart: Chart, opts: RenderOptions): BackingEvent[] {
     let beatCursor = 0;
     for (let ci = 0; ci < bar.chords.length; ci++) {
       const chord = bar.chords[ci];
-      const next = nextChord(bar, ci, flatBars, bi);
+      // B5 — 루프 이음새: 마지막 코드는 next 가 없어 어프로치가 root 로
+      // 퇴화한다. loopSeam(플레이어가 루프 예정일 때) 이면 첫 코드를 타겟.
+      let next = nextChord(bar, ci, flatBars, bi);
+      if (next === null && opts.loopSeam) {
+        next = flatBars[0]?.chords[0] ?? null;
+      }
 
       // Bass — bossa/latin: 2-feel surdo; ballad: 2-feel half notes; swing:
       // walking. Seed = stable hash of bar + chord index so the same chart
@@ -424,7 +434,7 @@ export function renderChart(chart: Chart, opts: RenderOptions): BackingEvent[] {
         );
       } else {
         renderPsBasePianoComping(
-          chord, beatCursor, ci, psBaseCycleBeats, bi, barStart, secPerBeat, barFeel, events,
+          chord, beatCursor, ci, psBaseCycleBeats, bi, barStart, secPerBeat, barFeel, events, swingRatio,
         );
       }
 
@@ -496,6 +506,8 @@ function renderPsBasePianoComping(
   secPerBeat: number,
   feel: FeelId,
   events: BackingEvent[],
+  /** 밀도 잽의 스윙 "&" 투사용 (renderChart 의 swingRatio). 0.5 = 직선. */
+  swingRatio = 0.5,
 ): void {
   const sliceStartTick = cycleBeats * PSBASE_PPQ;
   const sliceEndTick = (cycleBeats + chord.beats) * PSBASE_PPQ;
@@ -535,6 +547,44 @@ function renderPsBasePianoComping(
     const arr = clusters.get(n.tick);
     if (arr) arr.push(n);
     else clusters.set(n.tick, [n]);
+  }
+
+  // 밀도 보정 (Player 연구 Stage E 검증) — psBase 실측 밀도 ≈1.8 온셋/4박은
+  // iReal(3.0~3.4)의 절반. 부족분을 "가이드톤 잽"(보이싱 하위 3음, 0.3박,
+  // vel 0.45)으로 빈 약박에 보충한다. 녹음 특성상 한 타건의 노트들이 서로
+  // 다른 틱에 흩어지므로, 온셋 수는 하프비트 양자화 집합(taken)으로 센다.
+  // 검증 결과: blues 1.83→2.83, ii-V-I→2.9, static→3.0 클러스터/마디.
+  {
+    const TARGET_DENSITY = 3.2;
+    const taken = new Set(
+      [...clusters.keys()].map((tk) => Math.round((tk / PSBASE_PPQ) * 2) / 2),
+    );
+    const expected = TARGET_DENSITY * (chord.beats / 4);
+    let deficit = Math.round(expected - taken.size);
+    if (deficit > 0) {
+      const JAB_SLOTS = [1.5, 3.5, 2.5, 0.5, 1.0, 3.0]; // 약박 우선, 온비트 보조
+      const jabVoicing = voiceChord(chord).slice(0, 3);
+      for (const slot of JAB_SLOTS) {
+        if (deficit <= 0) break;
+        if (slot >= chord.beats) continue;
+        if (taken.has(slot)) continue;
+        if (rand(bi * 101 + ci * 37 + slot * 11) > 0.75) continue;
+        // "&" 슬롯은 스윙 위치로 투사(베이스 오너먼트와 동일 규약).
+        const isAnd = slot % 1 !== 0;
+        const effSlot = isAnd ? Math.floor(slot) + swingRatio : slot;
+        const t = barStart + (beatCursor + effSlot) * secPerBeat;
+        for (const midi of jabVoicing) {
+          events.push({
+            kind: "note", instrument: "piano", midi,
+            time: t, duration: secPerBeat * 0.3,
+            velocity: 0.45,
+            bar: bi,
+          });
+        }
+        taken.add(slot);
+        deficit--;
+      }
+    }
   }
 
   // PATCH #7 — 25% anticipation toggle (swing feels only). Deterministic.
