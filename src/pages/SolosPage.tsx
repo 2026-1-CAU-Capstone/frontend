@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import styled, { keyframes, css } from 'styled-components';
 import { mq } from '../styles/theme';
@@ -193,6 +193,9 @@ const SearchInput = styled.input`
   &::placeholder { color: ${({ theme }) => theme.colors.textSecondary}; opacity: 0.6; }
 `;
 
+/* 폰 팝오버 브레이크포인트 — 상단 헤더 스택 전환과 동일 폭. */
+const HEADER_PHONE_POPOVER = '@media (max-width: 820px)';
+
 const RefreshBtn = styled.button<{ $big?: boolean }>`
   font-family: 'Pretendard', sans-serif;
   font-size: ${({ $big }) => ($big ? '0.9rem' : '0.78rem')};
@@ -294,6 +297,7 @@ const KeyPanelBar = styled.div`
   right: 0;
   z-index: 45;
   min-width: 360px;
+  max-width: calc(100vw - 32px);
   font-family: 'Pretendard', sans-serif;
   background: ${({ theme }) => theme.colors.bgPrimary};
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -303,6 +307,20 @@ const KeyPanelBar = styled.div`
   display: flex;
   flex-direction: column;
   gap: 13px;
+  /* 폰: 앵커(버튼) 기준 절대배치는 화면 밖으로 잘린다 → 화면 하단 중앙 고정 시트. */
+  ${HEADER_PHONE_POPOVER} {
+    position: fixed;
+    left: 50%;
+    right: auto;
+    top: auto;
+    bottom: 16px;
+    transform: translateX(-50%);
+    width: calc(100vw - 24px);
+    min-width: 0;
+    max-width: 420px;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
 `;
 
 const KeyPanelTitle = styled.div`
@@ -346,6 +364,7 @@ const LickPanel = styled.div`
   left: 0;
   z-index: 46;
   min-width: 300px;
+  max-width: calc(100vw - 32px);
   font-family: 'Pretendard', sans-serif;
   background: ${({ theme }) => theme.colors.bgPrimary};
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -355,6 +374,20 @@ const LickPanel = styled.div`
   display: flex;
   flex-direction: column;
   gap: 11px;
+  /* 폰: 앵커(버튼) 기준 절대배치는 화면 밖으로 잘린다 → 화면 하단 중앙 고정 시트. */
+  ${HEADER_PHONE_POPOVER} {
+    position: fixed;
+    left: 50%;
+    right: auto;
+    top: auto;
+    bottom: 16px;
+    transform: translateX(-50%);
+    width: calc(100vw - 24px);
+    min-width: 0;
+    max-width: 420px;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
 `;
 
 const LickPanelHint = styled.div`
@@ -806,6 +839,10 @@ const PreviewCard = styled.div`
 
 /* 좌(릭 구간 선택) / 중앙(믹서·BPM·트랜스포트) / 우(Edit~Delete) 3분할.
  * 1fr auto 1fr 이라야 가운데 묶음이 바 정중앙에 온다. */
+/* 데스크톱: 좌(장르·키·릭) / 중앙(믹서·BPM·재생) / 우(아이콘) 3분할.
+ * 중앙은 아래 악보 제목과 같은 '바 정중앙'에 절대배치로 고정한다.
+ * 모바일(≤820px): 절대배치를 풀고 세 그룹을 세로로 쌓아 아무것도 잘리지 않게 한다. */
+const HEADER_PHONE = '@media (max-width: 820px)';
 const PreviewHeader = styled.div`
   position: relative;   /* 메타 드롭다운의 기준 */
   padding: 6px 14px;
@@ -814,10 +851,13 @@ const PreviewHeader = styled.div`
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  /* 믹서~재생 묶음은 아래 악보 제목과 같은 '바 정중앙'에 절대배치로 고정한다.
-   * 좌·우 그룹은 각각 절반 폭을 넘지 못하게 잘라, 폭이 좁으면 중앙 묶음 위로
-   * 겹치는 대신 그룹 안에서 두 줄로 접힌다. */
   min-height: 36px;
+
+  ${HEADER_PHONE} {
+    flex-wrap: wrap;
+    row-gap: 8px;
+    padding: 10px 12px;
+  }
 `;
 
 const BarLeft = styled.div`
@@ -826,7 +866,14 @@ const BarLeft = styled.div`
   flex-wrap: wrap;
   gap: 7px;
   min-width: 0;
+  /* 좌·우 그룹이 중앙 절대배치 묶음 위로 겹치지 않도록 절반 폭 이내로 제한. */
   max-width: calc(50% - 130px);
+
+  ${HEADER_PHONE} {
+    max-width: none;
+    flex: 1 1 100%;
+    justify-content: flex-start;
+  }
 `;
 
 const BarCenter = styled.div`
@@ -838,6 +885,14 @@ const BarCenter = styled.div`
   align-items: center;
   justify-content: center;
   gap: 8px;
+
+  ${HEADER_PHONE} {
+    position: static;
+    transform: none;
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
 `;
 
 const BarRight = styled.div`
@@ -849,6 +904,13 @@ const BarRight = styled.div`
   min-width: 0;
   max-width: calc(50% - 130px);
   margin-left: auto;
+
+  ${HEADER_PHONE} {
+    max-width: none;
+    flex: 1 1 100%;
+    justify-content: flex-start;
+    margin-left: 0;
+  }
 `;
 
 /* ⓘ 클릭 시 열리는 메타데이터 — 레이아웃을 밀지 않고 위로 겹쳐 뜨는 드롭다운. */
@@ -858,6 +920,7 @@ const MetaPanel = styled.div`
   left: 14px;
   z-index: 40;
   min-width: 300px;
+  max-width: calc(100vw - 32px);
   font-family: 'Pretendard', sans-serif;
   background: ${({ theme }) => theme.colors.bgPrimary};
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -867,6 +930,20 @@ const MetaPanel = styled.div`
   display: flex;
   flex-direction: column;
   gap: 6px;
+  /* 폰: 앵커(버튼) 기준 절대배치는 화면 밖으로 잘린다 → 화면 하단 중앙 고정 시트. */
+  ${HEADER_PHONE_POPOVER} {
+    position: fixed;
+    left: 50%;
+    right: auto;
+    top: auto;
+    bottom: 16px;
+    transform: translateX(-50%);
+    width: calc(100vw - 24px);
+    min-width: 0;
+    max-width: 420px;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
 `;
 
 const MetaRow = styled.div`
@@ -1213,6 +1290,40 @@ const QueueRowRemove = styled.button`
   flex: none; width: 20px; height: 20px; border: none; border-radius: 50%;
   background: transparent; color: #b0b0b0; font-size: 14px; line-height: 1; cursor: pointer;
   &:hover { background: rgba(196, 92, 92, 0.12); color: #c45c5c; }
+`;
+/* 진행 중 큐에 파일 추가 — 헤더의 둥근 ＋ 버튼과 상세 하단의 점선 행. */
+const QueueAddBtn = styled.span`
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(184, 134, 11, 0.12);
+  color: #8a6d1c;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  &:hover { background: rgba(184, 134, 11, 0.22); }
+`;
+const QueueAddRow = styled.button`
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 0;
+  border: 1.5px dashed rgba(184, 134, 11, 0.35);
+  border-radius: 9px;
+  background: transparent;
+  color: #8a6d1c;
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  &:hover { background: rgba(184, 134, 11, 0.08); border-color: rgba(184, 134, 11, 0.55); }
+`;
+const HiddenQueueInput = styled.input`
+  display: none;
 `;
 
 /** One OMR job tracked by the status panel. `progress` 0 ⇒ indeterminate bar. */
@@ -1922,8 +2033,13 @@ export default function SolosPage() {
     }
   }, [upsertOmrJob, waitSoloOmrTerminal, refreshPerformers]);
 
+  /** 마지막 큐 시작 시의 공통 메타(악기·스타일 등) — 진행 중 카드에서 파일을
+   *  "추가"할 때 같은 설정을 물려주기 위해 기억해 둔다. */
+  const lastQueueMetaRef = useRef<OMRMetadata>({ source: 'user' });
+
   /** 모달 "시작하기" — 큐 카드 등록 후 직렬 러너 기동(이미 돌고 있으면 뒤에 붙는다). */
   const enqueueSoloOmrQueue = useCallback((files: File[], baseMeta: OMRMetadata) => {
+    lastQueueMetaRef.current = baseMeta;
     for (const file of files) {
       const jobId = `omr-${Date.now()}-${omrJobSeq.current++}`;
       const title = file.name.replace(/\.(pdf|png|jpe?g)$/i, '');
@@ -1949,6 +2065,28 @@ export default function SolosPage() {
     queueRef.current = [];
     setOmrJobs((prev) => prev.filter((j) => !j.fromQueue));
   }, []);
+
+  /* 진행 중 큐 카드의 "＋ 추가" — 파일을 골라 큐 **맨 뒤에** 붙인다.
+   * enqueueSoloOmrQueue 를 그대로 타므로 제목=파일명·composer='candidate' 규칙과
+   * 직렬 처리(러너가 돌고 있으면 이어받음)가 동일하게 적용된다. */
+  const queueAddInputRef = useRef<HTMLInputElement>(null);
+  const handleQueueAddFiles = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = ''; // 같은 파일 재선택 허용
+    if (files.length === 0) return;
+    const MAX_BYTES = 20 * 1024 * 1024; // 백엔드 동기 검증 한도(문서 #23)
+    const valid = (f: File) =>
+      (/^image\/(png|jpe?g)$/i.test(f.type) || /\.(png|jpe?g)$/i.test(f.name)
+        || f.type === 'application/pdf' || /\.pdf$/i.test(f.name))
+      && f.size <= MAX_BYTES;
+    const ok = files.filter(valid);
+    const rejected = files.filter((f) => !valid(f)).map((f) => f.name);
+    if (ok.length > 0) enqueueSoloOmrQueue(ok, lastQueueMetaRef.current);
+    if (rejected.length > 0) {
+      setError(`큐에서 제외됨(형식/20MB): ${rejected.join(', ')}`);
+      setTimeout(() => setError(null), 4000);
+    }
+  }, [enqueueSoloOmrQueue]);
 
   /* 통합 큐 카드 펼침 + 활성 행 자동 스크롤 */
   const [queueOpen, setQueueOpen] = useState(false);
@@ -2609,6 +2747,15 @@ export default function SolosPage() {
                         : running ? '다음 악보 준비 중…' : failed > 0 ? '완료 — 일부 오류' : '모두 완료'}
                     </QueueHeadSub>
                   </QueueHeadMain>
+                  <QueueAddBtn
+                    as="span"
+                    role="button"
+                    aria-label="큐에 파일 추가"
+                    title="큐 맨 뒤에 PDF/이미지 추가 (모두 candidate 로 저장)"
+                    onClick={(e: React.MouseEvent) => { e.stopPropagation(); queueAddInputRef.current?.click(); }}
+                  >
+                    ＋
+                  </QueueAddBtn>
                   <QueueChevron $open={queueOpen} aria-hidden>⌄</QueueChevron>
                   <OmrDismiss
                     as="span"
@@ -2619,6 +2766,13 @@ export default function SolosPage() {
                     ×
                   </OmrDismiss>
                 </QueueHead>
+                <HiddenQueueInput
+                  ref={queueAddInputRef}
+                  type="file"
+                  multiple
+                  accept="image/png,image/jpeg,image/jpg,application/pdf"
+                  onChange={handleQueueAddFiles}
+                />
                 <QueueBarTrack>
                   <QueueBarDone $pct={(done / total) * 100} />
                   <QueueBarFailSeg $left={(done / total) * 100} $pct={(failed / total) * 100} />
@@ -2658,6 +2812,9 @@ export default function SolosPage() {
                         )}
                       </QueueDetailRow>
                     ))}
+                    <QueueAddRow type="button" onClick={() => queueAddInputRef.current?.click()}>
+                      ＋ PDF·이미지 추가 (맨 뒤에 붙음 · candidate)
+                    </QueueAddRow>
                   </QueueDetail>
                 )}
               </QueueCard>
