@@ -806,6 +806,24 @@ function formatStyleLabel(v: string | undefined | null): string {
   return v.trim().toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase());
 }
 
+/** WJD(Weimar Jazz Database) 악기 축약코드 → 사람이 읽는 이름.
+ *  솔로 DB 의 instrument 는 'as'(alto sax)·'p'(piano) 같은 WJD 코드다. */
+const INSTRUMENT_NAMES: Record<string, string> = {
+  as: 'Alto Sax', ts: 'Tenor Sax', ss: 'Soprano Sax', bs: 'Baritone Sax',
+  cl: 'Clarinet', bcl: 'Bass Clarinet', fl: 'Flute',
+  tp: 'Trumpet', ptp: 'Pocket Trumpet', cor: 'Cornet', flgh: 'Flugelhorn',
+  tb: 'Trombone', frh: 'French Horn', tu: 'Tuba',
+  p: 'Piano', org: 'Organ', g: 'Guitar', vib: 'Vibraphone',
+  b: 'Bass', eb: 'Electric Bass', d: 'Drums', dr: 'Drums',
+  voc: 'Vocal', vln: 'Violin',
+};
+function formatInstrument(v: string | undefined | null): string {
+  if (!v) return '—';
+  const key = v.trim().toLowerCase();
+  if (key === 'unknown' || key === '') return 'Unknown';
+  return INSTRUMENT_NAMES[key] ?? formatStyleLabel(v);
+}
+
 /** ISO 문자열 → '2026년 5월 16일' (백엔드가 createdAt 을 주므로 프론트만으로 표시). */
 function formatAddedDate(iso: string | undefined | null): string {
   if (!iso) return '—';
@@ -2773,7 +2791,7 @@ export default function SolosPage() {
                       <MetaPanel>
                         <MetaRow><span>제목</span><b>{selected.title}</b></MetaRow>
                         <MetaRow><span>연주자</span><b>{selected.performer ?? '—'}</b></MetaRow>
-                        <MetaRow><span>악기</span><b>{selected.instrument ?? '—'}</b></MetaRow>
+                        <MetaRow><span>악기</span><b>{formatInstrument(selected.instrument)}</b></MetaRow>
                         <MetaRow><span>장르</span><b>{formatStyleLabel(selected.style) || 'Unknown'}</b></MetaRow>
                         <MetaRow><span>BPM</span><b>{selected.tempo ?? '—'}</b></MetaRow>
                         <MetaRow><span>조성</span><b>{originalDisplayKey}</b></MetaRow>
