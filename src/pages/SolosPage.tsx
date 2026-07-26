@@ -25,6 +25,12 @@ import {
 import { useNotification } from '../contexts/NotificationContext';
 import { buildMergedSoloDraft } from '../lib/mergeSolos';
 import { OMRUploadModal } from '../components/common/OMRUploadModal';
+import {
+  logQueueAdd, logQueueUpdate, logQueueRemove,
+  listQueueLog, effectiveStatus, clearQueueLog,
+  type QueueLogEntry,
+} from '../lib/soloOmrQueueLog';
+import { isAdminUser, getCachedUser } from '../api/auth';
 import { BackButton } from '../components/common/BackButton';
 import type { OMRMetadata } from '../api/licks';
 import {
@@ -1326,6 +1332,83 @@ const HiddenQueueInput = styled.input`
   display: none;
 `;
 
+/* ── 큐 영속 기록 모달 (admin) ─────────────────────────────────────────── */
+type QLogSt = 'QUEUED' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'INTERRUPTED';
+const QLogBackdrop = styled.div`
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5);
+  z-index: ${({ theme }) => theme.zIndex.max};
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+`;
+const QLogCard = styled.div`
+  width: min(560px, 100%); max-height: 84vh;
+  display: flex; flex-direction: column;
+  background: #fff; border-radius: 16px; overflow: hidden;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+  font-family: ${({ theme }) => theme.fonts.ui};
+`;
+const QLogHead = styled.div`
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 16px 18px 12px; border-bottom: 1px solid #f0f0f0;
+`;
+const QLogTitle = styled.h2` margin: 0; font-size: 16px; font-weight: 800; color: #1a1a1a; `;
+const QLogSummary = styled.div` display: flex; gap: 6px; margin-left: auto; `;
+const QLogStat = styled.span<{ $tone?: 'ok' | 'fail' | 'warn' }>`
+  font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+  color: ${({ $tone }) => ($tone === 'ok' ? '#1f7a45' : $tone === 'fail' ? '#c0392b' : $tone === 'warn' ? '#8a6d1c' : '#666')};
+  background: ${({ $tone }) => ($tone === 'ok' ? 'rgba(45,143,94,0.12)' : $tone === 'fail' ? 'rgba(196,92,92,0.12)' : $tone === 'warn' ? 'rgba(184,134,11,0.14)' : '#f1f1ef')};
+`;
+const QLogClose = styled.button`
+  border: none; background: transparent; color: #999; font-size: 20px; line-height: 1; cursor: pointer;
+  &:hover { color: #444; }
+`;
+const QLogHint = styled.div`
+  margin: 10px 18px 0; padding: 9px 12px; border-radius: 9px;
+  background: rgba(184, 134, 11, 0.08); color: #8a6d1c; font-size: 12px; line-height: 1.55;
+  b { font-weight: 700; }
+`;
+const QLogList = styled.div`
+  flex: 1; min-height: 0; overflow-y: auto; padding: 10px 12px; scrollbar-width: thin;
+`;
+const QLogEmpty = styled.div` padding: 28px 0; text-align: center; color: #aaa; font-size: 13px; `;
+const QLogRow = styled.div<{ $st: QLogSt }>`
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 8px; border-radius: 9px;
+  background: ${({ $st }) =>
+    $st === 'FAILED' ? 'rgba(196,92,92,0.06)'
+    : $st === 'INTERRUPTED' ? 'rgba(184,134,11,0.07)'
+    : 'transparent'};
+`;
+const QLogIcon = styled.span<{ $st: QLogSt }>`
+  flex: none; width: 20px; height: 20px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 10.5px; font-weight: 800; color: #fff;
+  background: ${({ $st }) =>
+    $st === 'COMPLETED' ? '#1f9a52'
+    : $st === 'FAILED' ? '#c45c5c'
+    : $st === 'INTERRUPTED' ? '#c9a13b'
+    : $st === 'PROCESSING' ? '#b8860b'
+    : '#c0c0c0'};
+`;
+const QLogMain = styled.div` flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; `;
+const QLogName = styled.div`
+  font-size: 13px; font-weight: 600; color: #2a2a2a;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+`;
+const QLogInfo = styled.div<{ $st: QLogSt }>`
+  font-size: 11.5px; line-height: 1.4;
+  color: ${({ $st }) => ($st === 'FAILED' ? '#c0392b' : $st === 'INTERRUPTED' ? '#8a6d1c' : '#999')};
+  word-break: break-word;
+`;
+const QLogTime = styled.div` flex: none; font-size: 10.5px; color: #b0b0b0; white-space: nowrap; `;
+const QLogFoot = styled.div`
+  display: flex; justify-content: flex-end; padding: 10px 16px; border-top: 1px solid #f0f0f0;
+`;
+const QLogClearBtn = styled.button`
+  border: 1px solid #e2e2e2; background: #fff; border-radius: 8px; padding: 6px 14px;
+  font-size: 12px; font-weight: 600; color: #888; cursor: pointer;
+  &:hover { background: rgba(196, 92, 92, 0.07); color: #c0392b; border-color: rgba(196, 92, 92, 0.35); }
+`;
+
 /** One OMR job tracked by the status panel. `progress` 0 ⇒ indeterminate bar. */
 /** QUEUED = 대량 큐에서 자기 차례를 기다리는 중(직렬 — 앞 파일이 끝나야 시작). */
 type SoloOmrJobStatus = 'QUEUED' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
@@ -1428,6 +1511,11 @@ export default function SolosPage() {
   /* 제목 클릭 시 펼쳐지는 메타데이터 패널 (연주자·악기·장르·BPM·조성·고유 키). */
   const [metaOpen, setMetaOpen] = useState(false);
   const [omrOpen, setOmrOpen] = useState(false);
+
+  /* 큐 영속 기록(admin 전용) — 자리를 비웠다 와도, 새로고침해도 결과가 남는다. */
+  const isAdmin = isAdminUser(getCachedUser());
+  const [queueLogOpen, setQueueLogOpen] = useState(false);
+  const [queueLogEntries, setQueueLogEntries] = useState<QueueLogEntry[]>([]);
   /* Live OMR status panel: one card per in-flight / just-finished job. */
   const [omrJobs, setOmrJobs] = useState<SoloOmrJob[]>([]);
   /* Merge mode: pick solos in click order (numbered 1,2,3…) → concatenate
@@ -1855,6 +1943,8 @@ export default function SolosPage() {
 
   const dismissOmrJob = useCallback((id: string) => {
     // 아직 시작 안 한 큐 항목이면 대기열에서도 뺀다(닫았는데 처리되면 안 되니까).
+    // 그 경우 영속 기록에서도 지운다 — 처리 대상이 아니었으므로 '중단'으로 남으면 오해.
+    if (queueRef.current.some((q) => q.jobId === id)) logQueueRemove(id);
     queueRef.current = queueRef.current.filter((q) => q.jobId !== id);
     setOmrJobs((prev) => {
       const job = prev.find((j) => j.id === id);
@@ -1974,11 +2064,14 @@ export default function SolosPage() {
         const st = await getSoloOmrStatus(publicId);
         if (st.status === 'COMPLETED') {
           upsertOmrJob(jobId, { status: 'COMPLETED', progress: 100, publicId });
+          logQueueUpdate(jobId, { status: 'COMPLETED', publicId, endedAt: Date.now() });
           void refreshPerformers();
           return;
         }
         if (st.status === 'FAILED') {
-          upsertOmrJob(jobId, { status: 'FAILED', failureReason: st.failureReason ?? '악보 인식에 실패했어요.' });
+          const reason = st.failureReason ?? '악보 인식에 실패했어요.';
+          upsertOmrJob(jobId, { status: 'FAILED', failureReason: reason });
+          logQueueUpdate(jobId, { status: 'FAILED', failureReason: reason, endedAt: Date.now() });
           return;
         }
         upsertOmrJob(jobId, {
@@ -1990,12 +2083,14 @@ export default function SolosPage() {
         const msg = e instanceof Error ? e.message : '';
         if (/\b401\b|\b403\b/.test(msg)) {
           upsertOmrJob(jobId, { status: 'FAILED', failureReason: '로그인이 만료됐어요. 다시 로그인 후 확인해 주세요.' });
+          logQueueUpdate(jobId, { status: 'FAILED', failureReason: '로그인 만료(401/403)', endedAt: Date.now() });
           return;
         }
         /* 일시 오류(500 등) — 계속 폴링 */
       }
       if (Date.now() - startedAt > MAX_MS) {
         upsertOmrJob(jobId, { status: 'FAILED', failureReason: '처리 상태를 확인하지 못했어요. 목록에서 다시 확인해 주세요.' });
+        logQueueUpdate(jobId, { status: 'FAILED', failureReason: '상태 확인 시간 초과(15분)', endedAt: Date.now() });
         return;
       }
       await new Promise<void>((r) => { window.setTimeout(r, INTERVAL_MS); });
@@ -2012,20 +2107,26 @@ export default function SolosPage() {
         if (!mountedRef.current) return;
         const { jobId, file, meta } = item;
         upsertOmrJob(jobId, { status: 'PROCESSING', progress: 0 });
+        logQueueUpdate(jobId, { status: 'PROCESSING', startedAt: Date.now() });
         try {
           const solo = await createSoloViaOMR(file, meta);
           if (solo?.sheetData?.measures?.length) {
             // 드물게 응답에 이미 결과가 실려 오면 그대로 완료.
             upsertOmrJob(jobId, { status: 'COMPLETED', progress: 100, publicId: solo.publicId, solo });
+            logQueueUpdate(jobId, { status: 'COMPLETED', publicId: solo.publicId, endedAt: Date.now() });
             void refreshPerformers();
           } else if (solo?.publicId) {
             upsertOmrJob(jobId, { publicId: solo.publicId });
+            logQueueUpdate(jobId, { publicId: solo.publicId });
             await waitSoloOmrTerminal(jobId, solo.publicId); // ★ 직렬의 핵심 — 끝날 때까지 대기
           } else {
             upsertOmrJob(jobId, { status: 'FAILED', failureReason: '서버 응답에 악보 데이터가 없어요.' });
+            logQueueUpdate(jobId, { status: 'FAILED', failureReason: '서버 응답에 악보 데이터가 없어요.', endedAt: Date.now() });
           }
         } catch (e) {
-          upsertOmrJob(jobId, { status: 'FAILED', failureReason: e instanceof Error ? e.message : 'OMR 인식 실패' });
+          const reason = e instanceof Error ? e.message : 'OMR 인식 실패';
+          upsertOmrJob(jobId, { status: 'FAILED', failureReason: reason });
+          logQueueUpdate(jobId, { status: 'FAILED', failureReason: reason, endedAt: Date.now() });
         }
       }
     } finally {
@@ -2055,6 +2156,7 @@ export default function SolosPage() {
         },
       });
       upsertOmrJob(jobId, { id: jobId, label: title, status: 'QUEUED', progress: 0, fromQueue: true });
+      logQueueAdd(jobId, title); // 영속 기록 — 새로고침해도 결과 추적 가능
     }
     void runSoloOmrQueue();
   }, [upsertOmrJob, runSoloOmrQueue]);
@@ -2062,8 +2164,23 @@ export default function SolosPage() {
   /** 통합 큐 카드 전체 닫기 — 대기열 비우고 큐 소속 카드 전부 제거.
    *  (이미 서버에 올라간 진행 중 건은 서버에서 계속 돌지만 카드만 사라진다) */
   const dismissQueueAll = useCallback(() => {
+    // 아직 시작 안 한 대기 항목은 기록에서도 제거(사용자 취소 — 중단 아님).
+    for (const q of queueRef.current) logQueueRemove(q.jobId);
     queueRef.current = [];
     setOmrJobs((prev) => prev.filter((j) => !j.fromQueue));
+  }, []);
+
+  /* 큐 진행 중 탭 닫기/새로고침 경고 — 큐는 메모리에만 있어 이탈하면 남은
+   * 항목이 전부 증발한다(2026-07-25 실측: 93개 중 32개만 처리되고 중단). */
+  useEffect(() => {
+    const warn = (e: BeforeUnloadEvent) => {
+      if (queueRunningRef.current || queueRef.current.length > 0) {
+        e.preventDefault();
+        e.returnValue = ''; // 브라우저 기본 확인 대화상자
+      }
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
   }, []);
 
   /* 진행 중 큐 카드의 "＋ 추가" — 파일을 골라 큐 **맨 뒤에** 붙인다.
@@ -2344,6 +2461,14 @@ export default function SolosPage() {
                     <OMRBtn onClick={() => navigate('/editor?mode=solo')} title="에디터에서 직접 솔로 작성">
                       ✏ Editor로 생성하기
                     </OMRBtn>
+                    {isAdmin && (
+                      <OMRBtn
+                        onClick={() => { setQueueLogEntries(listQueueLog()); setQueueLogOpen(true); }}
+                        title="대량 OMR 큐의 영속 기록 — 새로고침·이탈 후에도 결과 확인 (admin)"
+                      >
+                        🗂 큐 기록
+                      </OMRBtn>
+                    )}
                   </IntroActions>
                 </IntroHead>
               ) : (
@@ -2713,6 +2838,70 @@ export default function SolosPage() {
         onBackgroundStart={startSoloOmrJob}
         onQueueStart={enqueueSoloOmrQueue}
       />
+
+      {/* ── 큐 영속 기록 (admin) — localStorage 라 이탈/새로고침 후에도 남는다 ── */}
+      {queueLogOpen && (
+        <QLogBackdrop onClick={() => setQueueLogOpen(false)}>
+          <QLogCard onClick={(e) => e.stopPropagation()}>
+            <QLogHead>
+              <QLogTitle>🗂 OMR 큐 기록</QLogTitle>
+              {(() => {
+                const eff = queueLogEntries.map(effectiveStatus);
+                const done = eff.filter((s) => s === 'COMPLETED').length;
+                const failed = eff.filter((s) => s === 'FAILED').length;
+                const interrupted = eff.filter((s) => s === 'INTERRUPTED').length;
+                return (
+                  <QLogSummary>
+                    <QLogStat $tone="ok">성공 {done}</QLogStat>
+                    <QLogStat $tone="fail">실패 {failed}</QLogStat>
+                    {interrupted > 0 && <QLogStat $tone="warn">중단 {interrupted}</QLogStat>}
+                    <QLogStat>전체 {queueLogEntries.length}</QLogStat>
+                  </QLogSummary>
+                );
+              })()}
+              <QLogClose type="button" aria-label="닫기" onClick={() => setQueueLogOpen(false)}>×</QLogClose>
+            </QLogHead>
+            <QLogHint>
+              큐는 이 페이지가 열려 있어야 진행됩니다 — 탭을 닫거나 새로고침하면 남은 항목은
+              <b> 중단</b>으로 남습니다. 중단·실패 항목은 파일을 다시 큐에 넣어 재시도하세요.
+            </QLogHint>
+            <QLogList>
+              {queueLogEntries.length === 0 && <QLogEmpty>기록이 없습니다.</QLogEmpty>}
+              {queueLogEntries.map((entry) => {
+                const st = effectiveStatus(entry);
+                return (
+                  <QLogRow key={entry.id} $st={st}>
+                    <QLogIcon $st={st} aria-hidden>
+                      {st === 'COMPLETED' ? '✓' : st === 'FAILED' ? '✕' : st === 'INTERRUPTED' ? '⏸' : st === 'PROCESSING' ? '▶' : '○'}
+                    </QLogIcon>
+                    <QLogMain>
+                      <QLogName title={entry.title}>{entry.title}</QLogName>
+                      <QLogInfo $st={st}>
+                        {st === 'COMPLETED' && `완료${entry.endedAt && entry.startedAt ? ` · ${Math.round((entry.endedAt - entry.startedAt) / 1000)}초` : ''}`}
+                        {st === 'FAILED' && (entry.failureReason || '실패')}
+                        {st === 'INTERRUPTED' && '중단됨 — 페이지 이탈로 처리되지 않음 (다시 큐에 넣어주세요)'}
+                        {st === 'PROCESSING' && '인식 중…'}
+                        {st === 'QUEUED' && '대기 중'}
+                      </QLogInfo>
+                    </QLogMain>
+                    <QLogTime>
+                      {new Date(entry.queuedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </QLogTime>
+                  </QLogRow>
+                );
+              })}
+            </QLogList>
+            <QLogFoot>
+              <QLogClearBtn
+                type="button"
+                onClick={() => { clearQueueLog(); setQueueLogEntries([]); }}
+              >
+                기록 비우기
+              </QLogClearBtn>
+            </QLogFoot>
+          </QLogCard>
+        </QLogBackdrop>
+      )}
 
       {omrJobs.length > 0 && (
         <OmrPanel role="status" aria-live="polite">

@@ -304,6 +304,12 @@ const LeftMeta = styled.div`
   align-items: center;
   justify-content: flex-end;
   padding-right: 6px;
+  /* 박자표는 **첫 줄**에 붙는다. SystemRow 는 align-items:center 라, 시스템이
+   * 5마디 이상이라 2줄로 접히면 이 칸이 그리드 세로 중앙(=두 줄 사이)으로
+   * 내려가 박자표가 줄 사이에 떠 버린다. 첫 줄 높이(BAR_H)로 고정하고 위로
+   * 정렬해, 접히든 안 접히든 항상 첫 줄 안에서 세로 중앙에 놓이게 한다. */
+  align-self: flex-start;
+  height: ${BAR_H}px;
 
   @media (max-width: 960px) {
     width: 34px;
@@ -342,6 +348,11 @@ const BarsGrid = styled.div`
   width: 100%;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* 4열 고정이라 5마디 이상 시스템은 다음 줄로 접힌다. 접힌 줄 사이에 세로
+   * 간격이 없으면 윗줄 ii-V 브래킷과 아랫줄 밴드 탭(모달/ii-V-I)이 겹친다
+   * (윗줄 아래 ~14px + 아랫줄 위 22px). 시스템 간 간격과 같은 값으로 벌린다.
+   * 4마디 이하(안 접힘) 시스템엔 내부 그리드 행이 없어 영향 없음. */
+  row-gap: ${ROW_GAP}px;
   position: relative; /* anchor for SectionLabel */
 `;
 
@@ -2490,18 +2501,46 @@ export function LeadSheet({
          * 텍스트 bottom은 superscript/subscript 유무에 따라 달라지므로 chord
          * rect를 쓰면 같은 행에서도 브래킷 높이가 어긋남. 하이라이트 여부와
          * 무관하게 모든 ii-V 브래킷이 동일한 grid 하단 기준선을 공유한다. */
-        const siStr = spec.chordId1.split('-')[0];
-        const gridEl = gridElsRef.current[Number(siStr)];
-        const gridRect = gridEl?.getBoundingClientRect();
-        const yBase = gridRect
-          ? ly(gridRect.bottom - BARLINE_GAP * scale) + BRACKET_GAP
-          : Math.max(ly(rect1.bottom), ly(rect2.bottom)) + BRACKET_GAP;
+        // 기준선은 **그 괄호가 놓인 줄**의 마디 셀 하단에서 잡는다. 시스템
+        // 그리드 하단(gridRect.bottom)을 쓰면 4열에서 접힌 곡의 첫째 줄 ii-V
+        // 괄호가 둘째 줄 밑바닥에 그려진다. 두 코드가 서로 다른 줄이면(=접힘
+        // 경계를 넘는 ii-V) 각자 자기 줄 셀 하단을 쓴다.
+        const si = Number(spec.chordId1.split('-')[0]);
+        const bi1 = Number(spec.chordId1.split('-')[1]);
+        const bi2 = Number(spec.chordId2.split('-')[1]);
+        const cell1 = barCellRect(gridElsRef.current[si], si, bi1);
+        const cell2 = barCellRect(gridElsRef.current[si], si, bi2);
+        const yBaseFor = (cell: DOMRect | null, rect: DOMRect) => (cell
+          ? ly(cell.bottom - BARLINE_GAP * scale) + BRACKET_GAP
+          : ly(rect.bottom) + BRACKET_GAP);
+        const yBase1 = yBaseFor(cell1, rect1);
+        const yBase2 = yBaseFor(cell2, rect2);
+        const yBase = yBase1;
         const yBottom = yBase + BRACKET_DEPTH;
 
-        resolvedBrackets.push({
-          key: spec.key,
-          d: `M ${x1} ${yBase} L ${x1} ${yBottom} L ${x2} ${yBottom} L ${x2} ${yBase}`,
-        });
+        // 두 코드가 서로 다른 줄에 있으면(접힘 경계를 넘는 ii-V) 하나의 괄호로
+        // 이으면 비스듬한 선이 된다. 각 줄에서 열린-끝(그 줄 그리드 가장자리까지)
+        // 반쪽 괄호 둘로 나눠 그린다 — 줄바꿈된 슬러/괄호의 관례적 표기.
+        const sameRow = !!cell1 && !!cell2 && Math.abs(cell1.top - cell2.top) < 1;
+        if (!sameRow && cell1 && cell2) {
+          const yBottom1 = yBase1 + BRACKET_DEPTH;
+          const yBottom2 = yBase2 + BRACKET_DEPTH;
+          const row1Right = lx(cell1.right);
+          const row2Left = lx(cell2.left);
+          resolvedBrackets.push({
+            key: `${spec.key}-a`,
+            d: `M ${x1} ${yBase1} L ${x1} ${yBottom1} L ${row1Right} ${yBottom1}`,
+          });
+          resolvedBrackets.push({
+            key: `${spec.key}-b`,
+            d: `M ${row2Left} ${yBottom2} L ${x2} ${yBottom2} L ${x2} ${yBase2}`,
+          });
+        } else {
+          resolvedBrackets.push({
+            key: spec.key,
+            d: `M ${x1} ${yBase} L ${x1} ${yBottom} L ${x2} ${yBottom} L ${x2} ${yBase}`,
+          });
+        }
       }
 
       /* ── ii-V-I highlight bands ── */
@@ -2622,12 +2661,13 @@ export function LeadSheet({
             }
           }
 
-          // Fallback Y: use system element bounds if no chord element was found
+          // Fallback Y: 코드 엘리먼트를 못 찾았을 때. 시스템 전체(systemEl)가
+          // 아니라 **그 줄의 마디 셀** top 을 써야 접힌 둘째 줄에서 어긋나지 않는다.
           if (minY === Infinity) {
-            const sysRect = systemEl?.getBoundingClientRect();
-            if (!sysRect) continue;
-            minY = sysRect.top + BARLINE_GAP * scale;
-            maxY = sysRect.top + (BAR_H - BARLINE_GAP) * scale;
+            const rowRect = minCell ?? systemEl?.getBoundingClientRect();
+            if (!rowRect) continue;
+            minY = rowRect.top + BARLINE_GAP * scale;
+            maxY = rowRect.top + (BAR_H - BARLINE_GAP) * scale;
           }
 
           // Cross-row (consecutive): extend to grid width on open ends.
