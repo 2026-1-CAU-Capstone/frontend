@@ -602,8 +602,12 @@ function renderPsBasePianoComping(
     const offsetBeats = tick / PSBASE_PPQ;
 
     // PATCH #7 — only anticipate strong-beat onsets (integer-beat boundary).
+    // B9 fix (Player 연구 이식) — psBase 실연 틱은 강박도 4.01/24.01 처럼 수 틱
+    // 어긋나 있어 1e-6 허용오차로는 anticipation 후보가 32비트당 4개뿐이었다
+    // (사실상 죽은 기능 — 실측 8마디 발화 0회). 0.06비트로 완화하면 후보 7개,
+    // 스윙 오프비트(x.71)는 여전히 정확히 제외된다.
     let effOffsetBeats = offsetBeats;
-    const isStrong = Math.abs(offsetBeats - Math.round(offsetBeats)) < 1e-6;
+    const isStrong = Math.abs(offsetBeats - Math.round(offsetBeats)) < 0.06;
     if (
       isSwingFeel &&
       isStrong &&
