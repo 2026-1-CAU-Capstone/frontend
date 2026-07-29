@@ -579,7 +579,9 @@ export default function MyChordChartsPage() {
     if (!f) return;
     e.preventDefault();
     setPageDragOver(false);
-    void preprocessing.start(f);   // 드롭 즉시 자동 인식 → review 폼
+    /* 파일 선택 경로와 같은 진입점을 쓴다 — 여기서 preprocessing.start 를 직접
+     * 부르면 uploadedFileRef 가 비어 확정 후 원본 이미지가 저장되지 않았다. */
+    startPreprocessRef.current(f);   // 드롭 즉시 자동 인식 → review 폼
   };
 
   const addFolder = (name: string): void => {
@@ -1004,6 +1006,15 @@ export default function MyChordChartsPage() {
           <ErrorBanner>
             <span>{projectError}</span>
             <ErrorClose type="button" onClick={() => setProjectError(null)}>닫기</ErrorClose>
+          </ErrorBanner>
+        )}
+        {/* 자동 인식(전처리) 실패 — review 모달이 떠 있을 땐 모달이 직접 보여주므로
+         *  그 밖(업로드 단계에서 실패해 phase 가 idle 로 돌아온 경우)만 배너로 알린다.
+         *  이걸 안 띄우면 파일을 떨궈도 모달만 잠깐 뜨고 아무 일도 안 일어난 것처럼 보인다. */}
+        {preprocessing.error && preprocessing.phase !== 'review' && preprocessing.phase !== 'confirming' && (
+          <ErrorBanner>
+            <span>{preprocessing.error}</span>
+            <ErrorClose type="button" onClick={preprocessing.clearError}>닫기</ErrorClose>
           </ErrorBanner>
         )}
         {projectLoading && <LoadingStrip>코드 프로젝트를 불러오는 중...</LoadingStrip>}
@@ -2048,7 +2059,10 @@ function formatKey(key: string | undefined): string {
   const trimmed = (key ?? '').trim();
   const match = trimmed.match(/^([A-Ga-g][#b♯♭]?)\s*(.*)$/);
   if (!match) return trimmed;
-  const root = match[1].toUpperCase().replace('♯', '#').replace('♭', 'b');
+  /* 음이름(첫 글자)만 대문자로. 예전엔 매치 전체를 toUpperCase 해서 조표까지
+   * 대문자가 됐다 — "Eb" 가 "EB" 로 보이던 원인. */
+  const root = match[1].charAt(0).toUpperCase()
+    + match[1].slice(1).replace('♯', '#').replace('♭', 'b');
   const rest = match[2].toLowerCase();
   const isMinor = /^(m(in(or)?)?|-)/.test(rest);
   return isMinor ? `${root}m` : root;

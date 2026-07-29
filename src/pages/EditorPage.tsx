@@ -22,7 +22,8 @@ import type { NoteInfo, MeasureInfo, NavigationMarker, NoteSheetData } from '../
 
 import { useEditorBackingPlayback } from '../hooks/useEditorBackingPlayback';
 import { GenreSelect, BpmControl, RepeatControl, TransportButtons, MixerButton } from '../components/backing/BackingPlayerBar';
-import { DUR_BEATS, vexToMidi, noteMetricBeats } from '../lib/note/melodyTiming';
+import { vexToMidi, noteMetricBeats } from '../lib/note/melodyTiming';
+import { computeBeamBreaks } from '../lib/note/beamPolicy';
 import { bakeExplicitAccidentals, bakeForScoreReading } from '../lib/note/resolvePitches';
 import { resolveMeasureAccidental, type RenderAcc } from '../lib/note/measureAccidentals';
 import { drawScoopFall } from '../lib/note/scoopFall';
@@ -433,11 +434,13 @@ function buildVfNote(
   return note;
 }
 
-/** 한 마디의 빔 그룹 계산 — 트레블/베이스 공용 (renderSheet 본문에서 추출). */
+/** 한 마디의 빔 그룹 계산 — 트레블/베이스 공용 (renderSheet 본문에서 추출).
+ *  직선 음의 분할 위치는 beamPolicy(절대 박 위치 조판 규칙)가 결정한다 —
+ *  쉼표 뒤 오프비트 런은 박 단위로, 정박 8분 4개는 통짜로. */
 function buildBeams(msNotes: NoteInfo[], vfNotes: StaveNote[]): Beam[] {
   const beams: Beam[] = [];
+  const beamBreaks = computeBeamBreaks(msNotes, '4/4');
   let beamGroup: StaveNote[] = [];
-  let groupBeats = 0;
   let inTupletN = 0;
   let postTupletMerged = false;
 
@@ -448,14 +451,10 @@ function buildBeams(msNotes: NoteInfo[], vfNotes: StaveNote[]): Beam[] {
     const dur = vn.getDuration();
     const isBeamable = dur === '8' || dur === '16' || dur === '8d' || dur === '16d';
     const isRest = vn.isRest();
-    const noteDots = vn.getModifiersByType('Dot')?.length ?? 0;
-    let noteBeats = DUR_BEATS[dur.replace('d', '')] ?? 1;
-    if (noteDots > 0 || dur.endsWith('d')) noteBeats *= 1.5;
 
     if (postTupletMerged && beamGroup.length > 0) {
       if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
       beamGroup = [];
-      groupBeats = 0;
       postTupletMerged = false;
     }
 
@@ -466,41 +465,30 @@ function buildBeams(msNotes: NoteInfo[], vfNotes: StaveNote[]): Beam[] {
       } else {
         if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
         beamGroup = [];
-        if (!isTuplet) groupBeats = 0;
       }
     }
     inTupletN = tupletN;
 
     if (isBeamable && !isRest) {
-      if (!isTuplet && !postTupletMerged) {
-        const newGroupBeats = groupBeats + noteBeats;
-        const has16 = dur === '16' || dur === '16d' || beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
-        const boundary = has16 ? 1 : 2;
-        if (groupBeats > 0 && Math.floor((groupBeats - 0.001) / boundary) !== Math.floor((newGroupBeats - 0.001) / boundary) && beamGroup.length > 0) {
-          if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
-          beamGroup = [];
-          groupBeats = 0;
-        }
+      if (!isTuplet && !postTupletMerged && beamGroup.length > 0 && beamBreaks.has(ni)) {
+        if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
+        beamGroup = [];
       }
       beamGroup.push(vn);
-      if (!isTuplet) groupBeats += noteBeats;
       if (isTuplet && beamGroup.length === tupletN) {
         beams.push(new Beam(beamGroup, true));
         beamGroup = [];
-        groupBeats = 0;
         postTupletMerged = false;
         continue;
       }
       if (msNotes[ni].beamBreak) {
         if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
         beamGroup = [];
-        groupBeats = 0;
         postTupletMerged = false;
       }
     } else {
       if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
       beamGroup = [];
-      groupBeats = 0;
       postTupletMerged = false;
     }
   }

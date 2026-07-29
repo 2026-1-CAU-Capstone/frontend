@@ -73,6 +73,9 @@ export function useProjectPreprocess({ onConfirmed }: Options) {
     writeStoredId(null);
   }, []);
 
+  /** 에러만 지운다(단계는 유지) — 업로드 실패 배너의 "닫기"용. */
+  const clearError = useCallback(() => setError(null), []);
+
   /* 새로고침·뒤로가기 복귀 시 review 폼 복구(문서 §4).
    * 만료(410)·없음(404)이면 조용히 버린다 — 사용자는 그냥 업로드부터 다시 한다. */
   useEffect(() => {
@@ -173,5 +176,5 @@ export function useProjectPreprocess({ onConfirmed }: Options) {
     }
   }, [preprocess, reset]);
 
-  return { phase, preprocess, error, start, cancel, cancelUpload, confirm, reset };
+  return { phase, preprocess, error, start, cancel, cancelUpload, confirm, reset, clearError };
 }

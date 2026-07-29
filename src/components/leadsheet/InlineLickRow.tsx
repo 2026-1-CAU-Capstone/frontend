@@ -192,7 +192,7 @@ export function InlineLickRow({
         // because they carry more notes.
         const vfNotes = buildVfNotes(measure, EMPTY_KACC);
         if (vfNotes.length === 0) continue;
-        const beams = buildBeams(vfNotes, measure.notes);
+        const beams = buildBeams(vfNotes, measure.notes, sheet.timeSignature);
         // Tuplets BEFORE format → tick multipliers applied so triplet bars don't
         // report "too many ticks" and overflow their column. Drawn after notes.
         const tuplets = buildTuplets(vfNotes, measure.notes);

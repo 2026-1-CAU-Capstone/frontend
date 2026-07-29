@@ -96,6 +96,7 @@ import { getLickVideo, lickYoutubeSearchUrl } from '../../data/lickVideos';
 import { useCountInIntro } from '../../hooks/useCountInIntro';
 import { prepareLickIntro } from '../../lib/note/anacrusis';
 import { resolveMeasureAccidental } from '../../lib/note/measureAccidentals';
+import { computeBeamBreaks } from '../../lib/note/beamPolicy';
 import { formatChordDisplay, chordBaseSegments, chordExtStyle, splitChordParts } from '../../lib/jazz-harmony';
 
 /* ─── layout constants ──────────────────────────────────────────────── */
@@ -116,7 +117,6 @@ const DECOR_OTHER = 35;
  * note glyphs without crowding; combined with the softmaxFactor in the Formatter call below this
  * makes spacing nearly uniform by count rather than proportional to duration. */
 const PX_PER_DUR: Record<string, number> = { w: 22, h: 22, q: 22, '8': 22, '16': 22 };
-const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25 };
 
 const formatChord = formatChordDisplay;
 
@@ -399,10 +399,12 @@ function drawGlissLine(svgEl: SVGElement, fromNote: StaveNote, toNote: StaveNote
   svgEl.appendChild(txt);
 }
 
-function buildManualBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
+/** 직선 음의 분할 위치는 beamPolicy(절대 박 위치 조판 규칙)가 결정한다 —
+ *  쉼표 뒤 오프비트 런은 박 단위로, 정박 8분 4개는 통짜로 묶인다. */
+function buildManualBeams(vfNotes: StaveNote[], notes: NoteInfo[], timeSignature?: string): Beam[] {
   const beams: Beam[] = [];
+  const beamBreaks = computeBeamBreaks(notes, timeSignature);
   let beamGroup: StaveNote[] = [];
-  let beatPos = 0;          // absolute beat position within the measure
   let inTupletN = 0;        // 0 = not in tuplet, else the N of the current N-tuplet group
   let postTupletMerged = false;
 
@@ -413,14 +415,6 @@ function buildManualBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
     const dur = vn.getDuration();
     const isBeamable = dur === '8' || dur === '16' || dur === '8d' || dur === '16d';
     const isRest = vn.isRest();
-    const noteDots = vn.getModifiersByType('Dot')?.length ?? 0;
-    let noteBeats = DUR_BEATS[dur.replace('d', '')] ?? 1;
-    if (noteDots > 0 || dur.endsWith('d')) noteBeats *= 1.5;
-    if (isTuplet) {
-      // N-tuplet occupies the time of the largest power of 2 strictly less than N
-      const denom = Math.pow(2, Math.floor(Math.log2(tupletN - 1)));
-      noteBeats *= denom / tupletN;
-    }
 
     if (postTupletMerged && beamGroup.length > 0) {
       if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
@@ -441,28 +435,20 @@ function buildManualBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
     inTupletN = tupletN;
 
     if (isBeamable && !isRest) {
-      if (!isTuplet && !postTupletMerged) {
-        const newBeatPos = beatPos + noteBeats;
-        const has16 = dur === '16' || dur === '16d' || beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
-        const boundary = has16 ? 1 : 2;
-        // Break if this note crosses a beat boundary
-        if (beamGroup.length > 0 && Math.floor((beatPos - 0.001) / boundary) !== Math.floor((newBeatPos - 0.001) / boundary)) {
-          if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
-          beamGroup = [];
-        }
+      if (!isTuplet && !postTupletMerged && beamGroup.length > 0 && beamBreaks.has(i)) {
+        if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
+        beamGroup = [];
       }
       beamGroup.push(vn);
       // Split consecutive N-tuplet groups every N notes (3 notes for triplet, 5 for quintuplet, …)
       if (isTuplet && beamGroup.length === tupletN) {
         beams.push(new Beam(beamGroup, true));
         beamGroup = [];
-        beatPos += noteBeats;
         continue;
       }
       if (notes[i]?.beamBreak) {
         if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
         beamGroup = [];
-        beatPos += noteBeats;
         postTupletMerged = false;
         continue;
       }
@@ -472,7 +458,6 @@ function buildManualBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
       beamGroup = [];
       postTupletMerged = false;
     }
-    beatPos += noteBeats;
   }
   if (beamGroup.length >= 2) beams.push(new Beam(beamGroup, true));
   return beams;
@@ -918,7 +903,7 @@ export function LickCard({ lick, width, visible, compact, displayId, fitToWidth,
           }
         }
 
-        const beams = buildManualBeams(vfNotes, measure.notes);
+        const beams = buildManualBeams(vfNotes, measure.notes, data.timeSignature);
         const voice = new Voice({ numBeats, beatValue });
         voice.setStrict(false);
         voice.addTickables(vfNotes);

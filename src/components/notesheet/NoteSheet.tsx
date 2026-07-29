@@ -137,6 +137,7 @@ import { FullscreenButton, useFullscreen } from '../common/FullscreenButton';
 import { formatChordDisplay, chordBaseSegments, chordExtStyle, splitChordParts } from '../../lib/jazz-harmony';
 import { resolveMeasureAccidental } from '../../lib/note/measureAccidentals';
 import { drawScoopFall } from '../../lib/note/scoopFall';
+import { computeBeamBreaks } from '../../lib/note/beamPolicy';
 
 /* ─── constants ─────────────────────────────────────────────────────────── */
 
@@ -2117,7 +2118,9 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
           if (beamGroup.length >= 2) pushBeam(beamGroup);
         } else {
           // Heuristic mode (legacy auto-beaming for manually-authored licks).
-          let groupBeats = 0;
+          // 직선 음의 분할 위치는 beamPolicy(절대 박 위치 조판 규칙)가 결정 —
+          // 쉼표 뒤 오프비트 런은 박 단위, 정박 8분 4개는 통짜.
+          const beamBreaks = computeBeamBreaks(measure.notes, data.timeSignature);
           let inTupletN = 0;
           let postTupletMerged = false;
 
@@ -2129,13 +2132,10 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
             const dur = vn.getDuration();
             const isBeamable = dur === '8' || dur === '16' || dur === '32' || dur === '64' || dur === '128' || dur === '8d' || dur === '16d' || dur === '32d' || dur === '64d';
             const isRest = vn.isRest();
-            const noteDots = vn.getModifiersByType('Dot')?.length ?? 0;
-            let noteBeats = DUR_BEATS[dur.replace('d', '')] ?? 1;
-            if (noteDots > 0 || dur.endsWith('d')) noteBeats *= 1.5;
 
             if (postTupletMerged && beamGroup.length > 0) {
               if (beamGroup.length >= 2) pushBeam(beamGroup);
-              beamGroup = []; groupBeats = 0; postTupletMerged = false;
+              beamGroup = []; postTupletMerged = false;
             }
             if (tupletN !== inTupletN && beamGroup.length > 0) {
               const prevIs16Triplet = inTupletN === 3 && beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
@@ -2144,35 +2144,28 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
               } else {
                 if (beamGroup.length >= 2) pushBeam(beamGroup);
                 beamGroup = [];
-                if (!isTuplet) groupBeats = 0;
               }
             }
             inTupletN = tupletN;
 
             if (isBeamable && !isRest) {
-              if (!isTuplet && !postTupletMerged) {
-                const newGroupBeats = groupBeats + noteBeats;
-                const has16 = dur === '16' || dur === '16d' || beamGroup.some((bn) => { const d = bn.getDuration(); return d === '16' || d === '16d'; });
-                const boundary = has16 ? 1 : 2;
-                if (groupBeats > 0 && Math.floor((groupBeats - 0.001) / boundary) !== Math.floor((newGroupBeats - 0.001) / boundary) && beamGroup.length > 0) {
-                  if (beamGroup.length >= 2) pushBeam(beamGroup);
-                  beamGroup = []; groupBeats = 0;
-                }
+              if (!isTuplet && !postTupletMerged && beamGroup.length > 0 && beamBreaks.has(sourceIdx)) {
+                if (beamGroup.length >= 2) pushBeam(beamGroup);
+                beamGroup = [];
               }
               beamGroup.push(vn);
-              if (!isTuplet) groupBeats += noteBeats;
               if (isTuplet && beamGroup.length === tupletN) {
                 pushBeam(beamGroup);
-                beamGroup = []; groupBeats = 0; postTupletMerged = false;
+                beamGroup = []; postTupletMerged = false;
                 continue;
               }
               if (measure.notes[sourceIdx]?.beamBreak) {
                 if (beamGroup.length >= 2) pushBeam(beamGroup);
-                beamGroup = []; groupBeats = 0; postTupletMerged = false;
+                beamGroup = []; postTupletMerged = false;
               }
             } else {
               if (beamGroup.length >= 2) pushBeam(beamGroup);
-              beamGroup = []; groupBeats = 0; postTupletMerged = false;
+              beamGroup = []; postTupletMerged = false;
             }
           }
           if (beamGroup.length >= 2) pushBeam(beamGroup);

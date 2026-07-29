@@ -23,6 +23,7 @@ import { resolveMeasureAccidental, type RenderAcc } from '../../lib/note/measure
 import { normalizeChordTypeset as normalizeChordLabel } from '../../lib/jazz-harmony';
 import { YoutubeEmbed } from '../common/YoutubeEmbed';
 import { getLickVideo } from '../../data/lickVideos';
+import { computeBeamBreaks } from '../../lib/note/beamPolicy';
 
 /* ── AI 생성 릭: glick JSON → LickEntry 변환 ────────────────────────────── */
 
@@ -193,7 +194,6 @@ function addChordLabel(svg: SVGElement, x: number, y: number, raw: string) {
 /* ── vexflow constants ────────────────────────────────────────────────────── */
 
 const PX_PER_DUR: Record<string, number> = { w: 50, h: 38, q: 30, '8': 24, '16': 20 };
-const DUR_BEATS: Record<string, number> = { w: 4, h: 2, q: 1, '8': 0.5, '16': 0.25 };
 const FLAT_KEYS: Record<string, number> = { F: 1, Bb: 2, Eb: 3, Ab: 4, Db: 5, Gb: 6, Cb: 7, Dm: 1, Gm: 2, Cm: 3, Fm: 4, Bbm: 5, Ebm: 6 };
 const SHARP_KEYS: Record<string, number> = { G: 1, D: 2, A: 3, E: 4, B: 5, 'F#': 6, 'C#': 7 };
 const KEY_SIG_FLATS = ['b', 'e', 'a', 'd', 'g', 'c', 'f'];
@@ -253,27 +253,23 @@ export function buildVfNotes(measure: MeasureInfo, kAcc: Map<string, 'b' | '#'>)
   });
 }
 
-export function buildBeams(vfNotes: StaveNote[], notes: NoteInfo[]): Beam[] {
+/** 직선 음의 분할 위치는 beamPolicy(절대 박 위치 조판 규칙)가 결정한다 —
+ *  쉼표 뒤 오프비트 런은 박 단위로, 정박 8분 4개는 통짜로 묶인다. */
+export function buildBeams(vfNotes: StaveNote[], notes: NoteInfo[], timeSignature?: string): Beam[] {
   const beams: Beam[] = [];
+  const beamBreaks = computeBeamBreaks(notes, timeSignature);
   let grp: StaveNote[] = [];
-  let beatPos = 0;
   for (let i = 0; i < vfNotes.length; i++) {
     const vn = vfNotes[i]; const dur = vn.getDuration();
     const isBeamable = dur === '8' || dur === '16' || dur === '8d' || dur === '16d';
     const isRest = vn.isRest();
-    let nb = DUR_BEATS[dur.replace('d', '')] ?? 1;
-    if (notes[i]?.tuplet) nb *= 2 / 3;
     if (isBeamable && !isRest) {
-      if (!notes[i]?.tuplet) {
-        const nb2 = beatPos + nb;
-        if (grp.length > 0 && Math.floor((beatPos - 0.001) / 2) !== Math.floor((nb2 - 0.001) / 2)) {
-          if (grp.length >= 2) beams.push(new Beam(grp, true)); grp = [];
-        }
+      if (!notes[i]?.tuplet && grp.length > 0 && beamBreaks.has(i)) {
+        if (grp.length >= 2) beams.push(new Beam(grp, true)); grp = [];
       }
       grp.push(vn);
       if (notes[i]?.tuplet && grp.length === 3) { beams.push(new Beam(grp, true)); grp = []; }
     } else { if (grp.length >= 2) beams.push(new Beam(grp, true)); grp = []; }
-    beatPos += nb;
   }
   if (grp.length >= 2) beams.push(new Beam(grp, true));
   return beams;
@@ -358,7 +354,7 @@ function renderScore(
     stave.setContext(ctx).draw();
 
     const vfNotes = buildVfNotes(measure, kAcc);
-    const beams = buildBeams(vfNotes, measure.notes);
+    const beams = buildBeams(vfNotes, measure.notes, data.timeSignature);
     const voice = new Voice({ numBeats, beatValue });
     voice.setStrict(false);
     voice.addTickables(vfNotes);
