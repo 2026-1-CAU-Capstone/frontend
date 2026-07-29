@@ -25,6 +25,7 @@ import {
 import { useNotification } from '../contexts/NotificationContext';
 import { buildMergedSoloDraft } from '../lib/mergeSolos';
 import { OMRUploadModal } from '../components/common/OMRUploadModal';
+import { RawJsonModal } from '../components/common/RawJsonModal';
 import {
   listQueueLog, effectiveStatus, clearQueueLog,
   type QueueLogEntry,
@@ -723,6 +724,13 @@ const DownloadGlyph = ({ s = 13 }: { s?: number }) => (
     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
     <polyline points="7 10 12 15 17 10" />
     <line x1="12" y1="15" x2="12" y2="3" />
+  </svg>
+);
+/* { } — 응답값 받기(admin 디버깅). */
+const JsonGlyph = ({ s = 13 }: { s?: number }) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M9 4H8a2 2 0 0 0-2 2v3a2 2 0 0 1-2 2 2 2 0 0 1 2 2v3a2 2 0 0 0 2 2h1" />
+    <path d="M15 4h1a2 2 0 0 1 2 2v3a2 2 0 0 0 2 2 2 2 0 0 0-2 2v3a2 2 0 0 1-2 2h-1" />
   </svg>
 );
 const TrashGlyph = ({ s = 13 }: { s?: number }) => (
@@ -1546,6 +1554,8 @@ export default function SolosPage() {
   const [authUserForAdmin, setAuthUserForAdmin] = useState(() => getCachedUser());
   useEffect(() => onAuthChange((isIn, u) => setAuthUserForAdmin(isIn ? u : null)), []);
   const isAdmin = isAdminUser(authUserForAdmin);
+  /* 응답값 받기(admin 전용 디버깅) — 솔로 GET 원문을 그대로 확인. */
+  const [rawJsonTarget, setRawJsonTarget] = useState<{ id: string; title: string } | null>(null);
   const [queueLogOpen, setQueueLogOpen] = useState(false);
   const [queueLogEntries, setQueueLogEntries] = useState<QueueLogEntry[]>([]);
   /* Live OMR status panel: one card per in-flight / just-finished job. */
@@ -2520,6 +2530,16 @@ export default function SolosPage() {
                               >
                                 <TrashGlyph s={17} />
                               </RowIconBtn>
+                              {/* admin 전용 — 백엔드 GET 응답 원문 확인(디버깅용). */}
+                              {isAdmin && (
+                                <RowIconBtn
+                                  title="응답값 받기 (admin)"
+                                  aria-label="응답값 받기"
+                                  onClick={(e) => { e.stopPropagation(); setRawJsonTarget({ id: s.publicId, title: s.title }); }}
+                                >
+                                  <JsonGlyph s={17} />
+                                </RowIconBtn>
+                              )}
                             </RowIcons>
                           )}
                           <RowMain>
@@ -2681,6 +2701,16 @@ export default function SolosPage() {
                         <ToolBtn type="button" title="삭제" onClick={() => handleDelete(selected)}>
                           <IcoTrash />
                         </ToolBtn>
+                        {/* admin 전용 — 백엔드 GET 응답 원문 확인(디버깅용). */}
+                        {isAdmin && (
+                          <ToolBtn
+                            type="button"
+                            title="응답값 받기 (admin)"
+                            onClick={() => setRawJsonTarget({ id: selected.publicId, title: selected.title })}
+                          >
+                            <JsonGlyph s={26} />
+                          </ToolBtn>
+                        )}
                       </BarRight>
 
                       {/* 메타데이터 — 헤더에 앵커된 오버랩 드롭다운(레이아웃을 밀지 않음). */}
@@ -2752,6 +2782,16 @@ export default function SolosPage() {
         upload={createSoloViaOMR}
         onBackgroundStart={startSoloOmrJob}
         onQueueStart={enqueueOmrFiles}
+      />
+
+      {/* 응답값 받기(admin) — 솔로 GET 원문. */}
+      <RawJsonModal
+        open={!!rawJsonTarget}
+        title={rawJsonTarget?.title ?? ''}
+        sources={rawJsonTarget ? [
+          { label: 'solo', path: `/v1/solos/${encodeURIComponent(rawJsonTarget.id)}` },
+        ] : []}
+        onClose={() => setRawJsonTarget(null)}
       />
 
       {/* ── 큐 영속 기록 (admin) — localStorage 라 이탈/새로고침 후에도 남는다 ── */}

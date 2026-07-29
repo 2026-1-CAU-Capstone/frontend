@@ -82,7 +82,8 @@ const SectionLabel = styled.div`
   font-weight: 600;
   letter-spacing: -0.005em;
   color: ${({ theme }) => theme.colors.textSecondary};
-  padding: 12px ${ROW_PAD_X}px 6px ${LABEL_INDENT}px;
+  /* 위 패딩은 구분선과의 간격 — 12px 이면 선에서 너무 떠 보여 8px 로 좁혔다. */
+  padding: 8px ${ROW_PAD_X}px 6px ${LABEL_INDENT}px;
 `;
 
 /* Row wrapper — title button on the left, kebab button revealed on hover

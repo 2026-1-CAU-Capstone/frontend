@@ -10,12 +10,13 @@ import {
   MELODY_INSTRUMENTS,
   COMP_INSTRUMENTS,
   BASS_INSTRUMENTS,
-  type BassMode,
   type PlayStyle,
   type PlayerSettings,
   type MixTrack,
 } from '../../lib/note/playerSettings';
 import { usePlayerBarPosition } from '../../contexts/PlayerBarPositionContext';
+import { openPerformanceSettings } from '../../lib/settingsBus';
+import { SettingsGearIcon } from '../common/SettingsGearIcon';
 import { instrumentIconUrl, MELODY_ICON_SLUG, BASS_ICON_SLUG, DRUMKIT_ICON_SLUG } from '../../data/instrumentIcons';
 
 /** Close a popover when a mousedown lands outside its container. */
@@ -257,6 +258,16 @@ export function MixerButton(props: BackingMixerProps) {
     <>
       <MixerPanelHeader>
         <MixerPanelTitle>믹서</MixerPanelTitle>
+        {/* 제목 오른쪽 톱니 — 곡과 무관한 재생 설정(카운트인·베이스 모드 등)은
+          * 전체 설정으로 옮겨졌다. 여기서 그 섹션을 바로 연다. */}
+        <MixerPanelGear
+          type="button"
+          title="믹서 설정"
+          aria-label="믹서 설정"
+          onClick={() => { setOpen(false); openPerformanceSettings('mixer'); }}
+        >
+          <SettingsGearIcon size={17} />
+        </MixerPanelGear>
         <MixerPanelClose type="button" title="닫기" onClick={() => setOpen(false)}>✕</MixerPanelClose>
       </MixerPanelHeader>
       {props.inlineLick && (
@@ -445,23 +456,18 @@ export interface BackingMixerProps {
   onClearLoop?: () => void;
 }
 
-export function BackingMixer({ inlineLick, analysisOn, onToggleAnalysis, breakEditMode, onToggleBreakEdit, loopEditMode, onToggleLoopEdit, loopRegion, onClearLoop }: BackingMixerProps) {
+export function BackingMixer({ analysisOn, onToggleAnalysis, breakEditMode, onToggleBreakEdit, loopEditMode, onToggleLoopEdit, loopRegion, onClearLoop }: BackingMixerProps) {
   const [settings, setSettings] = useState<PlayerSettings>(() => getPlayerSettings());
   useEffect(() => subscribePlayerSettings(setSettings), []);
 
+  /* 카운트인·인라인 릭·베이스 모드는 전체 설정(악보/연주 → 믹서)으로 옮겼다.
+   * 여기 남은 값은 곡을 들으며 바로 만지는 것들뿐이다. */
   const {
     melodyVolume, melodyInstrument, pianoVolume, compInstrument,
-    bassVolume, bassMode, bassInstrument,
-    drumVolume, drumKit, playInlineLick,
+    bassVolume, bassInstrument,
+    drumVolume, drumKit,
     mutes, solos,
-    countInEnabled, countInBars,
   } = settings;
-
-  // 트랙별 "고급 설정" 모달 (베이스 모드 등 악기별 고급 설정).
-  const [advTrack, setAdvTrack] = useState<MixTrack | null>(null);
-  const TRACK_LABEL: Record<MixTrack, string> = {
-    melody: '멜로디', piano: '피아노', bass: '베이스', drums: '드럼',
-  };
 
   // 트랙 행: [악기 드롭다운 ▾] [S][M] [고급] [볼륨 바]. 멜로디=악기 목록, 드럼=킷
   // 목록(실작동). 피아노/베이스는 현재 단일 음색(콘트라베이스 고정) — 추후 확장.
@@ -518,7 +524,6 @@ export function BackingMixer({ inlineLick, analysisOn, onToggleAnalysis, breakEd
               <SmBtn type='button' $on={mutes[track]} $mute title='뮤트'
                 onClick={() => setPlayerSetting('mutes', { ...mutes, [track]: !mutes[track] })}>M</SmBtn>
             </SmGroup>
-            <AdvBtn type='button' title='고급 설정' onClick={() => setAdvTrack(track)}>고급</AdvBtn>
             <SliderCell>
               <MixerSlider type='range' min='0' max='100' value={pct}
                 onChange={(e) => setPlayerSetting(key, Number(e.target.value) / 100)} />
@@ -534,44 +539,12 @@ export function BackingMixer({ inlineLick, analysisOn, onToggleAnalysis, breakEd
       </MixerSection>
 
 
-      {/* ── 고급 기능 (Advanced) — 토글 스위치 + 설명 ── */}
+      {/* ── 고급 기능 (Advanced) — 열어둔 차트를 클릭해 쓰는 편집 모드만 남는다.
+        * 곡과 무관한 설정(카운트인·인라인 릭·베이스 모드)은 전체 설정으로 옮겼다.
+        * 둘 다 없는 화면(에디터 등)에서는 제목만 덩그러니 남으므로 통째로 숨긴다. */}
+      {(onToggleBreakEdit || onToggleLoopEdit) && (
       <MixerSection $accent='#8a5cf0'>
         <MixerSectionTitle>고급 기능</MixerSectionTitle>
-
-        {/* 카운트인 */}
-        <AdvItem>
-          <AdvText>
-            <AdvItemTitle>카운트인</AdvItemTitle>
-            <AdvItemDesc>재생 전 “1 2 3 4” 박자를 세고 시작합니다. 끄면 즉시 재생.</AdvItemDesc>
-          </AdvText>
-          <Switch type='button' role='switch' aria-checked={countInEnabled} $on={countInEnabled}
-            onClick={() => setPlayerSetting('countInEnabled', !countInEnabled)} />
-        </AdvItem>
-        {countInEnabled && (
-          <AdvSubRow>
-            <AdvSubLabel>세는 마디</AdvSubLabel>
-            <KitGroup>
-              {[1, 2].map((n) => (
-                <KitBtn key={n} type='button' $on={countInBars === n}
-                  onClick={() => setPlayerSetting('countInBars', n)}>
-                  {n}마디
-                </KitBtn>
-              ))}
-            </KitGroup>
-          </AdvSubRow>
-        )}
-
-        {/* 인라인 릭 재생 (코드 차트 전용) */}
-        {inlineLick && (
-          <AdvItem>
-            <AdvText>
-              <AdvItemTitle>인라인 릭 재생</AdvItemTitle>
-              <AdvItemDesc>악보 위에 띄운 추천 릭(라인)을 반주와 함께 들려줍니다.</AdvItemDesc>
-            </AdvText>
-            <Switch type='button' role='switch' aria-checked={playInlineLick} $on={playInlineLick}
-              onClick={() => setPlayerSetting('playInlineLick', !playInlineLick)} />
-          </AdvItem>
-        )}
 
         {/* 브레이크 에디터 */}
         {onToggleBreakEdit && (
@@ -614,37 +587,8 @@ export function BackingMixer({ inlineLick, analysisOn, onToggleAnalysis, breakEd
           </>
         )}
       </MixerSection>
-
-      {/* 트랙별 고급 설정 모달. 베이스 = 베이스 모드, 그 외 = 플레이스홀더. */}
-      {advTrack && (
-        <AdvBackdrop onClick={() => setAdvTrack(null)}>
-          <AdvModal onClick={(e) => e.stopPropagation()}>
-            <AdvTitle>{TRACK_LABEL[advTrack]} 고급 설정</AdvTitle>
-            {advTrack === 'bass' ? (
-              <MixerRow>
-                <MixerLabel>베이스 모드</MixerLabel>
-                <KitGroup>
-                  {(
-                    [
-                      { id: 'half',      label: '1박/코드' },
-                      { id: 'two-feel',  label: '2-feel' },
-                      { id: 'four-feel', label: '4-feel' },
-                    ] as { id: BassMode; label: string }[]
-                  ).map(({ id, label }) => (
-                    <KitBtn key={id} type='button' $on={bassMode === id}
-                      onClick={() => setPlayerSetting('bassMode', id)}>
-                      {label}
-                    </KitBtn>
-                  ))}
-                </KitGroup>
-              </MixerRow>
-            ) : (
-              <AdvBody>준비 중 — 이 악기의 고급 음색·표현 설정이 여기에 들어갑니다.</AdvBody>
-            )}
-            <AdvClose type='button' onClick={() => setAdvTrack(null)}>닫기</AdvClose>
-          </AdvModal>
-        </AdvBackdrop>
       )}
+
     </MixerScroll>
   );
 }
@@ -737,7 +681,9 @@ const MixerPanelHeader = styled.div`
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  /* 제목 → 톱니 순으로 붙고, 닫기(✕)만 margin-left:auto 로 맨 끝에 선다.
+   * space-between 이면 3요소가 균등하게 벌어져 톱니가 가운데로 떠버린다. */
+  gap: 4px;
   padding: 12px 16px 8px;
 `;
 const MixerPanelTitle = styled.span`
@@ -746,7 +692,23 @@ const MixerPanelTitle = styled.span`
   font-weight: 800;
   color: #222;
 `;
+/* 믹서 제목 오른쪽 톱니 — 목록 페이지 툴바의 톱니와 같은 모양/역할. */
+const MixerPanelGear = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: #8b8b84;
+  cursor: pointer;
+  &:hover { background: rgba(0, 0, 0, 0.06); color: #1a1a1a; }
+`;
+
 const MixerPanelClose = styled.button`
+  margin-left: auto;
   border: none;
   background: transparent;
   color: #999;
@@ -1158,30 +1120,8 @@ const MixerSlider = styled.input`
   }
 `;
 
-const KitGroup = styled.div`
-  display: flex;
-  gap: 6px;
-  flex: 1;
-`;
 
 
-const KitBtn = styled.button<{ $on?: boolean }>`
-  flex: 1;
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.9rem;
-  font-weight: 600;
-  padding: 8px 6px;
-  border: 1.5px solid ${({ $on }) => ($on ? '#4ea1ff' : '#dcdcdc')};
-  border-radius: 8px;
-  background: ${({ $on }) => ($on ? 'rgba(78,161,255,0.12)' : '#fff')};
-  color: ${({ $on }) => ($on ? '#2b8aef' : '#444')};
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.12s, border-color 0.12s;
-  &:hover {
-    background: ${({ $on }) => ($on ? 'rgba(78,161,255,0.2)' : '#f4f4f5')};
-  }
-`;
 
 /* Compact Solo/Mute (and AUTO) toggle chip used inside volume rows.
  * $mute → "on" state turns red (muted); otherwise green (solo/auto active). */
@@ -1282,67 +1222,7 @@ const SmGroup = styled.div`
   flex: 0 0 auto;
 `;
 
-/* 트랙별 "고급" 버튼 — 모달 오픈. */
-const AdvBtn = styled.button`
-  flex: 0 0 auto;
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.72rem;
-  font-weight: 600;
-  padding: 4px 8px;
-  border: 1.5px solid #dcdcdc;
-  border-radius: 6px;
-  background: #fff;
-  color: #666;
-  cursor: pointer;
-  white-space: nowrap;
-  &:hover { background: #f4f4f5; }
-`;
 
-/* 트랙 고급 설정 모달. */
-const AdvBackdrop = styled.div`
-  position: fixed;
-  inset: 0;
-  z-index: 10001;
-  background: rgba(0,0,0,0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-`;
-const AdvModal = styled.div`
-  width: min(360px, 86vw);
-  background: #fff;
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-`;
-const AdvTitle = styled.div`
-  font-family: 'Pretendard', sans-serif;
-  font-size: 1.05rem;
-  font-weight: 800;
-  color: #222;
-  margin-bottom: 10px;
-`;
-const AdvBody = styled.div`
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.9rem;
-  color: #777;
-  line-height: 1.5;
-  margin-bottom: 18px;
-`;
-const AdvClose = styled.button`
-  display: block;
-  margin-left: auto;
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.85rem;
-  font-weight: 700;
-  padding: 8px 18px;
-  border: none;
-  border-radius: 9px;
-  background: #4ea1ff;
-  color: #fff;
-  cursor: pointer;
-  &:hover { filter: brightness(0.96); }
-`;
 
 const AttribLine = styled.div`
   font-family: 'Pretendard', sans-serif;

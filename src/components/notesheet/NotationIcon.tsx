@@ -129,6 +129,7 @@ function GlyphSpan({
         height,
         color: 'currentColor',
         overflow: 'visible',
+        position: 'relative',
         paddingTop: `${shiftDownPx}px`,
         paddingBottom: `${shiftUpPx}px`,
         boxSizing: 'border-box',
@@ -145,6 +146,25 @@ function GlyphSpan({
         }}
         dangerouslySetInnerHTML={{ __html: html }}
       />
+      {/* 온쉼표 vs 2분쉼표 — 둘 다 같은 '작은 사각형'이라 보표선이 없으면 구별이
+        * 안 된다. 악보 규칙대로 기준선을 덧그린다: 온쉼표는 선에 매달리고(선이
+        * 위), 2분쉼표는 선 위에 앉는다(선이 아래).
+        * 글리프 SVG 는 건드리지 않고 위에 겹치는 장식이라 음표 렌더에는 영향이 없다. */}
+      {isRest && (type === 'w' || type === 'h') && (
+        <span
+          aria-hidden
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            transform: `translate(-50%, ${type === 'w' ? '-9px' : '7px'})`,
+            width: 26,
+            height: 2,
+            background: 'currentColor',
+            pointerEvents: 'none',
+          }}
+        />
+      )}
     </span>
   );
 }

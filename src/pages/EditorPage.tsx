@@ -16,14 +16,19 @@ import { minWidthForNotes, barWidthFromMin, heuristicWidth, packLines } from '..
 import { PianoKeyboard, playMidi, type PianoNote } from '../components/notesheet/PianoKeyboard';
 import { useMidiInput, type MidiNoteEvent } from '../hooks/useMidiInput';
 import { MidiSettingsPanel } from '../components/notesheet/MidiSettingsPanel';
+import { usePref } from '../lib/prefsStore';
+import { editorExplicitAcc } from '../lib/pagePrefs';
+import { openPerformanceSettings } from '../lib/settingsBus';
 import type { NoteInfo, MeasureInfo, NavigationMarker, NoteSheetData } from '../data/sampleMelody';
 
 /* ─── helpers ──────────────────────────────────────────────────────────── */
 
 import { useEditorBackingPlayback } from '../hooks/useEditorBackingPlayback';
+import { useDismissable } from '../hooks/useDismissable';
 import { GenreSelect, BpmControl, RepeatControl, TransportButtons, MixerButton } from '../components/backing/BackingPlayerBar';
 import { vexToMidi, noteMetricBeats } from '../lib/note/melodyTiming';
 import { computeBeamBreaks } from '../lib/note/beamPolicy';
+import { bottomNoteGlyphY } from '../lib/note/chordClearance';
 import { bakeExplicitAccidentals, bakeForScoreReading } from '../lib/note/resolvePitches';
 import { resolveMeasureAccidental, type RenderAcc } from '../lib/note/measureAccidentals';
 import { drawScoopFall } from '../lib/note/scoopFall';
@@ -294,10 +299,12 @@ interface NotePos { mi: number; ni: number; x: number; y: number; w: number; h: 
 type StaffId = 'treble' | 'bass';
 interface NoteSel { mi: number; ni: number; staff?: StaffId; }
 
-function buildDuration(dur: string, dotted?: boolean): string {
-  if (!dotted) return dur;
-  if (dur.endsWith('r')) return dur.slice(0, -1) + 'd' + 'r';
-  return dur + 'd';
+function buildDuration(dur: string, dotted?: boolean, doubleDotted?: boolean): string {
+  // VexFlow 는 duration 문자열의 'd' 개수로 점 수를 읽는다('qdd' → 겹점).
+  const dots = doubleDotted ? 'dd' : dotted ? 'd' : '';
+  if (!dots) return dur;
+  if (dur.endsWith('r')) return dur.slice(0, -1) + dots + 'r';
+  return dur + dots;
 }
 
 /** Draw a wavy glissando line between two StaveNotes */
@@ -365,7 +372,7 @@ function buildVfNote(
   keySigAcc: Map<string, 'b' | '#'>,
 ): StaveNote {
   const isRest = n.duration.endsWith('r');
-  const dur = buildDuration(n.duration, n.dotted);
+  const dur = buildDuration(n.duration, n.dotted, n.doubleDotted);
   const restKey = clef === 'bass' ? 'd/3' : 'b/4';
   // 꾸밈음: 작은 GraceNote(슬래시=acciaccatura). voice의 tickable이 아니라
   // 다음 실음의 GraceNoteGroup 수식으로 붙는다(NoteSheet와 동일 규칙). 임시표는
@@ -380,7 +387,9 @@ function buildVfNote(
         autoStem: true,
         ...ghostHead(n),
       });
-  if (n.dotted) Dot.buildAndAttach([note]);
+  // 점 글리프는 modifier 로 붙인다(길이는 위 duration 문자열이 이미 반영).
+  if (n.doubleDotted) { Dot.buildAndAttach([note]); Dot.buildAndAttach([note]); }
+  else if (n.dotted) Dot.buildAndAttach([note]);
 
   if (!isRest) {
     // Octave-aware accidental rule — single shared helper, every chord tone.
@@ -696,21 +705,41 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       if (m === activeIdx) {
         const svgEl = el.querySelector('svg');
         if (svgEl) {
-          /* 편집 중 마디 하이라이트 — 위로는 코드 입력 행(chordTop = y-20,
-           * 대체코드 행은 그보다 17 위)까지 덮고, 아래로는 음표가 실제로
-           * 놓이는 범위까지만. 예전엔 y+14 에서 시작해 LINE_HEIGHT-28(=142)
-           * 만큼 내려가 보표보다 한참 아래 빈 공간을 칠했다. */
-          const HL_TOP = y - 40;                       // 대체코드 행까지 여유
+          /* 편집 중 마디 하이라이트.
+           *   위: 코드 입력 행의 윗변 (대체코드가 있으면 그 행까지)
+           *   아래: 보표 마지막 줄. 단 음표가 그 아래로 내려가면(덧줄) 그
+           *         음표 밑에 여백을 두고 거기까지.
+           * ※ y(Stave 원점)에서 오프셋을 추정하면 안 된다 — 실제 오선은
+           *   getYForLine() 이 정확하다(원점과 첫 줄 사이에 여백이 있다). */
+          const mNotes = measures[m]?.notes ?? [];
+          const chordRowTop = (mData.altChords ? -17 : 0)
+            + (mData.volta ? -13 : mData.bracket ? -14 : -20);
+          const HL_TOP = y + chordRowTop - 4;          // 코드 입력 윗변 + 살짝
+
+          const staffBot = stave.getYForLine(4);       // 오선 마지막 줄
+          const NOTE_PAD = 8;                          // 오선 밖 음표 아래 여백
+          /* 머리가 마지막 줄 아래로 조금이라도 나오면(맨 아랫줄에 걸친 음 포함)
+           * 그만큼 더 내려간다. 오선 안에만 있으면 마지막 줄에서 끝. */
+          const extend = (low: number | null, base: number) =>
+            low !== null && low > base ? low + NOTE_PAD : base;
           const HL_BOT = grand
-            ? y + GRAND_BASS_DY + 58                   // 양손: 아래 베이스 보표 끝까지
-            : y + 62;                                  // 한손: 보표(40) + 아래 확장분
+            // 양손: 아래 베이스 보표 기준(오선 높이를 GRAND_BASS_DY 만큼 내림)
+            ? extend(
+                bottomNoteGlyphY(bassAt(m).notes,
+                  (line) => stave.getYForLine(line) + GRAND_BASS_DY, 'bass'),
+                staffBot + GRAND_BASS_DY,
+              )
+            : extend(
+                bottomNoteGlyphY(mNotes, (line) => stave.getYForLine(line)),
+                staffBot,
+              );
           const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
           rect.setAttribute('x', String(x));
           rect.setAttribute('y', String(HL_TOP));
           rect.setAttribute('width', String(w));
           rect.setAttribute('height', String(HL_BOT - HL_TOP));
           rect.setAttribute('fill', 'rgba(184, 150, 10, 0.13)');
-          rect.setAttribute('rx', '4');
+          rect.setAttribute('stroke', 'none');         // 테두리 없음 — 면만
           svgEl.insertBefore(rect, svgEl.firstChild);
         }
       }
@@ -1153,6 +1182,30 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
 /* ─── SVG icons ────────────────────────────────────────────────────────── */
 
 
+/* 점·겹점 — 문자 '.' 는 베이스라인에 붙어 버튼 아래쪽으로 쏠린다. 세로 정중앙에
+ * 오도록 SVG 원으로 그린다. */
+const DotGlyph = ({ n = 1 }: { n?: 1 | 2 }) => (
+  <svg width="26" height="26" viewBox="0 0 26 26" style={{ display: 'block' }} aria-hidden>
+    {n === 1
+      ? <circle cx="13" cy="13" r="3.1" fill="currentColor" />
+      : <>
+          <circle cx="8.4" cy="13" r="3.1" fill="currentColor" />
+          <circle cx="17.6" cy="13" r="3.1" fill="currentColor" />
+        </>}
+  </svg>
+);
+
+/* 3연음 / 지속연음 — 숫자 아래에 빔(기둥 2개)을 둔 컴팩트 표기. */
+const TupletGlyph = ({ plus }: { plus?: boolean }) => (
+  <svg width="28" height="26" viewBox="0 0 28 26" style={{ display: 'block' }} aria-hidden>
+    <text x="14" y="11" textAnchor="middle" fontSize="12" fontWeight="700" fill="currentColor"
+      fontFamily="Georgia, 'Times New Roman', serif" fontStyle="italic">{plus ? '3+' : '3'}</text>
+    <rect x="5" y="15" width="18" height="2.6" fill="currentColor" />
+    <rect x="5" y="15" width="2.2" height="8" fill="currentColor" />
+    <rect x="20.8" y="15" width="2.2" height="8" fill="currentColor" />
+  </svg>
+);
+
 const DUR_KEYS = [
   { value: 'w', title: 'Whole (4 beats)' },
   { value: 'h', title: 'Half (2 beats)' },
@@ -1160,6 +1213,7 @@ const DUR_KEYS = [
   { value: '8', title: 'Eighth (1/2 beat)' },
   { value: '16', title: '16th (1/4 beat)' },
   { value: '32', title: '32nd (1/8 beat)' },
+  { value: '64', title: '64th (1/16 beat)' },
 ];
 
 /* ─── styled ───────────────────────────────────────────────────────────── */
@@ -1271,20 +1325,6 @@ const MetaInput = styled.input`
   &::placeholder { color: ${({ theme }) => theme.colors.textSecondary}; opacity: 0.5; }
 `;
 
-const KeySelect = styled.select`
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.82rem;
-  font-weight: 600;
-  padding: 3px 6px;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 5px;
-  background: ${({ theme }) => theme.colors.bgPrimary};
-  color: ${({ theme }) => theme.colors.textPrimary};
-  cursor: pointer;
-  outline: none;
-  &:focus { border-color: ${({ theme }) => theme.colors.textSecondary}; }
-`;
-
 const MetaLabel = styled.span`
   font-size: 0.88rem;
   font-weight: 600;
@@ -1293,6 +1333,97 @@ const MetaLabel = styled.span`
 `;
 
 /** 보표가 불러온 악보 데이터로 확정돼 수동 변경이 잠긴 상태 표시. */
+/* 정보 칩·드롭다운 표기 — 칩 title 과 세그먼트 버튼이 같은 문구를 쓴다. */
+const MODE_LABEL: Record<'solo' | 'lick' | 'comping', string> = {
+  solo: 'Solo', lick: 'Lick', comping: 'Comping',
+};
+const INSTRUMENT_LABEL: Record<'piano' | 'guitar' | 'drums', string> = {
+  piano: '피아노', guitar: '기타', drums: '드럼',
+};
+
+/* ── 상단바 정보 칩 + 메타데이터 드롭다운 ────────────────────────────────
+ * Mode·보표·악보 종류를 상단바에 나란히 늘어놓던 것을 정사각(라운드) 칩 하나로
+ * 접었다. 칩을 누르면 아래로 펼쳐지고, Title 은 칩 오른쪽에 그대로 남는다. */
+const MetaAnchor = styled.div`
+  position: relative;
+  display: inline-flex;
+`;
+
+const InfoChip = styled.button<{ $open?: boolean }>`
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  border: 1px solid ${({ $open, theme }) => ($open ? theme.colors.textPrimary : theme.colors.border)};
+  background: ${({ $open, theme }) => ($open ? theme.colors.bgSecondary : theme.colors.bgPrimary)};
+  color: ${({ theme }) => theme.colors.textPrimary};
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+  &:hover { background: ${({ theme }) => theme.colors.bgSecondary}; }
+`;
+
+const MetaPop = styled.div`
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: ${({ theme }) => theme.zIndex.popover};
+  width: 268px;
+  padding: 14px 16px 16px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 12px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.16);
+  font-family: 'Pretendard', sans-serif;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+`;
+
+const MetaRow = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+`;
+
+const MetaRowHead = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+`;
+
+/* 세그먼트 토글 — 선택지가 2~3개뿐이라 select 보다 한눈에 들어온다. */
+const SegGroup = styled.div`
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 9px;
+  background: ${({ theme }) => theme.colors.bgSecondary};
+`;
+
+const SegBtn = styled.button<{ $on?: boolean }>`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.84rem;
+  font-weight: 700;
+  padding: 7px 4px;
+  border-radius: 7px;
+  border: 1.5px solid ${({ $on, theme }) => ($on ? theme.colors.textPrimary : 'transparent')};
+  background: ${({ $on, theme }) => ($on ? theme.colors.bgPrimary : 'transparent')};
+  color: ${({ $on, theme }) => ($on ? theme.colors.textPrimary : theme.colors.textSecondary)};
+  cursor: pointer;
+  &:disabled { opacity: 0.45; cursor: default; }
+`;
+
+const MetaHint = styled.div`
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: ${({ theme }) => theme.colors.textSecondary};
+`;
+
 const LockedHint = styled.span`
   font-size: 0.62rem;
   font-weight: 700;
@@ -1305,12 +1436,62 @@ const LockedHint = styled.span`
 
 const ToolBar = styled.div`
   display: flex;
-  align-items: center;
+  /* stretch: 섹션들의 높이가 가장 큰 섹션에 맞춰 나란히 정렬된다. */
+  align-items: stretch;
   gap: 8px;
-  padding: 10px 18px;
+  /* 왼쪽은 첫 섹션이 화면 끝에 가깝게 붙도록 여백을 줄인다. */
+  padding: 10px 18px 10px 8px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ theme }) => theme.colors.bgSecondary};
   flex-wrap: wrap;
+`;
+
+/* 음표·쉼표 묶음 — 온음표부터 64분쉼표까지를 한 덩어리로 감싸는 라운드 테두리.
+ * 툴바에서 '음길이 선택' 영역임을 시각적으로 분리한다(가장 왼쪽). */
+/* 툴바 섹션 공통 — 연한 회색의 굵은 테두리, 안쪽 여백은 원래 디자인(5px/4px)대로.
+ * ToolBar 가 align-items: stretch 라 모든 섹션의 높이가 자동으로 맞춰진다. */
+const Section = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px;
+  border: 2px solid rgba(0, 0, 0, 0.13);
+  border-radius: 12px;
+  background: transparent;   /* 겉(툴바)과 같은 배경 */
+`;
+
+const DurGroup = styled(Section)``;
+
+/* 점·연음·임시표 묶음(두 번째 섹션). */
+const ModGroup = styled(Section)``;
+
+/* 세 번째 섹션 — 메타데이터 + undo/redo. 중요 영역이라 골드 테두리. */
+const GoldGroup = styled(Section)`
+  border-color: ${({ theme }) => theme.colors.gold};
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+`;
+
+/* 네 번째 섹션 — 나머지 입력 토글·기호. */
+const MiscGroup = styled(Section)`
+  flex-wrap: wrap;
+`;
+
+/* 컴팩트 세로 2단 컬럼(음표/쉼표, 점/겹점 …). */
+const ModCol = styled.div`
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+`;
+
+/* undo/redo 한 줄 — 세 번째 섹션 안, 메타데이터 칩 아래. */
+const UndoRedoRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
 `;
 
 const DurCol = styled.div`
@@ -1372,6 +1553,117 @@ const Sep = styled.div`
   height: 30px;
   background: ${({ theme }) => theme.colors.border};
   margin: 0 5px;
+`;
+
+/* ── '+' 기호 추가 드롭다운 ─────────────────────────────────────────────
+ * 옥타브·반복·내비게이션·브라켓처럼 "한 번 찍고 마는" 기호들을 담는다.
+ * 툴바 버튼(DurBtn)과 같은 금색 활성 톤을 쓰되, 메뉴 안에서는 라벨을 붙여
+ * 아이콘만으로 뜻을 추측하지 않아도 되게 했다. */
+const MarkWrap = styled.div`
+  position: relative;
+  display: flex;
+`;
+
+const MarkBadge = styled.span`
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: #b8960a;
+  color: #fff;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 17px;
+  text-align: center;
+`;
+
+const MarkMenu = styled.div`
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: ${({ theme }) => theme.zIndex.popover};
+  width: 320px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 10px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16);
+`;
+
+const MarkGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+`;
+
+const MarkTitle = styled.div`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: ${({ theme }) => theme.colors.textSecondary};
+`;
+
+const MarkRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+`;
+
+const MarkBtn = styled.button<{ $active?: boolean }>`
+  width: 70px;
+  min-height: 58px;
+  padding: 6px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid ${({ $active, theme }) => ($active ? '#b8960a' : theme.colors.border)};
+  border-radius: 8px;
+  background: ${({ $active }) => ($active ? '#f5ecd0' : 'transparent')};
+  color: ${({ theme }) => theme.colors.textPrimary};
+  cursor: pointer;
+  &:hover { background: ${({ $active }) => ($active ? '#f2e6c2' : '#f0ebe0')}; }
+`;
+
+const MarkGlyph = styled.span`
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+`;
+
+const MarkLabel = styled.span`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  text-align: center;
+  white-space: nowrap;
+`;
+
+const MarkSelectRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 2px;
+`;
+
+const MarkSelectLabel = styled.span`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 const NavSelect = styled.select`
@@ -1495,29 +1787,71 @@ const ToolBtn = styled.button<{ $lit?: boolean }>`
 /* 내 코드 차트(ChordPage)의 KeyControl(KeyButton)과 동일 규격 — 단, 에디터는
  * 표시 전용(변경은 옆 Transpose 버튼)이라 드롭다운 화살표(::after '▾')는 뺀다. */
 const KEY_FONT = "'MuseJazz Text', 'Oswald', 'Pretendard', sans-serif";
-const KeyDisplay = styled.span`
+/* 조성 칩 = Transpose 버튼 (통합).
+ *   평소   : 조성만 보인다 (C장조)
+ *   hover  : 조성이 흐려지고 그 자리에 Transpose 아이콘이 겹쳐 뜬다
+ *   클릭   : 이조 드롭다운
+ * 아이콘을 옆에 따로 두지 않아 상단바가 한 칸 줄고, "이 조성을 바꾼다"는
+ * 동작이 조성 자체에 붙어 의미가 분명해진다. */
+const KeyDisplay = styled.button<{ $open?: boolean }>`
+  position: relative;
   height: 32px;
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 2px;
   white-space: nowrap;
   background: #fff;
-  border: 1.5px solid #ccc;
+  border: 1.5px solid ${({ $open }) => ($open ? '#e8a838' : '#ccc')};
   border-radius: 6px;
   padding: 0 10px;
   font-family: ${KEY_FONT};
   font-size: 1.12rem;
   font-weight: 600;
-  line-height: 1;
   color: #222;
-  cursor: default;
+  cursor: pointer;
+  transition: border-color 0.14s, background 0.14s;
+
+  &:hover { background: #fffdf7; }
+
+  /* 조성 텍스트 — hover/열림 시 흐려져 아이콘에 자리를 내준다.
+   * line-height 를 건드리지 않는다: 1 로 조이면 줄상자가 글꼴 크기까지 압축돼
+   * (MuseJazz 는 ascent 가 커서) 글자가 상자 위쪽으로 밀려 올라간다. 옆의
+   * Unknown 칩도 line-height 를 지정하지 않으므로 기본값(normal)이라야 둘의
+   * 광학 중심이 맞는다. */
+  .key-text {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    transition: opacity 0.14s;
+    opacity: ${({ $open }) => ($open ? 0.12 : 1)};
+  }
+  &:hover .key-text { opacity: 0.12; }
+
+  /* Transpose 아이콘 — 평소 숨김, hover/열림 시 가운데에 겹쳐 표시. */
+  .key-ico {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: ${({ $open }) => ($open ? '#e8a838' : '#5b5b5b')};
+    opacity: ${({ $open }) => ($open ? 1 : 0)};
+    transition: opacity 0.14s;
+    pointer-events: none;
+  }
+  &:hover .key-ico { opacity: 1; }
 `;
 
-/* "장조/단조" — 루트보다 작게(KeyControl 의 KeyQual 과 동일). */
+/* "장조/단조" — 루트보다 작게(KeyControl 의 KeyQual 과 동일).
+ * 루트(MuseJazz)와 한글(Pretendard)은 글꼴이 달라 baseline 이 어긋난다.
+ * 한글은 Pretendard 로 명시하고 flex 중앙 정렬로 붙여 높이를 맞춘다. */
 const KeyQualEP = styled.span`
-  font-size: 0.6em;
-  margin-left: 1px;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.62em;
+  font-weight: 600;
+  margin-left: 2px;
 `;
 
 const KeyAnchor = styled.div`
@@ -1525,9 +1859,9 @@ const KeyAnchor = styled.div`
   display: inline-flex;
 `;
 
-/* SolosPage 의 Transpose 아이콘과 동일 규격(26px · stroke 2). */
+/* Transpose 아이콘 — 32px 칩 안에 겹쳐 놓으므로 20px(SolosPage 는 26px). */
 const IcoTranspose = () => (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="17 3 21 7 17 11" /><path d="M21 7H8a4 4 0 0 0-4 4" />
     <polyline points="7 21 3 17 7 13" /><path d="M3 17h13a4 4 0 0 0 4-4" />
   </svg>
@@ -1540,9 +1874,12 @@ const HEADER_PHONE_POPOVER = '@media (max-width: 820px)';
 const KeyPanelBar = styled.div`
   position: absolute;
   top: calc(100% + 8px);
-  right: 0;
+  /* 조성 칩이 상단바 왼쪽에 있으므로 왼쪽 정렬 — right:0 이면 패널이 왼쪽으로
+   * 뻗어 화면 밖으로 잘린다. */
+  left: 0;
   z-index: 60;
-  min-width: 360px;
+  /* 모드 탭 3개가 한 줄에 들어갈 최소 폭. */
+  min-width: 400px;
   max-width: calc(100vw - 32px);
   font-family: 'Pretendard', sans-serif;
   background: ${({ theme }) => theme.colors.bgPrimary};
@@ -1576,7 +1913,8 @@ const KeyPanelTitle = styled.div`
 
 const ModeSwitch = styled.div`
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* 탭 3개 — 반드시 한 줄. 2열이면 '옥타브'가 아래로 떨어져 모양이 깨진다. */
+  grid-template-columns: repeat(3, 1fr);
   gap: 4px;
   padding: 3px;
   border-radius: 9px;
@@ -1585,9 +1923,11 @@ const ModeSwitch = styled.div`
 
 const ModeTab = styled.button<{ $on?: boolean }>`
   font-family: 'Pretendard', sans-serif;
-  font-size: 0.9rem;
+  /* 가장 긴 '음표 함께 이동'(7자)이 3열에 들어가도록 살짝 줄인다. */
+  font-size: 0.84rem;
   font-weight: 700;
-  padding: 8px 6px;
+  white-space: nowrap;
+  padding: 8px 4px;
   border: 1.5px solid ${({ $on }) => ($on ? '#1f9a52' : 'transparent')};
   border-radius: 7px;
   background: ${({ $on, theme }) => ($on ? theme.colors.bgPrimary : 'transparent')};
@@ -1647,6 +1987,31 @@ const KeyApplyBtn = styled.button`
   &:disabled { opacity: 0.45; cursor: not-allowed; }
 `;
 
+
+const OctRow = styled.div`
+  display: flex;
+  gap: 8px;
+`;
+
+const OctPanelBtn = styled.button`
+  flex: 1;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 700;
+  padding: 9px 0;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 8px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  color: ${({ theme }) => theme.colors.textPrimary};
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+  &:hover:not(:disabled) {
+    border-color: ${({ theme }) => theme.colors.gold};
+    background: ${({ theme }) => theme.colors.bgSecondary};
+  }
+  &:disabled { opacity: 0.5; cursor: default; }
+`;
+
 const KeyPresetBtn = styled.button`
   font-family: 'Pretendard', sans-serif;
   font-size: 0.86rem;
@@ -1679,7 +2044,7 @@ function shiftDisplayKeyBySemitones(dispKey: string, semitones: number): string 
 
 /* SolosPage 의 조성 변경 팝오버와 동일 — '음표 함께 이동'(실제 이조) / '키만 변경'(표기만). */
 function KeyChangePopover({
-  currentKey, value, onChange, onApplyTranspose, onApplyKeyOnly, onPreset, onClose, busy,
+  currentKey, value, onChange, onApplyTranspose, onApplyKeyOnly, onPreset, onOctave, octaveDisabled, onClose, busy,
 }: {
   currentKey: string;
   value: string;
@@ -1687,11 +2052,14 @@ function KeyChangePopover({
   onApplyTranspose: () => void;
   onApplyKeyOnly: () => void;
   onPreset: (semitones: number) => void;
+  /** 옥타브 이동 — 조성은 그대로 두고 음표 전체를 ±1 옥타브. */
+  onOctave: (dir: -1 | 1) => void;
+  octaveDisabled: boolean;
   onClose: () => void;
   busy: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [mode, setMode] = useState<'notes' | 'keyOnly'>('notes');
+  const [mode, setMode] = useState<'notes' | 'keyOnly' | 'octave'>('notes');
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
       // 버튼 자체 클릭은 토글이 처리 — 팝오버(+앵커) 밖이면 닫는다.
@@ -1706,42 +2074,67 @@ function KeyChangePopover({
     };
   }, [onClose]);
 
-  const apply = () => { if (mode === 'notes') onApplyTranspose(); else onApplyKeyOnly(); };
+  // 옥타브 탭은 입력창이 없다 — 이조 두 탭에서만 적용.
+  const apply = () => {
+    if (mode === 'notes') onApplyTranspose();
+    else if (mode === 'keyOnly') onApplyKeyOnly();
+  };
 
   return (
     <KeyPanelBar ref={ref} role="dialog">
-      <KeyPanelTitle>Transpose</KeyPanelTitle>
+      <KeyPanelTitle>Transpose / Octave</KeyPanelTitle>
       <ModeSwitch role="tablist">
-        <ModeTab type="button" $on={mode === 'notes'} onClick={() => setMode('notes')}>
+        <ModeTab type="button" role="tab" aria-selected={mode === 'notes'} $on={mode === 'notes'} onClick={() => setMode('notes')}>
           음표 함께 이동
         </ModeTab>
-        <ModeTab type="button" $on={mode === 'keyOnly'} onClick={() => setMode('keyOnly')}>
+        <ModeTab type="button" role="tab" aria-selected={mode === 'keyOnly'} $on={mode === 'keyOnly'} onClick={() => setMode('keyOnly')}>
           키만 변경
+        </ModeTab>
+        <ModeTab type="button" role="tab" aria-selected={mode === 'octave'} $on={mode === 'octave'} onClick={() => setMode('octave')}>
+          옥타브
         </ModeTab>
       </ModeSwitch>
       <ModeHint>
         {mode === 'notes'
           ? '조표와 음표를 함께 옮긴다 — 실제 이조. (Undo 가능)'
-          : '음표는 그대로 두고 조성 표기만 교체한다 (파싱 교정용).'}
+          : mode === 'keyOnly'
+            ? '음표는 그대로 두고 조성 표기만 교체한다 (파싱 교정용).'
+            : '조성은 그대로 두고 음표 전체를 한 옥타브 위/아래로 옮긴다. (Undo 가능)'}
       </ModeHint>
-      <KeyPanelRow>
-        <KeyFromChip>{currentKey}</KeyFromChip>
-        <span aria-hidden>→</span>
-        <KeyInput
-          autoFocus
-          placeholder="예: Bb, F#m"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && value.trim()) apply(); }}
-        />
-        <KeyApplyBtn type="button" disabled={!value.trim() || busy} onClick={apply}>적용</KeyApplyBtn>
-      </KeyPanelRow>
-      <KeyPresetBtn type="button" disabled={busy || mode !== 'notes'} onClick={() => onPreset(3)}>
-        E♭ → C 로 이조하기 <small>(알토 색소폰 · +3)</small>
-      </KeyPresetBtn>
-      <KeyPresetBtn type="button" disabled={busy || mode !== 'notes'} onClick={() => onPreset(-2)}>
-        B♭ → C 로 이조하기 <small>(테너 색소폰 · 트럼펫 · −2)</small>
-      </KeyPresetBtn>
+
+      {mode === 'octave' ? (
+        /* 옥타브 — 조표는 손대지 않고 음표만 ±12 반음. 입력·프리셋이 필요 없어
+         * 두 버튼만 크게 둔다. */
+        <OctRow>
+          <OctPanelBtn type="button" disabled={busy || octaveDisabled} onClick={() => onOctave(-1)}>
+            Oct −1
+          </OctPanelBtn>
+          <OctPanelBtn type="button" disabled={busy || octaveDisabled} onClick={() => onOctave(1)}>
+            Oct +1
+          </OctPanelBtn>
+        </OctRow>
+      ) : (
+        <>
+          <KeyPanelRow>
+            <KeyFromChip>{currentKey}</KeyFromChip>
+            <span aria-hidden>→</span>
+            <KeyInput
+              autoFocus
+              placeholder="예: Bb, F#m"
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && value.trim()) apply(); }}
+            />
+            <KeyApplyBtn type="button" disabled={!value.trim() || busy} onClick={apply}>적용</KeyApplyBtn>
+          </KeyPanelRow>
+          <KeyPresetBtn type="button" disabled={busy || mode !== 'notes'} onClick={() => onPreset(3)}>
+            E♭ → C 로 이조하기 <small>(알토 색소폰 · +3)</small>
+          </KeyPresetBtn>
+          <KeyPresetBtn type="button" disabled={busy || mode !== 'notes'} onClick={() => onPreset(-2)}>
+            B♭ → C 로 이조하기 <small>(테너 색소폰 · 트럼펫 · −2)</small>
+          </KeyPresetBtn>
+        </>
+      )}
     </KeyPanelBar>
   );
 }
@@ -1761,18 +2154,23 @@ const StatusChip = styled.div`
   background: ${({ theme }) => theme.colors.bgSecondary};
   font-family: 'Pretendard', sans-serif;
   font-size: 0.78rem;
+  line-height: 1;                 /* 옆 칩들과 수직 중심 통일 */
   color: ${({ theme }) => theme.colors.textSecondary};
   white-space: nowrap;
 `;
 
 const StatusItem = styled.span<{ $warn?: boolean }>`
   display: inline-flex;
-  align-items: baseline;
+  /* baseline 정렬은 크기가 다른 숫자(0.86rem)와 라벨(0.78rem)이 섞이면서
+   * 칩 전체의 수직 중심을 흔든다 — 중앙 정렬로 통일. */
+  align-items: center;
   gap: 3px;
+  line-height: 1;
   color: ${({ $warn }) => ($warn ? '#c62828' : 'inherit')};
   b {
     font-size: 0.86rem;
     font-weight: 700;
+    line-height: 1;
     color: ${({ $warn, theme }) => ($warn ? '#c62828' : theme.colors.textPrimary)};
   }
 `;
@@ -1801,13 +2199,6 @@ const MidiIcon = () => (
   </svg>
 );
 
-
-const UndoClearRow = styled.div`
-  display: flex;
-  justify-content: center;
-  gap: 18px;
-  padding: 4px 0;
-`;
 
 /* 배경색·테두리 없는 아이콘 버튼. hover 시 아래에 라벨(undo/redo) 표시. */
 const IconBtn = styled.button`
@@ -2199,40 +2590,6 @@ const ModalTitle = styled.h3`
   color: #333;
 `;
 
-/* 출력 설정 모달의 한 줄 — 설명(좌) + 컨트롤(우). */
-const SettingRow = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 6px 0;
-`;
-const SettingName = styled.div`
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: #333;
-`;
-const SettingDesc = styled.div`
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.8rem;
-  line-height: 1.45;
-  color: #888;
-  margin-top: 3px;
-  max-width: 300px;
-`;
-const ToggleBtn = styled.button<{ $on?: boolean }>`
-  flex-shrink: 0;
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.85rem;
-  font-weight: 700;
-  padding: 8px 18px;
-  border-radius: 8px;
-  border: 1.5px solid ${({ $on }) => ($on ? '#00897b' : '#ccc')};
-  background: ${({ $on }) => ($on ? 'rgba(0,137,123,0.12)' : '#fff')};
-  color: ${({ $on }) => ($on ? '#00796b' : '#666')};
-  cursor: pointer;
-`;
 const OctBtn = styled.button`
   font-family: 'Pretendard', sans-serif;
   font-size: 0.85rem;
@@ -2390,6 +2747,11 @@ export default function EditorPage() {
    * 왼손(낮은음자리표) 파트로 measures와 인덱스 1:1 정렬된다. single로 되돌려도
    * 데이터는 보존되고 렌더/저장에서만 제외된다. */
   const [staffMode, setStaffMode] = useState<'single' | 'grand'>('single');
+  /* 상단바 정보 칩(Mode·보표·악보 종류) 드롭다운. instrument 는 아직 표시 전용. */
+  const [metaOpen, setMetaOpen] = useState(false);
+  const [instrument, setInstrument] = useState<'piano' | 'guitar' | 'drums'>('piano');
+  const metaPopRef = useRef<HTMLDivElement>(null);
+  useDismissable(metaOpen, metaPopRef, () => setMetaOpen(false));
   const [bassMeasures, setBassMeasures] = useState<MeasureInfo[]>([]);
   /* 화음 모드 — ON이면 피아노 입력이 새 음표 대신 마지막(또는 선택된) 음표에
    * 음을 쌓는다. */
@@ -2440,10 +2802,15 @@ export default function EditorPage() {
   /* 조표 무시(explicit 임시표): 켜면 조표를 그리지 않고 마디 안의 ♯/♭만으로
    * 판단·표기한다(조표를 안 그린 채 마디 내에서 해결하는 악보 전용). 저장 시
    * sheetData.accidentalStyle='explicit'로 실려 뷰어·플레이어도 같게 해석. */
-  const [explicitAcc, setExplicitAcc] = useState(false);
+  /* 조표 무시는 전체 설정(악보/연주 → 에디터)과 공유하는 영속 설정이다.
+   * 임시표로만 표기된 악보를 불러오면 그 악보가 제대로 그려지도록 아래에서
+   * 이 값을 맞춰 세팅한다 — 설정 창에도 그 상태가 그대로 보인다. */
+  const [explicitAcc, setExplicitAcc] = usePref(editorExplicitAcc);
 
   const [duration, setDuration] = useState('8');
   const [dotted, setDotted] = useState(false);
+  /* 겹점 — 단일점과 배타(하나를 켜면 다른 하나는 꺼진다). */
+  const [doubleDotted, setDoubleDotted] = useState(false);
   const [accMode, setAccMode] = useState<'b' | '#' | 'n'>('b');
   const [tieNext, setTieNext] = useState(false);
   const [tripletMode, setTripletMode] = useState(false);
@@ -2488,6 +2855,10 @@ export default function EditorPage() {
   const [volta, setVolta] = useState<0 | 1 | 2>(0); // 0=none, 1=1st ending, 2=2nd ending
   const [navigation, setNavigation] = useState<NavigationMarker | ''>('');
   const [bracket, setBracket] = useState(false);
+  /* 악보 기호(옥타브·반복·내비게이션·브라켓) 추가 메뉴 — 툴바의 '+' 안에 모아둔다.
+   * 음표 입력용 토글(Tie·꾸밈음·고스트·화음)은 자주 쓰므로 툴바에 그대로 남긴다. */
+  const [markMenuOpen, setMarkMenuOpen] = useState(false);
+  const markMenuRef = useRef<HTMLDivElement | null>(null);
   const [copied, setCopied] = useState(false);
   const [showLoadModal, setShowLoadModal] = useState(false);
   const [loadJsonText, setLoadJsonText] = useState('');
@@ -2814,6 +3185,35 @@ export default function EditorPage() {
       setTimeout(() => chord1Ref.current?.focus(), 50);
     }
   }, []);
+
+  /* '+' 안에 접힌 기호 중 지금 켜져 있는 개수 — 접어두면 상태가 안 보이므로
+   * 버튼에 배지로 띄운다. */
+  const markCount = useMemo(() => (
+    (ottavaMode ? 1 : 0)
+    + (repeatStart ? 1 : 0)
+    + (repeatEnd ? 1 : 0)
+    + (volta !== 0 ? 1 : 0)
+    + (navigation ? 1 : 0)
+    + (bracket ? 1 : 0)
+  ), [ottavaMode, repeatStart, repeatEnd, volta, navigation, bracket]);
+
+  /* '+' 기호 메뉴 — 바깥 클릭 / Esc 로 닫는다. 메뉴가 닫혀 있을 땐 리스너를
+   * 붙이지 않아 평소 입력(단축키 등)에 얹히지 않는다. */
+  useEffect(() => {
+    if (!markMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!markMenuRef.current?.contains(e.target as Node)) setMarkMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMarkMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [markMenuOpen]);
 
   /* ── 8va / 8vb toggle. Click once to arm the bracket (next note becomes
    *    its start). Click the same button again to close — last note in
@@ -3184,7 +3584,7 @@ export default function EditorPage() {
 
     // 삽입 모드 — 지정 위치에 끼워 넣고 삽입점을 한 칸 전진(연속 입력).
     if (insertPos) {
-      const ni: NoteInfo = { keys: [conv.vexKey], duration, dotted: dotted || undefined, ...(graceMode ? { grace: true as const, graceSlash: true as const } : {}), ...(ghostMode ? { ghost: true as const } : {}) };
+      const ni: NoteInfo = { keys: [conv.vexKey], duration, dotted: dotted || undefined, doubleDotted: doubleDotted || undefined, ...(graceMode ? { grace: true as const, graceSlash: true as const } : {}), ...(ghostMode ? { ghost: true as const } : {}) };
       if (!respelled && accMode === 'n') ni.accidentals = { 0: 'n' };
       else if (conv.acc) ni.accidentals = { 0: conv.acc };
       if (tripletMode && !graceMode) ni.tuplet = 3;
@@ -3258,7 +3658,7 @@ export default function EditorPage() {
         // 피치뿐 아니라 음표 길이(duration)·점도 현재 툴바 선택값으로 교체한다
         // — "음표를 다른 것으로 바꾼 채 피아노를 누르면 음표 자체도 바뀜".
         // 쉼표였다면 'r' 없는 duration으로 실음이 된다.
-        const updated: NoteInfo = { ...n, keys: [conv.vexKey], duration, dotted: dotted || undefined, ...(ghostMode ? { ghost: true as const } : {}) };
+        const updated: NoteInfo = { ...n, keys: [conv.vexKey], duration, dotted: dotted || undefined, doubleDotted: doubleDotted || undefined, ...(ghostMode ? { ghost: true as const } : {}) };
         if (acc) updated.accidentals = acc;
         else delete updated.accidentals;
         return updated;
@@ -3293,7 +3693,7 @@ export default function EditorPage() {
     // 양손: 활성화된 베이스 마디로 입력 (트레블 기본 — 베이스는 마디 클릭 후).
     if (staffMode === 'grand' && selectedBassMeasure != null) {
       pushEditUndo();
-      const ni: NoteInfo = { keys: [conv.vexKey], duration, dotted: dotted || undefined, ...(graceMode ? { grace: true as const, graceSlash: true as const } : {}), ...(ghostMode ? { ghost: true as const } : {}) };
+      const ni: NoteInfo = { keys: [conv.vexKey], duration, dotted: dotted || undefined, doubleDotted: doubleDotted || undefined, ...(graceMode ? { grace: true as const, graceSlash: true as const } : {}), ...(ghostMode ? { ghost: true as const } : {}) };
       if (!respelled && accMode === 'n') ni.accidentals = { 0: 'n' };
       else if (conv.acc) ni.accidentals = { 0: conv.acc };
       if (tripletMode && !graceMode) ni.tuplet = 3;
@@ -3318,7 +3718,7 @@ export default function EditorPage() {
     // 선택된 committed 마디로 들어간다.)
     if (selectedMeasure != null && selectedMeasure < measures.length) {
       pushEditUndo();
-      const ni: NoteInfo = { keys: [conv.vexKey], duration, dotted: dotted || undefined, ...(graceMode ? { grace: true as const, graceSlash: true as const } : {}), ...(ghostMode ? { ghost: true as const } : {}) };
+      const ni: NoteInfo = { keys: [conv.vexKey], duration, dotted: dotted || undefined, doubleDotted: doubleDotted || undefined, ...(graceMode ? { grace: true as const, graceSlash: true as const } : {}), ...(ghostMode ? { ghost: true as const } : {}) };
       if (!respelled && accMode === 'n') ni.accidentals = { 0: 'n' };
       else if (conv.acc) ni.accidentals = { 0: conv.acc };
       if (tripletMode && !graceMode) ni.tuplet = 3;
@@ -3343,7 +3743,7 @@ export default function EditorPage() {
     }
 
     pushEditUndo();
-    const ni: NoteInfo = { keys: [conv.vexKey], duration, dotted: dotted || undefined, ...(graceMode ? { grace: true as const, graceSlash: true as const } : {}), ...(ghostMode ? { ghost: true as const } : {}) };
+    const ni: NoteInfo = { keys: [conv.vexKey], duration, dotted: dotted || undefined, doubleDotted: doubleDotted || undefined, ...(graceMode ? { grace: true as const, graceSlash: true as const } : {}), ...(ghostMode ? { ghost: true as const } : {}) };
     if (!respelled && accMode === 'n') {
       ni.accidentals = { 0: 'n' };
     } else if (conv.acc) {
@@ -3415,8 +3815,6 @@ export default function EditorPage() {
    * (handleNotePress)로 태운다 → 길이·임시표·삽입·양손·화음 로직 그대로 재사용.
    * 벨로시티는 오디션 소리 세기에 반영(설정에 따라). 설정 창은 아래 MidiSettingsPanel. */
   const [showMidiPanel, setShowMidiPanel] = useState(false);
-  /* 출력 설정 모달(⚙) — 조표무시 · 옥타브 이동. */
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const midiSettingsRef = useRef<{ auditionOnInput: boolean; velocityToAudition: boolean } | null>(null);
   const handleMidiNoteOn = useCallback((e: MidiNoteEvent) => {
     const pn = midiToPianoNote(e.midi);
@@ -3431,7 +3829,7 @@ export default function EditorPage() {
 
   const handleRest = useCallback((dur?: string) => {
     const d = dur ?? duration;
-    const ni: NoteInfo = { keys: ['b/4'], duration: d + 'r', dotted: dotted || undefined };
+    const ni: NoteInfo = { keys: ['b/4'], duration: d + 'r', dotted: dotted || undefined, doubleDotted: doubleDotted || undefined };
     if (tripletMode && !graceMode) ni.tuplet = 3;
     // 삽입 모드 — 쉼표도 지정 위치에 끼워 넣는다 (insertNoteAt이 undo 푸시).
     if (insertPos) {
@@ -4154,38 +4552,79 @@ export default function EditorPage() {
       <Header>
         <BackButton onClick={() => navigate(-1)} label="이전 페이지" />
         <Title>Editor</Title>
-        <Sep />
-        <MetaLabel>Mode</MetaLabel>
-        <KeySelect
-          value={mode}
-          onChange={(e) => setMode(e.target.value as 'solo' | 'lick' | 'comping')}
-          style={{ minWidth: 92, fontSize: '0.95rem', fontWeight: 700 }}
-          disabled={editingLickId !== null /* lick edit forces lick mode */}
-        >
-          <option value="solo">Solo</option>
-          <option value="lick">Lick</option>
-          <option value="comping">Comping</option>
-        </KeySelect>
-        {/* 컴핑 장르 셀렉트는 제거 — 장르는 아래 TransportBar 의 GenreSelect 하나로
-            일임하고, 저장 시 그 값을 컴핑 장르(SWING/BLUES/BOSSA/LATIN)로 매핑한다. */}
-        <MetaLabel>보표</MetaLabel>
-        <KeySelect
-          value={staffMode}
-          disabled={staffModeLocked}
-          onChange={(e) => {
-            const v = e.target.value as 'single' | 'grand';
-            setStaffMode(v);
-            if (v === 'single') { setSelectedBassMeasure(null); setSelectedNote((s) => (s?.staff === 'bass' ? null : s)); }
-          }}
-          style={{ minWidth: 108, fontSize: '0.95rem', fontWeight: 700, opacity: staffModeLocked ? 0.6 : 1 }}
-          title={staffModeLocked
-            ? `불러온 악보의 데이터로 확정됨 — ${staffMode === 'grand' ? '양손(그랜드 스태프)' : '한손'}. OMR/MusicXML 의 보표 수가 진실이므로 임의로 바꾸지 않는다.`
-            : '한손 = 높은음자리표 한 줄 · 양손 = 그랜드 스태프(위 트레블 / 아래 베이스)'}
-        >
-          <option value="single">한손 악보</option>
-          <option value="grand">양손 악보</option>
-        </KeySelect>
-        {staffModeLocked && <LockedHint title="불러온 악보의 보표 수로 자동 확정">🔒 자동</LockedHint>}
+        {/* 정보 칩 — Mode·보표·악보 종류를 한 칸으로 접었다. 눌러서 펼친다. */}
+        <MetaAnchor ref={metaPopRef}>
+          <InfoChip
+            type="button"
+            $open={metaOpen}
+            onClick={() => setMetaOpen((v) => !v)}
+            title={`${MODE_LABEL[mode]} · ${staffMode === 'grand' ? '양손 악보' : '한손 악보'} · ${INSTRUMENT_LABEL[instrument]}`}
+            aria-label="악보 정보"
+            aria-expanded={metaOpen}
+          >
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 11v5" /><path d="M12 8h.01" />
+            </svg>
+          </InfoChip>
+          {metaOpen && (
+            <MetaPop role="dialog" aria-label="악보 정보">
+              <MetaRow>
+                <MetaRowHead><MetaLabel>Mode</MetaLabel></MetaRowHead>
+                <SegGroup role="tablist">
+                  {(['solo', 'lick', 'comping'] as const).map((m) => (
+                    <SegBtn
+                      key={m}
+                      type="button"
+                      $on={mode === m}
+                      disabled={editingLickId !== null /* lick edit forces lick mode */}
+                      onClick={() => setMode(m)}
+                    >{MODE_LABEL[m]}</SegBtn>
+                  ))}
+                </SegGroup>
+              </MetaRow>
+
+              <MetaRow>
+                <MetaRowHead>
+                  <MetaLabel>보표</MetaLabel>
+                  {staffModeLocked && <LockedHint title="불러온 악보의 보표 수로 자동 확정">🔒 자동</LockedHint>}
+                </MetaRowHead>
+                <SegGroup>
+                  {(['single', 'grand'] as const).map((v) => (
+                    <SegBtn
+                      key={v}
+                      type="button"
+                      $on={staffMode === v}
+                      disabled={staffModeLocked}
+                      onClick={() => {
+                        setStaffMode(v);
+                        if (v === 'single') { setSelectedBassMeasure(null); setSelectedNote((s) => (s?.staff === 'bass' ? null : s)); }
+                      }}
+                    >{v === 'single' ? '한손 악보' : '양손 악보'}</SegBtn>
+                  ))}
+                </SegGroup>
+                <MetaHint>
+                  {staffModeLocked
+                    ? '불러온 악보의 보표 수로 확정됨 — 임의로 바꾸지 않는다.'
+                    : '한손 = 높은음자리표 한 줄 · 양손 = 그랜드 스태프'}
+                </MetaHint>
+              </MetaRow>
+
+              <MetaRow>
+                <MetaRowHead><MetaLabel>악보 종류</MetaLabel></MetaRowHead>
+                <SegGroup>
+                  {(['piano', 'guitar', 'drums'] as const).map((v) => (
+                    <SegBtn key={v} type="button" $on={instrument === v} onClick={() => setInstrument(v)}>
+                      {INSTRUMENT_LABEL[v]}
+                    </SegBtn>
+                  ))}
+                </SegGroup>
+                {/* 아직 디자인만 — 렌더·재생·저장에는 반영되지 않는다. */}
+                <MetaHint>표시만 되는 항목입니다 (동작 미연결).</MetaHint>
+              </MetaRow>
+            </MetaPop>
+          )}
+        </MetaAnchor>
         <Sep />
         <MetaLabel>Title</MetaLabel>
         <MetaInput value={sheetTitle} onChange={(e) => setSheetTitle(e.target.value)} placeholder={mode === 'solo' ? 'e.g. Autumn Leaves' : 'e.g. ii-V Lick #3'} style={{ width: 280 }} />
@@ -4217,59 +4656,29 @@ export default function EditorPage() {
 
       <MidiSettingsPanel midi={midi} open={showMidiPanel} onClose={() => setShowMidiPanel(false)} />
 
-      {/* 출력 설정(⚙) — 조표무시 · 옥타브 이동. 코드차트의 톱니 모달과 같은 역할. */}
-      {settingsOpen && (
-        <ModalOverlay onClick={() => setSettingsOpen(false)}>
-          <ModalBox style={{ width: 460 }} onClick={(e) => e.stopPropagation()}>
-            <ModalTitle>출력 설정</ModalTitle>
-            <SettingRow>
-              <div>
-                <SettingName>조표 무시</SettingName>
-                <SettingDesc>
-                  켜면 조표를 그리지 않고 마디 안의 ♯/♭(마디 내 상속 포함)만으로 판단합니다 —
-                  조표 없이 마디마다 임시표로 해결하는 악보 전용. 끄면 조표에 맞춰 임시표를 생략(기본).
-                </SettingDesc>
-              </div>
-              <ToggleBtn $on={explicitAcc} onClick={() => setExplicitAcc((v) => !v)}>
-                {explicitAcc ? 'ON' : 'OFF'}
-              </ToggleBtn>
-            </SettingRow>
-            <SettingRow>
-              <div>
-                <SettingName>옥타브 이동</SettingName>
-                <SettingDesc>악보의 모든 음표를 한 옥타브 위/아래로 옮깁니다.</SettingDesc>
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <OctBtn onClick={() => handleShiftOctave(-1)} disabled={totalNotes === 0}>Oct −1</OctBtn>
-                <OctBtn onClick={() => handleShiftOctave(1)} disabled={totalNotes === 0}>Oct +1</OctBtn>
-              </div>
-            </SettingRow>
-          </ModalBox>
-        </ModalOverlay>
-      )}
-
 
       {/* 상단 트랜스포트 바 — 코드차트와 동일한 믹서/재생 컨트롤. 믹서 버튼은
           클릭 시 팝오버(좁은 화면은 모달)로 트랙들을 띄운다. */}
       <TransportBar>
         <BarLeft>
           <GenreSelect value={genre} onChange={setGenre} />
-          {/* 조성은 표시 전용 — 에디터에서 조성 변경은 곧 '영구 이조'라
-              드롭다운으로 훑어보는 동작이 성립하지 않는다. 실제 변경은
-              바로 오른쪽 Transpose 버튼에서. */}
-          <KeyDisplay title="현재 조성 — 변경은 오른쪽 Transpose 버튼에서">
-            {sheetKey.replace(/m$/, '').replace(/b/g, '♭').replace(/#/g, '♯')}
-            <KeyQualEP>{isMinorKey(sheetKey) ? '단조' : '장조'}</KeyQualEP>
-          </KeyDisplay>
+          {/* 조성 칩 자체가 Transpose 버튼 — hover 하면 조성이 흐려지고
+              그 자리에 이조 아이콘이 뜬다. 클릭하면 드롭다운. */}
           <KeyAnchor>
-            <ToolBtn
+            <KeyDisplay
               type="button"
+              $open={transposeOpen}
               title="Transpose · 조성 변경(음표까지 실제로 이조)"
-              $lit={transposeOpen}
+              aria-haspopup="dialog"
+              aria-expanded={transposeOpen}
               onClick={() => setTransposeOpen((v) => !v)}
             >
-              <IcoTranspose />
-            </ToolBtn>
+              <span className="key-text">
+                {sheetKey.replace(/m$/, '').replace(/b/g, '♭').replace(/#/g, '♯')}
+                <KeyQualEP>{isMinorKey(sheetKey) ? '단조' : '장조'}</KeyQualEP>
+              </span>
+              <span className="key-ico" aria-hidden><IcoTranspose /></span>
+            </KeyDisplay>
             {transposeOpen && (
               <KeyChangePopover
                 currentKey={sheetKey.replace(/b/g, '♭').replace(/#/g, '♯')}
@@ -4279,21 +4688,13 @@ export default function EditorPage() {
                 onApplyTranspose={() => { applyTranspose(keyInput.trim()); setKeyInput(''); }}
                 onApplyKeyOnly={() => { applyKeyOnly(keyInput.trim()); setKeyInput(''); }}
                 onPreset={(semi) => { const to = shiftDisplayKeyBySemitones(sheetKey, semi); if (to) applyTranspose(to); }}
+                onOctave={(dir) => handleShiftOctave(dir)}
+                octaveDisabled={totalNotes === 0}
                 onClose={() => setTransposeOpen(false)}
               />
             )}
           </KeyAnchor>
 
-          {/* 악보 전체 상태 — 입력 중 마디/박, 총 음표·마디 수를 한 칩에 모았다. */}
-          <StatusChip>
-            <StatusItem>Bar <b>{measures.length + 1}</b></StatusItem>
-            <StatusDot />
-            <StatusItem $warn={curBeats > 4}><b>{curBeats}</b>/4 beats</StatusItem>
-            <StatusDot />
-            <StatusItem><b>{totalNotes}</b> notes</StatusItem>
-            <StatusDot />
-            <StatusItem><b>{allMeasures.length}</b> bars</StatusItem>
-          </StatusChip>
         </BarLeft>
         <BarCenter>
           <MixerButton />
@@ -4324,9 +4725,9 @@ export default function EditorPage() {
           </ToolBtn>
           <ToolBtn
             type="button"
-            title="출력 설정 — 조표무시 · 옥타브 이동"
-            $lit={settingsOpen || explicitAcc}
-            onClick={() => setSettingsOpen(true)}
+            title="에디터 설정 — 조표 무시 등"
+            $lit={explicitAcc}
+            onClick={() => openPerformanceSettings('editor')}
           >
             <GearIcon />
           </ToolBtn>
@@ -4334,41 +4735,77 @@ export default function EditorPage() {
       </TransportBar>
 
       <ToolBar>
-        {DUR_KEYS.map((d) => (
-          <DurCol key={d.value}>
-            <DurBtn $active={duration === d.value} onClick={() => { setDuration(d.value); setDotted(false); }} title={d.title}>
-              <NoteIcon type={d.value} width={50} height={50} />
-            </DurBtn>
-            <RestBtn onClick={() => handleRest(d.value)} title={`${d.title} rest`}>
-              <RestIcon type={d.value} width={50} height={50} />
-            </RestBtn>
-          </DurCol>
-        ))}
-        {/* 3연음·지속연음을 음표/쉼표 컬럼처럼 세로로 쌓아 32분음표 오른쪽에 배치. */}
-        <DurCol>
-          <DurBtn
-            $active={tripletMode}
-            onClick={toggleTripletMode}
-            title="3연음 — 3개 입력하면 자동 해제 (T)"
-            style={{ fontSize: '1.1rem', fontWeight: 700 }}
-          >
-            3
-          </DurBtn>
-          <DurBtn
-            $active={sustainTuplet}
-            onClick={toggleSustainTuplet}
-            title="지속 연음 — 다시 누를 때까지 계속 한 묶음으로 이어붙입니다 (4·5·6·7연음). 단축키 Shift+T"
-            style={{ fontSize: '1.1rem', fontWeight: 700 }}
-          >
-            3+
-          </DurBtn>
-        </DurCol>
-        <DurBtn $active={dotted} onClick={() => setDotted((v) => !v)} title="Dotted" style={{ fontSize: '1.6rem', fontWeight: 900 }}>.</DurBtn>
-        <DurBtn $active={accMode === 'b'} onClick={() => setAccMode('b')} title="Flat mode" style={{ fontSize: '1.2rem', fontWeight: 700 }}>&#9837;</DurBtn>
-        <DurBtn $active={accMode === '#'} onClick={() => setAccMode('#')} title="Sharp mode" style={{ fontSize: '1.2rem', fontWeight: 700 }}>&#9839;</DurBtn>
-        <DurBtn $active={accMode === 'n'} onClick={() => setAccMode((v) => v === 'n' ? 'b' : 'n')} title="Natural mode" style={{ fontSize: '1.2rem', fontWeight: 700 }}>&#9838;</DurBtn>
+        <DurGroup>
+          {DUR_KEYS.map((d) => (
+            <DurCol key={d.value}>
+              <DurBtn $active={duration === d.value} onClick={() => { setDuration(d.value); setDotted(false); }} title={d.title}>
+                <NoteIcon type={d.value} width={50} height={50} />
+              </DurBtn>
+              <RestBtn onClick={() => handleRest(d.value)} title={`${d.title} rest`}>
+                <RestIcon type={d.value} width={50} height={50} />
+              </RestBtn>
+            </DurCol>
+          ))}
+        </DurGroup>
+        {/* 두 번째 섹션 — 점/겹점 · 연음 · 임시표. 내츄럴(♮)은 여기서 빼고 아래
+            선택 음표 상세 바에서만 다룬다(피아노 입력이 내츄럴을 판별하므로). */}
+        <ModGroup>
+          <ModCol>
+            <DurBtn
+              $active={dotted}
+              onClick={() => { setDotted((v) => !v); setDoubleDotted(false); }}
+              title="점음표 — 원래 길이의 1.5배"
+            ><DotGlyph n={1} /></DurBtn>
+            <DurBtn
+              $active={doubleDotted}
+              onClick={() => { setDoubleDotted((v) => !v); setDotted(false); }}
+              title="겹점음표 — 원래 길이의 1.75배"
+            ><DotGlyph n={2} /></DurBtn>
+          </ModCol>
+          <ModCol>
+            <DurBtn
+              $active={tripletMode}
+              onClick={toggleTripletMode}
+              title="3연음 — 3개 입력하면 자동 해제 (T)"
+            ><TupletGlyph /></DurBtn>
+            <DurBtn
+              $active={sustainTuplet}
+              onClick={toggleSustainTuplet}
+              title="지속 연음 — 다시 누를 때까지 계속 한 묶음으로 이어붙입니다 (4·5·6·7연음). 단축키 Shift+T"
+            ><TupletGlyph plus /></DurBtn>
+          </ModCol>
+          <ModCol>
+            {/* ♯ / ♭ 는 라디오 — 하나를 켜면 다른 하나가 꺼진다. */}
+            <DurBtn $active={accMode === '#'} onClick={() => setAccMode('#')} title="Sharp mode" style={{ fontSize: '1.2rem', fontWeight: 700 }}>&#9839;</DurBtn>
+            <DurBtn $active={accMode === 'b'} onClick={() => setAccMode('b')} title="Flat mode" style={{ fontSize: '1.2rem', fontWeight: 700 }}>&#9837;</DurBtn>
+          </ModCol>
+        </ModGroup>
 
-        <Sep />
+        {/* 세 번째 섹션 — 악보 상태(위) + undo/redo(아래). 중요 영역이라 골드 테두리. */}
+        <GoldGroup>
+          <StatusChip>
+            <StatusItem>Bar <b>{measures.length + 1}</b></StatusItem>
+            <StatusDot />
+            <StatusItem $warn={curBeats > 4}><b>{curBeats}</b>/4 beats</StatusItem>
+            <StatusDot />
+            <StatusItem><b>{totalNotes}</b> notes</StatusItem>
+            <StatusDot />
+            <StatusItem><b>{allMeasures.length}</b> bars</StatusItem>
+          </StatusChip>
+          <UndoRedoRow>
+            <IconBtn type="button" onClick={handleUndo} aria-label="Undo">
+              <img src={`${import.meta.env.BASE_URL}icons/undo.svg`} alt="" draggable={false} />
+              <IconLabel>undo</IconLabel>
+            </IconBtn>
+            <IconBtn type="button" onClick={handleRedo} aria-label="Redo">
+              <img src={`${import.meta.env.BASE_URL}icons/redo.svg`} alt="" draggable={false} />
+              <IconLabel>redo</IconLabel>
+            </IconBtn>
+          </UndoRedoRow>
+        </GoldGroup>
+
+        {/* 네 번째 섹션 — 나머지 입력 토글·기호·옥타브. */}
+        <MiscGroup>
         <DurBtn $active={tieNext} onClick={() => setTieNext((v) => !v)} title="Tie to next note (L)" style={{ fontSize: '1.3rem' }}>
           <svg width="22" height="16" viewBox="0 0 18 14" style={{ display: 'block' }}>
             <path d="M2 4 Q9 14 16 4" stroke="currentColor" strokeWidth="1.5" fill="none" />
@@ -4414,117 +4851,179 @@ export default function EditorPage() {
             <ellipse cx="9.5" cy="5" rx="4.2" ry="3" fill="currentColor" />
           </svg>
         </DurBtn>
-        <DurBtn
-          $active={ottavaMode === '8va'}
-          onClick={() => handleOttavaToggle('8va')}
-          title="8va bracket (octave up) — click to start, click again on last note to close"
-          style={{ fontSize: '0.78rem', fontWeight: 700, fontStyle: 'italic', fontFamily: "'Times New Roman', serif" }}
-        >
-          8va
-        </DurBtn>
-        <DurBtn
-          $active={ottavaMode === '8vb'}
-          onClick={() => handleOttavaToggle('8vb')}
-          title="8vb bracket (octave down) — click to start, click again on last note to close"
-          style={{ fontSize: '0.78rem', fontWeight: 700, fontStyle: 'italic', fontFamily: "'Times New Roman', serif" }}
-        >
-          8vb
-        </DurBtn>
         <BarlineBtn onClick={closeMeasure} disabled={curNotes.length === 0} title="Close measure (Enter)">|</BarlineBtn>
-        <DurBtn
-          $active={repeatStart}
-          onClick={() => { pushEditUndo(); setRepeatStart((v) => !v); }}
-          title="Repeat start"
-        >
-          <svg width="16" height="22" viewBox="0 0 16 22"><line x1="2" y1="1" x2="2" y2="21" stroke="currentColor" strokeWidth="2.5"/><line x1="5.5" y1="1" x2="5.5" y2="21" stroke="currentColor" strokeWidth="1"/><circle cx="10" cy="8" r="1.7" fill="currentColor"/><circle cx="10" cy="14" r="1.7" fill="currentColor"/></svg>
-        </DurBtn>
-        <DurBtn
-          $active={repeatEnd}
-          onClick={() => { pushEditUndo(); setRepeatEnd((v) => !v); }}
-          title="Repeat end"
-        >
-          <svg width="16" height="22" viewBox="0 0 16 22"><circle cx="6" cy="8" r="1.7" fill="currentColor"/><circle cx="6" cy="14" r="1.7" fill="currentColor"/><line x1="10.5" y1="1" x2="10.5" y2="21" stroke="currentColor" strokeWidth="1"/><line x1="14" y1="1" x2="14" y2="21" stroke="currentColor" strokeWidth="2.5"/></svg>
-        </DurBtn>
-        <DurBtn
-          $active={volta === 1}
-          onClick={() => { pushEditUndo(); setVolta((v) => v === 1 ? 0 : 1); }}
-          title="1st ending"
-        >
-          <svg width="22" height="18" viewBox="0 0 22 18"><path d="M1 1 L1 6 L21 6" stroke="currentColor" strokeWidth="1.5" fill="none"/><text x="4" y="16" fontSize="10" fontWeight="700" fill="currentColor" fontFamily="DM Sans, sans-serif">1.</text></svg>
-        </DurBtn>
-        <DurBtn
-          $active={volta === 2}
-          onClick={() => { pushEditUndo(); setVolta((v) => v === 2 ? 0 : 2); }}
-          title="2nd ending"
-        >
-          <svg width="22" height="18" viewBox="0 0 22 18"><path d="M1 1 L1 6 L21 6" stroke="currentColor" strokeWidth="1.5" fill="none"/><text x="4" y="16" fontSize="10" fontWeight="700" fill="currentColor" fontFamily="DM Sans, sans-serif">2.</text></svg>
-        </DurBtn>
-        <DurBtn
-          $active={navigation === 'segno'}
-          onClick={() => { pushEditUndo(); setNavigation((v) => v === 'segno' ? '' : 'segno'); }}
-          title="Segno"
-          style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.5rem', lineHeight: 1 }}
-        >
-          {''}
-        </DurBtn>
-        <DurBtn
-          $active={navigation === 'coda'}
-          onClick={() => { pushEditUndo(); setNavigation((v) => v === 'coda' ? '' : 'coda'); }}
-          title="Coda"
-          style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.5rem', lineHeight: 1 }}
-        >
-          {''}
-        </DurBtn>
-        <DurBtn
-          $active={navigation === 'fine'}
-          onClick={() => { pushEditUndo(); setNavigation((v) => v === 'fine' ? '' : 'fine'); }}
-          title="Fine"
-          style={{ fontSize: '0.72rem', fontWeight: 700, fontStyle: 'italic' }}
-        >
-          Fine
-        </DurBtn>
-        <DurBtn
-          $active={navigation === 'toCoda'}
-          onClick={() => { pushEditUndo(); setNavigation((v) => v === 'toCoda' ? '' : 'toCoda'); }}
-          title="To Coda"
-          style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '0.85rem', lineHeight: 1 }}
-        >
-          <span style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '0.7rem', fontWeight: 700, fontStyle: 'italic', marginRight: 1 }}>To</span>{''}
-        </DurBtn>
-        <NavSelect
-          value={navigation && ['dc', 'dcAlCoda', 'dcAlFine', 'ds', 'dsAlCoda', 'dsAlFine'].includes(navigation) ? navigation : ''}
-          onChange={(e) => { pushEditUndo(); setNavigation(e.target.value as NavigationMarker | ''); }}
-        >
-          <option value="">D.C./D.S.</option>
-          <option value="dc">D.C.</option>
-          <option value="dcAlCoda">D.C. al Coda</option>
-          <option value="dcAlFine">D.C. al Fine</option>
-          <option value="ds">D.S.</option>
-          <option value="dsAlCoda">D.S. al Coda</option>
-          <option value="dsAlFine">D.S. al Fine</option>
-        </NavSelect>
-        <DurBtn $active={bracket} title="Intro bracket"
-          onClick={() => { pushEditUndo(); setBracket((v) => !v); }}
-          style={{ fontSize: '0.85rem', fontWeight: 300, fontFamily: 'serif' }}
-        >(&thinsp;)</DurBtn>
 
-        {/* Bar/beats/notes/bars 표시는 상단 트랜스포트 바의 StatusChip 으로 통합. */}
+        {/* 악보 기호 추가 — 8va/8vb·도돌이표·볼타·세뇨/코다·브라켓을 '+' 하나로 모았다.
+          * 개별 버튼으로 늘어놓으면 툴바가 길어져 음표 버튼이 밀려났다. 자주 쓰는
+          * 입력 토글(Tie·꾸밈음·고스트·화음)은 툴바에 그대로 남긴다. */}
+        <MarkWrap ref={markMenuRef}>
+          <DurBtn
+            $active={markMenuOpen || markCount > 0}
+            onClick={() => setMarkMenuOpen((v) => !v)}
+            title="기호 추가 — 8va/8vb · 도돌이표 · 볼타 · 세뇨/코다 · 브라켓"
+            aria-haspopup="menu"
+            aria-expanded={markMenuOpen}
+            style={{ fontSize: '1.7rem', fontWeight: 300, lineHeight: 1, position: 'relative' }}
+          >
+            +
+            {markCount > 0 && <MarkBadge>{markCount}</MarkBadge>}
+          </DurBtn>
+
+          {markMenuOpen && (
+            <MarkMenu role="menu">
+              <MarkGroup>
+                <MarkTitle>옥타브</MarkTitle>
+                <MarkRow>
+                  <MarkBtn
+                    $active={ottavaMode === '8va'}
+                    onClick={() => handleOttavaToggle('8va')}
+                    title="한 번 눌러 시작, 마지막 음에서 다시 눌러 닫기"
+                  >
+                    <MarkGlyph style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontWeight: 700, fontSize: '0.95rem' }}>8va</MarkGlyph>
+                    <MarkLabel>옥타브 위</MarkLabel>
+                  </MarkBtn>
+                  <MarkBtn
+                    $active={ottavaMode === '8vb'}
+                    onClick={() => handleOttavaToggle('8vb')}
+                    title="한 번 눌러 시작, 마지막 음에서 다시 눌러 닫기"
+                  >
+                    <MarkGlyph style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontWeight: 700, fontSize: '0.95rem' }}>8vb</MarkGlyph>
+                    <MarkLabel>옥타브 아래</MarkLabel>
+                  </MarkBtn>
+                </MarkRow>
+              </MarkGroup>
+
+              <MarkGroup>
+                <MarkTitle>반복</MarkTitle>
+                <MarkRow>
+                  <MarkBtn
+                    $active={repeatStart}
+                    onClick={() => { pushEditUndo(); setRepeatStart((v) => !v); }}
+                    title="Repeat start"
+                  >
+                    <MarkGlyph>
+                      <svg width="16" height="22" viewBox="0 0 16 22"><line x1="2" y1="1" x2="2" y2="21" stroke="currentColor" strokeWidth="2.5"/><line x1="5.5" y1="1" x2="5.5" y2="21" stroke="currentColor" strokeWidth="1"/><circle cx="10" cy="8" r="1.7" fill="currentColor"/><circle cx="10" cy="14" r="1.7" fill="currentColor"/></svg>
+                    </MarkGlyph>
+                    <MarkLabel>도돌이 시작</MarkLabel>
+                  </MarkBtn>
+                  <MarkBtn
+                    $active={repeatEnd}
+                    onClick={() => { pushEditUndo(); setRepeatEnd((v) => !v); }}
+                    title="Repeat end"
+                  >
+                    <MarkGlyph>
+                      <svg width="16" height="22" viewBox="0 0 16 22"><circle cx="6" cy="8" r="1.7" fill="currentColor"/><circle cx="6" cy="14" r="1.7" fill="currentColor"/><line x1="10.5" y1="1" x2="10.5" y2="21" stroke="currentColor" strokeWidth="1"/><line x1="14" y1="1" x2="14" y2="21" stroke="currentColor" strokeWidth="2.5"/></svg>
+                    </MarkGlyph>
+                    <MarkLabel>도돌이 끝</MarkLabel>
+                  </MarkBtn>
+                  <MarkBtn
+                    $active={volta === 1}
+                    onClick={() => { pushEditUndo(); setVolta((v) => v === 1 ? 0 : 1); }}
+                    title="1st ending"
+                  >
+                    <MarkGlyph>
+                      <svg width="22" height="18" viewBox="0 0 22 18"><path d="M1 1 L1 6 L21 6" stroke="currentColor" strokeWidth="1.5" fill="none"/><text x="4" y="16" fontSize="10" fontWeight="700" fill="currentColor" fontFamily="DM Sans, sans-serif">1.</text></svg>
+                    </MarkGlyph>
+                    <MarkLabel>1번 괄호</MarkLabel>
+                  </MarkBtn>
+                  <MarkBtn
+                    $active={volta === 2}
+                    onClick={() => { pushEditUndo(); setVolta((v) => v === 2 ? 0 : 2); }}
+                    title="2nd ending"
+                  >
+                    <MarkGlyph>
+                      <svg width="22" height="18" viewBox="0 0 22 18"><path d="M1 1 L1 6 L21 6" stroke="currentColor" strokeWidth="1.5" fill="none"/><text x="4" y="16" fontSize="10" fontWeight="700" fill="currentColor" fontFamily="DM Sans, sans-serif">2.</text></svg>
+                    </MarkGlyph>
+                    <MarkLabel>2번 괄호</MarkLabel>
+                  </MarkBtn>
+                </MarkRow>
+              </MarkGroup>
+
+              <MarkGroup>
+                <MarkTitle>내비게이션</MarkTitle>
+                <MarkRow>
+                  <MarkBtn
+                    $active={navigation === 'segno'}
+                    onClick={() => { pushEditUndo(); setNavigation((v) => v === 'segno' ? '' : 'segno'); }}
+                    title="Segno"
+                  >
+                    <MarkGlyph style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.4rem' }}>{''}</MarkGlyph>
+                    <MarkLabel>세뇨</MarkLabel>
+                  </MarkBtn>
+                  <MarkBtn
+                    $active={navigation === 'coda'}
+                    onClick={() => { pushEditUndo(); setNavigation((v) => v === 'coda' ? '' : 'coda'); }}
+                    title="Coda"
+                  >
+                    <MarkGlyph style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.4rem' }}>{''}</MarkGlyph>
+                    <MarkLabel>코다</MarkLabel>
+                  </MarkBtn>
+                  <MarkBtn
+                    $active={navigation === 'toCoda'}
+                    onClick={() => { pushEditUndo(); setNavigation((v) => v === 'toCoda' ? '' : 'toCoda'); }}
+                    title="To Coda"
+                  >
+                    <MarkGlyph style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1rem' }}>
+                      <span style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '0.72rem', fontWeight: 700, fontStyle: 'italic', marginRight: 1 }}>To</span>{''}
+                    </MarkGlyph>
+                    <MarkLabel>To Coda</MarkLabel>
+                  </MarkBtn>
+                  <MarkBtn
+                    $active={navigation === 'fine'}
+                    onClick={() => { pushEditUndo(); setNavigation((v) => v === 'fine' ? '' : 'fine'); }}
+                    title="Fine"
+                  >
+                    <MarkGlyph style={{ fontSize: '0.9rem', fontWeight: 700, fontStyle: 'italic' }}>Fine</MarkGlyph>
+                    <MarkLabel>피네</MarkLabel>
+                  </MarkBtn>
+                </MarkRow>
+                <MarkSelectRow>
+                  <MarkSelectLabel>다 카포 · 달 세뇨</MarkSelectLabel>
+                  <NavSelect
+                    value={navigation && ['dc', 'dcAlCoda', 'dcAlFine', 'ds', 'dsAlCoda', 'dsAlFine'].includes(navigation) ? navigation : ''}
+                    onChange={(e) => { pushEditUndo(); setNavigation(e.target.value as NavigationMarker | ''); }}
+                  >
+                    <option value="">없음</option>
+                    <option value="dc">D.C.</option>
+                    <option value="dcAlCoda">D.C. al Coda</option>
+                    <option value="dcAlFine">D.C. al Fine</option>
+                    <option value="ds">D.S.</option>
+                    <option value="dsAlCoda">D.S. al Coda</option>
+                    <option value="dsAlFine">D.S. al Fine</option>
+                  </NavSelect>
+                </MarkSelectRow>
+              </MarkGroup>
+
+              <MarkGroup>
+                <MarkTitle>기타</MarkTitle>
+                <MarkRow>
+                  <MarkBtn
+                    $active={bracket}
+                    onClick={() => { pushEditUndo(); setBracket((v) => !v); }}
+                    title="Intro bracket"
+                  >
+                    <MarkGlyph style={{ fontWeight: 300, fontFamily: 'serif', fontSize: '1.15rem' }}>(&thinsp;)</MarkGlyph>
+                    <MarkLabel>인트로 브라켓</MarkLabel>
+                  </MarkBtn>
+                </MarkRow>
+              </MarkGroup>
+            </MarkMenu>
+          )}
+        </MarkWrap>
+
+        {/* 옥타브 이동 — 악보의 음표를 실제로 옮기는 편집 동작. */}
+        <OctBtn onClick={() => handleShiftOctave(-1)} disabled={totalNotes === 0}>Oct −1</OctBtn>
+        <OctBtn onClick={() => handleShiftOctave(1)} disabled={totalNotes === 0}>Oct +1</OctBtn>
+        </MiscGroup>
+
         <Spacer />
       </ToolBar>
 
-      <UndoClearRow>
-        <IconBtn type="button" onClick={handleUndo} aria-label="Undo">
-          <img src={`${import.meta.env.BASE_URL}icons/undo.svg`} alt="" draggable={false} />
-          <IconLabel>undo</IconLabel>
-        </IconBtn>
-        <IconBtn type="button" onClick={handleRedo} aria-label="Redo">
-          <img src={`${import.meta.env.BASE_URL}icons/redo.svg`} alt="" draggable={false} />
-          <IconLabel>redo</IconLabel>
-        </IconBtn>
-      </UndoClearRow>
 
       <PianoArea>
-        <PianoKeyboard onNotePress={handleNotePress} mute scale={1.28} />
+        {/* scale 은 상한 — 좁은 화면에서는 fitToWidth 가 컨테이너 폭에 맞춰
+            자동으로 낮춘다(1,930px 고정이라 창이 좁으면 잘리던 문제). */}
+        <PianoKeyboard onNotePress={handleNotePress} mute scale={1.28} fitToWidth />
       </PianoArea>
       <KeyHint>1=whole &middot; 2=half &middot; 4=quarter &middot; 8=8th &middot; 6=16th &middot; 3=32nd &middot; L=tie &middot; T=triplet &middot; Enter=close measure &middot; Backspace/Ctrl+Z=undo</KeyHint>
 

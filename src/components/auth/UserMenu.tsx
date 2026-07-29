@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { logout as apiLogout, type AuthUser } from '../../api/auth';
-import { SettingsModal } from './SettingsModal';
+import { openSettings } from '../../lib/settingsBus';
 import { FeedbackModal } from '../common/FeedbackModal';
 
 /* 사이드바 하단의 로그인된 사용자 영역.
@@ -19,7 +19,6 @@ interface Props {
 
 export function UserMenu({ user, compact = false }: Props) {
   const [open, setOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -58,7 +57,7 @@ export function UserMenu({ user, compact = false }: Props) {
             type="button"
             onClick={() => {
               setOpen(false);
-              setSettingsOpen(true);
+              openSettings();
             }}
           >
             <MenuIcon><SettingsIcon /></MenuIcon>
@@ -132,11 +131,6 @@ export function UserMenu({ user, compact = false }: Props) {
           </>
         )}
       </Trigger>
-      <SettingsModal
-        open={settingsOpen}
-        user={user}
-        onClose={() => setSettingsOpen(false)}
-      />
       <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
     </Root>
   );

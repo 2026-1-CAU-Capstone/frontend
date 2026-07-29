@@ -67,6 +67,32 @@ export function topNoteGlyphY(
 }
 
 /**
+ * 마디에서 **가장 낮은 음표 글리프의 하단 Y**(px). 쉼표·장식음은 제외하며,
+ * 음이 하나도 없으면 null. 편집 중 마디 하이라이트가 보표 아래로 내려간
+ * 음표(덧줄)까지 덮어야 할 때 쓴다.
+ */
+export function bottomNoteGlyphY(
+  notes: readonly ClearanceNote[],
+  getYForLine: (line: number) => number,
+  clef: 'treble' | 'bass' = 'treble',
+): number | null {
+  let minDia = Infinity;
+  for (const n of notes) {
+    if (n.grace || n.duration?.endsWith('r')) continue;
+    for (const k of n.keys ?? []) {
+      const d = diaOf(k);
+      if (d !== null && d < minDia) minDia = d;
+    }
+  }
+  if (!Number.isFinite(minDia)) return null;
+
+  const steps = minDia - TOP_LINE_DIA[clef];
+  const centerY = getYForLine(-steps / 2);
+  const lineGap = Math.abs(getYForLine(1) - getYForLine(0)) || 10;
+  return centerY + lineGap / 2;   // 머리 하단
+}
+
+/**
  * 코드 심볼 baseline Y 를 결정한다 — 기본 위치를 쓰되, 고음이 그 위로 올라오면
  * 음표 위로 밀어 올린다. `minY` 로 SVG 상단 밖으로 나가지 않게 클램프.
  *

@@ -39,7 +39,7 @@ export function minWidthForNotes(notes: StaveNote[], numBeats = 4, beatValue = 4
 }
 
 /** 음길이별 대략 폭 — 구 휴리스틱. 이제 주 계산이 아니라 **안전 하한선**이다. */
-const NOTE_W: Record<string, number> = { w: 90, h: 64, q: 42, '8': 26, '16': 18, '32': 14 };
+const NOTE_W: Record<string, number> = { w: 90, h: 64, q: 42, '8': 26, '16': 18, '32': 14, '64': 12 };
 
 /**
  * 구 휴리스틱 폭. `minWidthForNotes`가 어떤 이유로든(폰트 메트릭 미준비 등)

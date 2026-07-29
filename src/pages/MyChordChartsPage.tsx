@@ -1,6 +1,10 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { useDismissable } from '../hooks/useDismissable';
 import { useViewModePref } from '../hooks/useViewModePref';
+import { usePref } from '../lib/prefsStore';
+import { myChartsViewMode, myChartsSort } from '../lib/pagePrefs';
+import { openPerformanceSettings } from '../lib/settingsBus';
+import { SettingsGearIcon } from '../components/common/SettingsGearIcon';
 import {
   CardMeta,
   HeaderActions,
@@ -53,7 +57,7 @@ import type { LeadSheetData } from '../data/leadSheetTypes';
 import { EXAMPLE_CHARTS, getDismissedExamples, dismissExample } from '../data/exampleCharts';
 import { analysisToLeadSheet } from '../lib/chordProjectToLeadSheet';
 import { getFreshCachedSheet, setCachedAnalysis, clearCachedAnalysis } from '../lib/analysisCache';
-import { saveOmrSourceImage, deleteOmrSourceImage } from '../lib/omrImageStore';
+import { deleteOmrSourceImage } from '../lib/omrImageStore';
 import { ConfirmDeleteModal } from '../components/common/ConfirmDeleteModal';
 import {
   addChordProjectChords,
@@ -68,8 +72,9 @@ import {
   type ChordProjectKey,
   type ChordAnalysisResult,
 } from '../api/chordProjects';
-import { PreprocessReviewModal } from '../components/common/PreprocessReviewModal';
-import { useProjectPreprocess } from '../hooks/useProjectPreprocess';
+import { useUploadQueue } from '../contexts/UploadQueueContext';
+import { isAdminUser, getCachedUser, onAuthChange } from '../api/auth';
+import { RawJsonModal } from '../components/common/RawJsonModal';
 import { KeyPicker } from '../components/common/KeyPicker';
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -213,9 +218,6 @@ function saveStore(s: Store): void {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch { /* ignore */ }
 }
 
-/* Persisted grid/list toggle. Stored separately from the document store so
- * clearing the doc store doesn't reset the user's preferred view. */
-const VIEW_MODE_STORAGE_KEY = 'jazzify.myCharts.viewMode.v1';
 
 const today = (): string => new Date().toISOString().slice(0, 10);
 const newId = (): string => {
@@ -255,12 +257,13 @@ export default function MyChordChartsPage() {
   const [newProjectTimeSignature, setNewProjectTimeSignature] = useState('4/4');
   const [newProjectProgression, setNewProjectProgression] = useState('');
 
-  /* Sort dropdown — visual only; actual sort wiring is deferred. */
+  /* Sort dropdown — 기본값은 전체 설정(악보/연주 → 내 코드 차트)에서 정한다.
+   * 툴바에서 바꾸면 그 값이 곧 기본값이 되어 다음에 열 때도 유지된다. */
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
-  const [sortBy, setSortBy] = useState<'recent' | 'old' | 'name' | 'type'>('recent');
+  const [sortBy, setSortBy] = usePref(myChartsSort);
 
   /* Grid vs list view toggle — persisted across sessions. */
-  const [viewMode, setViewMode] = useViewModePref(VIEW_MODE_STORAGE_KEY);
+  const [viewMode, setViewMode] = useViewModePref(myChartsViewMode);
 
   /* Card kebab menu (이름 변경 / 이동 / 삭제). Single menu open at a time
    * — id of the card whose menu is open, or null. Rename target drives the
@@ -278,6 +281,12 @@ export default function MyChordChartsPage() {
   const [editSaving, setEditSaving] = useState(false);
   /* Confirm-delete modal target for a chord chart (file). `null` = closed. */
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+
+  /* 응답값 받기(admin 전용 디버깅) — 케밥 메뉴에서 열며, 백엔드 GET 원문을 보여준다. */
+  const [authUserForAdmin, setAuthUserForAdmin] = useState(() => getCachedUser());
+  useEffect(() => onAuthChange((isIn, u) => setAuthUserForAdmin(isIn ? u : null)), []);
+  const isAdmin = isAdminUser(authUserForAdmin);
+  const [rawJsonTarget, setRawJsonTarget] = useState<{ id: string; title: string } | null>(null);
 
   /* Multi-select mode: checkbox overlay on every card + bottom action bar. */
   const [selectMode, setSelectMode] = useState(false);
@@ -315,6 +324,8 @@ export default function MyChordChartsPage() {
    * 안 건드림 — 새로고침하면 다시 폴링을 시도한다). */
   const OMR_POLL_TIMEOUT_MS = 5 * 60_000;
   const omrPollStartRef = useRef<Map<string, number>>(new Map());
+  /* 폴링 effect 가 deps 에 projects 를 넣지 않고도 최신 목록(생성 시각)을 읽기 위한 ref. */
+  const projectsRef = useRef<ChordProject[]>([]);
 
   const [pageDragOver, setPageDragOver] = useState(false);
 
@@ -352,20 +363,54 @@ export default function MyChordChartsPage() {
    *   ⚠ 예전엔 deps 가 [projects] 였다 → 폴링→setProjects(진행률 갱신)→
    *   projects 새 참조→effect 재실행→clearInterval+즉시 재폴링 의 루프가 돌아
    *   5초 간격이 무력화되고 응답 오자마자 다시 요청(미친듯이 폴링)했다. */
+  projectsRef.current = projects;
+
+  /* 업로드/OMR 백그라운드 작업자(앱 루트). 폴링 제외 목록·상태 구독에 쓰이므로
+   * 여기서 먼저 잡는다. */
+  const uploadQueue = useUploadQueue();
+
   const activePollIds = projects
     .filter((p) => !p.publicId.startsWith(UPLOADING_ID_PREFIX)
-      && (p.omrStatus === 'PENDING' || p.omrStatus === 'PROCESSING'))
+      && (p.omrStatus === 'PENDING' || p.omrStatus === 'PROCESSING')
+      /* 전역 감시(UploadQueue)가 이미 폴링하는 프로젝트는 제외 — 중복 폴링/중복
+       * analyze 를 막는다. 그쪽 결과는 아래 onOmrStatus 구독으로 카드에 반영된다. */
+      && !uploadQueue.watchedOmrIds.includes(p.publicId))
     .map((p) => p.publicId)
     .sort()
     .join(',');
 
+  /* 전역 OMR 폴링 결과를 카드에 반영 — 다른 화면에 있다 돌아와도 최신 상태가 보인다.
+   * (전역 감시 대상 = 이번 세션에 업로드로 만든 프로젝트. 예전부터 목록에 있던
+   *  진행중 항목은 위의 페이지 폴러가 계속 맡는다 — 생성 시각 기준 고착 판정 포함) */
+  useEffect(() => uploadQueue.onOmrStatus((e) => {
+    setProjects((prev) => prev.map((p) => (p.publicId === e.id
+      ? {
+        ...p,
+        omrStatus: e.status,
+        omrProgress: e.progress,
+        omrFailureReason: e.failureReason,
+        // 분석까지 끝났으면 updatedAt 을 올려 SheetPreview 가 다시 그리게 한다.
+        ...(e.analyzed ? { updatedAt: new Date().toISOString() } : {}),
+      }
+      : p)));
+  }), [uploadQueue]);
+
   useEffect(() => {
     if (!activePollIds) return;
     const ids = activePollIds.split(',');
-    // 타임아웃 기준점: 이 id 를 처음 폴링하기 시작한 시각.
+    /* 타임아웃 기준점: 이 id 를 처음 폴링하기 시작한 시각 — 단, 프로젝트가 만들어진
+     * 시각이 더 이르면 그쪽을 쓴다.
+     *   ⚠ 예전엔 무조건 "지금"이라 새로고침할 때마다 5분 시계가 리셋됐다. 백엔드
+     *   완료 콜백이 유실돼 며칠째 PROCESSING 인 프로젝트도 매번 "N% 처리 중" 으로만
+     *   보이고(그 상태에선 카드를 열 수도 없어) 영원히 방치됐다. 생성 시각을 기준에
+     *   넣으면 이미 오래 굳은 항목은 첫 폴링에서 바로 실패로 내려간다. */
     const now = Date.now();
     ids.forEach((id) => {
-      if (!omrPollStartRef.current.has(id)) omrPollStartRef.current.set(id, now);
+      if (omrPollStartRef.current.has(id)) return;
+      /* projects 를 deps 에 넣으면 진행률 갱신마다 effect 가 재실행돼 폴링 간격이
+       * 무너진다(위 주석 참고) — 생성 시각은 ref 로만 읽는다. */
+      const created = Date.parse(projectsRef.current.find((p) => p.publicId === id)?.createdAt ?? '');
+      omrPollStartRef.current.set(id, Number.isFinite(created) ? Math.min(now, created) : now);
     });
     const pollOnce = () => {
       ids.forEach((id) => {
@@ -521,13 +566,10 @@ export default function MyChordChartsPage() {
   /* 확정 응답(ConfirmedProject)에는 제목·조성이 없고 방금 올린 원본 파일도 없다.
    * 카드를 곧바로 정확히 그리고 원본 이미지를 보관하려면 확정 시점의 폼 값과
    * 업로드한 파일을 여기서 기억해 둬야 한다. */
-  const confirmedFormRef = useRef<{ title: string; key: string }>({ title: '', key: 'C_MAJOR' });
-  const uploadedFileRef = useRef<File | null>(null);
 
   /* 업로드는 전역 큐(UploadQueueProvider)가 백그라운드로 처리한다 — 이 페이지를
    * 떠나도 분석이 계속되고, 진행 상황은 우측 상단 독에 뜬다. 이 페이지는 "확정되면
    * 카드를 넣는" 구독자 역할만 한다. */
-  const uploadQueue = useUploadQueue();
   useEffect(() => uploadQueue.onProjectCreated(({ created, form }) => {
     /* 유형에 따라 만들어지는 프로젝트가 다르다. 코드 차트면 이 페이지에 카드로
      * 넣고, 악보면 이 페이지에 속하지 않으므로 내 악보 차트로 보낸다. */
@@ -571,8 +613,7 @@ export default function MyChordChartsPage() {
     if (!f) return;
     e.preventDefault();
     setPageDragOver(false);
-    /* 파일 선택 경로와 같은 진입점을 쓴다 — 여기서 preprocessing.start 를 직접
-     * 부르면 uploadedFileRef 가 비어 확정 후 원본 이미지가 저장되지 않았다. */
+    /* 파일 선택 경로와 같은 진입점(전역 업로드 큐)을 쓴다. */
     startPreprocessRef.current(f);   // 드롭 즉시 자동 인식 → review 폼
   };
 
@@ -951,6 +992,14 @@ export default function MyChordChartsPage() {
                 </SortMenu>
               )}
             </SortWrap>
+            <IconOnlyBtn
+              type="button"
+              aria-label="설정"
+              title="설정"
+              onClick={() => openPerformanceSettings('myCharts')}
+            >
+              <SettingsGearIcon />
+            </IconOnlyBtn>
             </HeaderActions>
           </DetailHeaderRow>
         </DetailHeader>
@@ -998,15 +1047,6 @@ export default function MyChordChartsPage() {
           <ErrorBanner>
             <span>{projectError}</span>
             <ErrorClose type="button" onClick={() => setProjectError(null)}>닫기</ErrorClose>
-          </ErrorBanner>
-        )}
-        {/* 자동 인식(전처리) 실패 — review 모달이 떠 있을 땐 모달이 직접 보여주므로
-         *  그 밖(업로드 단계에서 실패해 phase 가 idle 로 돌아온 경우)만 배너로 알린다.
-         *  이걸 안 띄우면 파일을 떨궈도 모달만 잠깐 뜨고 아무 일도 안 일어난 것처럼 보인다. */}
-        {preprocessing.error && preprocessing.phase !== 'review' && preprocessing.phase !== 'confirming' && (
-          <ErrorBanner>
-            <span>{preprocessing.error}</span>
-            <ErrorClose type="button" onClick={preprocessing.clearError}>닫기</ErrorClose>
           </ErrorBanner>
         )}
         {projectLoading && <LoadingStrip>코드 프로젝트를 불러오는 중...</LoadingStrip>}
@@ -1188,6 +1228,13 @@ export default function MyChordChartsPage() {
                         <KebabMenuIcon><TrashIcon /></KebabMenuIcon>
                         <span>삭제</span>
                       </KebabMenuItem>
+                      {/* admin 전용 — 백엔드 GET 응답 원문 확인(디버깅용). */}
+                      {isAdmin && !file.id.startsWith(UPLOADING_ID_PREFIX) && (
+                        <KebabMenuItem type="button" onClick={() => { setKebabMenuId(null); setRawJsonTarget({ id: file.id, title: file.title }); }}>
+                          <KebabMenuIcon>{'{ }'}</KebabMenuIcon>
+                          <span>응답값 받기</span>
+                        </KebabMenuItem>
+                      )}
                     </>
                   )}
                 </KebabMenu>
@@ -1398,6 +1445,18 @@ export default function MyChordChartsPage() {
 
         {/* 자동 인식 진행/확인 UI 는 전역 업로드 큐 독(UploadQueueDock)이 담당한다 —
             화면을 막지 않고, 다른 메뉴로 이동해도 작업이 계속된다. */}
+
+        {/* 응답값 받기(admin) — 프로젝트 원문 + 분석 결과를 탭으로. */}
+        <RawJsonModal
+          open={!!rawJsonTarget}
+          title={rawJsonTarget?.title ?? ''}
+          sources={rawJsonTarget ? [
+            { label: 'project', path: `/v1/chord-projects/${encodeURIComponent(rawJsonTarget.id)}` },
+            { label: 'analysis', path: `/v1/chord-projects/${encodeURIComponent(rawJsonTarget.id)}/analysis` },
+            { label: 'omr-status', path: `/v1/chord-projects/${encodeURIComponent(rawJsonTarget.id)}/omr-status` },
+          ] : []}
+          onClose={() => setRawJsonTarget(null)}
+        />
 
         {renameTarget && (
           <ModalBackdrop onClick={() => setRenameTarget(null)}>
@@ -1715,6 +1774,18 @@ const CARD_HOVER_BG = '#FAF6E9';
  * silhouette (5:7 thumb + ~70px meta below). max-width caps every card at
  * the same compact width; justify-self:start keeps them left-aligned in
  * their grid cells rather than stretched. */
+/* 케밥 메뉴가 열린 카드용 — 메뉴가 형제 카드 뒤로 내려가지 않게 카드를 위로 올리고,
+ * 누르는 순간 :active 의 transform 이 새 스태킹 컨텍스트를 만들어 메뉴가 아래로
+ * 가라앉는 것을 막는다.
+ *   ⚠ 이게 없으면 메뉴 항목(정보 변경/이동/삭제 등)을 눌러도 mousedown 직후 메뉴가
+ *   형제 카드 뒤로 밀려 mouseup 이 다른 요소에서 발생 → click 이벤트가 아예 생기지
+ *   않는다(메뉴만 닫히고 아무 동작도 안 하는 것처럼 보임).
+ */
+const MENU_OPEN_STACKING = `
+  z-index: 30;
+  &:active { transform: none; }
+`;
+
 const CardBase = `
   position: relative;
   display: flex;
@@ -1859,7 +1930,8 @@ const VideoCard = styled.div<{ $selected?: boolean; $sheet?: boolean; $menuOpen?
     `border-color: #2b8aef; box-shadow: 0 0 0 2px rgba(43, 138, 239, 0.5);`}
   ${({ $menuOpen }) =>
     $menuOpen &&
-    `background: ${CARD_HOVER_BG}; border-color: rgba(0, 0, 0, 0.18); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);`}
+    `background: ${CARD_HOVER_BG}; border-color: rgba(0, 0, 0, 0.18); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+     ${MENU_OPEN_STACKING}`}
 `;
 const Thumb = styled.div`
   position: relative;
@@ -1908,7 +1980,8 @@ const FolderCard = styled.div<{ $selected?: boolean; $menuOpen?: boolean }>`
     `border-color: #2b8aef; box-shadow: 0 0 0 2px rgba(43, 138, 239, 0.5);`}
   ${({ $menuOpen }) =>
     $menuOpen &&
-    `background: ${CARD_HOVER_BG}; border-color: rgba(0, 0, 0, 0.18); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);`}
+    `background: ${CARD_HOVER_BG}; border-color: rgba(0, 0, 0, 0.18); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+     ${MENU_OPEN_STACKING}`}
   /* Reveal the FolderTop hover overlay on card hover. The overlay lives
    * inside FolderTop with opacity:0 and pointer-events:none so it doesn't
    * intercept the card's click (the whole card already navigates on click). */

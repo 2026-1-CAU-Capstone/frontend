@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useLayoutEffect } from 'react';
 import styled from 'styled-components';
 /* Click-to-hear uses the app-wide shared piano singleton (GlobalKeyboard)
  * so we don't spin up a per-page AudioContext + SplendidGrandPiano. */
@@ -188,11 +188,37 @@ interface PianoKeyboardProps {
   mute?: boolean;
   /** 배율 — 에디터처럼 피아노를 더 크고 넓게 보여주고 싶을 때. 기본 1(기존 크기). */
   scale?: number;
+  /** 컨테이너 폭에 맞춰 자동 축소한다(= `scale` 은 상한이 된다).
+   *
+   *  피아노는 흰건반 29개 × 52px = 1,508px 고정폭이라, 좁은 화면에서는 잘리거나
+   *  가로 스크롤이 생긴다(에디터에서 `scale=1.28` 이면 1,930px 라 1,186px 창에서
+   *  화면 밖으로 나갔다 — 브라우저를 75% 로 줄여야 맞던 이유). 이 옵션을 켜면
+   *  래퍼 폭을 재서 `min(scale, 가용폭/1508)` 로 낮춘다. 넓은 화면에서는 상한인
+   *  `scale` 그대로라 기존 모습이 유지된다. 기본 false = 기존 동작 그대로. */
+  fitToWidth?: boolean;
 }
 
-export function PianoKeyboard({ onNotePress, mute, scale = 1 }: PianoKeyboardProps) {
+export function PianoKeyboard({ onNotePress, mute, scale = 1, fitToWidth }: PianoKeyboardProps) {
   const [pressedMidi, setPressedMidi] = useState<number | null>(null);
   const pressTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  /* fitToWidth: 래퍼(폭 100%)를 관측해 배율을 낮춘다. 래퍼는 부모가 폭을 정하는
+   * 블록이라 피아노 크기가 되먹임되지 않는다. */
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [fitScale, setFitScale] = useState(scale);
+  useLayoutEffect(() => {
+    // fitToWidth 가 꺼져 있으면 fitScale 을 아예 읽지 않으므로(아래 eff) 갱신 불필요.
+    if (!fitToWidth) return;
+    const el = hostRef.current;
+    if (!el) return;
+    const update = () => {
+      const w = el.clientWidth;
+      if (w > 0) setFitScale(Math.min(scale, w / PIANO_W));
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fitToWidth, scale]);
 
   const handlePress = useCallback(
     (note: PianoNote) => {
@@ -210,10 +236,11 @@ export function PianoKeyboard({ onNotePress, mute, scale = 1 }: PianoKeyboardPro
   const whites = ALL_KEYS.filter((k) => !k.isBlack);
   const blacks = ALL_KEYS.filter((k) => k.isBlack);
 
-  /* scale!==1: 컨테이너를 좌상단 기준으로 확대하고, 바깥 래퍼가 확대된 만큼의
+  /* eff!==1: 컨테이너를 좌상단 기준으로 확대/축소하고, 바깥 래퍼가 그만큼의
    * 레이아웃 크기를 차지하도록 한다(transform 은 레이아웃 박스를 바꾸지 않으므로). */
+  const eff = fitToWidth ? fitScale : scale;
   const inner = (
-    <PianoContainer style={scale !== 1 ? { transform: `scale(${scale})`, transformOrigin: 'left top' } : undefined}>
+    <PianoContainer style={eff !== 1 ? { transform: `scale(${eff})`, transformOrigin: 'left top' } : undefined}>
       {whites.map((k) => {
         const isC = k.note.vexKey.startsWith('c/');
         const sc = MIDI_TO_SHORTCUT[k.note.midi];
@@ -245,6 +272,13 @@ export function PianoKeyboard({ onNotePress, mute, scale = 1 }: PianoKeyboardPro
     </PianoContainer>
   );
 
-  if (scale === 1) return inner;
-  return <div style={{ width: PIANO_W * scale, height: WHITE_H * scale }}>{inner}</div>;
+  if (!fitToWidth && eff === 1) return inner;   // 기존 경로 그대로 (래퍼 없음)
+  const box = <div style={{ width: PIANO_W * eff, height: WHITE_H * eff }}>{inner}</div>;
+  if (!fitToWidth) return box;
+  // 관측용 래퍼는 폭 100% — 축소된 건반은 그 안에서 가운데 정렬된다.
+  return (
+    <div ref={hostRef} style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+      {box}
+    </div>
+  );
 }

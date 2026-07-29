@@ -9,7 +9,7 @@ import { RightChatPanel } from '../components/layout/RightChatPanel';
 import { MobileChatFab } from '../components/layout/MobileChatFab';
 import { setActiveChat } from '../api/chat';
 import { NoteSheet, type NoteSheetHandle } from '../components/notesheet/NoteSheet';
-import { AnalysisSettingsModal } from '../components/common/AnalysisSettingsModal';
+import { openPerformanceSettings } from '../lib/settingsBus';
 import { KeyControl } from '../components/leadsheet/LeadSheet';
 import { SessionPicker, type SessionInstrument } from '../components/chord/SessionPicker';
 import {
@@ -648,7 +648,6 @@ export default function NotePage() {
   }, [sheet]);
   /* 고급 설정 모달(F3.17) — ChordPage 와 동일. 악보 분석은 코드 분석 필터가
    * 없으므로 filters 를 넘기지 않아 '악기 이조' 탭만 열린다. */
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const handlePlayPause = useCallback(() => {
     noteSheetRef.current?.togglePlay();
@@ -935,7 +934,7 @@ export default function NotePage() {
               >
                 <LightbulbIcon lit={autoHighlight} />
               </ToolBtn>
-              <ToolBtn type="button" title="고급 설정" onClick={() => setSettingsOpen(true)}>
+              <ToolBtn type="button" title="고급 설정" onClick={() => openPerformanceSettings('transpose')}>
                 <GearIcon />
               </ToolBtn>
             </BarRight>
@@ -1061,7 +1060,6 @@ export default function NotePage() {
       )}
 
       {/* 고급 설정 — filters 미전달 → '악기 이조' 탭만 표시(악보 분석엔 코드 분석 필터가 없음). */}
-      <AnalysisSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </PageContainer>
   );
 }

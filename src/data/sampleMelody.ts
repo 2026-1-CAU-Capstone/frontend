@@ -24,6 +24,7 @@ export interface NoteInfo {
   keys: string[];                               // VexFlow keys e.g. ['c/5']
   duration: string;                             // 'w','h','q','8','16' or 'wr','hr','qr','8r'
   dotted?: boolean;
+  doubleDotted?: boolean;                       // 겹점 — 원래 길이의 1.75배 (dotted 와 배타)
   accidentals?: Record<number, '#' | 'b' | 'n' | '##' | 'bb'>;
   tie?: boolean;                                // tie to the NEXT note of same pitch
   tieContinuation?: boolean;                    // this note is the receiving end of a tie — visually rendered but absorbed into prev note's sound by the player

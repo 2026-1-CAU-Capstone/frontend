@@ -25,11 +25,13 @@ export function vexToMidi(key: string, acc?: '#' | 'b' | 'n' | '##' | 'bb'): num
   return (parseInt(o) + 1) * 12 + s;
 }
 
-export function getBeats(dur: string, dotted?: boolean, tuplet?: number, tupletNormal?: number): number {
+export function getBeats(dur: string, dotted?: boolean, tuplet?: number, tupletNormal?: number, doubleDotted?: boolean): number {
   // 'r'(쉼표)·'d'(점 축약 표기) 접미는 길이 계산에서 제거 — dotted 는 별도 플래그.
   const base = dur.replace(/[rd]+$/, '');
   let b = DUR_BEATS[base] ?? 1;
-  if (dotted) b *= 1.5;
+  // 겹점(1.75배)이 우선 — 단일점과 배타다.
+  if (doubleDotted) b *= 1.75;
+  else if (dotted) b *= 1.5;
   if (tuplet && tuplet >= 2) {
     // XML의 normal-notes(예: 5:3, 7:6)를 우선, 없으면 2의 거듭제곱 휴리스틱.
     const denom = tupletNormal ?? Math.pow(2, Math.floor(Math.log2(tuplet - 1)));
@@ -42,10 +44,10 @@ export function getBeats(dur: string, dotted?: boolean, tuplet?: number, tupletN
  *  (렌더러가 다음 실음의 GraceNoteGroup 수식으로 그려 0박 소비.) 마디 길이·
  *  분할·픽업 감지 등 "박 합"이 필요한 모든 곳은 이 헬퍼를 써야 정박이 안 밀린다. */
 export function noteMetricBeats(n: {
-  duration: string; dotted?: boolean; tuplet?: number; tupletNormal?: number; grace?: boolean;
+  duration: string; dotted?: boolean; doubleDotted?: boolean; tuplet?: number; tupletNormal?: number; grace?: boolean;
 }): number {
   if (n.grace) return 0;
-  return getBeats(n.duration, n.dotted, n.tuplet, n.tupletNormal);
+  return getBeats(n.duration, n.dotted, n.tuplet, n.tupletNormal, n.doubleDotted);
 }
 
 export function chordToMidi(chord: string): number[] {

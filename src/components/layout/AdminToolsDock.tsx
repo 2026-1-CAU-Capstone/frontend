@@ -66,6 +66,13 @@ const OmrIcon = () => (
     <line x1="8" y1="13" x2="16" y2="13" /><line x1="8" y1="17" x2="13" y2="17" />
   </svg>
 );
+const OmrMonitorIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="4" width="20" height="14" rx="2" />
+    <polyline points="6 12 9 12 11 9 13 15 15 12 18 12" />
+    <line x1="9" y1="21" x2="15" y2="21" /><line x1="12" y1="18" x2="12" y2="21" />
+  </svg>
+);
 const RagIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <ellipse cx="12" cy="5" rx="8" ry="3" />
@@ -84,6 +91,7 @@ const NAV = [
   { path: '/editor', icon: EditorIcon, label: 'Editor' },
   { path: '/youtube-onset', icon: VideoIcon, label: 'YouTube Onset' },
   { path: '/input', icon: OmrIcon, label: 'OMR' },
+  { path: '/admin/omr', icon: OmrMonitorIcon, label: 'OMR 모니터' },
   { path: '/admin/rag', icon: RagIcon, label: 'RAG' },
 ] as const;
 

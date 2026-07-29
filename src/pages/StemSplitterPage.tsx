@@ -7,6 +7,10 @@
  * AI 분리(Demucs 급)는 GPU 백엔드 연동 시 separate() 호출부만 교체하면 된다
  * (음원분리_백엔드 요구사항.md). */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { usePref } from '../lib/prefsStore';
+import { stemPreset } from '../lib/pagePrefs';
+import { openPerformanceSettings } from '../lib/settingsBus';
+import { SettingsGearIcon } from '../components/common/SettingsGearIcon';
 import { BackButton } from '../components/common/BackButton';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
@@ -54,7 +58,9 @@ export default function StemSplitterPage() {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [fileName, setFileName] = useState('');
-  const [preset, setPreset] = useState<StemPresetId>('4');
+  /* 시작 갈래 수는 전체 설정(악보/연주 → 음원 분리)의 기본값을 따른다.
+   * 상단바에서 바꾸면 그 값이 기본값으로 저장된다. */
+  const [preset, setPreset] = usePref(stemPreset);
   const [tracks, setTracks] = useState<TrackState[]>([]);
   const [dragOver, setDragOver] = useState(false);
 
@@ -376,6 +382,9 @@ export default function StemSplitterPage() {
               </PresetBtn>
             ))}
           </PresetGroup>
+          <GearBtn type="button" aria-label="설정" title="설정" onClick={() => openPerformanceSettings('stems')}>
+            <SettingsGearIcon />
+          </GearBtn>
         </TopBar>
 
         <Content>
@@ -554,6 +563,20 @@ function Waveform({ buffer, color, progress }: { buffer: AudioBuffer; color: str
 }
 
 /* ─── styles ────────────────────────────────────────────────────────── */
+
+const GearBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 8px;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  cursor: pointer;
+  &:hover { background: rgba(0, 0, 0, 0.04); color: ${({ theme }) => theme.colors.textPrimary}; }
+`;
 
 const Page = styled.div`
   display: flex;

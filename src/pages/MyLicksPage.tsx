@@ -30,6 +30,8 @@ import { loadMyLicks, invalidateLicksCache, type LickEntry } from '../data/lickD
 import { transposeLick, normalizeKeyInput, formatKeyDisplay } from '../lib/transpose';
 import { OMRUploadModal } from '../components/common/OMRUploadModal';
 import { createLickViaOMR } from '../api/licks';
+import { openPerformanceSettings } from '../lib/settingsBus';
+import { SettingsGearIcon } from '../components/common/SettingsGearIcon';
 
 const PAGE_SIZE = 30;
 
@@ -40,6 +42,20 @@ const BackArrow = () => (
     <polyline points="15 18 9 12 15 6" />
   </svg>
 );
+
+const GearBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 8px;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  cursor: pointer;
+  &:hover { background: rgba(0, 0, 0, 0.04); color: ${({ theme }) => theme.colors.textPrimary}; }
+`;
 
 const PageContainer = styled.div`
   display: flex;
@@ -684,6 +700,10 @@ export default function MyLicksPage() {
                     </AddMenu>
                   )}
                 </AddWrap>
+
+                <GearBtn type="button" aria-label="설정" title="설정" onClick={() => openPerformanceSettings('myLicks')}>
+                  <SettingsGearIcon />
+                </GearBtn>
 
                 <MelodyBtn
                   $active={melodySearch}

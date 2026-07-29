@@ -263,7 +263,8 @@ const ChatNavBlock = styled.div`
   flex-direction: column;
   align-items: inherit;
   gap: 4px;
-  margin-top: 28px;
+  /* 28px 은 로고와 사이 여백이 과했다 — 아래 블록 전체를 살짝 끌어올린다. */
+  margin-top: 18px;
   width: 100%;
 `;
 
@@ -310,12 +311,28 @@ const NavLabel = styled.span<{ $expanded?: boolean }>`
 `;
 
 const Divider = styled.div<{ $expanded?: boolean }>`
-  width: ${({ $expanded }) => ($expanded ? '100%' : '24px')};
   height: 1px;
+  /* 부모 ScrollArea 가 flex column + overflow 라, flex-shrink 기본값(1)이면
+   * 이 1px 이 0 으로 찌그러져 선이 아예 그려지지 않는다. */
+  flex-shrink: 0;
   background: rgba(0, 0, 0, 0.08);
-  margin: 8px 0;
+
+  /* Rail 의 좌우 패딩이 비대칭이라(왼쪽 12px / 오른쪽 2px) 같은 margin 을 주면
+   * 오른쪽만 가장자리에 붙어 보인다. 좌우 시각 여백이 20px 로 같아지도록 보정.
+   * 아래 margin 을 위보다 좁혀 "최근 채팅" 을 살짝 끌어올린다. */
+  ${({ $expanded }) => ($expanded
+    ? `
+      align-self: stretch;
+      width: auto;
+      margin: 8px 18px 4px 8px;
+    `
+    : `
+      width: 24px;
+      margin: 8px 0;
+    `)}
 
   ${mq.phone} {
+    align-self: center;
     width: 36px;
     margin: 2px 0;
   }

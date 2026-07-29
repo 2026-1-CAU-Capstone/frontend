@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { useDismissable } from '../hooks/useDismissable';
 import { useViewModePref } from '../hooks/useViewModePref';
+import { usePref } from '../lib/prefsStore';
+import { mySheetsViewMode, mySheetsSort } from '../lib/pagePrefs';
+import { openPerformanceSettings } from '../lib/settingsBus';
+import { SettingsGearIcon } from '../components/common/SettingsGearIcon';
 import {
   CardMeta,
   HeaderActions,
@@ -60,7 +64,6 @@ import {
 import { getCachedUser } from '../api/auth';
 import { uploadStorageFile } from '../api/storageFiles';
 
-type SortMode = 'recent' | 'old' | 'name' | 'type';
 
 interface UploadedSheetProject {
   id: string;
@@ -70,7 +73,6 @@ interface UploadedSheetProject {
   createdAt: string;
 }
 
-const VIEW_MODE_STORAGE_KEY = 'jazzify.mySheets.viewMode.v1';
 const UPLOADED_STORAGE_KEY = 'jazzify.mySheets.uploaded.v1';
 
 
@@ -109,11 +111,11 @@ function formatComposer(composer: string | undefined): string {
 export default function MySheetProjectsPage() {
   const navigate = useNavigate();
   const isNativeUi = useIsNativeUi();
-  const [viewMode, setViewMode] = useViewModePref(VIEW_MODE_STORAGE_KEY);
+  const [viewMode, setViewMode] = useViewModePref(mySheetsViewMode);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
-  const [sortBy, setSortBy] = useState<SortMode>('recent');
+  const [sortBy, setSortBy] = usePref(mySheetsSort);
   const [createOpen, setCreateOpen] = useState(false);
   const [kebabMenuId, setKebabMenuId] = useState<string | null>(null);
   const [uploadedProjects, setUploadedProjects] = useState<UploadedSheetProject[]>(loadUploadedProjects);
@@ -425,6 +427,14 @@ export default function MySheetProjectsPage() {
                 </SortMenu>
               )}
             </SortWrap>
+            <IconOnlyBtn
+              type="button"
+              aria-label="설정"
+              title="설정"
+              onClick={() => openPerformanceSettings('mySheets')}
+            >
+              <SettingsGearIcon />
+            </IconOnlyBtn>
           </HeaderActions>
           </DetailHeaderRow>
         </DetailHeader>
@@ -978,6 +988,15 @@ const NewLabel = styled.span`
   font-weight: 500;
 `;
 
+/* 케밥 메뉴가 열린 카드용 — 내 코드 차트와 동일(§ 두 페이지 카드 동기화).
+ * 메뉴가 형제 카드 뒤로 내려가지 않게 카드를 위로 올리고, 누르는 순간 :active 의
+ * transform 이 새 스태킹 컨텍스트를 만들어 메뉴가 가라앉는 것을 막는다.
+ *   ⚠ 없으면 메뉴 항목을 눌러도 click 이 생기지 않아 메뉴만 닫힌다. */
+const MENU_OPEN_STACKING = `
+  z-index: 30;
+  &:active { transform: none; }
+`;
+
 const SheetCard = styled.div<{ $selected?: boolean; $menuOpen?: boolean }>`
   ${CardBase}
   &:hover .sheet-hover-overlay { opacity: 1; }
@@ -986,7 +1005,8 @@ const SheetCard = styled.div<{ $selected?: boolean; $menuOpen?: boolean }>`
     `border-color: #2b8aef; box-shadow: 0 0 0 2px rgba(43, 138, 239, 0.5);`}
   ${({ $menuOpen }) =>
     $menuOpen &&
-    `background: ${CARD_HOVER_BG}; border-color: rgba(0, 0, 0, 0.18); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);`}
+    `background: ${CARD_HOVER_BG}; border-color: rgba(0, 0, 0, 0.18); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+     ${MENU_OPEN_STACKING}`}
 `;
 
 

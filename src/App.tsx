@@ -14,6 +14,7 @@ import { AudioErrorBoundary } from './components/common/AudioErrorBoundary';
 import { AudioLifecycleGuard } from './components/common/AudioLifecycleGuard';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AdminRoute } from './components/auth/AdminRoute';
+import { GlobalSettingsModal } from './components/auth/GlobalSettingsModal';
 
 /* Sheet-music tab pages — split out of the initial bundle so that vexflow
  * (~1.1 MB) and OSMD only load when the user navigates into a chord/note/
@@ -38,6 +39,7 @@ const SharedChartPage     = lazy(() => import('./pages/SharedChartPage'));
 const LickOnsetPage       = lazy(() => import('./pages/LickOnsetPage'));
 const UserProfilePage     = lazy(() => import('./pages/UserProfilePage'));
 const RagAdminPage        = lazy(() => import('./pages/RagAdminPage'));
+const OmrAdminPage        = lazy(() => import('./pages/OmrAdminPage'));
 const CompingPage         = lazy(() => import('./pages/CompingPage'));
 
 /* Recent-Chats(사이드바)에서 코드차트 → 코드차트로 이동하면 `/mychord` 라우트는
@@ -106,6 +108,9 @@ export default function App() {
         <AudioLifecycleGuard />
         <AudioErrorBoundary>
         <UploadQueueDock />
+        {/* 전체 설정 모달 — 라우트 위에 상주해야 사이드바가 없는
+            네이티브 UI 에서도 열린다(settingsBus 로 요청). */}
+        <GlobalSettingsModal />
         <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/" element={<HomePage />} />
@@ -129,6 +134,8 @@ export default function App() {
           <Route path="/profile" element={<ProtectedRoute><UserProfilePage /></ProtectedRoute>} />
           {/* RAG 문서 관리 — admin 전용. AdminRoute 가 로그인 + admin 등급을 검사. */}
           <Route path="/admin/rag" element={<AdminRoute><RagAdminPage /></AdminRoute>} />
+          {/* OMR 모니터링 — admin 전용. 전역 큐 진행률 + 처리 기록 + publicId 상태 조회. */}
+          <Route path="/admin/omr" element={<AdminRoute><OmrAdminPage /></AdminRoute>} />
           {/* Comping Database — admin 전용, 백엔드 미구현(localStorage 목업 수집). */}
           <Route path="/comping" element={<AdminRoute><CompingPage /></AdminRoute>} />
           <Route path="/login" element={<LoginPage />} />

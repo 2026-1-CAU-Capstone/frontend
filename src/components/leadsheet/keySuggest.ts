@@ -24,7 +24,49 @@
  *        G/Gm 이 부당하게 가점된다(실측으로 오답 발생). 성질까지 봐서 실제
  *        으뜸화음일 때만 가점한다.
  *
- *  4) 첫 코드가 으뜸화음 — 약한 보조 증거.
+ *  4) 첫 코드가 으뜸화음 — 정답 라벨로 검정하니 나란한조를 95% 정확히 가르는
+ *     최강 판별자였다(단, ii 로 기능하는 첫 코드는 제외해야 한다).
+ *
+ *  5) 음고류 프로파일 상관(Krumhansl–Schmuckler) — 1)~4)가 '어디로 해결되는가'
+ *     를 보는 반면, 이건 '이 곡이 어느 음계에 사는가'를 직접 잰다. 직교 신호라
+ *     같은 다이아토닉 집합을 쓰는 나란한조·3음만 다른 동주조에서 힘을 쓴다.
+ *
+ * ── ii 가 진짜 으뜸조를 이기는 문제 (구조적) ───────────────────────────
+ * 재즈에선 ii 가 반복 토닉화돼(리듬 체인지의 Cm, All of Me 의 Dm, Tea For Two
+ * 의 Bbm) 점수로는 ii 가 이기기 쉽다. 오답 분해로 확인한 원인과 대응:
+ *   · 한 그룹의 I 이면서 곧바로 다음 ii-V 의 ii 가 되는 코드(피벗)는 쉬어가는
+ *     종지가 아니라 통과점 → 종지·체류 시간에서 제외한다.
+ *   · '마지막 완결 케이던스'는 곡 뒤쪽(FINAL_CADENCE_ZONE) 에 있을 때만 센다.
+ *     곡 중간의 부차 토닉화가 30점을 통째로 가져가던 단독 최대 원인이었다.
+ *   · 차트 끝의 턴어라운드(되돌아가는 V7 + 그 ii)는 건너뛰고 그 앞을 '실질
+ *     마지막 코드'로 본다 — 진짜 종지가 뒤에서 셋째에 오는 곡이 흔하다.
+ *
+ * ── 정확도 (iReal Pro 1460곡, scripts/keySuggestBenchmark.ts) ──────────
+ * 1순위 84.5% · 2순위 이내 92.3% · 3순위 이내 94.1%
+ * (장조 85.2% / 단조 81.5%. 코드 심볼만 보고 24개 후보 중 고른 결과다.)
+ * 곡을 반으로 갈라 따로 재도 84.52% / 84.52% 로 같아, 특정 곡에 맞춘 값이 아니다.
+ *
+ * 특징을 고를 때는 추측 대신 **정답 라벨로 검정**했다: 각 곡의 정답 키와 그
+ * 나란한조를 짝지어 후보 특징의 "정답에서만 참 / 나란한조에서만 참" 빈도를
+ * 세면, 그 특징이 실제로 판별자인지 바로 드러난다(scratchpad 의 relstudy).
+ *
+ * 시도했다가 **되돌린** 것(같은 실수를 반복하지 않도록):
+ *   · 세컨더리 도미넌트의 ii 를 설명으로 인정 → 83.4% (오답 키도 똑같이 사면돼
+ *     설명력의 판별력이 무뎌진다).
+ *   · 정격종지(V7→I) 가점 → 83.6% 이하. 토닉화된 ii 도 자기 V7→ii 를 갖기에
+ *     오답 키를 같이 밀어올린다.
+ *   · 케이던스 '개수'에서도 피벗 제외 → 변화 없음(불필요한 복잡도).
+ *   · 종지를 '마지막 마디 안 어디든'으로 완화 → 84.0%. 나란한조 쌍만 보면
+ *     엄격히 우월한 특징이었지만(정밀도 98% 동일, 발동률 32%→41%), 전체로는
+ *     다른 혼동에서 오답 키도 함께 발동시켜 손해였다.
+ *   · 프레이즈머리(1·9·17·25마디) 토닉 가점 → 전 가중치에서 하락. 재즈에선
+ *     ii 가 프레이즈를 시작하는 일이 잦아 오답 키를 같이 밀어올린다.
+ *   · 전조 보정(8마디 구획 중 가장 안 맞는 하나를 설명력에서 제외) → 83.4%.
+ *   · 근음 전용 프로파일 추가 → 변화 0(구성음 프로파일과 정보가 겹친다).
+ *   · 가중치 좌표하강 튜닝 → **과적합**. 곡 절반으로 튜닝하니 그 절반은
+ *     84.25→86.16% 로 올랐지만 나머지 절반은 84.25% 그대로였다(개별 가중치
+ *     변경을 하나씩 재도 검증셋 개선 0). 위 가중치는 손대지 않은 원래 값이다.
+ *     정확도를 더 올리려면 가중치가 아니라 **새로운 신호**가 필요하다.
  *
  * ── 물러서야 하는 경우 ─────────────────────────────────────────────────
  *  · 블루스(I7 IV7 V7 전부 도미넌트): 어느 장조에도 맞지 않는다.
@@ -35,7 +77,7 @@
  */
 
 import type { LeadSheetChord, LeadSheetData } from '../../data/leadSheetTypes';
-import { analyzeHarmony, parseKey } from '../../lib/harmonyAnalyzer';
+import { analyzeHarmony, parseKey, QUALITY_INTERVALS } from '../../lib/harmonyAnalyzer';
 import { ALL_MAJOR_KEYS, ALL_MINOR_KEYS } from './leadSheetTranspose';
 
 /* ── 튜닝 상수 ────────────────────────────────────────────────────────── */
@@ -54,13 +96,40 @@ const W_TONIC_CADENCE = 8;
  *  모든 후보 키가 공유하는 고정 앵커가 되어 결정적 판별자로 쓸 수 있다. */
 const W_LAST_CADENCE = 30;
 
+/** '마지막 완결 케이던스'로 인정할 구간 — 곡의 뒤쪽 이 비율 안에 있어야 한다.
+ *
+ *  이 신호는 30점 all-or-nothing 이라 한 번 잘못 잡히면 곧바로 오답이 된다.
+ *  곡 중간의 부차 토닉화(브리지가 IV·vi 로 닫히는 등)가 '마지막 케이던스'로
+ *  집히면 그 30점을 엉뚱한 조성이 통째로 가져간다 — 오답 269곡을 분해했을 때
+ *  이 항목 단독으로 평균 +14.9점, 다른 모든 항목을 합친 것보다 컸다.
+ *  32마디 곡이면 뒤 15% 는 마지막 네 마디쯤으로, 재즈 스탠다드의 구조적 종지가
+ *  실제로 놓이는 자리다. 이 구간에 완결 케이던스가 없으면 아무도 가점을 받지
+ *  않는다(엉뚱한 키에 주는 것보다 신호 없음이 낫다).
+ *  실측(iReal 1460곡): 게이트 없음 81.6% → 0.85 82.6%. 0.80~0.90 이 고원이고
+ *  0.95 부터는 케이던스를 너무 놓쳐 80.3% 로 급락한다. */
+const FINAL_CADENCE_ZONE = 0.85;
+
 /** 으뜸화음이 곡 전체에서 차지하는 시간 비중. 진짜 으뜸조는 오래 머물고,
  *  토닉화된 부차 조성(Dm)은 스쳐 지나간다. Krumhansl 키 프로파일이 포착하는
  *  것과 같은 신호를, 코드 차트에선 이렇게 직접 잴 수 있다. */
 const W_TONIC_TIME = 80;
 
+/** 음고류 프로파일 상관(-1~1)의 가중치.
+ *
+ *  케이던스 신호와 직교하는 '음계 적합도'라, 같은 다이아토닉 집합을 쓰는
+ *  나란한조나 3음만 다른 동주조에서 특히 힘을 쓴다.
+ *  실측(iReal 1460곡): 없음 82.6% → 도입 83.8%. 25~120 이 전부 83.4~83.8%
+ *  인 넓은 고원이라 정확한 값에 민감하지 않다 — 화성 신호가 주도권을 갖도록
+ *  고원의 낮은 쪽을 골랐다. */
+const W_PROFILE = 30;
+
 const W_FINAL_TONIC = 24;
-const W_FIRST_TONIC = 6;
+/** 첫 코드가 으뜸화음. 오래 '약한 보조 증거'로 6점이었지만, 정답 라벨로 재보니
+ *  나란한조를 95% 정확히 가르고 67% 발동하는 최강 판별자였다. ii 로 기능하는
+ *  첫 코드를 제외하고 나서야 안전하게 올릴 수 있었다.
+ *  실측: 6점 84.25% → 20점 84.52%(홀·짝 양쪽 동일하게 상승). 30점부터는 과해져
+ *  83%대로 떨어진다. */
+const W_FIRST_TONIC = 20;
 
 /** 현재 키보다 이만큼 이상 좋아야 "바꾸라"고 제안한다. 관계조끼리는 점수가
  *  붙어 있는 경우가 많아, 마진이 없으면 무의미한 알림이 계속 뜬다. */
@@ -77,7 +146,10 @@ const SELF_CONSISTENT_UNEXPLAINED = 0.15;
  * 으뜸화음 자격: 장조는 장3화음 계열, 단조는 단3화음 계열만. dom7 은 어느
  * 쪽에서도 으뜸이 아니며(딸림화음), min7b5·dim 도 아니다. */
 const MAJOR_TONIC_QUALITIES = new Set(['maj', 'maj7', 'maj6']);
-const MINOR_TONIC_QUALITIES = new Set(['min', 'min7', 'min6']);
+/* `minMaj7`(i△7) 은 재즈 단조의 대표적 으뜸화음이다(라인 클리셰 i → i△7 →
+ * i7 → i6). 코퍼스에 186회 나오는데 빠져 있어 단조 정확도를 깎고 있었다
+ * (실측: 단조 77.0% → 77.7%). */
+const MINOR_TONIC_QUALITIES = new Set(['min', 'min7', 'min6', 'minMaj7']);
 
 /** 블루스 관용 — I7·IV7·V7 이 전부 도미넌트인 형태.
  *
@@ -92,6 +164,7 @@ const MINOR_TONIC_QUALITIES = new Set(['min', 'min7', 'min6']);
  *  "그 I7 이 실제로 곡의 중심인가"를 함께 요구한다 — 첫 코드가 I7 이거나,
  *  I7 이 곡의 30% 이상을 차지할 것. */
 const W_BLUES = 60;
+
 const BLUES_TONIC_MIN_RATIO = 0.3;
 
 /* ── 타입 ─────────────────────────────────────────────────────────────── */
@@ -203,6 +276,51 @@ function isBluesIn(chords: LeadSheetChord[], keyPc: number, isMinor: boolean): b
   return firstIsTonicDom || ratio >= BLUES_TONIC_MIN_RATIO;
 }
 
+/* ── 음고류 프로파일 상관 (Krumhansl–Schmuckler) ───────────────────────
+ *
+ * 케이던스·으뜸화음 신호는 '어디로 해결되는가'를 본다. 그것만으로는 같은
+ * 다이아토닉 집합을 공유하는 조성(나란한조)이나 3음만 다른 조성(동주조)을
+ * 가르기 어렵다. 프로파일 상관은 '이 곡이 어느 음계에 사는가'를 직접 재는
+ * 직교 신호라, 그 빈틈을 메운다.
+ *
+ * 프로파일은 Krumhansl–Kessler(1982) 원본 값. 코드 심볼밖에 없으므로 음표
+ * 대신 **코드 구성음**을 지속(박)으로 가중해 히스토그램을 만든다. */
+const KK_MAJOR = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88];
+const KK_MINOR = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17];
+
+/** 코드 구성음을 지속으로 가중한 12차원 음고류 히스토그램. */
+function pitchClassProfile(chords: LeadSheetChord[]): number[] {
+  const pcp = new Array(12).fill(0);
+  for (const c of chords) {
+    const a = c.analysis;
+    if (!a || a.rootPc == null) continue;
+    const ivs = QUALITY_INTERVALS[a.normalizedQuality ?? ''] ?? [0, 4, 7];
+    const w = c.durationBeats ?? 1;
+    for (const iv of ivs) pcp[(a.rootPc + iv) % 12] += w;
+  }
+  return pcp;
+}
+
+/** 피어슨 상관 — 프로파일을 keyPc 만큼 회전해 맞춰 본다. 결과는 -1~1. */
+function profileCorrelation(pcp: number[], keyPc: number, isMinor: boolean): number {
+  const ref = isMinor ? KK_MINOR : KK_MAJOR;
+  const x: number[] = [];
+  const y: number[] = [];
+  for (let i = 0; i < 12; i++) {
+    x.push(pcp[(keyPc + i) % 12]);
+    y.push(ref[i]);
+  }
+  const mx = x.reduce((s, v) => s + v, 0) / 12;
+  const my = y.reduce((s, v) => s + v, 0) / 12;
+  let num = 0, dx = 0, dy = 0;
+  for (let i = 0; i < 12; i++) {
+    const a = x[i] - mx, b = y[i] - my;
+    num += a * b; dx += a * a; dy += b * b;
+  }
+  const den = Math.sqrt(dx * dy);
+  return den === 0 ? 0 : num / den;
+}
+
 /* ── 채점 ─────────────────────────────────────────────────────────────── */
 
 function scoreKey(data: LeadSheetData, key: string): KeyScore {
@@ -245,18 +363,46 @@ function scoreKey(data: LeadSheetData, key: string): KeyScore {
     }
   }
   /* 곡에서 가장 늦게 등장하는 '완결 케이던스의 I 코드'. 키와 무관하게 결정되는
-   * 고정 앵커이므로, 후보 키마다 "그게 내 으뜸화음인가"만 물으면 된다. */
+   * 고정 앵커이므로, 후보 키마다 "그게 내 으뜸화음인가"만 물으면 된다.
+   *
+   * 단, 한 그룹의 I 이면서 곧바로 다음 ii-V 의 ii 로 넘어가는 코드(피벗)는
+   * 쉬어가는 종지가 아니라 통과점이다. 그런 코드를 종지로 인정하면 토닉화된
+   * ii 가 진짜 으뜸조에게서 30점을 통째로 빼앗는다 — 오답 분석에서 이 항목이
+   * 단독 최대 원인이었다(ii 오답 54곡 평균 +18.3점). 그래서 피벗이 아닌
+   * 종지를 우선하고, 그런 게 하나도 없을 때만 피벗을 쓴다. */
   let lastCadenceI: { chord: LeadSheetChord; minorVariant: boolean } | null = null;
+  let lastCadenceIPivot: { chord: LeadSheetChord; minorVariant: boolean } | null = null;
 
-  for (const chord of chords) {
+  /* 세컨더리 도미넌트는 **실제로 해결될 때만** 설명으로 인정한다.
+   *
+   *  어떤 dom7 이든 "무언가의 V7"로 해석될 여지가 있어서(근음 4도 위가 그 조성의
+   *  다이아토닉이기만 하면 성립), 해결을 요구하지 않으면 엉뚱한 조성도 거의 모든
+   *  도미넌트를 설명해 버린다 — 설명력 점수의 판별력이 그만큼 무뎌진다.
+   *  실측(iReal 1460곡): 느슨 83.8% → 해결 요구 84.2%. */
+  const resolves = (i: number): boolean => {
+    const a = chords[i].analysis, nx = chords[i + 1]?.analysis;
+    if (!a || a.rootPc == null) return false;
+    if (!a.secondaryDominant) return true;           // 세컨더리 도미넌트가 아니면 무관
+    if (!nx || nx.rootPc == null) return false;
+    return ((a.rootPc + 5) % 12) === nx.rootPc       // 정상 해결(4도 위)
+      || ((a.rootPc + 6) % 12) === nx.rootPc;        // 트라이톤 서브로의 대리 해결
+  };
+  for (let ci = 0; ci < chords.length; ci++) {
+    const chord = chords[ci];
+    const nearEnd = ci >= chords.length * FINAL_CADENCE_ZONE;
     const w = chord.durationBeats ?? 1;
     totalW += w;
-    if (isUnexplained(chord)) unexplainedW += w;
+    if (isUnexplained(chord) || !resolves(ci)) unexplainedW += w;
     if (isTonicChord(chord, keyPc, isMinor, blues)) tonicW += w;
 
+    const isPivot = (chord.analysis?.groupMemberships ?? [])
+      .some((g) => g.groupType === 'ii-V-I' && g.role === 'ii');
+    if (isPivot && isTonicChord(chord, keyPc, isMinor, blues)) tonicW -= w;
     for (const g of chord.analysis?.groupMemberships ?? []) {
-      if (g.groupType === 'ii-V-I' && g.role === 'I' && g.variant !== 'incomplete') {
-        lastCadenceI = { chord, minorVariant: g.variant === 'minor' };
+      if (g.groupType === 'ii-V-I' && g.role === 'I' && g.variant !== 'incomplete' && nearEnd) {
+        const entry = { chord, minorVariant: g.variant === 'minor' };
+        if (isPivot) lastCadenceIPivot = entry;
+        else lastCadenceI = entry;
       }
     }
 
@@ -270,9 +416,6 @@ function scoreKey(data: LeadSheetData, key: string): KeyScore {
       if (v != null) tonicCadenceApproaches.add(v);
     }
   }
-
-  const firstTonic = isTonicChord(chords[0], keyPc, isMinor, blues);
-  const finalTonic = isTonicChord(chords[chords.length - 1], keyPc, isMinor, blues);
 
   const unexplainedRatio = totalW > 0 ? unexplainedW / totalW : 1;
   const tonicTimeRatio = totalW > 0 ? tonicW / totalW : 0;
@@ -293,10 +436,47 @@ function scoreKey(data: LeadSheetData, key: string): KeyScore {
   const wrapCadenceTonic =
     wrapResolvesToFirst && isTonicChord(firstCh, keyPc, isMinor, blues);
 
+  /* 곡의 '실질 마지막 코드' — 맨 뒤에 붙은 턴어라운드는 건너뛴다.
+   *
+   * 재즈 리드시트는 반복을 위해 종지(I) 뒤에 ii-V 를 덧붙이는 게 보통이라,
+   * 차트의 물리적 마지막 코드는 종지가 아니라 되돌아가는 딸림화음이다. 이를
+   * 그대로 '끝 코드'로 보면 진짜 으뜸조가 finalTonic 점수를 통째로 잃고, 그
+   * 점수를 턴어라운드가 겨냥하는 ii 가 wrap 규칙으로 가져간다 — 위 wrap 보정이
+   * '첫 코드가 토닉인 키'만 구제해 주는 비대칭이 여기서 생긴다.
+   * (실측: Tea For Two 는 `… Ab6 | Cm7b5 F7b9` 로 끝나 진짜 종지 Ab6 가 뒤에서
+   *  셋째다. 보정 전 Ab 116.6 < Bbm 128.6 으로 ii 인 Bbm 이 1위였다.)
+   *
+   * 건너뛰는 조건은 '되돌아가는 V7'(wrapResolvesToFirst)일 때뿐이고, 그 V7 의
+   * ii 한 개까지만 함께 건너뛴다. 블루스처럼 도미넌트가 연달아 오는 진행에서
+   * 무한정 거슬러 올라가지 않도록 범위를 좁게 잡았다. */
+  let finalIdx = chords.length - 1;
+  if (wrapResolvesToFirst && finalIdx > 0) {
+    finalIdx--;                                   // 되돌아가는 V7 건너뛰기
+    const prev = chords[finalIdx]?.analysis;
+    const vRoot = lastCh.analysis?.rootPc;
+    const prevIsItsII =
+      prev?.rootPc != null && vRoot != null &&
+      ((prev.rootPc + 5) % 12) === vRoot &&
+      (prev.normalizedQuality === 'min7'
+        || prev.normalizedQuality === 'min7b5'
+        || prev.normalizedQuality === 'min');
+    if (prevIsItsII && finalIdx > 0) finalIdx--;   // 그 V7 의 ii 도 턴어라운드의 일부
+  }
+
+  /* 첫 코드가 으뜸화음 — 정답 라벨로 재보니 나란한조를 95% 정확히 가르고 67%
+   * 발동하는 최강 판별자였다. 그런데 낮게 잡혀 있었던 이유가 있다: 첫 코드가
+   * ii 인 곡(Tea For Two 의 Bbm7)에서 그 ii 를 으뜸조로 밀어올린다. 그래서
+   * **ii 로 기능하지 않을 때만** 인정한다 — 판별력은 살리고 부작용만 뺀다. */
+  const firstIsII = (firstCh.analysis?.groupMemberships ?? [])
+    .some((g) => g.groupType === 'ii-V-I' && g.role === 'ii');
+  const firstTonic = !firstIsII && isTonicChord(firstCh, keyPc, isMinor, blues);
+  const finalTonic = isTonicChord(chords[finalIdx], keyPc, isMinor, blues);
+
+  const anchor = lastCadenceI ?? lastCadenceIPivot;
   const lastCadenceTonic =
-    (lastCadenceI != null &&
-      isTonicChord(lastCadenceI.chord, keyPc, isMinor, blues) &&
-      lastCadenceI.minorVariant === isMinor) ||
+    (anchor != null &&
+      isTonicChord(anchor.chord, keyPc, isMinor, blues) &&
+      anchor.minorVariant === isMinor) ||
     wrapCadenceTonic;
 
   const score =
@@ -306,7 +486,8 @@ function scoreKey(data: LeadSheetData, key: string): KeyScore {
     (lastCadenceTonic ? W_LAST_CADENCE : 0) +
     (finalTonic ? W_FINAL_TONIC : 0) +
     (firstTonic ? W_FIRST_TONIC : 0) +
-    (blues ? W_BLUES : 0);
+    (blues ? W_BLUES : 0) +
+    W_PROFILE * profileCorrelation(pitchClassProfile(chords), keyPc, isMinor);
 
   return { key, score, unexplainedRatio, tonicCadences, tonicTimeRatio, lastCadenceTonic, finalTonic, firstTonic };
 }

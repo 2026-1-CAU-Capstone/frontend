@@ -11,7 +11,7 @@ import { LeadSheet, KeyControl, isMinorKey, shiftKey } from '../components/leads
 import { KeySuggestPrompt } from '../components/leadsheet/KeySuggestPrompt';
 import { SessionPicker, type SessionInstrument } from '../components/chord/SessionPicker';
 import { useAnalysisFilters } from '../hooks/useAnalysisFilters';
-import { AnalysisSettingsModal } from '../components/common/AnalysisSettingsModal';
+import { openPerformanceSettings } from '../lib/settingsBus';
 import { allOfMe } from '../data/allOfMe';
 import { getExampleChart } from '../data/exampleCharts';
 import type { LeadSheetData } from '../data/leadSheetTypes';
@@ -994,7 +994,6 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   const [selectedChordIds, setSelectedChordIds] = useState<string[]>([]);
   const [selectedChordsData, setSelectedChordsData] = useState<ChordOverlay[]>([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [analysisMenuOpen, setAnalysisMenuOpen] = useState(false);
   /* Native-only top-bar toggles. Sidebar drops the song list, chat opens the
    * AI panel as a modal (no right-side dock), mixer opens BackingMixer as a
    * bottom sheet. */
@@ -1493,9 +1492,6 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     return () => { cancelled = true; };
   }, [songId]);
 
-  /* 분석 설정 모달(AnalysisSettingsModal)은 자체 backdrop 클릭/Esc 로 닫힌다. */
-
-
   const chordContext = useMemo(() => {
     if (sheet) return buildChordContext(sheet);
     return undefined;
@@ -1799,7 +1795,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
               >
                 <LightbulbIcon lit={filters.showAnalysis} />
               </ToolBtn>
-              <ToolBtn type="button" title="고급 설정" onClick={() => setAnalysisMenuOpen(true)}>
+              <ToolBtn type="button" title="고급 설정" onClick={() => openPerformanceSettings('chordAnalysis')}>
                 <GearIcon />
               </ToolBtn>
             </BarRight>
@@ -1831,7 +1827,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
               <ToolBtn type="button" title="공유" onClick={handleShare} disabled={!sheet || loading}>
                 <ShareIcon />
               </ToolBtn>
-              <ToolBtn type="button" title="고급 설정" onClick={() => setAnalysisMenuOpen(true)}>
+              <ToolBtn type="button" title="고급 설정" onClick={() => openPerformanceSettings('chordAnalysis')}>
                 <GearIcon />
               </ToolBtn>
             </NativeTopBar>
@@ -2160,12 +2156,6 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
         />
       )}
 
-      <AnalysisSettingsModal
-        open={analysisMenuOpen}
-        onClose={() => setAnalysisMenuOpen(false)}
-        filters={filters}
-        onToggleFilter={toggleFilter}
-      />
 
       {/* Native: song-list sidebar slides in from the left. Backdrop click
        *  or the close icon dismisses it. Mounted while animating in either

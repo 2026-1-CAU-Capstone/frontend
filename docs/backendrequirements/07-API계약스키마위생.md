@@ -4,10 +4,12 @@ type: 백엔드 요구사항
 targets: [백엔드]
 status: 제안
 owner: 최영현
-updated: 2026-07-15
+updated: 2026-07-29
 ---
 
 # 2026-07-15 · API 계약·스키마 위생 요구사항 1건
+
+> 2026-07-29 재확인: 미착수. 원인은 springdoc 이 jspecify @Nullable 을 스펙에 반영하지 않는 것 — 어노테이션 추가만으로는 해결되지 않으니 springdoc 설정/커스터마이저가 필요하다.
 
 🏷 **범주(태그):** API 계약·스키마 위생
 OpenAPI 스펙이 프론트 타입 생성의 유일 원천이 되도록, Response DTO의 `required`/`nullable`을 정확히 선언한다.

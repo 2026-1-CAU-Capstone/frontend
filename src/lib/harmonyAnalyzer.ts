@@ -41,7 +41,9 @@ const QUALITY_MAP: [RegExp, string][] = [
   [/^\^/, 'maj'], [/^-/, 'min'], [/^sus/, 'sus4'],
 ];
 
-const QUALITY_INTERVALS: Record<string, number[]> = {
+/** 정규화된 성질 토큰 → 근음 기준 반음 간격. 조성 추정(keySuggest)이 곡의
+ *  음고류 분포를 만들 때도 쓰므로 공개한다 — 같은 표를 두 벌 두지 않는다. */
+export const QUALITY_INTERVALS: Record<string, number[]> = {
   maj7: [0, 4, 7, 11], maj: [0, 4, 7], dom7: [0, 4, 7, 10],
   min7: [0, 3, 7, 10], min: [0, 3, 7], min7b5: [0, 3, 6, 10],
   dim7: [0, 3, 6, 9], dim: [0, 3, 6], aug: [0, 4, 8], aug7: [0, 4, 8, 10],
