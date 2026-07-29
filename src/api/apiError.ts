@@ -23,3 +23,37 @@ export async function readApiErrorMessage(
     return fallback;
   }
 }
+
+/* 에러 `code`까지 보존해야 하는 호출부용.
+ *
+ * `readApiErrorMessage`는 사람이 읽을 message만 돌려주는데, 전처리 플로우처럼
+ * 상태 전이를 코드로 분기해야 하는 곳(410 만료 → 재업로드, 409 → 상태 재동기화)
+ * 에서는 message 문자열 매칭이 아니라 `code`로 판단해야 한다(백엔드가 문구를
+ * 바꿔도 안 깨지도록). detail은 여기서도 반환하지 않는다 — dev 콘솔 전용. */
+export class ApiError extends Error {
+  readonly status: number;
+  readonly code: string | null;
+
+  constructor(message: string, status: number, code: string | null) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
+export async function readApiError(res: Response, fallback: string): Promise<ApiError> {
+  let code: string | null = null;
+  let message = fallback;
+  try {
+    const j = (await res.json()) as { code?: string; message?: string; detail?: string };
+    if (import.meta.env.DEV && j.detail) {
+      console.debug(`[api ${res.status}] detail:`, j.detail);
+    }
+    code = j.code ?? null;
+    message = j.message || j.code || fallback;
+  } catch {
+    // 본문이 JSON이 아니면 fallback + code 없음.
+  }
+  return new ApiError(message, res.status, code);
+}

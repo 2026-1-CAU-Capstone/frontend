@@ -59,7 +59,6 @@ import {
   addChordProjectChords,
   analyzeChordProject,
   createChordProject,
-  createChordProjectFromOmr,
   deleteChordProject,
   getChordProjectAnalysis,
   getChordProjectOmrStatus,
@@ -69,7 +68,8 @@ import {
   type ChordProjectKey,
   type ChordAnalysisResult,
 } from '../api/chordProjects';
-import { ProjectCreateModal, type ProjectCreatePayload } from '../components/common/ProjectCreateModal';
+import { PreprocessReviewModal } from '../components/common/PreprocessReviewModal';
+import { useProjectPreprocess } from '../hooks/useProjectPreprocess';
 import { KeyPicker } from '../components/common/KeyPicker';
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -286,16 +286,17 @@ export default function MyChordChartsPage() {
   const newWrapRef = useRef<HTMLDivElement>(null);
   const sortWrapRef = useRef<HTMLDivElement>(null);
   const kebabMenuRef = useRef<HTMLDivElement>(null);
-  /* "신규" 드롭다운의 파일/이미지 업로드 → 온보딩 모달(제목·키 → OMR)로 흘려보낸다. */
+  /* "신규" 드롭다운의 파일/이미지 업로드 → 전처리(자동 인식) → review 폼.
+   * 제목·조성을 손으로 받던 온보딩 모달 대신 백엔드가 먼저 제안하고 사용자가
+   * 확인·정정한다(문서서버 #32 §2). 훅은 아래에서 선언되므로 ref 로 우회한다. */
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const startPreprocessRef = useRef<(file: File) => void>(() => {});
   const onPickFile = (e: ChangeEvent<HTMLInputElement>): void => {
     const f = e.target.files?.[0];
     e.target.value = ''; // 같은 파일 재선택 허용
     if (!f) return;
-    setOnboardError(null);
-    setOnboardFile(f);
-    setOnboardOpen(true);
+    startPreprocessRef.current(f);
   };
   /* Tracks which projects we've already auto-analyzed after OMR completion
    * (the backend doesn't run analyze automatically after OMR; ChordInfo
@@ -315,11 +316,6 @@ export default function MyChordChartsPage() {
   const OMR_POLL_TIMEOUT_MS = 5 * 60_000;
   const omrPollStartRef = useRef<Map<string, number>>(new Map());
 
-  /* ── Onboarding "새 프로젝트 생성" modal (replaces the old 신규 dropdown) ── */
-  const [onboardOpen, setOnboardOpen] = useState(false);
-  const [onboardFile, setOnboardFile] = useState<File | null>(null);
-  const [onboardCreating, setOnboardCreating] = useState(false);
-  const [onboardError, setOnboardError] = useState<string | null>(null);
   const [pageDragOver, setPageDragOver] = useState(false);
 
   const projectSort = useMemo(() => {
@@ -517,67 +513,57 @@ export default function MyChordChartsPage() {
 
   /* ── actions ───────────────────────────────────────────────────────── */
 
-  /* Optimistic OMR upload. The server's POST /v1/chord-projects/omr returns
-   * immediately with omrStatus=PENDING, but the multipart file upload itself
-   * still takes time over the wire — during which the user would otherwise
-   * stare at an unchanged grid. So we insert a placeholder card RIGHT AWAY
-   * (temp id, PENDING, 0%), then swap it for the real project once the POST
-   * resolves. On failure we drop the placeholder and surface the error.
-   * The temp id is prefixed so the OMR-status poller skips it. */
-  const uploadOmrFile = async (file: File, titleOverride?: string, keyOverride?: string): Promise<void> => {
-    setProjectError(null);
-    const tempId = `${UPLOADING_ID_PREFIX}${newId()}`;
-    const title = titleOverride?.trim() || file.name.replace(/\.[^.]+$/, '');
-    /* 온보딩에서 고른 조성을 placeholder 카드와 백엔드 양쪽에 그대로 반영한다.
-     * (지정 없이 파일만 드롭한 경로는 C 장조로 시작.) */
-    const key = keyOverride || 'C_MAJOR';
-    const nowIso = new Date().toISOString();
-    const placeholder: ChordProject = {
-      publicId: tempId,
-      title,
-      keySignature: key,
-      timeSignature: '4/4',
-      omrStatus: 'PENDING',
-      omrProgress: 0,
-      omrFailureReason: null,
-      createdAt: nowIso,
-      updatedAt: nowIso,
-    };
-    // 즉시 카드 노출 (업로드 중 표시)
-    setProjects((prev) => [placeholder, ...prev]);
-    try {
-      const created = await createChordProjectFromOmr(file, { title, key });
-      // 업로드한 원본 악보 이미지를 publicId 로 로컬(IndexedDB) 보관.
-      // 카드의 "원본" 토글 UI는 일단 제거했지만(후순위), 데이터는 계속 저장해
-      // 두어 추후 토글을 되살릴 때 바로 쓸 수 있게 한다. best-effort.
-      void saveOmrSourceImage(created.project.publicId, file);
-      // 플레이스홀더를 실제 프로젝트로 교체 (중복 제거 포함)
-      setProjects((prev) => [
-        created.project,
-        ...prev.filter((p) => p.publicId !== tempId && p.publicId !== created.project.publicId),
-      ]);
-    } catch (e) {
-      // 실패 시 플레이스홀더 제거
-      setProjects((prev) => prev.filter((p) => p.publicId !== tempId));
-      setProjectError(e instanceof Error ? e.message : '코드 차트 업로드 실패');
-    }
-  };
+  /* ── 전처리(자동 인식) 기반 생성 — 문서서버 #32 ──────────────────────────
+   * 파일을 올리면 백엔드가 문서 유형·메타데이터를 먼저 제안하고, 사용자가
+   * review 폼에서 확인·정정한 뒤 확정하면 그때 프로젝트+OMR 배치가 생성된다.
+   * 제목·조성을 손으로 받던 온보딩 모달(ProjectCreateModal)을 대체한다 —
+   * "직접 입력하기"는 신규 메뉴에 그대로 남아 있어 빈 편집기 경로는 유지된다. */
+  /* 확정 응답(ConfirmedProject)에는 제목·조성이 없고 방금 올린 원본 파일도 없다.
+   * 카드를 곧바로 정확히 그리고 원본 이미지를 보관하려면 확정 시점의 폼 값과
+   * 업로드한 파일을 여기서 기억해 둬야 한다. */
+  const confirmedFormRef = useRef<{ title: string; key: string }>({ title: '', key: 'C_MAJOR' });
+  const uploadedFileRef = useRef<File | null>(null);
 
-  /** Onboarding modal submit. On 내 코드 차트 we ALWAYS create a chord chart via
-   *  OMR and keep the result on THIS page — regardless of the modal's type
-   *  selector. (Previously "악보" routed to a SheetProject and navigated away to
-   *  내 악보 차트, which surprised users who just wanted a card here.) */
-  const handleOnboardCreate = async (p: ProjectCreatePayload): Promise<void> => {
-    setOnboardCreating(true);
-    setOnboardError(null);
-    try {
-      setOnboardOpen(false);
-      await uploadOmrFile(p.file, p.title, p.key);   // placeholder card + OMR (own error handling)
-    } catch (e) {
-      setOnboardError(e instanceof Error ? e.message : '생성 실패');
-    } finally {
-      setOnboardCreating(false);
-    }
+  const preprocessing = useProjectPreprocess({
+    onConfirmed: (created) => {
+      /* 업로드한 원본 악보 이미지를 publicId 로 로컬(IndexedDB) 보관한다.
+       * 카드의 "원본" 토글 UI는 후순위로 빠졌지만 데이터는 계속 쌓아 둔다 —
+       * best-effort 라 실패해도 흐름을 막지 않는다. */
+      const src = uploadedFileRef.current;
+      if (src) void saveOmrSourceImage(created.projectPublicId, src);
+      uploadedFileRef.current = null;
+
+      /* 유형에 따라 만들어지는 프로젝트가 다르다. 코드 차트면 이 페이지에 카드로
+       * 넣고, 악보면 이 페이지에 속하지 않으므로 내 악보 차트로 보낸다. */
+      if (created.projectType === 'sheet_project') {
+        navigate(`/mysheets?project=${encodeURIComponent(created.projectPublicId)}`);
+        return;
+      }
+      /* PENDING 카드를 즉시 노출한다 — 폴링(OMR_POLL_INTERVAL_MS)이 이 카드를
+       * 집어 상태를 갱신하므로 여기서 별도 폴링을 돌리지 않는다. 정확한 필드는
+       * 다음 목록 새로고침 때 서버 값으로 덮인다. */
+      const nowIso = new Date().toISOString();
+      const { title, key } = confirmedFormRef.current;
+      setProjects((prev) => [
+        {
+          publicId: created.projectPublicId,
+          title: title || '제목 없음',
+          keySignature: key,
+          timeSignature: '4/4',
+          omrStatus: created.omrStatus,
+          omrProgress: created.omrProgress,
+          omrFailureReason: null,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+        },
+        ...prev.filter((p) => p.publicId !== created.projectPublicId),
+      ]);
+    },
+  });
+  // 훅보다 위에서 정의된 파일 선택 핸들러가 쓸 수 있도록 연결한다.
+  startPreprocessRef.current = (file: File) => {
+    uploadedFileRef.current = file;
+    void preprocessing.start(file);
   };
 
   /* ── Page-level drag-drop: dropping a file anywhere opens the onboarding
@@ -593,9 +579,7 @@ export default function MyChordChartsPage() {
     if (!f) return;
     e.preventDefault();
     setPageDragOver(false);
-    setOnboardError(null);
-    setOnboardFile(f);
-    setOnboardOpen(true);
+    void preprocessing.start(f);   // 드롭 즉시 자동 인식 → review 폼
   };
 
   const addFolder = (name: string): void => {
@@ -1409,15 +1393,33 @@ export default function MyChordChartsPage() {
           </ModalBackdrop>
         )}
 
-        <ProjectCreateModal
-          open={onboardOpen}
-          defaultType="chord"
-          initialFile={onboardFile}
-          creating={onboardCreating}
-          error={onboardError}
-          onManualEntry={() => { setOnboardOpen(false); navigate('/mychord?empty=1&edit=1'); }}
-          onClose={() => setOnboardOpen(false)}
-          onCreate={handleOnboardCreate}
+        {/* 자동 인식(전처리) 진행 — MusicVision 동기 호출 2개라 수십 초 걸릴 수
+            있다. 취소하면 진행 중 요청을 끊는다(문서 §3). */}
+        {preprocessing.phase === 'uploading' && (
+          <ModalBackdrop>
+            <ModalCard onClick={(e) => e.stopPropagation()}>
+              <ModalTitle>악보를 분석하고 있어요</ModalTitle>
+              <ModalHint>
+                문서 유형과 제목·작곡가를 자동으로 읽는 중입니다. 최대 1분 정도 걸릴 수 있어요.
+              </ModalHint>
+              <ModalActions>
+                <ModalBtn $variant="ghost" type="button" onClick={preprocessing.cancelUpload}>취소</ModalBtn>
+              </ModalActions>
+            </ModalCard>
+          </ModalBackdrop>
+        )}
+
+        {/* 자동 인식 결과 확인 폼 — 확정해야 실제 프로젝트가 생성된다. */}
+        <PreprocessReviewModal
+          open={preprocessing.phase === 'review' || preprocessing.phase === 'confirming'}
+          preprocess={preprocessing.preprocess}
+          confirming={preprocessing.phase === 'confirming'}
+          error={preprocessing.error}
+          onCancel={preprocessing.cancel}
+          onConfirm={(body) => {
+            confirmedFormRef.current = { title: body.title, key: body.key || 'C_MAJOR' };
+            void preprocessing.confirm(body);
+          }}
         />
 
         {renameTarget && (
