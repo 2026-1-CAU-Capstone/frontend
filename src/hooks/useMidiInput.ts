@@ -120,8 +120,11 @@ export function useMidiInput(onNoteOn: (e: MidiNoteEvent) => void): UseMidi {
       setError('이 브라우저는 Web MIDI를 지원하지 않습니다. Chrome 또는 Edge를 사용하세요.');
       return;
     }
-    const req = (navigator as unknown as { requestMIDIAccess: RequestMIDIAccess }).requestMIDIAccess;
-    req({ sysex: false })
+    // navigator.requestMIDIAccess 는 반드시 navigator 를 수신자로 호출해야 한다.
+    // 함수를 변수로 떼어내 호출하면 this 가 navigator 가 아니게 되어
+    // "Illegal invocation" 예외가 난다 → 항상 navigator. 로 직접 호출한다.
+    const nav = navigator as unknown as { requestMIDIAccess: RequestMIDIAccess };
+    nav.requestMIDIAccess({ sysex: false })
       .then((a) => {
         setAccess(a);
         setError(null);

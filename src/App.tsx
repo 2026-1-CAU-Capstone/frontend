@@ -36,6 +36,7 @@ const SharedChartPage     = lazy(() => import('./pages/SharedChartPage'));
 const LickOnsetPage       = lazy(() => import('./pages/LickOnsetPage'));
 const UserProfilePage     = lazy(() => import('./pages/UserProfilePage'));
 const RagAdminPage        = lazy(() => import('./pages/RagAdminPage'));
+const CompingPage         = lazy(() => import('./pages/CompingPage'));
 
 /* Recent-Chats(사이드바)에서 코드차트 → 코드차트로 이동하면 `/mychord` 라우트는
  * 그대로고 `?project=`(또는 `?song=`) 쿼리만 바뀐다. 같은 라우트라 React Router는
@@ -122,6 +123,8 @@ export default function App() {
           <Route path="/profile" element={<ProtectedRoute><UserProfilePage /></ProtectedRoute>} />
           {/* RAG 문서 관리 — admin 전용. AdminRoute 가 로그인 + admin 등급을 검사. */}
           <Route path="/admin/rag" element={<AdminRoute><RagAdminPage /></AdminRoute>} />
+          {/* Comping Database — admin 전용, 백엔드 미구현(localStorage 목업 수집). */}
+          <Route path="/comping" element={<AdminRoute><CompingPage /></AdminRoute>} />
           <Route path="/login" element={<LoginPage />} />
           {/* Public shared-chart viewer — chart data rides in the URL hash
               (#/v?d=…), so anyone with the link can view it read-only without

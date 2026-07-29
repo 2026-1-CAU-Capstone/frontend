@@ -29,6 +29,17 @@ const LickIcon = () => (
     <line x1="8" y1="5" x2="8" y2="19" /><line x1="16" y1="5" x2="16" y2="19" />
   </svg>
 );
+const CompingIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    {/* 피아노 건반 — 컴핑 */}
+    <rect x="2" y="5" width="20" height="14" rx="2" />
+    <line x1="8" y1="5" x2="8" y2="19" />
+    <line x1="16" y1="5" x2="16" y2="19" />
+    <line x1="6" y1="5" x2="6" y2="12" strokeWidth="2.6" />
+    <line x1="12" y1="5" x2="12" y2="12" strokeWidth="2.6" />
+    <line x1="18" y1="5" x2="18" y2="12" strokeWidth="2.6" />
+  </svg>
+);
 const SoloIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
@@ -69,6 +80,7 @@ const NAV = [
   { path: '/note', icon: NoteIcon, label: 'Note Analysis' },
   { path: '/licks', icon: LickIcon, label: 'Lick Database' },
   { path: '/solos', icon: SoloIcon, label: 'Solo Database' },
+  { path: '/comping', icon: CompingIcon, label: 'Comping Database' },
   { path: '/editor', icon: EditorIcon, label: 'Editor' },
   { path: '/youtube-onset', icon: VideoIcon, label: 'YouTube Onset' },
   { path: '/input', icon: OmrIcon, label: 'OMR' },

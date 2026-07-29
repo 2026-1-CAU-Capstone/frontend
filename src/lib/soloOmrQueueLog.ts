@@ -70,6 +70,16 @@ export function logQueueRemove(id: string): void {
   write(read().filter((e) => e.id !== id));
 }
 
+/** 이전 세션 항목을 현재 세션이 **입양**한다 — 재개된 항목이 '중단'으로
+ *  표시되지 않도록 sessionId 를 현재 세션으로 바꾼다. */
+export function logQueueAdopt(id: string): void {
+  const entries = read();
+  const i = entries.findIndex((e) => e.id === id);
+  if (i === -1) return;
+  entries[i] = { ...entries[i], sessionId: QUEUE_SESSION_ID };
+  write(entries);
+}
+
 /** 전체 기록 — 최신 등록 순. */
 export function listQueueLog(): QueueLogEntry[] {
   return read().sort((a, b) => b.queuedAt - a.queuedAt);

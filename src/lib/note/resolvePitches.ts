@@ -220,3 +220,29 @@ export function bakeExplicitAccidentals(
   });
   return anyChanged ? out : measures;
 }
+
+/** 조표무시(explicit) 시트를 **기본 해석(score)으로 읽어도 같은 소리**가 나도록
+ *  임시표를 다시 방출한다.
+ *
+ *  왜 필요한가: `accidentalStyle:'explicit'` 은 백엔드 `SheetDataRequest` 에 없는
+ *  필드라 저장 시 버려진다(BR-33). 그래서 다시 불러오면 기본값 'score' 로 읽히고,
+ *  ① 조표의 ♯/♭ 이 임시표 없는 음에 얹히고 ② 마디 내 임시표 상속이 적용돼
+ *  **에디터에서 들리던 것과 다른 음이 재생·표시된다**. 저장 시 이 함수로 구워두면
+ *  플래그가 사라져도 소리가 보존된다(표기는 표준 규칙대로 ♮ 등이 명시된다).
+ *
+ *  소리는 바뀌지 않는다 — explicit 해석의 음정을 그대로 score 표기로 옮길 뿐이다. */
+export function bakeForScoreReading(
+  measures: MeasureInfo[],
+  sheetKey: string | undefined,
+): MeasureInfo[] {
+  let keySig = keySigLetterMap(sheetKey);
+  const sounding: SoundingNote[][][] = measures.map((m) => {
+    if (m.key) keySig = keySigLetterMap(m.key);
+    const active = new Map<string, AccGlyph>();
+    return m.notes.map((n) => (n.duration.endsWith('r') ? [] : n.keys.map((k, ki) => ({
+      vexKey: k,
+      acc: soundingAccidental(active, keySig, k, n.accidentals?.[ki] as AccGlyph | undefined, 'explicit'),
+    }))));
+  });
+  return emitScoreAccidentals(sounding, measures, sheetKey ?? 'C');
+}

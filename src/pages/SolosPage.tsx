@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import styled, { keyframes, css } from 'styled-components';
 import { mq } from '../styles/theme';
@@ -26,11 +26,15 @@ import { useNotification } from '../contexts/NotificationContext';
 import { buildMergedSoloDraft } from '../lib/mergeSolos';
 import { OMRUploadModal } from '../components/common/OMRUploadModal';
 import {
-  logQueueAdd, logQueueUpdate, logQueueRemove,
   listQueueLog, effectiveStatus, clearQueueLog,
   type QueueLogEntry,
 } from '../lib/soloOmrQueueLog';
-import { isAdminUser, getCachedUser } from '../api/auth';
+import {
+  subscribeOmrQueue, getOmrQueueState, enqueueOmrFiles, enqueueMoreFiles,
+  dismissOmrQueueItem, dismissOmrQueueAll, pauseOmrQueue, resumeOmrQueue,
+  retryOmrQueueItem, resumeOmrQueueFromDisk, type OmrQueueItem,
+} from '../lib/soloOmrQueue';
+import { isAdminUser, getCachedUser, onAuthChange } from '../api/auth';
 import { BackButton } from '../components/common/BackButton';
 import type { OMRMetadata } from '../api/licks';
 import {
@@ -869,6 +873,11 @@ const PreviewCard = styled.div`
 const HEADER_PHONE = '@media (max-width: 820px)';
 const PreviewHeader = styled.div`
   position: relative;   /* 메타 드롭다운의 기준 */
+  /* 헤더를 본문(PreviewBody)보다 위 레이어로 올린다. 헤더의 드롭다운들
+   * (조성 팝오버 45 · Lick 구간 46 · 메타 40)이 악보 내부의 z-index
+   * (NoteSheet KeyMenu 100 등)보다 낮아 악보 뒤로 숨던 문제 수정.
+   * 본문도 z-index:0 으로 스택 컨텍스트를 만들어 내부 z-index 를 가둔다. */
+  z-index: 5;
   padding: 6px 14px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   display: flex;
@@ -1025,6 +1034,10 @@ const PreviewBody = styled.div`
   flex: 1;
   min-height: 0;
   overflow: auto;
+  /* 스택 컨텍스트 — 악보 내부의 z-index(KeyMenu 100 등)를 이 안에 가둬
+   * 헤더 드롭다운(위 레이어)을 덮지 못하게 한다. */
+  position: relative;
+  z-index: 0;
   background: ${({ theme }) => theme.colors.bgPrimary};
 `;
 
@@ -1434,8 +1447,6 @@ type SoloOmrJobStatus = 'QUEUED' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 interface SoloOmrJob {
   id: string;
   label: string;
-  /** 대량 큐 소속 — true 면 개별 카드 대신 통합 큐 카드 한 장으로 집계 표시. */
-  fromQueue?: boolean;
   status: SoloOmrJobStatus;
   progress: number;
   failureReason?: string | null;
@@ -1531,7 +1542,9 @@ export default function SolosPage() {
   const [omrOpen, setOmrOpen] = useState(false);
 
   /* 큐 영속 기록(admin 전용) — 자리를 비웠다 와도, 새로고침해도 결과가 남는다. */
-  const isAdmin = isAdminUser(getCachedUser());
+  const [authUserForAdmin, setAuthUserForAdmin] = useState(() => getCachedUser());
+  useEffect(() => onAuthChange((isIn, u) => setAuthUserForAdmin(isIn ? u : null)), []);
+  const isAdmin = isAdminUser(authUserForAdmin);
   const [queueLogOpen, setQueueLogOpen] = useState(false);
   const [queueLogEntries, setQueueLogEntries] = useState<QueueLogEntry[]>([]);
   /* Live OMR status panel: one card per in-flight / just-finished job. */
@@ -1953,17 +1966,11 @@ export default function SolosPage() {
     });
   }, []);
 
-  /* publicId → pending timeout. 동일 솔로 중복 폴러 방지 + 정리 가능하게 추적. */
+  /* publicId → pending timeout. 동일 솔로 중복 폴러 방지 + 정리 가능하게 추적.
+   * (대량 큐는 전역 모듈 lib/soloOmrQueue 소유 — 여기는 단건 백그라운드 잡 전용) */
   const omrPollersRef = useRef<Map<string, number>>(new Map());
-  /* 대량 OMR 큐(직렬) 대기열 — 선언은 여기(사용처인 dismissOmrJob 위), 러너는 아래. */
-  const queueRef = useRef<{ jobId: string; file: File; meta: OMRMetadata }[]>([]);
-  const queueRunningRef = useRef(false);
 
   const dismissOmrJob = useCallback((id: string) => {
-    // 아직 시작 안 한 큐 항목이면 대기열에서도 뺀다(닫았는데 처리되면 안 되니까).
-    // 그 경우 영속 기록에서도 지운다 — 처리 대상이 아니었으므로 '중단'으로 남으면 오해.
-    if (queueRef.current.some((q) => q.jobId === id)) logQueueRemove(id);
-    queueRef.current = queueRef.current.filter((q) => q.jobId !== id);
     setOmrJobs((prev) => {
       const job = prev.find((j) => j.id === id);
       if (job?.publicId) {
@@ -2060,150 +2067,24 @@ export default function SolosPage() {
     }
   }, [upsertOmrJob, pollSoloOmrIntoJob, refreshPerformers]);
 
-  /* ── 대량 OMR 큐 — **직렬** 파이프라인 ────────────────────────────────
-   * OMR 서버는 동시 요청에 약하다(동시처리 제한 있음) — 파일을 한 번에 다
-   * 던지지 않고 하나가 **터미널 상태(COMPLETED/FAILED)에 도달한 뒤에야** 다음
-   * 파일을 업로드한다. 실패해도 큐는 멈추지 않고 다음 파일로 넘어간다.
-   *
-   * 규칙(대량 검수 파이프라인):
-   *  - 제목 = 파일명(확장자 제거) — 어떤 악보인지 추적 가능해야 하므로 강제.
-   *  - performer/composer = 'candidate' — 아직 사람 검수 전이라는 표시. 검수 후
-   *    수정 화면에서 진짜 이름으로 바꾼다. */
-  /** omr-status 를 터미널까지 기다린다(잡 카드에 진행률 반영). 문서 #23 규칙대로
-   *  프론트 자체 타임아웃으로 섣불리 실패 처리하지 않는다 — 상한(15분/파일)을
-   *  넘기면 "확인 실패"로 표시만 하고 다음 파일로 넘어간다. */
-  const waitSoloOmrTerminal = useCallback(async (jobId: string, publicId: string): Promise<void> => {
-    const INTERVAL_MS = 5000;
-    const MAX_MS = 15 * 60_000;
-    const startedAt = Date.now();
-    for (;;) {
-      if (!mountedRef.current) return;
-      try {
-        const st = await getSoloOmrStatus(publicId);
-        if (st.status === 'COMPLETED') {
-          upsertOmrJob(jobId, { status: 'COMPLETED', progress: 100, publicId });
-          logQueueUpdate(jobId, { status: 'COMPLETED', publicId, endedAt: Date.now() });
-          void refreshPerformers();
-          return;
-        }
-        if (st.status === 'FAILED') {
-          const reason = st.failureReason ?? '악보 인식에 실패했어요.';
-          upsertOmrJob(jobId, { status: 'FAILED', failureReason: reason });
-          logQueueUpdate(jobId, { status: 'FAILED', failureReason: reason, endedAt: Date.now() });
-          return;
-        }
-        upsertOmrJob(jobId, {
-          ...(st.progress > 0 ? { progress: st.progress } : {}),
-          totalPages: st.totalPages,
-          completedPages: st.completedPages,
-        });
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : '';
-        if (/\b401\b|\b403\b/.test(msg)) {
-          upsertOmrJob(jobId, { status: 'FAILED', failureReason: '로그인이 만료됐어요. 다시 로그인 후 확인해 주세요.' });
-          logQueueUpdate(jobId, { status: 'FAILED', failureReason: '로그인 만료(401/403)', endedAt: Date.now() });
-          return;
-        }
-        /* 일시 오류(500 등) — 계속 폴링 */
-      }
-      if (Date.now() - startedAt > MAX_MS) {
-        upsertOmrJob(jobId, { status: 'FAILED', failureReason: '처리 상태를 확인하지 못했어요. 목록에서 다시 확인해 주세요.' });
-        logQueueUpdate(jobId, { status: 'FAILED', failureReason: '상태 확인 시간 초과(15분)', endedAt: Date.now() });
-        return;
-      }
-      await new Promise<void>((r) => { window.setTimeout(r, INTERVAL_MS); });
-    }
-  }, [upsertOmrJob, refreshPerformers]);
+  /* ── 대량 OMR 큐 — **전역 모듈**(lib/soloOmrQueue)이 소유 ────────────────
+   * 러너가 페이지 밖에서 돌므로 앱 내 라우트를 이동해도 큐가 죽지 않는다
+   * (2026-07-25 "93개 중 32개" 중단 사건의 근본 수정). 이 페이지는 상태를
+   * 구독해 카드만 그린다. 직렬·candidate 규칙·영속 로그는 모듈이 보장. */
+  const queueState = useSyncExternalStore(subscribeOmrQueue, getOmrQueueState);
 
-  const runSoloOmrQueue = useCallback(async () => {
-    if (queueRunningRef.current) return;
-    queueRunningRef.current = true;
-    try {
-      for (;;) {
-        const item = queueRef.current.shift();
-        if (!item) return;
-        if (!mountedRef.current) return;
-        const { jobId, file, meta } = item;
-        upsertOmrJob(jobId, { status: 'PROCESSING', progress: 0 });
-        logQueueUpdate(jobId, { status: 'PROCESSING', startedAt: Date.now() });
-        try {
-          const solo = await createSoloViaOMR(file, meta);
-          if (solo?.sheetData?.measures?.length) {
-            // 드물게 응답에 이미 결과가 실려 오면 그대로 완료.
-            upsertOmrJob(jobId, { status: 'COMPLETED', progress: 100, publicId: solo.publicId, solo });
-            logQueueUpdate(jobId, { status: 'COMPLETED', publicId: solo.publicId, endedAt: Date.now() });
-            void refreshPerformers();
-          } else if (solo?.publicId) {
-            upsertOmrJob(jobId, { publicId: solo.publicId });
-            logQueueUpdate(jobId, { publicId: solo.publicId });
-            await waitSoloOmrTerminal(jobId, solo.publicId); // ★ 직렬의 핵심 — 끝날 때까지 대기
-          } else {
-            upsertOmrJob(jobId, { status: 'FAILED', failureReason: '서버 응답에 악보 데이터가 없어요.' });
-            logQueueUpdate(jobId, { status: 'FAILED', failureReason: '서버 응답에 악보 데이터가 없어요.', endedAt: Date.now() });
-          }
-        } catch (e) {
-          const reason = e instanceof Error ? e.message : 'OMR 인식 실패';
-          upsertOmrJob(jobId, { status: 'FAILED', failureReason: reason });
-          logQueueUpdate(jobId, { status: 'FAILED', failureReason: reason, endedAt: Date.now() });
-        }
-      }
-    } finally {
-      queueRunningRef.current = false;
-    }
-  }, [upsertOmrJob, waitSoloOmrTerminal, refreshPerformers]);
+  // 새로고침/재방문 시 이전 세션 잔여 큐 자동 이어받기(1회) — IndexedDB 원본 + 로그.
+  useEffect(() => { void resumeOmrQueueFromDisk(); }, []);
 
-  /** 마지막 큐 시작 시의 공통 메타(악기·스타일 등) — 진행 중 카드에서 파일을
-   *  "추가"할 때 같은 설정을 물려주기 위해 기억해 둔다. */
-  const lastQueueMetaRef = useRef<OMRMetadata>({ source: 'user' });
-
-  /** 모달 "시작하기" — 큐 카드 등록 후 직렬 러너 기동(이미 돌고 있으면 뒤에 붙는다). */
-  const enqueueSoloOmrQueue = useCallback((files: File[], baseMeta: OMRMetadata) => {
-    lastQueueMetaRef.current = baseMeta;
-    for (const file of files) {
-      const jobId = `omr-${Date.now()}-${omrJobSeq.current++}`;
-      const title = file.name.replace(/\.(pdf|png|jpe?g)$/i, '');
-      queueRef.current.push({
-        jobId,
-        file,
-        meta: {
-          ...baseMeta,
-          title,                    // 제목 = 파일명 (강제)
-          performer: 'candidate',   // 검수 전 표시 (강제)
-          composer: 'candidate',
-          source: 'user',
-        },
-      });
-      upsertOmrJob(jobId, { id: jobId, label: title, status: 'QUEUED', progress: 0, fromQueue: true });
-      logQueueAdd(jobId, title); // 영속 기록 — 새로고침해도 결과 추적 가능
-    }
-    void runSoloOmrQueue();
-  }, [upsertOmrJob, runSoloOmrQueue]);
-
-  /** 통합 큐 카드 전체 닫기 — 대기열 비우고 큐 소속 카드 전부 제거.
-   *  (이미 서버에 올라간 진행 중 건은 서버에서 계속 돌지만 카드만 사라진다) */
-  const dismissQueueAll = useCallback(() => {
-    // 아직 시작 안 한 대기 항목은 기록에서도 제거(사용자 취소 — 중단 아님).
-    for (const q of queueRef.current) logQueueRemove(q.jobId);
-    queueRef.current = [];
-    setOmrJobs((prev) => prev.filter((j) => !j.fromQueue));
-  }, []);
-
-  /* 큐 진행 중 탭 닫기/새로고침 경고 — 큐는 메모리에만 있어 이탈하면 남은
-   * 항목이 전부 증발한다(2026-07-25 실측: 93개 중 32개만 처리되고 중단). */
+  // 큐에서 완료가 새로 나올 때마다 연주자 목록 갱신(candidate 그룹 반영).
+  const queueDoneCount = queueState.items.filter((i) => i.status === 'COMPLETED').length;
+  const prevQueueDoneRef = useRef(queueDoneCount);
   useEffect(() => {
-    const warn = (e: BeforeUnloadEvent) => {
-      if (queueRunningRef.current || queueRef.current.length > 0) {
-        e.preventDefault();
-        e.returnValue = ''; // 브라우저 기본 확인 대화상자
-      }
-    };
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, []);
+    if (queueDoneCount > prevQueueDoneRef.current) void refreshPerformers();
+    prevQueueDoneRef.current = queueDoneCount;
+  }, [queueDoneCount, refreshPerformers]);
 
-  /* 진행 중 큐 카드의 "＋ 추가" — 파일을 골라 큐 **맨 뒤에** 붙인다.
-   * enqueueSoloOmrQueue 를 그대로 타므로 제목=파일명·composer='candidate' 규칙과
-   * 직렬 처리(러너가 돌고 있으면 이어받음)가 동일하게 적용된다. */
+  /* 큐 카드 "＋ 추가" — 전역 큐 맨 뒤에 붙는다(제목=파일명·candidate 규칙 동일). */
   const queueAddInputRef = useRef<HTMLInputElement>(null);
   const handleQueueAddFiles = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
@@ -2216,23 +2097,30 @@ export default function SolosPage() {
       && f.size <= MAX_BYTES;
     const ok = files.filter(valid);
     const rejected = files.filter((f) => !valid(f)).map((f) => f.name);
-    if (ok.length > 0) enqueueSoloOmrQueue(ok, lastQueueMetaRef.current);
+    if (ok.length > 0) enqueueMoreFiles(ok);
     if (rejected.length > 0) {
       setError(`큐에서 제외됨(형식/20MB): ${rejected.join(', ')}`);
       setTimeout(() => setError(null), 4000);
     }
-  }, [enqueueSoloOmrQueue]);
+  }, []);
 
   /* 통합 큐 카드 펼침 + 활성 행 자동 스크롤 */
   const [queueOpen, setQueueOpen] = useState(false);
   const queueListRef = useRef<HTMLDivElement>(null);
-  const queueActiveId = omrJobs.find((j) => j.fromQueue && j.status === 'PROCESSING')?.id ?? null;
+  const queueActiveId = queueState.items.find((i) => i.status === 'PROCESSING')?.id ?? null;
   useEffect(() => {
     if (!queueOpen || !queueActiveId) return;
     // 펼치거나 진행 항목이 바뀌면 그 행이 보이게 스크롤.
     const el = queueListRef.current?.querySelector('[data-active="true"]');
     el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }, [queueOpen, queueActiveId]);
+
+  /** 큐 행(완료) 클릭 — 카드에서 지우지 **않고** 연다(집계 카운트 유지). */
+  const openQueueItem = useCallback((item: OmrQueueItem) => {
+    if (item.solo?.sheetData?.measures?.length) openSoloInEditor(item.solo);
+    else if (item.publicId) void fetchAndOpenSolo(item.publicId);
+  }, [openSoloInEditor, fetchAndOpenSolo]);
+
 
   /* Panel "에디터로 열기" — open the finished solo, then clear its card. */
   const openOmrJob = useCallback((job: SoloOmrJob) => {
@@ -2854,7 +2742,7 @@ export default function SolosPage() {
         submitLabel="인식 시작 (백그라운드)"
         upload={createSoloViaOMR}
         onBackgroundStart={startSoloOmrJob}
-        onQueueStart={enqueueSoloOmrQueue}
+        onQueueStart={enqueueOmrFiles}
       />
 
       {/* ── 큐 영속 기록 (admin) — localStorage 라 이탈/새로고침 후에도 남는다 ── */}
@@ -2921,19 +2809,20 @@ export default function SolosPage() {
         </QLogBackdrop>
       )}
 
-      {omrJobs.length > 0 && (
+      {(omrJobs.length > 0 || queueState.items.length > 0) && (
         <OmrPanel role="status" aria-live="polite">
-          {/* ── 통합 큐 카드 — 대량 큐는 카드 한 장으로 집계, 클릭하면 상세 ── */}
+          {/* ── 통합 큐 카드 — 전역 큐(lib/soloOmrQueue) 상태를 그린다 ── */}
           {(() => {
-            const qJobs = omrJobs.filter((j) => j.fromQueue);
-            if (qJobs.length === 0) return null;
-            const done = qJobs.filter((j) => j.status === 'COMPLETED').length;
-            const failed = qJobs.filter((j) => j.status === 'FAILED').length;
+            const qItems = queueState.items;
+            if (qItems.length === 0) return null;
+            const done = qItems.filter((j) => j.status === 'COMPLETED').length;
+            const failed = qItems.filter((j) => j.status === 'FAILED').length;
             const finished = done + failed;
-            const total = qJobs.length;
+            const total = qItems.length;
             const pct = total > 0 ? Math.round((finished / total) * 100) : 0;
-            const active = qJobs.find((j) => j.status === 'PROCESSING');
+            const active = qItems.find((j) => j.status === 'PROCESSING');
             const running = finished < total;
+            const paused = queueState.paused;
             return (
               <QueueCard>
                 <QueueHead
@@ -2941,7 +2830,9 @@ export default function SolosPage() {
                   onClick={() => setQueueOpen((v) => !v)}
                   aria-expanded={queueOpen}
                 >
-                  <QueueHeadIcon $running={running} aria-hidden>{running ? '' : '✓'}</QueueHeadIcon>
+                  <QueueHeadIcon $running={running && !paused} aria-hidden>
+                    {paused ? '⏸' : running ? '' : '✓'}
+                  </QueueHeadIcon>
                   <QueueHeadMain>
                     <QueueHeadTitle>
                       OMR 큐 {finished}/{total}
@@ -2949,11 +2840,27 @@ export default function SolosPage() {
                       {failed > 0 && <QueueHeadFail>오류 {failed}</QueueHeadFail>}
                     </QueueHeadTitle>
                     <QueueHeadSub>
-                      {active
-                        ? `지금: ${active.label}${active.totalPages && active.totalPages > 1 ? ` (${active.completedPages ?? 0}/${active.totalPages}p)` : ''}`
+                      {paused
+                        ? '일시정지됨 — 진행 중이던 항목은 마무리됩니다'
+                        : active
+                        ? `지금: ${active.title}${active.totalPages && active.totalPages > 1 ? ` (${active.completedPages ?? 0}/${active.totalPages}p)` : ''}`
                         : running ? '다음 악보 준비 중…' : failed > 0 ? '완료 — 일부 오류' : '모두 완료'}
                     </QueueHeadSub>
                   </QueueHeadMain>
+                  {running && (
+                    <QueueAddBtn
+                      as="span"
+                      role="button"
+                      aria-label={paused ? '큐 재개' : '큐 일시정지'}
+                      title={paused ? '재개 — 다음 항목부터 다시 진행' : '일시정지 — 진행 중 항목은 마무리, 다음 항목부터 멈춤'}
+                      onClick={(e: React.MouseEvent) => {
+                        e.stopPropagation();
+                        if (paused) resumeOmrQueue(); else pauseOmrQueue();
+                      }}
+                    >
+                      {paused ? '▶' : '⏸'}
+                    </QueueAddBtn>
+                  )}
                   <QueueAddBtn
                     as="span"
                     role="button"
@@ -2968,7 +2875,7 @@ export default function SolosPage() {
                     as="span"
                     role="button"
                     aria-label="큐 전체 닫기"
-                    onClick={(e: React.MouseEvent) => { e.stopPropagation(); dismissQueueAll(); }}
+                    onClick={(e: React.MouseEvent) => { e.stopPropagation(); dismissOmrQueueAll(); }}
                   >
                     ×
                   </OmrDismiss>
@@ -2986,19 +2893,19 @@ export default function SolosPage() {
                 </QueueBarTrack>
                 {queueOpen && (
                   <QueueDetail ref={queueListRef}>
-                    {qJobs.map((job, i) => (
+                    {qItems.map((job, i) => (
                       <QueueDetailRow
                         key={job.id}
                         data-active={job.status === 'PROCESSING' ? 'true' : undefined}
                         $status={job.status}
-                        onClick={job.status === 'COMPLETED' ? () => openOmrJob(job) : undefined}
+                        onClick={job.status === 'COMPLETED' ? () => openQueueItem(job) : undefined}
                         title={job.status === 'FAILED' ? (job.failureReason ?? undefined) : job.status === 'COMPLETED' ? '에디터로 열기' : undefined}
                       >
                         <QueueRowIcon $status={job.status} aria-hidden>
                           {job.status === 'COMPLETED' ? '✓' : job.status === 'FAILED' ? '✕' : job.status === 'PROCESSING' ? '' : i + 1}
                         </QueueRowIcon>
                         <QueueRowMain>
-                          <QueueRowName>{job.label}</QueueRowName>
+                          <QueueRowName>{job.title}</QueueRowName>
                           {job.status === 'PROCESSING' && (
                             <QueueRowInfo>
                               인식 중{job.totalPages && job.totalPages > 1 ? ` · ${job.completedPages ?? 0}/${job.totalPages}페이지` : ''}{job.progress > 0 ? ` · ${Math.round(job.progress)}%` : ''}
@@ -3008,11 +2915,21 @@ export default function SolosPage() {
                             <QueueRowInfo $fail>{job.failureReason || '인식 실패'}</QueueRowInfo>
                           )}
                         </QueueRowMain>
-                        {job.status === 'QUEUED' && (
+                        {job.status === 'FAILED' && (
                           <QueueRowRemove
                             type="button"
-                            aria-label={`${job.label} 큐에서 제거`}
-                            onClick={(e) => { e.stopPropagation(); dismissOmrJob(job.id); }}
+                            aria-label={`${job.title} 재시도`}
+                            title="재시도 — 파일 보관분 재업로드 또는 서버 상태 재확인"
+                            onClick={(e) => { e.stopPropagation(); retryOmrQueueItem(job.id); }}
+                          >
+                            ↻
+                          </QueueRowRemove>
+                        )}
+                        {(job.status === 'QUEUED' || job.status === 'FAILED') && (
+                          <QueueRowRemove
+                            type="button"
+                            aria-label={`${job.title} 큐에서 제거`}
+                            onClick={(e) => { e.stopPropagation(); dismissOmrQueueItem(job.id); }}
                           >
                             ×
                           </QueueRowRemove>
@@ -3029,7 +2946,7 @@ export default function SolosPage() {
           })()}
 
           {/* ── 단건 백그라운드 잡(큐 아님)은 기존 개별 카드 유지 ── */}
-          {omrJobs.filter((j) => !j.fromQueue).map((job) => (
+          {omrJobs.map((job) => (
             <OmrCard key={job.id} $status={job.status}>
               <OmrTop>
                 <OmrIcon $status={job.status} aria-hidden>

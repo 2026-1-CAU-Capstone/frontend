@@ -186,9 +186,11 @@ const NoteLabel = styled.span`
 interface PianoKeyboardProps {
   onNotePress: (note: PianoNote) => void;
   mute?: boolean;
+  /** 배율 — 에디터처럼 피아노를 더 크고 넓게 보여주고 싶을 때. 기본 1(기존 크기). */
+  scale?: number;
 }
 
-export function PianoKeyboard({ onNotePress, mute }: PianoKeyboardProps) {
+export function PianoKeyboard({ onNotePress, mute, scale = 1 }: PianoKeyboardProps) {
   const [pressedMidi, setPressedMidi] = useState<number | null>(null);
   const pressTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -208,8 +210,10 @@ export function PianoKeyboard({ onNotePress, mute }: PianoKeyboardProps) {
   const whites = ALL_KEYS.filter((k) => !k.isBlack);
   const blacks = ALL_KEYS.filter((k) => k.isBlack);
 
-  return (
-    <PianoContainer>
+  /* scale!==1: 컨테이너를 좌상단 기준으로 확대하고, 바깥 래퍼가 확대된 만큼의
+   * 레이아웃 크기를 차지하도록 한다(transform 은 레이아웃 박스를 바꾸지 않으므로). */
+  const inner = (
+    <PianoContainer style={scale !== 1 ? { transform: `scale(${scale})`, transformOrigin: 'left top' } : undefined}>
       {whites.map((k) => {
         const isC = k.note.vexKey.startsWith('c/');
         const sc = MIDI_TO_SHORTCUT[k.note.midi];
@@ -240,4 +244,7 @@ export function PianoKeyboard({ onNotePress, mute }: PianoKeyboardProps) {
       })}
     </PianoContainer>
   );
+
+  if (scale === 1) return inner;
+  return <div style={{ width: PIANO_W * scale, height: WHITE_H * scale }}>{inner}</div>;
 }

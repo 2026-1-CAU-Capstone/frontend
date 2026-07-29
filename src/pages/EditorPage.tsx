@@ -22,7 +22,7 @@ import type { NoteInfo, MeasureInfo, NavigationMarker, NoteSheetData } from '../
 import { useEditorBackingPlayback } from '../hooks/useEditorBackingPlayback';
 import { GenreSelect, BpmControl, RepeatControl, TransportButtons, MixerButton } from '../components/backing/BackingPlayerBar';
 import { DUR_BEATS, vexToMidi, noteMetricBeats } from '../lib/note/melodyTiming';
-import { bakeExplicitAccidentals } from '../lib/note/resolvePitches';
+import { bakeExplicitAccidentals, bakeForScoreReading } from '../lib/note/resolvePitches';
 import { resolveMeasureAccidental, type RenderAcc } from '../lib/note/measureAccidentals';
 import { drawScoopFall } from '../lib/note/scoopFall';
 import { normalizeChord, formatChordDisplay, splitChordParts } from '../lib/jazz-harmony';
@@ -30,6 +30,10 @@ import { createSolo, updateSolo } from '../api/solos';
 import { ContextMenu } from '../components/common/ContextMenu';
 import { buildUserSoloDraft, invalidateSolosCache, loadAllSolos, pushSoloToCache, updateSoloInCache } from '../data/soloData';
 import { saveUserLick, computeLickFeatures, type LickEntry } from '../data/lickData';
+import {
+  createComping, updateComping,
+  type CompingGenre,
+} from '../data/compingData';
 import { NoteIcon, RestIcon } from '../components/notesheet/NotationIcon';
 
 const SHARP_TO_FLAT: Record<string, string> = { c: 'd', d: 'e', f: 'g', g: 'a', a: 'b' };
@@ -265,7 +269,9 @@ const GRAND_BASS_DY = 100;
 const STAFF_HIT_PAD = 8;
 const GRAND_EXTRA = 115;
 /* MARGIN.top: chord 라벨(28px high) 이 stave 위에 충분한 여유를 두고 들어갈 공간. */
-const MARGIN = { top: 50, left: 10, right: 10, bottom: 10 };
+/* left 여백을 넉넉히 — 양손 중괄호(brace)가 뷰포트 끝에 붙지 않고, 브레이스와
+ * 음자리표 사이에 실제 악보처럼 여유가 생긴다. */
+const MARGIN = { top: 50, left: 30, right: 10, bottom: 10 };
 /* 대체(리하모니제이션) 코드 슬롯 수 — 마디 위 괄호 안에 뜨는 입력 칸 개수. */
 const ALT_SLOTS = 4;
 /** Soft cap on bars per line. The actual line break is driven by each measure's
@@ -585,6 +591,10 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
   const allBassVfNotes: { mi: number; ni: number; vfNote: StaveNote }[] = [];
   let tieCarryAcc: Map<string, RenderAcc> | undefined;
 
+  /* 줄별 마디번호 카운터 — 픽업(anacrusis) 마디는 세지 않는다. 각 줄의 첫
+   * 마디 왼쪽에 현재 번호를 그린다(Solo DB / NoteSheet 와 동일 로직·디자인). */
+  let mNum = 0;
+
   for (let li = 0; li < lines.length; li++) {
     const indices = lines[li];
     const isFirstLine = li === 0;
@@ -636,6 +646,22 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         }
       }
       stave.setContext(ctx).draw();
+
+      // 줄별 마디번호: 픽업이 아니면 카운트 증가, 줄의 첫 마디면 왼쪽에 그린다.
+      const isPickup = !!mData.anacrusis;
+      if (!isPickup) mNum++;
+      if (firstInLine && !isPickup && svgEl) {
+        const num = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        num.setAttribute('x', String(x + 2));
+        num.setAttribute('y', String(y + 30));
+        num.setAttribute('font-family', "'Pretendard', sans-serif");
+        num.setAttribute('font-size', '8');
+        num.setAttribute('font-weight', '200');
+        num.setAttribute('font-style', 'italic');
+        num.setAttribute('fill', '#9aa0a6');
+        num.textContent = String(mNum);
+        svgEl.appendChild(num);
+      }
 
       // Draw volta brackets manually so vertical lines reach the stave
       if (mData.volta && svgEl) {
@@ -710,7 +736,20 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         else bassStave.setEndBarType(BarlineType.SINGLE);
         bassStave.setContext(ctx).draw();
         if (firstInLine) {
+          // 중괄호(brace)는 보표 왼쪽 끝보다 더 왼쪽에 그려진다. MARGIN.left 여백
+          // 안에서 브레이스와 음자리표 사이에 실제 악보 같은 간격이 남도록, draw 로
+          // 새로 추가된 SVG 노드만 살짝 왼쪽으로 옮겨 음자리표에서 떨어뜨린다.
+          const before = svgEl ? svgEl.childNodes.length : 0;
           new StaveConnector(stave, bassStave).setType(StaveConnector.type.BRACE).setContext(ctx).draw();
+          if (svgEl) {
+            for (let k = before; k < svgEl.childNodes.length; k++) {
+              const node = svgEl.childNodes[k];
+              if (node.nodeType !== 1) continue;
+              const eln = node as SVGElement;
+              const prev = eln.getAttribute('transform') ?? '';
+              eln.setAttribute('transform', `translate(-8,0) ${prev}`.trim());
+            }
+          }
           new StaveConnector(stave, bassStave).setType(StaveConnector.type.SINGLE_LEFT).setContext(ctx).draw();
         }
         new StaveConnector(stave, bassStave).setType(StaveConnector.type.SINGLE_RIGHT).setContext(ctx).draw();
@@ -1195,6 +1234,16 @@ const PageBody = styled.div`
   min-width: 0;
 `;
 
+/** GenreSelect 의 자유 장르 문자열 → 컴핑 DB 의 4개 장르 enum 매핑.
+ *  컴핑 저장 시 장르를 이 하나의 드롭다운에서 일임하기 위한 변환. */
+function genreToCompingGenre(g: string): CompingGenre {
+  const s = g.toLowerCase();
+  if (s.includes('blues')) return 'BLUES';
+  if (/(bossa|samba|afro)/.test(s)) return 'BOSSA';
+  if (s.includes('latin') || s.includes('cha-cha')) return 'LATIN';
+  return 'SWING';
+}
+
 const Header = styled.div`
   display: flex;
   align-items: center;
@@ -1213,8 +1262,8 @@ const Title = styled.span`
 
 const MetaInput = styled.input`
   font-family: 'Pretendard', sans-serif;
-  font-size: 0.82rem;
-  padding: 3px 8px;
+  font-size: 0.92rem;
+  padding: 6px 12px;
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 5px;
   background: ${({ theme }) => theme.colors.bgPrimary};
@@ -1396,15 +1445,64 @@ const BarLeft = styled.div`
   align-items: center;
   gap: 6px;
   min-width: 0;
+  max-width: calc(50% - 120px);
 `;
+/* 믹서~재생 묶음을 바의 '정확한 정중앙'에 고정(절대배치). 좌·우 그룹은 각각
+ * 절반 폭을 넘지 못하게 잘라 중앙 묶음 위로 겹치지 않는다(코드차트와 동일 접근). */
 const BarCenter = styled.div`
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  flex: 1 1 auto;
-  min-width: 0;
 `;
+const BarRight = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 0;
+  max-width: calc(50% - 120px);
+  margin-left: auto;
+`;
+
+/* 내 코드 차트(ChordPage)의 ToolBtn 과 동일 — 테두리·배경 없는 38px 아이콘 버튼. */
+const ToolBtn = styled.button<{ $lit?: boolean }>`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: ${({ $lit }) => ($lit ? '#e8a838' : '#5b5b5b')};
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  ${({ $lit }) => $lit && 'filter: drop-shadow(0 0 4px rgba(232, 168, 56, 0.55));'}
+  &:hover:not(:disabled) { background: rgba(0, 0, 0, 0.06); }
+  &:disabled { opacity: 0.4; cursor: default; }
+`;
+
+/* 코드차트와 동일 규격(26px · stroke 2)의 우측 바 아이콘. */
+const GearIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+  </svg>
+);
+/* 🎹 이모지를 대체하는 건반 아이콘(같은 의미). */
+const MidiIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="5" width="18" height="14" rx="1.5" />
+    <path d="M8 5v9" /><path d="M12 5v9" /><path d="M16 5v9" />
+    <path d="M3 14h18" />
+  </svg>
+);
 
 const InfoText = styled.span`
   font-size: 0.82rem;
@@ -1741,6 +1839,54 @@ const ModalTitle = styled.h3`
   color: #333;
 `;
 
+/* 출력 설정 모달의 한 줄 — 설명(좌) + 컨트롤(우). */
+const SettingRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 0;
+`;
+const SettingName = styled.div`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #333;
+`;
+const SettingDesc = styled.div`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #888;
+  margin-top: 3px;
+  max-width: 300px;
+`;
+const ToggleBtn = styled.button<{ $on?: boolean }>`
+  flex-shrink: 0;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 1.5px solid ${({ $on }) => ($on ? '#00897b' : '#ccc')};
+  background: ${({ $on }) => ($on ? 'rgba(0,137,123,0.12)' : '#fff')};
+  color: ${({ $on }) => ($on ? '#00796b' : '#666')};
+  cursor: pointer;
+`;
+const OctBtn = styled.button`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1.5px solid #ccc;
+  background: #fff;
+  color: #444;
+  cursor: pointer;
+  &:hover:not(:disabled) { border-color: #888; }
+  &:disabled { opacity: 0.4; cursor: default; }
+`;
+
 const ModalTextarea = styled.textarea`
   font-family: 'JetBrains Mono', 'Menlo', monospace;
   font-size: 0.75rem;
@@ -1825,16 +1971,16 @@ export default function EditorPage() {
   /* Mode selector — solo vs lick. Lives in URL so the choice is bookmarkable
    * and reflected on refresh. Default = 'solo'. Persisted to localStorage so
    * the toolbar dropdown defaults to whichever mode the user used last. */
-  const initialMode: 'solo' | 'lick' = (() => {
+  const initialMode: 'solo' | 'lick' | 'comping' = (() => {
     const q = searchParams.get('mode');
-    if (q === 'solo' || q === 'lick') return q;
+    if (q === 'solo' || q === 'lick' || q === 'comping') return q;
     if (typeof window !== 'undefined') {
       const stored = window.localStorage.getItem('jazzify.editor.mode');
-      if (stored === 'solo' || stored === 'lick') return stored;
+      if (stored === 'solo' || stored === 'lick' || stored === 'comping') return stored;
     }
     return 'solo';
   })();
-  const [mode, setMode] = useState<'solo' | 'lick'>(initialMode);
+  const [mode, setMode] = useState<'solo' | 'lick' | 'comping'>(initialMode);
   useEffect(() => {
     window.localStorage.setItem('jazzify.editor.mode', mode);
     // Keep URL in sync so back/forward and bookmarks work.
@@ -1848,7 +1994,18 @@ export default function EditorPage() {
   /* When this page is entered via "수정하기" from another admin viewer, the
    * caller passes a NoteSheetData in route state. We pull it once on mount,
    * skip the localStorage draft restore, and pre-populate the editor with it. */
-  const prefillSheet = (location.state as { prefillSheet?: NoteSheetData } | null)?.prefillSheet;
+  const navState = location.state as {
+    prefillSheet?: NoteSheetData;
+    compingId?: string;
+    compingGenre?: CompingGenre;
+  } | null;
+  const prefillSheet = navState?.prefillSheet;
+  /* Comping 수정 저장 타깃 — CompingPage 에서 '에디터로 열기' 시 실려 온다.
+   * (Comping 은 백엔드 없이 localStorage 저장이므로 id 로 로컬 항목을 갱신) */
+  const [editingCompingId] = useState<string | null>(() => navState?.compingId ?? null);
+  /* 컴핑 장르는 더 이상 별도 셀렉트로 고르지 않는다 — 아래 GenreSelect(genre)에서
+   * 파생한다. navState 로 넘어온 값은 초기값(편집 진입)으로만 쓴다. */
+  const [compingGenre, setCompingGenre] = useState<CompingGenre>(() => navState?.compingGenre ?? 'SWING');
 
   /* When entered to edit a Lick (mode=lick), the caller passes the full
    * LickEntry. We populate from that on mount. */
@@ -1903,8 +2060,15 @@ export default function EditorPage() {
 
   const [composer, setComposer] = useState('');
   /* 기본 장르 — 'Unknown'(미정). 사용자가 드롭다운에서 실제 장르를 고를 때까지
-   * 장르를 단정하지 않는다. 반주 느낌은 genreToStyle 기본값(swing)으로 재생된다. */
-  const [genre, setGenre] = useState('Unknown');
+   * 장르를 단정하지 않는다. 반주 느낌은 genreToStyle 기본값(swing)으로 재생된다.
+   * 컴핑 편집으로 진입한 경우(navState.compingGenre)엔 그 장르에 대응하는 라벨로 시작. */
+  const [genre, setGenre] = useState(() => {
+    const cg = navState?.compingGenre;
+    if (cg) return ({ SWING: 'Medium Swing', BLUES: 'Shuffle', BOSSA: 'Bossa Nova', LATIN: 'Latin' } as const)[cg];
+    return 'Unknown';
+  });
+  /* 컴핑 장르(SWING/BLUES/BOSSA/LATIN)는 GenreSelect 값에서 파생 — 별도 셀렉트 없음. */
+  useEffect(() => { setCompingGenre(genreToCompingGenre(genre)); }, [genre]);
   const [sheetTitle, setSheetTitle] = useState('');
   const [sheetKey, setSheetKey] = useState('C');
   /* 조표 무시(explicit 임시표): 켜면 조표를 그리지 않고 마디 안의 ♯/♭만으로
@@ -2802,6 +2966,8 @@ export default function EditorPage() {
    * (handleNotePress)로 태운다 → 길이·임시표·삽입·양손·화음 로직 그대로 재사용.
    * 벨로시티는 오디션 소리 세기에 반영(설정에 따라). 설정 창은 아래 MidiSettingsPanel. */
   const [showMidiPanel, setShowMidiPanel] = useState(false);
+  /* 출력 설정 모달(⚙) — 조표무시 · 옥타브 이동. */
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const midiSettingsRef = useRef<{ auditionOnInput: boolean; velocityToAudition: boolean } | null>(null);
   const handleMidiNoteOn = useCallback((e: MidiNoteEvent) => {
     const pn = midiToPianoNote(e.midi);
@@ -3227,6 +3393,19 @@ export default function EditorPage() {
     return bassAll.some((m) => m.notes.length > 0) ? bassAll : null;
   }, [bassAll]);
 
+  /* 저장/복사에 실을 마디 — '조표 무시'면 기본 해석(score)으로 읽어도 같은 소리가
+   * 나도록 임시표를 구워둔다. 백엔드가 accidentalStyle 을 저장하지 않아(BR-33)
+   * 다시 열면 score 로 읽히는데, 굽지 않으면 조표·마디내 상속이 얹혀 에디터에서
+   * 듣던 것과 다른 음이 나온다(실측: Bolivia 132음). 소리는 불변, 표기만 명시화. */
+  const outMeasures = useMemo<MeasureInfo[]>(
+    () => (explicitAcc ? bakeForScoreReading(allMeasures, sheetKey) : allMeasures),
+    [explicitAcc, allMeasures, sheetKey],
+  );
+  const bassOut = useMemo<MeasureInfo[] | null>(
+    () => (explicitAcc && bassForOut ? bakeForScoreReading(bassForOut, sheetKey) : bassForOut),
+    [explicitAcc, bassForOut, sheetKey],
+  );
+
   /* build JSON — lead sheet format */
   const jsonOutput = useMemo(() => {
     if (allMeasures.length === 0) return '';
@@ -3237,12 +3416,12 @@ export default function EditorPage() {
       key: sheetKey,
       timeSignature: '4/4',
       tempo: bpm,
-      measures: allMeasures,
-      ...(bassForOut ? { bassMeasures: bassForOut } : {}),
+      measures: outMeasures,
+      ...(bassOut ? { bassMeasures: bassOut } : {}),
       ...(explicitAcc ? { accidentalStyle: 'explicit' as const } : {}),
     };
     return JSON.stringify(entry, null, 2);
-  }, [allMeasures, bassForOut, sheetTitle, composer, genre, sheetKey, bpm, explicitAcc]);
+  }, [outMeasures, bassOut, sheetTitle, composer, genre, sheetKey, bpm, explicitAcc]);
 
   /* 재생 — 입력한 멜로디를 풀 백킹 밴드(베이스/드럼/피아노 1·3박 컴핑)와 함께
    * GlobalPlayer(kind:'sheet')로 돌린다. 코드차트와 동일한 backing 엔진. */
@@ -3253,10 +3432,10 @@ export default function EditorPage() {
     timeSignature: '4/4',
     tempo: bpm,
     ...(genre ? { genre } : {}),
-    measures: allMeasures,
-    ...(bassForOut ? { bassMeasures: bassForOut } : {}),
+    measures: outMeasures,
+    ...(bassOut ? { bassMeasures: bassOut } : {}),
     ...(explicitAcc ? { accidentalStyle: 'explicit' as const } : {}),
-  }), [sheetTitle, composer, sheetKey, bpm, genre, allMeasures, bassForOut, mode, explicitAcc]);
+  }), [sheetTitle, composer, sheetKey, bpm, genre, outMeasures, bassOut, mode, explicitAcc]);
 
   /* 양손 재생 — 베이스 파트를 extraParts(멀티파트 병합 타임라인)로 함께 소리낸다. */
   const buildBassParts = useCallback((): NoteSheetData[] => {
@@ -3338,8 +3517,8 @@ export default function EditorPage() {
           key: sheetKey,
           timeSignature: '4/4',
           tempo: bpm,
-          measures: allMeasures,
-          bassMeasures: bassForOut ?? undefined,
+          measures: outMeasures,
+          bassMeasures: bassOut ?? undefined,
           accidentalStyle: explicitAcc ? 'explicit' : undefined,
         });
         const titleLow = (sheetTitle || 'Untitled').toLowerCase();
@@ -3364,6 +3543,32 @@ export default function EditorPage() {
         navigated = true;
         /* 목록이 아니라 방금 저장한 그 악보로 — 수정사항을 바로 확인할 수 있게. */
         navigate(`/solos?solo=${encodeURIComponent(persisted.publicId)}`);
+      } else if (mode === 'comping') {
+        /* Comping — 백엔드 미구현. localStorage(compingData)에만 저장한다.
+         * 장르는 상단바 셀렉트에서 고른 값. 제목/작곡자는 solo 와 동일 규칙. */
+        const sheet: NoteSheetData = {
+          title: sheetTitle || 'Untitled',
+          composer: composer || undefined,
+          key: sheetKey,
+          timeSignature: '4/4',
+          tempo: bpm,
+          measures: outMeasures,
+          ...(bassOut ? { bassMeasures: bassOut } : {}),
+          ...(explicitAcc ? { accidentalStyle: 'explicit' as const } : {}),
+        };
+        const fields = {
+          title: sheetTitle || 'Untitled',
+          genre: compingGenre,
+          composer: composer || undefined,
+          key: sheetKey,
+          tempo: bpm,
+          sheetData: sheet,
+        };
+        const saved = (editingCompingId ? updateComping(editingCompingId, fields) : null)
+          ?? createComping(fields);
+        try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
+        navigated = true;
+        navigate(`/comping?item=${encodeURIComponent(saved.id)}`);
       } else {
         // A solo is NOT a lick. A "lick" is a short phrase (a few bars); a full
         // chorus / solo must never be persisted to the lick store (it would
@@ -3398,8 +3603,8 @@ export default function EditorPage() {
             key: sheetKey,
             timeSignature: '4/4',
             tempo: bpm,
-            measures: allMeasures,
-            ...(bassForOut ? { bassMeasures: bassForOut } : {}),
+            measures: outMeasures,
+            ...(bassOut ? { bassMeasures: bassOut } : {}),
             ...(explicitAcc ? { accidentalStyle: 'explicit' as const } : {}),
           },
           ...computeLickFeatures(allMeasures),
@@ -3423,7 +3628,7 @@ export default function EditorPage() {
       // Leave the overlay up if we're navigating; only restore on failure.
       if (!navigated) setSaving(false);
     }
-  }, [mode, allMeasures, bassForOut, sheetTitle, composer, genre, sheetKey, bpm, saving, editingLickId, navigate]);
+  }, [mode, allMeasures, outMeasures, bassOut, sheetTitle, composer, genre, sheetKey, bpm, saving, editingLickId, navigate, compingGenre, editingCompingId, explicitAcc]);
 
   const handleCopy = useCallback(() => {
     if (!jsonOutput) return;
@@ -3478,13 +3683,16 @@ export default function EditorPage() {
         <MetaLabel>Mode</MetaLabel>
         <KeySelect
           value={mode}
-          onChange={(e) => setMode(e.target.value as 'solo' | 'lick')}
+          onChange={(e) => setMode(e.target.value as 'solo' | 'lick' | 'comping')}
           style={{ minWidth: 80, fontWeight: 700 }}
           disabled={editingLickId !== null /* lick edit forces lick mode */}
         >
           <option value="solo">Solo</option>
           <option value="lick">Lick</option>
+          <option value="comping">Comping</option>
         </KeySelect>
+        {/* 컴핑 장르 셀렉트는 제거 — 장르는 아래 TransportBar 의 GenreSelect 하나로
+            일임하고, 저장 시 그 값을 컴핑 장르(SWING/BLUES/BOSSA/LATIN)로 매핑한다. */}
         <MetaLabel>보표</MetaLabel>
         <KeySelect
           value={staffMode}
@@ -3505,36 +3713,11 @@ export default function EditorPage() {
         {staffModeLocked && <LockedHint title="불러온 악보의 보표 수로 자동 확정">🔒 자동</LockedHint>}
         <Sep />
         <MetaLabel>Title</MetaLabel>
-        <MetaInput value={sheetTitle} onChange={(e) => setSheetTitle(e.target.value)} placeholder={mode === 'solo' ? 'e.g. Autumn Leaves' : 'e.g. ii-V Lick #3'} style={{ width: 160 }} />
+        <MetaInput value={sheetTitle} onChange={(e) => setSheetTitle(e.target.value)} placeholder={mode === 'solo' ? 'e.g. Autumn Leaves' : 'e.g. ii-V Lick #3'} style={{ width: 280 }} />
         <MetaLabel>{mode === 'solo' ? 'Composer' : 'Performer'}</MetaLabel>
-        <MetaInput value={composer} onChange={(e) => setComposer(e.target.value)} placeholder={mode === 'solo' ? 'e.g. Joseph Kosma' : 'e.g. Charlie Parker'} style={{ width: 160 }} />
-        {/* Genre·Key 는 하단 트랜스포트 바로 이동 — 코드차트 상단바와 동일 배치. */}
-        <JsonBtn
-          $bg={explicitAcc ? '#00897b' : '#78909c'}
-          $hover={explicitAcc ? '#00796b' : '#607d8b'}
-          onClick={() => setExplicitAcc((v) => !v)}
-          title="조표 무시: 켜면 조표를 그리지 않고 마디 안의 ♯/♭(마디 내 상속 포함)만으로 판단합니다 — 조표 없이 마디마다 임시표로 해결하는 악보 전용. 끄면 조표에 맞춰 임시표를 생략(기본)."
-        >
-          {explicitAcc ? '조표무시 ON' : '조표무시 OFF'}
-        </JsonBtn>
-        <JsonBtn
-          $bg="#546e7a"
-          $hover="#455a64"
-          onClick={() => handleShiftOctave(-1)}
-          disabled={totalNotes === 0}
-          title="모든 음표 옥타브 -1"
-        >
-          Oct −1
-        </JsonBtn>
-        <JsonBtn
-          $bg="#546e7a"
-          $hover="#455a64"
-          onClick={() => handleShiftOctave(1)}
-          disabled={totalNotes === 0}
-          title="모든 음표 옥타브 +1"
-        >
-          Oct +1
-        </JsonBtn>
+        <MetaInput value={composer} onChange={(e) => setComposer(e.target.value)} placeholder={mode === 'solo' ? 'e.g. Joseph Kosma' : 'e.g. Charlie Parker'} style={{ width: 280 }} />
+        {/* Genre·Key 는 하단 트랜스포트 바로, 조표무시·옥타브 이동은 우측 설정(⚙) 모달로,
+            MIDI 는 우측 MIDI 아이콘 모달로 이동했다(코드차트 상단바와 동일 배치). */}
         <Spacer />
         <JsonBtn
           $bg="#c62828"
@@ -3548,9 +3731,6 @@ export default function EditorPage() {
         <JsonBtn $bg="#26a69a" $hover="#00897b" onClick={handleCopy} disabled={totalNotes === 0}>
           {copied ? '✓ Copied!' : 'Copy JSON'}
         </JsonBtn>
-        <JsonBtn $bg="#00838f" $hover="#006064" onClick={() => { if (!midi.enabled) midi.requestAccess(); setShowMidiPanel(true); }} title="MIDI 외부 기기(피아노 등) 입력 설정">
-          🎹 MIDI{midi.enabled && midi.settings.inputId ? ' ●' : ''}
-        </JsonBtn>
         <JsonBtn $bg="#7b1fa2" $hover="#6a1b9a" onClick={() => { setShowLoadModal(true); setLoadJsonText(''); setLoadJsonError(''); }}>
           Load JSON
         </JsonBtn>
@@ -3561,6 +3741,37 @@ export default function EditorPage() {
       </Header>
 
       <MidiSettingsPanel midi={midi} open={showMidiPanel} onClose={() => setShowMidiPanel(false)} />
+
+      {/* 출력 설정(⚙) — 조표무시 · 옥타브 이동. 코드차트의 톱니 모달과 같은 역할. */}
+      {settingsOpen && (
+        <ModalOverlay onClick={() => setSettingsOpen(false)}>
+          <ModalBox style={{ width: 460 }} onClick={(e) => e.stopPropagation()}>
+            <ModalTitle>출력 설정</ModalTitle>
+            <SettingRow>
+              <div>
+                <SettingName>조표 무시</SettingName>
+                <SettingDesc>
+                  켜면 조표를 그리지 않고 마디 안의 ♯/♭(마디 내 상속 포함)만으로 판단합니다 —
+                  조표 없이 마디마다 임시표로 해결하는 악보 전용. 끄면 조표에 맞춰 임시표를 생략(기본).
+                </SettingDesc>
+              </div>
+              <ToggleBtn $on={explicitAcc} onClick={() => setExplicitAcc((v) => !v)}>
+                {explicitAcc ? 'ON' : 'OFF'}
+              </ToggleBtn>
+            </SettingRow>
+            <SettingRow>
+              <div>
+                <SettingName>옥타브 이동</SettingName>
+                <SettingDesc>악보의 모든 음표를 한 옥타브 위/아래로 옮깁니다.</SettingDesc>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <OctBtn onClick={() => handleShiftOctave(-1)} disabled={totalNotes === 0}>Oct −1</OctBtn>
+                <OctBtn onClick={() => handleShiftOctave(1)} disabled={totalNotes === 0}>Oct +1</OctBtn>
+              </div>
+            </SettingRow>
+          </ModalBox>
+        </ModalOverlay>
+      )}
 
 
       {/* 상단 트랜스포트 바 — 코드차트와 동일한 믹서/재생 컨트롤. 믹서 버튼은
@@ -3587,6 +3798,25 @@ export default function EditorPage() {
             disabled={totalNotes === 0 && !playing}
           />
         </BarCenter>
+        <BarRight>
+          {/* MIDI(왼쪽) → 설정(오른쪽). 코드차트 우측 아이콘과 동일한 ToolBtn 규격. */}
+          <ToolBtn
+            type="button"
+            title="MIDI 외부 기기(피아노 등) 입력 설정"
+            $lit={midi.enabled && !!midi.settings.inputId}
+            onClick={() => { if (!midi.enabled) midi.requestAccess(); setShowMidiPanel(true); }}
+          >
+            <MidiIcon />
+          </ToolBtn>
+          <ToolBtn
+            type="button"
+            title="출력 설정 — 조표무시 · 옥타브 이동"
+            $lit={settingsOpen || explicitAcc}
+            onClick={() => setSettingsOpen(true)}
+          >
+            <GearIcon />
+          </ToolBtn>
+        </BarRight>
       </TransportBar>
 
       <ToolBar>
@@ -3784,7 +4014,7 @@ export default function EditorPage() {
       </UndoClearRow>
 
       <PianoArea>
-        <PianoKeyboard onNotePress={handleNotePress} mute />
+        <PianoKeyboard onNotePress={handleNotePress} mute scale={1.28} />
       </PianoArea>
       <KeyHint>1=whole &middot; 2=half &middot; 4=quarter &middot; 8=8th &middot; 6=16th &middot; 3=32nd &middot; L=tie &middot; T=triplet &middot; Enter=close measure &middot; Backspace/Ctrl+Z=undo</KeyHint>
 
