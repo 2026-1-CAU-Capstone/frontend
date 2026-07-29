@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { Renderer, Stave, StaveNote, Voice, Formatter } from 'vexflow';
 
 const CACHE: Record<string, string> = {};
+/** 온·2분쉼표 사각형의 viewBox 크기 — 기준선을 사각형에 딱 붙이는 데 쓴다. */
+const REST_BOX: Record<string, { w: number; h: number }> = {};
 
 function renderGlyphSvg(durBase: string, isRest: boolean): string {
   const key = (isRest ? 'r:' : 'n:') + durBase;
@@ -51,6 +53,11 @@ function renderGlyphSvg(durBase: string, isRest: boolean): string {
       const cropTop = isShortStem ? bb.height * 0.15 : 0;
       vbY = bb.y + cropTop;
       vbH = bb.height - cropTop + pad;
+    }
+    /* 온·2분쉼표는 글리프 자체가 '사각형' 하나다. 그 크기를 기록해 두면 아래
+     * GlyphSpan 이 기준선을 사각형 모서리에 정확히 붙일 수 있다(눈대중 X). */
+    if (isRest && (durBase === 'w' || durBase === 'h')) {
+      REST_BOX[durBase] = { w: vbW, h: vbH };
     }
     svg.setAttribute('viewBox', `${vbX} ${vbY} ${vbW} ${vbH}`);
     svg.setAttribute('width', '100%');
@@ -150,21 +157,37 @@ function GlyphSpan({
         * 안 된다. 악보 규칙대로 기준선을 덧그린다: 온쉼표는 선에 매달리고(선이
         * 위), 2분쉼표는 선 위에 앉는다(선이 아래).
         * 글리프 SVG 는 건드리지 않고 위에 겹치는 장식이라 음표 렌더에는 영향이 없다. */}
-      {isRest && (type === 'w' || type === 'h') && (
-        <span
-          aria-hidden
-          style={{
-            position: 'absolute',
-            left: '50%',
-            top: '50%',
-            transform: `translate(-50%, ${type === 'w' ? '-9px' : '7px'})`,
-            width: 26,
-            height: 2,
-            background: 'currentColor',
-            pointerEvents: 'none',
-          }}
-        />
-      )}
+      {isRest && (type === 'w' || type === 'h') && (() => {
+        /* 사각형의 '화면상 실제 높이'를 구해 그 모서리에 선을 붙인다.
+         * preserveAspectRatio="xMidYMid meet" 라 축소 배율 k 는 긴 변 기준. */
+        const box = REST_BOX[type];
+        const LINE_H = 2;
+        let half = 4;                       // 측정 전 폴백
+        let lineW = 26;
+        if (box && box.w > 0 && box.h > 0) {
+          const k = Math.min(inner / box.w, inner / box.h);
+          half = (box.h * k) / 2;           // 사각형 위/아래 모서리까지
+          lineW = Math.round(box.w * k * 1.9);  // 사각형보다 살짝 넓게
+        }
+        // 온쉼표: 선 아래에 매달림 → 선이 사각형 위 모서리에 닿는다.
+        // 2분쉼표: 선 위에 앉음 → 선이 사각형 아래 모서리에 닿는다.
+        const y = type === 'w' ? -(half + LINE_H) : half;
+        return (
+          <span
+            aria-hidden
+            style={{
+              position: 'absolute',
+              left: '50%',
+              top: '50%',
+              transform: `translate(-50%, ${y}px)`,
+              width: lineW,
+              height: LINE_H,
+              background: 'currentColor',
+              pointerEvents: 'none',
+            }}
+          />
+        );
+      })()}
     </span>
   );
 }

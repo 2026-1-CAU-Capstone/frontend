@@ -1195,14 +1195,21 @@ const DotGlyph = ({ n = 1 }: { n?: 1 | 2 }) => (
   </svg>
 );
 
-/* 3연음 / 지속연음 — 숫자 아래에 빔(기둥 2개)을 둔 컴팩트 표기. */
+/* 3연음 / 지속연음 — 숫자 아래에 빔으로 묶인 음표 3개(기둥 3개 + 머리). */
 const TupletGlyph = ({ plus }: { plus?: boolean }) => (
-  <svg width="28" height="26" viewBox="0 0 28 26" style={{ display: 'block' }} aria-hidden>
-    <text x="14" y="11" textAnchor="middle" fontSize="12" fontWeight="700" fill="currentColor"
+  <svg width="30" height="28" viewBox="0 0 30 28" style={{ display: 'block' }} aria-hidden>
+    <text x="15" y="9" textAnchor="middle" fontSize="10.5" fontWeight="700" fill="currentColor"
       fontFamily="Georgia, 'Times New Roman', serif" fontStyle="italic">{plus ? '3+' : '3'}</text>
-    <rect x="5" y="15" width="18" height="2.6" fill="currentColor" />
-    <rect x="5" y="15" width="2.2" height="8" fill="currentColor" />
-    <rect x="20.8" y="15" width="2.2" height="8" fill="currentColor" />
+    {/* 빔 */}
+    <rect x="4.4" y="12.2" width="21.2" height="2.4" fill="currentColor" />
+    {/* 기둥 3개 + 각 기둥 끝의 음표 머리 */}
+    {[4.4, 14.0, 23.6].map((x) => (
+      <g key={x}>
+        <rect x={x} y="12.2" width="1.9" height="8.6" fill="currentColor" />
+        <ellipse cx={x - 1.3} cy="21.4" rx="2.9" ry="2.1" fill="currentColor"
+          transform={`rotate(-18 ${x - 1.3} 21.4)`} />
+      </g>
+    ))}
   </svg>
 );
 
