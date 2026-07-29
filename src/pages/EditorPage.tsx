@@ -3548,7 +3548,7 @@ export default function EditorPage() {
          * 장르는 상단바 셀렉트에서 고른 값. 제목/작곡자는 solo 와 동일 규칙. */
         const sheet: NoteSheetData = {
           title: sheetTitle || 'Untitled',
-          composer: composer || undefined,
+          composer: composer || 'Unknown',
           key: sheetKey,
           timeSignature: '4/4',
           tempo: bpm,
