@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { BackButton } from '../components/common/BackButton';
 import { isMinorKey } from '../components/leadsheet/LeadSheet';
-import { transposeNoteSheet, normalizeNoteKeyDisplay } from '../lib/note/transposeNoteSheet';
+import { transposeNoteSheet, respellNoteSheetKey, normalizeNoteKeyDisplay } from '../lib/note/transposeNoteSheet';
 import { ghostHead } from '../lib/note/ghostNote';
 import { isComposingEvent } from '../lib/ime';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
@@ -2749,13 +2749,28 @@ export default function EditorPage() {
   }, [sheetKey, sheetTitle, composer, measures, curNotes, bassMeasures, pushEditUndo]);
 
   /* '키만 변경' — 음표는 그대로 두고 조성 표기(조표)만 교체한다. (SolosPage 와 동일 개념) */
+  /* 키만 변경 — 조표 표기만 바꾸고 **소리는 그대로 둔다**.
+   * setSheetKey 만 하면 임시표 없는 음표가 새 조표를 따라가 음높이가 바뀐다
+   * (C장조의 B → E♭장조에선 B♭). respellNoteSheetKey 가 원래 피치를 확정한 뒤
+   * 새 조표에서 그 피치를 유지할 임시표(♮ 등)를 다시 붙인다. */
   const applyKeyOnly = useCallback((targetKey: string) => {
     const target = normalizeNoteKeyDisplay(targetKey);
     if (!target || target === sheetKey) { setTransposeOpen(false); return; }
     pushEditUndo();
-    setSheetKey(target);
+    const packed: NoteSheetData = {
+      title: sheetTitle, composer, key: sheetKey, timeSignature: '4/4',
+      measures: [...measures, { notes: curNotes }],
+      ...(bassMeasures.length ? { bassMeasures } : {}),
+    };
+    const out = respellNoteSheetKey(packed, target);
+    const outMeasures = out.measures ?? [];
+    const tail = outMeasures[outMeasures.length - 1];
+    setMeasures(outMeasures.slice(0, -1));
+    setCurNotes(tail?.notes ?? []);
+    if (out.bassMeasures) setBassMeasures(out.bassMeasures);
+    setSheetKey(out.key || target);
     setTransposeOpen(false);
-  }, [sheetKey, pushEditUndo]);
+  }, [sheetKey, sheetTitle, composer, measures, curNotes, bassMeasures, pushEditUndo]);
 
   const curChord1Ref = useRef(curChord1);
   curChord1Ref.current = curChord1;

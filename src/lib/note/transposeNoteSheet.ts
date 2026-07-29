@@ -165,6 +165,13 @@ export function respellNoteSheetKey(data: NoteSheetData, targetKeyRaw: string): 
   const targetKey = normalizeNoteKeyDisplay(targetKeyRaw);
   if (!targetKey || targetKey === originalKey) return data;
 
+  /* accidentalStyle='explicit' 악보는 조표를 아예 읽지 않는다(임시표 필드가 곧
+   * 소리). 조표를 바꿔도 소리가 변하지 않으므로 표기만 교체하면 된다. 오히려
+   * 여기서 score 규칙으로 임시표를 재방출하면 "조표와 같으니 생략" 처리가 일어나
+   * explicit 독자에겐 내추럴로 읽혀 소리가 깨진다(예: E♭조 B♭ → A♭조로 바꾸면
+   * ♭ 글리프가 생략돼 B 내추럴이 된다). 그래서 이 경우는 조기 반환. */
+  if (data.accidentalStyle === 'explicit') return { ...data, key: targetKey };
+
   /* 1) 원 조표 의미론으로 소리 피치 확정 (이동 없음 — vexKey/acc 그대로 보존). */
   let srcKeySig = keySigLetterMap(originalKey);
   type Sounding = { vexKey: string; acc: AccGlyph | undefined };
