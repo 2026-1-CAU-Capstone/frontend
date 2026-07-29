@@ -2,6 +2,8 @@ import { useState, lazy, Suspense } from 'react';
 import { HashRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { AppPreviewProvider } from './contexts/AppPreviewContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { UploadQueueProvider } from './contexts/UploadQueueContext';
+import { UploadQueueDock } from './components/common/UploadQueueDock';
 import { GlobalPlayerProvider } from './lib/player';
 import { NativeBottomBar } from './components/native/NativeBottomBar';
 import { AiChatSheet } from './components/native/AiChatSheet';
@@ -98,8 +100,12 @@ export default function App() {
         <NotificationProvider>
         <AppPreviewProvider>
         <GlobalPlayerProvider>
+        {/* 업로드(자동 인식) 큐 — 라우트보다 위에 두어야 페이지를 옮겨도
+            백그라운드 분석이 계속된다. 진행 상황은 우측 상단 독에 뜬다. */}
+        <UploadQueueProvider>
         <AudioLifecycleGuard />
         <AudioErrorBoundary>
+        <UploadQueueDock />
         <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/" element={<HomePage />} />
@@ -165,6 +171,7 @@ export default function App() {
         <AudioErrorBoundary>
           <AiChatSheet />
         </AudioErrorBoundary>
+        </UploadQueueProvider>
         </GlobalPlayerProvider>
         </AppPreviewProvider>
         </NotificationProvider>

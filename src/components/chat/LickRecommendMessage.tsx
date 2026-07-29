@@ -24,6 +24,7 @@ import { normalizeChordTypeset as normalizeChordLabel } from '../../lib/jazz-har
 import { YoutubeEmbed } from '../common/YoutubeEmbed';
 import { getLickVideo } from '../../data/lickVideos';
 import { computeBeamBreaks } from '../../lib/note/beamPolicy';
+import { chordBaselineY } from '../../lib/note/chordClearance';
 
 /* ── AI 생성 릭: glick JSON → LickEntry 변환 ────────────────────────────── */
 
@@ -395,7 +396,11 @@ function renderScore(
         } catch {
           chordX = m === 0 ? x + DECOR + 2 : x + 2;
         }
-        const chordY = MARGIN.top - 6; // 오선 위
+        // 덧줄 고음이 코드 글자를 뚫지 않도록 baseline 을 위로 밀어 올린다.
+        const chordY = chordBaselineY(
+          measure.notes, (line) => stave.getYForLine(line), MARGIN.top - 6,
+          { gap: 4, minY: 12 },
+        );
         addChordLabel(svg, chordX, chordY, measure.chord);
       }
     }

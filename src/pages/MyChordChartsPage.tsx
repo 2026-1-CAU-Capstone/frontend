@@ -524,47 +524,39 @@ export default function MyChordChartsPage() {
   const confirmedFormRef = useRef<{ title: string; key: string }>({ title: '', key: 'C_MAJOR' });
   const uploadedFileRef = useRef<File | null>(null);
 
-  const preprocessing = useProjectPreprocess({
-    onConfirmed: (created) => {
-      /* 업로드한 원본 악보 이미지를 publicId 로 로컬(IndexedDB) 보관한다.
-       * 카드의 "원본" 토글 UI는 후순위로 빠졌지만 데이터는 계속 쌓아 둔다 —
-       * best-effort 라 실패해도 흐름을 막지 않는다. */
-      const src = uploadedFileRef.current;
-      if (src) void saveOmrSourceImage(created.projectPublicId, src);
-      uploadedFileRef.current = null;
+  /* 업로드는 전역 큐(UploadQueueProvider)가 백그라운드로 처리한다 — 이 페이지를
+   * 떠나도 분석이 계속되고, 진행 상황은 우측 상단 독에 뜬다. 이 페이지는 "확정되면
+   * 카드를 넣는" 구독자 역할만 한다. */
+  const uploadQueue = useUploadQueue();
+  useEffect(() => uploadQueue.onProjectCreated(({ created, form }) => {
+    /* 유형에 따라 만들어지는 프로젝트가 다르다. 코드 차트면 이 페이지에 카드로
+     * 넣고, 악보면 이 페이지에 속하지 않으므로 내 악보 차트로 보낸다. */
+    if (created.projectType === 'sheet_project') {
+      navigate(`/my-sheets?project=${encodeURIComponent(created.projectPublicId)}`);
+      return;
+    }
+    /* PENDING 카드를 즉시 노출한다 — 폴링(OMR_POLL_INTERVAL_MS)이 이 카드를
+     * 집어 상태를 갱신하므로 여기서 별도 폴링을 돌리지 않는다. 정확한 필드는
+     * 다음 목록 새로고침 때 서버 값으로 덮인다. */
+    const nowIso = new Date().toISOString();
+    setProjects((prev) => [
+      {
+        publicId: created.projectPublicId,
+        title: form.title || '제목 없음',
+        keySignature: form.key,
+        timeSignature: '4/4',
+        omrStatus: created.omrStatus,
+        omrProgress: created.omrProgress,
+        omrFailureReason: null,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      },
+      ...prev.filter((p) => p.publicId !== created.projectPublicId),
+    ]);
+  }), [uploadQueue, navigate]);
 
-      /* 유형에 따라 만들어지는 프로젝트가 다르다. 코드 차트면 이 페이지에 카드로
-       * 넣고, 악보면 이 페이지에 속하지 않으므로 내 악보 차트로 보낸다. */
-      if (created.projectType === 'sheet_project') {
-        navigate(`/my-sheets?project=${encodeURIComponent(created.projectPublicId)}`);
-        return;
-      }
-      /* PENDING 카드를 즉시 노출한다 — 폴링(OMR_POLL_INTERVAL_MS)이 이 카드를
-       * 집어 상태를 갱신하므로 여기서 별도 폴링을 돌리지 않는다. 정확한 필드는
-       * 다음 목록 새로고침 때 서버 값으로 덮인다. */
-      const nowIso = new Date().toISOString();
-      const { title, key } = confirmedFormRef.current;
-      setProjects((prev) => [
-        {
-          publicId: created.projectPublicId,
-          title: title || '제목 없음',
-          keySignature: key,
-          timeSignature: '4/4',
-          omrStatus: created.omrStatus,
-          omrProgress: created.omrProgress,
-          omrFailureReason: null,
-          createdAt: nowIso,
-          updatedAt: nowIso,
-        },
-        ...prev.filter((p) => p.publicId !== created.projectPublicId),
-      ]);
-    },
-  });
-  // 훅보다 위에서 정의된 파일 선택 핸들러가 쓸 수 있도록 연결한다.
-  startPreprocessRef.current = (file: File) => {
-    uploadedFileRef.current = file;
-    void preprocessing.start(file);
-  };
+  // 파일 선택/드롭 → 전역 큐에 넣기만 한다(화면을 막지 않는다).
+  startPreprocessRef.current = (file: File) => uploadQueue.enqueue(file);
 
   /* ── Page-level drag-drop: dropping a file anywhere opens the onboarding
    *  modal with the file pre-loaded (per spec — not an immediate upload). ── */
@@ -1404,34 +1396,8 @@ export default function MyChordChartsPage() {
           </ModalBackdrop>
         )}
 
-        {/* 자동 인식(전처리) 진행 — MusicVision 동기 호출 2개라 수십 초 걸릴 수
-            있다. 취소하면 진행 중 요청을 끊는다(문서 §3). */}
-        {preprocessing.phase === 'uploading' && (
-          <ModalBackdrop>
-            <ModalCard onClick={(e) => e.stopPropagation()}>
-              <ModalTitle>악보를 분석하고 있어요</ModalTitle>
-              <ModalHint>
-                문서 유형과 제목·작곡가를 자동으로 읽는 중입니다. 최대 1분 정도 걸릴 수 있어요.
-              </ModalHint>
-              <ModalActions>
-                <ModalBtn $variant="ghost" type="button" onClick={preprocessing.cancelUpload}>취소</ModalBtn>
-              </ModalActions>
-            </ModalCard>
-          </ModalBackdrop>
-        )}
-
-        {/* 자동 인식 결과 확인 폼 — 확정해야 실제 프로젝트가 생성된다. */}
-        <PreprocessReviewModal
-          open={preprocessing.phase === 'review' || preprocessing.phase === 'confirming'}
-          preprocess={preprocessing.preprocess}
-          confirming={preprocessing.phase === 'confirming'}
-          error={preprocessing.error}
-          onCancel={preprocessing.cancel}
-          onConfirm={(body) => {
-            confirmedFormRef.current = { title: body.title, key: body.key || 'C_MAJOR' };
-            void preprocessing.confirm(body);
-          }}
-        />
+        {/* 자동 인식 진행/확인 UI 는 전역 업로드 큐 독(UploadQueueDock)이 담당한다 —
+            화면을 막지 않고, 다른 메뉴로 이동해도 작업이 계속된다. */}
 
         {renameTarget && (
           <ModalBackdrop onClick={() => setRenameTarget(null)}>

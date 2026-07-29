@@ -15,6 +15,7 @@ import { prepareLickIntro } from '../lib/note/anacrusis';
 import { useCountInIntro } from '../hooks/useCountInIntro';
 import { resolveMeasureAccidental, type RenderAcc } from '../lib/note/measureAccidentals';
 import { computeBeamBreaks } from '../lib/note/beamPolicy';
+import { chordBaselineY } from '../lib/note/chordClearance';
 import type { NoteInfo, MeasureInfo, NoteSheetData } from '../data/sampleMelody';
 import { loadUserLicks, type LickEntry } from '../data/lickData';
 import { getLickVideo, type LickVideo } from '../data/lickVideos';
@@ -468,7 +469,11 @@ function renderMeasures(el: HTMLDivElement, measures: MeasureInfo[], minWidth: n
     if (measure.chord) {
       const barContentX = firstInLine ? x + decorW + 4 : x + 4;
       const barContentW = firstInLine ? barW : barW - 4;
-      const chordY = y + 12;
+      // 고음(덧줄)이 코드 글자와 겹치지 않도록 baseline 을 밀어 올린다.
+      const chordY = chordBaselineY(
+        measure.notes, (line) => stave.getYForLine(line), y + 12,
+        { gap: 4, minY: 12 },
+      );
       const svgEl = el.querySelector('svg');
       if (svgEl) {
         const chords = measure.chord.split(/\s{2,}/);

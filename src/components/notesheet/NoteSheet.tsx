@@ -138,6 +138,7 @@ import { formatChordDisplay, chordBaseSegments, chordExtStyle, splitChordParts }
 import { resolveMeasureAccidental } from '../../lib/note/measureAccidentals';
 import { drawScoopFall } from '../../lib/note/scoopFall';
 import { computeBeamBreaks } from '../../lib/note/beamPolicy';
+import { chordBaselineY } from '../../lib/note/chordClearance';
 
 /* ─── constants ─────────────────────────────────────────────────────────── */
 
@@ -2030,7 +2031,13 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
         if (measure.chord) {
           const barContentX = firstInLine ? x + decorW + 4 : x + 4;
           const barContentW = w - (firstInLine ? decorW : 0) - 8;
-          const chordY = y + 12;
+          // 덧줄을 타고 올라간 고음이 코드 글자를 뚫지 않도록 baseline 을 위로
+          // 밀어 올린다(음높이 기반 — 코드는 voice.draw 보다 먼저 그려서 bbox 를
+          // 쓸 수 없다). 보표 안에 머무는 음은 기본 위치 그대로.
+          const chordY = chordBaselineY(
+            measure.notes, (line) => stave.getYForLine(line), y + 12,
+            { gap: 4, minY: 12 },
+          );
           const svgEl = el.querySelector('svg');
           if (svgEl) {
             const chords = measure.chord.split(/\s{2,}/);

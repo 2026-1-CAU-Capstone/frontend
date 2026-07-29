@@ -7,6 +7,7 @@
  * Works on any chord progression — no hardcoded data.
  */
 import type { LeadSheetData, LeadSheetChord, LeadSheetChordAnalysis } from '../data/leadSheetTypes';
+import { normalizeQuality } from '../components/leadsheet/leadSheetQuality';
 
 /* ── pitch / scale constants ──────────────────────────────────────────── */
 
@@ -21,10 +22,22 @@ const MELODIC_MINOR_SCALE = [0, 2, 3, 5, 7, 9, 11];
 
 /* ── quality normalization ────────────────────────────────────────────── */
 
+/* 대시(-) 계열 표기만 다룬다. `m7`·`maj7`·`dim7` 같은 표기는 아래
+ * `normalizeQualityForAnalysis` 가 먼저 `normalizeQuality`(표시용 정규화)로
+ * 대시 표기(`-7`·`△7`·`°7`·`ø7`)로 바꿔 넘기므로 여기서 다시 나열하지 않는다.
+ *
+ * 예전엔 이 표만 보고 판정해서 `m7`·`maj7`·`m7b5`·`dim7` 이 전부 어느 패턴에도
+ * 안 걸려 기본값 `'maj'` 로 떨어졌다 — OMR/사용자 입력이 m 표기인 곡은 코드가
+ * 통째로 메이저로 오분석됐다(실측: Tea For Two 의 Bbm7 이 Bb장조 으뜸화음으로
+ * 인정돼 조성 추천이 정답 Ab 대신 Bb 를 1위로 올림). */
 const QUALITY_MAP: [RegExp, string][] = [
   [/^\^7/, 'maj7'], [/^7/, 'dom7'], [/^-7b5/, 'min7b5'], [/^h7?/, 'min7b5'],
-  [/^-7/, 'min7'], [/^o7/, 'dim7'], [/^o/, 'dim'], [/^7sus/, 'dom7sus4'],
+  [/^ø7?/, 'min7b5'],
+  [/^-(?:△|Δ|\^|[Mm]aj)7/, 'minMaj7'],   // -△7 (마이너 메이저7) — min7 보다 먼저
+  [/^-7/, 'min7'], [/^°7/, 'dim7'], [/^°/, 'dim'], [/^o7/, 'dim7'], [/^o/, 'dim'],
+  [/^7sus/, 'dom7sus4'],
   [/^\+7/, 'aug7'], [/^\+/, 'aug'], [/^-6/, 'min6'], [/^6/, 'maj6'],
+  [/^(?:△|Δ)7/, 'maj7'], [/^(?:△|Δ)/, 'maj'],
   [/^\^/, 'maj'], [/^-/, 'min'], [/^sus/, 'sus4'],
 ];
 
@@ -37,7 +50,11 @@ const QUALITY_INTERVALS: Record<string, number[]> = {
 
 function normalizeQualityForAnalysis(raw: string): string {
   if (!raw) return 'maj';
-  for (const [re, norm] of QUALITY_MAP) { if (re.test(raw)) return norm; }
+  /* 표시용 정규화를 먼저 태워 표기 흔들림(`m7`/`min7`/`-7`, `maj7`/`M7`/`Δ7`,
+   * `dim7`/`o7`, `m7b5`/`h7`)을 한 가지 형태로 모은다. 그래야 아래 표가
+   * 대시 표기 하나만 알면 된다. */
+  const canonical = normalizeQuality(raw.trim());
+  for (const [re, norm] of QUALITY_MAP) { if (re.test(canonical)) return norm; }
   return 'maj';
 }
 
