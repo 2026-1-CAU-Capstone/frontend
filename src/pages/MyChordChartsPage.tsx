@@ -536,7 +536,7 @@ export default function MyChordChartsPage() {
       /* 유형에 따라 만들어지는 프로젝트가 다르다. 코드 차트면 이 페이지에 카드로
        * 넣고, 악보면 이 페이지에 속하지 않으므로 내 악보 차트로 보낸다. */
       if (created.projectType === 'sheet_project') {
-        navigate(`/mysheets?project=${encodeURIComponent(created.projectPublicId)}`);
+        navigate(`/my-sheets?project=${encodeURIComponent(created.projectPublicId)}`);
         return;
       }
       /* PENDING 카드를 즉시 노출한다 — 폴링(OMR_POLL_INTERVAL_MS)이 이 카드를

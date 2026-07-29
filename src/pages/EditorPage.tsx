@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { BackButton } from '../components/common/BackButton';
-import { KeyControl, isMinorKey } from '../components/leadsheet/LeadSheet';
+import { isMinorKey } from '../components/leadsheet/LeadSheet';
+import { transposeNoteSheet, normalizeNoteKeyDisplay } from '../lib/note/transposeNoteSheet';
 import { ghostHead } from '../lib/note/ghostNote';
 import { isComposingEvent } from '../lib/ime';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
@@ -531,7 +532,7 @@ function drawTupletBrackets(msNotes: NoteInfo[], vfNotes: StaveNote[], ctx: Retu
   }
 }
 
-function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number, currentIdx: number, positions: MeasurePos[], sheetKey?: string, notePositions?: NotePos[], selectedNotes?: NoteSel[] | null, noteElMap?: Map<string, SVGElement>, bassMeasures?: MeasureInfo[] | null, explicitAcc?: boolean) {
+function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number, currentIdx: number, activeIdx: number, positions: MeasurePos[], sheetKey?: string, notePositions?: NotePos[], selectedNotes?: NoteSel[] | null, noteElMap?: Map<string, SVGElement>, bassMeasures?: MeasureInfo[] | null, explicitAcc?: boolean) {
   positions.length = 0;
   if (notePositions) notePositions.length = 0;
   if (noteElMap) noteElMap.clear();
@@ -704,15 +705,23 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         staveTop: stave.getYForLine(0), staveBot: stave.getYForLine(4),
       });
 
-      if (m === currentIdx) {
+      if (m === activeIdx) {
         const svgEl = el.querySelector('svg');
         if (svgEl) {
+          /* 편집 중 마디 하이라이트 — 위로는 코드 입력 행(chordTop = y-20,
+           * 대체코드 행은 그보다 17 위)까지 덮고, 아래로는 음표가 실제로
+           * 놓이는 범위까지만. 예전엔 y+14 에서 시작해 LINE_HEIGHT-28(=142)
+           * 만큼 내려가 보표보다 한참 아래 빈 공간을 칠했다. */
+          const HL_TOP = y - 40;                       // 대체코드 행까지 여유
+          const HL_BOT = grand
+            ? y + GRAND_BASS_DY + 58                   // 양손: 아래 베이스 보표 끝까지
+            : y + 62;                                  // 한손: 보표(40) + 아래 확장분
           const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
           rect.setAttribute('x', String(x));
-          rect.setAttribute('y', String(y + 14));
+          rect.setAttribute('y', String(HL_TOP));
           rect.setAttribute('width', String(w));
-          rect.setAttribute('height', String(LINE_HEIGHT - 28));
-          rect.setAttribute('fill', 'rgba(184, 150, 10, 0.06)');
+          rect.setAttribute('height', String(HL_BOT - HL_TOP));
+          rect.setAttribute('fill', 'rgba(184, 150, 10, 0.13)');
           rect.setAttribute('rx', '4');
           svgEl.insertBefore(rect, svgEl.firstChild);
         }
@@ -1172,7 +1181,8 @@ const MeasureSelOutline = styled.div`
   position: absolute;
   border: 2px dashed #b8860b;
   border-radius: 6px;
-  background: rgba(184, 134, 11, 0.05);
+  /* 채움은 스테이브 하이라이트 rect(activeIdx)가 담당 — 여기선 점선 테두리만. */
+  background: transparent;
   pointer-events: none;
   z-index: 3;
 `;
@@ -1255,15 +1265,15 @@ const Header = styled.div`
 
 /* 이전 페이지로 돌아가는 정사각형 버튼 — 홈이 아니라 히스토리 뒤로(-1). */
 const Title = styled.span`
-  font-size: 1rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 const MetaInput = styled.input`
   font-family: 'Pretendard', sans-serif;
-  font-size: 0.92rem;
-  padding: 6px 12px;
+  font-size: 1rem;
+  padding: 7px 12px;
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 5px;
   background: ${({ theme }) => theme.colors.bgPrimary};
@@ -1288,8 +1298,10 @@ const KeySelect = styled.select`
 `;
 
 const MetaLabel = styled.span`
-  font-size: 0.7rem;
+  font-size: 0.88rem;
+  font-weight: 600;
   color: ${({ theme }) => theme.colors.textSecondary};
+  white-space: nowrap;
 `;
 
 /** 보표가 불러온 악보 데이터로 확정돼 수동 변경이 잠긴 상태 표시. */
@@ -1488,6 +1500,303 @@ const ToolBtn = styled.button<{ $lit?: boolean }>`
   &:disabled { opacity: 0.4; cursor: default; }
 `;
 
+/* ── 조성 표시 + Transpose ────────────────────────────────────────────
+ * 에디터의 조성 변경은 영구 이조라 드롭다운(훑어보기)이 아니라 명시적
+ * 버튼 → 팝오버로 확정한다. 표시는 GenreSelect 와 같은 높이·폰트. */
+
+/* 내 코드 차트(ChordPage)의 KeyControl(KeyButton)과 동일 규격 — 단, 에디터는
+ * 표시 전용(변경은 옆 Transpose 버튼)이라 드롭다운 화살표(::after '▾')는 뺀다. */
+const KEY_FONT = "'MuseJazz Text', 'Oswald', 'Pretendard', sans-serif";
+const KeyDisplay = styled.span`
+  height: 32px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+  background: #fff;
+  border: 1.5px solid #ccc;
+  border-radius: 6px;
+  padding: 0 10px;
+  font-family: ${KEY_FONT};
+  font-size: 1.12rem;
+  font-weight: 600;
+  line-height: 1;
+  color: #222;
+  cursor: default;
+`;
+
+/* "장조/단조" — 루트보다 작게(KeyControl 의 KeyQual 과 동일). */
+const KeyQualEP = styled.span`
+  font-size: 0.6em;
+  margin-left: 1px;
+`;
+
+const KeyAnchor = styled.div`
+  position: relative;
+  display: inline-flex;
+`;
+
+/* SolosPage 의 Transpose 아이콘과 동일 규격(26px · stroke 2). */
+const IcoTranspose = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="17 3 21 7 17 11" /><path d="M21 7H8a4 4 0 0 0-4 4" />
+    <polyline points="7 21 3 17 7 13" /><path d="M3 17h13a4 4 0 0 0 4-4" />
+  </svg>
+);
+
+/* ── Transpose 팝오버 — SolosPage(솔로 DB)의 KeyChangePopover 와 동일 로직·디자인 ──
+ * '음표 함께 이동'(실제 이조) / '키만 변경'(표기만 교체) 모드 + 이조악기 프리셋. */
+const HEADER_PHONE_POPOVER = '@media (max-width: 820px)';
+
+const KeyPanelBar = styled.div`
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  min-width: 360px;
+  max-width: calc(100vw - 32px);
+  font-family: 'Pretendard', sans-serif;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.06);
+  padding: 18px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  ${HEADER_PHONE_POPOVER} {
+    position: fixed;
+    left: 50%;
+    right: auto;
+    top: auto;
+    bottom: 16px;
+    transform: translateX(-50%);
+    width: calc(100vw - 24px);
+    min-width: 0;
+    max-width: 420px;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+`;
+
+const KeyPanelTitle = styled.div`
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: ${({ theme }) => theme.colors.textPrimary};
+`;
+
+const ModeSwitch = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 9px;
+  background: ${({ theme }) => theme.colors.bgSecondary};
+`;
+
+const ModeTab = styled.button<{ $on?: boolean }>`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 8px 6px;
+  border: 1.5px solid ${({ $on }) => ($on ? '#1f9a52' : 'transparent')};
+  border-radius: 7px;
+  background: ${({ $on, theme }) => ($on ? theme.colors.bgPrimary : 'transparent')};
+  color: ${({ $on, theme }) => ($on ? '#17773e' : theme.colors.textSecondary)};
+  cursor: pointer;
+`;
+
+const ModeHint = styled.div`
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: ${({ theme }) => theme.colors.textSecondary};
+`;
+
+const KeyPanelRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+`;
+
+const KeyFromChip = styled.span`
+  font-size: 0.92rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  color: ${({ theme }) => theme.colors.textPrimary};
+`;
+
+const KeyInput = styled.input`
+  flex: 1;
+  min-width: 100px;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.92rem;
+  font-weight: 600;
+  padding: 7px 11px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 6px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  color: ${({ theme }) => theme.colors.textPrimary};
+  outline: none;
+  &:focus { border-color: ${({ theme }) => theme.colors.gold}; }
+`;
+
+const KeyApplyBtn = styled.button`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 8px 15px;
+  border-radius: 6px;
+  border: none;
+  background: #1f9a52;
+  color: #fff;
+  cursor: pointer;
+  &:hover:not(:disabled) { background: #18803f; }
+  &:disabled { opacity: 0.45; cursor: not-allowed; }
+`;
+
+const KeyPresetBtn = styled.button`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-align: left;
+  padding: 9px 14px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 8px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  color: ${({ theme }) => theme.colors.textPrimary};
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+  small { color: ${({ theme }) => theme.colors.textSecondary}; font-weight: 500; margin-left: 4px; }
+  &:hover:not(:disabled) { border-color: ${({ theme }) => theme.colors.gold}; background: ${({ theme }) => theme.colors.bgSecondary}; }
+  &:disabled { opacity: 0.5; cursor: default; }
+`;
+
+/* 현재 조성을 반음(semitone) 단위로 이동한 표시 조성(예: 'C' +3 → 'Eb'). */
+const PC_BY_LETTER: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+const PC_NAMES_FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+function shiftDisplayKeyBySemitones(dispKey: string, semitones: number): string | null {
+  const m = /^([A-G])([#b]?)(m?)$/i.exec(dispKey.trim());
+  if (!m) return null;
+  const base = PC_BY_LETTER[m[1].toUpperCase()];
+  if (base == null) return null;
+  const pc = (base + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0) + 12) % 12;
+  const next = (((pc + semitones) % 12) + 12) % 12;
+  return PC_NAMES_FLAT[next] + (m[3] ? 'm' : '');
+}
+
+/* SolosPage 의 조성 변경 팝오버와 동일 — '음표 함께 이동'(실제 이조) / '키만 변경'(표기만). */
+function KeyChangePopover({
+  currentKey, value, onChange, onApplyTranspose, onApplyKeyOnly, onPreset, onClose, busy,
+}: {
+  currentKey: string;
+  value: string;
+  onChange: (v: string) => void;
+  onApplyTranspose: () => void;
+  onApplyKeyOnly: () => void;
+  onPreset: (semitones: number) => void;
+  onClose: () => void;
+  busy: boolean;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [mode, setMode] = useState<'notes' | 'keyOnly'>('notes');
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      // 버튼 자체 클릭은 토글이 처리 — 팝오버(+앵커) 밖이면 닫는다.
+      if (ref.current && !ref.current.parentElement?.contains(e.target as Node)) onClose();
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [onClose]);
+
+  const apply = () => { if (mode === 'notes') onApplyTranspose(); else onApplyKeyOnly(); };
+
+  return (
+    <KeyPanelBar ref={ref} role="dialog">
+      <KeyPanelTitle>Transpose</KeyPanelTitle>
+      <ModeSwitch role="tablist">
+        <ModeTab type="button" $on={mode === 'notes'} onClick={() => setMode('notes')}>
+          음표 함께 이동
+        </ModeTab>
+        <ModeTab type="button" $on={mode === 'keyOnly'} onClick={() => setMode('keyOnly')}>
+          키만 변경
+        </ModeTab>
+      </ModeSwitch>
+      <ModeHint>
+        {mode === 'notes'
+          ? '조표와 음표를 함께 옮긴다 — 실제 이조. (Undo 가능)'
+          : '음표는 그대로 두고 조성 표기만 교체한다 (파싱 교정용).'}
+      </ModeHint>
+      <KeyPanelRow>
+        <KeyFromChip>{currentKey}</KeyFromChip>
+        <span aria-hidden>→</span>
+        <KeyInput
+          autoFocus
+          placeholder="예: Bb, F#m"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && value.trim()) apply(); }}
+        />
+        <KeyApplyBtn type="button" disabled={!value.trim() || busy} onClick={apply}>적용</KeyApplyBtn>
+      </KeyPanelRow>
+      <KeyPresetBtn type="button" disabled={busy || mode !== 'notes'} onClick={() => onPreset(3)}>
+        E♭ → C 로 이조하기 <small>(알토 색소폰 · +3)</small>
+      </KeyPresetBtn>
+      <KeyPresetBtn type="button" disabled={busy || mode !== 'notes'} onClick={() => onPreset(-2)}>
+        B♭ → C 로 이조하기 <small>(테너 색소폰 · 트럼펫 · −2)</small>
+      </KeyPresetBtn>
+    </KeyPanelBar>
+  );
+}
+
+/* ── 악보 상태 칩 ─────────────────────────────────────────────────────
+ * Bar / beats / notes / bars 를 한 덩어리로 묶은 둥근 사각형. 옆의
+ * GenreSelect·KeyDisplay 와 같은 높이·폰트로 맞춰 한 줄로 읽힌다. */
+const StatusChip = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px;
+  margin-left: 6px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 10px;
+  background: ${({ theme }) => theme.colors.bgSecondary};
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.78rem;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  white-space: nowrap;
+`;
+
+const StatusItem = styled.span<{ $warn?: boolean }>`
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  color: ${({ $warn }) => ($warn ? '#c62828' : 'inherit')};
+  b {
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: ${({ $warn, theme }) => ($warn ? '#c62828' : theme.colors.textPrimary)};
+  }
+`;
+
+const StatusDot = styled.span`
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: ${({ theme }) => theme.colors.border};
+  flex-shrink: 0;
+`;
+
 /* 코드차트와 동일 규격(26px · stroke 2)의 우측 바 아이콘. */
 const GearIcon = () => (
   <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1504,33 +1813,59 @@ const MidiIcon = () => (
   </svg>
 );
 
-const InfoText = styled.span`
-  font-size: 0.82rem;
-  color: ${({ theme }) => theme.colors.textSecondary};
-`;
 
 const UndoClearRow = styled.div`
   display: flex;
   justify-content: center;
-  gap: 8px;
+  gap: 18px;
   padding: 4px 0;
 `;
 
-const MeasureIndicator = styled.span`
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: #8B6914;
-  background: #fff8e1;
-  padding: 3px 10px;
-  border-radius: 5px;
-  border: 1px solid #e8d88c;
+/* 배경색·테두리 없는 아이콘 버튼. hover 시 아래에 라벨(undo/redo) 표시. */
+const IconBtn = styled.button`
+  background: none;
+  border: none;
+  margin: 0;
+  padding: 2px;
+  cursor: pointer;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  &:hover img { opacity: 0.6; }
+  &:active { transform: translateY(1px); }
+  &:disabled { opacity: 0.3; cursor: default; }
+  img {
+    width: 27px;
+    height: 27px;
+    display: block;
+    user-select: none;
+    -webkit-user-drag: none;
+    transition: opacity 0.12s;
+  }
 `;
 
-const BeatIndicator = styled.span<{ $full?: boolean }>`
-  font-size: 0.78rem;
-  color: ${({ $full }) => ($full ? '#2a6e3f' : '#999')};
-  font-weight: ${({ $full }) => ($full ? 700 : 400)};
+const IconLabel = styled.span`
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  background: ${({ theme }) => theme.colors.bgSecondary};
+  padding: 2px 8px;
+  border-radius: 5px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s;
+  z-index: 5;
+  ${IconBtn}:hover & { opacity: 1; }
 `;
+
+
 
 const PianoArea = styled.div`
   padding: 14px 0 12px;
@@ -1558,14 +1893,16 @@ const SheetArea = styled.div`
   position: relative;
 `;
 
-const ChordCellWrap = styled.div<{ $hasValue?: boolean }>`
+const ChordCellWrap = styled.div<{ $hasValue?: boolean; $active?: boolean }>`
   position: absolute;
   height: 28px;
   border-radius: 3px;
-  background: ${({ $hasValue }) => ($hasValue ? 'transparent' : 'rgba(0,0,0,0.04)')};
+  /* 활성 마디의 코드칸은 스테이브와 같은 크림색 배경으로 칠한다. */
+  background: ${({ $hasValue, $active }) =>
+    $active ? 'rgba(184, 150, 10, 0.13)' : $hasValue ? 'transparent' : 'rgba(0,0,0,0.04)'};
   cursor: text;
   transition: background 0.12s;
-  &:hover { background: rgba(0,0,0,0.07); }
+  &:hover { background: ${({ $active }) => ($active ? 'rgba(184, 150, 10, 0.22)' : 'rgba(0,0,0,0.07)')}; }
 `;
 
 /* 대체 코드 행의 양끝 괄호 — 활성화되면 항상 함께 그려진다. */
@@ -1648,29 +1985,52 @@ const ChordCellInput = styled.input`
 /* 코드 분해(루트/퀄리티·확장·텐션·분수코드 베이스)는 lib/jazz-harmony 의
  * splitChordParts 하나만 쓴다 — 뷰어(NoteSheet/LickCard/12키)와 100% 동일.
  * 여기서는 그 tension 문자열을 에디터 표기용 acc/num 쌍으로만 더 쪼갠다. */
-function parseTensions(tension: string): { acc: string; num: string }[] {
-  const out: { acc: string; num: string }[] = [];
+function parseTensions(tension: string): { acc: string; num: string; text: string }[] {
+  const out: { acc: string; num: string; text: string }[] = [];
   let remaining = tension;
   while (remaining.length > 0) {
     const t = remaining.match(/^([♭♯#b]*)(\d+|alt)/);
-    if (!t) break;
-    out.push({ acc: t[1], num: t[2] });
-    remaining = remaining.slice(t[0].length);
+    if (t) {
+      out.push({ acc: t[1], num: t[2], text: '' });
+      remaining = remaining.slice(t[0].length);
+      continue;
+    }
+    // 숫자 텐션이 아닌 텍스트 수식어(sus·sus2·sus4·add9·omit3·no5 등)는
+    // 통째로 인라인 표기한다. 예전엔 여기서 break 해 'sus'가 통째로 사라졌다.
+    const m = remaining.match(/^(sus[24]?|add\d+|omit\d+|no\d+|alt)/i);
+    if (m) { out.push({ acc: '', num: '', text: m[1] }); remaining = remaining.slice(m[0].length); continue; }
+    // 알 수 없는 잔여 — 떨어뜨리지 말고 그대로 보존.
+    out.push({ acc: '', num: '', text: remaining });
+    break;
   }
   return out;
 }
 
 /* formatChordDisplay imported from src/lib/jazz-harmony — see top of file. */
 
-function ChordCell({ value, onChange, style, onContextMenu }: {
+function ChordCell({ value, onChange, style, onContextMenu, active, cellId, registerFocus, onNavigate }: {
   value: string;
   onChange: (v: string) => void;
   style: React.CSSProperties;
   /** 우클릭 → 대체 코드 추가/제거 드롭다운 */
   onContextMenu?: (e: React.MouseEvent) => void;
+  /** 이 칸이 속한 마디가 현재 활성 마디인지 — 활성 배경 표시 */
+  active?: boolean;
+  /** Tab 이동용 식별자("<마디idx>:<슬롯>"). 있으면 포커스 레지스트리에 등록. */
+  cellId?: string;
+  registerFocus?: (id: string, fn: (() => void) | null) => void;
+  /** Tab/Shift+Tab → 순서상 다음(+1)/이전(-1) 코드칸으로 포커스 이동 */
+  onNavigate?: (id: string, dir: 1 | -1) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  /* 이 칸의 '편집 진입+포커스' 함수를 부모 레지스트리에 등록 — 다른 칸에서 Tab 시 호출된다. */
+  useEffect(() => {
+    if (!cellId || !registerFocus) return;
+    registerFocus(cellId, () => { setEditing(true); setTimeout(() => inputRef.current?.focus(), 0); });
+    return () => registerFocus(cellId, null);
+  }, [cellId, registerFocus]);
   const formatted = formatChordDisplay(value);
   const { base, ext, tension, bass } = splitChordParts(formatted);
   const tensions = parseTensions(tension);
@@ -1678,6 +2038,7 @@ function ChordCell({ value, onChange, style, onContextMenu }: {
   return (
     <ChordCellWrap
       $hasValue={!!value}
+      $active={active}
       style={style}
       onContextMenu={onContextMenu}
       onClick={() => { setEditing(true); setTimeout(() => inputRef.current?.focus(), 0); }}
@@ -1689,7 +2050,14 @@ function ChordCell({ value, onChange, style, onContextMenu }: {
           onChange={(e) => onChange(e.target.value)}
           onBlur={() => { onChange(normalizeChord(value)); setEditing(false); }}
           onKeyDown={(e) => { if (e.key === 'Enter' && isComposingEvent(e)) return; // 한글 조합 확정 Enter 무시
-                  if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); onChange(normalizeChord(value)); setEditing(false); } }}
+                  if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); onChange(normalizeChord(value)); setEditing(false); }
+                  // Tab / Shift+Tab → 현재 값 확정 후 다음/이전 코드칸으로 이동
+                  else if (e.key === 'Tab' && cellId && onNavigate) {
+                    e.preventDefault();
+                    onChange(normalizeChord(value));
+                    setEditing(false);
+                    onNavigate(cellId, e.shiftKey ? -1 : 1);
+                  } }}
         />
       ) : (
         <ChordCellDisplay>
@@ -1703,8 +2071,12 @@ function ChordCell({ value, onChange, style, onContextMenu }: {
               {ext && <ChordExt>{ext}</ChordExt>}
               {tensions.map((t, i) => (
                 <span key={i}>
-                  {t.acc && <ChordTensionAcc>{t.acc}</ChordTensionAcc>}
-                  <ChordTensionNum>{t.num}</ChordTensionNum>
+                  {t.text
+                    ? <ChordExt>{t.text}</ChordExt>
+                    : <>
+                        {t.acc && <ChordTensionAcc>{t.acc}</ChordTensionAcc>}
+                        <ChordTensionNum>{t.num}</ChordTensionNum>
+                      </>}
                 </span>
               ))}
               {/* 분수코드 베이스(/F#) — 텐션이 아니라 루트와 같은 크기로. */}
@@ -2071,6 +2443,12 @@ export default function EditorPage() {
   useEffect(() => { setCompingGenre(genreToCompingGenre(genre)); }, [genre]);
   const [sheetTitle, setSheetTitle] = useState('');
   const [sheetKey, setSheetKey] = useState('C');
+  /* 에디터의 조성은 '표시 전환'이 아니라 **영구 이조**다. 뷰어(코드차트/솔로
+   * 상세)는 드롭다운으로 보이는 키만 바꾸지만, 여기서는 음표 데이터 자체를
+   * 옮겨야 저장 결과가 달라진다. 그래서 헤더의 조성은 읽기 전용 표시로 두고
+   * 실제 변경은 옆의 Transpose 버튼(팝오버)에서만 수행한다. */
+  const [transposeOpen, setTransposeOpen] = useState(false);
+  const [keyInput, setKeyInput] = useState('');
   /* 조표 무시(explicit 임시표): 켜면 조표를 그리지 않고 마디 안의 ♯/♭만으로
    * 판단·표기한다(조표를 안 그린 채 마디 내에서 해결하는 악보 전용). 저장 시
    * sheetData.accidentalStyle='explicit'로 실려 뷰어·플레이어도 같게 해석. */
@@ -2136,6 +2514,28 @@ export default function EditorPage() {
 
   const positionsRef = useRef<MeasurePos[]>([]);
   const [measurePositions, setMeasurePositions] = useState<MeasurePos[]>([]);
+
+  /* 코드칸 Tab 이동 — 각 ChordCell 이 자신의 '편집 진입' 함수를 등록하고, Tab 시
+   * 순서(각 마디의 c1→c2)상 다음/이전 칸의 함수를 호출해 포커스를 옮긴다. */
+  const chordFocusMap = useRef<Map<string, () => void>>(new Map());
+  const registerChordFocus = useCallback((id: string, fn: (() => void) | null) => {
+    if (fn) chordFocusMap.current.set(id, fn);
+    else chordFocusMap.current.delete(id);
+  }, []);
+  const chordCellOrderRef = useRef<string[]>([]);
+  const focusChordSibling = useCallback((id: string, dir: 1 | -1) => {
+    const order = chordCellOrderRef.current;
+    const i = order.indexOf(id);
+    if (i < 0) return;
+    const next = order[i + dir];
+    if (next) chordFocusMap.current.get(next)?.();
+  }, []);
+  /* Tab 순서 = 각 마디(트레블)의 c1→c2, 마디 오름차순. 매 렌더 최신 위치로 갱신. */
+  chordCellOrderRef.current = measurePositions
+    .filter((p) => !p.staff)
+    .map((p) => p.idx)
+    .sort((a, b) => a - b)
+    .flatMap((idx) => [`${idx}:0`, `${idx}:1`]);
   const notePositionsRef = useRef<NotePos[]>([]);
   const noteElMapRef = useRef<Map<string, SVGElement>>(new Map());
   /* 음표 상하 드래그 상태. 시작 시점의 keys를 절대 기준으로 잡고, 화면 Y 이동량을
@@ -2307,12 +2707,55 @@ export default function EditorPage() {
   }, []);
 
   const editUndoStack = useRef<{ measures: MeasureInfo[]; bassMeasures: MeasureInfo[]; curNotes: NoteInfo[]; curChord1: string; curChord2: string; repeatStart: boolean; repeatEnd: boolean; volta: 0 | 1 | 2; navigation: NavigationMarker | ''; bracket: boolean }[]>([]);
+  const editRedoStack = useRef<typeof editUndoStack.current>([]);
+  /* 현재 편집 상태 전체를 깊은 복사해 스냅샷으로 만든다(undo/redo 공용). */
+  const captureSnapshot = useCallback(() => ({
+    measures: measures.map((m) => ({ ...m, notes: m.notes.map((n) => ({ ...n })) })),
+    bassMeasures: bassMeasures.map((m) => ({ ...m, notes: m.notes.map((n) => ({ ...n })) })),
+    curNotes: curNotes.map((n) => ({ ...n })),
+    curChord1, curChord2, repeatStart, repeatEnd, volta, navigation, bracket,
+  }), [measures, bassMeasures, curNotes, curChord1, curChord2, repeatStart, repeatEnd, volta, navigation, bracket]);
   const pushEditUndo = useCallback(() => {
-    editUndoStack.current.push({ measures: measures.map((m) => ({ ...m, notes: m.notes.map((n) => ({ ...n })) })), bassMeasures: bassMeasures.map((m) => ({ ...m, notes: m.notes.map((n) => ({ ...n })) })), curNotes: curNotes.map((n) => ({ ...n })), curChord1, curChord2, repeatStart, repeatEnd, volta, navigation, bracket });
+    editUndoStack.current.push(captureSnapshot());
     if (editUndoStack.current.length > 50) editUndoStack.current.shift();
-  }, [measures, bassMeasures, curNotes, curChord1, curChord2, repeatStart, repeatEnd, volta, navigation, bracket]);
+    editRedoStack.current = [];  // 새 편집이 발생하면 redo 분기는 무효화된다.
+  }, [captureSnapshot]);
 
   const curBeats = useMemo(() => measureBeats(curNotes), [curNotes]);
+
+  /* 실제 이조 — 음표를 target 키로 옮기고 조표도 함께 바꾼다(되돌리기 가능).
+   * transposeNoteSheet 이 NoteSheetData 단위로 동작하므로, 편집 중인 마디
+   * (measures/curNotes/bassMeasures)를 한 장의 시트로 싸서 통째로 옮긴 뒤
+   * 다시 풀어 넣는다 — 그래야 트레블·베이스가 같은 간격으로 이동한다. */
+  const applyTranspose = useCallback((targetKey: string) => {
+    const target = normalizeNoteKeyDisplay(targetKey);
+    if (!target || target === sheetKey) { setTransposeOpen(false); return; }
+    pushEditUndo();
+    const packed: NoteSheetData = {
+      title: sheetTitle, composer, key: sheetKey, timeSignature: '4/4',
+      // 편집 중인 마지막 마디(curNotes)도 함께 옮겨야 이조 후 이어서 쓸 수 있다.
+      measures: [...measures, { notes: curNotes }],
+      ...(bassMeasures.length ? { bassMeasures } : {}),
+    };
+    const out = transposeNoteSheet(packed, target);
+    const outMeasures = out.measures ?? [];
+    // 마지막 원소는 curNotes 였으므로 되돌려 분리한다.
+    const tail = outMeasures[outMeasures.length - 1];
+    setMeasures(outMeasures.slice(0, -1));
+    setCurNotes(tail?.notes ?? []);
+    if (out.bassMeasures) setBassMeasures(out.bassMeasures);
+    setSheetKey(out.key || target);
+    setTransposeOpen(false);
+  }, [sheetKey, sheetTitle, composer, measures, curNotes, bassMeasures, pushEditUndo]);
+
+  /* '키만 변경' — 음표는 그대로 두고 조성 표기(조표)만 교체한다. (SolosPage 와 동일 개념) */
+  const applyKeyOnly = useCallback((targetKey: string) => {
+    const target = normalizeNoteKeyDisplay(targetKey);
+    if (!target || target === sheetKey) { setTransposeOpen(false); return; }
+    pushEditUndo();
+    setSheetKey(target);
+    setTransposeOpen(false);
+  }, [sheetKey, pushEditUndo]);
 
   const curChord1Ref = useRef(curChord1);
   curChord1Ref.current = curChord1;
@@ -2332,6 +2775,9 @@ export default function EditorPage() {
   }, [measures, curNotes, curChord, curAltChords, repeatStart, repeatEnd, volta, navigation, bracket]);
 
   const currentIdx = curNotes.length > 0 || curChord ? measures.length : -1;
+  /* 활성(하이라이트) 마디: 사용자가 특정 마디를 선택했으면 그 마디만, 아니면
+   * 입력 중인 마지막 마디(currentIdx). → 선택 시 그 바만 활성으로 보이게. */
+  const activeIdx = selectedMeasure != null && selectedMeasure < allMeasures.length ? selectedMeasure : currentIdx;
 
   /* 렌더/저장/재생용 베이스 파트 — 트레블(allMeasures) 길이에 맞춰 패딩. */
   const bassAll = useMemo<MeasureInfo[] | null>(() => {
@@ -3026,6 +3472,7 @@ export default function EditorPage() {
 
   const handleUndo = useCallback(() => {
     if (editUndoStack.current.length > 0) {
+      editRedoStack.current.push(captureSnapshot());  // 되돌리기 전 현재 상태를 redo로.
       const snap = editUndoStack.current.pop()!;
       setMeasures(snap.measures);
       setBassMeasures(snap.bassMeasures ?? []);
@@ -3039,6 +3486,8 @@ export default function EditorPage() {
       setBracket(snap.bracket);
       return;
     }
+    if (curNotes.length === 0 && measures.length === 0) return;
+    editRedoStack.current.push(captureSnapshot());  // fallback undo도 redo로 복원 가능하게.
     if (curNotes.length > 0) {
       setCurNotes((p) => p.slice(0, -1));
     } else if (measures.length > 0) {
@@ -3057,7 +3506,25 @@ export default function EditorPage() {
       setNavigation(last.navigation ?? '');
       setBracket(last.bracket ?? false);
     }
-  }, [curNotes.length, measures]);
+  }, [curNotes.length, measures, captureSnapshot]);
+
+  /* redo — undo로 되돌린 상태를 다시 적용한다. handleUndo가 되돌리기 전 현재 상태를
+   * redo 스택에 쌓아두므로, redo는 그 스냅샷을 그대로 복원하면 된다. */
+  const handleRedo = useCallback(() => {
+    if (editRedoStack.current.length === 0) return;
+    editUndoStack.current.push(captureSnapshot());  // 다시 undo할 수 있게 현재를 undo로.
+    const snap = editRedoStack.current.pop()!;
+    setMeasures(snap.measures);
+    setBassMeasures(snap.bassMeasures ?? []);
+    setCurNotes(snap.curNotes);
+    setCurChord1(snap.curChord1);
+    setCurChord2(snap.curChord2);
+    setRepeatStart(snap.repeatStart);
+    setRepeatEnd(snap.repeatEnd);
+    setVolta(snap.volta);
+    setNavigation(snap.navigation);
+    setBracket(snap.bracket);
+  }, [captureSnapshot]);
 
   /* 악보를 전부 비운다. 되돌릴 수 없는 동작이므로 (1) 내용이 있으면 확인을 받고
    * (2) pushEditUndo로 스냅샷을 남겨 Backspace(Undo)로 복구할 수 있게 한다.
@@ -3142,7 +3609,12 @@ export default function EditorPage() {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       // Ctrl+Z(Win/Linux) · Cmd+Z(macOS) = undo. Backspace와 동일 동작이며, 위의
       // 입력창 가드 덕에 제목·코드 입력 중에는 브라우저 기본 undo가 그대로 동작한다.
-      // Shift 조합은 redo 관례라 제외한다(현재 redo 스택 없음).
+      // Ctrl/Cmd+Shift+Z = redo (관례).
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+        e.preventDefault();
+        handleRedo();
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
         e.preventDefault();
         handleUndo();
@@ -3216,7 +3688,7 @@ export default function EditorPage() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [handleUndo, closeMeasure, allMeasures, selectedNote, stepSelectedNote, toggleTripletMode, toggleSustainTuplet, tieSelectedToNext, updateNote]);
+  }, [handleUndo, handleRedo, closeMeasure, allMeasures, selectedNote, stepSelectedNote, toggleTripletMode, toggleSustainTuplet, tieSelectedToNext, updateNote]);
 
   useEffect(() => {
     const el = svgRef.current;
@@ -3224,7 +3696,7 @@ export default function EditorPage() {
     if (allMeasures.length === 0) { el.innerHTML = ''; positionsRef.current = []; setMeasurePositions([]); notePositionsRef.current = []; return; }
     const validKey = sheetKey && (FLAT_KEYS[sheetKey] != null || SHARP_KEYS[sheetKey] != null || sheetKey === 'C') ? sheetKey : undefined;
     try {
-      renderSheet(el, allMeasures, Math.max(sheetWidth, 300), currentIdx, positionsRef.current, validKey, notePositionsRef.current, multiSel, noteElMapRef.current, bassAll, explicitAcc);
+      renderSheet(el, allMeasures, Math.max(sheetWidth, 300), currentIdx, activeIdx, positionsRef.current, validKey, notePositionsRef.current, multiSel, noteElMapRef.current, bassAll, explicitAcc);
     } catch {
       positionsRef.current.length = 0;
       notePositionsRef.current.length = 0;
@@ -3232,7 +3704,7 @@ export default function EditorPage() {
     }
     setMeasurePositions([...positionsRef.current]);
     setNotePositions([...notePositionsRef.current]);
-  }, [allMeasures, bassAll, sheetWidth, currentIdx, sheetKey, multiSel, explicitAcc]);
+  }, [allMeasures, bassAll, sheetWidth, currentIdx, activeIdx, sheetKey, multiSel, explicitAcc]);
 
   const selNoteInfo = useMemo<NoteInfo | null>(() => {
     if (!selectedNote) return null;
@@ -3684,7 +4156,7 @@ export default function EditorPage() {
         <KeySelect
           value={mode}
           onChange={(e) => setMode(e.target.value as 'solo' | 'lick' | 'comping')}
-          style={{ minWidth: 80, fontWeight: 700 }}
+          style={{ minWidth: 92, fontSize: '0.95rem', fontWeight: 700 }}
           disabled={editingLickId !== null /* lick edit forces lick mode */}
         >
           <option value="solo">Solo</option>
@@ -3702,7 +4174,7 @@ export default function EditorPage() {
             setStaffMode(v);
             if (v === 'single') { setSelectedBassMeasure(null); setSelectedNote((s) => (s?.staff === 'bass' ? null : s)); }
           }}
-          style={{ minWidth: 96, fontWeight: 700, opacity: staffModeLocked ? 0.6 : 1 }}
+          style={{ minWidth: 108, fontSize: '0.95rem', fontWeight: 700, opacity: staffModeLocked ? 0.6 : 1 }}
           title={staffModeLocked
             ? `불러온 악보의 데이터로 확정됨 — ${staffMode === 'grand' ? '양손(그랜드 스태프)' : '한손'}. OMR/MusicXML 의 보표 수가 진실이므로 임의로 바꾸지 않는다.`
             : '한손 = 높은음자리표 한 줄 · 양손 = 그랜드 스태프(위 트레블 / 아래 베이스)'}
@@ -3715,7 +4187,7 @@ export default function EditorPage() {
         <MetaLabel>Title</MetaLabel>
         <MetaInput value={sheetTitle} onChange={(e) => setSheetTitle(e.target.value)} placeholder={mode === 'solo' ? 'e.g. Autumn Leaves' : 'e.g. ii-V Lick #3'} style={{ width: 280 }} />
         <MetaLabel>{mode === 'solo' ? 'Composer' : 'Performer'}</MetaLabel>
-        <MetaInput value={composer} onChange={(e) => setComposer(e.target.value)} placeholder={mode === 'solo' ? 'e.g. Joseph Kosma' : 'e.g. Charlie Parker'} style={{ width: 280 }} />
+        <MetaInput value={composer} onChange={(e) => setComposer(e.target.value)} placeholder={mode === 'solo' ? 'e.g. Joseph Kosma' : 'e.g. Charlie Parker'} style={{ width: 190 }} />
         {/* Genre·Key 는 하단 트랜스포트 바로, 조표무시·옥타브 이동은 우측 설정(⚙) 모달로,
             MIDI 는 우측 MIDI 아이콘 모달로 이동했다(코드차트 상단바와 동일 배치). */}
         <Spacer />
@@ -3779,7 +4251,46 @@ export default function EditorPage() {
       <TransportBar>
         <BarLeft>
           <GenreSelect value={genre} onChange={setGenre} />
-          <KeyControl selectedKey={sheetKey} onChange={setSheetKey} isMinor={isMinorKey(sheetKey)} />
+          {/* 조성은 표시 전용 — 에디터에서 조성 변경은 곧 '영구 이조'라
+              드롭다운으로 훑어보는 동작이 성립하지 않는다. 실제 변경은
+              바로 오른쪽 Transpose 버튼에서. */}
+          <KeyDisplay title="현재 조성 — 변경은 오른쪽 Transpose 버튼에서">
+            {sheetKey.replace(/m$/, '').replace(/b/g, '♭').replace(/#/g, '♯')}
+            <KeyQualEP>{isMinorKey(sheetKey) ? '단조' : '장조'}</KeyQualEP>
+          </KeyDisplay>
+          <KeyAnchor>
+            <ToolBtn
+              type="button"
+              title="Transpose · 조성 변경(음표까지 실제로 이조)"
+              $lit={transposeOpen}
+              onClick={() => setTransposeOpen((v) => !v)}
+            >
+              <IcoTranspose />
+            </ToolBtn>
+            {transposeOpen && (
+              <KeyChangePopover
+                currentKey={sheetKey.replace(/b/g, '♭').replace(/#/g, '♯')}
+                value={keyInput}
+                onChange={setKeyInput}
+                busy={false}
+                onApplyTranspose={() => { applyTranspose(keyInput.trim()); setKeyInput(''); }}
+                onApplyKeyOnly={() => { applyKeyOnly(keyInput.trim()); setKeyInput(''); }}
+                onPreset={(semi) => { const to = shiftDisplayKeyBySemitones(sheetKey, semi); if (to) applyTranspose(to); }}
+                onClose={() => setTransposeOpen(false)}
+              />
+            )}
+          </KeyAnchor>
+
+          {/* 악보 전체 상태 — 입력 중 마디/박, 총 음표·마디 수를 한 칩에 모았다. */}
+          <StatusChip>
+            <StatusItem>Bar <b>{measures.length + 1}</b></StatusItem>
+            <StatusDot />
+            <StatusItem $warn={curBeats > 4}><b>{curBeats}</b>/4 beats</StatusItem>
+            <StatusDot />
+            <StatusItem><b>{totalNotes}</b> notes</StatusItem>
+            <StatusDot />
+            <StatusItem><b>{allMeasures.length}</b> bars</StatusItem>
+          </StatusChip>
         </BarLeft>
         <BarCenter>
           <MixerButton />
@@ -3994,23 +4505,19 @@ export default function EditorPage() {
           style={{ fontSize: '0.85rem', fontWeight: 300, fontFamily: 'serif' }}
         >(&thinsp;)</DurBtn>
 
-        <Sep />
-
-        <MeasureIndicator>Bar {measures.length + 1}</MeasureIndicator>
-        <BeatIndicator $full={curBeats >= 4}>
-          {curBeats}/{4} beats
-        </BeatIndicator>
-
+        {/* Bar/beats/notes/bars 표시는 상단 트랜스포트 바의 StatusChip 으로 통합. */}
         <Spacer />
-
-        <InfoText>
-          {totalNotes} notes &middot; {allMeasures.length} bars
-        </InfoText>
       </ToolBar>
 
       <UndoClearRow>
-        <Btn onClick={handleUndo} title="Undo (Backspace)">Undo</Btn>
-        <Btn onClick={handleClear}>Clear</Btn>
+        <IconBtn type="button" onClick={handleUndo} aria-label="Undo">
+          <img src={`${import.meta.env.BASE_URL}icons/undo.svg`} alt="" draggable={false} />
+          <IconLabel>undo</IconLabel>
+        </IconBtn>
+        <IconBtn type="button" onClick={handleRedo} aria-label="Redo">
+          <img src={`${import.meta.env.BASE_URL}icons/redo.svg`} alt="" draggable={false} />
+          <IconLabel>redo</IconLabel>
+        </IconBtn>
       </UndoClearRow>
 
       <PianoArea>
@@ -4624,12 +5131,20 @@ export default function EditorPage() {
                 )}
                 <ChordCell
                   value={c1}
+                  active={pos.idx === activeIdx}
+                  cellId={`${pos.idx}:0`}
+                  registerFocus={registerChordFocus}
+                  onNavigate={focusChordSibling}
                   onChange={(v) => updateMeasureChordSlot(pos.idx, 0, v)}
                   onContextMenu={openMenu}
                   style={{ left: chordLeftPx, top: chordTop * SHEET_SCALE, maxWidth: c1MaxWidth, ...(c1 ? {} : { width: 36 }) }}
                 />
                 <ChordCell
                   value={c2}
+                  active={pos.idx === activeIdx}
+                  cellId={`${pos.idx}:1`}
+                  registerFocus={registerChordFocus}
+                  onNavigate={focusChordSibling}
                   onChange={(v) => updateMeasureChordSlot(pos.idx, 1, v)}
                   onContextMenu={openMenu}
                   style={{ left: chordLeftPx + halfW, top: chordTop * SHEET_SCALE, maxWidth: c2MaxWidth, ...(c2 ? {} : { width: 36 }) }}

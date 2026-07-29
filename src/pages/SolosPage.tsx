@@ -48,6 +48,7 @@ import {
   noteKeyIsMinor,
   normalizeNoteKeyDisplay,
   transposeNoteSheet,
+  respellNoteSheetKey,
 } from '../lib/note/transposeNoteSheet';
 import { bakeExplicitAccidentals } from '../lib/note/resolvePitches';
 import type { LickEntry } from '../data/lickData';
@@ -2313,12 +2314,20 @@ export default function SolosPage() {
 
     setBusy(solo.publicId);
     try {
+      /* 조표만 교체하되 **소리는 보존**한다. measures 를 그대로 두고 key 만
+       * 갈아끼우면, 임시표가 없는 음표는 새 조표를 따라가 음높이가 바뀐다
+       * (C장조의 F → B장조에선 F♯). respellNoteSheetKey 가 원래 피치를
+       * 확정한 뒤 새 조표에서 그 피치를 유지할 임시표(♮ 등)를 다시 붙인다. */
+      const respelled = respellNoteSheetKey(
+        { ...solo.sheetData, key: solo.sheetData.key ?? formatKeyDisplay(solo.key ?? 'C') },
+        formatKeyDisplay(newWeimar),
+      );
+
       const draft: SoloDraft = {
         source: solo.source,
         title: solo.title,
         instrument: solo.instrument,
-        // measures 는 그대로 — key 표기만 교체한다.
-        sheetData: { ...solo.sheetData, key: formatKeyDisplay(newWeimar) },
+        sheetData: { ...respelled, key: formatKeyDisplay(newWeimar) },
         userId: solo.userId ?? null,
         sourceUrl: solo.sourceUrl ?? undefined,
         performer: solo.performer ?? undefined,

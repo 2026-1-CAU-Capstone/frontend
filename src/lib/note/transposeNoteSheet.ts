@@ -144,3 +144,49 @@ export function transposeNoteSheet(data: NoteSheetData, targetKeyRaw: string): N
 
   return { ...data, key: targetKey, measures: emitted };
 }
+
+/**
+ * 조표 표기만 바꾼다 — **소리는 절대 바뀌지 않는다**.
+ *
+ * 음표 데이터는 임시표가 없으면 조표로 음높이가 결정된다
+ * (`soundingAccidental`: 마디 내 상속 → 조표 → 내추럴). 그래서 `key` 필드만
+ * 갈아끼우면 같은 `f/4` 가 C장조에선 F, B장조에선 F♯ 로 **소리와 표시가 함께
+ * 바뀌어 버린다**. 이 함수는 그 사고를 막는다:
+ *
+ *   1) 원래 조표 기준으로 각 음의 실제 소리(피치)를 확정한다.
+ *   2) 피치는 그대로 둔 채, 새 조표에서 그 피치를 내려면 필요한 임시표를
+ *      다시 계산해 붙인다(예: B장조로 바꾸면 F 음에 ♮ 가 붙는다).
+ *
+ * 결과적으로 조표만 바뀌고 들리는 음·음표 위치는 100% 보존된다. 코드 심볼과
+ * 마디 중간 조성 변경(m.key)도 건드리지 않는다(이조가 아니므로).
+ */
+export function respellNoteSheetKey(data: NoteSheetData, targetKeyRaw: string): NoteSheetData {
+  const originalKey = normalizeNoteKeyDisplay(data.key);
+  const targetKey = normalizeNoteKeyDisplay(targetKeyRaw);
+  if (!targetKey || targetKey === originalKey) return data;
+
+  /* 1) 원 조표 의미론으로 소리 피치 확정 (이동 없음 — vexKey/acc 그대로 보존). */
+  let srcKeySig = keySigLetterMap(originalKey);
+  type Sounding = { vexKey: string; acc: AccGlyph | undefined };
+  const perNote: Sounding[][][] = [];
+  for (const m of data.measures) {
+    if (m.key) srcKeySig = keySigLetterMap(m.key);
+    const active = new Map<string, AccGlyph>();
+    const soundRow: Sounding[][] = [];
+    for (const n of m.notes) {
+      if (n.duration.endsWith('r')) { soundRow.push([]); continue; }
+      soundRow.push(n.keys.map((k, ki) => ({
+        vexKey: k,
+        acc: soundingAccidental(
+          active, srcKeySig, k, n.accidentals?.[ki] as AccGlyph | undefined, 'score',
+        ),
+      })));
+    }
+    perNote.push(soundRow);
+  }
+
+  /* 2) 새 조표에서 같은 소리를 내는 데 필요한 임시표를 다시 방출. */
+  const emitted = emitScoreAccidentals(perNote, data.measures, targetKey);
+
+  return { ...data, key: targetKey, measures: emitted };
+}
