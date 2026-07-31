@@ -1491,15 +1491,8 @@ const LockedHint = styled.span`
 const TIco = {
   undo: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M4 9h11a5 5 0 0 1 0 10h-1"/><polyline points="8 5 4 9 8 13"/></svg>,
   redo: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M20 9H9a5 5 0 0 0 0 10h1"/><polyline points="16 5 20 9 16 13"/></svg>,
-  add:  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M12 8v8M8 12h8" strokeLinecap="round"/></svg>,
-  cut:  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M7.5 16 18 4M16.5 16 6 4"/></svg>,
-  check:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><polyline points="8 12 11 15 16 9"/></svg>,
   down: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="8 12 12 16 16 12"/><line x1="12" y1="7" x2="12" y2="16"/></svg>,
   print:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="7" rx="2"/><rect x="6" y="14" width="12" height="7"/></svg>,
-  layout:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="10" x2="9" y2="20"/></svg>,
-  zin:  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5M8 11h6M11 8v6"/></svg>,
-  zout: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5M8 11h6"/></svg>,
-  pause:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="9" y1="5" x2="9" y2="19"/><line x1="15" y1="5" x2="15" y2="19"/></svg>,
 };
 
 const TOOL_TABS = [
@@ -1643,6 +1636,15 @@ const InfoStack = styled.div`
   align-self: stretch;
 
   > *:first-child { flex: 1; }
+`;
+
+/* 정보 탭의 Genre 트리거 — 폭 고정(상자에 꽉) + 가운데 정렬.
+ * GenreSelect 내부는 건드리지 않고 감싸서 조절한다(코드차트 등 다른 사용처 무영향). */
+const GenreFill = styled.div`
+  flex: 1;
+  min-width: 0;
+  > div { display: block; width: 100%; }   /* GenreDropdown 래퍼 */
+  button { width: 100%; justify-content: center; }
 `;
 
 /* 악기 이름 — 아이콘 오른쪽. */
@@ -2007,9 +2009,9 @@ const saveSpin = keyframes`
   to { transform: rotate(360deg); }
 `;
 
-const SaveIconBtn = styled(ToolBtn)<{ $error?: boolean; $busy?: boolean }>`
-  /* 평소 색은 톱니·나머지 아이콘과 완전히 동일(ToolBtn 기본 #5b5b5b).
-   * 저장 실패만 빨강으로 남긴다 — 색을 빼면 실패했다는 신호가 사라진다. */
+const SaveTabBtn = styled(TabIconBtn)<{ $error?: boolean; $busy?: boolean }>`
+  /* 평소 색은 같은 줄의 다른 아이콘과 완전히 동일(TabIconBtn 기본 #5b5b5b).
+   * 저장 실패만 빨강으로 남긴다 — 색을 빼면 실패 신호가 사라진다. */
   ${({ $error }) => $error && `
     color: #c62828;
     &:hover:not(:disabled) { background: rgba(198, 40, 40, 0.10); }
@@ -2525,7 +2527,7 @@ const StatusDot = styled.span`
 
 /* 전체 지우기 — 쓰레기통. */
 const TrashIcon = () => (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="3 6 5 6 21 6" />
     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
     <line x1="10" y1="11" x2="10" y2="17" />
@@ -2535,7 +2537,7 @@ const TrashIcon = () => (
 
 /* JSON 복사 — 겹친 문서. */
 const CopyIcon = () => (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
     <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
   </svg>
@@ -2543,14 +2545,14 @@ const CopyIcon = () => (
 
 /* 복사 완료 — 잠깐 체크로 바뀌어 눌린 것을 알린다. */
 const CheckIcon = () => (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="20 6 9 17 4 12" />
   </svg>
 );
 
 /* JSON 불러오기 — 트레이로 들어오는 화살표(import). */
 const ImportIcon = () => (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
     <polyline points="7 10 12 15 17 10" />
     <line x1="12" y1="15" x2="12" y2="3" />
@@ -2559,7 +2561,7 @@ const ImportIcon = () => (
 
 /* 저장 — 플로피 디스크(범용 저장 기호). 톱니와 같은 26px·strokeWidth 2 규격. */
 const SaveIcon = () => (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
     <polyline points="17 21 17 13 7 13 7 21" />
     <polyline points="7 3 7 8 15 8" />
@@ -2568,7 +2570,7 @@ const SaveIcon = () => (
 
 /* 저장 중 표시 — 아이콘 자리에 그대로 도는 링. 버튼 크기가 바뀌지 않게 26px 고정. */
 const SaveSpinnerIcon = () => (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden>
     <circle cx="12" cy="12" r="9" opacity="0.25" />
     <path d="M21 12a9 9 0 0 0-9-9" />
   </svg>
@@ -5042,7 +5044,12 @@ export default function EditorPage() {
               {/* 1-2-1 Genre · 1-2-2 Key — 각각 상자로 나누고 Genre 를 더 넓게. */}
               <InfoLine>
                 <InfoBox $grow style={{ minWidth: 224 }}>
-                  <MetaField $tight><MetaLabel>Genre</MetaLabel><GenreSelect value={genre} onChange={setGenre} /></MetaField>
+                  <MetaField $tight style={{ width: '100%' }}>
+                    <MetaLabel>Genre</MetaLabel>
+                    {/* 장르 이름 길이에 따라 폭이 들쭉날쭉하지 않게 상자에 꽉 채우고,
+                      * 짧은 이름은 가운데로 정렬한다. */}
+                    <GenreFill><GenreSelect value={genre} onChange={setGenre} /></GenreFill>
+                  </MetaField>
                 </InfoBox>
                 <InfoBox>
                   <MetaField $tight>
