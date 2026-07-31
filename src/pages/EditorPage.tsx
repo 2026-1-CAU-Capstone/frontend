@@ -1620,31 +1620,27 @@ const MetaField = styled.div<{ $tight?: boolean }>`
 `;
 
 /* 정보 탭 — 열(세로 스택) 묶음. */
-/* 한 상자 안에서 항목을 가로로 나란히 둘 때. */
-const InfoLine = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-`;
-
-/* 1-1 / 1-2 를 세로로 쌓는 묶음. 패널이 stretch 라 이 묶음도 옆 상자와 같은
- * 높이를 갖는다 — 남는 세로 공간은 1-1(첫 상자)이 흡수한다. */
-const InfoStack = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-self: stretch;
-
-  > *:first-child { flex: 1; }
-`;
-
 /* 정보 탭의 Genre 트리거 — 폭 고정(상자에 꽉) + 가운데 정렬.
  * GenreSelect 내부는 건드리지 않고 감싸서 조절한다(코드차트 등 다른 사용처 무영향). */
 const GenreFill = styled.div`
-  flex: 1;
   min-width: 0;
-  > div { display: block; width: 100%; }   /* GenreDropdown 래퍼 */
-  button { width: 100%; justify-content: center; }
+  > div { display: block; width: 132px; }   /* GenreDropdown 래퍼 — 폭 고정 */
+  button { width: 100%; justify-content: center; height: 28px; font-size: 0.9rem; }
+`;
+
+/* 악기 — 그림부터 이름까지 한 테두리로 묶는다(Genre·Key 입력과 같은 톤). */
+const InstBox = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  background: #fff;
+  border: 1.5px solid #ccc;
+  border-radius: 6px;
+  button { width: 22px; height: 22px; padding: 0; }
+  img { width: 20px; height: 20px; }
 `;
 
 /* 악기 이름 — 아이콘 오른쪽. */
@@ -2124,7 +2120,7 @@ const KEY_FONT = "'MuseJazz Text', 'Oswald', 'Pretendard', sans-serif";
  * 동작이 조성 자체에 붙어 의미가 분명해진다. */
 const KeyDisplay = styled.button<{ $open?: boolean }>`
   position: relative;
-  height: 32px;
+  height: 28px;
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
@@ -5028,67 +5024,18 @@ export default function EditorPage() {
       ) : toolTab === 'info' ? (
         /* 정보 탭 — 제목·작곡가·악보 메타데이터·장르/조성·믹서/재생을 한곳에 모았다. */
         <InfoTabPanel>
-            {/* 1 — 세로로 쌓은 두 상자 (1-1 Type / 1-2 Genre·Key) */}
-            <InfoStack>
-              <InfoBox>
-                <MetaField>
-                  <MetaLabel>Type</MetaLabel>
-                  <SegGroup $n={3} $i={['solo', 'lick', 'comping'].indexOf(mode)}>
-                    <SegThumb $n={3} $i={['solo', 'lick', 'comping'].indexOf(mode)} />
-                    {(['solo', 'lick', 'comping'] as const).map((m) => (
-                      <SegBtn key={m} type="button" $on={mode === m} disabled={editingLickId !== null} onClick={() => setMode(m)}>{MODE_LABEL[m]}</SegBtn>
-                    ))}
-                  </SegGroup>
-                </MetaField>
-              </InfoBox>
-
-              {/* 1-2-1 Genre · 1-2-2 Key — 각각 상자로 나누고 Genre 를 더 넓게. */}
-              <InfoLine>
-                <InfoBox $grow style={{ minWidth: 224 }}>
-                  <MetaField $tight style={{ width: '100%' }}>
-                    <MetaLabel>Genre</MetaLabel>
-                    {/* 장르 이름 길이에 따라 폭이 들쭉날쭉하지 않게 상자에 꽉 채우고,
-                      * 짧은 이름은 가운데로 정렬한다. */}
-                    <GenreFill><GenreSelect value={genre} onChange={setGenre} /></GenreFill>
-                  </MetaField>
-                </InfoBox>
-                <InfoBox>
-                  <MetaField $tight>
-                    <MetaLabel>Key</MetaLabel>
-                    <KeyAnchor>
-                    <KeyDisplay
-                    type="button"
-                    $open={transposeOpen}
-                    title="Transpose · 조성 변경(음표까지 실제로 이조)"
-                    aria-haspopup="dialog"
-                    aria-expanded={transposeOpen}
-                    onClick={() => setTransposeOpen((v) => !v)}
-                    >
-                    <span className="key-text">
-                    {sheetKey.replace(/m$/, '').replace(/b/g, '♭').replace(/#/g, '♯')}
-                    <KeyQualEP>{isMinorKey(sheetKey) ? '단조' : '장조'}</KeyQualEP>
-                    </span>
-                    <span className="key-ico" aria-hidden><IcoTranspose /></span>
-                    </KeyDisplay>
-                    {transposeOpen && (
-                    <KeyChangePopover
-                    currentKey={sheetKey.replace(/b/g, '♭').replace(/#/g, '♯')}
-                    value={keyInput}
-                    onChange={setKeyInput}
-                    busy={false}
-                    onApplyTranspose={() => { applyTranspose(keyInput.trim()); setKeyInput(''); }}
-                    onApplyKeyOnly={() => { applyKeyOnly(keyInput.trim()); setKeyInput(''); }}
-                    onPreset={(semi) => { const to = shiftDisplayKeyBySemitones(sheetKey, semi); if (to) applyTranspose(to); }}
-                    onOctave={(dir) => handleShiftOctave(dir)}
-                    octaveDisabled={totalNotes === 0}
-                    onClose={() => setTransposeOpen(false)}
-                    />
-                    )}
-                    </KeyAnchor>
-                  </MetaField>
-                </InfoBox>
-              </InfoLine>
-            </InfoStack>
+            {/* 1 — Type */}
+            <InfoBox>
+              <MetaField>
+                <MetaLabel>Type</MetaLabel>
+                <SegGroup $n={3} $i={['solo', 'lick', 'comping'].indexOf(mode)}>
+                  <SegThumb $n={3} $i={['solo', 'lick', 'comping'].indexOf(mode)} />
+                  {(['solo', 'lick', 'comping'] as const).map((m) => (
+                    <SegBtn key={m} type="button" $on={mode === m} disabled={editingLickId !== null} onClick={() => setMode(m)}>{MODE_LABEL[m]}</SegBtn>
+                  ))}
+                </SegGroup>
+              </MetaField>
+            </InfoBox>
 
             {/* 2 — 텍스트 메타데이터 (두 열) */}
             <InfoBox>
@@ -5101,10 +5048,47 @@ export default function EditorPage() {
                   <MetaField><MetaLabel>Player</MetaLabel><MetaInput value={performer} onChange={(e) => setPerformer(e.target.value)} placeholder="e.g. Charlie Parker" /></MetaField>
                 </InfoCol>
                 <InfoCol>
-                  <MetaField>
+                  <MetaField $tight><MetaLabel>Genre</MetaLabel><GenreFill><GenreSelect value={genre} onChange={setGenre} /></GenreFill></MetaField>
+                  <MetaField $tight>
+                    <MetaLabel>Key</MetaLabel>
+                      <KeyAnchor>
+                      <KeyDisplay
+                      type="button"
+                      $open={transposeOpen}
+                      title="Transpose · 조성 변경(음표까지 실제로 이조)"
+                      aria-haspopup="dialog"
+                      aria-expanded={transposeOpen}
+                      onClick={() => setTransposeOpen((v) => !v)}
+                      >
+                      <span className="key-text">
+                      {sheetKey.replace(/m$/, '').replace(/b/g, '♭').replace(/#/g, '♯')}
+                      <KeyQualEP>{isMinorKey(sheetKey) ? '단조' : '장조'}</KeyQualEP>
+                      </span>
+                      <span className="key-ico" aria-hidden><IcoTranspose /></span>
+                      </KeyDisplay>
+                      {transposeOpen && (
+                      <KeyChangePopover
+                      currentKey={sheetKey.replace(/b/g, '♭').replace(/#/g, '♯')}
+                      value={keyInput}
+                      onChange={setKeyInput}
+                      busy={false}
+                      onApplyTranspose={() => { applyTranspose(keyInput.trim()); setKeyInput(''); }}
+                      onApplyKeyOnly={() => { applyKeyOnly(keyInput.trim()); setKeyInput(''); }}
+                      onPreset={(semi) => { const to = shiftDisplayKeyBySemitones(sheetKey, semi); if (to) applyTranspose(to); }}
+                      onOctave={(dir) => handleShiftOctave(dir)}
+                      octaveDisabled={totalNotes === 0}
+                      onClose={() => setTransposeOpen(false)}
+                      />
+                      )}
+                      </KeyAnchor>
+                  </MetaField>
+                  <MetaField $tight>
                     <MetaLabel>Instrument</MetaLabel>
-                    <SessionPicker value={metaInstrument} onChange={setMetaInstrument} allowCustom />
-                    <InstName>{instrumentName(metaInstrument)}</InstName>
+                    {/* 그림 ~ 이름까지 하나의 테두리로 묶어 Genre·Key 입력과 같은 모양으로. */}
+                    <InstBox>
+                      <SessionPicker value={metaInstrument} onChange={setMetaInstrument} allowCustom />
+                      <InstName>{instrumentName(metaInstrument)}</InstName>
+                    </InstBox>
                   </MetaField>
                 </InfoCol>
               </InfoCols>
