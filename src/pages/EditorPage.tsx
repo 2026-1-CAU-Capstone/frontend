@@ -1539,24 +1539,6 @@ const RestBtn = styled.button`
   &:hover { background: #f0ebe0; }
 `;
 
-const BarlineBtn = styled.button`
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 1.5rem;
-  font-weight: 900;
-  width: 42px;
-  height: 42px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #b8960a;
-  border-radius: 6px;
-  background: #fff8e1;
-  cursor: pointer;
-  color: #8B6914;
-  &:hover { background: #f5ecd0; }
-  &:disabled { opacity: 0.3; cursor: default; }
-`;
-
 const Sep = styled.div`
   width: 1px;
   height: 30px;
@@ -2597,20 +2579,6 @@ const ModalTitle = styled.h3`
   font-family: 'Pretendard', sans-serif;
   font-size: 1.1rem;
   color: #333;
-`;
-
-const OctBtn = styled.button`
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.85rem;
-  font-weight: 700;
-  padding: 8px 14px;
-  border-radius: 8px;
-  border: 1.5px solid #ccc;
-  background: #fff;
-  color: #444;
-  cursor: pointer;
-  &:hover:not(:disabled) { border-color: #888; }
-  &:disabled { opacity: 0.4; cursor: default; }
 `;
 
 const ModalTextarea = styled.textarea`
@@ -4788,6 +4756,57 @@ export default function EditorPage() {
             <DurBtn $active={accMode === '#'} onClick={() => setAccMode('#')} title="Sharp mode" style={{ fontSize: '1.2rem', fontWeight: 700 }}>&#9839;</DurBtn>
             <DurBtn $active={accMode === 'b'} onClick={() => setAccMode('b')} title="Flat mode" style={{ fontSize: '1.2rem', fontWeight: 700 }}>&#9837;</DurBtn>
           </ModCol>
+          <ModCol>
+          <DurBtn
+            $active={graceMode}
+            onClick={() => setGraceMode((v) => !v)}
+            title="꾸밈음 모드 — 먼저 원음을 선택한 뒤 켜고 피아노를 누르면 그 음 '앞'에 작은 슬래시 꾸밈음(acciaccatura)이 붙습니다(선택 안 하면 다음에 칠 음의 꾸밈음이 됩니다). 마디 길이엔 영향 없이 정박 직전 짧게 재생."
+            style={{ fontSize: '1.05rem', fontWeight: 700, lineHeight: 1 }}
+          >
+            {/* 작은 슬래시 꾸밈음(사선 그은 8분음표) */}
+            <svg width="18" height="22" viewBox="0 0 18 22" style={{ display: 'block' }}>
+              <ellipse cx="7" cy="16" rx="3.2" ry="2.3" fill="currentColor" transform="rotate(-20 7 16)" />
+              <line x1="9.7" y1="15" x2="9.7" y2="3" stroke="currentColor" strokeWidth="1.4" />
+              <path d="M9.7 3 C 12 4, 13 6.5, 12 9" stroke="currentColor" strokeWidth="1.4" fill="none" />
+              <line x1="4" y1="11" x2="13.5" y2="4.5" stroke="currentColor" strokeWidth="1.5" />
+            </svg>
+          </DurBtn>
+          <DurBtn
+            $active={ghostMode}
+            onClick={() => setGhostMode((v) => !v)}
+            title="고스트(데드) 노트 모드 — 켜고 피아노를 누르면 그 음이 X 노트헤드의 고스트 노트로 입력됩니다. 다시 누르면 해제."
+            style={{ fontSize: '1.05rem', fontWeight: 700, lineHeight: 1 }}
+          >
+            {/* X 노트헤드 + 기둥 */}
+            <svg width="18" height="22" viewBox="0 0 18 22" style={{ display: 'block' }}>
+              <line x1="4.5" y1="13.5" x2="10.5" y2="18.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+              <line x1="10.5" y1="13.5" x2="4.5" y2="18.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+              <line x1="11" y1="16" x2="11" y2="3.5" stroke="currentColor" strokeWidth="1.5" />
+            </svg>
+          </DurBtn>
+          </ModCol>
+          <ModCol>
+          <DurBtn
+            $active={chordInput}
+            onClick={() => setChordInput((v) => !v)}
+            title="화음 모드 — ON이면 피아노 입력이 마지막(또는 선택한) 음표에 음을 쌓습니다. 같은 음을 다시 누르면 제거."
+            style={{ fontSize: '1.05rem', fontWeight: 700, lineHeight: 1 }}
+          >
+            <svg width="18" height="22" viewBox="0 0 18 22" style={{ display: 'block' }}>
+              <line x1="13.5" y1="2" x2="13.5" y2="17" stroke="currentColor" strokeWidth="1.6" />
+              <ellipse cx="9.5" cy="17" rx="4.2" ry="3" fill="currentColor" />
+              <ellipse cx="9.5" cy="11" rx="4.2" ry="3" fill="currentColor" />
+              <ellipse cx="9.5" cy="5" rx="4.2" ry="3" fill="currentColor" />
+            </svg>
+          </DurBtn>
+            {/* 마디 닫기 — 섹션2의 다른 버튼과 같은 규격(DurBtn)으로 통일. */}
+            <DurBtn
+              onClick={closeMeasure}
+              disabled={curNotes.length === 0}
+              title="Close measure (Enter)"
+              style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '1.5rem', fontWeight: 900 }}
+            >|</DurBtn>
+          </ModCol>
         </ModGroup>
 
         {/* 세 번째 섹션 — 악보 상태(위) + undo/redo(아래). 중요 영역이라 골드 테두리. */}
@@ -4820,47 +4839,6 @@ export default function EditorPage() {
             <path d="M2 4 Q9 14 16 4" stroke="currentColor" strokeWidth="1.5" fill="none" />
           </svg>
         </DurBtn>
-        <DurBtn
-          $active={graceMode}
-          onClick={() => setGraceMode((v) => !v)}
-          title="꾸밈음 모드 — 먼저 원음을 선택한 뒤 켜고 피아노를 누르면 그 음 '앞'에 작은 슬래시 꾸밈음(acciaccatura)이 붙습니다(선택 안 하면 다음에 칠 음의 꾸밈음이 됩니다). 마디 길이엔 영향 없이 정박 직전 짧게 재생."
-          style={{ fontSize: '1.05rem', fontWeight: 700, lineHeight: 1 }}
-        >
-          {/* 작은 슬래시 꾸밈음(사선 그은 8분음표) */}
-          <svg width="18" height="22" viewBox="0 0 18 22" style={{ display: 'block' }}>
-            <ellipse cx="7" cy="16" rx="3.2" ry="2.3" fill="currentColor" transform="rotate(-20 7 16)" />
-            <line x1="9.7" y1="15" x2="9.7" y2="3" stroke="currentColor" strokeWidth="1.4" />
-            <path d="M9.7 3 C 12 4, 13 6.5, 12 9" stroke="currentColor" strokeWidth="1.4" fill="none" />
-            <line x1="4" y1="11" x2="13.5" y2="4.5" stroke="currentColor" strokeWidth="1.5" />
-          </svg>
-        </DurBtn>
-        <DurBtn
-          $active={ghostMode}
-          onClick={() => setGhostMode((v) => !v)}
-          title="고스트(데드) 노트 모드 — 켜고 피아노를 누르면 그 음이 X 노트헤드의 고스트 노트로 입력됩니다. 다시 누르면 해제."
-          style={{ fontSize: '1.05rem', fontWeight: 700, lineHeight: 1 }}
-        >
-          {/* X 노트헤드 + 기둥 */}
-          <svg width="18" height="22" viewBox="0 0 18 22" style={{ display: 'block' }}>
-            <line x1="4.5" y1="13.5" x2="10.5" y2="18.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
-            <line x1="10.5" y1="13.5" x2="4.5" y2="18.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
-            <line x1="11" y1="16" x2="11" y2="3.5" stroke="currentColor" strokeWidth="1.5" />
-          </svg>
-        </DurBtn>
-        <DurBtn
-          $active={chordInput}
-          onClick={() => setChordInput((v) => !v)}
-          title="화음 모드 — ON이면 피아노 입력이 마지막(또는 선택한) 음표에 음을 쌓습니다. 같은 음을 다시 누르면 제거."
-          style={{ fontSize: '1.05rem', fontWeight: 700, lineHeight: 1 }}
-        >
-          <svg width="18" height="22" viewBox="0 0 18 22" style={{ display: 'block' }}>
-            <line x1="13.5" y1="2" x2="13.5" y2="17" stroke="currentColor" strokeWidth="1.6" />
-            <ellipse cx="9.5" cy="17" rx="4.2" ry="3" fill="currentColor" />
-            <ellipse cx="9.5" cy="11" rx="4.2" ry="3" fill="currentColor" />
-            <ellipse cx="9.5" cy="5" rx="4.2" ry="3" fill="currentColor" />
-          </svg>
-        </DurBtn>
-        <BarlineBtn onClick={closeMeasure} disabled={curNotes.length === 0} title="Close measure (Enter)">|</BarlineBtn>
 
         {/* 악보 기호 추가 — 8va/8vb·도돌이표·볼타·세뇨/코다·브라켓을 '+' 하나로 모았다.
           * 개별 버튼으로 늘어놓으면 툴바가 길어져 음표 버튼이 밀려났다. 자주 쓰는
@@ -5020,9 +4998,6 @@ export default function EditorPage() {
           )}
         </MarkWrap>
 
-        {/* 옥타브 이동 — 악보의 음표를 실제로 옮기는 편집 동작. */}
-        <OctBtn onClick={() => handleShiftOctave(-1)} disabled={totalNotes === 0}>Oct −1</OctBtn>
-        <OctBtn onClick={() => handleShiftOctave(1)} disabled={totalNotes === 0}>Oct +1</OctBtn>
         </MiscGroup>
 
         <Spacer />

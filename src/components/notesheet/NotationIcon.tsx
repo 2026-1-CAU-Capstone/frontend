@@ -2,10 +2,8 @@ import { useMemo } from 'react';
 import { Renderer, Stave, StaveNote, Voice, Formatter } from 'vexflow';
 
 const CACHE: Record<string, string> = {};
-/** 음표 글리프의 viewBox 높이(단위). 32·64분음표 머리 크기를 16분음표에 맞추는 데 쓴다. */
+/** 음표 글리프의 viewBox 높이(단위) — 32·64분 머리 크기를 16분에 맞추는 데 쓴다. */
 const GLYPH_H: Record<string, number> = {};
-/** 온·2분쉼표에 기준선을 덧그리면서 커진 viewBox 비율 — 사각형이 작아지지 않게 되돌리는 데 쓴다. */
-const REST_GROW: Record<string, number> = {};
 
 function renderGlyphSvg(durBase: string, isRest: boolean): string {
   const key = (isRest ? 'r:' : 'n:') + durBase;
@@ -41,29 +39,6 @@ function renderGlyphSvg(durBase: string, isRest: boolean): string {
 
     const svg = div.querySelector('svg') as SVGSVGElement | null;
     if (!svg) return '';
-
-    /* 온쉼표 vs 2분쉼표 — 둘 다 같은 '작은 사각형'이라 이대로면 구별이 안 된다.
-     * 악보 규칙대로 기준선을 붙인다: 온쉼표는 선에 매달리고(선이 위), 2분쉼표는
-     * 선 위에 앉는다(선이 아래). 사각형 좌표에 바로 그리므로 간격 없이 붙는다.
-     * ⚠ 쉼표 전용 — 음표(NoteIcon)는 이 블록을 타지 않는다. */
-    if (isRest && (durBase === 'w' || durBase === 'h')) {
-      const r = svg.getBBox();
-      const th = r.height * 0.34;                 // 선 두께
-      const ext = r.width * 0.30;                 // 좌우로 삐져나오는 길이
-      const line = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      line.setAttribute('x', String(r.x - ext));
-      line.setAttribute('width', String(r.width + ext * 2));
-      line.setAttribute('y', String(durBase === 'w' ? r.y - th : r.y + r.height));
-      line.setAttribute('height', String(th));
-      line.setAttribute('fill', 'currentColor');
-      svg.appendChild(line);
-      /* 선을 더하면 viewBox 가 커져 사각형이 그만큼 작게 그려진다. 얼마나 커졌는지
-       * 기록해 두고, 아이콘을 그릴 때 같은 비율로 키워 원래 크기를 유지한다. */
-      const g = svg.getBBox();
-      const before = Math.max(r.width, r.height);
-      const after = Math.max(g.width, g.height);
-      REST_GROW[durBase] = before > 0 ? after / before : 1;
-    }
 
     const bb = svg.getBBox();
     const pad = 0;
@@ -140,12 +115,8 @@ function GlyphSpan({
         ? LONG_STEM_SCALE
         : STEMMED_SCALE;
   let inner = Math.round(Math.max(width, height) * scale);
-  /* 32·64분음표만 예외 — 깃발이 3~4개라 글리프가 길어서, 같은 배율로 그려도
-   * 머리가 다른 음표보다 작아진다(meet 은 긴 변에 맞춰 축소하므로).
-   * 16분음표의 실제 축소비(px/단위)를 그대로 적용해 머리 크기를 맞춘다.
-   * 세로 중앙 정렬은 이 예외에서 포기한다(사용자 요청). */
-  // 기준선 때문에 커진 viewBox 만큼 되키워 사각형 크기를 원래대로 유지한다.
-  if (isRest && REST_GROW[type]) inner = Math.round(inner * REST_GROW[type]);
+  /* 32·64분음표만 예외 — 깃발이 3~4개라 글리프가 길어 같은 배율로도 머리가 작아진다.
+   * 16분음표의 실제 축소비를 적용해 머리 크기를 맞춘다(세로 중앙 정렬은 포기). */
   if (!isRest && (type === '32' || type === '64') && GLYPH_H['16'] && GLYPH_H[type]) {
     const k16 = (Math.max(width, height) * LONG_STEM_SCALE) / GLYPH_H['16'];
     inner = Math.round(k16 * GLYPH_H[type]);
@@ -192,7 +163,28 @@ export function NoteIcon({ type, width = 40, height = 40 }: IconProps) {
   return <GlyphSpan html={html} width={width} height={height} type={type} isRest={false} />;
 }
 
+/* 온쉼표·2분쉼표는 직접 그린다.
+ * 이유: 둘 다 VexFlow 글리프가 '같은 사각형'이라 구별이 안 되는데, 글리프에 선을
+ * 덧그려 bbox 를 키우는 방식은 아이콘 크기가 예측 불가로 폭주했다(옆 버튼까지 덮음).
+ * 사각형과 기준선을 직접 그리면 크기·정렬이 항상 고정된다.
+ *   온쉼표: 선에 매달림(선이 위) · 2분쉼표: 선 위에 앉음(선이 아래) */
+function BarRest({ type, width, height }: { type: 'w' | 'h'; width: number; height: number }) {
+  const RECT_W = 15, RECT_H = 6, LINE_W = 25, LINE_H = 2.4;
+  const cx = 25, cy = 25;                        // 24x50 박스 기준 중심
+  const rectY = type === 'w' ? cy : cy - RECT_H; // 온쉼표는 선 아래, 2분쉼표는 선 위
+  const lineY = type === 'w' ? cy - LINE_H : cy; // 선은 사각형에 딱 붙는다(간격 0)
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width, height, color: 'currentColor' }}>
+      <svg width={50} height={50} viewBox="0 0 50 50" style={{ display: 'block' }} aria-hidden>
+        <rect x={cx - RECT_W / 2} y={rectY} width={RECT_W} height={RECT_H} fill="currentColor" />
+        <rect x={cx - LINE_W / 2} y={lineY} width={LINE_W} height={LINE_H} fill="currentColor" />
+      </svg>
+    </span>
+  );
+}
+
 export function RestIcon({ type, width = 40, height = 40 }: IconProps) {
   const html = useMemo(() => renderGlyphSvg(type, true), [type]);
+  if (type === 'w' || type === 'h') return <BarRest type={type} width={width} height={height} />;
   return <GlyphSpan html={html} width={width} height={height} type={type} isRest={true} />;
 }
