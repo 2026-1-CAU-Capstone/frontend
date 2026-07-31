@@ -644,6 +644,11 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
     const y = MARGIN.top + li * lineH;
     const decorW = isFirstLine ? DECOR_FIRST : DECOR_OTHER;
     const availForBars = totalW - decorW;
+    /* 코드칸 높이는 한 줄 안에서 모두 같아야 한다 — 그 줄에서 가장 높이
+     * 올라간 마디가 기준. 줄을 다 그린 뒤라야 알 수 있어, 이 값을 쓰는
+     * 하이라이트는 마디 루프가 끝난 다음에 그린다. */
+    let lineContentTop = Infinity;
+    let activeHL: { m: number; x: number; w: number; stave: Stave; mData: MeasureInfo } | null = null;
 
     /* Allocate each bar a width proportional to its intrinsic note density
      * (so a 16th-heavy bar gets more pixels than a half-note bar). The line
@@ -913,55 +918,13 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
 
       /* 이 마디에서 가장 높이 올라간 요소의 Y. bbox 는 기둥·빔까지 포함하므로
        * 음높이만 보는 것보다 정확하다 — voice.draw() 뒤라야 유효하다. */
-      let contentTop = Infinity;
       for (const vn of vfNotes) {
         const bb = vn.getBoundingBox();
-        if (bb) contentTop = Math.min(contentTop, bb.getY());
+        if (bb) lineContentTop = Math.min(lineContentTop, bb.getY());
       }
 
-      if (m === activeIdx) {
-        const svgEl = el.querySelector('svg');
-        if (svgEl) {
-          /* 편집 중 마디 하이라이트.
-           *   위: 코드 입력 행의 윗변 (대체코드가 있으면 그 행까지)
-           *   아래: 보표 마지막 줄. 단 음표가 그 아래로 내려가면(덧줄) 그
-           *         음표 밑에 여백을 두고 거기까지.
-           * ※ y(Stave 원점)에서 오프셋을 추정하면 안 된다 — 실제 오선은
-           *   getYForLine() 이 정확하다(원점과 첫 줄 사이에 여백이 있다). */
-          const mNotes = measures[m]?.notes ?? [];
-          // 코드칸과 같은 계산 — 칸이 빔 위로 밀려 올라가면 하이라이트도 따라간다.
-          const staffBot = stave.getYForLine(4);       // 트레블 오선 마지막 줄
-          const NOTE_PAD = 8;                          // 오선 밖 음표 아래 여백
-          /* 머리가 마지막 줄 아래로 조금이라도 나오면(맨 아랫줄에 걸친 음 포함)
-           * 그만큼 더 내려간다. 오선 안에만 있으면 마지막 줄에서 끝. */
-          const extend = (low: number | null, base: number) =>
-            low !== null && low > base ? low + NOTE_PAD : base;
-
-          /* 양손 악보는 위/아래 보표를 각각 고른다. 예전엔 트레블을 골라도
-           * 하이라이트가 베이스까지 한 덩어리로 덮여, "1번째 위 마디"와
-           * "1번째 아래 마디"가 화면상 구분되지 않았다. */
-          const onBass = grand && activeStaff === 'bass';
-
-          const HL_TOP = onBass
-            /* 베이스 보표 위에는 코드 입력 행이 없으니 오선 첫 줄에서 조금만 띄운다. */
-            ? stave.getYForLine(0) + GRAND_BASS_DY - 10
-            : chordRowTopY(y, { volta: !!mData.volta, bracket: !!mData.bracket }, contentTop)
-              - (mData.altChords ? 17 : 0)
-              - 4;                                     // 코드 입력 윗변 + 살짝
-
-          const HL_BOT = onBass
-            ? extend(
-                bottomNoteGlyphY(bassAt(m).notes,
-                  (line) => stave.getYForLine(line) + GRAND_BASS_DY, 'bass'),
-                staffBot + GRAND_BASS_DY,
-              )
-            : extend(
-                bottomNoteGlyphY(mNotes, (line) => stave.getYForLine(line)),
-                staffBot,
-              );
-          paintMeasureHighlight(el, x, w, HL_TOP, HL_BOT);
-        }
-      }
+      // 하이라이트는 줄 기준 높이가 확정된 뒤(마디 루프 종료 후) 그린다.
+      if (m === activeIdx) activeHL = { m, x, w, stave, mData };
 
       for (let ni = 0; ni < vfNotes.length; ni++) {
         allVfNotes.push({ mi: m, ni, vfNote: vfNotes[ni] });
@@ -971,6 +934,48 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       }
 
       x += w;
+    }
+
+    /* 편집 중 마디 하이라이트 — 줄 전체를 그린 뒤라야 lineContentTop 이 확정된다.
+     *   위: 코드 입력 행의 윗변 (대체코드가 있으면 그 행까지)
+     *   아래: 보표 마지막 줄. 단 음표가 그 아래로 내려가면(덧줄) 그 음표 밑에
+     *         여백을 두고 거기까지.
+     * ※ y(Stave 원점)에서 오프셋을 추정하면 안 된다 — 실제 오선은
+     *   getYForLine() 이 정확하다(원점과 첫 줄 사이에 여백이 있다). */
+    if (activeHL) {
+      const { m: hm, x: hx, w: hw, stave: hStave, mData: hData } = activeHL;
+      const mNotes = measures[hm]?.notes ?? [];
+      const staffBot = hStave.getYForLine(4);      // 트레블 오선 마지막 줄
+      const NOTE_PAD = 8;                          // 오선 밖 음표 아래 여백
+      /* 머리가 마지막 줄 아래로 조금이라도 나오면(맨 아랫줄에 걸친 음 포함)
+       * 그만큼 더 내려간다. 오선 안에만 있으면 마지막 줄에서 끝. */
+      const extend = (low: number | null, base: number) =>
+        low !== null && low > base ? low + NOTE_PAD : base;
+
+      /* 양손 악보는 위/아래 보표를 각각 고른다. 예전엔 트레블을 골라도
+       * 하이라이트가 베이스까지 한 덩어리로 덮여, "1번째 위 마디"와
+       * "1번째 아래 마디"가 화면상 구분되지 않았다. */
+      const onBass = grand && activeStaff === 'bass';
+
+      const HL_TOP = onBass
+        /* 베이스 보표 위에는 코드 입력 행이 없으니 오선 첫 줄에서 조금만 띄운다. */
+        ? hStave.getYForLine(0) + GRAND_BASS_DY - 10
+        // 코드칸과 완전히 같은 계산 — 칸이 밀려 올라가면 하이라이트도 따라간다.
+        : chordRowTopY(y, { volta: !!hData.volta, bracket: !!hData.bracket }, lineContentTop)
+          - (hData.altChords ? 17 : 0)
+          - 4;                                     // 코드 입력 윗변 + 살짝
+
+      const HL_BOT = onBass
+        ? extend(
+            bottomNoteGlyphY(bassAt(hm).notes,
+              (line) => hStave.getYForLine(line) + GRAND_BASS_DY, 'bass'),
+            staffBot + GRAND_BASS_DY,
+          )
+        : extend(
+            bottomNoteGlyphY(mNotes, (line) => hStave.getYForLine(line)),
+            staffBot,
+          );
+      paintMeasureHighlight(el, hx, hw, HL_TOP, HL_BOT);
     }
   }
 
@@ -1660,14 +1665,31 @@ const GenreFill = styled.div`
   button { width: 100%; justify-content: center; height: 28px; font-size: 0.9rem; }
 `;
 
-/* 음표 선택 해제 — 3번 섹션 우측 상단의 작은 × 버튼. */
+/* 3번 섹션 좌측 상단에 고정되는 상태칩(활성 상태 + 마디/박). */
+const SectionStatus = styled.div`
+  position: absolute;
+  top: 5px;
+  left: 8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.78rem;
+  line-height: 1;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  white-space: nowrap;
+  pointer-events: none;
+`;
+
+/* 음표 선택 해제 — 3번 섹션 우측 상단의 × 버튼. */
 const DeselectBtn = styled.button`
   position: absolute;
-  top: 4px;
-  right: 6px;
+  top: 5px;
+  right: 8px;
   z-index: 2;
-  width: 20px;
-  height: 20px;
+  width: 26px;
+  height: 26px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1675,7 +1697,7 @@ const DeselectBtn = styled.button`
   border-radius: 5px;
   background: transparent;
   color: ${({ theme }) => theme.colors.textSecondary};
-  font-size: 1.05rem;
+  font-size: 1.35rem;
   line-height: 1;
   cursor: pointer;
   &:hover { background: rgba(0, 0, 0, 0.07); color: ${({ theme }) => theme.colors.textPrimary}; }
@@ -1835,13 +1857,12 @@ const MODE_INK = {
 } as const;
 
 const GoldGroup = styled(Section)<{ $mode: 'none' | 'measure' | 'note' }>`
+  padding-top: 26px;      /* 좌측 상단 상태칩 자리 */
   /* 남는 가로 공간을 모두 차지해 툴바 끝까지 늘어난다. */
   flex: 1;
-  /* StatusChip 이 테두리 위에 얹히는 기준. 칩이 안쪽으로 파고드는 만큼(≈7px)
-   * 위 여백만 조금 늘려 내용과 겹치지 않게 한다 — 예전처럼 한 줄을 통째로
-   * 차지하지는 않는다. */
+  /* SectionStatus(좌측 상단 상태칩)를 absolute 로 띄우는 기준. 일반 흐름에 두면
+   * 한 줄을 통째로 차지해 아래 편집 바를 밀어낸다. */
   position: relative;
-  padding-top: 10px;
   border-color: ${({ $mode }) => MODE_INK[$mode].line};
   background: ${({ $mode }) => MODE_INK[$mode].fill};
   flex-direction: column;
@@ -2540,28 +2561,6 @@ function KeyChangePopover({
 /* ── 악보 상태 칩 ─────────────────────────────────────────────────────
  * Bar / beats / notes / bars 를 한 덩어리로 묶은 둥근 사각형. 옆의
  * GenreSelect·KeyDisplay 와 같은 높이·폰트로 맞춰 한 줄로 읽힌다. */
-/* 섹션 테두리 좌측 상단에 걸치는 라벨(fieldset legend 방식). 일반 흐름에 두면
- * 한 줄을 통째로 차지해 아래 편집 바를 밀어내므로 absolute 로 띄운다. */
-const StatusChip = styled.div`
-  position: absolute;
-  top: -10px;
-  left: 12px;                     /* border-radius 12px 모서리를 피한다 */
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 19px;
-  padding: 0 7px;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 7px;
-  background: ${({ theme }) => theme.colors.bgSecondary};
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.64rem;
-  line-height: 1;
-  color: ${({ theme }) => theme.colors.textSecondary};
-  white-space: nowrap;
-`;
-
 /* 3번 섹션 좌측의 활성 상태 배지 — 음표/마디/없음. */
 const ModeTag = styled.span<{ $mode: 'none' | 'measure' | 'note' }>`
   font-size: 0.6rem;
@@ -3279,6 +3278,25 @@ export default function EditorPage() {
   /* 드래그로 처리한 포인터의 뒤따르는 click(선택 토글)을 한 번 억제. */
   const suppressClickRef = useRef(false);
   const [notePositions, setNotePositions] = useState<NotePos[]>([]);
+
+  /* 줄(Stave 원점 Y)별로, 그 줄에서 가장 높이 올라간 요소의 Y.
+   * 코드칸 높이는 한 줄 안에서 모두 같아야 하므로 마디별이 아니라 줄별로 잡는다.
+   * 같은 줄의 마디들은 pos.y 가 동일하다. */
+  const lineContentTop = useMemo(() => {
+    const staveYOf = new Map<number, number>();      // 마디 index → 그 줄의 stave Y
+    for (const p of measurePositions) {
+      if (p.staff !== 'bass') staveYOf.set(p.idx, p.y);
+    }
+    const byLine = new Map<number, number>();
+    for (const np of notePositions) {
+      if (np.staff) continue;                        // 코드는 트레블 기준
+      const sy = staveYOf.get(np.mi);
+      if (sy === undefined) continue;
+      byLine.set(sy, Math.min(byLine.get(sy) ?? Infinity, np.y));
+    }
+    return byLine;
+  }, [measurePositions, notePositions]);
+
   const [selectedNote, setSelectedNote] = useState<NoteSel | null>(null);
   /* 복수 선택 — Ctrl/Cmd + 클릭으로 앵커(selectedNote) 위에 덧붙인 음표들.
    * 앵커는 그대로 두고 여기에만 쌓으므로, 앵커가 바뀌면(=단일 선택 경로)
@@ -5514,15 +5532,15 @@ export default function EditorPage() {
           {selectedNote && (
             <DeselectBtn type="button" title="선택 해제 (Esc)" aria-label="선택 해제" onClick={() => setSelectedNote(null)}>×</DeselectBtn>
           )}
-          {/* 좌측 상단 = 지금 무엇이 활성인지. 그 뒤에 '현재/전체 마디'와 '현재 박'만. */}
-          <StatusChip>
+          {/* 섹션 안 좌측 상단에 고정 — 내용이 길어져도 테두리에 걸치지 않는다. */}
+          <SectionStatus>
             <ModeTag $mode={editMode}>
               {editMode === 'note' ? '음표 활성화' : editMode === 'measure' ? '마디 활성화' : '선택 없음'}
             </ModeTag>
             <StatusItem><b>{Math.min(measures.length + 1, Math.max(allMeasures.length, 1))}</b>/{allMeasures.length} bars</StatusItem>
             <StatusDot />
             <StatusItem $warn={curBeats > 4}><b>{curBeats}</b>/4 beats</StatusItem>
-          </StatusChip>
+          </SectionStatus>
           {/* 음표 모드 — 아래에 있던 편집 바를 이 섹션으로 옮겼다. */}
         {selectedNote && selectedNote.staff !== 'bass' && selNoteInfo && (() => {
           const isRest = selNoteInfo.duration.endsWith('r');
@@ -6045,11 +6063,14 @@ export default function EditorPage() {
               .reduce<NotePos | null>((best, cur) => (best === null || cur.x < best.x ? cur : best), null);
             const baseLeft = firstNote ? firstNote.x - 4 : pos.chordX;
             const chordLeft = hasVolta ? baseLeft + 8 : hasBracket ? baseLeft + 12 : baseLeft;
-            /* 코드칸은 보표 위 기본 높이에 두되, 기둥·빔이 그 높이까지 뻗어 올라온
-             * 마디에서는 그 위로 밀어 올린다 — 절대 겹치지 않게. bbox 는 기둥까지
-             * 포함한 값이라 음높이만 보는 것보다 정확하다. */
-            const contentTop = measureNotes.reduce((min, np) => Math.min(min, np.y), Infinity);
-            const chordTop = chordRowTopY(pos.y, { volta: hasVolta, bracket: hasBracket }, contentTop);
+            /* 코드칸은 보표 위 기본 높이에 두되, 기둥·빔이 그 높이까지 뻗어 올라오면
+             * 그 위로 밀어 올린다 — 절대 겹치지 않게. 기준은 **그 줄 전체**에서
+             * 가장 높이 올라간 마디라, 한 줄 안의 코드칸 높이는 항상 같다. */
+            const chordTop = chordRowTopY(
+              pos.y,
+              { volta: hasVolta, bracket: hasBracket },
+              lineContentTop.get(pos.y) ?? Infinity,
+            );
             /* Clamp chord widths to their half so they never overflow into
              * the next bar (or into the c2 slot). */
             const measureRightPx = (pos.x + pos.w) * SHEET_SCALE;
