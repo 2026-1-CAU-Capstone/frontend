@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { BackButton } from '../components/common/BackButton';
 import { SessionPicker } from '../components/chord/SessionPicker';
-import { INSTRUMENT_ICONS, SESSION_ICON_SLUG } from '../data/instrumentIcons';
+import { INSTRUMENT_ICONS, SESSION_ICON_SLUG, instrumentIconUrl } from '../data/instrumentIcons';
 import { isMinorKey } from '../components/leadsheet/LeadSheet';
 import { transposeNoteSheet, respellNoteSheetKey, normalizeNoteKeyDisplay } from '../lib/note/transposeNoteSheet';
 import { ghostHead } from '../lib/note/ghostNote';
@@ -1649,7 +1649,7 @@ const BoxLegend = styled.span`
 `;
 
 /* 악기 — 그림부터 이름까지 한 테두리로 묶는다(Genre·Key 입력과 같은 톤). */
-const InstBox = styled.div`
+const InstBox = styled.div<{ $fixed?: boolean }>`
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -1660,6 +1660,7 @@ const InstBox = styled.div`
   background: #fff;
   border: 1.5px solid #ccc;
   border-radius: 6px;
+  ${({ $fixed }) => $fixed && 'background: #f4f4f4; color: #777;'}
   button { width: 24px; height: 24px; padding: 0; flex-shrink: 0; }
   img { width: 22px; height: 22px; }
 `;
@@ -2047,8 +2048,8 @@ const HelpAnchor = styled.div`
 const ShortcutPop = styled.div`
   position: absolute;
   top: calc(100% + 8px);
-  /* 버튼이 바 오른쪽에 있어 왼쪽으로 펼친다. */
-  right: 0;
+  /* 버튼이 제목 옆(바 왼쪽)이라 오른쪽으로 펼친다 — right:0 이면 화면 밖으로 나간다. */
+  left: 0;
   z-index: 70;
   width: 300px;
   max-width: calc(100vw - 32px);
@@ -4900,7 +4901,6 @@ export default function EditorPage() {
       <Header>
         <BackButton onClick={() => navigate(-1)} label="이전 페이지" />
         <Title>Editor</Title>
-        <Spacer />
         {/* ? — 단축키 목록. 건반 아래 안내줄과 같은 내용을 팝오버로 편히 본다. */}
         <HelpAnchor ref={shortcutRef}>
           <ToolBtn
@@ -4930,6 +4930,7 @@ export default function EditorPage() {
             </ShortcutPop>
           )}
         </HelpAnchor>
+        <Spacer />
         {/* MIDI 버튼은 툴바 'MIDI' 탭으로 편입돼 여기서는 뺐다. */}
         <ToolBtn
           type="button"
@@ -5101,22 +5102,14 @@ export default function EditorPage() {
                       )}
                       </KeyAnchor>
                   </MetaField>
-                  <MetaField $tight>
-                    <MetaLabel>Inst</MetaLabel>
-                    {/* 그림 ~ 이름까지 하나의 테두리로 묶어 Genre·Key 입력과 같은 모양으로. */}
-                    <InstBox>
-                      <SessionPicker value={metaInstrument} onChange={setMetaInstrument} allowCustom />
-                      <InstName>{instrumentName(metaInstrument)}</InstName>
-                    </InstBox>
-                  </MetaField>
                 </InfoCol>
               </InfoCols>
             </InfoBox>
 
-            {/* 3 — 보표. 오른쪽 끝까지 늘어난다. */}
-            <InfoBox $grow>
-              <MetaField>
-                <MetaLabel>보표 {staffModeLocked && <LockedHint title="불러온 악보의 보표 수로 자동 확정">🔒</LockedHint>}</MetaLabel>
+            {/* 3 — Staff(좌) + Inst(우). 오른쪽 끝까지 늘어난다. */}
+            <InfoBox $grow style={{ flexDirection: 'row', alignItems: 'center', gap: 26 }}>
+              <MetaField $tight>
+                <MetaLabel>Staff {staffModeLocked && <LockedHint title="불러온 악보의 보표 수로 자동 확정">🔒</LockedHint>}</MetaLabel>
                 <SegGroup $n={2} $i={staffMode === 'single' ? 0 : 1}>
                   <SegThumb $n={2} $i={staffMode === 'single' ? 0 : 1} />
                   {(['single', 'grand'] as const).map((v) => (
@@ -5128,10 +5121,28 @@ export default function EditorPage() {
                       onClick={() => {
                         setStaffMode(v);
                         if (v === 'single') { setSelectedBassMeasure(null); setSelectedNote((sel) => (sel?.staff === 'bass' ? null : sel)); }
+                        // 피아노 양손 악보는 악기가 피아노로 확정된다.
+                        else setMetaInstrument('piano');
                       }}
-                    >{v === 'single' ? '한손 악보' : '양손 악보'}</SegBtn>
+                    >{v === 'single' ? '단일 악보' : '피아노 양손 악보'}</SegBtn>
                   ))}
                 </SegGroup>
+              </MetaField>
+
+              <MetaField $tight>
+                <MetaLabel>Inst</MetaLabel>
+                {staffMode === 'grand' ? (
+                  /* 양손 악보 = 피아노 고정 — 고를 수 없음을 시각적으로도 알린다. */
+                  <InstBox $fixed title="피아노 양손 악보는 악기가 피아노로 고정됩니다">
+                    <img src={instrumentIconUrl('piano') ?? ''} alt="" />
+                    <InstName>피아노</InstName>
+                  </InstBox>
+                ) : (
+                  <InstBox>
+                    <SessionPicker value={metaInstrument} onChange={setMetaInstrument} allowCustom />
+                    <InstName>{instrumentName(metaInstrument)}</InstName>
+                  </InstBox>
+                )}
               </MetaField>
             </InfoBox>
         </InfoTabPanel>
