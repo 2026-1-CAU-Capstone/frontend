@@ -1429,27 +1429,32 @@ const MODE_LABEL: Record<'solo' | 'lick' | 'comping', string> = {
  * 활성은 하늘색. 선택이 바뀌면 하늘색 알약이 스르륵 미끄러진다. */
 const SEG_GAP = 6;
 
-const SegGroup = styled.div<{ $n: number; $i: number }>`
+const SegGroup = styled.div<{ $n: number; $i: number; $vertical?: boolean }>`
   position: relative;
   display: grid;
-  grid-template-columns: repeat(${({ $n }) => $n}, 1fr);
+  ${({ $n, $vertical }) => ($vertical
+    ? `grid-template-rows: repeat(${$n}, 1fr);`
+    : `grid-template-columns: repeat(${$n}, 1fr);`)}
   gap: ${SEG_GAP}px;
 `;
 
-const SegThumb = styled.span<{ $n: number; $i: number }>`
+const SegThumb = styled.span<{ $n: number; $i: number; $vertical?: boolean }>`
   position: absolute;
-  top: 0;
-  bottom: 0;
   left: 0;
-  width: calc((100% - ${({ $n }) => ($n - 1) * SEG_GAP}px) / ${({ $n }) => $n});
-  transform: translateX(calc((100% + ${SEG_GAP}px) * ${({ $i }) => $i}));
+  ${({ $n, $i, $vertical }) => ($vertical
+    ? `top: 0; width: 100%;
+       height: calc((100% - ${($n - 1) * SEG_GAP}px) / ${$n});
+       transform: translateY(calc((100% + ${SEG_GAP}px) * ${$i}));`
+    : `top: 0; bottom: 0;
+       width: calc((100% - ${($n - 1) * SEG_GAP}px) / ${$n});
+       transform: translateX(calc((100% + ${SEG_GAP}px) * ${$i}));`)}
   border-radius: 7px;
   border: 1.5px solid #a8d4f2;
   background: linear-gradient(180deg, #eaf5fe 0%, #d9ecfb 100%);
   box-shadow: 0 1px 3px rgba(22, 111, 176, 0.22);
   pointer-events: none;
   /* 살짝 튕기며 멈추는 최신 이징 — 위치와 크기 변화 모두 부드럽게. */
-  transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1), width 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1), width 0.34s cubic-bezier(0.22, 1, 0.36, 1), height 0.34s cubic-bezier(0.22, 1, 0.36, 1);
   @media (prefers-reduced-motion: reduce) { transition: none; }
 `;
 
@@ -1624,8 +1629,23 @@ const MetaField = styled.div<{ $tight?: boolean }>`
  * GenreSelect 내부는 건드리지 않고 감싸서 조절한다(코드차트 등 다른 사용처 무영향). */
 const GenreFill = styled.div`
   min-width: 0;
-  > div { display: block; width: 132px; }   /* GenreDropdown 래퍼 — 폭 고정 */
+  > div { display: block; width: 176px; }   /* GenreDropdown 래퍼 — 폭 고정 */
   button { width: 100%; justify-content: center; height: 28px; font-size: 0.9rem; }
+`;
+
+/* 상자 위 테두리에 걸치는 제목(fieldset legend 느낌). */
+const BoxLegend = styled.span`
+  position: absolute;
+  top: 0;
+  left: 12px;
+  transform: translateY(-52%);
+  padding: 0 6px;
+  background: ${({ theme }) => theme.colors.barBelow};
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  white-space: nowrap;
 `;
 
 /* 악기 — 그림부터 이름까지 한 테두리로 묶는다(Genre·Key 입력과 같은 톤). */
@@ -1633,7 +1653,7 @@ const InstBox = styled.div`
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  width: 132px;        /* Genre 트리거와 같은 폭 — 세 입력의 좌우가 맞는다 */
+  width: 176px;        /* Genre 트리거와 같은 폭 — 세 입력의 좌우가 맞는다 */
   height: 32px;        /* Inst 만 살짝 크게 */
   padding: 0 9px;
   box-sizing: border-box;
@@ -2121,7 +2141,7 @@ const KEY_FONT = "'MuseJazz Text', 'Oswald', 'Pretendard', sans-serif";
  * 동작이 조성 자체에 붙어 의미가 분명해진다. */
 const KeyDisplay = styled.button<{ $open?: boolean }>`
   position: relative;
-  width: 132px;      /* Genre·Inst 와 좌우 맞춤 */
+  width: 176px;      /* Genre·Inst 와 좌우 맞춤 */
   height: 28px;
   box-sizing: border-box;
   display: inline-flex;
@@ -5026,17 +5046,15 @@ export default function EditorPage() {
       ) : toolTab === 'info' ? (
         /* 정보 탭 — 제목·작곡가·악보 메타데이터·장르/조성·믹서/재생을 한곳에 모았다. */
         <InfoTabPanel>
-            {/* 1 — Type */}
-            <InfoBox>
-              <MetaField>
-                <MetaLabel>Type</MetaLabel>
-                <SegGroup $n={3} $i={['solo', 'lick', 'comping'].indexOf(mode)}>
-                  <SegThumb $n={3} $i={['solo', 'lick', 'comping'].indexOf(mode)} />
-                  {(['solo', 'lick', 'comping'] as const).map((m) => (
-                    <SegBtn key={m} type="button" $on={mode === m} disabled={editingLickId !== null} onClick={() => setMode(m)}>{MODE_LABEL[m]}</SegBtn>
-                  ))}
-                </SegGroup>
-              </MetaField>
+            {/* 1 — Type. 라벨은 테두리에 겹치는 legend 처럼. */}
+            <InfoBox style={{ position: 'relative', paddingTop: 14 }}>
+              <BoxLegend>Type</BoxLegend>
+              <SegGroup $vertical $n={3} $i={['solo', 'lick', 'comping'].indexOf(mode)} style={{ width: '100%' }}>
+                <SegThumb $vertical $n={3} $i={['solo', 'lick', 'comping'].indexOf(mode)} />
+                {(['solo', 'lick', 'comping'] as const).map((m) => (
+                  <SegBtn key={m} type="button" $on={mode === m} disabled={editingLickId !== null} onClick={() => setMode(m)}>{MODE_LABEL[m]}</SegBtn>
+                ))}
+              </SegGroup>
             </InfoBox>
 
             {/* 2 — 텍스트 메타데이터 (두 열) */}
@@ -5049,7 +5067,7 @@ export default function EditorPage() {
                   <MetaField><MetaLabel>Composer</MetaLabel><MetaInput value={composer} onChange={(e) => setComposer(e.target.value)} placeholder="e.g. Joseph Kosma" /></MetaField>
                   <MetaField><MetaLabel>Player</MetaLabel><MetaInput value={performer} onChange={(e) => setPerformer(e.target.value)} placeholder="e.g. Charlie Parker" /></MetaField>
                 </InfoCol>
-                <InfoCol style={{ justifyContent: 'flex-end' }}>
+                <InfoCol style={{ justifyContent: 'flex-end', gap: 9 }}>
                   <MetaField $tight><MetaLabel>Genre</MetaLabel><GenreFill><GenreSelect value={genre} onChange={setGenre} /></GenreFill></MetaField>
                   <MetaField $tight>
                     <MetaLabel>Key</MetaLabel>
