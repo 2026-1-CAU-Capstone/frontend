@@ -1685,7 +1685,7 @@ const SectionStatus = styled.div`
   align-items: center;
   gap: 8px;
   padding: 3px 9px;
-  border: 1.5px solid rgba(0, 0, 0, 0.13);   /* 섹션 테두리와 같은 톤 */
+  border: 1.5px solid ${({ theme }) => theme.colors.border};   /* 구분선과 같은 색 */
   border-radius: 9px;                        /* 섹션과 같은 라운드 */
   background: #fff;
   font-family: 'Pretendard', sans-serif;
@@ -1718,8 +1718,16 @@ const DeselectBtn = styled.button`
 `;
 
 /* 상자 안 좌측 상단에 놓는 제목 — 테두리와 겹치지 않는다. */
+/* fieldset legend 처럼 섹션 윗 테두리에 걸치는 라벨. 흐름에서 빼야 한 줄을
+ * 차지하지 않고, 배경으로 테두리 선을 끊어 글자가 선 위에 얹혀 보인다.
+ * (얹히는 InfoBox 는 overflow 를 잘라내면 안 된다 — 라벨이 통째로 잘린다.) */
 const BoxLegend = styled.span`
-  align-self: flex-start;
+  position: absolute;
+  top: -8px;
+  left: 10px;                    /* border-radius 12px 모서리를 피한다 */
+  z-index: 1;
+  padding: 0 5px;
+  background: ${({ theme }) => theme.colors.barBelow};
   font-family: 'Pretendard', sans-serif;
   font-size: 0.88rem;
   font-weight: 700;
@@ -1850,6 +1858,8 @@ const Section = styled.div`
 
 /* 정보 탭 상자 — 공용 Section 규격 그대로. $grow 면 남는 폭을 채운다. */
 const InfoBox = styled(Section)<{ $grow?: boolean }>`
+  /* BoxLegend 를 윗 테두리에 걸치게 하는 기준. */
+  position: relative;
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
@@ -5154,7 +5164,7 @@ export default function EditorPage() {
         /* 정보 탭 — 제목·작곡가·악보 메타데이터·장르/조성·믹서/재생을 한곳에 모았다. */
         <InfoTabPanel>
             {/* 1 — Type. 라벨은 테두리에 겹치는 legend 처럼. */}
-            <InfoBox style={{ alignItems: 'stretch', gap: 4, padding: '6px 10px', overflow: 'hidden' }}>
+            <InfoBox style={{ alignItems: 'stretch', gap: 4, padding: '8px 10px 6px' }}>
               <BoxLegend>Type</BoxLegend>
               <SegGroup $vertical $n={3} $i={['solo', 'lick', 'comping'].indexOf(mode)} style={{ width: '100%', flex: 1, minHeight: 0 }}>
                 <SegThumb $vertical $n={3} $i={['solo', 'lick', 'comping'].indexOf(mode)} />
