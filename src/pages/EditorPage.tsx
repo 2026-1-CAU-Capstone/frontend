@@ -1637,8 +1637,8 @@ const GenreFill = styled.div`
 const BoxLegend = styled.span`
   position: absolute;
   top: 0;
-  left: 12px;
-  transform: translateY(-52%);
+  left: 50%;
+  transform: translate(-50%, -52%);   /* 상자 위 테두리 정중앙 */
   padding: 0 6px;
   background: ${({ theme }) => theme.colors.barBelow};
   font-family: 'Pretendard', sans-serif;
