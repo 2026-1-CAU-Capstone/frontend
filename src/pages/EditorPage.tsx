@@ -1544,7 +1544,7 @@ const TabItem = styled.button<{ $on?: boolean }>`
   background: none;
   border: none;
   border-bottom: 2px solid ${({ $on }) => ($on ? '#2f6fe0' : 'transparent')};
-  padding: 16px 2px 13px;
+  padding: 11px 2px 9px;   /* 글자·아이콘 크기는 그대로, 세로 높이만 낮춤 */
   cursor: pointer;
   white-space: nowrap;
   &:hover { color: ${({ $on }) => ($on ? '#2f6fe0' : '#444')}; }
