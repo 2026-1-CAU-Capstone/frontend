@@ -1410,7 +1410,7 @@ const MetaLabel = styled.span`
 /* 정보 칩·드롭다운 표기 — 칩 title 과 세그먼트 버튼이 같은 문구를 쓴다. */
 /** 악기 슬러그 → 한국어 이름. 목록에 없으면(직접 입력) 그 값을 그대로 쓴다. */
 function instrumentName(v: string): string {
-  if (!v) return '선택 안 함';
+  if (!v) return '선택 안 함 (피아노)';
   const slug = SESSION_ICON_SLUG[v] ?? v;
   return INSTRUMENT_ICONS.find((i) => i.slug === slug)?.ko ?? v;
 }
@@ -1631,14 +1631,18 @@ const MetaField = styled.div<{ $tight?: boolean }>`
 const InfoLine = styled.div`
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 34px;     /* Genre 입력과 Key 라벨 사이를 넉넉히 */
 `;
 
-/* 1-1 / 1-2 를 세로로 쌓는 묶음. */
+/* 1-1 / 1-2 를 세로로 쌓는 묶음. 패널이 stretch 라 이 묶음도 옆 상자와 같은
+ * 높이를 갖는다 — 남는 세로 공간은 1-1(첫 상자)이 흡수한다. */
 const InfoStack = styled.div`
   display: flex;
   flex-direction: column;
   gap: 8px;
+  align-self: stretch;
+
+  > *:first-child { flex: 1; }
 `;
 
 /* 악기 이름 — 아이콘 오른쪽. */
