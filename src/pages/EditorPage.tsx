@@ -1632,15 +1632,16 @@ const GenreFill = styled.div`
 const InstBox = styled.div`
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 8px;
+  gap: 7px;
+  width: 132px;        /* Genre 트리거와 같은 폭 — 세 입력의 좌우가 맞는다 */
+  height: 32px;        /* Inst 만 살짝 크게 */
+  padding: 0 9px;
   box-sizing: border-box;
   background: #fff;
   border: 1.5px solid #ccc;
   border-radius: 6px;
-  button { width: 22px; height: 22px; padding: 0; }
-  img { width: 20px; height: 20px; }
+  button { width: 24px; height: 24px; padding: 0; flex-shrink: 0; }
+  img { width: 22px; height: 22px; }
 `;
 
 /* 악기 이름 — 아이콘 오른쪽. */
@@ -2120,6 +2121,7 @@ const KEY_FONT = "'MuseJazz Text', 'Oswald', 'Pretendard', sans-serif";
  * 동작이 조성 자체에 붙어 의미가 분명해진다. */
 const KeyDisplay = styled.button<{ $open?: boolean }>`
   position: relative;
+  width: 132px;      /* Genre·Inst 와 좌우 맞춤 */
   height: 28px;
   box-sizing: border-box;
   display: inline-flex;
@@ -5047,7 +5049,7 @@ export default function EditorPage() {
                   <MetaField><MetaLabel>Composer</MetaLabel><MetaInput value={composer} onChange={(e) => setComposer(e.target.value)} placeholder="e.g. Joseph Kosma" /></MetaField>
                   <MetaField><MetaLabel>Player</MetaLabel><MetaInput value={performer} onChange={(e) => setPerformer(e.target.value)} placeholder="e.g. Charlie Parker" /></MetaField>
                 </InfoCol>
-                <InfoCol>
+                <InfoCol style={{ justifyContent: 'flex-end' }}>
                   <MetaField $tight><MetaLabel>Genre</MetaLabel><GenreFill><GenreSelect value={genre} onChange={setGenre} /></GenreFill></MetaField>
                   <MetaField $tight>
                     <MetaLabel>Key</MetaLabel>
@@ -5083,7 +5085,7 @@ export default function EditorPage() {
                       </KeyAnchor>
                   </MetaField>
                   <MetaField $tight>
-                    <MetaLabel>Instrument</MetaLabel>
+                    <MetaLabel>Inst</MetaLabel>
                     {/* 그림 ~ 이름까지 하나의 테두리로 묶어 Genre·Key 입력과 같은 모양으로. */}
                     <InstBox>
                       <SessionPicker value={metaInstrument} onChange={setMetaInstrument} allowCustom />
