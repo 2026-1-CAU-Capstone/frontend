@@ -1475,13 +1475,23 @@ const DurGroup = styled(Section)``;
 const ModGroup = styled(Section)``;
 
 /* 세 번째 섹션 — 메타데이터 + undo/redo. 중요 영역이라 골드 테두리. */
-const GoldGroup = styled(Section)`
+/* 3번 섹션 — 활성 상태의 시그니처 색을 테두리·배경에 함께 입힌다.
+ *   note    → 연한 빨강 · measure → 골드 · none → 중립 회색 */
+const MODE_INK = {
+  note:    { line: '#e08a8a', fill: 'rgba(214, 88, 88, 0.10)' },
+  measure: { line: '#D4A843', fill: 'rgba(184, 150, 10, 0.12)' },
+  none:    { line: 'rgba(0, 0, 0, 0.13)', fill: 'transparent' },
+} as const;
+
+const GoldGroup = styled(Section)<{ $mode: 'none' | 'measure' | 'note' }>`
   /* 남는 가로 공간을 모두 차지해 툴바 끝까지 늘어난다. */
   flex: 1;
-  border-color: ${({ theme }) => theme.colors.gold};
+  border-color: ${({ $mode }) => MODE_INK[$mode].line};
+  background: ${({ $mode }) => MODE_INK[$mode].fill};
   flex-direction: column;
   justify-content: center;
   gap: 8px;
+  transition: border-color 0.15s, background 0.15s;
 `;
 
 /* 컴팩트 세로 2단 컬럼(음표/쉼표, 점/겹점 …). */
@@ -1513,9 +1523,10 @@ const DurBtn = styled.button<{ $active?: boolean }>`
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid ${({ $active, theme }) => ($active ? '#b8960a' : theme.colors.border)};
+  /* 활성 = 연한 하늘색 (예전 금색에서 변경) */
+  border: 1px solid ${({ $active, theme }) => ($active ? '#7cb8e8' : theme.colors.border)};
   border-radius: 6px;
-  background: ${({ $active }) => ($active ? '#f5ecd0' : 'transparent')};
+  background: ${({ $active }) => ($active ? '#e3f2fd' : 'transparent')};
   cursor: pointer;
   color: ${({ theme }) => theme.colors.textPrimary};
   &:hover { background: #f0ebe0; }
@@ -2145,6 +2156,17 @@ const StatusChip = styled.div`
   line-height: 1;                 /* 옆 칩들과 수직 중심 통일 */
   color: ${({ theme }) => theme.colors.textSecondary};
   white-space: nowrap;
+`;
+
+/* 3번 섹션 좌측의 활성 상태 배지 — 음표/마디/없음. */
+const ModeTag = styled.span<{ $mode: 'none' | 'measure' | 'note' }>`
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  color: ${({ $mode }) => ($mode === 'note' ? '#8a2b2b' : $mode === 'measure' ? '#8a7a2b' : '#777')};
+  background: ${({ $mode }) => ($mode === 'note' ? 'rgba(200,60,60,0.13)' : $mode === 'measure' ? 'rgba(184,150,10,0.16)' : 'rgba(0,0,0,0.05)')};
 `;
 
 const StatusItem = styled.span<{ $warn?: boolean }>`
@@ -2894,6 +2916,13 @@ export default function EditorPage() {
    * ni = "이 인덱스 자리에 삽입"(기존 ni 앞). 입력할 때마다 ni+1로 전진해
    * 연속 입력이 자연스럽게 이어진다. 음표/마디 선택이 바뀌면 해제. */
   const [insertPos, setInsertPos] = useState<NoteSel | null>(null);
+
+  /* 상단 3번 섹션(골드)의 상태 — 세 가지뿐이다.
+   *   none    : 아무것도 선택 안 됨. 1·2번 섹션으로 찍으면 새 마디에 입력된다.
+   *   measure : 마디를 눌렀거나, 새 마디가 만들어져 자동 활성화된 상태.
+   *   note    : 실제 음표를 눌러 빨갛게 활성화한 상태 — 음표 편집 도구가 뜬다. */
+  const editMode: 'none' | 'measure' | 'note' =
+    selectedNote ? 'note' : (selectedMeasure != null || selectedBassMeasure != null) ? 'measure' : 'none';
   const [noteChordEditing, setNoteChordEditing] = useState(false);
   const [noteChordValue, setNoteChordValue] = useState('');
   const noteChordInputRef = useRef<HTMLInputElement>(null);
@@ -4688,6 +4717,17 @@ export default function EditorPage() {
           />
         </BarCenter>
         <BarRight>
+          {/* 되돌리기/다시하기 — 재생 컨트롤 바로 오른쪽. */}
+          <UndoRedoRow>
+            <IconBtn type="button" onClick={handleUndo} aria-label="Undo">
+              <img src={`${import.meta.env.BASE_URL}icons/undo.svg`} alt="" draggable={false} />
+              <IconLabel>undo</IconLabel>
+            </IconBtn>
+            <IconBtn type="button" onClick={handleRedo} aria-label="Redo">
+              <img src={`${import.meta.env.BASE_URL}icons/redo.svg`} alt="" draggable={false} />
+              <IconLabel>redo</IconLabel>
+            </IconBtn>
+          </UndoRedoRow>
           {/* MIDI(왼쪽) → 설정(오른쪽). 코드차트 우측 아이콘과 동일한 ToolBtn 규격. */}
           <ToolBtn
             type="button"
@@ -4972,26 +5012,16 @@ export default function EditorPage() {
         </ModGroup>
 
         {/* 세 번째 섹션 — 악보 상태(위) + undo/redo(아래). 중요 영역이라 골드 테두리. */}
-        <GoldGroup>
+        <GoldGroup $mode={editMode}>
+          {/* 좌측 상단 = 지금 무엇이 활성인지. 그 뒤에 '현재/전체 마디'와 '현재 박'만. */}
           <StatusChip>
-            <StatusItem>Bar <b>{measures.length + 1}</b></StatusItem>
+            <ModeTag $mode={editMode}>
+              {editMode === 'note' ? '음표 활성화' : editMode === 'measure' ? '마디 활성화' : '선택 없음'}
+            </ModeTag>
+            <StatusItem><b>{Math.min(measures.length + 1, Math.max(allMeasures.length, 1))}</b>/{allMeasures.length} bars</StatusItem>
             <StatusDot />
             <StatusItem $warn={curBeats > 4}><b>{curBeats}</b>/4 beats</StatusItem>
-            <StatusDot />
-            <StatusItem><b>{totalNotes}</b> notes</StatusItem>
-            <StatusDot />
-            <StatusItem><b>{allMeasures.length}</b> bars</StatusItem>
           </StatusChip>
-          <UndoRedoRow>
-            <IconBtn type="button" onClick={handleUndo} aria-label="Undo">
-              <img src={`${import.meta.env.BASE_URL}icons/undo.svg`} alt="" draggable={false} />
-              <IconLabel>undo</IconLabel>
-            </IconBtn>
-            <IconBtn type="button" onClick={handleRedo} aria-label="Redo">
-              <img src={`${import.meta.env.BASE_URL}icons/redo.svg`} alt="" draggable={false} />
-              <IconLabel>redo</IconLabel>
-            </IconBtn>
-          </UndoRedoRow>
         </GoldGroup>
 
 
@@ -5025,8 +5055,6 @@ export default function EditorPage() {
             <SectionCaption>편집</SectionCaption>
             <EditRow>
               {!isRest && (<>
-                <NoteEditBtn title="한 칸 올리기 (↑)" onClick={() => stepSelectedNote(1)}>▲</NoteEditBtn>
-                <NoteEditBtn title="한 칸 내리기 (↓)" onClick={() => stepSelectedNote(-1)}>▼</NoteEditBtn>
               </>)}
               <NoteEditBtn
                 title="이 음표/쉼표 삭제"
@@ -5482,8 +5510,6 @@ export default function EditorPage() {
           </NoteEditLabel>
           {!selNoteInfo.duration.endsWith('r') && (
             <>
-              <NoteEditBtn title="한 칸 올리기 (↑)" onClick={() => stepSelectedNote(1)}>▲</NoteEditBtn>
-              <NoteEditBtn title="한 칸 내리기 (↓)" onClick={() => stepSelectedNote(-1)}>▼</NoteEditBtn>
             </>
           )}
           {/* N연음 묶기 — 트레블 표현 섹션과 동일 규칙(3개 이상일 때만 노출). */}
