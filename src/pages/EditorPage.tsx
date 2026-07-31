@@ -1417,40 +1417,56 @@ const MODE_LABEL: Record<'solo' | 'lick' | 'comping', string> = {
 
 
 /* 세그먼트 토글 — 선택지가 2~3개뿐이라 select 보다 한눈에 들어온다. */
-const SegGroup = styled.div`
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 3px;
-  border-radius: 10px;
-  background: #eef1f5;                 /* 트랙 */
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+/* 세그먼티드 컨트롤 — 비활성은 Genre·Key 와 같은 톤(흰 배경 + 회색 테두리),
+ * 활성은 하늘색. 선택이 바뀌면 하늘색 알약이 스르륵 미끄러진다. */
+const SEG_GAP = 6;
+
+const SegGroup = styled.div<{ $n: number; $i: number }>`
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(${({ $n }) => $n}, 1fr);
+  gap: ${SEG_GAP}px;
+`;
+
+const SegThumb = styled.span<{ $n: number; $i: number }>`
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: calc((100% - ${({ $n }) => ($n - 1) * SEG_GAP}px) / ${({ $n }) => $n});
+  transform: translateX(calc((100% + ${SEG_GAP}px) * ${({ $i }) => $i}));
+  border-radius: 7px;
+  border: 1.5px solid #a8d4f2;
+  background: linear-gradient(180deg, #eaf5fe 0%, #d9ecfb 100%);
+  box-shadow: 0 1px 3px rgba(22, 111, 176, 0.22);
+  pointer-events: none;
+  /* 살짝 튕기며 멈추는 최신 이징 — 위치와 크기 변화 모두 부드럽게. */
+  transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1), width 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+  @media (prefers-reduced-motion: reduce) { transition: none; }
 `;
 
 const SegBtn = styled.button<{ $on?: boolean }>`
   position: relative;
+  z-index: 1;
   font-family: 'Pretendard', sans-serif;
   font-size: 0.84rem;
   font-weight: ${({ $on }) => ($on ? 700 : 600)};
-  letter-spacing: 0.01em;
-  padding: 6px 13px;
-  border-radius: 8px;
-  cursor: pointer;
+  padding: 5px 12px;
+  border-radius: 7px;
   white-space: nowrap;
-  /* 활성 = 하늘색 알약(옅은 그라데이션 + 얇은 링 + 살짝 뜬 그림자). */
-  border: 1px solid ${({ $on }) => ($on ? '#a8d4f2' : 'transparent')};
-  background: ${({ $on }) => ($on ? 'linear-gradient(180deg, #eaf5fe 0%, #d9ecfb 100%)' : 'transparent')};
-  color: ${({ $on }) => ($on ? '#166fb0' : '#6b7280')};
-  box-shadow: ${({ $on }) => ($on ? '0 1px 2px rgba(22, 111, 176, 0.18)' : 'none')};
-  transition: background 0.15s, color 0.15s, box-shadow 0.15s, border-color 0.15s;
+  cursor: pointer;
+  /* 비활성 = Genre·Key 와 같은 톤. 활성은 배경/테두리를 비워 썸이 드러나게 한다. */
+  background: ${({ $on }) => ($on ? 'transparent' : '#fff')};
+  border: 1.5px solid ${({ $on }) => ($on ? 'transparent' : '#ccc')};
+  color: ${({ $on }) => ($on ? '#166fb0' : '#222')};
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 
-  &:hover:not(:disabled) {
-    color: ${({ $on }) => ($on ? '#166fb0' : '#374151')};
-    background: ${({ $on }) => ($on ? 'linear-gradient(180deg, #eaf5fe 0%, #d9ecfb 100%)' : 'rgba(0, 0, 0, 0.04)')};
-  }
+  &:hover:not(:disabled) { border-color: ${({ $on }) => ($on ? 'transparent' : '#888')}; }
   &:active:not(:disabled) { transform: translateY(0.5px); }
   &:disabled { opacity: 0.45; cursor: default; }
 `;
+
+
 
 
 const LockedHint = styled.span`
@@ -3076,6 +3092,10 @@ export default function EditorPage() {
   const bpmManualRef = useRef(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  /* 저장 버튼은 아이콘만 남아서, 상태 설명을 툴팁·스크린리더 라벨로 전달한다. */
+  const saveLabel = saving ? '저장 중…'
+    : saveError ? '저장 실패 — 다시 시도'
+    : mode === 'solo' ? 'Save Solo' : 'Save Lick';
   const svgRef = useRef<HTMLDivElement>(null);
   const chord1Ref = useRef<HTMLInputElement>(null);
 
@@ -4946,7 +4966,8 @@ export default function EditorPage() {
                 </MetaField>
                 <MetaField>
                   <MetaLabel>Type</MetaLabel>
-                  <SegGroup>
+                  <SegGroup $n={3} $i={['solo', 'lick', 'comping'].indexOf(mode)}>
+                    <SegThumb $n={3} $i={['solo', 'lick', 'comping'].indexOf(mode)} />
                     {(['solo', 'lick', 'comping'] as const).map((m) => (
                       <SegBtn key={m} type="button" $on={mode === m} disabled={editingLickId !== null} onClick={() => setMode(m)}>{MODE_LABEL[m]}</SegBtn>
                     ))}
@@ -4957,7 +4978,8 @@ export default function EditorPage() {
               <InfoCol>
                 <MetaField>
                   <MetaLabel>보표 {staffModeLocked && <LockedHint title="불러온 악보의 보표 수로 자동 확정">🔒</LockedHint>}</MetaLabel>
-                  <SegGroup>
+                  <SegGroup $n={2} $i={staffMode === 'single' ? 0 : 1}>
+                    <SegThumb $n={2} $i={staffMode === 'single' ? 0 : 1} />
                     {(['single', 'grand'] as const).map((v) => (
                       <SegBtn
                         key={v}
