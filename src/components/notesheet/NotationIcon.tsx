@@ -173,11 +173,14 @@ function BarRest({ type, width, height }: { type: 'w' | 'h'; width: number; heig
   const cx = 25, cy = 25;                        // 24x50 박스 기준 중심
   const rectY = type === 'w' ? cy : cy - RECT_H; // 온쉼표는 선 아래, 2분쉼표는 선 위
   const lineY = type === 'w' ? cy - LINE_H : cy; // 선은 사각형에 딱 붙는다(간격 0)
+  /* 검정 고정 — 버튼(RestBtn)의 글자색이 회색(textSecondary)이라 currentColor 를
+   * 쓰면 쉼표가 회색으로 그려진다. */
+  const INK = '#1A1A1A';
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width, height, color: 'currentColor' }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width, height }}>
       <svg width={50} height={50} viewBox="0 0 50 50" style={{ display: 'block' }} aria-hidden>
-        <rect x={cx - RECT_W / 2} y={rectY} width={RECT_W} height={RECT_H} fill="currentColor" />
-        <rect x={cx - LINE_W / 2} y={lineY} width={LINE_W} height={LINE_H} fill="currentColor" />
+        <rect x={cx - RECT_W / 2} y={rectY} width={RECT_W} height={RECT_H} fill={INK} />
+        <rect x={cx - LINE_W / 2} y={lineY} width={LINE_W} height={LINE_H} fill={INK} />
       </svg>
     </span>
   );
