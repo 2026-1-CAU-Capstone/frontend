@@ -1418,25 +1418,37 @@ const MODE_LABEL: Record<'solo' | 'lick' | 'comping', string> = {
 
 /* 세그먼트 토글 — 선택지가 2~3개뿐이라 select 보다 한눈에 들어온다. */
 const SegGroup = styled.div`
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
-  gap: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
   padding: 3px;
-  border-radius: 9px;
-  background: ${({ theme }) => theme.colors.bgSecondary};
+  border-radius: 10px;
+  background: #eef1f5;                 /* 트랙 */
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
 `;
 
 const SegBtn = styled.button<{ $on?: boolean }>`
+  position: relative;
   font-family: 'Pretendard', sans-serif;
   font-size: 0.84rem;
-  font-weight: 700;
-  padding: 7px 4px;
-  border-radius: 7px;
-  border: 1.5px solid ${({ $on, theme }) => ($on ? theme.colors.textPrimary : 'transparent')};
-  background: ${({ $on, theme }) => ($on ? theme.colors.bgPrimary : 'transparent')};
-  color: ${({ $on, theme }) => ($on ? theme.colors.textPrimary : theme.colors.textSecondary)};
+  font-weight: ${({ $on }) => ($on ? 700 : 600)};
+  letter-spacing: 0.01em;
+  padding: 6px 13px;
+  border-radius: 8px;
   cursor: pointer;
+  white-space: nowrap;
+  /* 활성 = 하늘색 알약(옅은 그라데이션 + 얇은 링 + 살짝 뜬 그림자). */
+  border: 1px solid ${({ $on }) => ($on ? '#a8d4f2' : 'transparent')};
+  background: ${({ $on }) => ($on ? 'linear-gradient(180deg, #eaf5fe 0%, #d9ecfb 100%)' : 'transparent')};
+  color: ${({ $on }) => ($on ? '#166fb0' : '#6b7280')};
+  box-shadow: ${({ $on }) => ($on ? '0 1px 2px rgba(22, 111, 176, 0.18)' : 'none')};
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s, border-color 0.15s;
+
+  &:hover:not(:disabled) {
+    color: ${({ $on }) => ($on ? '#166fb0' : '#374151')};
+    background: ${({ $on }) => ($on ? 'linear-gradient(180deg, #eaf5fe 0%, #d9ecfb 100%)' : 'rgba(0, 0, 0, 0.04)')};
+  }
+  &:active:not(:disabled) { transform: translateY(0.5px); }
   &:disabled { opacity: 0.45; cursor: default; }
 `;
 
@@ -1453,17 +1465,17 @@ const LockedHint = styled.span`
 
 /* 탭 바 오른쪽 아이콘들 — undo/redo 외에는 디자인용(동작 미연결). */
 const TIco = {
-  undo: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M4 9h11a5 5 0 0 1 0 10h-1"/><polyline points="8 5 4 9 8 13"/></svg>,
-  redo: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M20 9H9a5 5 0 0 0 0 10h1"/><polyline points="16 5 20 9 16 13"/></svg>,
-  add:  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M12 8v8M8 12h8" strokeLinecap="round"/></svg>,
-  cut:  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M7.5 16 18 4M16.5 16 6 4"/></svg>,
-  check:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><polyline points="8 12 11 15 16 9"/></svg>,
-  down: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="8 12 12 16 16 12"/><line x1="12" y1="7" x2="12" y2="16"/></svg>,
-  print:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="7" rx="2"/><rect x="6" y="14" width="12" height="7"/></svg>,
-  layout:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="10" x2="9" y2="20"/></svg>,
-  zin:  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5M8 11h6M11 8v6"/></svg>,
-  zout: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5M8 11h6"/></svg>,
-  pause:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="9" y1="5" x2="9" y2="19"/><line x1="15" y1="5" x2="15" y2="19"/></svg>,
+  undo: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M4 9h11a5 5 0 0 1 0 10h-1"/><polyline points="8 5 4 9 8 13"/></svg>,
+  redo: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M20 9H9a5 5 0 0 0 0 10h1"/><polyline points="16 5 20 9 16 13"/></svg>,
+  add:  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M12 8v8M8 12h8" strokeLinecap="round"/></svg>,
+  cut:  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M7.5 16 18 4M16.5 16 6 4"/></svg>,
+  check:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><polyline points="8 12 11 15 16 9"/></svg>,
+  down: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="8 12 12 16 16 12"/><line x1="12" y1="7" x2="12" y2="16"/></svg>,
+  print:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="7" rx="2"/><rect x="6" y="14" width="12" height="7"/></svg>,
+  layout:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="10" x2="9" y2="20"/></svg>,
+  zin:  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5M8 11h6M11 8v6"/></svg>,
+  zout: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5M8 11h6"/></svg>,
+  pause:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="9" y1="5" x2="9" y2="19"/><line x1="15" y1="5" x2="15" y2="19"/></svg>,
 };
 
 const TOOL_TABS = [
@@ -1495,13 +1507,13 @@ const TabList = styled.div`
 
 const TabItem = styled.button<{ $on?: boolean }>`
   font-family: 'Pretendard', sans-serif;
-  font-size: 1rem;
+  font-size: 1.06rem;
   font-weight: ${({ $on }) => ($on ? 700 : 500)};
   color: ${({ $on, theme }) => ($on ? '#2f6fe0' : theme.colors.textSecondary)};
   background: none;
   border: none;
   border-bottom: 2px solid ${({ $on }) => ($on ? '#2f6fe0' : 'transparent')};
-  padding: 12px 2px 10px;
+  padding: 16px 2px 13px;
   cursor: pointer;
   white-space: nowrap;
   &:hover { color: ${({ $on }) => ($on ? '#2f6fe0' : '#444')}; }
@@ -1526,10 +1538,10 @@ const TabIconBtn = styled.button`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border: none;
-  border-radius: 6px;
+  border-radius: 7px;
   background: none;
   color: #5b5b5b;
   cursor: pointer;
@@ -1928,6 +1940,22 @@ const ToolBtn = styled.button<{ $lit?: boolean }>`
   ${({ $lit }) => $lit && 'filter: drop-shadow(0 0 4px rgba(232, 168, 56, 0.55));'}
   &:hover:not(:disabled) { background: rgba(0, 0, 0, 0.06); }
   &:disabled { opacity: 0.4; cursor: default; }
+`;
+
+/* 저장 버튼 — 톱니·MIDI 와 같은 38px 아이콘 버튼 규격(ToolBtn) 위에
+ * 상태만 얹는다. 아이콘만 남으므로 상태(저장 중/실패)는 색과 회전, 그리고
+ * title/aria-label 로 전달한다.
+ * (아래쪽 `spin` 은 이 시점에 아직 선언 전이라 여기 전용 키프레임을 둔다.) */
+const saveSpin = keyframes`
+  to { transform: rotate(360deg); }
+`;
+
+const SaveIconBtn = styled(ToolBtn)<{ $error?: boolean; $busy?: boolean }>`
+  color: ${({ $error }) => ($error ? '#c62828' : '#ef6c00')};
+  &:hover:not(:disabled) {
+    background: ${({ $error }) => ($error ? 'rgba(198, 40, 40, 0.10)' : 'rgba(239, 108, 0, 0.12)')};
+  }
+  svg { ${({ $busy }) => $busy && `animation: ${saveSpin} 0.9s linear infinite;`} }
 `;
 
 /* ── 단축키 도움말(?) ─────────────────────────────────────────────────
@@ -2434,6 +2462,23 @@ const StatusDot = styled.span`
 `;
 
 /* 코드차트와 동일 규격(26px · stroke 2)의 우측 바 아이콘. */
+/* 저장 — 플로피 디스크(범용 저장 기호). 톱니와 같은 26px·strokeWidth 2 규격. */
+const SaveIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+    <polyline points="17 21 17 13 7 13 7 21" />
+    <polyline points="7 3 7 8 15 8" />
+  </svg>
+);
+
+/* 저장 중 표시 — 아이콘 자리에 그대로 도는 링. 버튼 크기가 바뀌지 않게 26px 고정. */
+const SaveSpinnerIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+    <circle cx="12" cy="12" r="9" opacity="0.25" />
+    <path d="M21 12a9 9 0 0 0-9-9" />
+  </svg>
+);
+
 const GearIcon = () => (
   <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="3" />
@@ -4808,9 +4853,17 @@ export default function EditorPage() {
           Load JSON
         </JsonBtn>
         {/* YouTube Onset button removed from Editor toolbar */}
-        <JsonBtn $bg="#ef6c00" $hover="#e65100" onClick={handleSave} disabled={totalNotes === 0 || saving}>
-          {saving ? '… 저장 중' : saveError ? '⚠ Save failed' : (mode === 'solo' ? 'Save Solo' : 'Save Lick')}
-        </JsonBtn>
+        <SaveIconBtn
+          type="button"
+          onClick={handleSave}
+          disabled={totalNotes === 0 || saving}
+          $busy={saving}
+          $error={!saving && !!saveError}
+          title={saveLabel}
+          aria-label={saveLabel}
+        >
+          {saving ? <SaveSpinnerIcon /> : <SaveIcon />}
+        </SaveIconBtn>
       </Header>
 
 
