@@ -15,7 +15,7 @@ import {
 import { minWidthForNotes, barWidthFromMin, heuristicWidth, packLines } from '../lib/notesheet/sheetLayout';
 import { PianoKeyboard, playMidi, type PianoNote } from '../components/notesheet/PianoKeyboard';
 import { useMidiInput, type MidiNoteEvent } from '../hooks/useMidiInput';
-import { MidiSettingsPanel } from '../components/notesheet/MidiSettingsPanel';
+import { MidiSettingsBody } from '../components/notesheet/MidiSettingsPanel';
 import { usePref } from '../lib/prefsStore';
 import { editorExplicitAcc } from '../lib/pagePrefs';
 import { openPerformanceSettings } from '../lib/settingsBus';
@@ -1370,62 +1370,11 @@ const MetaLabel = styled.span`
 const MODE_LABEL: Record<'solo' | 'lick' | 'comping', string> = {
   solo: 'Solo', lick: 'Lick', comping: 'Comping',
 };
-const INSTRUMENT_LABEL: Record<'piano' | 'guitar' | 'drums', string> = {
-  piano: '피아노', guitar: '기타', drums: '드럼',
-};
 
-/* ── 상단바 정보 칩 + 메타데이터 드롭다운 ────────────────────────────────
- * Mode·보표·악보 종류를 상단바에 나란히 늘어놓던 것을 정사각(라운드) 칩 하나로
- * 접었다. 칩을 누르면 아래로 펼쳐지고, Title 은 칩 오른쪽에 그대로 남는다. */
-const MetaAnchor = styled.div`
-  position: relative;
-  display: inline-flex;
-`;
 
-const InfoChip = styled.button<{ $open?: boolean }>`
-  width: 38px;
-  height: 38px;
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 11px;
-  border: 1px solid ${({ $open, theme }) => ($open ? theme.colors.textPrimary : theme.colors.border)};
-  background: ${({ $open, theme }) => ($open ? theme.colors.bgSecondary : theme.colors.bgPrimary)};
-  color: ${({ theme }) => theme.colors.textPrimary};
-  cursor: pointer;
-  transition: border-color 0.12s, background 0.12s;
-  &:hover { background: ${({ theme }) => theme.colors.bgSecondary}; }
-`;
 
-const MetaPop = styled.div`
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  z-index: ${({ theme }) => theme.zIndex.popover};
-  width: 268px;
-  padding: 14px 16px 16px;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 12px;
-  background: ${({ theme }) => theme.colors.bgPrimary};
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.16);
-  font-family: 'Pretendard', sans-serif;
-  display: flex;
-  flex-direction: column;
-  gap: 13px;
-`;
 
-const MetaRow = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-`;
 
-const MetaRowHead = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 6px;
-`;
 
 /* 세그먼트 토글 — 선택지가 2~3개뿐이라 select 보다 한눈에 들어온다. */
 const SegGroup = styled.div`
@@ -1451,11 +1400,6 @@ const SegBtn = styled.button<{ $on?: boolean }>`
   &:disabled { opacity: 0.45; cursor: default; }
 `;
 
-const MetaHint = styled.div`
-  font-size: 0.72rem;
-  line-height: 1.45;
-  color: ${({ theme }) => theme.colors.textSecondary};
-`;
 
 const LockedHint = styled.span`
   font-size: 0.62rem;
@@ -1487,6 +1431,7 @@ const TOOL_TABS = [
   { id: 'artic', label: '아티큘레이션' },
   { id: 'dyn', label: '다이내믹스' },
   { id: 'measure', label: '마디' },
+  { id: 'midi', label: 'MIDI' },
   { id: 'info', label: '정보' },
 ] as const;
 
@@ -1553,6 +1498,14 @@ const TabDivider = styled.span`
 `;
 
 /* 정보 탭 — 여러 줄로 나눠 담는 패널. */
+/* MIDI 탭 본문 — 정보 탭과 같은 툴바 배경/여백 규격. 내용은 두 칸 그리드라
+ * 여기서는 감싸는 여백만 준다. */
+const MidiTabPanel = styled.div`
+  padding: 12px 18px 14px;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  background: #fcfcfc;
+`;
+
 const InfoTabPanel = styled.div`
   display: flex;
   flex-direction: row;      /* 1) 메타데이터  2) 플레이어 — 가로로 나란히 */
@@ -1564,15 +1517,6 @@ const InfoTabPanel = styled.div`
 `;
 
 /* 정보 탭 내부 섹션 — 툴바 섹션과 같은 라운드 네모로 구분한다. */
-/* 정보 탭 섹션 = 툴바 섹션과 완전히 같은 규격(테두리·라운드·배경·여백).
- * 앞으로 섹션을 나눌 때는 항상 공용 Section 을 상속해 규격을 하나로 유지한다.
- * 여기서는 내용이 세로로 쌓이는 것만 다르다. */
-const InfoSection = styled(Section)`
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: center;
-`;
-
 /* 라벨 + 입력 한 쌍 — 라벨을 작게 위에 얹는다. */
 const MetaField = styled.div`
   display: flex;
@@ -1671,6 +1615,15 @@ const Section = styled.div`
   border: 2px solid rgba(0, 0, 0, 0.13);
   border-radius: 12px;
   background: #fff;          /* 섹션 배경은 흰색으로 통일 */
+`;
+
+/* 정보 탭 섹션 = 툴바 섹션과 완전히 같은 규격(테두리·라운드·배경·여백).
+ * 앞으로 섹션을 나눌 때는 항상 공용 Section 을 상속해 규격을 하나로 유지한다.
+ * 여기서는 내용이 세로로 쌓이는 것만 다르다. */
+const InfoSection = styled(Section)`
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
 `;
 
 const DurGroup = styled(Section)``;
@@ -1929,6 +1882,95 @@ const ToolBtn = styled.button<{ $lit?: boolean }>`
   &:hover:not(:disabled) { background: rgba(0, 0, 0, 0.06); }
   &:disabled { opacity: 0.4; cursor: default; }
 `;
+
+/* ── 단축키 도움말(?) ─────────────────────────────────────────────────
+ * 건반 아래 한 줄로만 흘려 놓던 단축키를 상단바 버튼의 팝오버로 옮겨 담는다. */
+const HelpAnchor = styled.div`
+  position: relative;
+  display: inline-flex;
+`;
+
+const ShortcutPop = styled.div`
+  position: absolute;
+  top: calc(100% + 8px);
+  /* 버튼이 바 오른쪽에 있어 왼쪽으로 펼친다. */
+  right: 0;
+  z-index: 70;
+  width: 300px;
+  max-width: calc(100vw - 32px);
+  font-family: 'Pretendard', sans-serif;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.06);
+  padding: 14px 16px 16px;
+  text-align: left;
+  cursor: default;
+`;
+
+const ShortcutTitle = styled.div`
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: ${({ theme }) => theme.colors.textPrimary};
+  margin-bottom: 10px;
+`;
+
+const ShortcutGroup = styled.div`
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  margin: 12px 0 5px;
+  &:first-of-type { margin-top: 0; }
+`;
+
+const ShortcutRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 0.84rem;
+  color: ${({ theme }) => theme.colors.textPrimary};
+`;
+
+const Kbd = styled.kbd`
+  flex-shrink: 0;
+  min-width: 30px;
+  text-align: center;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #444;
+  background: ${({ theme }) => theme.colors.bgSecondary};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: 2px 6px;
+`;
+
+/* 건반 아래 안내줄과 같은 내용 — 여기가 단일 출처다. */
+const SHORTCUTS: { group: string; items: [string, string][] }[] = [
+  {
+    group: '음길이',
+    items: [
+      ['1', 'whole (온음표)'],
+      ['2', 'half (2분음표)'],
+      ['4', 'quarter (4분음표)'],
+      ['8', '8th (8분음표)'],
+      ['6', '16th (16분음표)'],
+      ['3', '32nd (32분음표)'],
+    ],
+  },
+  {
+    group: '편집',
+    items: [
+      ['L', 'tie (붙임줄)'],
+      ['T', 'triplet (셋잇단음표)'],
+      ['Enter', 'close measure (마디 닫기)'],
+      ['Backspace', 'undo (되돌리기)'],
+      ['Ctrl+Z', 'undo (되돌리기)'],
+    ],
+  },
+];
 
 /* ── 조성 표시 + Transpose ────────────────────────────────────────────
  * 에디터의 조성 변경은 영구 이조라 드롭다운(훑어보기)이 아니라 명시적
@@ -2351,6 +2393,14 @@ const GearIcon = () => (
     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
   </svg>
 );
+/* 단축키 도움말 — 동그라미 안 물음표. GearIcon·MidiIcon 과 같은 26px·stroke 2. */
+const HelpIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9" />
+    <path d="M9.4 9.4a2.7 2.7 0 0 1 5.2.9c0 1.8-2.6 2.2-2.6 4" />
+    <path d="M12 17.5h.01" />
+  </svg>
+);
 /* 🎹 이모지를 대체하는 건반 아이콘(같은 의미). */
 const MidiIcon = () => (
   <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2369,15 +2419,6 @@ const PianoArea = styled.div`
   overflow-x: auto;
   display: flex;
   justify-content: center;
-  background: ${({ theme }) => theme.colors.bgSecondary};
-`;
-
-const KeyHint = styled.div`
-  text-align: center;
-  font-size: 0.78rem;
-  color: ${({ theme }) => theme.colors.textSecondary};
-  opacity: 0.5;
-  padding-bottom: 8px;
   background: ${({ theme }) => theme.colors.bgSecondary};
 `;
 
@@ -2823,11 +2864,6 @@ export default function EditorPage() {
    * 왼손(낮은음자리표) 파트로 measures와 인덱스 1:1 정렬된다. single로 되돌려도
    * 데이터는 보존되고 렌더/저장에서만 제외된다. */
   const [staffMode, setStaffMode] = useState<'single' | 'grand'>('single');
-  /* 상단바 정보 칩(Mode·보표·악보 종류) 드롭다운. instrument 는 아직 표시 전용. */
-  const [metaOpen, setMetaOpen] = useState(false);
-  const [instrument, setInstrument] = useState<'piano' | 'guitar' | 'drums'>('piano');
-  const metaPopRef = useRef<HTMLDivElement>(null);
-  useDismissable(metaOpen, metaPopRef, () => setMetaOpen(false));
   const [bassMeasures, setBassMeasures] = useState<MeasureInfo[]>([]);
   /* 화음 모드 — ON이면 피아노 입력이 새 음표 대신 마지막(또는 선택된) 음표에
    * 음을 쌓는다. */
@@ -3004,7 +3040,12 @@ export default function EditorPage() {
    * 마우스가 올라왔을 때만 보인다. */
   const [measureHover, setMeasureHover] = useState(false);
   /* 상단 탭 — 지금은 '음표' 탭만 내용이 있고, 나머지는 자리만 잡아 둔다. */
-  const [toolTab, setToolTab] = useState<'note' | 'artic' | 'dyn' | 'measure' | 'info'>('note');
+  const [toolTab, setToolTab] = useState<'note' | 'artic' | 'dyn' | 'measure' | 'midi' | 'info'>('note');
+
+  /* 상단바 ? 버튼 — 단축키 목록 팝오버. */
+  const [shortcutOpen, setShortcutOpen] = useState(false);
+  const shortcutRef = useRef<HTMLDivElement>(null);
+  useDismissable(shortcutOpen, shortcutRef, () => setShortcutOpen(false));
 
   /* 상단 3번 섹션(골드)의 상태 — 세 가지뿐이다.
    *   none    : 아무것도 선택 안 됨. 1·2번 섹션으로 찍으면 새 마디에 입력된다.
@@ -3918,8 +3959,7 @@ export default function EditorPage() {
   /* ── MIDI 외부 기기 입력 ──────────────────────────────────────────────────
    * 선택된 MIDI 입력의 note-on 을 온스크린 피아노 입력과 동일 경로
    * (handleNotePress)로 태운다 → 길이·임시표·삽입·양손·화음 로직 그대로 재사용.
-   * 벨로시티는 오디션 소리 세기에 반영(설정에 따라). 설정 창은 아래 MidiSettingsPanel. */
-  const [showMidiPanel, setShowMidiPanel] = useState(false);
+   * 벨로시티는 오디션 소리 세기에 반영(설정에 따라). 설정 UI 는 툴바 MIDI 탭. */
   const midiSettingsRef = useRef<{ auditionOnInput: boolean; velocityToAudition: boolean } | null>(null);
   const handleMidiNoteOn = useCallback((e: MidiNoteEvent) => {
     const pn = midiToPianoNote(e.midi);
@@ -4658,12 +4698,41 @@ export default function EditorPage() {
         <BackButton onClick={() => navigate(-1)} label="이전 페이지" />
         <Title>Editor</Title>
         <Spacer />
+        {/* ? — 단축키 목록. 건반 아래 안내줄과 같은 내용을 팝오버로 편히 본다. */}
+        <HelpAnchor ref={shortcutRef}>
+          <ToolBtn
+            type="button"
+            title="단축키 보기"
+            $lit={shortcutOpen}
+            onClick={() => setShortcutOpen((v) => !v)}
+            aria-haspopup="dialog"
+            aria-expanded={shortcutOpen}
+          >
+            <HelpIcon />
+          </ToolBtn>
+          {shortcutOpen && (
+            <ShortcutPop role="dialog" aria-label="단축키">
+              <ShortcutTitle>단축키</ShortcutTitle>
+              {SHORTCUTS.map((g) => (
+                <div key={g.group}>
+                  <ShortcutGroup>{g.group}</ShortcutGroup>
+                  {g.items.map(([key, desc]) => (
+                    <ShortcutRow key={key}>
+                      <Kbd>{key}</Kbd>
+                      <span>{desc}</span>
+                    </ShortcutRow>
+                  ))}
+                </div>
+              ))}
+            </ShortcutPop>
+          )}
+        </HelpAnchor>
         {/* MIDI(왼쪽) → 설정(오른쪽). 트랜스포트 바 우측에 있던 것을 최상단 바로 옮겼다. */}
         <ToolBtn
           type="button"
           title="MIDI 외부 기기(피아노 등) 입력 설정"
           $lit={midi.enabled && !!midi.settings.inputId}
-          onClick={() => { if (!midi.enabled) midi.requestAccess(); setShowMidiPanel(true); }}
+          onClick={() => { if (!midi.enabled) midi.requestAccess(); setToolTab('midi'); }}
         >
           <MidiIcon />
         </ToolBtn>
@@ -4697,7 +4766,6 @@ export default function EditorPage() {
         </JsonBtn>
       </Header>
 
-      <MidiSettingsPanel midi={midi} open={showMidiPanel} onClose={() => setShowMidiPanel(false)} />
 
 
       {/* 상단 트랜스포트 바 — 코드차트와 동일한 믹서/재생 컨트롤. 믹서 버튼은
@@ -4732,7 +4800,12 @@ export default function EditorPage() {
         </TabIcons>
       </TabBar>
 
-      {toolTab === 'info' ? (
+      {toolTab === 'midi' ? (
+        /* MIDI 탭 — 예전 톱니 옆 MIDI 버튼이 띄우던 모달의 내용. */
+        <MidiTabPanel>
+          <MidiSettingsBody midi={midi} />
+        </MidiTabPanel>
+      ) : toolTab === 'info' ? (
         /* 정보 탭 — 제목·작곡가·악보 메타데이터·장르/조성·믹서/재생을 한곳에 모았다. */
         <InfoTabPanel>
           {/* 1) 데이터·메타데이터 */}
@@ -5628,7 +5701,6 @@ export default function EditorPage() {
             자동으로 낮춘다(1,930px 고정이라 창이 좁으면 잘리던 문제). */}
         <PianoKeyboard onNotePress={handleNotePress} mute scale={1.28} fitToWidth />
       </PianoArea>
-      <KeyHint>1=whole &middot; 2=half &middot; 4=quarter &middot; 8=8th &middot; 6=16th &middot; 3=32nd &middot; L=tie &middot; T=triplet &middot; Enter=close measure &middot; Backspace/Ctrl+Z=undo</KeyHint>
 
       {insertPos && (
         <NoteEditBar>
