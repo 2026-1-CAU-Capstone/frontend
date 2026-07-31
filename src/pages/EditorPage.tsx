@@ -559,7 +559,7 @@ function drawTupletBrackets(msNotes: NoteInfo[], vfNotes: StaveNote[], ctx: Retu
   }
 }
 
-function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number, currentIdx: number, activeIdx: number, positions: MeasurePos[], sheetKey?: string, notePositions?: NotePos[], selectedNotes?: NoteSel[] | null, noteElMap?: Map<string, SVGElement>, bassMeasures?: MeasureInfo[] | null, explicitAcc?: boolean) {
+function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number, currentIdx: number, activeIdx: number, positions: MeasurePos[], sheetKey?: string, notePositions?: NotePos[], selectedNotes?: NoteSel[] | null, noteElMap?: Map<string, SVGElement>, bassMeasures?: MeasureInfo[] | null, explicitAcc?: boolean, activeStaff: StaffId = 'treble') {
   positions.length = 0;
   if (notePositions) notePositions.length = 0;
   if (noteElMap) noteElMap.clear();
@@ -904,18 +904,26 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
            *   getYForLine() 이 정확하다(원점과 첫 줄 사이에 여백이 있다). */
           const mNotes = measures[m]?.notes ?? [];
           // 코드칸과 같은 계산 — 칸이 빔 위로 밀려 올라가면 하이라이트도 따라간다.
-          const HL_TOP = chordRowTopY(y, { volta: !!mData.volta, bracket: !!mData.bracket }, contentTop)
-            - (mData.altChords ? 17 : 0)
-            - 4;                                       // 코드 입력 윗변 + 살짝
-
-          const staffBot = stave.getYForLine(4);       // 오선 마지막 줄
+          const staffBot = stave.getYForLine(4);       // 트레블 오선 마지막 줄
           const NOTE_PAD = 8;                          // 오선 밖 음표 아래 여백
           /* 머리가 마지막 줄 아래로 조금이라도 나오면(맨 아랫줄에 걸친 음 포함)
            * 그만큼 더 내려간다. 오선 안에만 있으면 마지막 줄에서 끝. */
           const extend = (low: number | null, base: number) =>
             low !== null && low > base ? low + NOTE_PAD : base;
-          const HL_BOT = grand
-            // 양손: 아래 베이스 보표 기준(오선 높이를 GRAND_BASS_DY 만큼 내림)
+
+          /* 양손 악보는 위/아래 보표를 각각 고른다. 예전엔 트레블을 골라도
+           * 하이라이트가 베이스까지 한 덩어리로 덮여, "1번째 위 마디"와
+           * "1번째 아래 마디"가 화면상 구분되지 않았다. */
+          const onBass = grand && activeStaff === 'bass';
+
+          const HL_TOP = onBass
+            /* 베이스 보표 위에는 코드 입력 행이 없으니 오선 첫 줄에서 조금만 띄운다. */
+            ? stave.getYForLine(0) + GRAND_BASS_DY - 10
+            : chordRowTopY(y, { volta: !!mData.volta, bracket: !!mData.bracket }, contentTop)
+              - (mData.altChords ? 17 : 0)
+              - 4;                                     // 코드 입력 윗변 + 살짝
+
+          const HL_BOT = onBass
             ? extend(
                 bottomNoteGlyphY(bassAt(m).notes,
                   (line) => stave.getYForLine(line) + GRAND_BASS_DY, 'bass'),
@@ -1633,19 +1641,15 @@ const GenreFill = styled.div`
   button { width: 100%; justify-content: center; height: 28px; font-size: 0.9rem; }
 `;
 
-/* 상자 위 테두리에 걸치는 제목(fieldset legend 느낌). */
+/* 상자 안 좌측 상단에 놓는 제목 — 테두리와 겹치지 않는다. */
 const BoxLegend = styled.span`
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translate(-50%, -52%);   /* 상자 위 테두리 정중앙 */
-  padding: 0 6px;
-  background: ${({ theme }) => theme.colors.barBelow};
+  align-self: flex-start;
   font-family: 'Pretendard', sans-serif;
   font-size: 0.88rem;
   font-weight: 700;
   color: ${({ theme }) => theme.colors.textSecondary};
   white-space: nowrap;
+  line-height: 1;
 `;
 
 /* 악기 — 그림부터 이름까지 한 테두리로 묶는다(Genre·Key 입력과 같은 톤). */
@@ -1793,6 +1797,11 @@ const MODE_INK = {
 const GoldGroup = styled(Section)<{ $mode: 'none' | 'measure' | 'note' }>`
   /* 남는 가로 공간을 모두 차지해 툴바 끝까지 늘어난다. */
   flex: 1;
+  /* StatusChip 이 테두리 위에 얹히는 기준. 칩이 안쪽으로 파고드는 만큼(≈7px)
+   * 위 여백만 조금 늘려 내용과 겹치지 않게 한다 — 예전처럼 한 줄을 통째로
+   * 차지하지는 않는다. */
+  position: relative;
+  padding-top: 10px;
   border-color: ${({ $mode }) => MODE_INK[$mode].line};
   background: ${({ $mode }) => MODE_INK[$mode].fill};
   flex-direction: column;
@@ -1828,7 +1837,8 @@ const DurBtn = styled.button<{ $active?: boolean }>`
   background: ${({ $active }) => ($active ? '#e3f2fd' : 'transparent')};
   cursor: pointer;
   color: ${({ theme }) => theme.colors.textPrimary};
-  &:hover { background: #f0ebe0; }
+  /* hover 도 활성과 같은 파랑 계열 — 활성일 때는 한 단계 진하게 해서 구분 유지. */
+  &:hover { background: ${({ $active }) => ($active ? '#d3e9fb' : '#eef6fd')}; }
 `;
 
 const RestBtn = styled.button`
@@ -1843,7 +1853,8 @@ const RestBtn = styled.button`
   background: transparent;
   cursor: pointer;
   color: ${({ theme }) => theme.colors.textSecondary};
-  &:hover { background: #f0ebe0; }
+  /* 같은 섹션의 음표 버튼(DurBtn)과 같은 파랑 hover. */
+  &:hover { background: #eef6fd; }
 `;
 
 const Sep = styled.div`
@@ -2489,29 +2500,34 @@ function KeyChangePopover({
 /* ── 악보 상태 칩 ─────────────────────────────────────────────────────
  * Bar / beats / notes / bars 를 한 덩어리로 묶은 둥근 사각형. 옆의
  * GenreSelect·KeyDisplay 와 같은 높이·폰트로 맞춰 한 줄로 읽힌다. */
+/* 섹션 테두리 좌측 상단에 걸치는 라벨(fieldset legend 방식). 일반 흐름에 두면
+ * 한 줄을 통째로 차지해 아래 편집 바를 밀어내므로 absolute 로 띄운다. */
 const StatusChip = styled.div`
+  position: absolute;
+  top: -10px;
+  left: 12px;                     /* border-radius 12px 모서리를 피한다 */
+  z-index: 1;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  height: 32px;
-  padding: 0 12px;
-  margin-left: 6px;
+  gap: 5px;
+  height: 19px;
+  padding: 0 7px;
   border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 10px;
+  border-radius: 7px;
   background: ${({ theme }) => theme.colors.bgSecondary};
   font-family: 'Pretendard', sans-serif;
-  font-size: 0.78rem;
-  line-height: 1;                 /* 옆 칩들과 수직 중심 통일 */
+  font-size: 0.64rem;
+  line-height: 1;
   color: ${({ theme }) => theme.colors.textSecondary};
   white-space: nowrap;
 `;
 
 /* 3번 섹션 좌측의 활성 상태 배지 — 음표/마디/없음. */
 const ModeTag = styled.span<{ $mode: 'none' | 'measure' | 'note' }>`
-  font-size: 0.72rem;
+  font-size: 0.6rem;
   font-weight: 800;
-  padding: 3px 8px;
-  border-radius: 6px;
+  padding: 2px 5px;
+  border-radius: 4px;
   white-space: nowrap;
   color: ${({ $mode }) => ($mode === 'note' ? '#8a2b2b' : $mode === 'measure' ? '#8a7a2b' : '#777')};
   background: ${({ $mode }) => ($mode === 'note' ? 'rgba(200,60,60,0.13)' : $mode === 'measure' ? 'rgba(184,150,10,0.16)' : 'rgba(0,0,0,0.05)')};
@@ -2522,11 +2538,11 @@ const StatusItem = styled.span<{ $warn?: boolean }>`
   /* baseline 정렬은 크기가 다른 숫자(0.86rem)와 라벨(0.78rem)이 섞이면서
    * 칩 전체의 수직 중심을 흔든다 — 중앙 정렬로 통일. */
   align-items: center;
-  gap: 3px;
+  gap: 2px;
   line-height: 1;
   color: ${({ $warn }) => ($warn ? '#c62828' : 'inherit')};
   b {
-    font-size: 0.86rem;
+    font-size: 0.7rem;
     font-weight: 700;
     line-height: 1;
     color: ${({ $warn, theme }) => ($warn ? '#c62828' : theme.colors.textPrimary)};
@@ -3497,7 +3513,15 @@ export default function EditorPage() {
    *   마디 활성  → 그 마디. */
   const activeIdx = selectedNote
     ? selectedNote.mi
-    : (selectedMeasure != null && selectedMeasure < allMeasures.length ? selectedMeasure : -1);
+    : selectedBassMeasure != null
+      ? (selectedBassMeasure < allMeasures.length ? selectedBassMeasure : -1)
+      : (selectedMeasure != null && selectedMeasure < allMeasures.length ? selectedMeasure : -1);
+
+  /* 어느 보표가 선택됐는지 — 양손 악보에서 위/아래 마디를 구분해 칠하기 위해
+   * 렌더러로 함께 넘긴다. 음표를 골랐으면 그 음표가 있는 보표를 따른다. */
+  const activeStaff: StaffId = selectedNote
+    ? (selectedNote.staff === 'bass' ? 'bass' : 'treble')
+    : (selectedBassMeasure != null ? 'bass' : 'treble');
 
   /* 렌더/저장/재생용 베이스 파트 — 트레블(allMeasures) 길이에 맞춰 패딩. */
   const bassAll = useMemo<MeasureInfo[] | null>(() => {
@@ -4446,7 +4470,7 @@ export default function EditorPage() {
     if (allMeasures.length === 0) { el.innerHTML = ''; positionsRef.current = []; setMeasurePositions([]); notePositionsRef.current = []; return; }
     const validKey = sheetKey && (FLAT_KEYS[sheetKey] != null || SHARP_KEYS[sheetKey] != null || sheetKey === 'C') ? sheetKey : undefined;
     try {
-      renderSheet(el, allMeasures, Math.max(sheetWidth, 300), currentIdx, activeIdx, positionsRef.current, validKey, notePositionsRef.current, multiSel, noteElMapRef.current, bassAll, explicitAcc);
+      renderSheet(el, allMeasures, Math.max(sheetWidth, 300), currentIdx, activeIdx, positionsRef.current, validKey, notePositionsRef.current, multiSel, noteElMapRef.current, bassAll, explicitAcc, activeStaff);
     } catch {
       positionsRef.current.length = 0;
       notePositionsRef.current.length = 0;
@@ -4454,7 +4478,7 @@ export default function EditorPage() {
     }
     setMeasurePositions([...positionsRef.current]);
     setNotePositions([...notePositionsRef.current]);
-  }, [allMeasures, bassAll, sheetWidth, currentIdx, activeIdx, sheetKey, multiSel, explicitAcc]);
+  }, [allMeasures, bassAll, sheetWidth, currentIdx, activeIdx, sheetKey, multiSel, explicitAcc, activeStaff]);
 
   const selNoteInfo = useMemo<NoteInfo | null>(() => {
     if (!selectedNote) return null;
@@ -5047,7 +5071,7 @@ export default function EditorPage() {
         /* 정보 탭 — 제목·작곡가·악보 메타데이터·장르/조성·믹서/재생을 한곳에 모았다. */
         <InfoTabPanel>
             {/* 1 — Type. 라벨은 테두리에 겹치는 legend 처럼. */}
-            <InfoBox style={{ position: 'relative', paddingTop: 14 }}>
+            <InfoBox style={{ alignItems: 'stretch', gap: 6 }}>
               <BoxLegend>Type</BoxLegend>
               <SegGroup $vertical $n={3} $i={['solo', 'lick', 'comping'].indexOf(mode)} style={{ width: '100%' }}>
                 <SegThumb $vertical $n={3} $i={['solo', 'lick', 'comping'].indexOf(mode)} />
