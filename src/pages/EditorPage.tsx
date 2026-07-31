@@ -1357,8 +1357,10 @@ const MetaInput = styled.input`
 `;
 
 const MetaLabel = styled.span`
-  font-size: 0.78rem;
-  font-weight: 600;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
   color: ${({ theme }) => theme.colors.textSecondary};
   white-space: nowrap;
 `;
@@ -1497,7 +1499,7 @@ const TabBar = styled.div`
   padding: 0 14px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   /* 아래 섹션 툴바(ToolBar)와 같은 배경 — 탭 줄만 흰색이면 띠처럼 떠 보인다. */
-  background: #f7f7f7;   /* 툴바 배경 — 아주 연한 회색 */
+  background: #fcfcfc;   /* 툴바 배경 — 아주 연한 회색 */
 `;
 
 const TabList = styled.div`
@@ -1553,17 +1555,19 @@ const TabDivider = styled.span`
 /* 정보 탭 — 여러 줄로 나눠 담는 패널. */
 const InfoTabPanel = styled.div`
   display: flex;
-  flex-direction: column;
+  flex-direction: row;      /* 1) 메타데이터  2) 플레이어 — 가로로 나란히 */
+  align-items: stretch;
   gap: 12px;
   padding: 14px 16px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  background: #f7f7f7;   /* 툴바 배경 — 아주 연한 회색 */
+  background: #fcfcfc;   /* 툴바 배경 — 아주 연한 회색 */
 `;
 
 /* 정보 탭 내부 섹션 — 툴바 섹션과 같은 라운드 네모로 구분한다. */
 const InfoSection = styled.div`
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 10px;
   padding: 12px 14px;
   border: 2px solid rgba(0, 0, 0, 0.13);
@@ -1575,8 +1579,8 @@ const InfoSection = styled.div`
 const MetaField = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  input { width: 168px; }
+  gap: 4px;
+  input { width: 158px; }
 `;
 
 const InfoRow = styled.div`
@@ -1593,7 +1597,7 @@ const MeasureTabBar = styled.div`
   gap: 8px;
   padding: 12px 16px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  background: #f7f7f7;   /* 툴바 배경 — 아주 연한 회색 */
+  background: #fcfcfc;   /* 툴바 배경 — 아주 연한 회색 */
   font-family: 'Pretendard', sans-serif;
 
   .mlabel {
@@ -1628,7 +1632,7 @@ const TabPlaceholder = styled.div`
   font-size: 0.9rem;
   color: ${({ theme }) => theme.colors.textSecondary};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  background: #f7f7f7;   /* 툴바 배경 — 아주 연한 회색 */
+  background: #fcfcfc;   /* 툴바 배경 — 아주 연한 회색 */
 `;
 
 const ToolBar = styled.div`
@@ -1639,7 +1643,7 @@ const ToolBar = styled.div`
   /* 왼쪽은 첫 섹션이 화면 끝에 가깝게 붙도록 여백을 줄인다. */
   padding: 10px 18px 10px 8px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  background: #f7f7f7;   /* 툴바 배경 — 아주 연한 회색 */          /* 툴바 배경 = 흰색 */
+  background: #fcfcfc;   /* 툴바 배경 — 아주 연한 회색 */          /* 툴바 배경 = 흰색 */
   flex-wrap: wrap;
 `;
 
@@ -4677,6 +4681,40 @@ export default function EditorPage() {
                 <MetaRowHead>
                   <MetaLabel>보표</MetaLabel>
                   {staffModeLocked && <LockedHint title="불러온 악보의 보표 수로 자동 확정">🔒 자동</LockedHint>}
+          <GenreSelect value={genre} onChange={setGenre} />
+          {/* 조성 칩 자체가 Transpose 버튼 — hover 하면 조성이 흐려지고
+              그 자리에 이조 아이콘이 뜬다. 클릭하면 드롭다운. */}
+          <KeyAnchor>
+            <KeyDisplay
+              type="button"
+              $open={transposeOpen}
+              title="Transpose · 조성 변경(음표까지 실제로 이조)"
+              aria-haspopup="dialog"
+              aria-expanded={transposeOpen}
+              onClick={() => setTransposeOpen((v) => !v)}
+            >
+              <span className="key-text">
+                {sheetKey.replace(/m$/, '').replace(/b/g, '♭').replace(/#/g, '♯')}
+                <KeyQualEP>{isMinorKey(sheetKey) ? '단조' : '장조'}</KeyQualEP>
+              </span>
+              <span className="key-ico" aria-hidden><IcoTranspose /></span>
+            </KeyDisplay>
+            {transposeOpen && (
+              <KeyChangePopover
+                currentKey={sheetKey.replace(/b/g, '♭').replace(/#/g, '♯')}
+                value={keyInput}
+                onChange={setKeyInput}
+                busy={false}
+                onApplyTranspose={() => { applyTranspose(keyInput.trim()); setKeyInput(''); }}
+                onApplyKeyOnly={() => { applyKeyOnly(keyInput.trim()); setKeyInput(''); }}
+                onPreset={(semi) => { const to = shiftDisplayKeyBySemitones(sheetKey, semi); if (to) applyTranspose(to); }}
+                onOctave={(dir) => handleShiftOctave(dir)}
+                octaveDisabled={totalNotes === 0}
+                onClose={() => setTransposeOpen(false)}
+              />
+            )}
+          </KeyAnchor>
+            
                 </MetaRowHead>
                 <SegGroup>
                   {(['single', 'grand'] as const).map((v) => (
@@ -4803,10 +4841,10 @@ export default function EditorPage() {
           <InfoSection>
             <InfoRow>
               <MetaField><MetaLabel>Title</MetaLabel><MetaInput value={sheetTitle} onChange={(e) => setSheetTitle(e.target.value)} placeholder="e.g. Autumn Leaves" /></MetaField>
+              <MetaField><MetaLabel>Album</MetaLabel><MetaInput value={album} onChange={(e) => setAlbum(e.target.value)} placeholder="e.g. Bird & Diz" /></MetaField>
               <MetaField><MetaLabel>Composer</MetaLabel><MetaInput value={composer} onChange={(e) => setComposer(e.target.value)} placeholder="e.g. Joseph Kosma" /></MetaField>
               <MetaField><MetaLabel>Player</MetaLabel><MetaInput value={performer} onChange={(e) => setPerformer(e.target.value)} placeholder="e.g. Charlie Parker" /></MetaField>
               <MetaField><MetaLabel>Instrument</MetaLabel><MetaInput value={metaInstrument} onChange={(e) => setMetaInstrument(e.target.value)} placeholder="e.g. Alto Sax" /></MetaField>
-              <MetaField><MetaLabel>Album</MetaLabel><MetaInput value={album} onChange={(e) => setAlbum(e.target.value)} placeholder="e.g. Bird & Diz" /></MetaField>
             </InfoRow>
 
             <InfoRow>
@@ -4832,50 +4870,8 @@ export default function EditorPage() {
                 ))}
               </SegGroup>
               {staffModeLocked && <LockedHint title="불러온 악보의 보표 수로 자동 확정">🔒 자동</LockedHint>}
-              <MetaLabel>악보 종류</MetaLabel>
-              <SegGroup>
-                {(['piano', 'guitar', 'drums'] as const).map((v) => (
-                  <SegBtn key={v} type="button" $on={instrument === v} onClick={() => setInstrument(v)}>{INSTRUMENT_LABEL[v]}</SegBtn>
-                ))}
-              </SegGroup>
             </InfoRow>
 
-            {/* 장르·조성도 메타데이터라 이 섹션으로. */}
-            <InfoRow>
-          <GenreSelect value={genre} onChange={setGenre} />
-          {/* 조성 칩 자체가 Transpose 버튼 — hover 하면 조성이 흐려지고
-              그 자리에 이조 아이콘이 뜬다. 클릭하면 드롭다운. */}
-          <KeyAnchor>
-            <KeyDisplay
-              type="button"
-              $open={transposeOpen}
-              title="Transpose · 조성 변경(음표까지 실제로 이조)"
-              aria-haspopup="dialog"
-              aria-expanded={transposeOpen}
-              onClick={() => setTransposeOpen((v) => !v)}
-            >
-              <span className="key-text">
-                {sheetKey.replace(/m$/, '').replace(/b/g, '♭').replace(/#/g, '♯')}
-                <KeyQualEP>{isMinorKey(sheetKey) ? '단조' : '장조'}</KeyQualEP>
-              </span>
-              <span className="key-ico" aria-hidden><IcoTranspose /></span>
-            </KeyDisplay>
-            {transposeOpen && (
-              <KeyChangePopover
-                currentKey={sheetKey.replace(/b/g, '♭').replace(/#/g, '♯')}
-                value={keyInput}
-                onChange={setKeyInput}
-                busy={false}
-                onApplyTranspose={() => { applyTranspose(keyInput.trim()); setKeyInput(''); }}
-                onApplyKeyOnly={() => { applyKeyOnly(keyInput.trim()); setKeyInput(''); }}
-                onPreset={(semi) => { const to = shiftDisplayKeyBySemitones(sheetKey, semi); if (to) applyTranspose(to); }}
-                onOctave={(dir) => handleShiftOctave(dir)}
-                octaveDisabled={totalNotes === 0}
-                onClose={() => setTransposeOpen(false)}
-              />
-            )}
-          </KeyAnchor>
-            </InfoRow>
           </InfoSection>
 
           {/* 2) 플레이어 */}
