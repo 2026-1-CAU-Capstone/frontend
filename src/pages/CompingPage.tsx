@@ -357,7 +357,7 @@ const Page = styled.div`
   display: flex;
   height: 100dvh;
   width: 100%;
-  background: #f7f7f5;
+  background: ${({ theme }) => theme.colors.barBelow};
 `;
 const Body = styled.div`
   flex: 1;
@@ -371,7 +371,8 @@ const IntroHead = styled.div`
   align-items: center;
   gap: 12px;
   padding: calc(env(safe-area-inset-top, 0px) + 14px) 18px 12px;
-  background: #fff;
+  /* 페이지 최상단 바 — 전 페이지 공통 회색. */
+  background: ${({ theme }) => theme.colors.barTop};
   border-bottom: 1px solid #ececec;
   flex-wrap: wrap;
 `;

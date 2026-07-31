@@ -168,7 +168,7 @@ const Page = styled.div`
   height: 100vh;
   height: 100dvh;
   width: 100%;
-  background: #f7f7f5;
+  background: ${({ theme }) => theme.colors.barBelow};
   font-family: 'Pretendard', sans-serif;
 `;
 

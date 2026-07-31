@@ -75,7 +75,7 @@ const MainArea = styled.div`
   display: flex;
   flex: 1;
   overflow: hidden;
-  background: #f7f7f5; /* 상단 흰 헤더 아래는 홈 기본 배경색 */
+  background: ${({ theme }) => theme.colors.barBelow}; /* 최상단 회색 바 아래는 전부 흰색 */
 `;
 
 const CenterColumn = styled.div`

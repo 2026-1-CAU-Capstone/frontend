@@ -516,7 +516,7 @@ const NewBtn = styled.button`
   &:hover { background: #a5790a; } &:active { transform: scale(0.97); }
 `;
 
-const Split = styled.div` flex: 1; min-height: 0; display: flex; background: #f7f7f5; `;
+const Split = styled.div` flex: 1; min-height: 0; display: flex; background: ${({ theme }) => theme.colors.barBelow}; `;
 const ListPane = styled.div<{ $detailOpen: boolean }>`
   width: 380px; flex: 0 0 auto; display: flex; flex-direction: column; min-height: 0;
   background: #fff; border-right: 1px solid #ececec;

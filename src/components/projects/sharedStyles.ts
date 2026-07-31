@@ -17,7 +17,7 @@
  *     되어 두 정의로 두는 것보다 나쁘다. **통합 금지**(외형이 갈림).
  * (Fable.md §10 R4/R5/R9 참조)
  * ──────────────────────────────────────────────────────────────────────── */
-import styled from 'styled-components';
+import styled, { css } from 'styled-components';
 import { mq } from '../../styles/theme';
 
 export const CardMeta = styled.div`
@@ -478,11 +478,13 @@ export const ListThumb = styled.div<{ $tone?: 'folder' | 'sheet' | 'new' }>`
 /* ── 상세 페이지 공통 셸 (내 코드 차트 · 내 악보 차트 · 내 릭) ──────────────
  * 세 페이지가 완전히 동일한 헤더/배경을 쓴다. 단일 소스로 두어 한 곳을 고치면
  * 세 페이지가 함께 바뀐다. 프로필 페이지와 동일한 형식:
- *   · 헤더: 한 줄 = 뒤로가기(좌) · 제목(가운데) · 액션(우, 있으면), 배경 흰색
+ *   · 헤더: 한 줄 = 뒤로가기(좌) · 제목(가운데) · 액션(우, 있으면)
  *   · 헤더 아래는 1px 직선 경계(오목 라운드 X)
- *   · 본문/카드: 홈 기본색 #f7f7f5 배경 */
+ *
+ * 배경 규칙(2026-07-29): **맨 위 바만** 연한 회색(barTop), 그 아래 본문·카드는
+ * 전부 흰색(barBelow). 예전엔 반대로 헤더가 흰색·본문이 회색이었다. */
 export const DetailHeader = styled.div`
-  background: #ffffff;
+  background: ${({ theme }) => theme.colors.barTop};
   border-bottom: 1px solid #ececec;
   padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 14px;
 `;
@@ -534,12 +536,12 @@ export const DetailTitle = styled.h1`
 `;
 
 export const DetailBody = styled(PageBody)`
-  background: #f7f7f5;
+  background: ${({ theme }) => theme.colors.barBelow};
 `;
 
 /* 카드 스크롤 영역 — 배경 통일 + 첫 줄 카드 위 여백. */
-const cardScrollCss = `
-  background: #f7f7f5;
+const cardScrollCss = css`
+  background: ${({ theme }) => theme.colors.barBelow};
   padding-top: 18px;
 `;
 export const CardGrid = styled(Grid)`${cardScrollCss}`;

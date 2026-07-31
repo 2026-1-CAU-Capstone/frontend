@@ -468,7 +468,7 @@ const RunPill = styled.span<{ $on: boolean }>`
 `;
 
 const Body = styled.div`
-  flex: 1; min-height: 0; overflow-y: auto; background: #f7f7f5;
+  flex: 1; min-height: 0; overflow-y: auto; background: ${({ theme }) => theme.colors.barBelow};
   padding: 16px 24px calc(24px + env(safe-area-inset-bottom, 0px));
   font-family: ${({ theme }) => theme.fonts.ui};
 `;

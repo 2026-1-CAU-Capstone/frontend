@@ -45,6 +45,16 @@ export const theme = {
     // UI
     bgPrimary: '#FFFFFF',
     bgSecondary: '#FAFAFA',
+
+    /* ── 페이지 배경 규칙 (2026-07-29 확정) ──────────────────────────────
+     * 모든 페이지는 **맨 위 바 하나만** 연한 회색(barTop)이고,
+     * 그 아래는 툴바·탭·본문 할 것 없이 **전부 흰색(barBelow)** 이다.
+     * 새 페이지·새 바를 만들 때도 이 두 토큰만 쓴다 — 임의의 #fcfcfc /
+     * #fafafa 를 직접 적지 말 것. */
+    /** 페이지 최상단 바 배경. */
+    barTop: '#F3F2EF',
+    /** 최상단 바 아래 모든 영역(툴바·탭·본문). */
+    barBelow: '#FFFFFF',
     /** Warm soft gray used as the chat surface across HomePage / Chord / Note. */
     bgChat: '#F1F0EC',
     border: '#EEEEEE',

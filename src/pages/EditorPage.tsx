@@ -1333,7 +1333,8 @@ const Header = styled.div`
   gap: 12px;
   padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px;  /* 가로 여백 16px — Solo DB 상단바 기준으로 통일 */
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  background: ${({ theme }) => theme.colors.bgSecondary};
+  /* 페이지 최상단 바 — 전 페이지 공통으로 여기만 연한 회색. */
+  background: ${({ theme }) => theme.colors.barTop};
 `;
 
 /* 이전 페이지로 돌아가는 정사각형 버튼 — 홈이 아니라 히스토리 뒤로(-1). */
@@ -1413,17 +1414,17 @@ const LockedHint = styled.span`
 
 /* 탭 바 오른쪽 아이콘들 — undo/redo 외에는 디자인용(동작 미연결). */
 const TIco = {
-  undo: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M4 9h11a5 5 0 0 1 0 10h-1"/><polyline points="8 5 4 9 8 13"/></svg>,
-  redo: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M20 9H9a5 5 0 0 0 0 10h1"/><polyline points="16 5 20 9 16 13"/></svg>,
-  add:  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M12 8v8M8 12h8" strokeLinecap="round"/></svg>,
-  cut:  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M7.5 16 18 4M16.5 16 6 4"/></svg>,
-  check:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><polyline points="8 12 11 15 16 9"/></svg>,
-  down: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="8 12 12 16 16 12"/><line x1="12" y1="7" x2="12" y2="16"/></svg>,
-  print:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="7" rx="2"/><rect x="6" y="14" width="12" height="7"/></svg>,
-  layout:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="10" x2="9" y2="20"/></svg>,
-  zin:  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5M8 11h6M11 8v6"/></svg>,
-  zout: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5M8 11h6"/></svg>,
-  pause:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="9" y1="5" x2="9" y2="19"/><line x1="15" y1="5" x2="15" y2="19"/></svg>,
+  undo: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M4 9h11a5 5 0 0 1 0 10h-1"/><polyline points="8 5 4 9 8 13"/></svg>,
+  redo: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M20 9H9a5 5 0 0 0 0 10h1"/><polyline points="16 5 20 9 16 13"/></svg>,
+  add:  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M12 8v8M8 12h8" strokeLinecap="round"/></svg>,
+  cut:  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M7.5 16 18 4M16.5 16 6 4"/></svg>,
+  check:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><polyline points="8 12 11 15 16 9"/></svg>,
+  down: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="8 12 12 16 16 12"/><line x1="12" y1="7" x2="12" y2="16"/></svg>,
+  print:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="7" rx="2"/><rect x="6" y="14" width="12" height="7"/></svg>,
+  layout:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="10" x2="9" y2="20"/></svg>,
+  zin:  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5M8 11h6M11 8v6"/></svg>,
+  zout: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5M8 11h6"/></svg>,
+  pause:<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="9" y1="5" x2="9" y2="19"/><line x1="15" y1="5" x2="15" y2="19"/></svg>,
 };
 
 const TOOL_TABS = [
@@ -1444,7 +1445,7 @@ const TabBar = styled.div`
   padding: 0 14px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   /* 아래 섹션 툴바(ToolBar)와 같은 배경 — 탭 줄만 흰색이면 띠처럼 떠 보인다. */
-  background: #fcfcfc;   /* 툴바 배경 — 아주 연한 회색 */
+  background: ${({ theme }) => theme.colors.barBelow};
 `;
 
 const TabList = styled.div`
@@ -1455,19 +1456,26 @@ const TabList = styled.div`
 
 const TabItem = styled.button<{ $on?: boolean }>`
   font-family: 'Pretendard', sans-serif;
-  font-size: 0.92rem;
+  font-size: 1rem;
   font-weight: ${({ $on }) => ($on ? 700 : 500)};
   color: ${({ $on, theme }) => ($on ? '#2f6fe0' : theme.colors.textSecondary)};
   background: none;
   border: none;
   border-bottom: 2px solid ${({ $on }) => ($on ? '#2f6fe0' : 'transparent')};
-  padding: 9px 2px 7px;
+  padding: 12px 2px 10px;
   cursor: pointer;
   white-space: nowrap;
   &:hover { color: ${({ $on }) => ($on ? '#2f6fe0' : '#444')}; }
 `;
 
 const TabSpacer = styled.div`flex: 1;`;
+
+/* 탭 바 가운데의 플레이어 묶음. */
+const TabPlayer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
 
 const TabIcons = styled.div`
   display: flex;
@@ -1479,8 +1487,8 @@ const TabIconBtn = styled.button`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border: none;
   border-radius: 6px;
   background: none;
@@ -1503,7 +1511,7 @@ const TabDivider = styled.span`
 const MidiTabPanel = styled.div`
   padding: 12px 18px 14px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  background: #fcfcfc;
+  background: ${({ theme }) => theme.colors.barBelow};
 `;
 
 const InfoTabPanel = styled.div`
@@ -1513,30 +1521,37 @@ const InfoTabPanel = styled.div`
   gap: 8px;                 /* 툴바 섹션 간격과 동일 */
   padding: 10px 18px 10px 8px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  background: #fcfcfc;   /* 툴바 배경 — 아주 연한 회색 */
+  background: ${({ theme }) => theme.colors.barBelow};
 `;
 
 /* 정보 탭 내부 섹션 — 툴바 섹션과 같은 라운드 네모로 구분한다. */
 /* 라벨 + 입력 한 쌍 — 라벨을 작게 위에 얹는다. */
+/* 라벨 + 입력을 가로로 나란히. 바 높이가 고정이라 입력을 작게 잡는다. */
 const MetaField = styled.div`
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  input { width: 158px; }
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  > span:first-child { min-width: 78px; }     /* 라벨 폭을 맞춰 입력이 세로로 정렬되게 */
+  input {
+    width: 132px;
+    font-size: 0.86rem;
+    padding: 4px 9px;
+  }
 `;
 
 /* 정보 탭 — 열(세로 스택) 묶음. */
 const InfoCols = styled.div`
   display: flex;
-  gap: 22px;
+  gap: 26px;
   align-items: flex-start;
-  padding: 8px 10px;   /* 섹션 테두리와 내용 사이 숨통 */
+  padding: 6px 10px;
 `;
 
 const InfoCol = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 5px;            /* 바 높이가 고정이라 행 간격을 좁게 */
 `;
 
 const InfoRow = styled.div`
@@ -1553,7 +1568,7 @@ const MeasureTabBar = styled.div`
   gap: 8px;
   padding: 12px 16px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  background: #fcfcfc;   /* 툴바 배경 — 아주 연한 회색 */
+  background: ${({ theme }) => theme.colors.barBelow};
   font-family: 'Pretendard', sans-serif;
 
   .mlabel {
@@ -1588,7 +1603,7 @@ const TabPlaceholder = styled.div`
   font-size: 0.9rem;
   color: ${({ theme }) => theme.colors.textSecondary};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  background: #fcfcfc;   /* 툴바 배경 — 아주 연한 회색 */
+  background: ${({ theme }) => theme.colors.barBelow};
 `;
 
 const ToolBar = styled.div`
@@ -1599,7 +1614,7 @@ const ToolBar = styled.div`
   /* 왼쪽은 첫 섹션이 화면 끝에 가깝게 붙도록 여백을 줄인다. */
   padding: 10px 18px 10px 8px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  background: #fcfcfc;   /* 툴바 배경 — 아주 연한 회색 */          /* 툴바 배경 = 흰색 */
+  background: ${({ theme }) => theme.colors.barBelow};
   flex-wrap: wrap;
 `;
 
@@ -4781,6 +4796,25 @@ export default function EditorPage() {
           ))}
         </TabList>
         <TabSpacer />
+        {/* 믹서·BPM·반복·재생 — 탭 바 정중앙. */}
+        <TabPlayer>
+          <MixerButton />
+          <BpmControl
+          tempo={bpm}
+          onTempoChange={(n) => { bpmManualRef.current = true; setBpm(n); }}
+          disabled={totalNotes === 0}
+          />
+          <RepeatControl repeatCount={repeatCount} onRepeatChange={setRepeatCount} disabled={totalNotes === 0} />
+          <TransportButtons
+          playing={playing}
+          onPlayPause={handlePlayPause}
+          onStop={handleStop}
+          /* 재생 중엔 항상 활성 — 재생 도중 음표를 전부 지웠을 때 정지 버튼까지
+          죽어 오디오를 멈출 수 없게 되는 것을 방지. */
+          disabled={totalNotes === 0 && !playing}
+          />
+        </TabPlayer>
+        <TabSpacer />
         <TabIcons>
           <TabIconBtn type="button" title="되돌리기" onClick={handleUndo}>{TIco.undo}</TabIconBtn>
           <TabIconBtn type="button" title="다시하기" onClick={handleRedo}>{TIco.redo}</TabIconBtn>
@@ -4889,26 +4923,6 @@ export default function EditorPage() {
             </InfoCols>
           </InfoSection>
 
-          {/* 2) 플레이어 */}
-          <InfoSection>
-            <InfoRow>
-          <MixerButton />
-          <BpmControl
-            tempo={bpm}
-            onTempoChange={(n) => { bpmManualRef.current = true; setBpm(n); }}
-            disabled={totalNotes === 0}
-          />
-          <RepeatControl repeatCount={repeatCount} onRepeatChange={setRepeatCount} disabled={totalNotes === 0} />
-          <TransportButtons
-            playing={playing}
-            onPlayPause={handlePlayPause}
-            onStop={handleStop}
-            /* 재생 중엔 항상 활성 — 재생 도중 음표를 전부 지웠을 때 정지 버튼까지
-               죽어 오디오를 멈출 수 없게 되는 것을 방지. */
-            disabled={totalNotes === 0 && !playing}
-          />
-            </InfoRow>
-          </InfoSection>
         </InfoTabPanel>
       ) : toolTab === 'measure' ? (
         /* 마디 탭 — 마디가 활성일 때만 열린다(음표가 활성이면 그 음표의 마디). */
