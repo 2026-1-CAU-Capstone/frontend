@@ -1547,6 +1547,10 @@ const TOOL_TABS = [
  *   + 툴바 padding 10*2            = 146
  * 어떤 탭을 열어도 이 높이가 유지돼야 아래 악보가 들썩이지 않는다. */
 const TOOLBAR_H = 146;
+/* 툴바 탭 본문의 좌우 여백 — 모든 탭이 같은 값을 써야 첫 섹션 왼쪽과 마지막
+ * 섹션 오른쪽 여백이 같아 보인다. 예전엔 오른쪽만 18px 이라 오른쪽이 10px
+ * 더 비어 보였고, 그만큼 마지막 섹션이 좁았다. */
+const TOOLBAR_PAD_X = 8;
 
 /* ── 상단 탭 바 ─────────────────────────────────────────────────────────
  * 섹션들 위에 얹는 줄. 왼쪽은 탭, 오른쪽은 아이콘 묶음(undo/redo 만 실제 동작). */
@@ -1626,7 +1630,7 @@ const MidiTabPanel = styled.div`
   flex-direction: row;
   align-items: stretch;
   gap: 8px;                 /* 툴바 섹션 간격과 동일 */
-  padding: 10px 18px 10px 8px;
+  padding: 10px ${TOOLBAR_PAD_X}px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   height: ${TOOLBAR_H}px;
   box-sizing: border-box;
@@ -1641,7 +1645,7 @@ const InfoTabPanel = styled.div`
   flex-direction: row;      /* 1) 메타데이터  2) 플레이어 — 가로로 나란히 */
   align-items: stretch;
   gap: 8px;                 /* 툴바 섹션 간격과 동일 */
-  padding: 10px 18px 10px 8px;
+  padding: 10px ${TOOLBAR_PAD_X}px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   height: ${TOOLBAR_H}px;
   box-sizing: border-box;
@@ -1709,17 +1713,28 @@ const MorePop = styled.div`
 `;
 
 /* 3번 섹션 좌측 상단에 고정되는 상태칩(활성 상태 + 마디/박). */
-const SectionStatus = styled.div`
+/* 섹션 상단을 가로로 꽉 채우는 띠 — 배경은 구분선과 같은 색. 안에 상태 칩이 앉는다. */
+const SectionStatusBar = styled.div`
   position: absolute;
-  top: 6px;
-  left: 8px;
+  top: 0;
+  left: 0;
+  right: 0;
   z-index: 2;
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 7px;
+  background: ${({ theme }) => theme.colors.border};
+  border-radius: 10px 10px 0 0;   /* 섹션 라운드(12px) - 테두리(2px) */
+  pointer-events: none;
+`;
+
+const SectionStatus = styled.div`
   display: inline-flex;
   align-items: center;
   gap: 8px;
   padding: 3px 9px;
-  border: 1.5px solid ${({ theme }) => theme.colors.border};   /* 구분선과 같은 색 */
-  border-radius: 9px;                        /* 섹션과 같은 라운드 */
+  border-radius: 7px;
   background: #fff;
   font-family: 'Pretendard', sans-serif;
   font-size: 0.78rem;
@@ -1732,9 +1747,9 @@ const SectionStatus = styled.div`
 /* 음표 선택 해제 — 3번 섹션 우측 상단의 × 버튼. */
 const DeselectBtn = styled.button`
   position: absolute;
-  top: 5px;
-  right: 8px;
-  z-index: 2;
+  top: 0;
+  right: 6px;
+  z-index: 3;
   width: 26px;
   height: 26px;
   display: inline-flex;
@@ -1815,7 +1830,7 @@ const MeasureTabBar = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 16px;
+  padding: 12px ${TOOLBAR_PAD_X}px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   height: ${TOOLBAR_H}px;
   box-sizing: border-box;
@@ -1866,7 +1881,7 @@ const ToolBar = styled.div`
   align-items: stretch;
   gap: 8px;
   /* 왼쪽은 첫 섹션이 화면 끝에 가깝게 붙도록 여백을 줄인다. */
-  padding: 10px 18px 10px 8px;
+  padding: 10px ${TOOLBAR_PAD_X}px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   height: ${TOOLBAR_H}px;
   box-sizing: border-box;
@@ -1917,7 +1932,7 @@ const MODE_INK = {
 } as const;
 
 const GoldGroup = styled(Section)<{ $mode: 'none' | 'measure' | 'note' }>`
-  padding-top: 30px;      /* 좌측 상단 상태칩 + 아래 여백 */
+  padding-top: 38px;      /* 상단 상태 띠(26px) + 1행과의 여백 */
   overflow: hidden;       /* 툴바 높이를 넘어 아래로 삐져나가지 않는다 */
   align-items: stretch;
   height: 100%;
@@ -2993,6 +3008,11 @@ const SectionedEditBar = styled.div`
   overflow-y: auto;   /* 섹션 밖(구분선 아래)으로 밀려나지 않게 */
   max-height: 100%;
   width: 100%;
+`;
+/* flex-wrap 줄바꿈용 더미 — 폭 100%를 차지해 뒤 버튼을 다음 줄로 민다. */
+const RowBreak = styled.div`
+  flex-basis: 100%;
+  height: 0;
 `;
 const EditWrap = styled.div`
   display: flex;
@@ -4452,8 +4472,9 @@ export default function EditorPage() {
    * 저장된 초안도 함께 지운다 — 안 그러면 새로고침 때 지운 악보가 되살아난다.
    * 음표 수는 totalNotes가 이 아래에서 선언되므로(TDZ) 여기서 직접 센다. */
   const handleClear = useCallback(() => {
+    // Clear 는 bassMeasures 도 비우므로, 한손 표시 중이어도 왼손까지 세어 알린다.
     const noteCount = measures.reduce((s, m) => s + m.notes.length, 0) + curNotes.length
-      + (staffMode === 'grand' ? bassMeasures.reduce((s, m) => s + m.notes.length, 0) : 0);
+      + bassMeasures.reduce((s, m) => s + m.notes.length, 0);
     if (noteCount > 0
       && !window.confirm(`악보를 모두 지울까요? (음표 ${noteCount}개)\nUndo(Backspace)로 되돌릴 수 있습니다.`)) return;
     pushEditUndo();
@@ -4772,19 +4793,22 @@ export default function EditorPage() {
 
   // (moved before handleNotePress)
 
-  const selMeasure = useMemo<MeasureInfo | null>(() => {
-    if (!selectedNote) return null;
-    return allMeasures[selectedNote.mi] ?? null;
-  }, [selectedNote, allMeasures]);
-
+  /* 왼손도 항상 센다 — 한손으로 토글해도 데이터는 남아 저장되므로, 여기서만
+   * 0으로 세면 Save 가 잠기거나 "음표 N개" 안내가 실제와 어긋난다. */
   const totalNotes = measures.reduce((s, m) => s + m.notes.length, 0) + curNotes.length
-    + (staffMode === 'grand' ? bassMeasures.reduce((s, m) => s + m.notes.length, 0) : 0);
+    + bassMeasures.reduce((s, m) => s + m.notes.length, 0);
 
-  /* 저장/복사/재생에 포함할 베이스 파트 — 양손 모드이고 내용이 있을 때만. */
+  /* 저장/복사/재생에 포함할 베이스 파트.
+   *
+   * 화면 토글(한손/양손)과 **분리한다**. 예전엔 bassAll(= 한손이면 null)을 그대로
+   * 썼기 때문에, 양손으로 왼손을 찍어둔 뒤 실수로 한손으로 바꾼 상태에서 저장하면
+   * 왼손이 통째로 빠진 채 기록됐다(메모리에는 남아 있는데 저장본에서만 소실).
+   * 토글은 '지금 무엇을 보고 어디로 입력하나'일 뿐이므로, 내용이 있으면 언제나 싣는다. */
   const bassForOut = useMemo<MeasureInfo[] | null>(() => {
-    if (!bassAll) return null;
-    return bassAll.some((m) => m.notes.length > 0) ? bassAll : null;
-  }, [bassAll]);
+    if (!bassMeasures.some((m) => m.notes.length > 0)) return null;
+    // 트레블 길이에 맞춰 패딩 — 인덱스 1:1 정렬을 저장본에서도 유지.
+    return allMeasures.map((_, i) => bassMeasures[i] ?? { notes: [] });
+  }, [allMeasures, bassMeasures]);
 
   /* 저장/복사에 실을 마디 — '조표 무시'면 기본 해석(score)으로 읽어도 같은 소리가
    * 나도록 임시표를 구워둔다. 백엔드가 accidentalStyle 을 저장하지 않아(BR-33)
@@ -5349,6 +5373,70 @@ export default function EditorPage() {
                 deleteMeasure(activeMeasureIdx);
               }}
             >🗑 삭제</button>
+            {activeMeasureIdx != null && activeMeasureIdx < measures.length && (<>
+            <NoteEditBtn
+            $active={!!measures[activeMeasureIdx].repeatStart}
+            onClick={() => updateMeasure(activeMeasureIdx, (m) => ({ ...m, repeatStart: !m.repeatStart || undefined }))}
+            >
+            <svg width="14" height="18" viewBox="0 0 16 22" style={{ display: 'inline-block', verticalAlign: 'middle' }}><line x1="2" y1="1" x2="2" y2="21" stroke="currentColor" strokeWidth="2.5"/><line x1="5.5" y1="1" x2="5.5" y2="21" stroke="currentColor" strokeWidth="1"/><circle cx="10" cy="8" r="1.7" fill="currentColor"/><circle cx="10" cy="14" r="1.7" fill="currentColor"/></svg>
+            </NoteEditBtn>
+            <NoteEditBtn
+            $active={!!measures[activeMeasureIdx].repeatEnd}
+            onClick={() => updateMeasure(activeMeasureIdx, (m) => ({ ...m, repeatEnd: !m.repeatEnd || undefined }))}
+            >
+            <svg width="14" height="18" viewBox="0 0 16 22" style={{ display: 'inline-block', verticalAlign: 'middle' }}><circle cx="6" cy="8" r="1.7" fill="currentColor"/><circle cx="6" cy="14" r="1.7" fill="currentColor"/><line x1="10.5" y1="1" x2="10.5" y2="21" stroke="currentColor" strokeWidth="1"/><line x1="14" y1="1" x2="14" y2="21" stroke="currentColor" strokeWidth="2.5"/></svg>
+            </NoteEditBtn>
+            <NoteEditBtn
+            $active={measures[activeMeasureIdx].volta === 1}
+            onClick={() => updateMeasure(activeMeasureIdx, (m) => ({ ...m, volta: m.volta === 1 ? undefined : 1 }))}
+            >
+            <svg width="18" height="14" viewBox="0 0 22 18" style={{ display: 'inline-block', verticalAlign: 'middle' }}><path d="M1 1 L1 6 L21 6" stroke="currentColor" strokeWidth="1.5" fill="none"/><text x="4" y="16" fontSize="10" fontWeight="700" fill="currentColor" fontFamily="DM Sans, sans-serif">1.</text></svg>
+            </NoteEditBtn>
+            <NoteEditBtn
+            $active={measures[activeMeasureIdx].volta === 2}
+            onClick={() => updateMeasure(activeMeasureIdx, (m) => ({ ...m, volta: m.volta === 2 ? undefined : 2 }))}
+            >
+            <svg width="18" height="14" viewBox="0 0 22 18" style={{ display: 'inline-block', verticalAlign: 'middle' }}><path d="M1 1 L1 6 L21 6" stroke="currentColor" strokeWidth="1.5" fill="none"/><text x="4" y="16" fontSize="10" fontWeight="700" fill="currentColor" fontFamily="DM Sans, sans-serif">2.</text></svg>
+            </NoteEditBtn>
+            <NoteEditBtn
+            $active={measures[activeMeasureIdx].navigation === 'segno'}
+            onClick={() => updateMeasure(activeMeasureIdx, (m) => ({ ...m, navigation: m.navigation === 'segno' ? undefined : 'segno' }))}
+            style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.1rem' }}
+            >{''}</NoteEditBtn>
+            <NoteEditBtn
+            $active={measures[activeMeasureIdx].navigation === 'coda'}
+            onClick={() => updateMeasure(activeMeasureIdx, (m) => ({ ...m, navigation: m.navigation === 'coda' ? undefined : 'coda' }))}
+            style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.1rem' }}
+            >{''}</NoteEditBtn>
+            <NoteEditBtn
+            $active={measures[activeMeasureIdx].navigation === 'fine'}
+            onClick={() => updateMeasure(activeMeasureIdx, (m) => ({ ...m, navigation: m.navigation === 'fine' ? undefined : 'fine' }))}
+            style={{ fontSize: '0.65rem', fontWeight: 700, fontStyle: 'italic' }}
+            >Fine</NoteEditBtn>
+            <NoteEditBtn
+            $active={measures[activeMeasureIdx].navigation === 'toCoda'}
+            onClick={() => updateMeasure(activeMeasureIdx, (m) => ({ ...m, navigation: m.navigation === 'toCoda' ? undefined : 'toCoda' }))}
+            style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '0.75rem' }}
+            ><span style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '0.6rem', fontWeight: 700, fontStyle: 'italic', marginRight: 1 }}>To</span>{''}</NoteEditBtn>
+            <NavSelect
+            value={measures[activeMeasureIdx].navigation && ['dc', 'dcAlCoda', 'dcAlFine', 'ds', 'dsAlCoda', 'dsAlFine'].includes(measures[activeMeasureIdx].navigation) ? measures[activeMeasureIdx].navigation : ''}
+            onChange={(e) => updateMeasure(activeMeasureIdx, (m) => ({ ...m, navigation: (e.target.value as NavigationMarker) || undefined }))}
+            style={{ fontSize: '0.65rem' }}
+            >
+            <option value="">D.C./D.S.</option>
+            <option value="dc">D.C.</option>
+            <option value="dcAlCoda">D.C. al Coda</option>
+            <option value="dcAlFine">D.C. al Fine</option>
+            <option value="ds">D.S.</option>
+            <option value="dsAlCoda">D.S. al Coda</option>
+            <option value="dsAlFine">D.S. al Fine</option>
+            </NavSelect>
+            <NoteEditBtn
+            $active={!!measures[activeMeasureIdx].bracket}
+            onClick={() => updateMeasure(activeMeasureIdx, (m) => ({ ...m, bracket: !m.bracket || undefined }))}
+            style={{ fontSize: '0.85rem', fontWeight: 300, fontFamily: 'serif' }}
+            >(&thinsp;)</NoteEditBtn>
+            </>)}
             <button type="button" onClick={() => { setSelectedMeasure(null); setSelectedNote(null); }}>선택 해제</button>
           </MeasureTabBar>
         )
@@ -5628,6 +5716,7 @@ export default function EditorPage() {
             <DeselectBtn type="button" title="선택 해제 (Esc)" aria-label="선택 해제" onClick={() => setSelectedNote(null)}>×</DeselectBtn>
           )}
           {/* 섹션 안 좌측 상단에 고정 — 내용이 길어져도 테두리에 걸치지 않는다. */}
+          <SectionStatusBar>
           <SectionStatus>
             <ModeTag $mode={editMode}>
               {editMode === 'note' ? '음표 활성화' : editMode === 'measure' ? '마디 활성화' : '선택 없음'}
@@ -5636,6 +5725,7 @@ export default function EditorPage() {
             <StatusDot />
             <StatusItem $warn={curBeats > 4}><b>{curBeats}</b>/4 beats</StatusItem>
           </SectionStatus>
+          </SectionStatusBar>
         {selectedNote?.staff !== 'bass' && (() => {
           /* 선택이 없어도 버튼 배치는 보여준다(디자인) — 값은 더미, 조작은 막는다. */
           const ghost = !(selectedNote && selNoteInfo);
@@ -5658,18 +5748,7 @@ export default function EditorPage() {
                       ? `선택한 ${multiSel.length}개를 ${multiSel.length}연음으로 ${selectionTupleted ? '해제' : '묶기'}`
                       : '한 마디 안에서 연속된 음표만 묶을 수 있다'}
                 >3+</NoteEditBtn>
-                {(() => {
-                  if (info.duration.endsWith('r')) return null;
-                  const flat: { mi: number; ni: number; note: NoteInfo }[] = [];
-                  for (let mi = 0; mi < allMeasures.length; mi++)
-                    for (let ni = 0; ni < allMeasures[mi].notes.length; ni++)
-                      flat.push({ mi, ni, note: allMeasures[mi].notes[ni] });
-                  const idx = flat.findIndex((f) => f.mi === sel.mi && f.ni === sel.ni);
-                  const next = flat[idx + 1];
-                  if (!next || next.note.duration.endsWith('r')) return null;
-                  const curPitch = vexToMidi(info.keys[0], info.accidentals?.[0] as '#' | 'b' | undefined);
-                  const nextPitch = vexToMidi(next.note.keys[0], next.note.accidentals?.[0] as '#' | 'b' | undefined);
-                  if (curPitch !== nextPitch) return null;
+                {!isRest && (() => {
                   return (
                     <NoteEditBtn
                       style={{ order: -3 }}
@@ -5737,6 +5816,8 @@ export default function EditorPage() {
                     {' '}Fall
                   </NoteEditBtn>
                 )}
+                {/* 여기서 줄바꿈 — 1행은 Tie·Gliss·Scoop·Fall·Divide·Chord, 2행이 ♭ ♯ ♮ ＋. */}
+                <RowBreak />
                 <NoteEditBtn
                   $active={info.accidentals?.[0] === 'b'}
                   onClick={() => {
@@ -5964,91 +6045,6 @@ export default function EditorPage() {
                   title="Toggle 8va end on this note"
                   style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontSize: '0.72rem' }}
                 >◞8va</NoteEditBtn>
-                {selMeasure && sel && sel.mi < measures.length && (<>
-                  <NoteEditBtn
-                    $active={!!selMeasure.repeatStart}
-                    onClick={() => updateMeasure(sel.mi, (m) => ({ ...m, repeatStart: !m.repeatStart || undefined }))}
-                  >
-                    <svg width="14" height="18" viewBox="0 0 16 22" style={{ display: 'inline-block', verticalAlign: 'middle' }}><line x1="2" y1="1" x2="2" y2="21" stroke="currentColor" strokeWidth="2.5"/><line x1="5.5" y1="1" x2="5.5" y2="21" stroke="currentColor" strokeWidth="1"/><circle cx="10" cy="8" r="1.7" fill="currentColor"/><circle cx="10" cy="14" r="1.7" fill="currentColor"/></svg>
-                  </NoteEditBtn>
-                  <NoteEditBtn
-                    $active={!!selMeasure.repeatEnd}
-                    onClick={() => updateMeasure(sel.mi, (m) => ({ ...m, repeatEnd: !m.repeatEnd || undefined }))}
-                  >
-                    <svg width="14" height="18" viewBox="0 0 16 22" style={{ display: 'inline-block', verticalAlign: 'middle' }}><circle cx="6" cy="8" r="1.7" fill="currentColor"/><circle cx="6" cy="14" r="1.7" fill="currentColor"/><line x1="10.5" y1="1" x2="10.5" y2="21" stroke="currentColor" strokeWidth="1"/><line x1="14" y1="1" x2="14" y2="21" stroke="currentColor" strokeWidth="2.5"/></svg>
-                  </NoteEditBtn>
-                  <NoteEditBtn
-                    $active={selMeasure.volta === 1}
-                    onClick={() => updateMeasure(sel.mi, (m) => ({ ...m, volta: m.volta === 1 ? undefined : 1 }))}
-                  >
-                    <svg width="18" height="14" viewBox="0 0 22 18" style={{ display: 'inline-block', verticalAlign: 'middle' }}><path d="M1 1 L1 6 L21 6" stroke="currentColor" strokeWidth="1.5" fill="none"/><text x="4" y="16" fontSize="10" fontWeight="700" fill="currentColor" fontFamily="DM Sans, sans-serif">1.</text></svg>
-                  </NoteEditBtn>
-                  <NoteEditBtn
-                    $active={selMeasure.volta === 2}
-                    onClick={() => updateMeasure(sel.mi, (m) => ({ ...m, volta: m.volta === 2 ? undefined : 2 }))}
-                  >
-                    <svg width="18" height="14" viewBox="0 0 22 18" style={{ display: 'inline-block', verticalAlign: 'middle' }}><path d="M1 1 L1 6 L21 6" stroke="currentColor" strokeWidth="1.5" fill="none"/><text x="4" y="16" fontSize="10" fontWeight="700" fill="currentColor" fontFamily="DM Sans, sans-serif">2.</text></svg>
-                  </NoteEditBtn>
-                  <NoteEditBtn
-                    $active={selMeasure.navigation === 'segno'}
-                    onClick={() => updateMeasure(sel.mi, (m) => ({ ...m, navigation: m.navigation === 'segno' ? undefined : 'segno' }))}
-                    style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.1rem' }}
-                  >{''}</NoteEditBtn>
-                  <NoteEditBtn
-                    $active={selMeasure.navigation === 'coda'}
-                    onClick={() => updateMeasure(sel.mi, (m) => ({ ...m, navigation: m.navigation === 'coda' ? undefined : 'coda' }))}
-                    style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.1rem' }}
-                  >{''}</NoteEditBtn>
-                  <NoteEditBtn
-                    $active={selMeasure.navigation === 'fine'}
-                    onClick={() => updateMeasure(sel.mi, (m) => ({ ...m, navigation: m.navigation === 'fine' ? undefined : 'fine' }))}
-                    style={{ fontSize: '0.65rem', fontWeight: 700, fontStyle: 'italic' }}
-                  >Fine</NoteEditBtn>
-                  <NoteEditBtn
-                    $active={selMeasure.navigation === 'toCoda'}
-                    onClick={() => updateMeasure(sel.mi, (m) => ({ ...m, navigation: m.navigation === 'toCoda' ? undefined : 'toCoda' }))}
-                    style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '0.75rem' }}
-                  ><span style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '0.6rem', fontWeight: 700, fontStyle: 'italic', marginRight: 1 }}>To</span>{''}</NoteEditBtn>
-                  <NavSelect
-                    value={selMeasure.navigation && ['dc', 'dcAlCoda', 'dcAlFine', 'ds', 'dsAlCoda', 'dsAlFine'].includes(selMeasure.navigation) ? selMeasure.navigation : ''}
-                    onChange={(e) => updateMeasure(sel.mi, (m) => ({ ...m, navigation: (e.target.value as NavigationMarker) || undefined }))}
-                    style={{ fontSize: '0.65rem' }}
-                  >
-                    <option value="">D.C./D.S.</option>
-                    <option value="dc">D.C.</option>
-                    <option value="dcAlCoda">D.C. al Coda</option>
-                    <option value="dcAlFine">D.C. al Fine</option>
-                    <option value="ds">D.S.</option>
-                    <option value="dsAlCoda">D.S. al Coda</option>
-                    <option value="dsAlFine">D.S. al Fine</option>
-                  </NavSelect>
-                  <NoteEditBtn
-                    $active={!!selMeasure.bracket}
-                    onClick={() => updateMeasure(sel.mi, (m) => ({ ...m, bracket: !m.bracket || undefined }))}
-                    style={{ fontSize: '0.85rem', fontWeight: 300, fontFamily: 'serif' }}
-                  >(&thinsp;)</NoteEditBtn>
-                </>)}
-                {sel && sel.mi < measures.length && (<>
-                  <NoteEditBtn
-                    onClick={() => insertMeasureBefore(sel.mi)}
-                    title="Insert a fresh empty measure BEFORE this one"
-                    style={{ fontSize: '0.72rem' }}
-                  >＋ ◀ Bar</NoteEditBtn>
-                  <NoteEditBtn
-                    onClick={() => insertMeasureAfter(sel.mi)}
-                    title="Insert a fresh empty measure AFTER this one"
-                    style={{ fontSize: '0.72rem' }}
-                  >Bar ▶ ＋</NoteEditBtn>
-                  <NoteEditBtn
-                    onClick={() => {
-                      if (confirm(`Delete measure ${sel.mi + 1}? This cannot be undone except by Undo (Backspace).`)) {
-                        deleteMeasure(sel.mi);
-                      }
-                    }}
-                    title="Delete this entire measure"
-                    style={{ fontSize: '0.72rem', color: '#c0392b' }}
-                  >🗑 Bar</NoteEditBtn>
-                </>)}
               </EditWrap>
           </SectionedEditBar>
           </GhostWrap>
