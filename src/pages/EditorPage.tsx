@@ -1675,6 +1675,39 @@ const GenreFill = styled.div`
   button { width: 100%; justify-content: center; height: 28px; font-size: 0.9rem; }
 `;
 
+/* 음표 부가 도구 '+' 버튼과 그 드롭다운. */
+const MoreBtn = styled.button<{ $on?: boolean }>`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border: 1.5px solid ${({ $on }) => ($on ? '#7cb8e8' : '#ccc')};
+  border-radius: 8px;
+  background: ${({ $on }) => ($on ? '#e3f2fd' : '#fff')};
+  color: ${({ theme }) => theme.colors.textPrimary};
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  &:hover { border-color: #888; }
+`;
+
+const MorePop = styled.div`
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: ${({ theme }) => theme.zIndex.popover};
+  max-height: 46vh;
+  overflow: auto;
+  padding: 10px 12px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.18);
+`;
+
 /* 3번 섹션 좌측 상단에 고정되는 상태칩(활성 상태 + 마디/박). */
 const SectionStatus = styled.div`
   position: absolute;
@@ -1721,12 +1754,13 @@ const DeselectBtn = styled.button`
 /* fieldset legend 처럼 섹션 윗 테두리에 걸치는 라벨. 흐름에서 빼야 한 줄을
  * 차지하지 않고, 배경으로 테두리 선을 끊어 글자가 선 위에 얹혀 보인다.
  * (얹히는 InfoBox 는 overflow 를 잘라내면 안 된다 — 라벨이 통째로 잘린다.) */
-const BoxLegend = styled.span`
+const BoxLegend = styled.span<{ $left?: boolean }>`
   position: absolute;
   top: -8px;
-  left: 10px;                    /* border-radius 12px 모서리를 피한다 */
+  /* 기본은 윗 테두리 가운데, $left 면 좌측 상단(모서리 라운드 12px 은 피한다). */
+  ${({ $left }) => ($left ? 'left: 12px;' : 'left: 50%; transform: translateX(-50%);')}
   z-index: 1;
-  padding: 0 5px;
+  padding: 0 6px;
   background: ${({ theme }) => theme.colors.barBelow};
   font-family: 'Pretendard', sans-serif;
   font-size: 0.88rem;
@@ -3352,6 +3386,8 @@ export default function EditorPage() {
   /* 마디 모드에서 드롭다운은 평소 숨김 — 활성 마디 영역(또는 드롭다운 자체)에
    * 마우스가 올라왔을 때만 보인다. */
   const [measureHover, setMeasureHover] = useState(false);
+  /* 음표 부가 도구(+) 드롭다운 — 꾸밈·아티큘레이션·구조 등 '더 붙이는' 것들. */
+  const [noteMoreOpen, setNoteMoreOpen] = useState(false);
   /* 상단 탭 — 지금은 '음표' 탭만 내용이 있고, 나머지는 자리만 잡아 둔다. */
   const [toolTab, setToolTab] = useState<'note' | 'artic' | 'dyn' | 'measure' | 'midi' | 'info'>('note');
 
@@ -5164,7 +5200,9 @@ export default function EditorPage() {
         /* 정보 탭 — 제목·작곡가·악보 메타데이터·장르/조성·믹서/재생을 한곳에 모았다. */
         <InfoTabPanel>
             {/* 1 — Type. 라벨은 테두리에 겹치는 legend 처럼. */}
-            <InfoBox style={{ alignItems: 'stretch', gap: 4, padding: '8px 10px 6px' }}>
+            {/* 위 여백 = Type 라벨과 칩 사이 간격. 아래 여백까지 늘린 만큼
+                세로 3등분되는 칩 높이가 조금씩 줄어든다. */}
+            <InfoBox style={{ alignItems: 'stretch', gap: 4, padding: '18px 10px 10px' }}>
               <BoxLegend>Type</BoxLegend>
               <SegGroup $vertical $n={3} $i={['solo', 'lick', 'comping'].indexOf(mode)} style={{ width: '100%', flex: 1, minHeight: 0 }}>
                 <SegThumb $vertical $n={3} $i={['solo', 'lick', 'comping'].indexOf(mode)} />
@@ -5225,8 +5263,11 @@ export default function EditorPage() {
 
             {/* 3 — Staff(좌) + Inst(우). 오른쪽 끝까지 늘어난다. */}
             <InfoBox $grow style={{ flexDirection: 'row', alignItems: 'center', gap: 26 }}>
+              {/* 이 박스의 legend — 윗 테두리 좌측 상단에 걸친다. */}
+              <BoxLegend $left>
+                Staff {staffModeLocked && <LockedHint title="불러온 악보의 보표 수로 자동 확정">🔒</LockedHint>}
+              </BoxLegend>
               <MetaField $tight>
-                <MetaLabel>Staff {staffModeLocked && <LockedHint title="불러온 악보의 보표 수로 자동 확정">🔒</LockedHint>}</MetaLabel>
                 <SegGroup $n={2} $i={staffMode === 'single' ? 0 : 1}>
                   <SegThumb $n={2} $i={staffMode === 'single' ? 0 : 1} />
                   {(['single', 'grand'] as const).map((v) => (
@@ -5576,7 +5617,14 @@ export default function EditorPage() {
             <StatusDot />
             <StatusItem $warn={curBeats > 4}><b>{curBeats}</b>/4 beats</StatusItem>
           </SectionStatus>
-          {/* 음표 모드 — 아래에 있던 편집 바를 이 섹션으로 옮겼다. */}
+          {/* 음표에 '더 붙이는' 도구는 + 드롭다운으로 모았다. */}
+          {selectedNote && (
+            <MoreBtn type="button" $on={noteMoreOpen} onClick={() => setNoteMoreOpen((v) => !v)}>
+              ＋ 꾸밈·기호 추가
+            </MoreBtn>
+          )}
+          {noteMoreOpen && (
+          <MorePop onClick={(e) => e.stopPropagation()}>
         {selectedNote && selectedNote.staff !== 'bass' && selNoteInfo && (() => {
           const isRest = selNoteInfo.duration.endsWith('r');
           return (
@@ -5632,9 +5680,11 @@ export default function EditorPage() {
                   return (
                     <NoteEditBtn
                       $active={!!selNoteInfo.gliss}
+                      style={{ order: -2 }}
                       onClick={() => {
                         updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, gliss: !n.gliss || undefined }));
                       }}
+                      style={{ order: -2 }}
                     >
                       <svg width="22" height="14" viewBox="0 0 22 14" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
                         <path d="M2 12 Q7 8 12 6 Q17 4 20 2" stroke="currentColor" strokeWidth="1.5" fill="none" />
@@ -5646,6 +5696,7 @@ export default function EditorPage() {
                 {!isRest && (
                   <NoteEditBtn
                     $active={!!selNoteInfo.scoop}
+                    style={{ order: -2 }}
                     onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, scoop: !n.scoop || undefined }))}
                     title="스쿱 — 음표 앞에서 아래→위로 끌어올려 진입"
                   >
@@ -5659,6 +5710,7 @@ export default function EditorPage() {
                 {!isRest && (
                   <NoteEditBtn
                     $active={!!selNoteInfo.fall}
+                    style={{ order: -2 }}
                     onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, fall: !n.fall || undefined }))}
                     title="폴 — 음표 뒤에서 아래로 떨어지는 곡선"
                   >
@@ -5837,17 +5889,14 @@ export default function EditorPage() {
                     <option value="fp">fp</option>
                   </select>
                 </>)}
-              </EditWrap>
-
-
-            {/* 섹션 3: 부가 (빔·코드·옥타브·마디·구조) */}
-              <EditWrap>
+                {/* 아래부터는 부가(빔·코드·옥타브·마디·구조) — 같은 줄 흐름에 이어 붙인다. */}
                 {(() => {
                   if (selNoteInfo.duration.endsWith('r')) return null;
                   const base = selNoteInfo.duration.replace(/r$/, '');
                   if (base !== '8' && base !== '16') return null;
                   return (
                     <NoteEditBtn
+                      style={{ order: -1 }}
                       $active={!!selNoteInfo.beamBreak}
                       onClick={() => {
                         updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, beamBreak: !n.beamBreak || undefined }));
@@ -5858,6 +5907,7 @@ export default function EditorPage() {
                   );
                 })()}
                 <NoteEditBtn
+                      style={{ order: -1 }}
                   $active={noteChordEditing}
                   onClick={() => {
                     if (noteChordEditing) {
@@ -6044,6 +6094,8 @@ export default function EditorPage() {
             >🗑 삭제</NoteEditBtn>
           </NoteEditBar>
         )}
+          </MorePop>
+          )}
           </>)}
         </GoldGroup>
 
