@@ -1476,15 +1476,12 @@ const ModGroup = styled(Section)``;
 
 /* 세 번째 섹션 — 메타데이터 + undo/redo. 중요 영역이라 골드 테두리. */
 const GoldGroup = styled(Section)`
+  /* 남는 가로 공간을 모두 차지해 툴바 끝까지 늘어난다. */
+  flex: 1;
   border-color: ${({ theme }) => theme.colors.gold};
   flex-direction: column;
   justify-content: center;
   gap: 8px;
-`;
-
-/* 네 번째 섹션 — 나머지 입력 토글·기호. */
-const MiscGroup = styled(Section)`
-  flex-wrap: wrap;
 `;
 
 /* 컴팩트 세로 2단 컬럼(음표/쉼표, 점/겹점 …). */
@@ -4807,6 +4804,171 @@ export default function EditorPage() {
               style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '1.5rem', fontWeight: 900 }}
             >|</DurBtn>
           </ModCol>
+          <ModCol>
+          <DurBtn $active={tieNext} onClick={() => setTieNext((v) => !v)} title="Tie to next note (L)" style={{ fontSize: '1.3rem' }}>
+            <svg width="22" height="16" viewBox="0 0 18 14" style={{ display: 'block' }}>
+              <path d="M2 4 Q9 14 16 4" stroke="currentColor" strokeWidth="1.5" fill="none" />
+            </svg>
+          </DurBtn>
+
+          {/* 악보 기호 추가 — 8va/8vb·도돌이표·볼타·세뇨/코다·브라켓을 '+' 하나로 모았다.
+            * 개별 버튼으로 늘어놓으면 툴바가 길어져 음표 버튼이 밀려났다. 자주 쓰는
+            * 입력 토글(Tie·꾸밈음·고스트·화음)은 툴바에 그대로 남긴다. */}
+          <MarkWrap ref={markMenuRef}>
+            <DurBtn
+              $active={markMenuOpen || markCount > 0}
+              onClick={() => setMarkMenuOpen((v) => !v)}
+              title="기호 추가 — 8va/8vb · 도돌이표 · 볼타 · 세뇨/코다 · 브라켓"
+              aria-haspopup="menu"
+              aria-expanded={markMenuOpen}
+              style={{ fontSize: '1.7rem', fontWeight: 300, lineHeight: 1, position: 'relative' }}
+            >
+              +
+              {markCount > 0 && <MarkBadge>{markCount}</MarkBadge>}
+            </DurBtn>
+
+            {markMenuOpen && (
+              <MarkMenu role="menu">
+                <MarkGroup>
+                  <MarkTitle>옥타브</MarkTitle>
+                  <MarkRow>
+                    <MarkBtn
+                      $active={ottavaMode === '8va'}
+                      onClick={() => handleOttavaToggle('8va')}
+                      title="한 번 눌러 시작, 마지막 음에서 다시 눌러 닫기"
+                    >
+                      <MarkGlyph style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontWeight: 700, fontSize: '0.95rem' }}>8va</MarkGlyph>
+                      <MarkLabel>옥타브 위</MarkLabel>
+                    </MarkBtn>
+                    <MarkBtn
+                      $active={ottavaMode === '8vb'}
+                      onClick={() => handleOttavaToggle('8vb')}
+                      title="한 번 눌러 시작, 마지막 음에서 다시 눌러 닫기"
+                    >
+                      <MarkGlyph style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontWeight: 700, fontSize: '0.95rem' }}>8vb</MarkGlyph>
+                      <MarkLabel>옥타브 아래</MarkLabel>
+                    </MarkBtn>
+                  </MarkRow>
+                </MarkGroup>
+
+                <MarkGroup>
+                  <MarkTitle>반복</MarkTitle>
+                  <MarkRow>
+                    <MarkBtn
+                      $active={repeatStart}
+                      onClick={() => { pushEditUndo(); setRepeatStart((v) => !v); }}
+                      title="Repeat start"
+                    >
+                      <MarkGlyph>
+                        <svg width="16" height="22" viewBox="0 0 16 22"><line x1="2" y1="1" x2="2" y2="21" stroke="currentColor" strokeWidth="2.5"/><line x1="5.5" y1="1" x2="5.5" y2="21" stroke="currentColor" strokeWidth="1"/><circle cx="10" cy="8" r="1.7" fill="currentColor"/><circle cx="10" cy="14" r="1.7" fill="currentColor"/></svg>
+                      </MarkGlyph>
+                      <MarkLabel>도돌이 시작</MarkLabel>
+                    </MarkBtn>
+                    <MarkBtn
+                      $active={repeatEnd}
+                      onClick={() => { pushEditUndo(); setRepeatEnd((v) => !v); }}
+                      title="Repeat end"
+                    >
+                      <MarkGlyph>
+                        <svg width="16" height="22" viewBox="0 0 16 22"><circle cx="6" cy="8" r="1.7" fill="currentColor"/><circle cx="6" cy="14" r="1.7" fill="currentColor"/><line x1="10.5" y1="1" x2="10.5" y2="21" stroke="currentColor" strokeWidth="1"/><line x1="14" y1="1" x2="14" y2="21" stroke="currentColor" strokeWidth="2.5"/></svg>
+                      </MarkGlyph>
+                      <MarkLabel>도돌이 끝</MarkLabel>
+                    </MarkBtn>
+                    <MarkBtn
+                      $active={volta === 1}
+                      onClick={() => { pushEditUndo(); setVolta((v) => v === 1 ? 0 : 1); }}
+                      title="1st ending"
+                    >
+                      <MarkGlyph>
+                        <svg width="22" height="18" viewBox="0 0 22 18"><path d="M1 1 L1 6 L21 6" stroke="currentColor" strokeWidth="1.5" fill="none"/><text x="4" y="16" fontSize="10" fontWeight="700" fill="currentColor" fontFamily="DM Sans, sans-serif">1.</text></svg>
+                      </MarkGlyph>
+                      <MarkLabel>1번 괄호</MarkLabel>
+                    </MarkBtn>
+                    <MarkBtn
+                      $active={volta === 2}
+                      onClick={() => { pushEditUndo(); setVolta((v) => v === 2 ? 0 : 2); }}
+                      title="2nd ending"
+                    >
+                      <MarkGlyph>
+                        <svg width="22" height="18" viewBox="0 0 22 18"><path d="M1 1 L1 6 L21 6" stroke="currentColor" strokeWidth="1.5" fill="none"/><text x="4" y="16" fontSize="10" fontWeight="700" fill="currentColor" fontFamily="DM Sans, sans-serif">2.</text></svg>
+                      </MarkGlyph>
+                      <MarkLabel>2번 괄호</MarkLabel>
+                    </MarkBtn>
+                  </MarkRow>
+                </MarkGroup>
+
+                <MarkGroup>
+                  <MarkTitle>내비게이션</MarkTitle>
+                  <MarkRow>
+                    <MarkBtn
+                      $active={navigation === 'segno'}
+                      onClick={() => { pushEditUndo(); setNavigation((v) => v === 'segno' ? '' : 'segno'); }}
+                      title="Segno"
+                    >
+                      <MarkGlyph style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.4rem' }}>{''}</MarkGlyph>
+                      <MarkLabel>세뇨</MarkLabel>
+                    </MarkBtn>
+                    <MarkBtn
+                      $active={navigation === 'coda'}
+                      onClick={() => { pushEditUndo(); setNavigation((v) => v === 'coda' ? '' : 'coda'); }}
+                      title="Coda"
+                    >
+                      <MarkGlyph style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.4rem' }}>{''}</MarkGlyph>
+                      <MarkLabel>코다</MarkLabel>
+                    </MarkBtn>
+                    <MarkBtn
+                      $active={navigation === 'toCoda'}
+                      onClick={() => { pushEditUndo(); setNavigation((v) => v === 'toCoda' ? '' : 'toCoda'); }}
+                      title="To Coda"
+                    >
+                      <MarkGlyph style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1rem' }}>
+                        <span style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '0.72rem', fontWeight: 700, fontStyle: 'italic', marginRight: 1 }}>To</span>{''}
+                      </MarkGlyph>
+                      <MarkLabel>To Coda</MarkLabel>
+                    </MarkBtn>
+                    <MarkBtn
+                      $active={navigation === 'fine'}
+                      onClick={() => { pushEditUndo(); setNavigation((v) => v === 'fine' ? '' : 'fine'); }}
+                      title="Fine"
+                    >
+                      <MarkGlyph style={{ fontSize: '0.9rem', fontWeight: 700, fontStyle: 'italic' }}>Fine</MarkGlyph>
+                      <MarkLabel>피네</MarkLabel>
+                    </MarkBtn>
+                  </MarkRow>
+                  <MarkSelectRow>
+                    <MarkSelectLabel>다 카포 · 달 세뇨</MarkSelectLabel>
+                    <NavSelect
+                      value={navigation && ['dc', 'dcAlCoda', 'dcAlFine', 'ds', 'dsAlCoda', 'dsAlFine'].includes(navigation) ? navigation : ''}
+                      onChange={(e) => { pushEditUndo(); setNavigation(e.target.value as NavigationMarker | ''); }}
+                    >
+                      <option value="">없음</option>
+                      <option value="dc">D.C.</option>
+                      <option value="dcAlCoda">D.C. al Coda</option>
+                      <option value="dcAlFine">D.C. al Fine</option>
+                      <option value="ds">D.S.</option>
+                      <option value="dsAlCoda">D.S. al Coda</option>
+                      <option value="dsAlFine">D.S. al Fine</option>
+                    </NavSelect>
+                  </MarkSelectRow>
+                </MarkGroup>
+
+                <MarkGroup>
+                  <MarkTitle>기타</MarkTitle>
+                  <MarkRow>
+                    <MarkBtn
+                      $active={bracket}
+                      onClick={() => { pushEditUndo(); setBracket((v) => !v); }}
+                      title="Intro bracket"
+                    >
+                      <MarkGlyph style={{ fontWeight: 300, fontFamily: 'serif', fontSize: '1.15rem' }}>(&thinsp;)</MarkGlyph>
+                      <MarkLabel>인트로 브라켓</MarkLabel>
+                    </MarkBtn>
+                  </MarkRow>
+                </MarkGroup>
+              </MarkMenu>
+            )}
+          </MarkWrap>
+          </ModCol>
         </ModGroup>
 
         {/* 세 번째 섹션 — 악보 상태(위) + undo/redo(아래). 중요 영역이라 골드 테두리. */}
@@ -4832,175 +4994,8 @@ export default function EditorPage() {
           </UndoRedoRow>
         </GoldGroup>
 
-        {/* 네 번째 섹션 — 나머지 입력 토글·기호·옥타브. */}
-        <MiscGroup>
-        <DurBtn $active={tieNext} onClick={() => setTieNext((v) => !v)} title="Tie to next note (L)" style={{ fontSize: '1.3rem' }}>
-          <svg width="22" height="16" viewBox="0 0 18 14" style={{ display: 'block' }}>
-            <path d="M2 4 Q9 14 16 4" stroke="currentColor" strokeWidth="1.5" fill="none" />
-          </svg>
-        </DurBtn>
 
-        {/* 악보 기호 추가 — 8va/8vb·도돌이표·볼타·세뇨/코다·브라켓을 '+' 하나로 모았다.
-          * 개별 버튼으로 늘어놓으면 툴바가 길어져 음표 버튼이 밀려났다. 자주 쓰는
-          * 입력 토글(Tie·꾸밈음·고스트·화음)은 툴바에 그대로 남긴다. */}
-        <MarkWrap ref={markMenuRef}>
-          <DurBtn
-            $active={markMenuOpen || markCount > 0}
-            onClick={() => setMarkMenuOpen((v) => !v)}
-            title="기호 추가 — 8va/8vb · 도돌이표 · 볼타 · 세뇨/코다 · 브라켓"
-            aria-haspopup="menu"
-            aria-expanded={markMenuOpen}
-            style={{ fontSize: '1.7rem', fontWeight: 300, lineHeight: 1, position: 'relative' }}
-          >
-            +
-            {markCount > 0 && <MarkBadge>{markCount}</MarkBadge>}
-          </DurBtn>
 
-          {markMenuOpen && (
-            <MarkMenu role="menu">
-              <MarkGroup>
-                <MarkTitle>옥타브</MarkTitle>
-                <MarkRow>
-                  <MarkBtn
-                    $active={ottavaMode === '8va'}
-                    onClick={() => handleOttavaToggle('8va')}
-                    title="한 번 눌러 시작, 마지막 음에서 다시 눌러 닫기"
-                  >
-                    <MarkGlyph style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontWeight: 700, fontSize: '0.95rem' }}>8va</MarkGlyph>
-                    <MarkLabel>옥타브 위</MarkLabel>
-                  </MarkBtn>
-                  <MarkBtn
-                    $active={ottavaMode === '8vb'}
-                    onClick={() => handleOttavaToggle('8vb')}
-                    title="한 번 눌러 시작, 마지막 음에서 다시 눌러 닫기"
-                  >
-                    <MarkGlyph style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontWeight: 700, fontSize: '0.95rem' }}>8vb</MarkGlyph>
-                    <MarkLabel>옥타브 아래</MarkLabel>
-                  </MarkBtn>
-                </MarkRow>
-              </MarkGroup>
-
-              <MarkGroup>
-                <MarkTitle>반복</MarkTitle>
-                <MarkRow>
-                  <MarkBtn
-                    $active={repeatStart}
-                    onClick={() => { pushEditUndo(); setRepeatStart((v) => !v); }}
-                    title="Repeat start"
-                  >
-                    <MarkGlyph>
-                      <svg width="16" height="22" viewBox="0 0 16 22"><line x1="2" y1="1" x2="2" y2="21" stroke="currentColor" strokeWidth="2.5"/><line x1="5.5" y1="1" x2="5.5" y2="21" stroke="currentColor" strokeWidth="1"/><circle cx="10" cy="8" r="1.7" fill="currentColor"/><circle cx="10" cy="14" r="1.7" fill="currentColor"/></svg>
-                    </MarkGlyph>
-                    <MarkLabel>도돌이 시작</MarkLabel>
-                  </MarkBtn>
-                  <MarkBtn
-                    $active={repeatEnd}
-                    onClick={() => { pushEditUndo(); setRepeatEnd((v) => !v); }}
-                    title="Repeat end"
-                  >
-                    <MarkGlyph>
-                      <svg width="16" height="22" viewBox="0 0 16 22"><circle cx="6" cy="8" r="1.7" fill="currentColor"/><circle cx="6" cy="14" r="1.7" fill="currentColor"/><line x1="10.5" y1="1" x2="10.5" y2="21" stroke="currentColor" strokeWidth="1"/><line x1="14" y1="1" x2="14" y2="21" stroke="currentColor" strokeWidth="2.5"/></svg>
-                    </MarkGlyph>
-                    <MarkLabel>도돌이 끝</MarkLabel>
-                  </MarkBtn>
-                  <MarkBtn
-                    $active={volta === 1}
-                    onClick={() => { pushEditUndo(); setVolta((v) => v === 1 ? 0 : 1); }}
-                    title="1st ending"
-                  >
-                    <MarkGlyph>
-                      <svg width="22" height="18" viewBox="0 0 22 18"><path d="M1 1 L1 6 L21 6" stroke="currentColor" strokeWidth="1.5" fill="none"/><text x="4" y="16" fontSize="10" fontWeight="700" fill="currentColor" fontFamily="DM Sans, sans-serif">1.</text></svg>
-                    </MarkGlyph>
-                    <MarkLabel>1번 괄호</MarkLabel>
-                  </MarkBtn>
-                  <MarkBtn
-                    $active={volta === 2}
-                    onClick={() => { pushEditUndo(); setVolta((v) => v === 2 ? 0 : 2); }}
-                    title="2nd ending"
-                  >
-                    <MarkGlyph>
-                      <svg width="22" height="18" viewBox="0 0 22 18"><path d="M1 1 L1 6 L21 6" stroke="currentColor" strokeWidth="1.5" fill="none"/><text x="4" y="16" fontSize="10" fontWeight="700" fill="currentColor" fontFamily="DM Sans, sans-serif">2.</text></svg>
-                    </MarkGlyph>
-                    <MarkLabel>2번 괄호</MarkLabel>
-                  </MarkBtn>
-                </MarkRow>
-              </MarkGroup>
-
-              <MarkGroup>
-                <MarkTitle>내비게이션</MarkTitle>
-                <MarkRow>
-                  <MarkBtn
-                    $active={navigation === 'segno'}
-                    onClick={() => { pushEditUndo(); setNavigation((v) => v === 'segno' ? '' : 'segno'); }}
-                    title="Segno"
-                  >
-                    <MarkGlyph style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.4rem' }}>{''}</MarkGlyph>
-                    <MarkLabel>세뇨</MarkLabel>
-                  </MarkBtn>
-                  <MarkBtn
-                    $active={navigation === 'coda'}
-                    onClick={() => { pushEditUndo(); setNavigation((v) => v === 'coda' ? '' : 'coda'); }}
-                    title="Coda"
-                  >
-                    <MarkGlyph style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.4rem' }}>{''}</MarkGlyph>
-                    <MarkLabel>코다</MarkLabel>
-                  </MarkBtn>
-                  <MarkBtn
-                    $active={navigation === 'toCoda'}
-                    onClick={() => { pushEditUndo(); setNavigation((v) => v === 'toCoda' ? '' : 'toCoda'); }}
-                    title="To Coda"
-                  >
-                    <MarkGlyph style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1rem' }}>
-                      <span style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '0.72rem', fontWeight: 700, fontStyle: 'italic', marginRight: 1 }}>To</span>{''}
-                    </MarkGlyph>
-                    <MarkLabel>To Coda</MarkLabel>
-                  </MarkBtn>
-                  <MarkBtn
-                    $active={navigation === 'fine'}
-                    onClick={() => { pushEditUndo(); setNavigation((v) => v === 'fine' ? '' : 'fine'); }}
-                    title="Fine"
-                  >
-                    <MarkGlyph style={{ fontSize: '0.9rem', fontWeight: 700, fontStyle: 'italic' }}>Fine</MarkGlyph>
-                    <MarkLabel>피네</MarkLabel>
-                  </MarkBtn>
-                </MarkRow>
-                <MarkSelectRow>
-                  <MarkSelectLabel>다 카포 · 달 세뇨</MarkSelectLabel>
-                  <NavSelect
-                    value={navigation && ['dc', 'dcAlCoda', 'dcAlFine', 'ds', 'dsAlCoda', 'dsAlFine'].includes(navigation) ? navigation : ''}
-                    onChange={(e) => { pushEditUndo(); setNavigation(e.target.value as NavigationMarker | ''); }}
-                  >
-                    <option value="">없음</option>
-                    <option value="dc">D.C.</option>
-                    <option value="dcAlCoda">D.C. al Coda</option>
-                    <option value="dcAlFine">D.C. al Fine</option>
-                    <option value="ds">D.S.</option>
-                    <option value="dsAlCoda">D.S. al Coda</option>
-                    <option value="dsAlFine">D.S. al Fine</option>
-                  </NavSelect>
-                </MarkSelectRow>
-              </MarkGroup>
-
-              <MarkGroup>
-                <MarkTitle>기타</MarkTitle>
-                <MarkRow>
-                  <MarkBtn
-                    $active={bracket}
-                    onClick={() => { pushEditUndo(); setBracket((v) => !v); }}
-                    title="Intro bracket"
-                  >
-                    <MarkGlyph style={{ fontWeight: 300, fontFamily: 'serif', fontSize: '1.15rem' }}>(&thinsp;)</MarkGlyph>
-                    <MarkLabel>인트로 브라켓</MarkLabel>
-                  </MarkBtn>
-                </MarkRow>
-              </MarkGroup>
-            </MarkMenu>
-          )}
-        </MarkWrap>
-
-        </MiscGroup>
-
-        <Spacer />
       </ToolBar>
 
 
