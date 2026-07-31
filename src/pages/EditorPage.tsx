@@ -1828,6 +1828,7 @@ const ToolBar = styled.div`
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   height: ${TOOLBAR_H}px;
   box-sizing: border-box;
+  overflow: hidden;   /* 섹션이 아래 구분선을 넘지 않게 */
   background: ${({ theme }) => theme.colors.barBelow};
   flex-wrap: wrap;
 `;
@@ -1839,6 +1840,7 @@ const ToolBar = styled.div`
 const Section = styled.div`
   display: flex;
   align-items: center;
+  min-height: 0;      /* 내용이 길어도 툴바 높이를 밀어내지 않게 */
   gap: 4px;
   padding: 5px;
   border: 2px solid rgba(0, 0, 0, 0.13);
@@ -1871,9 +1873,11 @@ const MODE_INK = {
 } as const;
 
 const GoldGroup = styled(Section)<{ $mode: 'none' | 'measure' | 'note' }>`
-  padding-top: 34px;      /* 좌측 상단 상태칩 + 아래 여백 */
+  padding-top: 30px;      /* 좌측 상단 상태칩 + 아래 여백 */
   overflow: hidden;       /* 툴바 높이를 넘어 아래로 삐져나가지 않는다 */
   align-items: stretch;
+  height: 100%;
+  min-height: 0;
   /* 남는 가로 공간을 모두 차지해 툴바 끝까지 늘어난다. */
   flex: 1;
   /* SectionStatus(좌측 상단 상태칩)를 absolute 로 띄우는 기준. 일반 흐름에 두면
@@ -2921,6 +2925,8 @@ const SectionedEditBar = styled.div`
   padding: 0;
   border-bottom: 2px solid #d32f2f;
   background: transparent;   /* 섹션 배경을 그대로 쓴다 */
+  flex: 1;
+  min-height: 0;
   overflow-x: auto;
   overflow-y: auto;   /* 섹션 밖(구분선 아래)으로 밀려나지 않게 */
   max-height: 100%;
