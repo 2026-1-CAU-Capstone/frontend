@@ -1357,7 +1357,7 @@ const MetaInput = styled.input`
 `;
 
 const MetaLabel = styled.span`
-  font-size: 0.88rem;
+  font-size: 0.78rem;
   font-weight: 600;
   color: ${({ theme }) => theme.colors.textSecondary};
   white-space: nowrap;
@@ -1497,7 +1497,7 @@ const TabBar = styled.div`
   padding: 0 14px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   /* 아래 섹션 툴바(ToolBar)와 같은 배경 — 탭 줄만 흰색이면 띠처럼 떠 보인다. */
-  background: ${({ theme }) => theme.colors.bgSecondary};
+  background: #f7f7f7;   /* 툴바 배경 — 아주 연한 회색 */
 `;
 
 const TabList = styled.div`
@@ -1557,7 +1557,26 @@ const InfoTabPanel = styled.div`
   gap: 12px;
   padding: 14px 16px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  background: #f7f7f7;   /* 툴바 배경 — 아주 연한 회색 */
+`;
+
+/* 정보 탭 내부 섹션 — 툴바 섹션과 같은 라운드 네모로 구분한다. */
+const InfoSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 2px solid rgba(0, 0, 0, 0.13);
+  border-radius: 12px;
   background: #fff;
+`;
+
+/* 라벨 + 입력 한 쌍 — 라벨을 작게 위에 얹는다. */
+const MetaField = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  input { width: 168px; }
 `;
 
 const InfoRow = styled.div`
@@ -1574,7 +1593,7 @@ const MeasureTabBar = styled.div`
   gap: 8px;
   padding: 12px 16px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  background: #fff;
+  background: #f7f7f7;   /* 툴바 배경 — 아주 연한 회색 */
   font-family: 'Pretendard', sans-serif;
 
   .mlabel {
@@ -1609,7 +1628,7 @@ const TabPlaceholder = styled.div`
   font-size: 0.9rem;
   color: ${({ theme }) => theme.colors.textSecondary};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  background: #fff;
+  background: #f7f7f7;   /* 툴바 배경 — 아주 연한 회색 */
 `;
 
 const ToolBar = styled.div`
@@ -1620,7 +1639,7 @@ const ToolBar = styled.div`
   /* 왼쪽은 첫 섹션이 화면 끝에 가깝게 붙도록 여백을 줄인다. */
   padding: 10px 18px 10px 8px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  background: #fff;          /* 툴바 배경 = 흰색 */
+  background: #f7f7f7;   /* 툴바 배경 — 아주 연한 회색 */          /* 툴바 배경 = 흰색 */
   flex-wrap: wrap;
 `;
 
@@ -2822,6 +2841,10 @@ export default function EditorPage() {
   const curChord = joinChords(curChord1, curChord2);
 
   const [composer, setComposer] = useState('');
+  /* 정보 탭의 메타데이터 — 저장 시 실제로 함께 나간다(예전엔 빈 문자열로 고정). */
+  const [performer, setPerformer] = useState('');
+  const [metaInstrument, setMetaInstrument] = useState('');
+  const [album, setAlbum] = useState('');
   /* 기본 장르 — 'Unknown'(미정). 사용자가 드롭다운에서 실제 장르를 고를 때까지
    * 장르를 단정하지 않는다. 반주 느낌은 genreToStyle 기본값(swing)으로 재생된다.
    * 컴핑 편집으로 진입한 경우(navState.compingGenre)엔 그 장르에 대응하는 라벨로 시작. */
@@ -4524,10 +4547,10 @@ export default function EditorPage() {
         const totalN = allMeasures.reduce((s, m) => s + m.notes.filter((n) => !n.duration.endsWith('r')).length, 0);
         const entry: LickEntry = {
           id: Date.now(),
-          performer: composer || 'Unknown',
+          performer: performer || composer || 'Unknown',
           title: sheetTitle || 'Untitled',
-          instrument: '',
-          album: '',
+          instrument: metaInstrument,
+          album,
           style: genre || '',
           tempo: bpm,
           key: sheetKey,
@@ -4776,45 +4799,49 @@ export default function EditorPage() {
       {toolTab === 'info' ? (
         /* 정보 탭 — 제목·작곡가·악보 메타데이터·장르/조성·믹서/재생을 한곳에 모았다. */
         <InfoTabPanel>
-          <InfoRow>
-            <MetaLabel>Title</MetaLabel>
-            <MetaInput value={sheetTitle} onChange={(e) => setSheetTitle(e.target.value)} placeholder={mode === 'solo' ? 'e.g. Autumn Leaves' : 'e.g. ii-V Lick #3'} style={{ width: 280 }} />
-            <MetaLabel>{mode === 'solo' ? 'Composer' : 'Performer'}</MetaLabel>
-            <MetaInput value={composer} onChange={(e) => setComposer(e.target.value)} placeholder={mode === 'solo' ? 'e.g. Joseph Kosma' : 'e.g. Charlie Parker'} style={{ width: 190 }} />
-          </InfoRow>
+          {/* 1) 데이터·메타데이터 */}
+          <InfoSection>
+            <InfoRow>
+              <MetaField><MetaLabel>Title</MetaLabel><MetaInput value={sheetTitle} onChange={(e) => setSheetTitle(e.target.value)} placeholder="e.g. Autumn Leaves" /></MetaField>
+              <MetaField><MetaLabel>Composer</MetaLabel><MetaInput value={composer} onChange={(e) => setComposer(e.target.value)} placeholder="e.g. Joseph Kosma" /></MetaField>
+              <MetaField><MetaLabel>Player</MetaLabel><MetaInput value={performer} onChange={(e) => setPerformer(e.target.value)} placeholder="e.g. Charlie Parker" /></MetaField>
+              <MetaField><MetaLabel>Instrument</MetaLabel><MetaInput value={metaInstrument} onChange={(e) => setMetaInstrument(e.target.value)} placeholder="e.g. Alto Sax" /></MetaField>
+              <MetaField><MetaLabel>Album</MetaLabel><MetaInput value={album} onChange={(e) => setAlbum(e.target.value)} placeholder="e.g. Bird & Diz" /></MetaField>
+            </InfoRow>
 
-          <InfoRow>
-            <MetaLabel>Mode</MetaLabel>
-            <SegGroup>
-              {(['solo', 'lick', 'comping'] as const).map((m) => (
-                <SegBtn key={m} type="button" $on={mode === m} disabled={editingLickId !== null} onClick={() => setMode(m)}>{MODE_LABEL[m]}</SegBtn>
-              ))}
-            </SegGroup>
-            <MetaLabel>보표</MetaLabel>
-            <SegGroup>
-              {(['single', 'grand'] as const).map((v) => (
-                <SegBtn
-                  key={v}
-                  type="button"
-                  $on={staffMode === v}
-                  disabled={staffModeLocked}
-                  onClick={() => {
-                    setStaffMode(v);
-                    if (v === 'single') { setSelectedBassMeasure(null); setSelectedNote((sel) => (sel?.staff === 'bass' ? null : sel)); }
-                  }}
-                >{v === 'single' ? '한손 악보' : '양손 악보'}</SegBtn>
-              ))}
-            </SegGroup>
-            {staffModeLocked && <LockedHint title="불러온 악보의 보표 수로 자동 확정">🔒 자동</LockedHint>}
-            <MetaLabel>악보 종류</MetaLabel>
-            <SegGroup>
-              {(['piano', 'guitar', 'drums'] as const).map((v) => (
-                <SegBtn key={v} type="button" $on={instrument === v} onClick={() => setInstrument(v)}>{INSTRUMENT_LABEL[v]}</SegBtn>
-              ))}
-            </SegGroup>
-          </InfoRow>
+            <InfoRow>
+              <MetaLabel>Type</MetaLabel>
+              <SegGroup>
+                {(['solo', 'lick', 'comping'] as const).map((m) => (
+                  <SegBtn key={m} type="button" $on={mode === m} disabled={editingLickId !== null} onClick={() => setMode(m)}>{MODE_LABEL[m]}</SegBtn>
+                ))}
+              </SegGroup>
+              <MetaLabel>보표</MetaLabel>
+              <SegGroup>
+                {(['single', 'grand'] as const).map((v) => (
+                  <SegBtn
+                    key={v}
+                    type="button"
+                    $on={staffMode === v}
+                    disabled={staffModeLocked}
+                    onClick={() => {
+                      setStaffMode(v);
+                      if (v === 'single') { setSelectedBassMeasure(null); setSelectedNote((sel) => (sel?.staff === 'bass' ? null : sel)); }
+                    }}
+                  >{v === 'single' ? '한손 악보' : '양손 악보'}</SegBtn>
+                ))}
+              </SegGroup>
+              {staffModeLocked && <LockedHint title="불러온 악보의 보표 수로 자동 확정">🔒 자동</LockedHint>}
+              <MetaLabel>악보 종류</MetaLabel>
+              <SegGroup>
+                {(['piano', 'guitar', 'drums'] as const).map((v) => (
+                  <SegBtn key={v} type="button" $on={instrument === v} onClick={() => setInstrument(v)}>{INSTRUMENT_LABEL[v]}</SegBtn>
+                ))}
+              </SegGroup>
+            </InfoRow>
 
-          <InfoRow>
+            {/* 장르·조성도 메타데이터라 이 섹션으로. */}
+            <InfoRow>
           <GenreSelect value={genre} onChange={setGenre} />
           {/* 조성 칩 자체가 Transpose 버튼 — hover 하면 조성이 흐려지고
               그 자리에 이조 아이콘이 뜬다. 클릭하면 드롭다운. */}
@@ -4848,9 +4875,12 @@ export default function EditorPage() {
               />
             )}
           </KeyAnchor>
-          </InfoRow>
+            </InfoRow>
+          </InfoSection>
 
-          <InfoRow>
+          {/* 2) 플레이어 */}
+          <InfoSection>
+            <InfoRow>
           <MixerButton />
           <BpmControl
             tempo={bpm}
@@ -4866,7 +4896,8 @@ export default function EditorPage() {
                죽어 오디오를 멈출 수 없게 되는 것을 방지. */
             disabled={totalNotes === 0 && !playing}
           />
-          </InfoRow>
+            </InfoRow>
+          </InfoSection>
         </InfoTabPanel>
       ) : toolTab === 'measure' ? (
         /* 마디 탭 — 마디가 활성일 때만 열린다(음표가 활성이면 그 음표의 마디). */
