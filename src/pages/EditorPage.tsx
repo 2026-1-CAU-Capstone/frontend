@@ -2963,6 +2963,24 @@ const NoteEditLabel = styled.span`
 `;
 
 /* ── 3-섹션 노트 편집 바 (핵심 편집 | 표현 | 부가) ── */
+/* 음표를 고르지 않았을 때도 3번 섹션의 버튼 배치를 그대로 보여준다(디자인).
+ * 값은 더미이고 조작은 막는다 — 클릭·포커스·마우스 반응 없음. */
+const GHOST_SEL: NoteSel = { mi: 0, ni: 0, staff: 'treble' };
+const GHOST_NOTE: NoteInfo = { keys: ['b/4'], duration: 'q' };
+
+const GhostWrap = styled.div<{ $ghost?: boolean }>`
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  ${({ $ghost }) => $ghost && `
+    opacity: 0.4;
+    filter: grayscale(1);
+    pointer-events: none;
+    user-select: none;
+  `}
+`;
+
 const SectionedEditBar = styled.div`
   display: flex;
   align-items: stretch;
@@ -5604,8 +5622,8 @@ export default function EditorPage() {
 
         {/* 세 번째 섹션 — 악보 상태(위) + undo/redo(아래). 중요 영역이라 골드 테두리. */}
         <GoldGroup $mode={editMode === 'note' ? 'note' : 'none'} style={{ position: 'relative' }}>
-          {/* 선택이 없으면(none) 이 섹션은 비운다 — 아래 내용 전체가 감춰진다. */}
-          {editMode !== 'none' && (<>
+          {/* 선택이 없어도 섹션은 그대로 보여준다 — 편집 바는 비활성(회색) 상태. */}
+          <>
           {selectedNote && (
             <DeselectBtn type="button" title="선택 해제 (Esc)" aria-label="선택 해제" onClick={() => setSelectedNote(null)}>×</DeselectBtn>
           )}
@@ -5618,9 +5636,14 @@ export default function EditorPage() {
             <StatusDot />
             <StatusItem $warn={curBeats > 4}><b>{curBeats}</b>/4 beats</StatusItem>
           </SectionStatus>
-        {selectedNote && selectedNote.staff !== 'bass' && selNoteInfo && (() => {
-          const isRest = selNoteInfo.duration.endsWith('r');
+        {selectedNote?.staff !== 'bass' && (() => {
+          /* 선택이 없어도 버튼 배치는 보여준다(디자인) — 값은 더미, 조작은 막는다. */
+          const ghost = !(selectedNote && selNoteInfo);
+          const sel = selectedNote ?? GHOST_SEL;
+          const info = selNoteInfo ?? GHOST_NOTE;
+          const isRest = info.duration.endsWith('r');
           return (
+          <GhostWrap $ghost={ghost} aria-hidden={ghost || undefined}>
           <SectionedEditBar>
               <EditWrap>
                 {/* N연음 묶기 — Ctrl/Cmd+클릭으로 3개 이상 골랐을 때만 보인다.
@@ -5636,22 +5659,22 @@ export default function EditorPage() {
                       : '한 마디 안에서 연속된 음표만 묶을 수 있다'}
                 >3+</NoteEditBtn>
                 {(() => {
-                  if (selNoteInfo.duration.endsWith('r')) return null;
+                  if (info.duration.endsWith('r')) return null;
                   const flat: { mi: number; ni: number; note: NoteInfo }[] = [];
                   for (let mi = 0; mi < allMeasures.length; mi++)
                     for (let ni = 0; ni < allMeasures[mi].notes.length; ni++)
                       flat.push({ mi, ni, note: allMeasures[mi].notes[ni] });
-                  const idx = flat.findIndex((f) => f.mi === selectedNote.mi && f.ni === selectedNote.ni);
+                  const idx = flat.findIndex((f) => f.mi === sel.mi && f.ni === sel.ni);
                   const next = flat[idx + 1];
                   if (!next || next.note.duration.endsWith('r')) return null;
-                  const curPitch = vexToMidi(selNoteInfo.keys[0], selNoteInfo.accidentals?.[0] as '#' | 'b' | undefined);
+                  const curPitch = vexToMidi(info.keys[0], info.accidentals?.[0] as '#' | 'b' | undefined);
                   const nextPitch = vexToMidi(next.note.keys[0], next.note.accidentals?.[0] as '#' | 'b' | undefined);
                   if (curPitch !== nextPitch) return null;
                   return (
                     <NoteEditBtn
-                      $active={!!selNoteInfo.tie}
+                      $active={!!info.tie}
                       onClick={() => {
-                        updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, tie: !n.tie || undefined }));
+                        updateNote(sel.mi, sel.ni, (n) => ({ ...n, tie: !n.tie || undefined }));
                       }}
                     >
                       <svg width="22" height="14" viewBox="0 0 18 14" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
@@ -5662,20 +5685,20 @@ export default function EditorPage() {
                   );
                 })()}
                 {(() => {
-                  if (selNoteInfo.duration.endsWith('r')) return null;
+                  if (info.duration.endsWith('r')) return null;
                   const flat: { mi: number; ni: number; note: NoteInfo }[] = [];
                   for (let mi = 0; mi < allMeasures.length; mi++)
                     for (let ni = 0; ni < allMeasures[mi].notes.length; ni++)
                       flat.push({ mi, ni, note: allMeasures[mi].notes[ni] });
-                  const idx = flat.findIndex((f) => f.mi === selectedNote.mi && f.ni === selectedNote.ni);
+                  const idx = flat.findIndex((f) => f.mi === sel.mi && f.ni === sel.ni);
                   const next = flat[idx + 1];
                   if (!next || next.note.duration.endsWith('r')) return null;
                   return (
                     <NoteEditBtn
-                      $active={!!selNoteInfo.gliss}
+                      $active={!!info.gliss}
                       style={{ order: -2 }}
                       onClick={() => {
-                        updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, gliss: !n.gliss || undefined }));
+                        updateNote(sel.mi, sel.ni, (n) => ({ ...n, gliss: !n.gliss || undefined }));
                       }}
                     >
                       <svg width="22" height="14" viewBox="0 0 22 14" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
@@ -5687,9 +5710,9 @@ export default function EditorPage() {
                 })()}
                 {!isRest && (
                   <NoteEditBtn
-                    $active={!!selNoteInfo.scoop}
+                    $active={!!info.scoop}
                     style={{ order: -2 }}
-                    onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, scoop: !n.scoop || undefined }))}
+                    onClick={() => updateNote(sel.mi, sel.ni, (n) => ({ ...n, scoop: !n.scoop || undefined }))}
                     title="스쿱 — 음표 앞에서 아래→위로 끌어올려 진입"
                   >
                     <svg width="20" height="15" viewBox="0 0 20 15" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
@@ -5701,9 +5724,9 @@ export default function EditorPage() {
                 )}
                 {!isRest && (
                   <NoteEditBtn
-                    $active={!!selNoteInfo.fall}
+                    $active={!!info.fall}
                     style={{ order: -2 }}
-                    onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, fall: !n.fall || undefined }))}
+                    onClick={() => updateNote(sel.mi, sel.ni, (n) => ({ ...n, fall: !n.fall || undefined }))}
                     title="폴 — 음표 뒤에서 아래로 떨어지는 곡선"
                   >
                     <svg width="20" height="15" viewBox="0 0 20 15" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
@@ -5714,9 +5737,9 @@ export default function EditorPage() {
                   </NoteEditBtn>
                 )}
                 <NoteEditBtn
-                  $active={selNoteInfo.accidentals?.[0] === 'b'}
+                  $active={info.accidentals?.[0] === 'b'}
                   onClick={() => {
-                    updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                    updateNote(sel.mi, sel.ni, (n) => {
                       const cur = n.accidentals?.[0];
                       if (cur === 'b') {
                         const { ...rest } = n;
@@ -5728,9 +5751,9 @@ export default function EditorPage() {
                   }}
                 ><span style={{ fontFamily: 'serif' }}>♭</span></NoteEditBtn>
                 <NoteEditBtn
-                  $active={selNoteInfo.accidentals?.[0] === '#'}
+                  $active={info.accidentals?.[0] === '#'}
                   onClick={() => {
-                    updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                    updateNote(sel.mi, sel.ni, (n) => {
                       const cur = n.accidentals?.[0];
                       if (cur === '#') {
                         const { ...rest } = n;
@@ -5742,9 +5765,9 @@ export default function EditorPage() {
                   }}
                 ><span style={{ fontFamily: 'serif' }}>♯</span></NoteEditBtn>
                 <NoteEditBtn
-                  $active={selNoteInfo.accidentals?.[0] === 'n'}
+                  $active={info.accidentals?.[0] === 'n'}
                   onClick={() => {
-                    updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                    updateNote(sel.mi, sel.ni, (n) => {
                       const cur = n.accidentals?.[0];
                       if (cur === 'n') {
                         const { ...rest } = n;
@@ -5761,8 +5784,8 @@ export default function EditorPage() {
                 <MorePop onClick={(e) => e.stopPropagation()}>
                 {!isRest && (<>
                   <NoteEditBtn
-                    $active={!!selNoteInfo.articulations?.includes('staccato')}
-                    onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                    $active={!!info.articulations?.includes('staccato')}
+                    onClick={() => updateNote(sel.mi, sel.ni, (n) => {
                       const cur = n.articulations ?? [];
                       const next = cur.includes('staccato') ? cur.filter((a) => a !== 'staccato') : [...cur, 'staccato' as const];
                       return { ...n, articulations: next.length ? next : undefined };
@@ -5771,8 +5794,8 @@ export default function EditorPage() {
                     style={{ fontSize: '0.95rem', fontWeight: 700 }}
                   >·</NoteEditBtn>
                   <NoteEditBtn
-                    $active={!!selNoteInfo.articulations?.includes('accent')}
-                    onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                    $active={!!info.articulations?.includes('accent')}
+                    onClick={() => updateNote(sel.mi, sel.ni, (n) => {
                       const cur = n.articulations ?? [];
                       const next = cur.includes('accent') ? cur.filter((a) => a !== 'accent') : [...cur, 'accent' as const];
                       return { ...n, articulations: next.length ? next : undefined };
@@ -5781,8 +5804,8 @@ export default function EditorPage() {
                     style={{ fontSize: '0.95rem', fontWeight: 700 }}
                   >&gt;</NoteEditBtn>
                   <NoteEditBtn
-                    $active={!!selNoteInfo.articulations?.includes('tenuto')}
-                    onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                    $active={!!info.articulations?.includes('tenuto')}
+                    onClick={() => updateNote(sel.mi, sel.ni, (n) => {
                       const cur = n.articulations ?? [];
                       const next = cur.includes('tenuto') ? cur.filter((a) => a !== 'tenuto') : [...cur, 'tenuto' as const];
                       return { ...n, articulations: next.length ? next : undefined };
@@ -5791,8 +5814,8 @@ export default function EditorPage() {
                     style={{ fontSize: '0.95rem', fontWeight: 700 }}
                   >—</NoteEditBtn>
                   <NoteEditBtn
-                    $active={!!selNoteInfo.articulations?.includes('marcato')}
-                    onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                    $active={!!info.articulations?.includes('marcato')}
+                    onClick={() => updateNote(sel.mi, sel.ni, (n) => {
                       const cur = n.articulations ?? [];
                       const next = cur.includes('marcato') ? cur.filter((a) => a !== 'marcato') : [...cur, 'marcato' as const];
                       return { ...n, articulations: next.length ? next : undefined };
@@ -5801,14 +5824,14 @@ export default function EditorPage() {
                     style={{ fontSize: '0.95rem', fontWeight: 700 }}
                   >^</NoteEditBtn>
                   <NoteEditBtn
-                    $active={!!selNoteInfo.fermata}
-                    onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, fermata: !n.fermata || undefined }))}
+                    $active={!!info.fermata}
+                    onClick={() => updateNote(sel.mi, sel.ni, (n) => ({ ...n, fermata: !n.fermata || undefined }))}
                     title="Fermata"
                     style={{ fontSize: '1.0rem', fontFamily: 'serif' }}
                   >𝄐</NoteEditBtn>
                   <NoteEditBtn
-                    $active={!!selNoteInfo.ornaments?.includes('trill')}
-                    onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                    $active={!!info.ornaments?.includes('trill')}
+                    onClick={() => updateNote(sel.mi, sel.ni, (n) => {
                       const cur = n.ornaments ?? [];
                       const next = cur.includes('trill') ? cur.filter((o) => o !== 'trill') : [...cur, 'trill' as const];
                       return { ...n, ornaments: next.length ? next : undefined };
@@ -5817,8 +5840,8 @@ export default function EditorPage() {
                     style={{ fontStyle: 'italic', fontFamily: 'serif', fontSize: '0.85rem' }}
                   >tr</NoteEditBtn>
                   <select
-                    value={(selNoteInfo.ornaments ?? []).find((o) => o !== 'trill') ?? ''}
-                    onChange={(e) => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                    value={(info.ornaments ?? []).find((o) => o !== 'trill') ?? ''}
+                    onChange={(e) => updateNote(sel.mi, sel.ni, (n) => {
                       const v = e.target.value as '' | 'mordent' | 'inverted-mordent' | 'turn' | 'inverted-turn' | 'tremolo';
                       const keepTrill = n.ornaments?.includes('trill') ? ['trill' as const] : [];
                       const rest = v ? [v] : [];
@@ -5836,20 +5859,20 @@ export default function EditorPage() {
                     <option value="tremolo">/// trem</option>
                   </select>
                   <NoteEditBtn
-                    $active={!!selNoteInfo.slurStart}
-                    onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, slurStart: !n.slurStart || undefined }))}
+                    $active={!!info.slurStart}
+                    onClick={() => updateNote(sel.mi, sel.ni, (n) => ({ ...n, slurStart: !n.slurStart || undefined }))}
                     title="Slur start (이음줄 시작)"
                     style={{ fontSize: '0.78rem' }}
                   >⌒◜</NoteEditBtn>
                   <NoteEditBtn
-                    $active={!!selNoteInfo.slurStop}
-                    onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, slurStop: !n.slurStop || undefined }))}
+                    $active={!!info.slurStop}
+                    onClick={() => updateNote(sel.mi, sel.ni, (n) => ({ ...n, slurStop: !n.slurStop || undefined }))}
                     title="Slur stop (이음줄 끝)"
                     style={{ fontSize: '0.78rem' }}
                   >◞⌒</NoteEditBtn>
                   <NoteEditBtn
-                    $active={!!selNoteInfo.grace}
-                    onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => (
+                    $active={!!info.grace}
+                    onClick={() => updateNote(sel.mi, sel.ni, (n) => (
                       n.grace
                         ? { ...n, grace: undefined, graceSlash: undefined }
                         : { ...n, grace: true as const, graceSlash: true as const }
@@ -5865,8 +5888,8 @@ export default function EditorPage() {
                     </svg>
                   </NoteEditBtn>
                   <select
-                    value={selNoteInfo.dynamics ?? ''}
-                    onChange={(e) => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                    value={info.dynamics ?? ''}
+                    onChange={(e) => updateNote(sel.mi, sel.ni, (n) => {
                       const v = e.target.value;
                       return { ...n, dynamics: (v || undefined) as typeof n.dynamics };
                     })}
@@ -5889,15 +5912,15 @@ export default function EditorPage() {
                 )}
                 {/* 아래부터는 부가(빔·코드·옥타브·마디·구조) — 같은 줄 흐름에 이어 붙인다. */}
                 {(() => {
-                  if (selNoteInfo.duration.endsWith('r')) return null;
-                  const base = selNoteInfo.duration.replace(/r$/, '');
+                  if (info.duration.endsWith('r')) return null;
+                  const base = info.duration.replace(/r$/, '');
                   if (base !== '8' && base !== '16') return null;
                   return (
                     <NoteEditBtn
                       style={{ order: -1 }}
-                      $active={!!selNoteInfo.beamBreak}
+                      $active={!!info.beamBreak}
                       onClick={() => {
-                        updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, beamBreak: !n.beamBreak || undefined }));
+                        updateNote(sel.mi, sel.ni, (n) => ({ ...n, beamBreak: !n.beamBreak || undefined }));
                       }}
                     >
                       Divide
@@ -5910,20 +5933,20 @@ export default function EditorPage() {
                   onClick={() => {
                     if (noteChordEditing) {
                       const norm = normalizeChord(noteChordValue);
-                      setChordAtNote(selectedNote.mi, selectedNote.ni, norm);
+                      setChordAtNote(sel.mi, sel.ni, norm);
                       setNoteChordEditing(false);
                     } else {
-                      setNoteChordValue(selNoteInfo?.chord ?? '');
+                      setNoteChordValue(info?.chord ?? '');
                       setNoteChordEditing(true);
                       setTimeout(() => noteChordInputRef.current?.focus(), 0);
                     }
                   }}
                 >
-                  Chord{selNoteInfo?.chord ? `: ${selNoteInfo.chord}` : ''}
+                  Chord{info?.chord ? `: ${info.chord}` : ''}
                 </NoteEditBtn>
                 <NoteEditBtn
-                  $active={!!selNoteInfo.ottavaStart}
-                  onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                  $active={!!info.ottavaStart}
+                  onClick={() => updateNote(sel.mi, sel.ni, (n) => {
                     if (n.ottavaStart) {
                       const next = { ...n };
                       delete next.ottavaStart;
@@ -5935,59 +5958,59 @@ export default function EditorPage() {
                   style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontSize: '0.72rem' }}
                 >8va◜</NoteEditBtn>
                 <NoteEditBtn
-                  $active={!!selNoteInfo.ottavaEnd}
-                  onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, ottavaEnd: !n.ottavaEnd || undefined }))}
+                  $active={!!info.ottavaEnd}
+                  onClick={() => updateNote(sel.mi, sel.ni, (n) => ({ ...n, ottavaEnd: !n.ottavaEnd || undefined }))}
                   title="Toggle 8va end on this note"
                   style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontSize: '0.72rem' }}
                 >◞8va</NoteEditBtn>
-                {selMeasure && selectedNote && selectedNote.mi < measures.length && (<>
+                {selMeasure && sel && sel.mi < measures.length && (<>
                   <NoteEditBtn
                     $active={!!selMeasure.repeatStart}
-                    onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, repeatStart: !m.repeatStart || undefined }))}
+                    onClick={() => updateMeasure(sel.mi, (m) => ({ ...m, repeatStart: !m.repeatStart || undefined }))}
                   >
                     <svg width="14" height="18" viewBox="0 0 16 22" style={{ display: 'inline-block', verticalAlign: 'middle' }}><line x1="2" y1="1" x2="2" y2="21" stroke="currentColor" strokeWidth="2.5"/><line x1="5.5" y1="1" x2="5.5" y2="21" stroke="currentColor" strokeWidth="1"/><circle cx="10" cy="8" r="1.7" fill="currentColor"/><circle cx="10" cy="14" r="1.7" fill="currentColor"/></svg>
                   </NoteEditBtn>
                   <NoteEditBtn
                     $active={!!selMeasure.repeatEnd}
-                    onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, repeatEnd: !m.repeatEnd || undefined }))}
+                    onClick={() => updateMeasure(sel.mi, (m) => ({ ...m, repeatEnd: !m.repeatEnd || undefined }))}
                   >
                     <svg width="14" height="18" viewBox="0 0 16 22" style={{ display: 'inline-block', verticalAlign: 'middle' }}><circle cx="6" cy="8" r="1.7" fill="currentColor"/><circle cx="6" cy="14" r="1.7" fill="currentColor"/><line x1="10.5" y1="1" x2="10.5" y2="21" stroke="currentColor" strokeWidth="1"/><line x1="14" y1="1" x2="14" y2="21" stroke="currentColor" strokeWidth="2.5"/></svg>
                   </NoteEditBtn>
                   <NoteEditBtn
                     $active={selMeasure.volta === 1}
-                    onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, volta: m.volta === 1 ? undefined : 1 }))}
+                    onClick={() => updateMeasure(sel.mi, (m) => ({ ...m, volta: m.volta === 1 ? undefined : 1 }))}
                   >
                     <svg width="18" height="14" viewBox="0 0 22 18" style={{ display: 'inline-block', verticalAlign: 'middle' }}><path d="M1 1 L1 6 L21 6" stroke="currentColor" strokeWidth="1.5" fill="none"/><text x="4" y="16" fontSize="10" fontWeight="700" fill="currentColor" fontFamily="DM Sans, sans-serif">1.</text></svg>
                   </NoteEditBtn>
                   <NoteEditBtn
                     $active={selMeasure.volta === 2}
-                    onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, volta: m.volta === 2 ? undefined : 2 }))}
+                    onClick={() => updateMeasure(sel.mi, (m) => ({ ...m, volta: m.volta === 2 ? undefined : 2 }))}
                   >
                     <svg width="18" height="14" viewBox="0 0 22 18" style={{ display: 'inline-block', verticalAlign: 'middle' }}><path d="M1 1 L1 6 L21 6" stroke="currentColor" strokeWidth="1.5" fill="none"/><text x="4" y="16" fontSize="10" fontWeight="700" fill="currentColor" fontFamily="DM Sans, sans-serif">2.</text></svg>
                   </NoteEditBtn>
                   <NoteEditBtn
                     $active={selMeasure.navigation === 'segno'}
-                    onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: m.navigation === 'segno' ? undefined : 'segno' }))}
+                    onClick={() => updateMeasure(sel.mi, (m) => ({ ...m, navigation: m.navigation === 'segno' ? undefined : 'segno' }))}
                     style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.1rem' }}
                   >{''}</NoteEditBtn>
                   <NoteEditBtn
                     $active={selMeasure.navigation === 'coda'}
-                    onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: m.navigation === 'coda' ? undefined : 'coda' }))}
+                    onClick={() => updateMeasure(sel.mi, (m) => ({ ...m, navigation: m.navigation === 'coda' ? undefined : 'coda' }))}
                     style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.1rem' }}
                   >{''}</NoteEditBtn>
                   <NoteEditBtn
                     $active={selMeasure.navigation === 'fine'}
-                    onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: m.navigation === 'fine' ? undefined : 'fine' }))}
+                    onClick={() => updateMeasure(sel.mi, (m) => ({ ...m, navigation: m.navigation === 'fine' ? undefined : 'fine' }))}
                     style={{ fontSize: '0.65rem', fontWeight: 700, fontStyle: 'italic' }}
                   >Fine</NoteEditBtn>
                   <NoteEditBtn
                     $active={selMeasure.navigation === 'toCoda'}
-                    onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: m.navigation === 'toCoda' ? undefined : 'toCoda' }))}
+                    onClick={() => updateMeasure(sel.mi, (m) => ({ ...m, navigation: m.navigation === 'toCoda' ? undefined : 'toCoda' }))}
                     style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '0.75rem' }}
                   ><span style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '0.6rem', fontWeight: 700, fontStyle: 'italic', marginRight: 1 }}>To</span>{''}</NoteEditBtn>
                   <NavSelect
                     value={selMeasure.navigation && ['dc', 'dcAlCoda', 'dcAlFine', 'ds', 'dsAlCoda', 'dsAlFine'].includes(selMeasure.navigation) ? selMeasure.navigation : ''}
-                    onChange={(e) => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: (e.target.value as NavigationMarker) || undefined }))}
+                    onChange={(e) => updateMeasure(sel.mi, (m) => ({ ...m, navigation: (e.target.value as NavigationMarker) || undefined }))}
                     style={{ fontSize: '0.65rem' }}
                   >
                     <option value="">D.C./D.S.</option>
@@ -6000,25 +6023,25 @@ export default function EditorPage() {
                   </NavSelect>
                   <NoteEditBtn
                     $active={!!selMeasure.bracket}
-                    onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, bracket: !m.bracket || undefined }))}
+                    onClick={() => updateMeasure(sel.mi, (m) => ({ ...m, bracket: !m.bracket || undefined }))}
                     style={{ fontSize: '0.85rem', fontWeight: 300, fontFamily: 'serif' }}
                   >(&thinsp;)</NoteEditBtn>
                 </>)}
-                {selectedNote && selectedNote.mi < measures.length && (<>
+                {sel && sel.mi < measures.length && (<>
                   <NoteEditBtn
-                    onClick={() => insertMeasureBefore(selectedNote.mi)}
+                    onClick={() => insertMeasureBefore(sel.mi)}
                     title="Insert a fresh empty measure BEFORE this one"
                     style={{ fontSize: '0.72rem' }}
                   >＋ ◀ Bar</NoteEditBtn>
                   <NoteEditBtn
-                    onClick={() => insertMeasureAfter(selectedNote.mi)}
+                    onClick={() => insertMeasureAfter(sel.mi)}
                     title="Insert a fresh empty measure AFTER this one"
                     style={{ fontSize: '0.72rem' }}
                   >Bar ▶ ＋</NoteEditBtn>
                   <NoteEditBtn
                     onClick={() => {
-                      if (confirm(`Delete measure ${selectedNote.mi + 1}? This cannot be undone except by Undo (Backspace).`)) {
-                        deleteMeasure(selectedNote.mi);
+                      if (confirm(`Delete measure ${sel.mi + 1}? This cannot be undone except by Undo (Backspace).`)) {
+                        deleteMeasure(sel.mi);
                       }
                     }}
                     title="Delete this entire measure"
@@ -6027,6 +6050,7 @@ export default function EditorPage() {
                 </>)}
               </EditWrap>
           </SectionedEditBar>
+          </GhostWrap>
           );
         })()}
 
@@ -6092,7 +6116,7 @@ export default function EditorPage() {
             >🗑 삭제</NoteEditBtn>
           </NoteEditBar>
         )}
-          </>)}
+          </>
         </GoldGroup>
 
 
