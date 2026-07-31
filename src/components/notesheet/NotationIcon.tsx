@@ -169,7 +169,7 @@ export function NoteIcon({ type, width = 40, height = 40 }: IconProps) {
  * 사각형과 기준선을 직접 그리면 크기·정렬이 항상 고정된다.
  *   온쉼표: 선에 매달림(선이 위) · 2분쉼표: 선 위에 앉음(선이 아래) */
 function BarRest({ type, width, height }: { type: 'w' | 'h'; width: number; height: number }) {
-  const RECT_W = 15, RECT_H = 6, LINE_W = 25, LINE_H = 2.4;
+  const RECT_W = 12.5, RECT_H = 5, LINE_W = 21, LINE_H = 2;   // ✏️ 크기 — 네 값을 함께 줄이면 비율 유지
   const cx = 25, cy = 25;                        // 24x50 박스 기준 중심
   const rectY = type === 'w' ? cy : cy - RECT_H; // 온쉼표는 선 아래, 2분쉼표는 선 위
   const lineY = type === 'w' ? cy - LINE_H : cy; // 선은 사각형에 딱 붙는다(간격 0)
