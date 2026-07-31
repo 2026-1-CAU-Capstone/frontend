@@ -2141,7 +2141,6 @@ const KEY_FONT = "'MuseJazz Text', 'Oswald', 'Pretendard', sans-serif";
  * 동작이 조성 자체에 붙어 의미가 분명해진다. */
 const KeyDisplay = styled.button<{ $open?: boolean }>`
   position: relative;
-  width: 176px;      /* Genre·Inst 와 좌우 맞춤 */
   height: 28px;
   box-sizing: border-box;
   display: inline-flex;
