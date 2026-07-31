@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { BackButton } from '../components/common/BackButton';
 import { SessionPicker } from '../components/chord/SessionPicker';
+import { INSTRUMENT_ICONS, SESSION_ICON_SLUG } from '../data/instrumentIcons';
 import { isMinorKey } from '../components/leadsheet/LeadSheet';
 import { transposeNoteSheet, respellNoteSheetKey, normalizeNoteKeyDisplay } from '../lib/note/transposeNoteSheet';
 import { ghostHead } from '../lib/note/ghostNote';
@@ -1407,6 +1408,13 @@ const MetaLabel = styled.span`
 
 /** 보표가 불러온 악보 데이터로 확정돼 수동 변경이 잠긴 상태 표시. */
 /* 정보 칩·드롭다운 표기 — 칩 title 과 세그먼트 버튼이 같은 문구를 쓴다. */
+/** 악기 슬러그 → 한국어 이름. 목록에 없으면(직접 입력) 그 값을 그대로 쓴다. */
+function instrumentName(v: string): string {
+  if (!v) return '선택 안 함';
+  const slug = SESSION_ICON_SLUG[v] ?? v;
+  return INSTRUMENT_ICONS.find((i) => i.slug === slug)?.ko ?? v;
+}
+
 const MODE_LABEL: Record<'solo' | 'lick' | 'comping', string> = {
   solo: 'Solo', lick: 'Lick', comping: 'Comping',
 };
@@ -1618,6 +1626,22 @@ const MetaField = styled.div`
 `;
 
 /* 정보 탭 — 열(세로 스택) 묶음. */
+/* 1-1 / 1-2 를 세로로 쌓는 묶음. */
+const InfoStack = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+
+/* 악기 이름 — 아이콘 오른쪽. */
+const InstName = styled.span`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.textPrimary};
+  white-space: nowrap;
+`;
+
 const InfoCols = styled.div`
   display: flex;
   gap: 26px;
@@ -1709,13 +1733,14 @@ const Section = styled.div`
   background: #fff;          /* 섹션 배경은 흰색으로 통일 */
 `;
 
-/* 정보 탭 섹션 = 툴바 섹션과 완전히 같은 규격(테두리·라운드·배경·여백).
- * 앞으로 섹션을 나눌 때는 항상 공용 Section 을 상속해 규격을 하나로 유지한다.
- * 여기서는 내용이 세로로 쌓이는 것만 다르다. */
-const InfoSection = styled(Section)`
+/* 정보 탭 상자 — 공용 Section 규격 그대로. $grow 면 남는 폭을 채운다. */
+const InfoBox = styled(Section)<{ $grow?: boolean }>`
   flex-direction: column;
-  align-items: stretch;
+  align-items: flex-start;
   justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  ${({ $grow }) => $grow && 'flex: 1;'}
 `;
 
 const DurGroup = styled(Section)``;
@@ -1940,19 +1965,6 @@ const SaveBtn = styled(Btn)<{ $saved?: boolean }>`
   &:hover { background: ${({ $saved }) => ($saved ? '#2a6e3f' : '#6d5310')}; }
 `;
 
-const JsonBtn = styled.button<{ $bg: string; $hover: string }>`
-  padding: 5px 14px;
-  font-size: 0.82rem;
-  font-weight: 700;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  color: #fff;
-  background: ${({ $bg }) => $bg};
-  transition: background 0.12s;
-  &:hover { background: ${({ $hover }) => $hover}; }
-  &:disabled { opacity: 0.4; cursor: default; }
-`;
 
 const Spacer = styled.div` flex: 1; `;
 
@@ -1984,10 +1996,12 @@ const saveSpin = keyframes`
 `;
 
 const SaveIconBtn = styled(ToolBtn)<{ $error?: boolean; $busy?: boolean }>`
-  color: ${({ $error }) => ($error ? '#c62828' : '#ef6c00')};
-  &:hover:not(:disabled) {
-    background: ${({ $error }) => ($error ? 'rgba(198, 40, 40, 0.10)' : 'rgba(239, 108, 0, 0.12)')};
-  }
+  /* 평소 색은 톱니·나머지 아이콘과 완전히 동일(ToolBtn 기본 #5b5b5b).
+   * 저장 실패만 빨강으로 남긴다 — 색을 빼면 실패했다는 신호가 사라진다. */
+  ${({ $error }) => $error && `
+    color: #c62828;
+    &:hover:not(:disabled) { background: rgba(198, 40, 40, 0.10); }
+  `}
   svg { ${({ $busy }) => $busy && `animation: ${saveSpin} 0.9s linear infinite;`} }
 `;
 
@@ -2495,6 +2509,42 @@ const StatusDot = styled.span`
 `;
 
 /* 코드차트와 동일 규격(26px · stroke 2)의 우측 바 아이콘. */
+/* 아래 4개는 헤더의 동작 버튼 아이콘 — 톱니와 같은 26px·strokeWidth 2 규격. */
+
+/* 전체 지우기 — 쓰레기통. */
+const TrashIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    <line x1="10" y1="11" x2="10" y2="17" />
+    <line x1="14" y1="11" x2="14" y2="17" />
+  </svg>
+);
+
+/* JSON 복사 — 겹친 문서. */
+const CopyIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </svg>
+);
+
+/* 복사 완료 — 잠깐 체크로 바뀌어 눌린 것을 알린다. */
+const CheckIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
+/* JSON 불러오기 — 트레이로 들어오는 화살표(import). */
+const ImportIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="7 10 12 15 17 10" />
+    <line x1="12" y1="15" x2="12" y2="3" />
+  </svg>
+);
+
 /* 저장 — 플로피 디스크(범용 저장 기호). 톱니와 같은 26px·strokeWidth 2 규격. */
 const SaveIcon = () => (
   <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2524,14 +2574,6 @@ const HelpIcon = () => (
     <circle cx="12" cy="12" r="9" />
     <path d="M9.4 9.4a2.7 2.7 0 0 1 5.2.9c0 1.8-2.6 2.2-2.6 4" />
     <path d="M12 17.5h.01" />
-  </svg>
-);
-/* 🎹 이모지를 대체하는 건반 아이콘(같은 의미). */
-const MidiIcon = () => (
-  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="5" width="18" height="14" rx="1.5" />
-    <path d="M8 5v9" /><path d="M12 5v9" /><path d="M16 5v9" />
-    <path d="M3 14h18" />
   </svg>
 );
 
@@ -4856,15 +4898,7 @@ export default function EditorPage() {
             </ShortcutPop>
           )}
         </HelpAnchor>
-        {/* MIDI(왼쪽) → 설정(오른쪽). 트랜스포트 바 우측에 있던 것을 최상단 바로 옮겼다. */}
-        <ToolBtn
-          type="button"
-          title="MIDI 외부 기기(피아노 등) 입력 설정"
-          $lit={midi.enabled && !!midi.settings.inputId}
-          onClick={() => { if (!midi.enabled) midi.requestAccess(); setToolTab('midi'); }}
-        >
-          <MidiIcon />
-        </ToolBtn>
+        {/* MIDI 버튼은 툴바 'MIDI' 탭으로 편입돼 여기서는 뺐다. */}
         <ToolBtn
           type="button"
           title="에디터 설정 — 조표 무시 등"
@@ -4874,22 +4908,34 @@ export default function EditorPage() {
           <GearIcon />
         </ToolBtn>
         <Sep />
-        <JsonBtn
-          $bg="#c62828"
-          $hover="#ad1f1f"
+        {/* 구분선 뒤 4개 = 지우기 · 복사 · 불러오기 · 저장. 아이콘만 남으므로
+          * 각 동작 설명은 title/aria-label 로 전달한다. */}
+        <ToolBtn
+          type="button"
           onClick={handleClear}
           disabled={totalNotes === 0}
           title="악보 전체 지우기 — 확인 후 삭제, Undo(Backspace)로 복구 가능"
+          aria-label="악보 전체 지우기"
         >
-          Clear
-        </JsonBtn>
-        <JsonBtn $bg="#26a69a" $hover="#00897b" onClick={handleCopy} disabled={totalNotes === 0}>
-          {copied ? '✓ Copied!' : 'Copy JSON'}
-        </JsonBtn>
-        <JsonBtn $bg="#7b1fa2" $hover="#6a1b9a" onClick={() => { setShowLoadModal(true); setLoadJsonText(''); setLoadJsonError(''); }}>
-          Load JSON
-        </JsonBtn>
-        {/* YouTube Onset button removed from Editor toolbar */}
+          <TrashIcon />
+        </ToolBtn>
+        <ToolBtn
+          type="button"
+          onClick={handleCopy}
+          disabled={totalNotes === 0}
+          title={copied ? 'JSON 복사됨' : 'JSON 복사'}
+          aria-label={copied ? 'JSON 복사됨' : 'JSON 복사'}
+        >
+          {copied ? <CheckIcon /> : <CopyIcon />}
+        </ToolBtn>
+        <ToolBtn
+          type="button"
+          onClick={() => { setShowLoadModal(true); setLoadJsonText(''); setLoadJsonError(''); }}
+          title="JSON 불러오기"
+          aria-label="JSON 불러오기"
+        >
+          <ImportIcon />
+        </ToolBtn>
         <SaveIconBtn
           type="button"
           onClick={handleSave}
@@ -4912,7 +4958,17 @@ export default function EditorPage() {
       <TabBar>
         <TabList>
           {TOOL_TABS.map((t) => (
-            <TabItem key={t.id} type="button" $on={toolTab === t.id} onClick={() => setToolTab(t.id)}>
+            <TabItem
+              key={t.id}
+              type="button"
+              $on={toolTab === t.id}
+              /* MIDI 탭은 열릴 때 기기 접근을 요청한다 — 예전엔 헤더의 MIDI
+               * 버튼이 하던 일인데, 그 버튼을 탭으로 편입하며 여기로 옮겼다. */
+              onClick={() => {
+                setToolTab(t.id);
+                if (t.id === 'midi' && !midi.enabled) midi.requestAccess();
+              }}
+            >
               {t.label}
             </TabItem>
           ))}
@@ -4964,23 +5020,9 @@ export default function EditorPage() {
       ) : toolTab === 'info' ? (
         /* 정보 탭 — 제목·작곡가·악보 메타데이터·장르/조성·믹서/재생을 한곳에 모았다. */
         <InfoTabPanel>
-          {/* 1) 데이터·메타데이터 */}
-          <InfoSection>
-            <InfoCols>
-              {/* 바 높이는 음표 탭 기준으로 고정 — 한 열에 3줄까지만 두고 넘치면 다음 열로. */}
-              <InfoCol>
-                <MetaField><MetaLabel>Title</MetaLabel><MetaInput value={sheetTitle} onChange={(e) => setSheetTitle(e.target.value)} placeholder="e.g. Autumn Leaves" /></MetaField>
-                <MetaField><MetaLabel>Album</MetaLabel><MetaInput value={album} onChange={(e) => setAlbum(e.target.value)} placeholder="e.g. Bird & Diz" /></MetaField>
-                <MetaField><MetaLabel>Composer</MetaLabel><MetaInput value={composer} onChange={(e) => setComposer(e.target.value)} placeholder="e.g. Joseph Kosma" /></MetaField>
-              </InfoCol>
-
-              <InfoCol>
-                <MetaField><MetaLabel>Player</MetaLabel><MetaInput value={performer} onChange={(e) => setPerformer(e.target.value)} placeholder="e.g. Charlie Parker" /></MetaField>
-                <MetaField>
-                  <MetaLabel>Instrument</MetaLabel>
-                  {/* 내 코드 차트의 악기 아이콘 드롭다운을 그대로 쓰고, 목록에 없으면 직접 입력. */}
-                  <SessionPicker value={metaInstrument} onChange={setMetaInstrument} allowCustom />
-                </MetaField>
+            {/* 1 — 세로로 쌓은 두 상자 (1-1 Type / 1-2 Genre·Key) */}
+            <InfoStack>
+              <InfoBox>
                 <MetaField>
                   <MetaLabel>Type</MetaLabel>
                   <SegGroup $n={3} $i={['solo', 'lick', 'comping'].indexOf(mode)}>
@@ -4990,65 +5032,86 @@ export default function EditorPage() {
                     ))}
                   </SegGroup>
                 </MetaField>
-              </InfoCol>
+              </InfoBox>
 
-              <InfoCol>
-                <MetaField>
-                  <MetaLabel>보표 {staffModeLocked && <LockedHint title="불러온 악보의 보표 수로 자동 확정">🔒</LockedHint>}</MetaLabel>
-                  <SegGroup $n={2} $i={staffMode === 'single' ? 0 : 1}>
-                    <SegThumb $n={2} $i={staffMode === 'single' ? 0 : 1} />
-                    {(['single', 'grand'] as const).map((v) => (
-                      <SegBtn
-                        key={v}
-                        type="button"
-                        $on={staffMode === v}
-                        disabled={staffModeLocked}
-                        onClick={() => {
-                          setStaffMode(v);
-                          if (v === 'single') { setSelectedBassMeasure(null); setSelectedNote((sel) => (sel?.staff === 'bass' ? null : sel)); }
-                        }}
-                      >{v === 'single' ? '한손' : '양손'}</SegBtn>
-                    ))}
-                  </SegGroup>
-                </MetaField>
+              <InfoBox>
                 <MetaField><MetaLabel>Genre</MetaLabel><GenreSelect value={genre} onChange={setGenre} /></MetaField>
                 <MetaField>
                   <MetaLabel>Key</MetaLabel>
-                    <KeyAnchor>
-                    <KeyDisplay
-                    type="button"
-                    $open={transposeOpen}
-                    title="Transpose · 조성 변경(음표까지 실제로 이조)"
-                    aria-haspopup="dialog"
-                    aria-expanded={transposeOpen}
-                    onClick={() => setTransposeOpen((v) => !v)}
-                    >
-                    <span className="key-text">
-                    {sheetKey.replace(/m$/, '').replace(/b/g, '♭').replace(/#/g, '♯')}
-                    <KeyQualEP>{isMinorKey(sheetKey) ? '단조' : '장조'}</KeyQualEP>
-                    </span>
-                    <span className="key-ico" aria-hidden><IcoTranspose /></span>
-                    </KeyDisplay>
-                    {transposeOpen && (
-                    <KeyChangePopover
-                    currentKey={sheetKey.replace(/b/g, '♭').replace(/#/g, '♯')}
-                    value={keyInput}
-                    onChange={setKeyInput}
-                    busy={false}
-                    onApplyTranspose={() => { applyTranspose(keyInput.trim()); setKeyInput(''); }}
-                    onApplyKeyOnly={() => { applyKeyOnly(keyInput.trim()); setKeyInput(''); }}
-                    onPreset={(semi) => { const to = shiftDisplayKeyBySemitones(sheetKey, semi); if (to) applyTranspose(to); }}
-                    onOctave={(dir) => handleShiftOctave(dir)}
-                    octaveDisabled={totalNotes === 0}
-                    onClose={() => setTransposeOpen(false)}
-                    />
-                    )}
-                    </KeyAnchor>
+                <KeyAnchor>
+                <KeyDisplay
+                type="button"
+                $open={transposeOpen}
+                title="Transpose · 조성 변경(음표까지 실제로 이조)"
+                aria-haspopup="dialog"
+                aria-expanded={transposeOpen}
+                onClick={() => setTransposeOpen((v) => !v)}
+                >
+                <span className="key-text">
+                {sheetKey.replace(/m$/, '').replace(/b/g, '♭').replace(/#/g, '♯')}
+                <KeyQualEP>{isMinorKey(sheetKey) ? '단조' : '장조'}</KeyQualEP>
+                </span>
+                <span className="key-ico" aria-hidden><IcoTranspose /></span>
+                </KeyDisplay>
+                {transposeOpen && (
+                <KeyChangePopover
+                currentKey={sheetKey.replace(/b/g, '♭').replace(/#/g, '♯')}
+                value={keyInput}
+                onChange={setKeyInput}
+                busy={false}
+                onApplyTranspose={() => { applyTranspose(keyInput.trim()); setKeyInput(''); }}
+                onApplyKeyOnly={() => { applyKeyOnly(keyInput.trim()); setKeyInput(''); }}
+                onPreset={(semi) => { const to = shiftDisplayKeyBySemitones(sheetKey, semi); if (to) applyTranspose(to); }}
+                onOctave={(dir) => handleShiftOctave(dir)}
+                octaveDisabled={totalNotes === 0}
+                onClose={() => setTransposeOpen(false)}
+                />
+                )}
+                </KeyAnchor>
                 </MetaField>
-              </InfoCol>
-            </InfoCols>
-          </InfoSection>
+              </InfoBox>
+            </InfoStack>
 
+            {/* 2 — 텍스트 메타데이터 (두 열) */}
+            <InfoBox>
+              <InfoCols>
+                <InfoCol>
+                  <MetaField><MetaLabel>Title</MetaLabel><MetaInput value={sheetTitle} onChange={(e) => setSheetTitle(e.target.value)} placeholder="e.g. Autumn Leaves" /></MetaField>
+                  <MetaField><MetaLabel>Album</MetaLabel><MetaInput value={album} onChange={(e) => setAlbum(e.target.value)} placeholder="e.g. Bird & Diz" /></MetaField>
+                </InfoCol>
+                <InfoCol>
+                  <MetaField><MetaLabel>Composer</MetaLabel><MetaInput value={composer} onChange={(e) => setComposer(e.target.value)} placeholder="e.g. Joseph Kosma" /></MetaField>
+                  <MetaField><MetaLabel>Player</MetaLabel><MetaInput value={performer} onChange={(e) => setPerformer(e.target.value)} placeholder="e.g. Charlie Parker" /></MetaField>
+                  <MetaField>
+                    <MetaLabel>Instrument</MetaLabel>
+                    <SessionPicker value={metaInstrument} onChange={setMetaInstrument} allowCustom />
+                    <InstName>{instrumentName(metaInstrument)}</InstName>
+                  </MetaField>
+                </InfoCol>
+              </InfoCols>
+            </InfoBox>
+
+            {/* 3 — 보표. 오른쪽 끝까지 늘어난다. */}
+            <InfoBox $grow>
+              <MetaField>
+                <MetaLabel>보표 {staffModeLocked && <LockedHint title="불러온 악보의 보표 수로 자동 확정">🔒</LockedHint>}</MetaLabel>
+                <SegGroup $n={2} $i={staffMode === 'single' ? 0 : 1}>
+                  <SegThumb $n={2} $i={staffMode === 'single' ? 0 : 1} />
+                  {(['single', 'grand'] as const).map((v) => (
+                    <SegBtn
+                      key={v}
+                      type="button"
+                      $on={staffMode === v}
+                      disabled={staffModeLocked}
+                      onClick={() => {
+                        setStaffMode(v);
+                        if (v === 'single') { setSelectedBassMeasure(null); setSelectedNote((sel) => (sel?.staff === 'bass' ? null : sel)); }
+                      }}
+                    >{v === 'single' ? '한손 악보' : '양손 악보'}</SegBtn>
+                  ))}
+                </SegGroup>
+              </MetaField>
+            </InfoBox>
         </InfoTabPanel>
       ) : toolTab === 'measure' ? (
         /* 마디 탭 — 마디가 활성일 때만 열린다(음표가 활성이면 그 음표의 마디). */
