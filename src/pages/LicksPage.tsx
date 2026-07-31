@@ -49,7 +49,7 @@ const ToolBar = styled.div`
   align-items: center;
   gap: 10px;
   padding: 6px 16px;
-  background: ${({ theme }) => theme.colors.bgSecondary};
+  background: ${({ theme }) => theme.colors.barBelow};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;

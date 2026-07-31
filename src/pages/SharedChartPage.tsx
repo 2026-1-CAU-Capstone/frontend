@@ -34,6 +34,8 @@ const TopBar = styled.header`
   justify-content: space-between;
   padding: 16px 20px;
   box-sizing: border-box;
+  /* 페이지 최상단 바 — 전 페이지 공통 회색(이 페이지엔 배경이 아예 없었다). */
+  background: ${({ theme }) => theme.colors.barTop};
 `;
 
 const Wordmark = styled.button`

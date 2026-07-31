@@ -28,15 +28,19 @@ function toSlug(v: string): string {
 interface Props {
   value: SessionInstrument;
   onChange: (v: SessionInstrument) => void;
+  /** 목록에 없는 악기를 직접 적을 수 있게 한다(모달 맨 아래 '직접 입력하기'). */
+  allowCustom?: boolean;
 }
 
-export function SessionPicker({ value, onChange }: Props) {
+export function SessionPicker({ value, onChange, allowCustom }: Props) {
   const [open, setOpen] = useState(false);
+  const [customText, setCustomText] = useState('');
   const slug = toSlug(value);
-  const current =
-    INSTRUMENT_ICONS.find((i) => i.slug === slug) ??
-    INSTRUMENT_ICONS.find((i) => i.slug === 'piano')!;
+  const known = INSTRUMENT_ICONS.find((i) => i.slug === slug);
+  const current = known ?? INSTRUMENT_ICONS.find((i) => i.slug === 'piano')!;
   const currentImg = instrumentIconUrl(current.slug) ?? '';
+  /** 목록에 없는 값 = 사용자가 직접 적은 악기. 아이콘 대신 글자로 표시한다. */
+  const customLabel = !known && value ? value : null;
 
   const groups = useMemo(
     () =>
@@ -55,7 +59,9 @@ export function SessionPicker({ value, onChange }: Props) {
   return (
     <>
       <Trigger type="button" title="세션 변경" aria-label="세션 변경" onClick={() => setOpen(true)}>
-        <TriggerImg src={`${currentImg}?v=${ICON_VER}`} alt={current.ko} />
+        {customLabel
+          ? <CustomChip>{customLabel}</CustomChip>
+          : <TriggerImg src={`${currentImg}?v=${ICON_VER}`} alt={current.ko} />}
       </Trigger>
 
       {open && (
@@ -83,6 +89,28 @@ export function SessionPicker({ value, onChange }: Props) {
                   </Grid>
                 </Section>
               ))}
+              {allowCustom && (
+                <Section>
+                  <SectionTitle>직접 입력하기</SectionTitle>
+                  <CustomRow>
+                    <CustomInput
+                      value={customText}
+                      placeholder="목록에 없는 악기 (예: 반도네온)"
+                      onChange={(e) => setCustomText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && customText.trim()) {
+                          onChange(customText.trim()); setCustomText(''); setOpen(false);
+                        }
+                      }}
+                    />
+                    <CustomApply
+                      type="button"
+                      disabled={!customText.trim()}
+                      onClick={() => { onChange(customText.trim()); setCustomText(''); setOpen(false); }}
+                    >적용</CustomApply>
+                  </CustomRow>
+                </Section>
+              )}
             </Scroll>
           </Modal>
         </Backdrop>
@@ -210,4 +238,47 @@ const CellLabel = styled.span`
   line-height: 1.25;
   text-align: center;
   word-break: keep-all;
+`;
+
+/* 직접 입력한 악기는 아이콘이 없으므로 글자 칩으로 보여준다. */
+const CustomChip = styled.span`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: ${({ theme }) => theme.colors.textPrimary};
+  white-space: nowrap;
+`;
+
+const CustomRow = styled.div`
+  display: flex;
+  gap: 8px;
+  align-items: center;
+`;
+
+const CustomInput = styled.input`
+  flex: 1;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.9rem;
+  padding: 8px 11px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 8px;
+  outline: none;
+  &:focus { border-color: ${({ theme }) => theme.colors.textSecondary}; }
+`;
+
+const CustomApply = styled.button`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 700;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  background: ${({ theme }) => theme.colors.textPrimary};
+  color: ${({ theme }) => theme.colors.bgPrimary};
+  cursor: pointer;
+  &:disabled { opacity: 0.4; cursor: default; }
 `;

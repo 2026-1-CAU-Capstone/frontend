@@ -345,7 +345,7 @@ const NativeTopBar = styled.div`
   display: flex;
   align-items: center;
   gap: 2px;
-  background: ${({ theme }) => theme.colors.bgPrimary};
+  background: ${({ theme }) => theme.colors.barTop};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   flex-shrink: 0;
   padding: calc(6px + env(safe-area-inset-top, 0px)) 8px 6px;

@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { BackButton } from '../components/common/BackButton';
+import { SessionPicker } from '../components/chord/SessionPicker';
 import { isMinorKey } from '../components/leadsheet/LeadSheet';
 import { transposeNoteSheet, respellNoteSheetKey, normalizeNoteKeyDisplay } from '../lib/note/transposeNoteSheet';
 import { ghostHead } from '../lib/note/ghostNote';
@@ -278,7 +279,35 @@ const GRAND_EXTRA = 115;
 /* MARGIN.top: chord 라벨(28px high) 이 stave 위에 충분한 여유를 두고 들어갈 공간. */
 /* left 여백을 넉넉히 — 양손 중괄호(brace)가 뷰포트 끝에 붙지 않고, 브레이스와
  * 음자리표 사이에 실제 악보처럼 여유가 생긴다. */
-const MARGIN = { top: 50, left: 30, right: 10, bottom: 10 };
+const MARGIN = { top: 38, left: 30, right: 10, bottom: 10 };
+
+/* ── 코드 입력칸 세로 위치 ────────────────────────────────────────────────
+ * 예전엔 보표 원점에서 고정 오프셋(-20)만 썼다. 그래서 기둥이 위로 뻗은
+ * 마디(8분음표 빔 등)에서는 빔이 코드칸을 그대로 뚫고 지나갔다.
+ * 이제는 그 마디에서 실제로 가장 높이 올라간 요소의 Y를 받아, 필요하면
+ * 코드칸을 그 위로 밀어 올린다. */
+/** 코드 입력칸 높이(px) — ChordCellWrap 의 height 와 반드시 같은 값. */
+const CHORD_CELL_H = 28;
+/** 코드칸 아랫변과 음표(기둥·빔) 상단 사이 최소 여백 — 내부 좌표 단위. */
+const CHORD_NOTE_GAP = 6;
+/** SVG 위쪽으로 잘려나가지 않게 하는 하한. */
+const CHORD_TOP_MIN = 2;
+
+/**
+ * 코드 입력칸의 윗변 Y(내부 좌표).
+ *
+ * @param y          Stave 원점 Y
+ * @param contentTop 그 마디에서 가장 높이 올라간 요소의 Y. 음표가 없으면 Infinity.
+ */
+function chordRowTopY(
+  y: number,
+  opts: { volta?: boolean; bracket?: boolean },
+  contentTop: number,
+): number {
+  const base = y + (opts.volta ? -13 : opts.bracket ? -14 : -20);
+  const lifted = contentTop - CHORD_NOTE_GAP - CHORD_CELL_H / SHEET_SCALE;
+  return Math.max(CHORD_TOP_MIN, Math.min(base, lifted));
+}
 /* 대체(리하모니제이션) 코드 슬롯 수 — 마디 위 괄호 안에 뜨는 입력 칸 개수. */
 const ALT_SLOTS = 4;
 /** Soft cap on bars per line. The actual line break is driven by each measure's
@@ -702,47 +731,6 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         staveTop: stave.getYForLine(0), staveBot: stave.getYForLine(4),
       });
 
-      if (m === activeIdx) {
-        const svgEl = el.querySelector('svg');
-        if (svgEl) {
-          /* 편집 중 마디 하이라이트.
-           *   위: 코드 입력 행의 윗변 (대체코드가 있으면 그 행까지)
-           *   아래: 보표 마지막 줄. 단 음표가 그 아래로 내려가면(덧줄) 그
-           *         음표 밑에 여백을 두고 거기까지.
-           * ※ y(Stave 원점)에서 오프셋을 추정하면 안 된다 — 실제 오선은
-           *   getYForLine() 이 정확하다(원점과 첫 줄 사이에 여백이 있다). */
-          const mNotes = measures[m]?.notes ?? [];
-          const chordRowTop = (mData.altChords ? -17 : 0)
-            + (mData.volta ? -13 : mData.bracket ? -14 : -20);
-          const HL_TOP = y + chordRowTop - 4;          // 코드 입력 윗변 + 살짝
-
-          const staffBot = stave.getYForLine(4);       // 오선 마지막 줄
-          const NOTE_PAD = 8;                          // 오선 밖 음표 아래 여백
-          /* 머리가 마지막 줄 아래로 조금이라도 나오면(맨 아랫줄에 걸친 음 포함)
-           * 그만큼 더 내려간다. 오선 안에만 있으면 마지막 줄에서 끝. */
-          const extend = (low: number | null, base: number) =>
-            low !== null && low > base ? low + NOTE_PAD : base;
-          const HL_BOT = grand
-            // 양손: 아래 베이스 보표 기준(오선 높이를 GRAND_BASS_DY 만큼 내림)
-            ? extend(
-                bottomNoteGlyphY(bassAt(m).notes,
-                  (line) => stave.getYForLine(line) + GRAND_BASS_DY, 'bass'),
-                staffBot + GRAND_BASS_DY,
-              )
-            : extend(
-                bottomNoteGlyphY(mNotes, (line) => stave.getYForLine(line)),
-                staffBot,
-              );
-          const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-          rect.setAttribute('x', String(x));
-          rect.setAttribute('y', String(HL_TOP));
-          rect.setAttribute('width', String(w));
-          rect.setAttribute('height', String(HL_BOT - HL_TOP));
-          rect.setAttribute('fill', 'rgba(184, 150, 10, 0.13)');
-          rect.setAttribute('stroke', 'none');         // 테두리 없음 — 면만
-          svgEl.insertBefore(rect, svgEl.firstChild);
-        }
-      }
 
       const measure = measures[m];
       const bassM = grand ? bassAt(m) : EMPTY_BASS;
@@ -895,6 +883,57 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
 
       drawTupletBrackets(realNotes, realVfNotes, ctx);
       if (bassVfNotes.length) drawTupletBrackets(realBassNotes, bassVfNotes, ctx);
+
+      /* 이 마디에서 가장 높이 올라간 요소의 Y. bbox 는 기둥·빔까지 포함하므로
+       * 음높이만 보는 것보다 정확하다 — voice.draw() 뒤라야 유효하다. */
+      let contentTop = Infinity;
+      for (const vn of vfNotes) {
+        const bb = vn.getBoundingBox();
+        if (bb) contentTop = Math.min(contentTop, bb.getY());
+      }
+
+      if (m === activeIdx) {
+        const svgEl = el.querySelector('svg');
+        if (svgEl) {
+          /* 편집 중 마디 하이라이트.
+           *   위: 코드 입력 행의 윗변 (대체코드가 있으면 그 행까지)
+           *   아래: 보표 마지막 줄. 단 음표가 그 아래로 내려가면(덧줄) 그
+           *         음표 밑에 여백을 두고 거기까지.
+           * ※ y(Stave 원점)에서 오프셋을 추정하면 안 된다 — 실제 오선은
+           *   getYForLine() 이 정확하다(원점과 첫 줄 사이에 여백이 있다). */
+          const mNotes = measures[m]?.notes ?? [];
+          // 코드칸과 같은 계산 — 칸이 빔 위로 밀려 올라가면 하이라이트도 따라간다.
+          const HL_TOP = chordRowTopY(y, { volta: !!mData.volta, bracket: !!mData.bracket }, contentTop)
+            - (mData.altChords ? 17 : 0)
+            - 4;                                       // 코드 입력 윗변 + 살짝
+
+          const staffBot = stave.getYForLine(4);       // 오선 마지막 줄
+          const NOTE_PAD = 8;                          // 오선 밖 음표 아래 여백
+          /* 머리가 마지막 줄 아래로 조금이라도 나오면(맨 아랫줄에 걸친 음 포함)
+           * 그만큼 더 내려간다. 오선 안에만 있으면 마지막 줄에서 끝. */
+          const extend = (low: number | null, base: number) =>
+            low !== null && low > base ? low + NOTE_PAD : base;
+          const HL_BOT = grand
+            // 양손: 아래 베이스 보표 기준(오선 높이를 GRAND_BASS_DY 만큼 내림)
+            ? extend(
+                bottomNoteGlyphY(bassAt(m).notes,
+                  (line) => stave.getYForLine(line) + GRAND_BASS_DY, 'bass'),
+                staffBot + GRAND_BASS_DY,
+              )
+            : extend(
+                bottomNoteGlyphY(mNotes, (line) => stave.getYForLine(line)),
+                staffBot,
+              );
+          const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          rect.setAttribute('x', String(x));
+          rect.setAttribute('y', String(HL_TOP));
+          rect.setAttribute('width', String(w));
+          rect.setAttribute('height', String(HL_BOT - HL_TOP));
+          rect.setAttribute('fill', 'rgba(184, 150, 10, 0.13)');
+          rect.setAttribute('stroke', 'none');         // 테두리 없음 — 면만
+          svgEl.insertBefore(rect, svgEl.firstChild);
+        }
+      }
 
       for (let ni = 0; ni < vfNotes.length; ni++) {
         allVfNotes.push({ mi: m, ni, vfNote: vfNotes[ni] });
@@ -1534,7 +1573,7 @@ const MetaField = styled.div`
   gap: 8px;
   > span:first-child { min-width: 78px; }     /* 라벨 폭을 맞춰 입력이 세로로 정렬되게 */
   input {
-    width: 132px;
+    width: 186px;
     font-size: 0.86rem;
     padding: 4px 9px;
   }
@@ -1552,13 +1591,6 @@ const InfoCol = styled.div`
   display: flex;
   flex-direction: column;
   gap: 5px;            /* 바 높이가 고정이라 행 간격을 좁게 */
-`;
-
-const InfoRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
 `;
 
 /* 마디 탭 — 마디 편집 도구를 한 줄로. (드롭다운과 같은 버튼 톤) */
@@ -4845,17 +4877,20 @@ export default function EditorPage() {
           {/* 1) 데이터·메타데이터 */}
           <InfoSection>
             <InfoCols>
-              {/* 1열 — 텍스트 메타데이터 */}
+              {/* 바 높이는 음표 탭 기준으로 고정 — 한 열에 3줄까지만 두고 넘치면 다음 열로. */}
               <InfoCol>
                 <MetaField><MetaLabel>Title</MetaLabel><MetaInput value={sheetTitle} onChange={(e) => setSheetTitle(e.target.value)} placeholder="e.g. Autumn Leaves" /></MetaField>
                 <MetaField><MetaLabel>Album</MetaLabel><MetaInput value={album} onChange={(e) => setAlbum(e.target.value)} placeholder="e.g. Bird & Diz" /></MetaField>
                 <MetaField><MetaLabel>Composer</MetaLabel><MetaInput value={composer} onChange={(e) => setComposer(e.target.value)} placeholder="e.g. Joseph Kosma" /></MetaField>
-                <MetaField><MetaLabel>Player</MetaLabel><MetaInput value={performer} onChange={(e) => setPerformer(e.target.value)} placeholder="e.g. Charlie Parker" /></MetaField>
-                <MetaField><MetaLabel>Instrument</MetaLabel><MetaInput value={metaInstrument} onChange={(e) => setMetaInstrument(e.target.value)} placeholder="e.g. Alto Sax" /></MetaField>
               </InfoCol>
 
-              {/* 2열 — 형식·조성 */}
               <InfoCol>
+                <MetaField><MetaLabel>Player</MetaLabel><MetaInput value={performer} onChange={(e) => setPerformer(e.target.value)} placeholder="e.g. Charlie Parker" /></MetaField>
+                <MetaField>
+                  <MetaLabel>Instrument</MetaLabel>
+                  {/* 내 코드 차트의 악기 아이콘 드롭다운을 그대로 쓰고, 목록에 없으면 직접 입력. */}
+                  <SessionPicker value={metaInstrument} onChange={setMetaInstrument} allowCustom />
+                </MetaField>
                 <MetaField>
                   <MetaLabel>Type</MetaLabel>
                   <SegGroup>
@@ -4864,8 +4899,11 @@ export default function EditorPage() {
                     ))}
                   </SegGroup>
                 </MetaField>
+              </InfoCol>
+
+              <InfoCol>
                 <MetaField>
-                  <MetaLabel>보표 {staffModeLocked && <LockedHint title="불러온 악보의 보표 수로 자동 확정">🔒 자동</LockedHint>}</MetaLabel>
+                  <MetaLabel>보표 {staffModeLocked && <LockedHint title="불러온 악보의 보표 수로 자동 확정">🔒</LockedHint>}</MetaLabel>
                   <SegGroup>
                     {(['single', 'grand'] as const).map((v) => (
                       <SegBtn
@@ -4877,47 +4915,43 @@ export default function EditorPage() {
                           setStaffMode(v);
                           if (v === 'single') { setSelectedBassMeasure(null); setSelectedNote((sel) => (sel?.staff === 'bass' ? null : sel)); }
                         }}
-                      >{v === 'single' ? '한손 악보' : '양손 악보'}</SegBtn>
+                      >{v === 'single' ? '한손' : '양손'}</SegBtn>
                     ))}
                   </SegGroup>
                 </MetaField>
+                <MetaField><MetaLabel>Genre</MetaLabel><GenreSelect value={genre} onChange={setGenre} /></MetaField>
                 <MetaField>
-                  <MetaLabel>Genre · Key</MetaLabel>
-                  <InfoRow>
-                <GenreSelect value={genre} onChange={setGenre} />
-                {/* 조성 칩 자체가 Transpose 버튼 — hover 하면 조성이 흐려지고
-                그 자리에 이조 아이콘이 뜬다. 클릭하면 드롭다운. */}
-                <KeyAnchor>
-                <KeyDisplay
-                type="button"
-                $open={transposeOpen}
-                title="Transpose · 조성 변경(음표까지 실제로 이조)"
-                aria-haspopup="dialog"
-                aria-expanded={transposeOpen}
-                onClick={() => setTransposeOpen((v) => !v)}
-                >
-                <span className="key-text">
-                {sheetKey.replace(/m$/, '').replace(/b/g, '♭').replace(/#/g, '♯')}
-                <KeyQualEP>{isMinorKey(sheetKey) ? '단조' : '장조'}</KeyQualEP>
-                </span>
-                <span className="key-ico" aria-hidden><IcoTranspose /></span>
-                </KeyDisplay>
-                {transposeOpen && (
-                <KeyChangePopover
-                currentKey={sheetKey.replace(/b/g, '♭').replace(/#/g, '♯')}
-                value={keyInput}
-                onChange={setKeyInput}
-                busy={false}
-                onApplyTranspose={() => { applyTranspose(keyInput.trim()); setKeyInput(''); }}
-                onApplyKeyOnly={() => { applyKeyOnly(keyInput.trim()); setKeyInput(''); }}
-                onPreset={(semi) => { const to = shiftDisplayKeyBySemitones(sheetKey, semi); if (to) applyTranspose(to); }}
-                onOctave={(dir) => handleShiftOctave(dir)}
-                octaveDisabled={totalNotes === 0}
-                onClose={() => setTransposeOpen(false)}
-                />
-                )}
-                </KeyAnchor>
-                  </InfoRow>
+                  <MetaLabel>Key</MetaLabel>
+                    <KeyAnchor>
+                    <KeyDisplay
+                    type="button"
+                    $open={transposeOpen}
+                    title="Transpose · 조성 변경(음표까지 실제로 이조)"
+                    aria-haspopup="dialog"
+                    aria-expanded={transposeOpen}
+                    onClick={() => setTransposeOpen((v) => !v)}
+                    >
+                    <span className="key-text">
+                    {sheetKey.replace(/m$/, '').replace(/b/g, '♭').replace(/#/g, '♯')}
+                    <KeyQualEP>{isMinorKey(sheetKey) ? '단조' : '장조'}</KeyQualEP>
+                    </span>
+                    <span className="key-ico" aria-hidden><IcoTranspose /></span>
+                    </KeyDisplay>
+                    {transposeOpen && (
+                    <KeyChangePopover
+                    currentKey={sheetKey.replace(/b/g, '♭').replace(/#/g, '♯')}
+                    value={keyInput}
+                    onChange={setKeyInput}
+                    busy={false}
+                    onApplyTranspose={() => { applyTranspose(keyInput.trim()); setKeyInput(''); }}
+                    onApplyKeyOnly={() => { applyKeyOnly(keyInput.trim()); setKeyInput(''); }}
+                    onPreset={(semi) => { const to = shiftDisplayKeyBySemitones(sheetKey, semi); if (to) applyTranspose(to); }}
+                    onOctave={(dir) => handleShiftOctave(dir)}
+                    octaveDisabled={totalNotes === 0}
+                    onClose={() => setTransposeOpen(false)}
+                    />
+                    )}
+                    </KeyAnchor>
                 </MetaField>
               </InfoCol>
             </InfoCols>
@@ -5750,15 +5784,16 @@ export default function EditorPage() {
              * measure (lead-sheet convention). Fall back to the bar's note
              * area start when no notes exist yet. Volta/bracket marks above
              * the stave still need their own horizontal offset to clear. */
-            const firstNote = notePositions
-              .filter((np) => np.mi === pos.idx && !np.staff)
+            const measureNotes = notePositions.filter((np) => np.mi === pos.idx && !np.staff);
+            const firstNote = measureNotes
               .reduce<NotePos | null>((best, cur) => (best === null || cur.x < best.x ? cur : best), null);
             const baseLeft = firstNote ? firstNote.x - 4 : pos.chordX;
             const chordLeft = hasVolta ? baseLeft + 8 : hasBracket ? baseLeft + 12 : baseLeft;
-            /* Lift chord above the stave with a comfortable gap so ledger
-             * lines and high notes don't bleed into the chord label.
-             * MARGIN.top reserves the page-top space for this. */
-            const chordTop = hasVolta ? pos.y - 13 : hasBracket ? pos.y - 14 : pos.y - 20;
+            /* 코드칸은 보표 위 기본 높이에 두되, 기둥·빔이 그 높이까지 뻗어 올라온
+             * 마디에서는 그 위로 밀어 올린다 — 절대 겹치지 않게. bbox 는 기둥까지
+             * 포함한 값이라 음높이만 보는 것보다 정확하다. */
+            const contentTop = measureNotes.reduce((min, np) => Math.min(min, np.y), Infinity);
+            const chordTop = chordRowTopY(pos.y, { volta: hasVolta, bracket: hasBracket }, contentTop);
             /* Clamp chord widths to their half so they never overflow into
              * the next bar (or into the c2 slot). */
             const measureRightPx = (pos.x + pos.w) * SHEET_SCALE;

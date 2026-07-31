@@ -9,7 +9,8 @@ export const ToolbarContainer = styled.header`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: ${({ theme }) => theme.colors.bgPrimary};
+  /* 페이지 최상단 바 — 코드·노트·릭 페이지가 공유한다. */
+  background: ${({ theme }) => theme.colors.barTop};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   flex-shrink: 0;
 

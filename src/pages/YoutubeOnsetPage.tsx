@@ -46,7 +46,7 @@ const TopBar = styled.div`
   align-items: center;
   gap: 14px;
   padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px;  /* 가로 여백 16px — Solo DB 상단바 기준으로 통일 */
-  background: ${({ theme }) => theme.colors.bgSecondary};
+  background: ${({ theme }) => theme.colors.barTop};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   flex-shrink: 0;
 `;

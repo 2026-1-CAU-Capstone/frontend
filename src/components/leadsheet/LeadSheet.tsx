@@ -60,7 +60,7 @@ const ViewerOuter = styled.div<{ $fs?: boolean; $fit?: boolean }>`
   position: relative;
   flex: 1;
   overflow: auto;
-  background: ${({ theme }) => theme.colors.bgSecondary};
+  background: ${({ theme }) => theme.colors.barBelow};
   display: flex;
   justify-content: center;
   padding: 24px;

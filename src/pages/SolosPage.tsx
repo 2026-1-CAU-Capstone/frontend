@@ -97,7 +97,7 @@ const ToolBar = styled.div`
   gap: 10px;
   /* 세로 여백을 넉넉히 — 연주자명 아래 개수까지 2줄이 들어간다. */
   padding: 12px 16px;
-  background: ${({ theme }) => theme.colors.bgSecondary};
+  background: ${({ theme }) => theme.colors.barTop};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;

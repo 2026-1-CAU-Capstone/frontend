@@ -116,7 +116,7 @@ const Page = styled.div`
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: #fafafa;
+  background: ${({ theme }) => theme.colors.barBelow};
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Pretendard', sans-serif;
 `;
 
@@ -126,7 +126,7 @@ const Page = styled.div`
 const Header = styled.div`
   padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 14px;
   border-bottom: 1px solid #efefef;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.barTop};
 `;
 
 const HeaderTopRow = styled.div`
