@@ -1195,19 +1195,21 @@ const DotGlyph = ({ n = 1 }: { n?: 1 | 2 }) => (
   </svg>
 );
 
-/* 3연음 / 지속연음 — 숫자 아래에 빔으로 묶인 음표 3개(기둥 3개 + 머리). */
+/* 3연음 / 지속연음 — 숫자 아래에 빔으로 묶인 음표 3개(기둥 3개 + 머리).
+ * 머리를 충분히 크게 그려 작은 버튼에서도 보이게 하고, 숫자는 빔에서 살짝 띄운다. */
 const TupletGlyph = ({ plus }: { plus?: boolean }) => (
-  <svg width="30" height="28" viewBox="0 0 30 28" style={{ display: 'block' }} aria-hidden>
-    <text x="15" y="9" textAnchor="middle" fontSize="10.5" fontWeight="700" fill="currentColor"
+  <svg width="32" height="30" viewBox="0 0 32 30" style={{ display: 'block' }} aria-hidden>
+    {/* 숫자 — 빔 위로 올림 */}
+    <text x="16" y="8" textAnchor="middle" fontSize="10.5" fontWeight="700" fill="currentColor"
       fontFamily="Georgia, 'Times New Roman', serif" fontStyle="italic">{plus ? '3+' : '3'}</text>
     {/* 빔 */}
-    <rect x="4.4" y="12.2" width="21.2" height="2.4" fill="currentColor" />
-    {/* 기둥 3개 + 각 기둥 끝의 음표 머리 */}
-    {[4.4, 14.0, 23.6].map((x) => (
+    <rect x="5" y="12" width="22" height="2.6" fill="currentColor" />
+    {/* 기둥 3개 + 각 기둥 아래의 음표 머리 */}
+    {[5, 15, 25].map((x) => (
       <g key={x}>
-        <rect x={x} y="12.2" width="1.9" height="8.6" fill="currentColor" />
-        <ellipse cx={x - 1.3} cy="21.4" rx="2.9" ry="2.1" fill="currentColor"
-          transform={`rotate(-18 ${x - 1.3} 21.4)`} />
+        <rect x={x} y="12" width="2" height="9.5" fill="currentColor" />
+        <ellipse cx={x - 1.6} cy="22.4" rx="3.6" ry="2.6" fill="currentColor"
+          transform={`rotate(-18 ${x - 1.6} 22.4)`} />
       </g>
     ))}
   </svg>
@@ -1739,24 +1741,13 @@ const TransportBar = styled.div`
   flex-shrink: 0;
   min-width: 0;
 `;
+/* 조성 칩 + 믹서/재생 컨트롤이 모두 여기 들어와 왼쪽부터 한 줄로 이어진다.
+ * 폭은 제한하지 않는다 — 우측 그룹이 margin-left:auto 로 밀려 자리를 지킨다. */
 const BarLeft = styled.div`
   display: flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
-  max-width: calc(50% - 120px);
-`;
-/* 믹서~재생 묶음을 바의 '정확한 정중앙'에 고정(절대배치). 좌·우 그룹은 각각
- * 절반 폭을 넘지 못하게 잘라 중앙 묶음 위로 겹치지 않는다(코드차트와 동일 접근). */
-const BarCenter = styled.div`
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
 `;
 const BarRight = styled.div`
   display: flex;
@@ -1764,7 +1755,7 @@ const BarRight = styled.div`
   justify-content: flex-end;
   gap: 4px;
   min-width: 0;
-  max-width: calc(50% - 120px);
+  flex-shrink: 0;
   margin-left: auto;
 `;
 
@@ -4702,9 +4693,8 @@ export default function EditorPage() {
             )}
           </KeyAnchor>
 
-        </BarLeft>
-        <BarCenter>
-          <MixerButton />
+          {/* 믹서/재생 컨트롤 — 가운데 절대배치가 아니라 조성 칩 오른쪽에 이어 붙인다.
+              믹서 버튼은 재생 버튼 오른쪽. */}
           <BpmControl
             tempo={bpm}
             onTempoChange={(n) => { bpmManualRef.current = true; setBpm(n); }}
@@ -4719,7 +4709,8 @@ export default function EditorPage() {
                죽어 오디오를 멈출 수 없게 되는 것을 방지. */
             disabled={totalNotes === 0 && !playing}
           />
-        </BarCenter>
+          <MixerButton />
+        </BarLeft>
         <BarRight>
           {/* MIDI(왼쪽) → 설정(오른쪽). 코드차트 우측 아이콘과 동일한 ToolBtn 규격. */}
           <ToolBtn
