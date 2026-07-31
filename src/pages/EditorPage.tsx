@@ -1605,7 +1605,7 @@ const InfoTabPanel = styled.div`
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   height: ${TOOLBAR_H}px;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible;   /* 조성 드롭다운이 툴바 밖으로 나올 수 있게 */
   background: ${({ theme }) => theme.colors.barBelow};
 `;
 
@@ -1631,7 +1631,7 @@ const MetaField = styled.div<{ $tight?: boolean }>`
 const InfoLine = styled.div`
   display: flex;
   align-items: center;
-  gap: 34px;     /* Genre 입력과 Key 라벨 사이를 넉넉히 */
+  gap: 8px;
 `;
 
 /* 1-1 / 1-2 를 세로로 쌓는 묶음. 패널이 stretch 라 이 묶음도 옆 상자와 같은
@@ -5046,10 +5046,12 @@ export default function EditorPage() {
                 </MetaField>
               </InfoBox>
 
-              <InfoBox>
-                {/* Genre 바로 오른쪽에 Key — 세로로 쌓으면 상자 높이를 넘어 잘렸다. */}
-                <InfoLine>
+              {/* 1-2-1 Genre · 1-2-2 Key — 각각 상자로 나누고 Genre 를 더 넓게. */}
+              <InfoLine>
+                <InfoBox $grow>
                   <MetaField $tight><MetaLabel>Genre</MetaLabel><GenreSelect value={genre} onChange={setGenre} /></MetaField>
+                </InfoBox>
+                <InfoBox>
                   <MetaField $tight>
                     <MetaLabel>Key</MetaLabel>
                     <KeyAnchor>
@@ -5083,8 +5085,8 @@ export default function EditorPage() {
                     )}
                     </KeyAnchor>
                   </MetaField>
-                </InfoLine>
-              </InfoBox>
+                </InfoBox>
+              </InfoLine>
             </InfoStack>
 
             {/* 2 — 텍스트 메타데이터 (두 열) */}
