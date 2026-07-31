@@ -1618,12 +1618,22 @@ const TabDivider = styled.span`
 `;
 
 /* 정보 탭 — 여러 줄로 나눠 담는 패널. */
-/* MIDI 탭 본문 — 정보 탭과 같은 툴바 배경/여백 규격. 내용은 두 칸 그리드라
- * 여기서는 감싸는 여백만 준다. */
+/* MIDI 탭 본문 — 정보 탭과 완전히 같은 규격(높이 TOOLBAR_H, 같은 여백·간격).
+ * 어느 탭을 눌러도 툴바 높이가 그대로여야 악보가 위아래로 튀지 않는다.
+ * 안쪽 묶음 3개는 MidiSettingsBody 가 그린다. */
 const MidiTabPanel = styled.div`
-  padding: 12px 18px 14px;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 8px;                 /* 툴바 섹션 간격과 동일 */
+  padding: 10px 18px 10px 8px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  height: ${TOOLBAR_H}px;
+  box-sizing: border-box;
   background: ${({ theme }) => theme.colors.barBelow};
+
+  /* 세 묶음이 폭을 고르게 나눠 갖되, 기기 목록이 길어도 밀리지 않게 한다. */
+  & > * { flex: 1 1 0; min-width: 0; }
 `;
 
 const InfoTabPanel = styled.div`
@@ -1668,12 +1678,16 @@ const GenreFill = styled.div`
 /* 3번 섹션 좌측 상단에 고정되는 상태칩(활성 상태 + 마디/박). */
 const SectionStatus = styled.div`
   position: absolute;
-  top: 5px;
+  top: 6px;
   left: 8px;
   z-index: 2;
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  padding: 3px 9px;
+  border: 1.5px solid rgba(0, 0, 0, 0.13);   /* 섹션 테두리와 같은 톤 */
+  border-radius: 9px;                        /* 섹션과 같은 라운드 */
+  background: #fff;
   font-family: 'Pretendard', sans-serif;
   font-size: 0.78rem;
   line-height: 1;
@@ -1851,13 +1865,15 @@ const ModGroup = styled(Section)``;
 /* 3번 섹션 — 활성 상태의 시그니처 색을 테두리·배경에 함께 입힌다.
  *   note    → 연한 빨강 · measure → 골드 · none → 중립 회색 */
 const MODE_INK = {
-  note:    { line: '#e08a8a', fill: 'rgba(214, 88, 88, 0.10)' },
+  note:    { line: '#e08a8a', fill: '#fff5f5' },   /* 편집 바와 같은 톤으로 통일 */
   measure: { line: '#D4A843', fill: 'rgba(184, 150, 10, 0.12)' },
   none:    { line: 'rgba(0, 0, 0, 0.13)', fill: '#fff' },
 } as const;
 
 const GoldGroup = styled(Section)<{ $mode: 'none' | 'measure' | 'note' }>`
-  padding-top: 26px;      /* 좌측 상단 상태칩 자리 */
+  padding-top: 34px;      /* 좌측 상단 상태칩 + 아래 여백 */
+  overflow: hidden;       /* 툴바 높이를 넘어 아래로 삐져나가지 않는다 */
+  align-items: stretch;
   /* 남는 가로 공간을 모두 차지해 툴바 끝까지 늘어난다. */
   flex: 1;
   /* SectionStatus(좌측 상단 상태칩)를 absolute 로 띄우는 기준. 일반 흐름에 두면
@@ -2902,10 +2918,13 @@ const NoteEditLabel = styled.span`
 const SectionedEditBar = styled.div`
   display: flex;
   align-items: stretch;
-  padding: 8px 16px;
+  padding: 0;
   border-bottom: 2px solid #d32f2f;
-  background: #fff5f5;
+  background: transparent;   /* 섹션 배경을 그대로 쓴다 */
   overflow-x: auto;
+  overflow-y: auto;   /* 섹션 밖(구분선 아래)으로 밀려나지 않게 */
+  max-height: 100%;
+  width: 100%;
 `;
 const EditWrap = styled.div`
   display: flex;

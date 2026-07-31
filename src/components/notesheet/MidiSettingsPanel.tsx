@@ -1,196 +1,204 @@
 /* ─────────────────────────────────────────────────────────────────────────
  * MidiSettingsBody — 에디터 툴바 "MIDI" 탭의 본문.
  *
- * 입력/출력 장치 선택, 실시간 입력 모니터(수신 표시등 + 마지막 음/벨로시티/
- * 채널), 그리고 벨로시티 임계값·채널 필터·옥타브 이동·오디션 재생·벨로시티→
- * 소리세기·MIDI thru 에코 등 고급 설정을 한 곳에서 조절한다.
+ * 툴바 탭은 어느 탭을 골라도 높이가 같아야 한다(EditorPage 의 TOOLBAR_H).
+ * 그래서 예전 모달의 세로 나열을 **3개 묶음 × 3줄**로 눕혀, 음표 탭과 같은
+ * 한 줄 높이 안에 들어가게 했다. 묶음 상자는 툴바 Section 과 같은 규격
+ * (2px 테두리 · 라운드 12px · 흰 배경)이라 다른 탭과 결이 맞는다.
  *
- * 예전엔 별도 모달이었는데, 툴바 탭으로 들어오며 폭이 넓어져 두 칸으로 나눴다
- * (왼쪽=장치·모니터, 오른쪽=입력 처리). 모달 껍데기(오버레이/닫기)는 없앴다.
+ * 줄 수를 줄이려고 설명 문구는 각 컨트롤의 title 로 옮겼다.
  *
  * 상태·로직은 useMidiInput 훅이 소유하고, 이 컴포넌트는 그 값을 표시/변경만 한다.
  * ──────────────────────────────────────────────────────────────────────── */
-import { useEffect, useState } from 'react';
 import styled, { keyframes } from 'styled-components';
 import { midiToName, type UseMidi } from '../../hooks/useMidiInput';
 
 export function MidiSettingsBody({ midi }: { midi: UseMidi }) {
   const { supported, error, enabled, requestAccess, inputs, outputs, settings, setSettings, last, pulse } = midi;
 
-  // 최근 수신 여부(모니터 "라이브" 표시). pulse 가 바뀌면 잠깐 켰다 끈다.
-  const [live, setLive] = useState(false);
-  useEffect(() => {
-    if (!pulse) return;
-    setLive(true);
-    const t = setTimeout(() => setLive(false), 180);
-    return () => clearTimeout(t);
-  }, [pulse]);
-
   if (!supported) {
     return (
-      <Warn>
-        이 브라우저는 <b>Web MIDI</b>를 지원하지 않습니다.<br />
-        Chrome 또는 Edge에서 외부 MIDI 기기를 연결하세요.
-      </Warn>
+      <Box style={{ flex: 1 }}>
+        <Warn>
+          이 브라우저는 <b>Web MIDI</b>를 지원하지 않습니다 — Chrome 또는 Edge에서 외부 MIDI 기기를 연결하세요.
+        </Warn>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box style={{ flex: 1 }}>
+        <Warn>
+          {error}
+          <RetryBtn type="button" onClick={requestAccess}>다시 시도</RetryBtn>
+        </Warn>
+      </Box>
     );
   }
 
   return (
     <>
-      {error && (
-        <Warn>
-          {error}
-          <RetryBtn type="button" onClick={requestAccess}>다시 시도</RetryBtn>
-        </Warn>
-      )}
+      {/* ── 1) 연결된 기기 ── */}
+      <Box>
+        <BoxTitle>기기</BoxTitle>
+        <Monitor>
+          <Dot key={pulse} $pulse={pulse} $on={last?.on ?? false} />
+          <MonText>
+            {!enabled ? '연결 대기…'
+              : last ? `${midiToName(last.midi)} · vel ${last.velocity} · ch ${last.channel + 1}`
+              : '건반을 눌러보세요'}
+          </MonText>
+        </Monitor>
+        <Row>
+          <Label>입력</Label>
+          <Select
+            title={inputs.length === 0 ? 'USB MIDI 키보드를 연결하면 자동으로 선택됩니다' : '음표를 입력받을 기기'}
+            value={settings.inputId ?? ''}
+            onChange={(e) => setSettings({ inputId: e.target.value || null })}
+          >
+            <option value="">— 없음 —</option>
+            {inputs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </Select>
+        </Row>
+        <Row>
+          <Label>출력</Label>
+          <Select
+            title="MIDI thru 로 신호를 그대로 넘길 기기"
+            value={settings.outputId ?? ''}
+            onChange={(e) => setSettings({ outputId: e.target.value || null })}
+          >
+            <option value="">— 없음 —</option>
+            {outputs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </Select>
+        </Row>
+      </Box>
 
-      <Cols>
-        {/* ── 왼쪽: 연결된 기기 + 실시간 모니터 ── */}
-        <Col>
-          <SectionLabel>기기</SectionLabel>
+      {/* ── 2) 입력을 어떻게 받아들일지 ── */}
+      <Box>
+        <BoxTitle>입력 처리</BoxTitle>
+        <Row title="이 세기보다 약하게 친 음은 무시합니다(가벼운 오터치 방지).">
+          <Label>임계값</Label>
+          <Range type="range" min={0} max={127} step={1} value={settings.velocityThreshold}
+            onChange={(e) => setSettings({ velocityThreshold: parseInt(e.target.value, 10) })} />
+          <Num>{settings.velocityThreshold}</Num>
+        </Row>
+        <Row title="특정 MIDI 채널만 받아들입니다.">
+          <Label>채널</Label>
+          <Select
+            value={String(settings.channel)}
+            onChange={(e) => setSettings({ channel: parseInt(e.target.value, 10) })}
+          >
+            <option value="-1">전체</option>
+            {Array.from({ length: 16 }, (_, i) => (
+              <option key={i} value={String(i)}>{i + 1}</option>
+            ))}
+          </Select>
+        </Row>
+        <Row title="건반에서 받은 음을 옥타브 단위로 옮겨 입력합니다.">
+          <Label>옥타브</Label>
+          <Range type="range" min={-3} max={3} step={1} value={settings.octaveShift}
+            onChange={(e) => setSettings({ octaveShift: parseInt(e.target.value, 10) })} />
+          <Num>{settings.octaveShift > 0 ? `+${settings.octaveShift}` : settings.octaveShift}</Num>
+        </Row>
+      </Box>
 
-          <Monitor>
-            <Dot key={pulse} $live={live} $on={last?.on ?? false} />
-            <MonText>
-              {!enabled ? '연결 대기…'
-                : last ? `${last.on ? '입력' : '해제'} · ${midiToName(last.midi)} · vel ${last.velocity} · ch ${last.channel + 1}`
-                : '입력 대기 중 — 건반을 눌러보세요'}
-            </MonText>
-          </Monitor>
-
-          <Row>
-            <Label>입력 장치</Label>
-            <Select
-              value={settings.inputId ?? ''}
-              onChange={(e) => setSettings({ inputId: e.target.value || null })}
-            >
-              <option value="">— 없음 —</option>
-              {inputs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </Select>
-          </Row>
-          {inputs.length === 0 && enabled && (
-            <Hint>감지된 입력 장치가 없습니다. USB MIDI 키보드를 연결하면 자동 선택됩니다.</Hint>
-          )}
-
-          <Row>
-            <Label>출력 장치</Label>
-            <Select
-              value={settings.outputId ?? ''}
-              onChange={(e) => setSettings({ outputId: e.target.value || null })}
-            >
-              <option value="">— 없음 —</option>
-              {outputs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </Select>
-          </Row>
-          <CheckRow>
-            <input id="midi-echo" type="checkbox" checked={settings.echoToOutput}
-              onChange={(e) => setSettings({ echoToOutput: e.target.checked })} />
-            <label htmlFor="midi-echo">출력으로 그대로 전달 (MIDI thru — 외부 음원 연주)</label>
-          </CheckRow>
-        </Col>
-
-        {/* ── 오른쪽: 입력을 어떻게 받아들일지 ── */}
-        <Col>
-          <SectionLabel>입력 처리</SectionLabel>
-
-          <SliderRow>
-            <Label>벨로시티 임계값</Label>
-            <input type="range" min={0} max={127} step={1} value={settings.velocityThreshold}
-              onChange={(e) => setSettings({ velocityThreshold: parseInt(e.target.value, 10) })} />
-            <Num>{settings.velocityThreshold}</Num>
-          </SliderRow>
-          <Hint>이 세기보다 약하게 친 음은 무시합니다(가벼운 오터치 방지).</Hint>
-
-          <Row>
-            <Label>채널</Label>
-            <Select
-              value={String(settings.channel)}
-              onChange={(e) => setSettings({ channel: parseInt(e.target.value, 10) })}
-            >
-              <option value="-1">전체</option>
-              {Array.from({ length: 16 }, (_, i) => (
-                <option key={i} value={String(i)}>{i + 1}</option>
-              ))}
-            </Select>
-          </Row>
-
-          <SliderRow>
-            <Label>옥타브 이동</Label>
-            <input type="range" min={-3} max={3} step={1} value={settings.octaveShift}
-              onChange={(e) => setSettings({ octaveShift: parseInt(e.target.value, 10) })} />
-            <Num>{settings.octaveShift > 0 ? `+${settings.octaveShift}` : settings.octaveShift}</Num>
-          </SliderRow>
-
-          <CheckRow>
-            <input id="midi-audition" type="checkbox" checked={settings.auditionOnInput}
-              onChange={(e) => setSettings({ auditionOnInput: e.target.checked })} />
-            <label htmlFor="midi-audition">입력 시 소리 재생</label>
-          </CheckRow>
-          <CheckRow>
-            <input id="midi-veltoaud" type="checkbox" checked={settings.velocityToAudition}
-              disabled={!settings.auditionOnInput}
-              onChange={(e) => setSettings({ velocityToAudition: e.target.checked })} />
-            <label htmlFor="midi-veltoaud">세게 칠수록 크게 (벨로시티 → 소리 세기)</label>
-          </CheckRow>
-        </Col>
-      </Cols>
-
-      <Foot>연결된 건반을 누르면 현재 선택된 음표 길이·임시표·삽입/양손·화음 설정 그대로 악보에 입력됩니다.</Foot>
+      {/* ── 3) 켜고 끄는 것들 ── */}
+      <Box>
+        <BoxTitle>옵션</BoxTitle>
+        <CheckRow title="받은 신호를 출력 기기로 그대로 넘겨 외부 음원을 연주합니다.">
+          <input id="midi-echo" type="checkbox" checked={settings.echoToOutput}
+            onChange={(e) => setSettings({ echoToOutput: e.target.checked })} />
+          <label htmlFor="midi-echo">MIDI thru</label>
+        </CheckRow>
+        <CheckRow title="건반을 누를 때 내장 음원으로 소리를 들려줍니다.">
+          <input id="midi-audition" type="checkbox" checked={settings.auditionOnInput}
+            onChange={(e) => setSettings({ auditionOnInput: e.target.checked })} />
+          <label htmlFor="midi-audition">입력 시 소리 재생</label>
+        </CheckRow>
+        <CheckRow title="벨로시티를 오디션 소리 세기에 반영합니다.">
+          <input id="midi-veltoaud" type="checkbox" checked={settings.velocityToAudition}
+            disabled={!settings.auditionOnInput}
+            onChange={(e) => setSettings({ velocityToAudition: e.target.checked })} />
+          <label htmlFor="midi-veltoaud">세게 칠수록 크게</label>
+        </CheckRow>
+      </Box>
     </>
   );
 }
 
-/* ─── styles ─────────────────────────────────────────────────────────────── */
-const Cols = styled.div`
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px 28px;
-  font-size: 13px;
+/* ─── styles ─────────────────────────────────────────────────────────────
+ * 상자 규격은 EditorPage 의 툴바 Section 과 동일하게 맞춘다. */
+const Box = styled.div`
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding: 5px 9px;
+  border: 2px solid rgba(0, 0, 0, 0.13);
+  border-radius: 12px;
+  background: #fff;
+  font-size: 12.5px;
   color: #222;
-
-  @media (max-width: 900px) { grid-template-columns: minmax(0, 1fr); }
+  min-width: 0;
 `;
-const Col = styled.div`min-width: 0;`;
+const BoxTitle = styled.div`
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8a97a4;
+  margin-bottom: 1px;
+`;
 const Warn = styled.div`
-  background: #fff5f5; border: 1px solid #f2c2c2; color: #b23b3b;
-  border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; line-height: 1.5;
-  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #b23b3b;
+  line-height: 1.5;
 `;
 const RetryBtn = styled.button`
-  margin-left: 8px; border: 1px solid #d88; background: #fff; color: #b23b3b;
+  flex-shrink: 0;
+  border: 1px solid #d88; background: #fff; color: #b23b3b;
   border-radius: 6px; padding: 2px 8px; cursor: pointer; font-size: 12px;
 `;
-const blink = keyframes`0% { transform: scale(1.6); } 100% { transform: scale(1); }`;
+/* 수신 점멸을 상태가 아니라 애니메이션으로 처리한다 — 음을 칠 때마다
+ * setState 로 리렌더하던 것을 없앴다(연주 중엔 초당 수십 번 불린다). */
+const IDLE = '#c7d0da';
+const flashOn = keyframes`
+  0% { background: #2e9c56; transform: scale(1.6); }
+  100% { background: ${IDLE}; transform: scale(1); }
+`;
+const flashOff = keyframes`
+  0% { background: #c99a2e; transform: scale(1.6); }
+  100% { background: ${IDLE}; transform: scale(1); }
+`;
 const Monitor = styled.div`
-  display: flex; align-items: center; gap: 9px;
-  background: #f6f8fa; border: 1px solid #e3e8ee; border-radius: 8px;
-  padding: 9px 11px; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 7px;
+  background: #f6f8fa; border: 1px solid #e3e8ee; border-radius: 7px;
+  padding: 4px 8px;
+  min-width: 0;
 `;
-const Dot = styled.span<{ $live: boolean; $on: boolean }>`
-  width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0;
-  background: ${(p) => (p.$live ? (p.$on ? '#2e9c56' : '#c99a2e') : '#c7d0da')};
-  animation: ${(p) => (p.$live ? blink : 'none')} 0.18s ease-out;
+const Dot = styled.span<{ $pulse: number; $on: boolean }>`
+  width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+  background: ${IDLE};
+  /* pulse 가 0(아직 수신 전)이면 애니메이션을 걸지 않는다 — 처음 뜰 때 헛점멸 방지. */
+  animation: ${({ $pulse, $on }) => ($pulse ? ($on ? flashOn : flashOff) : 'none')} 0.4s ease-out;
 `;
-const MonText = styled.span`font-variant-numeric: tabular-nums; color: #40515f;`;
-const Row = styled.div`display: flex; align-items: center; gap: 10px; margin: 7px 0;`;
-const SliderRow = styled(Row)`input[type='range'] { flex: 1; accent-color: #ef6c00; }`;
-const Label = styled.span`width: 92px; flex-shrink: 0; color: #556;`;
-const Num = styled.span`width: 34px; text-align: right; font-variant-numeric: tabular-nums;`;
+const MonText = styled.span`
+  font-variant-numeric: tabular-nums; color: #40515f;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+`;
+const Row = styled.div`display: flex; align-items: center; gap: 7px; min-width: 0;`;
+const Label = styled.span`width: 46px; flex-shrink: 0; color: #556;`;
+const Range = styled.input`flex: 1; min-width: 60px; accent-color: #ef6c00;`;
+const Num = styled.span`width: 26px; text-align: right; font-variant-numeric: tabular-nums;`;
 const Select = styled.select`
-  flex: 1; min-width: 0; padding: 5px 7px; border: 1px solid #ccc; border-radius: 6px;
-  font-size: 12.5px; background: #fff; color: #222;
+  flex: 1; min-width: 0; padding: 3px 5px; border: 1px solid #ccc; border-radius: 6px;
+  font-size: 12px; background: #fff; color: #222;
 `;
 const CheckRow = styled.div`
-  display: flex; align-items: center; gap: 8px; margin: 7px 0;
+  display: flex; align-items: center; gap: 7px;
   label { color: #445; }
   input:disabled + label { color: #aab; }
-`;
-const SectionLabel = styled.div`
-  margin: 0 0 7px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
-  color: #8a97a4; border-bottom: 1px solid #eceff3; padding-bottom: 3px;
-`;
-const Hint = styled.div`font-size: 11px; color: #8a97a4; margin: 2px 0 6px; line-height: 1.45;`;
-const Foot = styled.div`
-  margin-top: 12px; padding-top: 9px; border-top: 1px solid #eceff3;
-  font-size: 11.5px; color: #7a8894; line-height: 1.5;
 `;
