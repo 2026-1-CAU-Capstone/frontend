@@ -1741,13 +1741,24 @@ const TransportBar = styled.div`
   flex-shrink: 0;
   min-width: 0;
 `;
-/* 조성 칩 + 믹서/재생 컨트롤이 모두 여기 들어와 왼쪽부터 한 줄로 이어진다.
- * 폭은 제한하지 않는다 — 우측 그룹이 margin-left:auto 로 밀려 자리를 지킨다. */
 const BarLeft = styled.div`
   display: flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
+  max-width: calc(50% - 120px);
+`;
+/* 믹서~재생 묶음을 바의 '정확한 정중앙'에 고정(절대배치). 좌·우 그룹은 각각
+ * 절반 폭을 넘지 못하게 잘라 중앙 묶음 위로 겹치지 않는다(코드차트와 동일 접근). */
+const BarCenter = styled.div`
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 `;
 const BarRight = styled.div`
   display: flex;
@@ -1755,7 +1766,7 @@ const BarRight = styled.div`
   justify-content: flex-end;
   gap: 4px;
   min-width: 0;
-  flex-shrink: 0;
+  max-width: calc(50% - 120px);
   margin-left: auto;
 `;
 
@@ -4693,8 +4704,9 @@ export default function EditorPage() {
             )}
           </KeyAnchor>
 
-          {/* 믹서/재생 컨트롤 — 가운데 절대배치가 아니라 조성 칩 오른쪽에 이어 붙인다.
-              믹서 버튼은 재생 버튼 오른쪽. */}
+        </BarLeft>
+        <BarCenter>
+          <MixerButton />
           <BpmControl
             tempo={bpm}
             onTempoChange={(n) => { bpmManualRef.current = true; setBpm(n); }}
@@ -4709,8 +4721,7 @@ export default function EditorPage() {
                죽어 오디오를 멈출 수 없게 되는 것을 방지. */
             disabled={totalNotes === 0 && !playing}
           />
-          <MixerButton />
-        </BarLeft>
+        </BarCenter>
         <BarRight>
           {/* MIDI(왼쪽) → 설정(오른쪽). 코드차트 우측 아이콘과 동일한 ToolBtn 규격. */}
           <ToolBtn
