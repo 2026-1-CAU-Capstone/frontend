@@ -309,6 +309,20 @@ function chordRowTopY(
   const lifted = contentTop - CHORD_NOTE_GAP - CHORD_CELL_H / SHEET_SCALE;
   return Math.max(CHORD_TOP_MIN, Math.min(base, lifted));
 }
+/** 선택된 마디 하이라이트 면을 SVG 맨 뒤(가장 아래 레이어)에 깐다. */
+function paintMeasureHighlight(el: HTMLDivElement, x: number, w: number, top: number, bot: number): void {
+  const svgEl = el.querySelector('svg');
+  if (!svgEl) return;
+  const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  rect.setAttribute('x', String(x));
+  rect.setAttribute('y', String(top));
+  rect.setAttribute('width', String(w));
+  rect.setAttribute('height', String(bot - top));
+  rect.setAttribute('fill', 'rgba(184, 150, 10, 0.13)');
+  rect.setAttribute('stroke', 'none');         // 테두리 없음 — 면만
+  svgEl.insertBefore(rect, svgEl.firstChild);
+}
+
 /* 대체(리하모니제이션) 코드 슬롯 수 — 마디 위 괄호 안에 뜨는 입력 칸 개수. */
 const ALT_SLOTS = 4;
 /** Soft cap on bars per line. The actual line break is driven by each measure's
@@ -776,6 +790,18 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       }
 
       if (measure.notes.length === 0 && bassM.notes.length === 0) {
+        /* 빈 마디도 선택 표시가 보여야 한다. 예전엔 여기서 곧장 continue 해
+         * 아래 하이라이트 코드에 닿지 않아, 클릭은 되는데 화면은 그대로였다
+         * (양손 악보에서 아래 보표부터 채우려 할 때 특히 티가 났다). */
+        if (m === activeIdx) {
+          const onBass = grand && activeStaff === 'bass';
+          const top = onBass
+            ? stave.getYForLine(0) + GRAND_BASS_DY - 10
+            : chordRowTopY(y, { volta: !!mData.volta, bracket: !!mData.bracket }, Infinity)
+              - (mData.altChords ? 17 : 0) - 4;
+          const bot = stave.getYForLine(4) + (onBass ? GRAND_BASS_DY : 0);
+          paintMeasureHighlight(el, x, w, top, bot);
+        }
         x += w;
         continue;
       }
@@ -933,14 +959,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
                 bottomNoteGlyphY(mNotes, (line) => stave.getYForLine(line)),
                 staffBot,
               );
-          const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-          rect.setAttribute('x', String(x));
-          rect.setAttribute('y', String(HL_TOP));
-          rect.setAttribute('width', String(w));
-          rect.setAttribute('height', String(HL_BOT - HL_TOP));
-          rect.setAttribute('fill', 'rgba(184, 150, 10, 0.13)');
-          rect.setAttribute('stroke', 'none');         // 테두리 없음 — 면만
-          svgEl.insertBefore(rect, svgEl.firstChild);
+          paintMeasureHighlight(el, x, w, HL_TOP, HL_BOT);
         }
       }
 
@@ -1472,7 +1491,7 @@ const SegBtn = styled.button<{ $on?: boolean }>`
   font-family: 'Pretendard', sans-serif;
   font-size: 0.84rem;
   font-weight: ${({ $on }) => ($on ? 700 : 600)};
-  padding: 5px 12px;
+  padding: 3px 12px;
   border-radius: 7px;
   white-space: nowrap;
   cursor: pointer;
@@ -5092,9 +5111,9 @@ export default function EditorPage() {
         /* 정보 탭 — 제목·작곡가·악보 메타데이터·장르/조성·믹서/재생을 한곳에 모았다. */
         <InfoTabPanel>
             {/* 1 — Type. 라벨은 테두리에 겹치는 legend 처럼. */}
-            <InfoBox style={{ alignItems: 'stretch', gap: 6 }}>
+            <InfoBox style={{ alignItems: 'stretch', gap: 4, padding: '6px 10px', overflow: 'hidden' }}>
               <BoxLegend>Type</BoxLegend>
-              <SegGroup $vertical $n={3} $i={['solo', 'lick', 'comping'].indexOf(mode)} style={{ width: '100%' }}>
+              <SegGroup $vertical $n={3} $i={['solo', 'lick', 'comping'].indexOf(mode)} style={{ width: '100%', flex: 1, minHeight: 0 }}>
                 <SegThumb $vertical $n={3} $i={['solo', 'lick', 'comping'].indexOf(mode)} />
                 {(['solo', 'lick', 'comping'] as const).map((m) => (
                   <SegBtn key={m} type="button" $on={mode === m} disabled={editingLickId !== null} onClick={() => setMode(m)}>{MODE_LABEL[m]}</SegBtn>
@@ -5490,7 +5509,8 @@ export default function EditorPage() {
 
         {/* 세 번째 섹션 — 악보 상태(위) + undo/redo(아래). 중요 영역이라 골드 테두리. */}
         <GoldGroup $mode={editMode === 'note' ? 'note' : 'none'} style={{ position: 'relative' }}>
-          {/* 선택 해제 — 글자 없이 × 만, 섹션 우측 상단. */}
+          {/* 선택이 없으면(none) 이 섹션은 비운다 — 아래 내용 전체가 감춰진다. */}
+          {editMode !== 'none' && (<>
           {selectedNote && (
             <DeselectBtn type="button" title="선택 해제 (Esc)" aria-label="선택 해제" onClick={() => setSelectedNote(null)}>×</DeselectBtn>
           )}
@@ -5971,6 +5991,7 @@ export default function EditorPage() {
             >🗑 삭제</NoteEditBtn>
           </NoteEditBar>
         )}
+          </>)}
         </GoldGroup>
 
 
