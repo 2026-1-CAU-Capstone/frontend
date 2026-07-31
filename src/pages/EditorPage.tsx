@@ -1641,6 +1641,27 @@ const GenreFill = styled.div`
   button { width: 100%; justify-content: center; height: 28px; font-size: 0.9rem; }
 `;
 
+/* 음표 선택 해제 — 3번 섹션 우측 상단의 작은 × 버튼. */
+const DeselectBtn = styled.button`
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  z-index: 2;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+  &:hover { background: rgba(0, 0, 0, 0.07); color: ${({ theme }) => theme.colors.textPrimary}; }
+`;
+
 /* 상자 안 좌측 상단에 놓는 제목 — 테두리와 겹치지 않는다. */
 const BoxLegend = styled.span`
   align-self: flex-start;
@@ -5468,7 +5489,11 @@ export default function EditorPage() {
         </ModGroup>
 
         {/* 세 번째 섹션 — 악보 상태(위) + undo/redo(아래). 중요 영역이라 골드 테두리. */}
-        <GoldGroup $mode={editMode === 'note' ? 'note' : 'none'}>
+        <GoldGroup $mode={editMode === 'note' ? 'note' : 'none'} style={{ position: 'relative' }}>
+          {/* 선택 해제 — 글자 없이 × 만, 섹션 우측 상단. */}
+          {selectedNote && (
+            <DeselectBtn type="button" title="선택 해제 (Esc)" aria-label="선택 해제" onClick={() => setSelectedNote(null)}>×</DeselectBtn>
+          )}
           {/* 좌측 상단 = 지금 무엇이 활성인지. 그 뒤에 '현재/전체 마디'와 '현재 박'만. */}
           <StatusChip>
             <ModeTag $mode={editMode}>
@@ -5879,7 +5904,6 @@ export default function EditorPage() {
                     style={{ fontSize: '0.72rem', color: '#c0392b' }}
                   >🗑 Bar</NoteEditBtn>
                 </>)}
-                <NoteEditBtn onClick={() => setSelectedNote(null)}>× Deselect</NoteEditBtn>
               </EditWrap>
           </SectionedEditBar>
           );
@@ -5945,7 +5969,6 @@ export default function EditorPage() {
               onClick={() => deleteNote(selectedNote.mi, selectedNote.ni, 'bass')}
               style={{ color: '#c0392b' }}
             >🗑 삭제</NoteEditBtn>
-            <NoteEditBtn onClick={() => setSelectedNote(null)}>× Deselect</NoteEditBtn>
           </NoteEditBar>
         )}
         </GoldGroup>
