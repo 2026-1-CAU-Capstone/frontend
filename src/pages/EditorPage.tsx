@@ -1399,7 +1399,7 @@ const MetaInput = styled.input`
 
 const MetaLabel = styled.span`
   font-family: 'Pretendard', sans-serif;
-  font-size: 0.9rem;
+  font-size: 0.98rem;
   font-weight: 700;
   letter-spacing: 0.01em;
   color: ${({ theme }) => theme.colors.textSecondary};
@@ -1618,7 +1618,7 @@ const MetaField = styled.div<{ $tight?: boolean }>`
   align-items: center;
   gap: 8px;
   /* $tight — 라벨 폭을 줄여 입력을 왼쪽으로 당긴다(Genre·Key 처럼 짧은 항목). */
-  > span:first-child { min-width: ${({ $tight }) => ($tight ? '42px' : '78px')}; }
+  > span:first-child { min-width: ${({ $tight }) => ($tight ? '48px' : '84px')}; }
   input {
     width: 186px;
     font-size: 0.86rem;
@@ -4919,46 +4919,6 @@ export default function EditorPage() {
         >
           <GearIcon />
         </ToolBtn>
-        <Sep />
-        {/* 구분선 뒤 4개 = 지우기 · 복사 · 불러오기 · 저장. 아이콘만 남으므로
-          * 각 동작 설명은 title/aria-label 로 전달한다. */}
-        <ToolBtn
-          type="button"
-          onClick={handleClear}
-          disabled={totalNotes === 0}
-          title="악보 전체 지우기 — 확인 후 삭제, Undo(Backspace)로 복구 가능"
-          aria-label="악보 전체 지우기"
-        >
-          <TrashIcon />
-        </ToolBtn>
-        <ToolBtn
-          type="button"
-          onClick={handleCopy}
-          disabled={totalNotes === 0}
-          title={copied ? 'JSON 복사됨' : 'JSON 복사'}
-          aria-label={copied ? 'JSON 복사됨' : 'JSON 복사'}
-        >
-          {copied ? <CheckIcon /> : <CopyIcon />}
-        </ToolBtn>
-        <ToolBtn
-          type="button"
-          onClick={() => { setShowLoadModal(true); setLoadJsonText(''); setLoadJsonError(''); }}
-          title="JSON 불러오기"
-          aria-label="JSON 불러오기"
-        >
-          <ImportIcon />
-        </ToolBtn>
-        <SaveIconBtn
-          type="button"
-          onClick={handleSave}
-          disabled={totalNotes === 0 || saving}
-          $busy={saving}
-          $error={!saving && !!saveError}
-          title={saveLabel}
-          aria-label={saveLabel}
-        >
-          {saving ? <SaveSpinnerIcon /> : <SaveIcon />}
-        </SaveIconBtn>
       </Header>
 
 
@@ -5005,22 +4965,55 @@ export default function EditorPage() {
           />
         </TabPlayer>
         <TabSpacer />
+        {/* 구분선 기준 3개 묶음 —
+          *   1) 편집 되돌리기   2) 출력   3) 악보 파일 동작(상단바에서 내려온 4개) */}
         <TabIcons>
           <TabIconBtn type="button" title="되돌리기" onClick={handleUndo}>{TIco.undo}</TabIconBtn>
           <TabIconBtn type="button" title="다시하기" onClick={handleRedo}>{TIco.redo}</TabIconBtn>
+
           <TabDivider />
-          {/* 아래부터는 디자인용 — 동작은 아직 연결하지 않았다. */}
-          <TabIconBtn type="button" title="추가 (준비 중)">{TIco.add}</TabIconBtn>
-          <TabIconBtn type="button" title="잘라내기 (준비 중)">{TIco.cut}</TabIconBtn>
-          <TabIconBtn type="button" title="선택 (준비 중)">{TIco.check}</TabIconBtn>
-          <TabDivider />
-          <TabIconBtn type="button" title="내려받기 (준비 중)">{TIco.down}</TabIconBtn>
+          {/* 아직 동작 미연결 — 디자인만. */}
           <TabIconBtn type="button" title="인쇄 (준비 중)">{TIco.print}</TabIconBtn>
-          <TabIconBtn type="button" title="레이아웃 (준비 중)">{TIco.layout}</TabIconBtn>
+          <TabIconBtn type="button" title="내려받기 (준비 중)">{TIco.down}</TabIconBtn>
+
           <TabDivider />
-          <TabIconBtn type="button" title="확대 (준비 중)">{TIco.zin}</TabIconBtn>
-          <TabIconBtn type="button" title="축소 (준비 중)">{TIco.zout}</TabIconBtn>
-          <TabIconBtn type="button" title="정지 (준비 중)">{TIco.pause}</TabIconBtn>
+          <TabIconBtn
+            type="button"
+            onClick={handleClear}
+            disabled={totalNotes === 0}
+            title="악보 전체 지우기 — 확인 후 삭제, Undo(Backspace)로 복구 가능"
+            aria-label="악보 전체 지우기"
+          >
+            <TrashIcon />
+          </TabIconBtn>
+          <TabIconBtn
+            type="button"
+            onClick={handleCopy}
+            disabled={totalNotes === 0}
+            title={copied ? 'JSON 복사됨' : 'JSON 복사'}
+            aria-label={copied ? 'JSON 복사됨' : 'JSON 복사'}
+          >
+            {copied ? <CheckIcon /> : <CopyIcon />}
+          </TabIconBtn>
+          <TabIconBtn
+            type="button"
+            onClick={() => { setShowLoadModal(true); setLoadJsonText(''); setLoadJsonError(''); }}
+            title="JSON 불러오기"
+            aria-label="JSON 불러오기"
+          >
+            <ImportIcon />
+          </TabIconBtn>
+          <SaveTabBtn
+            type="button"
+            onClick={handleSave}
+            disabled={totalNotes === 0 || saving}
+            $busy={saving}
+            $error={!saving && !!saveError}
+            title={saveLabel}
+            aria-label={saveLabel}
+          >
+            {saving ? <SaveSpinnerIcon /> : <SaveIcon />}
+          </SaveTabBtn>
         </TabIcons>
       </TabBar>
 
@@ -5048,7 +5041,7 @@ export default function EditorPage() {
 
               {/* 1-2-1 Genre · 1-2-2 Key — 각각 상자로 나누고 Genre 를 더 넓게. */}
               <InfoLine>
-                <InfoBox $grow>
+                <InfoBox $grow style={{ minWidth: 224 }}>
                   <MetaField $tight><MetaLabel>Genre</MetaLabel><GenreSelect value={genre} onChange={setGenre} /></MetaField>
                 </InfoBox>
                 <InfoBox>
