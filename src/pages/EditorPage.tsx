@@ -1614,8 +1614,8 @@ const MetaField = styled.div<{ $tight?: boolean }>`
   > span:first-child { min-width: ${({ $tight }) => ($tight ? '48px' : '84px')}; }
   input {
     width: 186px;
-    font-size: 0.86rem;
-    padding: 4px 9px;
+    font-size: 0.84rem;
+    padding: 2px 9px;
   }
 `;
 
@@ -1666,7 +1666,8 @@ const InfoCols = styled.div`
 const InfoCol = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 5px;            /* 바 높이가 고정이라 행 간격을 좁게 */
+  justify-content: center;
+  gap: 4px;            /* 바 높이가 고정이라 행 간격을 좁게 */
 `;
 
 /* 마디 탭 — 마디 편집 도구를 한 줄로. (드롭다운과 같은 버튼 톤) */
@@ -5092,13 +5093,14 @@ export default function EditorPage() {
             {/* 2 — 텍스트 메타데이터 (두 열) */}
             <InfoBox>
               <InfoCols>
+                {/* Title~Player 를 한 열에 4줄로. 바 높이(146px)에 맞춰 입력을 얇게 잡았다. */}
                 <InfoCol>
                   <MetaField><MetaLabel>Title</MetaLabel><MetaInput value={sheetTitle} onChange={(e) => setSheetTitle(e.target.value)} placeholder="e.g. Autumn Leaves" /></MetaField>
                   <MetaField><MetaLabel>Album</MetaLabel><MetaInput value={album} onChange={(e) => setAlbum(e.target.value)} placeholder="e.g. Bird & Diz" /></MetaField>
-                </InfoCol>
-                <InfoCol>
                   <MetaField><MetaLabel>Composer</MetaLabel><MetaInput value={composer} onChange={(e) => setComposer(e.target.value)} placeholder="e.g. Joseph Kosma" /></MetaField>
                   <MetaField><MetaLabel>Player</MetaLabel><MetaInput value={performer} onChange={(e) => setPerformer(e.target.value)} placeholder="e.g. Charlie Parker" /></MetaField>
+                </InfoCol>
+                <InfoCol>
                   <MetaField>
                     <MetaLabel>Instrument</MetaLabel>
                     <SessionPicker value={metaInstrument} onChange={setMetaInstrument} allowCustom />
