@@ -1399,7 +1399,7 @@ const MetaInput = styled.input`
 
 const MetaLabel = styled.span`
   font-family: 'Pretendard', sans-serif;
-  font-size: 0.98rem;
+  font-size: 0.88rem;
   font-weight: 700;
   letter-spacing: 0.01em;
   color: ${({ theme }) => theme.colors.textSecondary};
@@ -1611,7 +1611,7 @@ const MetaField = styled.div<{ $tight?: boolean }>`
   align-items: center;
   gap: 8px;
   /* $tight — 라벨 폭을 줄여 입력을 왼쪽으로 당긴다(Genre·Key 처럼 짧은 항목). */
-  > span:first-child { min-width: ${({ $tight }) => ($tight ? '48px' : '84px')}; }
+  > span:first-child { min-width: ${({ $tight }) => ($tight ? '44px' : '76px')}; }
   input {
     width: 186px;
     font-size: 0.84rem;
