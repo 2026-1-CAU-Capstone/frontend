@@ -1485,7 +1485,7 @@ const TOOL_TABS = [
   { id: 'artic', label: '아티큘레이션' },
   { id: 'dyn', label: '다이내믹스' },
   { id: 'measure', label: '마디' },
-  { id: 'score', label: '정본' },
+  { id: 'info', label: '정보' },
 ] as const;
 
 /* ── 상단 탭 바 ─────────────────────────────────────────────────────────
@@ -1496,7 +1496,8 @@ const TabBar = styled.div`
   gap: 18px;
   padding: 0 14px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  background: ${({ theme }) => theme.colors.bgPrimary};
+  /* 아래 섹션 툴바(ToolBar)와 같은 배경 — 탭 줄만 흰색이면 띠처럼 떠 보인다. */
+  background: ${({ theme }) => theme.colors.bgSecondary};
 `;
 
 const TabList = styled.div`
@@ -1549,6 +1550,55 @@ const TabDivider = styled.span`
   margin: 0 2px;
 `;
 
+/* 정보 탭 — 여러 줄로 나눠 담는 패널. */
+const InfoTabPanel = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  background: ${({ theme }) => theme.colors.bgSecondary};
+`;
+
+const InfoRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+`;
+
+/* 마디 탭 — 마디 편집 도구를 한 줄로. (드롭다운과 같은 버튼 톤) */
+const MeasureTabBar = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  background: ${({ theme }) => theme.colors.bgSecondary};
+  font-family: 'Pretendard', sans-serif;
+
+  .mlabel {
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: #8a7a2b;
+    margin-right: 4px;
+    white-space: nowrap;
+  }
+  button {
+    font-family: 'Pretendard', sans-serif;
+    font-size: 0.84rem;
+    font-weight: 600;
+    padding: 7px 12px;
+    border: 1px solid ${({ theme }) => theme.colors.border};
+    border-radius: 7px;
+    background: #fff;
+    color: ${({ theme }) => theme.colors.textPrimary};
+    cursor: pointer;
+    white-space: nowrap;
+    &:hover { background: ${({ theme }) => theme.colors.bgSecondary}; }
+  }
+`;
+
 /* 탭 내용이 아직 없는 탭 — 자리만 알린다. */
 const TabPlaceholder = styled.div`
   display: flex;
@@ -1585,7 +1635,7 @@ const Section = styled.div`
   padding: 5px;
   border: 2px solid rgba(0, 0, 0, 0.13);
   border-radius: 12px;
-  background: transparent;   /* 겉(툴바)과 같은 배경 */
+  background: #fff;          /* 섹션 배경은 흰색으로 통일 */
 `;
 
 const DurGroup = styled(Section)``;
@@ -1599,7 +1649,7 @@ const ModGroup = styled(Section)``;
 const MODE_INK = {
   note:    { line: '#e08a8a', fill: 'rgba(214, 88, 88, 0.10)' },
   measure: { line: '#D4A843', fill: 'rgba(184, 150, 10, 0.12)' },
-  none:    { line: 'rgba(0, 0, 0, 0.13)', fill: 'transparent' },
+  none:    { line: 'rgba(0, 0, 0, 0.13)', fill: '#fff' },
 } as const;
 
 const GoldGroup = styled(Section)<{ $mode: 'none' | 'measure' | 'note' }>`
@@ -1849,25 +1899,6 @@ const TransportBar = styled.div`
   padding: 5px 10px;
   flex-shrink: 0;
   min-width: 0;
-`;
-const BarLeft = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  max-width: calc(50% - 120px);
-`;
-/* 믹서~재생 묶음을 바의 '정확한 정중앙'에 고정(절대배치). 좌·우 그룹은 각각
- * 절반 폭을 넘지 못하게 잘라 중앙 묶음 위로 겹치지 않는다(코드차트와 동일 접근). */
-const BarCenter = styled.div`
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
 `;
 const BarRight = styled.div`
   display: flex;
@@ -2376,7 +2407,8 @@ const IconLabel = styled.span`
 
 
 const PianoArea = styled.div`
-  padding: 14px 0 12px;
+  /* 위 여백 0 — 섹션 툴바의 아래 경계선에 건반이 바로 붙는다. */
+  padding: 0 0 12px;
   overflow-x: auto;
   display: flex;
   justify-content: center;
@@ -3011,7 +3043,7 @@ export default function EditorPage() {
    * 마우스가 올라왔을 때만 보인다. */
   const [measureHover, setMeasureHover] = useState(false);
   /* 상단 탭 — 지금은 '음표' 탭만 내용이 있고, 나머지는 자리만 잡아 둔다. */
-  const [toolTab, setToolTab] = useState<'note' | 'artic' | 'dyn' | 'measure' | 'score'>('note');
+  const [toolTab, setToolTab] = useState<'note' | 'artic' | 'dyn' | 'measure' | 'info'>('note');
 
   /* 상단 3번 섹션(골드)의 상태 — 세 가지뿐이다.
    *   none    : 아무것도 선택 안 됨. 1·2번 섹션으로 찍으면 새 마디에 입력된다.
@@ -3019,6 +3051,9 @@ export default function EditorPage() {
    *   note    : 실제 음표를 눌러 빨갛게 활성화한 상태 — 음표 편집 도구가 뜬다. */
   const editMode: 'none' | 'measure' | 'note' =
     selectedNote ? 'note' : (selectedMeasure != null || selectedBassMeasure != null) ? 'measure' : 'none';
+  /* 마디 탭이 열리는 조건 — 음표가 활성이면 그 음표의 마디도 활성으로 본다. */
+  const activeMeasureIdx: number | null = selectedNote ? selectedNote.mi
+    : selectedMeasure != null ? selectedMeasure : null;
   const [noteChordEditing, setNoteChordEditing] = useState(false);
   const [noteChordValue, setNoteChordValue] = useState('');
   const noteChordInputRef = useRef<HTMLInputElement>(null);
@@ -3250,7 +3285,13 @@ export default function EditorPage() {
   const currentIdx = curNotes.length > 0 || curChord ? measures.length : -1;
   /* 활성(하이라이트) 마디: 사용자가 특정 마디를 선택했으면 그 마디만, 아니면
    * 입력 중인 마지막 마디(currentIdx). → 선택 시 그 바만 활성으로 보이게. */
-  const activeIdx = selectedMeasure != null && selectedMeasure < allMeasures.length ? selectedMeasure : currentIdx;
+  /* 노란 하이라이트 = '마디 활성' 표시.
+   *   선택 없음  → 아무 마디도 칠하지 않는다(-1).
+   *   음표 활성  → 그 음표가 속한 마디도 함께 활성.
+   *   마디 활성  → 그 마디. */
+  const activeIdx = selectedNote
+    ? selectedNote.mi
+    : (selectedMeasure != null && selectedMeasure < allMeasures.length ? selectedMeasure : -1);
 
   /* 렌더/저장/재생용 베이스 파트 — 트레블(allMeasures) 길이에 맞춰 패딩. */
   const bassAll = useMemo<MeasureInfo[] | null>(() => {
@@ -3274,7 +3315,11 @@ export default function EditorPage() {
     const beats = notes.reduce((s, n) => s + noteMetricBeats(n), 0);
     if (notes.length > 0 && beats >= 4 - 0.001) {
       const chord = joinChords(curChord1Ref.current, curChord2Ref.current);
-      setMeasures((prev) => [...prev, { notes, chord: chord || undefined }]);
+      setMeasures((prev) => {
+        // 새로 닫힌 마디를 활성 상태로 — '선택 없음'에서 입력을 시작하면 그 마디가 켜진다.
+        setSelectedMeasure(prev.length);
+        return [...prev, { notes, chord: chord || undefined }];
+      });
       setCurNotes([]);
       // 마디가 닫히면 지속 연음 그룹도 확정 — 다음 마디는 새 묶음으로 센다
       // (연음 그룹이 마디선을 넘어가면 렌더러가 묶지 못한다).
@@ -4732,6 +4777,24 @@ export default function EditorPage() {
         {/* Genre·Key 는 하단 트랜스포트 바로, 조표무시·옥타브 이동은 우측 설정(⚙) 모달로,
             MIDI 는 우측 MIDI 아이콘 모달로 이동했다(코드차트 상단바와 동일 배치). */}
         <Spacer />
+        {/* MIDI(왼쪽) → 설정(오른쪽). 트랜스포트 바 우측에 있던 것을 최상단 바로 옮겼다. */}
+        <ToolBtn
+          type="button"
+          title="MIDI 외부 기기(피아노 등) 입력 설정"
+          $lit={midi.enabled && !!midi.settings.inputId}
+          onClick={() => { if (!midi.enabled) midi.requestAccess(); setShowMidiPanel(true); }}
+        >
+          <MidiIcon />
+        </ToolBtn>
+        <ToolBtn
+          type="button"
+          title="에디터 설정 — 조표 무시 등"
+          $lit={explicitAcc}
+          onClick={() => openPerformanceSettings('editor')}
+        >
+          <GearIcon />
+        </ToolBtn>
+        <Sep />
         <JsonBtn
           $bg="#c62828"
           $hover="#ad1f1f"
@@ -4759,7 +4822,92 @@ export default function EditorPage() {
       {/* 상단 트랜스포트 바 — 코드차트와 동일한 믹서/재생 컨트롤. 믹서 버튼은
           클릭 시 팝오버(좁은 화면은 모달)로 트랙들을 띄운다. */}
       <TransportBar>
-        <BarLeft>
+        <BarRight>
+          {/* 되돌리기/다시하기 — 재생 컨트롤 바로 오른쪽. */}
+          <UndoRedoRow>
+            <IconBtn type="button" onClick={handleUndo} aria-label="Undo">
+              <img src={`${import.meta.env.BASE_URL}icons/undo.svg`} alt="" draggable={false} />
+              <IconLabel>undo</IconLabel>
+            </IconBtn>
+            <IconBtn type="button" onClick={handleRedo} aria-label="Redo">
+              <img src={`${import.meta.env.BASE_URL}icons/redo.svg`} alt="" draggable={false} />
+              <IconLabel>redo</IconLabel>
+            </IconBtn>
+          </UndoRedoRow>
+        </BarRight>
+      </TransportBar>
+
+      {/* 상단 탭 — 섹션 위에 얹는 줄. 섹션 내부는 그대로 두고 이 줄만 추가했다. */}
+      <TabBar>
+        <TabList>
+          {TOOL_TABS.map((t) => (
+            <TabItem key={t.id} type="button" $on={toolTab === t.id} onClick={() => setToolTab(t.id)}>
+              {t.label}
+            </TabItem>
+          ))}
+        </TabList>
+        <TabSpacer />
+        <TabIcons>
+          <TabIconBtn type="button" title="되돌리기" onClick={handleUndo}>{TIco.undo}</TabIconBtn>
+          <TabIconBtn type="button" title="다시하기" onClick={handleRedo}>{TIco.redo}</TabIconBtn>
+          <TabDivider />
+          {/* 아래부터는 디자인용 — 동작은 아직 연결하지 않았다. */}
+          <TabIconBtn type="button" title="추가 (준비 중)">{TIco.add}</TabIconBtn>
+          <TabIconBtn type="button" title="잘라내기 (준비 중)">{TIco.cut}</TabIconBtn>
+          <TabIconBtn type="button" title="선택 (준비 중)">{TIco.check}</TabIconBtn>
+          <TabDivider />
+          <TabIconBtn type="button" title="내려받기 (준비 중)">{TIco.down}</TabIconBtn>
+          <TabIconBtn type="button" title="인쇄 (준비 중)">{TIco.print}</TabIconBtn>
+          <TabIconBtn type="button" title="레이아웃 (준비 중)">{TIco.layout}</TabIconBtn>
+          <TabDivider />
+          <TabIconBtn type="button" title="확대 (준비 중)">{TIco.zin}</TabIconBtn>
+          <TabIconBtn type="button" title="축소 (준비 중)">{TIco.zout}</TabIconBtn>
+          <TabIconBtn type="button" title="정지 (준비 중)">{TIco.pause}</TabIconBtn>
+        </TabIcons>
+      </TabBar>
+
+      {toolTab === 'info' ? (
+        /* 정보 탭 — 제목·작곡가·악보 메타데이터·장르/조성·믹서/재생을 한곳에 모았다. */
+        <InfoTabPanel>
+          <InfoRow>
+            <MetaLabel>Title</MetaLabel>
+            <MetaInput value={sheetTitle} onChange={(e) => setSheetTitle(e.target.value)} placeholder={mode === 'solo' ? 'e.g. Autumn Leaves' : 'e.g. ii-V Lick #3'} style={{ width: 280 }} />
+            <MetaLabel>{mode === 'solo' ? 'Composer' : 'Performer'}</MetaLabel>
+            <MetaInput value={composer} onChange={(e) => setComposer(e.target.value)} placeholder={mode === 'solo' ? 'e.g. Joseph Kosma' : 'e.g. Charlie Parker'} style={{ width: 190 }} />
+          </InfoRow>
+
+          <InfoRow>
+            <MetaLabel>Mode</MetaLabel>
+            <SegGroup>
+              {(['solo', 'lick', 'comping'] as const).map((m) => (
+                <SegBtn key={m} type="button" $on={mode === m} disabled={editingLickId !== null} onClick={() => setMode(m)}>{MODE_LABEL[m]}</SegBtn>
+              ))}
+            </SegGroup>
+            <MetaLabel>보표</MetaLabel>
+            <SegGroup>
+              {(['single', 'grand'] as const).map((v) => (
+                <SegBtn
+                  key={v}
+                  type="button"
+                  $on={staffMode === v}
+                  disabled={staffModeLocked}
+                  onClick={() => {
+                    setStaffMode(v);
+                    if (v === 'single') { setSelectedBassMeasure(null); setSelectedNote((sel) => (sel?.staff === 'bass' ? null : sel)); }
+                  }}
+                >{v === 'single' ? '한손 악보' : '양손 악보'}</SegBtn>
+              ))}
+            </SegGroup>
+            {staffModeLocked && <LockedHint title="불러온 악보의 보표 수로 자동 확정">🔒 자동</LockedHint>}
+            <MetaLabel>악보 종류</MetaLabel>
+            <SegGroup>
+              {(['piano', 'guitar', 'drums'] as const).map((v) => (
+                <SegBtn key={v} type="button" $on={instrument === v} onClick={() => setInstrument(v)}>{INSTRUMENT_LABEL[v]}</SegBtn>
+              ))}
+            </SegGroup>
+          </InfoRow>
+
+          <InfoRow>
           <GenreSelect value={genre} onChange={setGenre} />
           {/* 조성 칩 자체가 Transpose 버튼 — hover 하면 조성이 흐려지고
               그 자리에 이조 아이콘이 뜬다. 클릭하면 드롭다운. */}
@@ -4793,9 +4941,9 @@ export default function EditorPage() {
               />
             )}
           </KeyAnchor>
+          </InfoRow>
 
-        </BarLeft>
-        <BarCenter>
+          <InfoRow>
           <MixerButton />
           <BpmControl
             tempo={bpm}
@@ -4811,69 +4959,38 @@ export default function EditorPage() {
                죽어 오디오를 멈출 수 없게 되는 것을 방지. */
             disabled={totalNotes === 0 && !playing}
           />
-        </BarCenter>
-        <BarRight>
-          {/* 되돌리기/다시하기 — 재생 컨트롤 바로 오른쪽. */}
-          <UndoRedoRow>
-            <IconBtn type="button" onClick={handleUndo} aria-label="Undo">
-              <img src={`${import.meta.env.BASE_URL}icons/undo.svg`} alt="" draggable={false} />
-              <IconLabel>undo</IconLabel>
-            </IconBtn>
-            <IconBtn type="button" onClick={handleRedo} aria-label="Redo">
-              <img src={`${import.meta.env.BASE_URL}icons/redo.svg`} alt="" draggable={false} />
-              <IconLabel>redo</IconLabel>
-            </IconBtn>
-          </UndoRedoRow>
-          {/* MIDI(왼쪽) → 설정(오른쪽). 코드차트 우측 아이콘과 동일한 ToolBtn 규격. */}
-          <ToolBtn
-            type="button"
-            title="MIDI 외부 기기(피아노 등) 입력 설정"
-            $lit={midi.enabled && !!midi.settings.inputId}
-            onClick={() => { if (!midi.enabled) midi.requestAccess(); setShowMidiPanel(true); }}
-          >
-            <MidiIcon />
-          </ToolBtn>
-          <ToolBtn
-            type="button"
-            title="에디터 설정 — 조표 무시 등"
-            $lit={explicitAcc}
-            onClick={() => openPerformanceSettings('editor')}
-          >
-            <GearIcon />
-          </ToolBtn>
-        </BarRight>
-      </TransportBar>
-
-      {/* 상단 탭 — 섹션 위에 얹는 줄. 섹션 내부는 그대로 두고 이 줄만 추가했다. */}
-      <TabBar>
-        <TabList>
-          {TOOL_TABS.map((t) => (
-            <TabItem key={t.id} type="button" $on={toolTab === t.id} onClick={() => setToolTab(t.id)}>
-              {t.label}
-            </TabItem>
-          ))}
-        </TabList>
-        <TabSpacer />
-        <TabIcons>
-          <TabIconBtn type="button" title="되돌리기" onClick={handleUndo}>{TIco.undo}</TabIconBtn>
-          <TabIconBtn type="button" title="다시하기" onClick={handleRedo}>{TIco.redo}</TabIconBtn>
-          <TabDivider />
-          {/* 아래부터는 디자인용 — 동작은 아직 연결하지 않았다. */}
-          <TabIconBtn type="button" title="추가 (준비 중)">{TIco.add}</TabIconBtn>
-          <TabIconBtn type="button" title="잘라내기 (준비 중)">{TIco.cut}</TabIconBtn>
-          <TabIconBtn type="button" title="선택 (준비 중)">{TIco.check}</TabIconBtn>
-          <TabDivider />
-          <TabIconBtn type="button" title="내려받기 (준비 중)">{TIco.down}</TabIconBtn>
-          <TabIconBtn type="button" title="인쇄 (준비 중)">{TIco.print}</TabIconBtn>
-          <TabIconBtn type="button" title="레이아웃 (준비 중)">{TIco.layout}</TabIconBtn>
-          <TabDivider />
-          <TabIconBtn type="button" title="확대 (준비 중)">{TIco.zin}</TabIconBtn>
-          <TabIconBtn type="button" title="축소 (준비 중)">{TIco.zout}</TabIconBtn>
-          <TabIconBtn type="button" title="정지 (준비 중)">{TIco.pause}</TabIconBtn>
-        </TabIcons>
-      </TabBar>
-
-      {toolTab !== 'note' ? (
+          </InfoRow>
+        </InfoTabPanel>
+      ) : toolTab === 'measure' ? (
+        /* 마디 탭 — 마디가 활성일 때만 열린다(음표가 활성이면 그 음표의 마디). */
+        activeMeasureIdx == null ? (
+          <TabPlaceholder>마디를 선택하면 여기에서 편집할 수 있어요.</TabPlaceholder>
+        ) : (
+          <MeasureTabBar>
+            <span className="mlabel">마디 {activeMeasureIdx + 1} · 🎹 입력은 이 마디로</span>
+            <button type="button" onClick={() => { insertMeasureBefore(activeMeasureIdx); setSelectedMeasure(activeMeasureIdx + 1); }}>◀ 앞에 삽입</button>
+            <button type="button" onClick={() => insertMeasureAfter(activeMeasureIdx)}>뒤에 삽입 ▶</button>
+            <button
+              type="button"
+              onClick={() => {
+                const cnt = measures[activeMeasureIdx]?.notes.length ?? 0;
+                if (cnt > 0 && !window.confirm(`마디 ${activeMeasureIdx + 1}(음표 ${cnt}개)를 비울까요?`)) return;
+                pushEditUndo();
+                setMeasures((prev) => prev.map((m, i) => (i === activeMeasureIdx ? { ...m, notes: [] } : m)));
+              }}
+            >🧹 비우기</button>
+            <button
+              type="button"
+              onClick={() => {
+                const cnt = measures[activeMeasureIdx]?.notes.length ?? 0;
+                if (cnt > 0 && !window.confirm(`마디 ${activeMeasureIdx + 1}(음표 ${cnt}개)를 삭제할까요?`)) return;
+                deleteMeasure(activeMeasureIdx);
+              }}
+            >🗑 삭제</button>
+            <button type="button" onClick={() => { setSelectedMeasure(null); setSelectedNote(null); }}>선택 해제</button>
+          </MeasureTabBar>
+        )
+      ) : toolTab !== 'note' ? (
         <TabPlaceholder>
           {TOOL_TABS.find((t) => t.id === toolTab)?.label} 탭 — 준비 중입니다.
         </TabPlaceholder>
@@ -5142,7 +5259,7 @@ export default function EditorPage() {
         </ModGroup>
 
         {/* 세 번째 섹션 — 악보 상태(위) + undo/redo(아래). 중요 영역이라 골드 테두리. */}
-        <GoldGroup $mode={editMode}>
+        <GoldGroup $mode={editMode === 'note' ? 'note' : 'none'}>
           {/* 좌측 상단 = 지금 무엇이 활성인지. 그 뒤에 '현재/전체 마디'와 '현재 박'만. */}
           <StatusChip>
             <ModeTag $mode={editMode}>
