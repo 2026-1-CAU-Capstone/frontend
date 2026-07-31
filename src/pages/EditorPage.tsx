@@ -5672,6 +5672,7 @@ export default function EditorPage() {
                   if (curPitch !== nextPitch) return null;
                   return (
                     <NoteEditBtn
+                      style={{ order: -3 }}
                       $active={!!info.tie}
                       onClick={() => {
                         updateNote(sel.mi, sel.ni, (n) => ({ ...n, tie: !n.tie || undefined }));
