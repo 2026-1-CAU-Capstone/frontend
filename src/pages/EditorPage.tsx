@@ -1503,6 +1503,13 @@ const TOOL_TABS = [
   { id: 'info', label: '정보' },
 ] as const;
 
+/* 툴바 높이 — 음표 탭 기준으로 고정한다.
+ *   음표/쉼표 버튼 54 + 간격 4 + 54 = 112
+ *   + 섹션 padding 5*2, border 2*2 = 126
+ *   + 툴바 padding 10*2            = 146
+ * 어떤 탭을 열어도 이 높이가 유지돼야 아래 악보가 들썩이지 않는다. */
+const TOOLBAR_H = 146;
+
 /* ── 상단 탭 바 ─────────────────────────────────────────────────────────
  * 섹션들 위에 얹는 줄. 왼쪽은 탭, 오른쪽은 아이콘 묶음(undo/redo 만 실제 동작). */
 const TabBar = styled.div`
@@ -1588,6 +1595,9 @@ const InfoTabPanel = styled.div`
   gap: 8px;                 /* 툴바 섹션 간격과 동일 */
   padding: 10px 18px 10px 8px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  height: ${TOOLBAR_H}px;
+  box-sizing: border-box;
+  overflow: hidden;
   background: ${({ theme }) => theme.colors.barBelow};
 `;
 
@@ -1628,6 +1638,9 @@ const MeasureTabBar = styled.div`
   gap: 8px;
   padding: 12px 16px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  height: ${TOOLBAR_H}px;
+  box-sizing: border-box;
+  overflow: hidden;
   background: ${({ theme }) => theme.colors.barBelow};
   font-family: 'Pretendard', sans-serif;
 
@@ -1658,11 +1671,13 @@ const TabPlaceholder = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 120px;
   font-family: 'Pretendard', sans-serif;
   font-size: 0.9rem;
   color: ${({ theme }) => theme.colors.textSecondary};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  height: ${TOOLBAR_H}px;
+  box-sizing: border-box;
+  overflow: hidden;
   background: ${({ theme }) => theme.colors.barBelow};
 `;
 
@@ -1674,6 +1689,8 @@ const ToolBar = styled.div`
   /* 왼쪽은 첫 섹션이 화면 끝에 가깝게 붙도록 여백을 줄인다. */
   padding: 10px 18px 10px 8px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  height: ${TOOLBAR_H}px;
+  box-sizing: border-box;
   background: ${({ theme }) => theme.colors.barBelow};
   flex-wrap: wrap;
 `;
