@@ -5618,14 +5618,6 @@ export default function EditorPage() {
             <StatusDot />
             <StatusItem $warn={curBeats > 4}><b>{curBeats}</b>/4 beats</StatusItem>
           </SectionStatus>
-          {/* 음표에 '더 붙이는' 도구는 + 드롭다운으로 모았다. */}
-          {selectedNote && (
-            <MoreBtn type="button" $on={noteMoreOpen} onClick={() => setNoteMoreOpen((v) => !v)}>
-              ＋ 꾸밈·기호 추가
-            </MoreBtn>
-          )}
-          {noteMoreOpen && (
-          <MorePop onClick={(e) => e.stopPropagation()}>
         {selectedNote && selectedNote.staff !== 'bass' && selNoteInfo && (() => {
           const isRest = selNoteInfo.duration.endsWith('r');
           return (
@@ -5763,6 +5755,10 @@ export default function EditorPage() {
                     });
                   }}
                 ><span style={{ fontFamily: 'serif' }}>♮</span></NoteEditBtn>
+                {/* 셈여림·아티큘레이션 등 '더 붙이는' 것들은 + 드롭다운으로. */}
+                <MoreBtn type="button" $on={noteMoreOpen} onClick={() => setNoteMoreOpen((v) => !v)}>＋</MoreBtn>
+                {noteMoreOpen && (
+                <MorePop onClick={(e) => e.stopPropagation()}>
                 {!isRest && (<>
                   <NoteEditBtn
                     $active={!!selNoteInfo.articulations?.includes('staccato')}
@@ -5889,6 +5885,8 @@ export default function EditorPage() {
                     <option value="fp">fp</option>
                   </select>
                 </>)}
+                </MorePop>
+                )}
                 {/* 아래부터는 부가(빔·코드·옥타브·마디·구조) — 같은 줄 흐름에 이어 붙인다. */}
                 {(() => {
                   if (selNoteInfo.duration.endsWith('r')) return null;
@@ -6094,8 +6092,6 @@ export default function EditorPage() {
             >🗑 삭제</NoteEditBtn>
           </NoteEditBar>
         )}
-          </MorePop>
-          )}
           </>)}
         </GoldGroup>
 
