@@ -1557,7 +1557,7 @@ const InfoTabPanel = styled.div`
   gap: 12px;
   padding: 14px 16px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  background: ${({ theme }) => theme.colors.bgSecondary};
+  background: #fff;
 `;
 
 const InfoRow = styled.div`
@@ -1574,7 +1574,7 @@ const MeasureTabBar = styled.div`
   gap: 8px;
   padding: 12px 16px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  background: ${({ theme }) => theme.colors.bgSecondary};
+  background: #fff;
   font-family: 'Pretendard', sans-serif;
 
   .mlabel {
@@ -1609,7 +1609,7 @@ const TabPlaceholder = styled.div`
   font-size: 0.9rem;
   color: ${({ theme }) => theme.colors.textSecondary};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  background: ${({ theme }) => theme.colors.bgSecondary};
+  background: #fff;
 `;
 
 const ToolBar = styled.div`
@@ -1620,7 +1620,7 @@ const ToolBar = styled.div`
   /* 왼쪽은 첫 섹션이 화면 끝에 가깝게 붙도록 여백을 줄인다. */
   padding: 10px 18px 10px 8px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  background: ${({ theme }) => theme.colors.bgSecondary};
+  background: #fff;          /* 툴바 배경 = 흰색 */
   flex-wrap: wrap;
 `;
 
@@ -1669,14 +1669,6 @@ const ModCol = styled.div`
   flex-direction: column;
   justify-content: center;
   gap: 4px;
-`;
-
-/* undo/redo 한 줄 — 세 번째 섹션 안, 메타데이터 칩 아래. */
-const UndoRedoRow = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
 `;
 
 const DurCol = styled.div`
@@ -1883,32 +1875,6 @@ const JsonBtn = styled.button<{ $bg: string; $hover: string }>`
 `;
 
 const Spacer = styled.div` flex: 1; `;
-
-/* 상단 트랜스포트 바 — ChordPage의 전역 믹서 바와 동일한 레이아웃을 에디터에
- * 가져온다. Header 아래 한 줄로 배치하며, 드롭다운/팝오버가 악보 위로 뜨도록
- * z-index를 올린다. */
-const TransportBar = styled.div`
-  position: relative;
-  z-index: 60;
-  display: flex;
-  align-items: center;
-  flex-wrap: nowrap;
-  gap: 8px;
-  background: ${({ theme }) => theme.colors.bgPrimary};
-  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  padding: 5px 10px;
-  flex-shrink: 0;
-  min-width: 0;
-`;
-const BarRight = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-  min-width: 0;
-  max-width: calc(50% - 120px);
-  margin-left: auto;
-`;
 
 /* 내 코드 차트(ChordPage)의 ToolBtn 과 동일 — 테두리·배경 없는 38px 아이콘 버튼. */
 const ToolBtn = styled.button<{ $lit?: boolean }>`
@@ -2359,50 +2325,6 @@ const MidiIcon = () => (
   </svg>
 );
 
-
-/* 배경색·테두리 없는 아이콘 버튼. hover 시 아래에 라벨(undo/redo) 표시. */
-const IconBtn = styled.button`
-  background: none;
-  border: none;
-  margin: 0;
-  padding: 2px;
-  cursor: pointer;
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  &:hover img { opacity: 0.6; }
-  &:active { transform: translateY(1px); }
-  &:disabled { opacity: 0.3; cursor: default; }
-  img {
-    width: 27px;
-    height: 27px;
-    display: block;
-    user-select: none;
-    -webkit-user-drag: none;
-    transition: opacity 0.12s;
-  }
-`;
-
-const IconLabel = styled.span`
-  position: absolute;
-  top: calc(100% + 5px);
-  left: 50%;
-  transform: translateX(-50%);
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: ${({ theme }) => theme.colors.textSecondary};
-  background: ${({ theme }) => theme.colors.bgSecondary};
-  padding: 2px 8px;
-  border-radius: 5px;
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.12s;
-  z-index: 5;
-  ${IconBtn}:hover & { opacity: 1; }
-`;
 
 
 
@@ -4821,21 +4743,6 @@ export default function EditorPage() {
 
       {/* 상단 트랜스포트 바 — 코드차트와 동일한 믹서/재생 컨트롤. 믹서 버튼은
           클릭 시 팝오버(좁은 화면은 모달)로 트랙들을 띄운다. */}
-      <TransportBar>
-        <BarRight>
-          {/* 되돌리기/다시하기 — 재생 컨트롤 바로 오른쪽. */}
-          <UndoRedoRow>
-            <IconBtn type="button" onClick={handleUndo} aria-label="Undo">
-              <img src={`${import.meta.env.BASE_URL}icons/undo.svg`} alt="" draggable={false} />
-              <IconLabel>undo</IconLabel>
-            </IconBtn>
-            <IconBtn type="button" onClick={handleRedo} aria-label="Redo">
-              <img src={`${import.meta.env.BASE_URL}icons/redo.svg`} alt="" draggable={false} />
-              <IconLabel>redo</IconLabel>
-            </IconBtn>
-          </UndoRedoRow>
-        </BarRight>
-      </TransportBar>
 
       {/* 상단 탭 — 섹션 위에 얹는 줄. 섹션 내부는 그대로 두고 이 줄만 추가했다. */}
       <TabBar>
