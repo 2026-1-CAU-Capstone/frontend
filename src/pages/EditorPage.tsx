@@ -1612,12 +1612,13 @@ const InfoTabPanel = styled.div`
 /* 정보 탭 내부 섹션 — 툴바 섹션과 같은 라운드 네모로 구분한다. */
 /* 라벨 + 입력 한 쌍 — 라벨을 작게 위에 얹는다. */
 /* 라벨 + 입력을 가로로 나란히. 바 높이가 고정이라 입력을 작게 잡는다. */
-const MetaField = styled.div`
+const MetaField = styled.div<{ $tight?: boolean }>`
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 8px;
-  > span:first-child { min-width: 78px; }     /* 라벨 폭을 맞춰 입력이 세로로 정렬되게 */
+  /* $tight — 라벨 폭을 줄여 입력을 왼쪽으로 당긴다(Genre·Key 처럼 짧은 항목). */
+  > span:first-child { min-width: ${({ $tight }) => ($tight ? '42px' : '78px')}; }
   input {
     width: 186px;
     font-size: 0.86rem;
@@ -1626,6 +1627,13 @@ const MetaField = styled.div`
 `;
 
 /* 정보 탭 — 열(세로 스택) 묶음. */
+/* 한 상자 안에서 항목을 가로로 나란히 둘 때. */
+const InfoLine = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 14px;
+`;
+
 /* 1-1 / 1-2 를 세로로 쌓는 묶음. */
 const InfoStack = styled.div`
   display: flex;
@@ -5035,40 +5043,43 @@ export default function EditorPage() {
               </InfoBox>
 
               <InfoBox>
-                <MetaField><MetaLabel>Genre</MetaLabel><GenreSelect value={genre} onChange={setGenre} /></MetaField>
-                <MetaField>
-                  <MetaLabel>Key</MetaLabel>
-                <KeyAnchor>
-                <KeyDisplay
-                type="button"
-                $open={transposeOpen}
-                title="Transpose · 조성 변경(음표까지 실제로 이조)"
-                aria-haspopup="dialog"
-                aria-expanded={transposeOpen}
-                onClick={() => setTransposeOpen((v) => !v)}
-                >
-                <span className="key-text">
-                {sheetKey.replace(/m$/, '').replace(/b/g, '♭').replace(/#/g, '♯')}
-                <KeyQualEP>{isMinorKey(sheetKey) ? '단조' : '장조'}</KeyQualEP>
-                </span>
-                <span className="key-ico" aria-hidden><IcoTranspose /></span>
-                </KeyDisplay>
-                {transposeOpen && (
-                <KeyChangePopover
-                currentKey={sheetKey.replace(/b/g, '♭').replace(/#/g, '♯')}
-                value={keyInput}
-                onChange={setKeyInput}
-                busy={false}
-                onApplyTranspose={() => { applyTranspose(keyInput.trim()); setKeyInput(''); }}
-                onApplyKeyOnly={() => { applyKeyOnly(keyInput.trim()); setKeyInput(''); }}
-                onPreset={(semi) => { const to = shiftDisplayKeyBySemitones(sheetKey, semi); if (to) applyTranspose(to); }}
-                onOctave={(dir) => handleShiftOctave(dir)}
-                octaveDisabled={totalNotes === 0}
-                onClose={() => setTransposeOpen(false)}
-                />
-                )}
-                </KeyAnchor>
-                </MetaField>
+                {/* Genre 바로 오른쪽에 Key — 세로로 쌓으면 상자 높이를 넘어 잘렸다. */}
+                <InfoLine>
+                  <MetaField $tight><MetaLabel>Genre</MetaLabel><GenreSelect value={genre} onChange={setGenre} /></MetaField>
+                  <MetaField $tight>
+                    <MetaLabel>Key</MetaLabel>
+                    <KeyAnchor>
+                    <KeyDisplay
+                    type="button"
+                    $open={transposeOpen}
+                    title="Transpose · 조성 변경(음표까지 실제로 이조)"
+                    aria-haspopup="dialog"
+                    aria-expanded={transposeOpen}
+                    onClick={() => setTransposeOpen((v) => !v)}
+                    >
+                    <span className="key-text">
+                    {sheetKey.replace(/m$/, '').replace(/b/g, '♭').replace(/#/g, '♯')}
+                    <KeyQualEP>{isMinorKey(sheetKey) ? '단조' : '장조'}</KeyQualEP>
+                    </span>
+                    <span className="key-ico" aria-hidden><IcoTranspose /></span>
+                    </KeyDisplay>
+                    {transposeOpen && (
+                    <KeyChangePopover
+                    currentKey={sheetKey.replace(/b/g, '♭').replace(/#/g, '♯')}
+                    value={keyInput}
+                    onChange={setKeyInput}
+                    busy={false}
+                    onApplyTranspose={() => { applyTranspose(keyInput.trim()); setKeyInput(''); }}
+                    onApplyKeyOnly={() => { applyKeyOnly(keyInput.trim()); setKeyInput(''); }}
+                    onPreset={(semi) => { const to = shiftDisplayKeyBySemitones(sheetKey, semi); if (to) applyTranspose(to); }}
+                    onOctave={(dir) => handleShiftOctave(dir)}
+                    octaveDisabled={totalNotes === 0}
+                    onClose={() => setTransposeOpen(false)}
+                    />
+                    )}
+                    </KeyAnchor>
+                  </MetaField>
+                </InfoLine>
               </InfoBox>
             </InfoStack>
 
