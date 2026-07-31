@@ -1238,6 +1238,28 @@ const MeasureSelOutline = styled.div`
   z-index: 3;
 `;
 
+/* 활성 마디 위 투명 hover 영역 — 여기 마우스가 오면 마디 드롭다운이 나타난다. */
+const MeasureHoverZone = styled.div`
+  position: absolute;
+  z-index: 4;
+  background: transparent;
+`;
+
+/* 선택한 '음표' 바로 아래 뜨는 작은 드롭다운 — 삭제·삽입처럼 위험하거나
+ * 자주 쓰지 않는 동작을 상단 툴바에서 내려 음표 옆에 붙였다. */
+const NoteActionPop = styled.div`
+  position: absolute;
+  z-index: 7;
+  display: flex;
+  gap: 4px;
+  padding: 4px 6px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+  white-space: nowrap;
+`;
+
 /* 선택된 마디 바로 아래 뜨는 마디 편집 바 — 삽입/삭제. */
 const MeasureEditBarBox = styled.div`
   position: absolute;
@@ -1441,6 +1463,103 @@ const LockedHint = styled.span`
   padding: 2px 6px;
   border-radius: 5px;
   white-space: nowrap;
+`;
+
+/* 탭 바 오른쪽 아이콘들 — undo/redo 외에는 디자인용(동작 미연결). */
+const TIco = {
+  undo: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M4 9h11a5 5 0 0 1 0 10h-1"/><polyline points="8 5 4 9 8 13"/></svg>,
+  redo: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M20 9H9a5 5 0 0 0 0 10h1"/><polyline points="16 5 20 9 16 13"/></svg>,
+  add:  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M12 8v8M8 12h8" strokeLinecap="round"/></svg>,
+  cut:  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M7.5 16 18 4M16.5 16 6 4"/></svg>,
+  check:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><polyline points="8 12 11 15 16 9"/></svg>,
+  down: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="8 12 12 16 16 12"/><line x1="12" y1="7" x2="12" y2="16"/></svg>,
+  print:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="7" rx="2"/><rect x="6" y="14" width="12" height="7"/></svg>,
+  layout:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="10" x2="9" y2="20"/></svg>,
+  zin:  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5M8 11h6M11 8v6"/></svg>,
+  zout: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5M8 11h6"/></svg>,
+  pause:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="9" y1="5" x2="9" y2="19"/><line x1="15" y1="5" x2="15" y2="19"/></svg>,
+};
+
+const TOOL_TABS = [
+  { id: 'note', label: '음표' },
+  { id: 'artic', label: '아티큘레이션' },
+  { id: 'dyn', label: '다이내믹스' },
+  { id: 'measure', label: '마디' },
+  { id: 'score', label: '정본' },
+] as const;
+
+/* ── 상단 탭 바 ─────────────────────────────────────────────────────────
+ * 섹션들 위에 얹는 줄. 왼쪽은 탭, 오른쪽은 아이콘 묶음(undo/redo 만 실제 동작). */
+const TabBar = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 14px;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  background: ${({ theme }) => theme.colors.bgPrimary};
+`;
+
+const TabList = styled.div`
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+`;
+
+const TabItem = styled.button<{ $on?: boolean }>`
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.92rem;
+  font-weight: ${({ $on }) => ($on ? 700 : 500)};
+  color: ${({ $on, theme }) => ($on ? '#2f6fe0' : theme.colors.textSecondary)};
+  background: none;
+  border: none;
+  border-bottom: 2px solid ${({ $on }) => ($on ? '#2f6fe0' : 'transparent')};
+  padding: 9px 2px 7px;
+  cursor: pointer;
+  white-space: nowrap;
+  &:hover { color: ${({ $on }) => ($on ? '#2f6fe0' : '#444')}; }
+`;
+
+const TabSpacer = styled.div`flex: 1;`;
+
+const TabIcons = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+`;
+
+const TabIconBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: #5b5b5b;
+  cursor: pointer;
+  &:hover:not(:disabled) { background: rgba(0, 0, 0, 0.06); }
+  &:disabled { opacity: 0.35; cursor: default; }
+`;
+
+const TabDivider = styled.span`
+  width: 1px;
+  height: 18px;
+  background: ${({ theme }) => theme.colors.border};
+  margin: 0 2px;
+`;
+
+/* 탭 내용이 아직 없는 탭 — 자리만 알린다. */
+const TabPlaceholder = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.9rem;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  background: ${({ theme }) => theme.colors.bgSecondary};
 `;
 
 const ToolBar = styled.div`
@@ -2503,18 +2622,6 @@ const SectionedEditBar = styled.div`
   background: #fff5f5;
   overflow-x: auto;
 `;
-const EditSection = styled.div`
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 2px;
-`;
-const EditRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 6px;
-`;
 const EditWrap = styled.div`
   display: flex;
   align-items: center;
@@ -2522,22 +2629,6 @@ const EditWrap = styled.div`
   flex-wrap: wrap;
   max-width: 470px;
 `;
-const VDivider = styled.div`
-  align-self: stretch;
-  width: 2px;
-  border-radius: 2px;
-  background: #f1c0c0;
-  margin: 0 12px;
-  flex-shrink: 0;
-`;
-const SectionCaption = styled.div`
-  font-size: 0.6rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  color: #d9767a;
-  margin-bottom: 1px;
-`;
-
 const NoteEditBtn = styled.button<{ $active?: boolean }>`
   font-family: 'Pretendard', sans-serif;
   font-size: 0.9rem;
@@ -2916,6 +3007,11 @@ export default function EditorPage() {
    * ni = "이 인덱스 자리에 삽입"(기존 ni 앞). 입력할 때마다 ni+1로 전진해
    * 연속 입력이 자연스럽게 이어진다. 음표/마디 선택이 바뀌면 해제. */
   const [insertPos, setInsertPos] = useState<NoteSel | null>(null);
+  /* 마디 모드에서 드롭다운은 평소 숨김 — 활성 마디 영역(또는 드롭다운 자체)에
+   * 마우스가 올라왔을 때만 보인다. */
+  const [measureHover, setMeasureHover] = useState(false);
+  /* 상단 탭 — 지금은 '음표' 탭만 내용이 있고, 나머지는 자리만 잡아 둔다. */
+  const [toolTab, setToolTab] = useState<'note' | 'artic' | 'dyn' | 'measure' | 'score'>('note');
 
   /* 상단 3번 섹션(골드)의 상태 — 세 가지뿐이다.
    *   none    : 아무것도 선택 안 됨. 1·2번 섹션으로 찍으면 새 마디에 입력된다.
@@ -4748,6 +4844,40 @@ export default function EditorPage() {
         </BarRight>
       </TransportBar>
 
+      {/* 상단 탭 — 섹션 위에 얹는 줄. 섹션 내부는 그대로 두고 이 줄만 추가했다. */}
+      <TabBar>
+        <TabList>
+          {TOOL_TABS.map((t) => (
+            <TabItem key={t.id} type="button" $on={toolTab === t.id} onClick={() => setToolTab(t.id)}>
+              {t.label}
+            </TabItem>
+          ))}
+        </TabList>
+        <TabSpacer />
+        <TabIcons>
+          <TabIconBtn type="button" title="되돌리기" onClick={handleUndo}>{TIco.undo}</TabIconBtn>
+          <TabIconBtn type="button" title="다시하기" onClick={handleRedo}>{TIco.redo}</TabIconBtn>
+          <TabDivider />
+          {/* 아래부터는 디자인용 — 동작은 아직 연결하지 않았다. */}
+          <TabIconBtn type="button" title="추가 (준비 중)">{TIco.add}</TabIconBtn>
+          <TabIconBtn type="button" title="잘라내기 (준비 중)">{TIco.cut}</TabIconBtn>
+          <TabIconBtn type="button" title="선택 (준비 중)">{TIco.check}</TabIconBtn>
+          <TabDivider />
+          <TabIconBtn type="button" title="내려받기 (준비 중)">{TIco.down}</TabIconBtn>
+          <TabIconBtn type="button" title="인쇄 (준비 중)">{TIco.print}</TabIconBtn>
+          <TabIconBtn type="button" title="레이아웃 (준비 중)">{TIco.layout}</TabIconBtn>
+          <TabDivider />
+          <TabIconBtn type="button" title="확대 (준비 중)">{TIco.zin}</TabIconBtn>
+          <TabIconBtn type="button" title="축소 (준비 중)">{TIco.zout}</TabIconBtn>
+          <TabIconBtn type="button" title="정지 (준비 중)">{TIco.pause}</TabIconBtn>
+        </TabIcons>
+      </TabBar>
+
+      {toolTab !== 'note' ? (
+        <TabPlaceholder>
+          {TOOL_TABS.find((t) => t.id === toolTab)?.label} 탭 — 준비 중입니다.
+        </TabPlaceholder>
+      ) : (
       <ToolBar>
         <DurGroup>
           {DUR_KEYS.map((d) => (
@@ -5022,11 +5152,482 @@ export default function EditorPage() {
             <StatusDot />
             <StatusItem $warn={curBeats > 4}><b>{curBeats}</b>/4 beats</StatusItem>
           </StatusChip>
+          {/* 음표 모드 — 아래에 있던 편집 바를 이 섹션으로 옮겼다. */}
+        {selectedNote && selectedNote.staff !== 'bass' && selNoteInfo && (() => {
+          const isRest = selNoteInfo.duration.endsWith('r');
+          return (
+          <SectionedEditBar>
+              <EditWrap>
+                {/* N연음 묶기 — Ctrl/Cmd+클릭으로 3개 이상 골랐을 때만 보인다.
+                    2개 이하면 자리만 남기고 숨겨(visibility) 옆 버튼이 밀리지 않게 한다. */}
+                <NoteEditBtn
+                  $active={selectionTupleted}
+                  disabled={multiSel.length >= 3 && !tupletGroupable}
+                  onClick={applyTupletToSelection}
+                  style={multiSel.length < 3 ? { visibility: 'hidden', pointerEvents: 'none' } : undefined}
+                  title={multiSel.length < 3 ? undefined
+                    : tupletGroupable
+                      ? `선택한 ${multiSel.length}개를 ${multiSel.length}연음으로 ${selectionTupleted ? '해제' : '묶기'}`
+                      : '한 마디 안에서 연속된 음표만 묶을 수 있다'}
+                >3+</NoteEditBtn>
+                {(() => {
+                  if (selNoteInfo.duration.endsWith('r')) return null;
+                  const flat: { mi: number; ni: number; note: NoteInfo }[] = [];
+                  for (let mi = 0; mi < allMeasures.length; mi++)
+                    for (let ni = 0; ni < allMeasures[mi].notes.length; ni++)
+                      flat.push({ mi, ni, note: allMeasures[mi].notes[ni] });
+                  const idx = flat.findIndex((f) => f.mi === selectedNote.mi && f.ni === selectedNote.ni);
+                  const next = flat[idx + 1];
+                  if (!next || next.note.duration.endsWith('r')) return null;
+                  const curPitch = vexToMidi(selNoteInfo.keys[0], selNoteInfo.accidentals?.[0] as '#' | 'b' | undefined);
+                  const nextPitch = vexToMidi(next.note.keys[0], next.note.accidentals?.[0] as '#' | 'b' | undefined);
+                  if (curPitch !== nextPitch) return null;
+                  return (
+                    <NoteEditBtn
+                      $active={!!selNoteInfo.tie}
+                      onClick={() => {
+                        updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, tie: !n.tie || undefined }));
+                      }}
+                    >
+                      <svg width="22" height="14" viewBox="0 0 18 14" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+                        <path d="M2 4 Q9 14 16 4" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                      </svg>
+                      {' '}Tie
+                    </NoteEditBtn>
+                  );
+                })()}
+                {(() => {
+                  if (selNoteInfo.duration.endsWith('r')) return null;
+                  const flat: { mi: number; ni: number; note: NoteInfo }[] = [];
+                  for (let mi = 0; mi < allMeasures.length; mi++)
+                    for (let ni = 0; ni < allMeasures[mi].notes.length; ni++)
+                      flat.push({ mi, ni, note: allMeasures[mi].notes[ni] });
+                  const idx = flat.findIndex((f) => f.mi === selectedNote.mi && f.ni === selectedNote.ni);
+                  const next = flat[idx + 1];
+                  if (!next || next.note.duration.endsWith('r')) return null;
+                  return (
+                    <NoteEditBtn
+                      $active={!!selNoteInfo.gliss}
+                      onClick={() => {
+                        updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, gliss: !n.gliss || undefined }));
+                      }}
+                    >
+                      <svg width="22" height="14" viewBox="0 0 22 14" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+                        <path d="M2 12 Q7 8 12 6 Q17 4 20 2" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                      </svg>
+                      {' '}Gliss
+                    </NoteEditBtn>
+                  );
+                })()}
+                {!isRest && (
+                  <NoteEditBtn
+                    $active={!!selNoteInfo.scoop}
+                    onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, scoop: !n.scoop || undefined }))}
+                    title="스쿱 — 음표 앞에서 아래→위로 끌어올려 진입"
+                  >
+                    <svg width="20" height="15" viewBox="0 0 20 15" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+                      <path d="M3 13 Q4 4 12 3" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" />
+                      <circle cx="14.5" cy="3" r="2.2" fill="currentColor" />
+                    </svg>
+                    {' '}Scoop
+                  </NoteEditBtn>
+                )}
+                {!isRest && (
+                  <NoteEditBtn
+                    $active={!!selNoteInfo.fall}
+                    onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, fall: !n.fall || undefined }))}
+                    title="폴 — 음표 뒤에서 아래로 떨어지는 곡선"
+                  >
+                    <svg width="20" height="15" viewBox="0 0 20 15" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+                      <circle cx="5.5" cy="3" r="2.2" fill="currentColor" />
+                      <path d="M8 3 Q16 4 17 13" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" />
+                    </svg>
+                    {' '}Fall
+                  </NoteEditBtn>
+                )}
+                <NoteEditBtn
+                  $active={selNoteInfo.accidentals?.[0] === 'b'}
+                  onClick={() => {
+                    updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                      const cur = n.accidentals?.[0];
+                      if (cur === 'b') {
+                        const { ...rest } = n;
+                        delete rest.accidentals;
+                        return rest;
+                      }
+                      return { ...n, accidentals: { 0: 'b' as const } };
+                    });
+                  }}
+                ><span style={{ fontFamily: 'serif' }}>♭</span></NoteEditBtn>
+                <NoteEditBtn
+                  $active={selNoteInfo.accidentals?.[0] === '#'}
+                  onClick={() => {
+                    updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                      const cur = n.accidentals?.[0];
+                      if (cur === '#') {
+                        const { ...rest } = n;
+                        delete rest.accidentals;
+                        return rest;
+                      }
+                      return { ...n, accidentals: { 0: '#' as const } };
+                    });
+                  }}
+                ><span style={{ fontFamily: 'serif' }}>♯</span></NoteEditBtn>
+                <NoteEditBtn
+                  $active={selNoteInfo.accidentals?.[0] === 'n'}
+                  onClick={() => {
+                    updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                      const cur = n.accidentals?.[0];
+                      if (cur === 'n') {
+                        const { ...rest } = n;
+                        delete rest.accidentals;
+                        return rest;
+                      }
+                      return { ...n, accidentals: { 0: 'n' as const } };
+                    });
+                  }}
+                ><span style={{ fontFamily: 'serif' }}>♮</span></NoteEditBtn>
+                {!isRest && (<>
+                  <NoteEditBtn
+                    $active={!!selNoteInfo.articulations?.includes('staccato')}
+                    onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                      const cur = n.articulations ?? [];
+                      const next = cur.includes('staccato') ? cur.filter((a) => a !== 'staccato') : [...cur, 'staccato' as const];
+                      return { ...n, articulations: next.length ? next : undefined };
+                    })}
+                    title="Staccato (.)"
+                    style={{ fontSize: '0.95rem', fontWeight: 700 }}
+                  >·</NoteEditBtn>
+                  <NoteEditBtn
+                    $active={!!selNoteInfo.articulations?.includes('accent')}
+                    onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                      const cur = n.articulations ?? [];
+                      const next = cur.includes('accent') ? cur.filter((a) => a !== 'accent') : [...cur, 'accent' as const];
+                      return { ...n, articulations: next.length ? next : undefined };
+                    })}
+                    title="Accent (>)"
+                    style={{ fontSize: '0.95rem', fontWeight: 700 }}
+                  >&gt;</NoteEditBtn>
+                  <NoteEditBtn
+                    $active={!!selNoteInfo.articulations?.includes('tenuto')}
+                    onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                      const cur = n.articulations ?? [];
+                      const next = cur.includes('tenuto') ? cur.filter((a) => a !== 'tenuto') : [...cur, 'tenuto' as const];
+                      return { ...n, articulations: next.length ? next : undefined };
+                    })}
+                    title="Tenuto (—)"
+                    style={{ fontSize: '0.95rem', fontWeight: 700 }}
+                  >—</NoteEditBtn>
+                  <NoteEditBtn
+                    $active={!!selNoteInfo.articulations?.includes('marcato')}
+                    onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                      const cur = n.articulations ?? [];
+                      const next = cur.includes('marcato') ? cur.filter((a) => a !== 'marcato') : [...cur, 'marcato' as const];
+                      return { ...n, articulations: next.length ? next : undefined };
+                    })}
+                    title="Marcato (^)"
+                    style={{ fontSize: '0.95rem', fontWeight: 700 }}
+                  >^</NoteEditBtn>
+                  <NoteEditBtn
+                    $active={!!selNoteInfo.fermata}
+                    onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, fermata: !n.fermata || undefined }))}
+                    title="Fermata"
+                    style={{ fontSize: '1.0rem', fontFamily: 'serif' }}
+                  >𝄐</NoteEditBtn>
+                  <NoteEditBtn
+                    $active={!!selNoteInfo.ornaments?.includes('trill')}
+                    onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                      const cur = n.ornaments ?? [];
+                      const next = cur.includes('trill') ? cur.filter((o) => o !== 'trill') : [...cur, 'trill' as const];
+                      return { ...n, ornaments: next.length ? next : undefined };
+                    })}
+                    title="Trill"
+                    style={{ fontStyle: 'italic', fontFamily: 'serif', fontSize: '0.85rem' }}
+                  >tr</NoteEditBtn>
+                  <select
+                    value={(selNoteInfo.ornaments ?? []).find((o) => o !== 'trill') ?? ''}
+                    onChange={(e) => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                      const v = e.target.value as '' | 'mordent' | 'inverted-mordent' | 'turn' | 'inverted-turn' | 'tremolo';
+                      const keepTrill = n.ornaments?.includes('trill') ? ['trill' as const] : [];
+                      const rest = v ? [v] : [];
+                      const next = [...keepTrill, ...rest];
+                      return { ...n, ornaments: next.length ? next : undefined };
+                    })}
+                    title="Ornament"
+                    style={{ fontSize: '0.65rem', padding: '3px 4px', border: '1px solid #ccc', borderRadius: 4 }}
+                  >
+                    <option value="">orn</option>
+                    <option value="mordent">mordent</option>
+                    <option value="inverted-mordent">inv-mor</option>
+                    <option value="turn">turn</option>
+                    <option value="inverted-turn">inv-turn</option>
+                    <option value="tremolo">/// trem</option>
+                  </select>
+                  <NoteEditBtn
+                    $active={!!selNoteInfo.slurStart}
+                    onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, slurStart: !n.slurStart || undefined }))}
+                    title="Slur start (이음줄 시작)"
+                    style={{ fontSize: '0.78rem' }}
+                  >⌒◜</NoteEditBtn>
+                  <NoteEditBtn
+                    $active={!!selNoteInfo.slurStop}
+                    onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, slurStop: !n.slurStop || undefined }))}
+                    title="Slur stop (이음줄 끝)"
+                    style={{ fontSize: '0.78rem' }}
+                  >◞⌒</NoteEditBtn>
+                  <NoteEditBtn
+                    $active={!!selNoteInfo.grace}
+                    onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => (
+                      n.grace
+                        ? { ...n, grace: undefined, graceSlash: undefined }
+                        : { ...n, grace: true as const, graceSlash: true as const }
+                    ))}
+                    title="꾸밈음(acciaccatura) 토글"
+                    style={{ fontSize: '1rem', fontWeight: 700, lineHeight: 1 }}
+                  >
+                    <svg width="16" height="20" viewBox="0 0 18 22" style={{ display: 'block' }}>
+                      <ellipse cx="7" cy="16" rx="3.2" ry="2.3" fill="currentColor" transform="rotate(-20 7 16)" />
+                      <line x1="9.7" y1="15" x2="9.7" y2="3" stroke="currentColor" strokeWidth="1.4" />
+                      <path d="M9.7 3 C 12 4, 13 6.5, 12 9" stroke="currentColor" strokeWidth="1.4" fill="none" />
+                      <line x1="4" y1="11" x2="13.5" y2="4.5" stroke="currentColor" strokeWidth="1.5" />
+                    </svg>
+                  </NoteEditBtn>
+                  <select
+                    value={selNoteInfo.dynamics ?? ''}
+                    onChange={(e) => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                      const v = e.target.value;
+                      return { ...n, dynamics: (v || undefined) as typeof n.dynamics };
+                    })}
+                    title="Dynamics"
+                    style={{ fontSize: '0.65rem', padding: '3px 4px', border: '1px solid #ccc', borderRadius: 4, fontStyle: 'italic' }}
+                  >
+                    <option value="">dyn</option>
+                    <option value="pp">pp</option>
+                    <option value="p">p</option>
+                    <option value="mp">mp</option>
+                    <option value="mf">mf</option>
+                    <option value="f">f</option>
+                    <option value="ff">ff</option>
+                    <option value="fff">fff</option>
+                    <option value="sfz">sfz</option>
+                    <option value="fp">fp</option>
+                  </select>
+                </>)}
+              </EditWrap>
+
+
+            {/* 섹션 3: 부가 (빔·코드·옥타브·마디·구조) */}
+              <EditWrap>
+                {(() => {
+                  if (selNoteInfo.duration.endsWith('r')) return null;
+                  const base = selNoteInfo.duration.replace(/r$/, '');
+                  if (base !== '8' && base !== '16') return null;
+                  return (
+                    <NoteEditBtn
+                      $active={!!selNoteInfo.beamBreak}
+                      onClick={() => {
+                        updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, beamBreak: !n.beamBreak || undefined }));
+                      }}
+                    >
+                      Divide
+                    </NoteEditBtn>
+                  );
+                })()}
+                <NoteEditBtn
+                  $active={noteChordEditing}
+                  onClick={() => {
+                    if (noteChordEditing) {
+                      const norm = normalizeChord(noteChordValue);
+                      setChordAtNote(selectedNote.mi, selectedNote.ni, norm);
+                      setNoteChordEditing(false);
+                    } else {
+                      setNoteChordValue(selNoteInfo?.chord ?? '');
+                      setNoteChordEditing(true);
+                      setTimeout(() => noteChordInputRef.current?.focus(), 0);
+                    }
+                  }}
+                >
+                  Chord{selNoteInfo?.chord ? `: ${selNoteInfo.chord}` : ''}
+                </NoteEditBtn>
+                <NoteEditBtn
+                  $active={!!selNoteInfo.ottavaStart}
+                  onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                    if (n.ottavaStart) {
+                      const next = { ...n };
+                      delete next.ottavaStart;
+                      return next;
+                    }
+                    return { ...n, ottavaStart: '8va' };
+                  })}
+                  title="Toggle 8va start on this note"
+                  style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontSize: '0.72rem' }}
+                >8va◜</NoteEditBtn>
+                <NoteEditBtn
+                  $active={!!selNoteInfo.ottavaEnd}
+                  onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, ottavaEnd: !n.ottavaEnd || undefined }))}
+                  title="Toggle 8va end on this note"
+                  style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontSize: '0.72rem' }}
+                >◞8va</NoteEditBtn>
+                {selMeasure && selectedNote && selectedNote.mi < measures.length && (<>
+                  <NoteEditBtn
+                    $active={!!selMeasure.repeatStart}
+                    onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, repeatStart: !m.repeatStart || undefined }))}
+                  >
+                    <svg width="14" height="18" viewBox="0 0 16 22" style={{ display: 'inline-block', verticalAlign: 'middle' }}><line x1="2" y1="1" x2="2" y2="21" stroke="currentColor" strokeWidth="2.5"/><line x1="5.5" y1="1" x2="5.5" y2="21" stroke="currentColor" strokeWidth="1"/><circle cx="10" cy="8" r="1.7" fill="currentColor"/><circle cx="10" cy="14" r="1.7" fill="currentColor"/></svg>
+                  </NoteEditBtn>
+                  <NoteEditBtn
+                    $active={!!selMeasure.repeatEnd}
+                    onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, repeatEnd: !m.repeatEnd || undefined }))}
+                  >
+                    <svg width="14" height="18" viewBox="0 0 16 22" style={{ display: 'inline-block', verticalAlign: 'middle' }}><circle cx="6" cy="8" r="1.7" fill="currentColor"/><circle cx="6" cy="14" r="1.7" fill="currentColor"/><line x1="10.5" y1="1" x2="10.5" y2="21" stroke="currentColor" strokeWidth="1"/><line x1="14" y1="1" x2="14" y2="21" stroke="currentColor" strokeWidth="2.5"/></svg>
+                  </NoteEditBtn>
+                  <NoteEditBtn
+                    $active={selMeasure.volta === 1}
+                    onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, volta: m.volta === 1 ? undefined : 1 }))}
+                  >
+                    <svg width="18" height="14" viewBox="0 0 22 18" style={{ display: 'inline-block', verticalAlign: 'middle' }}><path d="M1 1 L1 6 L21 6" stroke="currentColor" strokeWidth="1.5" fill="none"/><text x="4" y="16" fontSize="10" fontWeight="700" fill="currentColor" fontFamily="DM Sans, sans-serif">1.</text></svg>
+                  </NoteEditBtn>
+                  <NoteEditBtn
+                    $active={selMeasure.volta === 2}
+                    onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, volta: m.volta === 2 ? undefined : 2 }))}
+                  >
+                    <svg width="18" height="14" viewBox="0 0 22 18" style={{ display: 'inline-block', verticalAlign: 'middle' }}><path d="M1 1 L1 6 L21 6" stroke="currentColor" strokeWidth="1.5" fill="none"/><text x="4" y="16" fontSize="10" fontWeight="700" fill="currentColor" fontFamily="DM Sans, sans-serif">2.</text></svg>
+                  </NoteEditBtn>
+                  <NoteEditBtn
+                    $active={selMeasure.navigation === 'segno'}
+                    onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: m.navigation === 'segno' ? undefined : 'segno' }))}
+                    style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.1rem' }}
+                  >{''}</NoteEditBtn>
+                  <NoteEditBtn
+                    $active={selMeasure.navigation === 'coda'}
+                    onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: m.navigation === 'coda' ? undefined : 'coda' }))}
+                    style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.1rem' }}
+                  >{''}</NoteEditBtn>
+                  <NoteEditBtn
+                    $active={selMeasure.navigation === 'fine'}
+                    onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: m.navigation === 'fine' ? undefined : 'fine' }))}
+                    style={{ fontSize: '0.65rem', fontWeight: 700, fontStyle: 'italic' }}
+                  >Fine</NoteEditBtn>
+                  <NoteEditBtn
+                    $active={selMeasure.navigation === 'toCoda'}
+                    onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: m.navigation === 'toCoda' ? undefined : 'toCoda' }))}
+                    style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '0.75rem' }}
+                  ><span style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '0.6rem', fontWeight: 700, fontStyle: 'italic', marginRight: 1 }}>To</span>{''}</NoteEditBtn>
+                  <NavSelect
+                    value={selMeasure.navigation && ['dc', 'dcAlCoda', 'dcAlFine', 'ds', 'dsAlCoda', 'dsAlFine'].includes(selMeasure.navigation) ? selMeasure.navigation : ''}
+                    onChange={(e) => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: (e.target.value as NavigationMarker) || undefined }))}
+                    style={{ fontSize: '0.65rem' }}
+                  >
+                    <option value="">D.C./D.S.</option>
+                    <option value="dc">D.C.</option>
+                    <option value="dcAlCoda">D.C. al Coda</option>
+                    <option value="dcAlFine">D.C. al Fine</option>
+                    <option value="ds">D.S.</option>
+                    <option value="dsAlCoda">D.S. al Coda</option>
+                    <option value="dsAlFine">D.S. al Fine</option>
+                  </NavSelect>
+                  <NoteEditBtn
+                    $active={!!selMeasure.bracket}
+                    onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, bracket: !m.bracket || undefined }))}
+                    style={{ fontSize: '0.85rem', fontWeight: 300, fontFamily: 'serif' }}
+                  >(&thinsp;)</NoteEditBtn>
+                </>)}
+                {selectedNote && selectedNote.mi < measures.length && (<>
+                  <NoteEditBtn
+                    onClick={() => insertMeasureBefore(selectedNote.mi)}
+                    title="Insert a fresh empty measure BEFORE this one"
+                    style={{ fontSize: '0.72rem' }}
+                  >＋ ◀ Bar</NoteEditBtn>
+                  <NoteEditBtn
+                    onClick={() => insertMeasureAfter(selectedNote.mi)}
+                    title="Insert a fresh empty measure AFTER this one"
+                    style={{ fontSize: '0.72rem' }}
+                  >Bar ▶ ＋</NoteEditBtn>
+                  <NoteEditBtn
+                    onClick={() => {
+                      if (confirm(`Delete measure ${selectedNote.mi + 1}? This cannot be undone except by Undo (Backspace).`)) {
+                        deleteMeasure(selectedNote.mi);
+                      }
+                    }}
+                    title="Delete this entire measure"
+                    style={{ fontSize: '0.72rem', color: '#c0392b' }}
+                  >🗑 Bar</NoteEditBtn>
+                </>)}
+                <NoteEditBtn onClick={() => setSelectedNote(null)}>× Deselect</NoteEditBtn>
+              </EditWrap>
+          </SectionedEditBar>
+          );
+        })()}
+
+        {/* ── 왼손(베이스 보표) 음표 편집 바 — 추가·수정·삭제 핵심 기능 ── */}
+        {selectedNote && selectedNote.staff === 'bass' && selNoteInfo && (
+          <NoteEditBar>
+            <NoteEditLabel>
+              🎼 왼손 Note: {selNoteInfo.keys.join(' ')} ({selNoteInfo.duration.replace('r', ' rest')})
+              {selNoteInfo.accidentals?.[0] === 'b' ? ' ♭' : selNoteInfo.accidentals?.[0] === '#' ? ' ♯' : selNoteInfo.accidentals?.[0] === 'n' ? ' ♮' : ''}
+            </NoteEditLabel>
+            {!selNoteInfo.duration.endsWith('r') && (
+              <>
+              </>
+            )}
+            {/* N연음 묶기 — 트레블 표현 섹션과 동일 규칙(3개 이상일 때만 노출). */}
+            <NoteEditBtn
+              $active={selectionTupleted}
+              disabled={multiSel.length >= 3 && !tupletGroupable}
+              onClick={applyTupletToSelection}
+              style={multiSel.length < 3 ? { visibility: 'hidden', pointerEvents: 'none' } : undefined}
+              title={multiSel.length < 3 ? undefined
+                : tupletGroupable
+                  ? `선택한 ${multiSel.length}개를 ${multiSel.length}연음으로 ${selectionTupleted ? '해제' : '묶기'}`
+                  : '한 마디 안에서 연속된 음표만 묶을 수 있다'}
+            >3+</NoteEditBtn>
+            <Sep />
+            <NoteEditBtn
+              title="이 음표 왼쪽에 삽입 — 피아노/쉼표로 입력"
+              onClick={() => {
+                setInsertPos({ mi: selectedNote.mi, ni: selectedNote.ni, staff: 'bass' });
+                setSelectedNote(null);
+              }}
+            >◀ 왼쪽 삽입</NoteEditBtn>
+            <NoteEditBtn
+              title="이 음표 오른쪽에 삽입 — 피아노/쉼표로 입력"
+              onClick={() => {
+                setInsertPos({ mi: selectedNote.mi, ni: selectedNote.ni + 1, staff: 'bass' });
+                setSelectedNote(null);
+              }}
+            >오른쪽 삽입 ▶</NoteEditBtn>
+            <Sep />
+            {!selNoteInfo.duration.endsWith('r') && (['b', '#', 'n'] as const).map((g) => (
+              <NoteEditBtn
+                key={g}
+                $active={selNoteInfo.accidentals?.[0] === g}
+                onClick={() => {
+                  updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+                    const cur = n.accidentals?.[0];
+                    if (cur === g) {
+                      const { ...rest } = n;
+                      delete rest.accidentals;
+                      return rest;
+                    }
+                    return { ...n, accidentals: { 0: g } };
+                  }, 'bass');
+                }}
+              ><span style={{ fontFamily: 'serif' }}>{g === 'b' ? '♭' : g === '#' ? '♯' : '♮'}</span></NoteEditBtn>
+            ))}
+            <Sep />
+            <NoteEditBtn
+              onClick={() => deleteNote(selectedNote.mi, selectedNote.ni, 'bass')}
+              style={{ color: '#c0392b' }}
+            >🗑 삭제</NoteEditBtn>
+            <NoteEditBtn onClick={() => setSelectedNote(null)}>× Deselect</NoteEditBtn>
+          </NoteEditBar>
+        )}
         </GoldGroup>
 
 
 
       </ToolBar>
+      )}
 
 
       <PianoArea>
@@ -5046,524 +5647,7 @@ export default function EditorPage() {
         </NoteEditBar>
       )}
 
-      {selectedNote && selectedNote.staff !== 'bass' && selNoteInfo && (() => {
-        const isRest = selNoteInfo.duration.endsWith('r');
-        return (
-        <SectionedEditBar>
-          {/* 섹션 1: 핵심 편집 (이동·삭제·삽입) */}
-          <EditSection>
-            <SectionCaption>편집</SectionCaption>
-            <EditRow>
-              {!isRest && (<>
-              </>)}
-              <NoteEditBtn
-                title="이 음표/쉼표 삭제"
-                onClick={() => deleteNote(selectedNote.mi, selectedNote.ni)}
-              >🗑 삭제</NoteEditBtn>
-              <NoteEditBtn
-                title="같은 마디에서 이 음표 오른쪽 내용 전부 삭제"
-                onClick={() => {
-                  const total = allMeasures[selectedNote.mi]?.notes.length ?? 0;
-                  const after = total - selectedNote.ni - 1;
-                  if (after <= 0) return;
-                  if (!window.confirm(`이 음표 오른쪽의 ${after}개(같은 마디)를 삭제할까요?`)) return;
-                  deleteNotesAfter(selectedNote.mi, selectedNote.ni);
-                }}
-              >→끝 삭제</NoteEditBtn>
-            </EditRow>
-            <EditRow>
-              <NoteEditBtn
-                title="이 음표 왼쪽에 삽입 — 피아노/쉼표로 입력"
-                onClick={() => {
-                  setInsertPos({ mi: selectedNote.mi, ni: selectedNote.ni });
-                  setSelectedNote(null);
-                }}
-              >◀ 왼쪽 삽입</NoteEditBtn>
-              <NoteEditBtn
-                title="이 음표 오른쪽에 삽입 — 피아노/쉼표로 입력"
-                onClick={() => {
-                  setInsertPos({ mi: selectedNote.mi, ni: selectedNote.ni + 1 });
-                  setSelectedNote(null);
-                }}
-              >오른쪽 삽입 ▶</NoteEditBtn>
-            </EditRow>
-          </EditSection>
 
-          <VDivider />
-
-          {/* 섹션 2: 표현 (연결·슬라이드·임시표·아티큘레이션) */}
-          <EditSection>
-            <SectionCaption>표현</SectionCaption>
-            <EditWrap>
-              {/* N연음 묶기 — Ctrl/Cmd+클릭으로 3개 이상 골랐을 때만 보인다.
-                  2개 이하면 자리만 남기고 숨겨(visibility) 옆 버튼이 밀리지 않게 한다. */}
-              <NoteEditBtn
-                $active={selectionTupleted}
-                disabled={multiSel.length >= 3 && !tupletGroupable}
-                onClick={applyTupletToSelection}
-                style={multiSel.length < 3 ? { visibility: 'hidden', pointerEvents: 'none' } : undefined}
-                title={multiSel.length < 3 ? undefined
-                  : tupletGroupable
-                    ? `선택한 ${multiSel.length}개를 ${multiSel.length}연음으로 ${selectionTupleted ? '해제' : '묶기'}`
-                    : '한 마디 안에서 연속된 음표만 묶을 수 있다'}
-              >3+</NoteEditBtn>
-              {(() => {
-                if (selNoteInfo.duration.endsWith('r')) return null;
-                const flat: { mi: number; ni: number; note: NoteInfo }[] = [];
-                for (let mi = 0; mi < allMeasures.length; mi++)
-                  for (let ni = 0; ni < allMeasures[mi].notes.length; ni++)
-                    flat.push({ mi, ni, note: allMeasures[mi].notes[ni] });
-                const idx = flat.findIndex((f) => f.mi === selectedNote.mi && f.ni === selectedNote.ni);
-                const next = flat[idx + 1];
-                if (!next || next.note.duration.endsWith('r')) return null;
-                const curPitch = vexToMidi(selNoteInfo.keys[0], selNoteInfo.accidentals?.[0] as '#' | 'b' | undefined);
-                const nextPitch = vexToMidi(next.note.keys[0], next.note.accidentals?.[0] as '#' | 'b' | undefined);
-                if (curPitch !== nextPitch) return null;
-                return (
-                  <NoteEditBtn
-                    $active={!!selNoteInfo.tie}
-                    onClick={() => {
-                      updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, tie: !n.tie || undefined }));
-                    }}
-                  >
-                    <svg width="22" height="14" viewBox="0 0 18 14" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
-                      <path d="M2 4 Q9 14 16 4" stroke="currentColor" strokeWidth="1.5" fill="none" />
-                    </svg>
-                    {' '}Tie
-                  </NoteEditBtn>
-                );
-              })()}
-              {(() => {
-                if (selNoteInfo.duration.endsWith('r')) return null;
-                const flat: { mi: number; ni: number; note: NoteInfo }[] = [];
-                for (let mi = 0; mi < allMeasures.length; mi++)
-                  for (let ni = 0; ni < allMeasures[mi].notes.length; ni++)
-                    flat.push({ mi, ni, note: allMeasures[mi].notes[ni] });
-                const idx = flat.findIndex((f) => f.mi === selectedNote.mi && f.ni === selectedNote.ni);
-                const next = flat[idx + 1];
-                if (!next || next.note.duration.endsWith('r')) return null;
-                return (
-                  <NoteEditBtn
-                    $active={!!selNoteInfo.gliss}
-                    onClick={() => {
-                      updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, gliss: !n.gliss || undefined }));
-                    }}
-                  >
-                    <svg width="22" height="14" viewBox="0 0 22 14" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
-                      <path d="M2 12 Q7 8 12 6 Q17 4 20 2" stroke="currentColor" strokeWidth="1.5" fill="none" />
-                    </svg>
-                    {' '}Gliss
-                  </NoteEditBtn>
-                );
-              })()}
-              {!isRest && (
-                <NoteEditBtn
-                  $active={!!selNoteInfo.scoop}
-                  onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, scoop: !n.scoop || undefined }))}
-                  title="스쿱 — 음표 앞에서 아래→위로 끌어올려 진입"
-                >
-                  <svg width="20" height="15" viewBox="0 0 20 15" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
-                    <path d="M3 13 Q4 4 12 3" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" />
-                    <circle cx="14.5" cy="3" r="2.2" fill="currentColor" />
-                  </svg>
-                  {' '}Scoop
-                </NoteEditBtn>
-              )}
-              {!isRest && (
-                <NoteEditBtn
-                  $active={!!selNoteInfo.fall}
-                  onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, fall: !n.fall || undefined }))}
-                  title="폴 — 음표 뒤에서 아래로 떨어지는 곡선"
-                >
-                  <svg width="20" height="15" viewBox="0 0 20 15" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
-                    <circle cx="5.5" cy="3" r="2.2" fill="currentColor" />
-                    <path d="M8 3 Q16 4 17 13" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" />
-                  </svg>
-                  {' '}Fall
-                </NoteEditBtn>
-              )}
-              <NoteEditBtn
-                $active={selNoteInfo.accidentals?.[0] === 'b'}
-                onClick={() => {
-                  updateNote(selectedNote.mi, selectedNote.ni, (n) => {
-                    const cur = n.accidentals?.[0];
-                    if (cur === 'b') {
-                      const { ...rest } = n;
-                      delete rest.accidentals;
-                      return rest;
-                    }
-                    return { ...n, accidentals: { 0: 'b' as const } };
-                  });
-                }}
-              ><span style={{ fontFamily: 'serif' }}>♭</span></NoteEditBtn>
-              <NoteEditBtn
-                $active={selNoteInfo.accidentals?.[0] === '#'}
-                onClick={() => {
-                  updateNote(selectedNote.mi, selectedNote.ni, (n) => {
-                    const cur = n.accidentals?.[0];
-                    if (cur === '#') {
-                      const { ...rest } = n;
-                      delete rest.accidentals;
-                      return rest;
-                    }
-                    return { ...n, accidentals: { 0: '#' as const } };
-                  });
-                }}
-              ><span style={{ fontFamily: 'serif' }}>♯</span></NoteEditBtn>
-              <NoteEditBtn
-                $active={selNoteInfo.accidentals?.[0] === 'n'}
-                onClick={() => {
-                  updateNote(selectedNote.mi, selectedNote.ni, (n) => {
-                    const cur = n.accidentals?.[0];
-                    if (cur === 'n') {
-                      const { ...rest } = n;
-                      delete rest.accidentals;
-                      return rest;
-                    }
-                    return { ...n, accidentals: { 0: 'n' as const } };
-                  });
-                }}
-              ><span style={{ fontFamily: 'serif' }}>♮</span></NoteEditBtn>
-              {!isRest && (<>
-                <NoteEditBtn
-                  $active={!!selNoteInfo.articulations?.includes('staccato')}
-                  onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
-                    const cur = n.articulations ?? [];
-                    const next = cur.includes('staccato') ? cur.filter((a) => a !== 'staccato') : [...cur, 'staccato' as const];
-                    return { ...n, articulations: next.length ? next : undefined };
-                  })}
-                  title="Staccato (.)"
-                  style={{ fontSize: '0.95rem', fontWeight: 700 }}
-                >·</NoteEditBtn>
-                <NoteEditBtn
-                  $active={!!selNoteInfo.articulations?.includes('accent')}
-                  onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
-                    const cur = n.articulations ?? [];
-                    const next = cur.includes('accent') ? cur.filter((a) => a !== 'accent') : [...cur, 'accent' as const];
-                    return { ...n, articulations: next.length ? next : undefined };
-                  })}
-                  title="Accent (>)"
-                  style={{ fontSize: '0.95rem', fontWeight: 700 }}
-                >&gt;</NoteEditBtn>
-                <NoteEditBtn
-                  $active={!!selNoteInfo.articulations?.includes('tenuto')}
-                  onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
-                    const cur = n.articulations ?? [];
-                    const next = cur.includes('tenuto') ? cur.filter((a) => a !== 'tenuto') : [...cur, 'tenuto' as const];
-                    return { ...n, articulations: next.length ? next : undefined };
-                  })}
-                  title="Tenuto (—)"
-                  style={{ fontSize: '0.95rem', fontWeight: 700 }}
-                >—</NoteEditBtn>
-                <NoteEditBtn
-                  $active={!!selNoteInfo.articulations?.includes('marcato')}
-                  onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
-                    const cur = n.articulations ?? [];
-                    const next = cur.includes('marcato') ? cur.filter((a) => a !== 'marcato') : [...cur, 'marcato' as const];
-                    return { ...n, articulations: next.length ? next : undefined };
-                  })}
-                  title="Marcato (^)"
-                  style={{ fontSize: '0.95rem', fontWeight: 700 }}
-                >^</NoteEditBtn>
-                <NoteEditBtn
-                  $active={!!selNoteInfo.fermata}
-                  onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, fermata: !n.fermata || undefined }))}
-                  title="Fermata"
-                  style={{ fontSize: '1.0rem', fontFamily: 'serif' }}
-                >𝄐</NoteEditBtn>
-                <NoteEditBtn
-                  $active={!!selNoteInfo.ornaments?.includes('trill')}
-                  onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
-                    const cur = n.ornaments ?? [];
-                    const next = cur.includes('trill') ? cur.filter((o) => o !== 'trill') : [...cur, 'trill' as const];
-                    return { ...n, ornaments: next.length ? next : undefined };
-                  })}
-                  title="Trill"
-                  style={{ fontStyle: 'italic', fontFamily: 'serif', fontSize: '0.85rem' }}
-                >tr</NoteEditBtn>
-                <select
-                  value={(selNoteInfo.ornaments ?? []).find((o) => o !== 'trill') ?? ''}
-                  onChange={(e) => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
-                    const v = e.target.value as '' | 'mordent' | 'inverted-mordent' | 'turn' | 'inverted-turn' | 'tremolo';
-                    const keepTrill = n.ornaments?.includes('trill') ? ['trill' as const] : [];
-                    const rest = v ? [v] : [];
-                    const next = [...keepTrill, ...rest];
-                    return { ...n, ornaments: next.length ? next : undefined };
-                  })}
-                  title="Ornament"
-                  style={{ fontSize: '0.65rem', padding: '3px 4px', border: '1px solid #ccc', borderRadius: 4 }}
-                >
-                  <option value="">orn</option>
-                  <option value="mordent">mordent</option>
-                  <option value="inverted-mordent">inv-mor</option>
-                  <option value="turn">turn</option>
-                  <option value="inverted-turn">inv-turn</option>
-                  <option value="tremolo">/// trem</option>
-                </select>
-                <NoteEditBtn
-                  $active={!!selNoteInfo.slurStart}
-                  onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, slurStart: !n.slurStart || undefined }))}
-                  title="Slur start (이음줄 시작)"
-                  style={{ fontSize: '0.78rem' }}
-                >⌒◜</NoteEditBtn>
-                <NoteEditBtn
-                  $active={!!selNoteInfo.slurStop}
-                  onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, slurStop: !n.slurStop || undefined }))}
-                  title="Slur stop (이음줄 끝)"
-                  style={{ fontSize: '0.78rem' }}
-                >◞⌒</NoteEditBtn>
-                <NoteEditBtn
-                  $active={!!selNoteInfo.grace}
-                  onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => (
-                    n.grace
-                      ? { ...n, grace: undefined, graceSlash: undefined }
-                      : { ...n, grace: true as const, graceSlash: true as const }
-                  ))}
-                  title="꾸밈음(acciaccatura) 토글"
-                  style={{ fontSize: '1rem', fontWeight: 700, lineHeight: 1 }}
-                >
-                  <svg width="16" height="20" viewBox="0 0 18 22" style={{ display: 'block' }}>
-                    <ellipse cx="7" cy="16" rx="3.2" ry="2.3" fill="currentColor" transform="rotate(-20 7 16)" />
-                    <line x1="9.7" y1="15" x2="9.7" y2="3" stroke="currentColor" strokeWidth="1.4" />
-                    <path d="M9.7 3 C 12 4, 13 6.5, 12 9" stroke="currentColor" strokeWidth="1.4" fill="none" />
-                    <line x1="4" y1="11" x2="13.5" y2="4.5" stroke="currentColor" strokeWidth="1.5" />
-                  </svg>
-                </NoteEditBtn>
-                <select
-                  value={selNoteInfo.dynamics ?? ''}
-                  onChange={(e) => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
-                    const v = e.target.value;
-                    return { ...n, dynamics: (v || undefined) as typeof n.dynamics };
-                  })}
-                  title="Dynamics"
-                  style={{ fontSize: '0.65rem', padding: '3px 4px', border: '1px solid #ccc', borderRadius: 4, fontStyle: 'italic' }}
-                >
-                  <option value="">dyn</option>
-                  <option value="pp">pp</option>
-                  <option value="p">p</option>
-                  <option value="mp">mp</option>
-                  <option value="mf">mf</option>
-                  <option value="f">f</option>
-                  <option value="ff">ff</option>
-                  <option value="fff">fff</option>
-                  <option value="sfz">sfz</option>
-                  <option value="fp">fp</option>
-                </select>
-              </>)}
-            </EditWrap>
-          </EditSection>
-
-          <VDivider />
-
-          {/* 섹션 3: 부가 (빔·코드·옥타브·마디·구조) */}
-          <EditSection>
-            <SectionCaption>부가</SectionCaption>
-            <EditWrap>
-              {(() => {
-                if (selNoteInfo.duration.endsWith('r')) return null;
-                const base = selNoteInfo.duration.replace(/r$/, '');
-                if (base !== '8' && base !== '16') return null;
-                return (
-                  <NoteEditBtn
-                    $active={!!selNoteInfo.beamBreak}
-                    onClick={() => {
-                      updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, beamBreak: !n.beamBreak || undefined }));
-                    }}
-                  >
-                    Divide
-                  </NoteEditBtn>
-                );
-              })()}
-              <NoteEditBtn
-                $active={noteChordEditing}
-                onClick={() => {
-                  if (noteChordEditing) {
-                    const norm = normalizeChord(noteChordValue);
-                    setChordAtNote(selectedNote.mi, selectedNote.ni, norm);
-                    setNoteChordEditing(false);
-                  } else {
-                    setNoteChordValue(selNoteInfo?.chord ?? '');
-                    setNoteChordEditing(true);
-                    setTimeout(() => noteChordInputRef.current?.focus(), 0);
-                  }
-                }}
-              >
-                Chord{selNoteInfo?.chord ? `: ${selNoteInfo.chord}` : ''}
-              </NoteEditBtn>
-              <NoteEditBtn
-                $active={!!selNoteInfo.ottavaStart}
-                onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => {
-                  if (n.ottavaStart) {
-                    const next = { ...n };
-                    delete next.ottavaStart;
-                    return next;
-                  }
-                  return { ...n, ottavaStart: '8va' };
-                })}
-                title="Toggle 8va start on this note"
-                style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontSize: '0.72rem' }}
-              >8va◜</NoteEditBtn>
-              <NoteEditBtn
-                $active={!!selNoteInfo.ottavaEnd}
-                onClick={() => updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, ottavaEnd: !n.ottavaEnd || undefined }))}
-                title="Toggle 8va end on this note"
-                style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontSize: '0.72rem' }}
-              >◞8va</NoteEditBtn>
-              {selMeasure && selectedNote && selectedNote.mi < measures.length && (<>
-                <NoteEditBtn
-                  $active={!!selMeasure.repeatStart}
-                  onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, repeatStart: !m.repeatStart || undefined }))}
-                >
-                  <svg width="14" height="18" viewBox="0 0 16 22" style={{ display: 'inline-block', verticalAlign: 'middle' }}><line x1="2" y1="1" x2="2" y2="21" stroke="currentColor" strokeWidth="2.5"/><line x1="5.5" y1="1" x2="5.5" y2="21" stroke="currentColor" strokeWidth="1"/><circle cx="10" cy="8" r="1.7" fill="currentColor"/><circle cx="10" cy="14" r="1.7" fill="currentColor"/></svg>
-                </NoteEditBtn>
-                <NoteEditBtn
-                  $active={!!selMeasure.repeatEnd}
-                  onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, repeatEnd: !m.repeatEnd || undefined }))}
-                >
-                  <svg width="14" height="18" viewBox="0 0 16 22" style={{ display: 'inline-block', verticalAlign: 'middle' }}><circle cx="6" cy="8" r="1.7" fill="currentColor"/><circle cx="6" cy="14" r="1.7" fill="currentColor"/><line x1="10.5" y1="1" x2="10.5" y2="21" stroke="currentColor" strokeWidth="1"/><line x1="14" y1="1" x2="14" y2="21" stroke="currentColor" strokeWidth="2.5"/></svg>
-                </NoteEditBtn>
-                <NoteEditBtn
-                  $active={selMeasure.volta === 1}
-                  onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, volta: m.volta === 1 ? undefined : 1 }))}
-                >
-                  <svg width="18" height="14" viewBox="0 0 22 18" style={{ display: 'inline-block', verticalAlign: 'middle' }}><path d="M1 1 L1 6 L21 6" stroke="currentColor" strokeWidth="1.5" fill="none"/><text x="4" y="16" fontSize="10" fontWeight="700" fill="currentColor" fontFamily="DM Sans, sans-serif">1.</text></svg>
-                </NoteEditBtn>
-                <NoteEditBtn
-                  $active={selMeasure.volta === 2}
-                  onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, volta: m.volta === 2 ? undefined : 2 }))}
-                >
-                  <svg width="18" height="14" viewBox="0 0 22 18" style={{ display: 'inline-block', verticalAlign: 'middle' }}><path d="M1 1 L1 6 L21 6" stroke="currentColor" strokeWidth="1.5" fill="none"/><text x="4" y="16" fontSize="10" fontWeight="700" fill="currentColor" fontFamily="DM Sans, sans-serif">2.</text></svg>
-                </NoteEditBtn>
-                <NoteEditBtn
-                  $active={selMeasure.navigation === 'segno'}
-                  onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: m.navigation === 'segno' ? undefined : 'segno' }))}
-                  style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.1rem' }}
-                >{''}</NoteEditBtn>
-                <NoteEditBtn
-                  $active={selMeasure.navigation === 'coda'}
-                  onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: m.navigation === 'coda' ? undefined : 'coda' }))}
-                  style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.1rem' }}
-                >{''}</NoteEditBtn>
-                <NoteEditBtn
-                  $active={selMeasure.navigation === 'fine'}
-                  onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: m.navigation === 'fine' ? undefined : 'fine' }))}
-                  style={{ fontSize: '0.65rem', fontWeight: 700, fontStyle: 'italic' }}
-                >Fine</NoteEditBtn>
-                <NoteEditBtn
-                  $active={selMeasure.navigation === 'toCoda'}
-                  onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: m.navigation === 'toCoda' ? undefined : 'toCoda' }))}
-                  style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '0.75rem' }}
-                ><span style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '0.6rem', fontWeight: 700, fontStyle: 'italic', marginRight: 1 }}>To</span>{''}</NoteEditBtn>
-                <NavSelect
-                  value={selMeasure.navigation && ['dc', 'dcAlCoda', 'dcAlFine', 'ds', 'dsAlCoda', 'dsAlFine'].includes(selMeasure.navigation) ? selMeasure.navigation : ''}
-                  onChange={(e) => updateMeasure(selectedNote.mi, (m) => ({ ...m, navigation: (e.target.value as NavigationMarker) || undefined }))}
-                  style={{ fontSize: '0.65rem' }}
-                >
-                  <option value="">D.C./D.S.</option>
-                  <option value="dc">D.C.</option>
-                  <option value="dcAlCoda">D.C. al Coda</option>
-                  <option value="dcAlFine">D.C. al Fine</option>
-                  <option value="ds">D.S.</option>
-                  <option value="dsAlCoda">D.S. al Coda</option>
-                  <option value="dsAlFine">D.S. al Fine</option>
-                </NavSelect>
-                <NoteEditBtn
-                  $active={!!selMeasure.bracket}
-                  onClick={() => updateMeasure(selectedNote.mi, (m) => ({ ...m, bracket: !m.bracket || undefined }))}
-                  style={{ fontSize: '0.85rem', fontWeight: 300, fontFamily: 'serif' }}
-                >(&thinsp;)</NoteEditBtn>
-              </>)}
-              {selectedNote && selectedNote.mi < measures.length && (<>
-                <NoteEditBtn
-                  onClick={() => insertMeasureBefore(selectedNote.mi)}
-                  title="Insert a fresh empty measure BEFORE this one"
-                  style={{ fontSize: '0.72rem' }}
-                >＋ ◀ Bar</NoteEditBtn>
-                <NoteEditBtn
-                  onClick={() => insertMeasureAfter(selectedNote.mi)}
-                  title="Insert a fresh empty measure AFTER this one"
-                  style={{ fontSize: '0.72rem' }}
-                >Bar ▶ ＋</NoteEditBtn>
-                <NoteEditBtn
-                  onClick={() => {
-                    if (confirm(`Delete measure ${selectedNote.mi + 1}? This cannot be undone except by Undo (Backspace).`)) {
-                      deleteMeasure(selectedNote.mi);
-                    }
-                  }}
-                  title="Delete this entire measure"
-                  style={{ fontSize: '0.72rem', color: '#c0392b' }}
-                >🗑 Bar</NoteEditBtn>
-              </>)}
-              <NoteEditBtn onClick={() => setSelectedNote(null)}>× Deselect</NoteEditBtn>
-            </EditWrap>
-          </EditSection>
-        </SectionedEditBar>
-        );
-      })()}
-
-      {/* ── 왼손(베이스 보표) 음표 편집 바 — 추가·수정·삭제 핵심 기능 ── */}
-      {selectedNote && selectedNote.staff === 'bass' && selNoteInfo && (
-        <NoteEditBar>
-          <NoteEditLabel>
-            🎼 왼손 Note: {selNoteInfo.keys.join(' ')} ({selNoteInfo.duration.replace('r', ' rest')})
-            {selNoteInfo.accidentals?.[0] === 'b' ? ' ♭' : selNoteInfo.accidentals?.[0] === '#' ? ' ♯' : selNoteInfo.accidentals?.[0] === 'n' ? ' ♮' : ''}
-          </NoteEditLabel>
-          {!selNoteInfo.duration.endsWith('r') && (
-            <>
-            </>
-          )}
-          {/* N연음 묶기 — 트레블 표현 섹션과 동일 규칙(3개 이상일 때만 노출). */}
-          <NoteEditBtn
-            $active={selectionTupleted}
-            disabled={multiSel.length >= 3 && !tupletGroupable}
-            onClick={applyTupletToSelection}
-            style={multiSel.length < 3 ? { visibility: 'hidden', pointerEvents: 'none' } : undefined}
-            title={multiSel.length < 3 ? undefined
-              : tupletGroupable
-                ? `선택한 ${multiSel.length}개를 ${multiSel.length}연음으로 ${selectionTupleted ? '해제' : '묶기'}`
-                : '한 마디 안에서 연속된 음표만 묶을 수 있다'}
-          >3+</NoteEditBtn>
-          <Sep />
-          <NoteEditBtn
-            title="이 음표 왼쪽에 삽입 — 피아노/쉼표로 입력"
-            onClick={() => {
-              setInsertPos({ mi: selectedNote.mi, ni: selectedNote.ni, staff: 'bass' });
-              setSelectedNote(null);
-            }}
-          >◀ 왼쪽 삽입</NoteEditBtn>
-          <NoteEditBtn
-            title="이 음표 오른쪽에 삽입 — 피아노/쉼표로 입력"
-            onClick={() => {
-              setInsertPos({ mi: selectedNote.mi, ni: selectedNote.ni + 1, staff: 'bass' });
-              setSelectedNote(null);
-            }}
-          >오른쪽 삽입 ▶</NoteEditBtn>
-          <Sep />
-          {!selNoteInfo.duration.endsWith('r') && (['b', '#', 'n'] as const).map((g) => (
-            <NoteEditBtn
-              key={g}
-              $active={selNoteInfo.accidentals?.[0] === g}
-              onClick={() => {
-                updateNote(selectedNote.mi, selectedNote.ni, (n) => {
-                  const cur = n.accidentals?.[0];
-                  if (cur === g) {
-                    const { ...rest } = n;
-                    delete rest.accidentals;
-                    return rest;
-                  }
-                  return { ...n, accidentals: { 0: g } };
-                }, 'bass');
-              }}
-            ><span style={{ fontFamily: 'serif' }}>{g === 'b' ? '♭' : g === '#' ? '♯' : '♮'}</span></NoteEditBtn>
-          ))}
-          <Sep />
-          <NoteEditBtn
-            onClick={() => deleteNote(selectedNote.mi, selectedNote.ni, 'bass')}
-            style={{ color: '#c0392b' }}
-          >🗑 삭제</NoteEditBtn>
-          <NoteEditBtn onClick={() => setSelectedNote(null)}>× Deselect</NoteEditBtn>
-        </NoteEditBar>
-      )}
 
       <SheetArea ref={sheetAreaRef}>
         {totalNotes === 0 && <EmptyHint>Type chord &rarr; play notes &rarr; Enter or | to close measure</EmptyHint>}
@@ -5666,18 +5750,26 @@ export default function EditorPage() {
             const grand = staffMode === 'grand';
             return (
               <span onClick={(e) => e.stopPropagation()}>
-                <MeasureSelOutline
+                {/* 점선 테두리는 없앴다 — 활성 표시는 악보에 칠해지는 노란 배경이 한다.
+                  * 여기 있는 건 hover 를 감지하기 위한 투명 영역(그 배경과 같은 범위). */}
+                <MeasureHoverZone
+                  onMouseEnter={() => setMeasureHover(true)}
+                  onMouseLeave={() => setMeasureHover(false)}
                   style={{
                     left: (pos.x - 3) * SHEET_SCALE,
-                    top: (pos.y + 14) * SHEET_SCALE,
+                    top: (pos.y - 44) * SHEET_SCALE,
                     width: (pos.w + 6) * SHEET_SCALE,
-                    height: ((grand ? 90 : LINE_HEIGHT - 28)) * SHEET_SCALE,
+                    height: ((grand ? GRAND_BASS_DY + 106 : 110)) * SHEET_SCALE,
                   }}
                 />
                 <MeasureEditBarBox
+                  onMouseEnter={() => setMeasureHover(true)}
+                  onMouseLeave={() => setMeasureHover(false)}
                   style={{
                     left: Math.max(4, pos.x * SHEET_SCALE),
-                    top: (pos.y + (grand ? LINE_HEIGHT + GRAND_EXTRA - 42 : LINE_HEIGHT - 12)) * SHEET_SCALE,
+                    // 하이라이트(노란 배경) 아래끝 바로 밑에 붙인다.
+                    top: (pos.y + (grand ? GRAND_BASS_DY + 68 : 70)) * SHEET_SCALE,
+                    display: measureHover ? undefined : 'none',
                   }}
                 >
                   <span className="mlabel">마디 {selectedMeasure + 1} · 🎹 입력은 이 마디로</span>
@@ -5780,6 +5872,37 @@ export default function EditorPage() {
               />
             );
           })}
+          {/* 음표 아래 드롭다운 — 삭제/삽입 4종(툴바에서 내려온 것). */}
+          {selectedNote && !selectedNote.staff && (() => {
+            const np = notePositions.find((p) => p.mi === selectedNote.mi && p.ni === selectedNote.ni && !p.staff);
+            if (!np) return null;
+            const total = allMeasures[selectedNote.mi]?.notes.length ?? 0;
+            const after = total - selectedNote.ni - 1;
+            return (
+              <NoteActionPop
+                onClick={(e) => e.stopPropagation()}
+                style={{ left: Math.max(4, (np.x - 6) * SHEET_SCALE), top: (np.y + np.h + 8) * SHEET_SCALE }}
+              >
+                <NoteEditBtn title="이 음표 왼쪽에 삽입 — 피아노/쉼표로 입력"
+                  onClick={() => { setInsertPos({ mi: selectedNote.mi, ni: selectedNote.ni }); setSelectedNote(null); }}
+                >◀ 삽입</NoteEditBtn>
+                <NoteEditBtn title="이 음표 오른쪽에 삽입 — 피아노/쉼표로 입력"
+                  onClick={() => { setInsertPos({ mi: selectedNote.mi, ni: selectedNote.ni + 1 }); setSelectedNote(null); }}
+                >삽입 ▶</NoteEditBtn>
+                <NoteEditBtn title="이 음표/쉼표 삭제"
+                  onClick={() => deleteNote(selectedNote.mi, selectedNote.ni)}
+                >🗑 삭제</NoteEditBtn>
+                <NoteEditBtn title="같은 마디에서 이 음표 오른쪽 내용 전부 삭제"
+                  disabled={after <= 0}
+                  onClick={() => {
+                    if (after <= 0) return;
+                    if (!window.confirm(`이 음표 오른쪽의 ${after}개(같은 마디)를 삭제할까요?`)) return;
+                    deleteNotesAfter(selectedNote.mi, selectedNote.ni);
+                  }}
+                >→끝 삭제</NoteEditBtn>
+              </NoteActionPop>
+            );
+          })()}
           {noteChordEditing && selectedNote && (() => {
             const np = notePositions.find((p) => p.mi === selectedNote.mi && p.ni === selectedNote.ni && !p.staff);
             if (!np) return null;
