@@ -5257,36 +5257,37 @@ export default function EditorPage() {
                       )}
                       </KeyAnchor>
                   </MetaField>
+                  {/* 3번 섹션 개편 전까지 임시로 여기에 둔다 — 원래 자리는 Staff 박스. */}
+                  <MetaField $tight>
+                    <MetaLabel>Staff {staffModeLocked && <LockedHint title="불러온 악보의 보표 수로 자동 확정">🔒</LockedHint>}</MetaLabel>
+                    <SegGroup $n={2} $i={staffMode === 'single' ? 0 : 1}>
+                      <SegThumb $n={2} $i={staffMode === 'single' ? 0 : 1} />
+                      {(['single', 'grand'] as const).map((v) => (
+                        <SegBtn
+                          key={v}
+                          type="button"
+                          $on={staffMode === v}
+                          disabled={staffModeLocked}
+                          onClick={() => {
+                            setStaffMode(v);
+                            if (v === 'single') { setSelectedBassMeasure(null); setSelectedNote((sel) => (sel?.staff === 'bass' ? null : sel)); }
+                            // 피아노 양손 악보는 악기가 피아노로 확정된다.
+                            else setMetaInstrument('piano');
+                          }}
+                        >{v === 'single' ? '한손' : '양손'}</SegBtn>
+                      ))}
+                    </SegGroup>
+                  </MetaField>
                 </InfoCol>
               </InfoCols>
             </InfoBox>
 
-            {/* 3 — Staff(좌) + Inst(우). 오른쪽 끝까지 늘어난다. */}
+            {/* 3 — Staff 박스. 칩은 2번 박스 Key 밑으로 임시 이동했고(3번 섹션 개편
+                예정) 여기엔 legend 와 Inst 만 남아 있다. */}
             <InfoBox $grow style={{ flexDirection: 'row', alignItems: 'center', gap: 26 }}>
-              {/* 이 박스의 legend — 윗 테두리 좌측 상단에 걸친다. */}
-              <BoxLegend $left>
-                Staff {staffModeLocked && <LockedHint title="불러온 악보의 보표 수로 자동 확정">🔒</LockedHint>}
-              </BoxLegend>
-              <MetaField $tight>
-                <SegGroup $n={2} $i={staffMode === 'single' ? 0 : 1}>
-                  <SegThumb $n={2} $i={staffMode === 'single' ? 0 : 1} />
-                  {(['single', 'grand'] as const).map((v) => (
-                    <SegBtn
-                      key={v}
-                      type="button"
-                      $on={staffMode === v}
-                      disabled={staffModeLocked}
-                      onClick={() => {
-                        setStaffMode(v);
-                        if (v === 'single') { setSelectedBassMeasure(null); setSelectedNote((sel) => (sel?.staff === 'bass' ? null : sel)); }
-                        // 피아노 양손 악보는 악기가 피아노로 확정된다.
-                        else setMetaInstrument('piano');
-                      }}
-                    >{v === 'single' ? '단일 악보' : '피아노 양손 악보'}</SegBtn>
-                  ))}
-                </SegGroup>
-              </MetaField>
-
+              {/* 윗 테두리 좌측 상단에 걸치는 legend. 🔒 잠금 표시는 칩을 따라
+                  2번 박스로 갔다 — 여기 또 두면 화면에 두 번 뜬다. */}
+              <BoxLegend $left>Staff</BoxLegend>
               <MetaField $tight>
                 <MetaLabel>Inst</MetaLabel>
                 {staffMode === 'grand' ? (
@@ -5684,7 +5685,6 @@ export default function EditorPage() {
                       onClick={() => {
                         updateNote(selectedNote.mi, selectedNote.ni, (n) => ({ ...n, gliss: !n.gliss || undefined }));
                       }}
-                      style={{ order: -2 }}
                     >
                       <svg width="22" height="14" viewBox="0 0 22 14" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
                         <path d="M2 12 Q7 8 12 6 Q17 4 20 2" stroke="currentColor" strokeWidth="1.5" fill="none" />
