@@ -585,6 +585,8 @@ export default function MyChordChartsPage() {
       {
         publicId: created.projectPublicId,
         title: form.title || '제목 없음',
+        composer: '',
+        performer: '',
         keySignature: form.key,
         timeSignature: '4/4',
         omrStatus: created.omrStatus,

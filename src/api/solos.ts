@@ -20,7 +20,13 @@
 
 import type { NoteSheetData } from '../data/sampleMelody';
 import type { OMRMetadata } from './licks';
+import type { components } from './schema';
 import { authFetch } from './auth';
+import { upgradeSheetWithOmr } from '../lib/note/omrResultToSheet';
+
+/** OMR 원문 — 단건 조회(GET /v1/solos/{publicId})에만 실린다. 목록에는 없다. */
+export type OmrResultPage = components['schemas']['OmrResultPageResponse'];
+export type OmrResult = components['schemas']['OmrResultResponse'];
 
 const API_BASE = import.meta.env.DEV ? '/api' : 'https://jazzify.p-e.kr/api';
 
@@ -70,6 +76,10 @@ export interface SoloResponse {
   harmonicContext?: SoloHarmonicContext | null;
   targetChord?: string | null;
   sheetData: NoteSheetData;
+  /** OMR 생성 건의 페이지별 원문. 단건 조회에서만 채워진다(목록 응답엔 없음).
+   *  `sheetData` 는 백엔드 스키마가 양손(`bassMeasures`)을 못 담아 왼손이 유실되므로,
+   *  이 원문을 프론트에서 파싱하는 쪽이 손실이 없다 — omrResultToSheet 참고. */
+  omrResult?: OmrResult | null;
   nEvents?: number | null;
   pitches?: number[] | null;
   intervals?: number[] | null;
@@ -259,7 +269,13 @@ export async function getSolo(publicId: string): Promise<SoloResponse> {
     throw new Error(`Solo 조회 실패 (${res.status}) ${detail}`.trim());
   }
   const json: { data: SoloResponse } = await res.json();
-  return json.data;
+  const solo = json.data;
+  /* 양손 악보는 `sheetData` 에 왼손이 담기지 않는다(백엔드 스키마에 `bassMeasures` 부재,
+   * 문서 #21). 단건 조회에만 실리는 OMR 원문으로 왼손을 되살린다 — 단선율이면 무동작. */
+  if (solo?.sheetData && solo.omrResult) {
+    solo.sheetData = upgradeSheetWithOmr(solo.sheetData, solo.omrResult, solo.title ?? '');
+  }
+  return solo;
 }
 
 /* ── Async OMR status ────────────────────────────────────────────────────── */

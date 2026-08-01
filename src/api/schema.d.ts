@@ -23,6 +23,7 @@ export interface paths {
          *     - **섹션 3 (harmonic)**: `chords`, `chordsPerNote`, `harmonicContext`, `targetChord`
          *     - **섹션 4 (sheetData)**: VexFlow 렌더링용 중첩 객체 (`measures[].notes[]` 포함)
          *     - **섹션 5 (features)**: `nEvents`, `pitches`, `intervals`, `parsons`, `fuzzyIntervals`, `durationClasses`, `pitchMin`, `pitchMax`, `pitchRange`, `pitchMean`, `startPitch`, `endPitch`
+         *     - **OMR 원문 (`omrResult`)**: OMR 생성 건의 페이지별 `musicXml`, `chordAssignmentsJson`. 목록 응답에는 포함되지 않고 단건 조회에서만 제공됩니다.
          *
          *     ### 에러
          *     	- `404 SOLO_001`: 해당 `publicId`의 솔로가 존재하지 않을 경우 반환됩니다.
@@ -181,6 +182,7 @@ export interface paths {
          *     - **섹션 3 (harmonic)**: `chords`, `chordsPerNote`, `harmonicContext`, `targetChord`
          *     - **섹션 4 (sheetData)**: VexFlow 렌더링용 중첩 객체 (`measures[].notes[]` 포함)
          *     - **섹션 5 (features)**: `nEvents`, `pitches`, `intervals`, `parsons`, `fuzzyIntervals`, `durationClasses`, `pitchMin`, `pitchMax`, `pitchRange`, `pitchMean`, `startPitch`, `endPitch`
+         *     - **OMR 원문 (`omrResult`)**: OMR 생성 건의 페이지별 `musicXml`, `chordAssignmentsJson`. 목록 응답에는 포함되지 않고 단건 조회에서만 제공됩니다.
          *
          *     ### 에러
          *     - `404 LICK_001`: 해당 `publicId`의 릭이 존재하지 않을 경우 반환됩니다.
@@ -520,8 +522,9 @@ export interface paths {
         put?: never;
         /**
          * OMR로 솔로 생성 (악보 파일 업로드)
-         * @description 악보 이미지 파일을 MusicVision OMR 서버에 비동기로 제출하고 `isOMR=true`인 Solo를 생성합니다.
-         *     	이 API는 최종 MusicXML 파싱 결과를 즉시 반환하지 않습니다. 응답의 `publicId`를 저장한 뒤 단건 조회 API로 `omrStatus`를 확인하세요.
+         * @description PDF 또는 악보 이미지를 요청 메모리에서 페이지 PNG로 변환하고 `isOMR=true`인 Solo를 생성합니다.
+         *     	응답은 백그라운드 worker 실행 속도와 무관하게 항상 `omrStatus=PENDING`인 생성 시점 스냅샷입니다.
+         *     	최종 결과는 즉시 반환하지 않으므로 응답의 `publicId`를 저장한 뒤 전용 `/omr-status` API로 처리 상태를 확인하세요.
          *
          *     ### 요청 형식
          *     `multipart/form-data`로 전송해야 합니다.
@@ -529,7 +532,7 @@ export interface paths {
          *     ### multipart 파트
          *     | 파라미터 | 타입 | 설명 |
          *     |---------|------|------|
-         *     | `file` | file | 악보 이미지 파일. `png`, `jpg`, `jpeg`만 허용 |
+         *     | `file` | file | `pdf`, `png`, `jpg`, `jpeg`. 최대 업로드 크기 20MB |
          *     | `metadata` | string(JSON) | 사용자 메타데이터 JSON 문자열. 모든 속성을 생략한 `{}`도 허용 |
          *
          *     ### `metadata` JSON 속성
@@ -552,28 +555,30 @@ export interface paths {
          *     | `userId` | string(UUID) | 소유자 ID. 잘못된 UUID 문자열은 `null`로 처리 |
          *
          *     ### 처리 흐름
-         *     1. 파일 확장자/빈 파일 검증
-         *     2. PENDING Solo 생성. 제목은 사용자 입력값 또는 `Untitled`
-         *     3. MusicVision `/omr/dev/process` 또는 `/omr/prod/process`로 제출 (`X-OMR-API-Key` 사용)
-         *     4. 제출 성공 시 `omrStatus=PROCESSING`, `omrProgress=10` 응답
-         *     5. MusicVision callback 수신 시 `/omr/jobs/{jobId}/musicxml`과 `/chord-assignments` 조회
-         *     6. MusicXML 파싱, 화성 맥락 및 유사도 피처 자동 계산
-         *     7. Solo 데이터 채우기 및 `omrStatus=COMPLETED`, 실패 시 `FAILED`
+         *     1. 요청 메모리에서 파일을 검증하고 PDF는 페이지별 300 DPI PNG(최대 20페이지), 이미지는 파생 PNG 1페이지로 변환해 로컬 작업 디렉터리에 즉시 기록
+         *     2. 원본 바이트는 저장하지 않고 PENDING Solo와 파생 PNG 상대경로만 DB에 저장
+         *     3. 응답 이후 각 페이지를 MusicVision에 비동기 개별 제출하고 페이지별 callback 결과를 영속화
+         *     4. 모든 페이지가 성공하면 페이지 순서대로 원문 envelope를 저장하고 MusicXML 본문을 결합
+         *     5. 첫 페이지의 악보 전역 메타데이터를 사용하되 사용자 입력값을 우선 적용
+         *     6. 화성 맥락 및 유사도 피처 계산 후 `COMPLETED`; 한 페이지라도 실패하면 전체 `FAILED`
+         *
+         *     암호화·손상 PDF, 20페이지 초과 PDF, 해석할 수 없는 이미지는 생성 요청에서 동기 오류로 반환됩니다.
+         *     파생 페이지 PNG는 파일 스트리밍으로 제출하며 OMR 접수 완료 또는 전체 실패 시 삭제됩니다.
          *
          *     ### 상태 확인
-         *     `GET /v1/solos/{publicId}/omr-status` 응답의 `status`, `progress`, `failureReason`을 확인하세요.
+         *     `GET /v1/solos/{publicId}/omr-status` 응답의 `status`, `progress`, `totalPages`, `completedPages`, `failureReason`을 확인하세요.
          *
          *     ### 에러
-         *     - `400 OMR_004`: 지원하지 않는 파일 형식
+         *     - `400 OMR_004`: 지원하지 않는 파일 형식 또는 해석할 수 없는 이미지
          *     - `400 OMR_005`: 빈 파일
+         *     - `400 OMR_011`: 암호화 PDF
+         *     - `400 OMR_012`: 20페이지 초과 PDF
+         *     - `400 OMR_013`: 손상되었거나 유효하지 않은 PDF
          *     - `400 GLOBAL_002`: `metadata` JSON 파싱 실패 또는 DTO validation 실패
          *     - `500 OMR_007`: 업로드 파일 읽기 실패
-         *     - `503 OMR_001`: OMR 서버 미설정
-         *     - `502 OMR_008`: OMR 서버 작업 제출 실패
-         *     - `502 OMR_002`: OMR 서버 결과 조회 실패
-         *     - `422 OMR_003`: MusicXML 파싱 실패
          *     - `401 OMR_009`: callback API key 불일치
-         *     - `404 OMR_010`: callback `job_id`에 해당하는 Solo 없음
+         *
+         *     PDF/이미지 검증 오류는 생성 요청의 HTTP 에러로 반환됩니다. OMR 제출·결과 조회, MusicXML 파싱 실패는 저장된 `FAILED/failureReason`으로 제공됩니다.
          *
          *     ### 태깅
          *     - OMR로 생성된 솔로는 응답/저장 데이터의 `isOMR = true`로 태깅됩니다.
@@ -599,10 +604,11 @@ export interface paths {
          * @description MusicVision이 Solo OMR 작업을 완료하거나 실패했을 때 호출하는 내부 엔드포인트입니다.
          *     프론트엔드가 직접 호출하지 않습니다.
          *
-         *     - JWT 인증 없이 `X-OMR-Callback-API-Key` 헤더로 요청 유효성을 검증합니다.
-         *     - `job_id`는 Solo `publicId` 문자열이어야 합니다.
-         *     - `status=completed`: `/musicxml`과 `/chord-assignments`를 조회하고 sheetData, harmonic context, similarity features를 채운 뒤 `COMPLETED`로 마킹합니다.
-         *     - `status=failed`: Solo를 `FAILED`로 마킹하고 실패 사유를 저장합니다.
+         *     - JWT 인증 없이 수신하며, `omr.callback-api-key` 설정 시에만 `X-OMR-Callback-API-Key` 헤더를 검증합니다.
+         *     - `job_id`는 백엔드가 페이지별로 발급한 OMR 작업 ID입니다.
+         *     - `status=completed`: 해당 페이지의 `/musicxml`과 `/chord-assignments` 원문을 저장합니다.
+         *     - 모든 페이지가 완료되면 페이지 순서대로 본문을 결합하고 sheetData, harmonic context, similarity features를 채운 뒤 전체 배치를 `COMPLETED`로 마킹합니다.
+         *     - `status=failed`: 한 페이지라도 실패하면 Solo와 전체 배치를 `FAILED`로 마킹합니다.
          *     - `queued`, `processing` 같은 중간 상태 callback은 상태 변경 없이 무시됩니다.
          */
         post: operations["handleCallback"];
@@ -622,7 +628,10 @@ export interface paths {
         /** 내 악보 프로젝트 목록 조회 (페이징) */
         get: operations["getAll_1"];
         put?: never;
-        /** 악보 프로젝트 생성 */
+        /**
+         * 악보 프로젝트 생성
+         * @description 파일 연결 없이 제목과 조성 메타데이터로 악보 프로젝트를 생성합니다.
+         */
         post: operations["create_1"];
         delete?: never;
         options?: never;
@@ -641,7 +650,7 @@ export interface paths {
         put?: never;
         /**
          * OMR로 악보 프로젝트 생성 요청
-         * @description 악보 이미지 파일을 MusicVision 일반 악보 OMR 서버에 비동기로 제출하고 즉시 `SheetProject`를 생성합니다.
+         * @description 악보 이미지 또는 PDF를 영속 OMR 배치로 등록하고 즉시 `SheetProject`를 생성합니다.
          *     이 API는 최종 인식 결과를 즉시 반환하지 않습니다. 응답의 `project.publicId`로 상태 조회 API를 폴링하세요.
          *
          *     ### 요청 형식
@@ -649,29 +658,47 @@ export interface paths {
          *
          *     | 필드 | 필수 | 설명 |
          *     | --- | --- | --- |
-         *     | `file` | 예 | 이미지 파일. `png`, `jpg`, `jpeg`만 허용 |
+         *     | `file` | 예 | `png`, `jpg`, `jpeg` 이미지 또는 최대 20페이지 PDF |
          *     | `title` | 아니오 | 생성 직후/완료 시 사용자 입력값을 최우선 사용. 미입력 시 생성 직후 `Untitled`, 완료 시 OMR 제목, 둘 다 없으면 `Untitled` |
          *     | `key` | 아니오 | `MusicKey` enum 이름 또는 조성 표기. 예: `B_FLAT_MAJOR`, `Bb`, `B flat major`, `F#m`. 미입력 시 OMR 결과에서 추론 |
          *
-         *     ### MusicVision 제출 경로
+         *     ### 비동기 처리
+         *     - 요청 메모리에서 PDF를 한 페이지씩 300 DPI PNG로 변환해 로컬 OMR 작업 디렉터리에 기록한 뒤 PENDING 프로젝트와 페이지 작업을 저장하고 응답합니다.
+         *     - 원본 PDF/이미지 바이트는 저장하지 않으며, OMR 제출 복구에 필요한 파생 PNG만 접수 완료 또는 전체 실패 전까지 임시 저장합니다.
+         *     - 파생 PNG는 파일 스트리밍으로 OMR 서버에 제출하며 모든 페이지를 애플리케이션 메모리에 누적하지 않습니다.
+         *     - 암호화·손상 PDF, 21페이지 이상 PDF, 해석할 수 없는 이미지는 생성 요청에서 동기 오류로 반환합니다.
+         *     - 생성 응답 이후 각 페이지를 독립 OMR 작업으로 비동기 제출합니다.
+         *     - 한 페이지라도 실패하면 전체 프로젝트가 `FAILED`가 됩니다.
+         *     - 모든 페이지가 완료되면 페이지 순서대로 본문을 결합하고 첫 페이지의 전역 메타데이터를 사용합니다.
+         *
+         *     ### MusicVision 페이지 제출 경로
          *     - dev profile: `/omr/dev/process`
          *     - prod profile: `/omr/prod/process`
          *     - 설정된 `omr.api-key`를 `X-OMR-API-Key`로 사용합니다.
          *
          *     ### 처리 결과
-         *     - 백엔드가 PENDING 프로젝트와 파일 엔티티를 만든 뒤 MusicVision 제출까지 성공하면 보통 `omrStatus=PROCESSING`, `omrProgress=10` 상태로 반환합니다.
+         *     - 생성 API는 백그라운드 제출을 기다리지 않으며 항상 생성 시점 스냅샷인 `omrStatus=PENDING`, `omrProgress=0`을 반환합니다.
          *     - 생성 직후 제목은 사용자 입력값 또는 `Untitled`입니다. 더 이상 `OMR Processing`을 제목으로 저장하지 않습니다.
          *     - 생성 직후 `chords[]`는 비어 있습니다.
-         *     - 실제 MusicXML/chord assignments 조회, `ChordInfo` 저장, 프로젝트 제목/조성 확정은 MusicVision callback 수신 후 수행됩니다.
+         *     - 모든 페이지의 MusicXML/chord assignments 조회가 끝난 뒤 `ChordInfo` 저장과 프로젝트 제목/조성 확정이 수행됩니다.
+         *     - 상세 응답의 `omrResult`에는 페이지별 원문 `musicXml`, `chordAssignmentsJson`이 보존됩니다.
          *     - 실패 시 `omrStatus=FAILED`, `omrFailureReason`에 원인을 기록합니다.
          *
-         *     ### 에러
-         *     - `400 OMR_004`: 지원하지 않는 파일 형식
+         *     ### 요청 시점 오류
+         *     - `400 OMR_004`: 지원하지 않는 파일 형식 또는 해석할 수 없는 이미지
          *     - `400 OMR_005`: 빈 파일
+         *     - `400 OMR_011`: 암호화 PDF
+         *     - `400 OMR_012`: 20페이지 초과 PDF
+         *     - `400 OMR_013`: 손상되었거나 유효하지 않은 PDF
          *     - `500 OMR_007`: 업로드 파일 읽기 실패
          *     - `400 GLOBAL_002`: 유효하지 않은 `key` 문자열
-         *     - `503 OMR_001`: OMR 서버 미설정
-         *     - `502 OMR_002`, `502 OMR_008`, `422 OMR_003`, `422 OMR_006`: 제출 또는 callback 처리 실패 시 `omrStatus=FAILED`와 `omrFailureReason`에 반영
+         *     - 서버 multipart 20MB 제한 초과 시 업로드 요청 자체가 거절됩니다.
+         *
+         *     ### 생성 응답 이후 `FAILED`로 반영되는 오류
+         *     - `OMR_001`, `OMR_008`: 백그라운드 페이지 제출 시 OMR 서버 미설정 또는 제출 실패
+         *     - `OMR_002`, `OMR_003`, `OMR_006`: 페이지 결과 조회, 파싱 또는 마디 정렬 실패
+         *
+         *     비동기 오류는 생성 요청의 HTTP 오류가 아니라 상태 조회의 `status=FAILED`, `failureReason`으로 확인합니다.
          */
         post: operations["createFromOmr_1"];
         delete?: never;
@@ -694,9 +721,10 @@ export interface paths {
          * @description MusicVision이 SheetProject OMR 작업을 완료하거나 실패했을 때 호출하는 내부 엔드포인트입니다.
          *     프론트엔드가 직접 호출하지 않습니다.
          *
-         *     - JWT 인증 없이 `X-OMR-Callback-API-Key` 헤더로 요청 유효성을 검증합니다.
-         *     - `job_id`는 SheetProject `publicId` 문자열이어야 합니다.
-         *     - `status=completed`: `/musicxml`과 `/chord-assignments`를 조회해 SheetProject 제목/조성 및 `ChordInfo`를 저장합니다.
+         *     - JWT 인증 없이 수신하며, `omr.callback-api-key` 설정 시에만 `X-OMR-Callback-API-Key` 헤더를 검증합니다.
+         *     - `job_id`는 백엔드가 페이지별로 발급한 OMR 작업 ID입니다.
+         *     - `status=completed`: 해당 페이지의 `/musicxml`과 `/chord-assignments` 원문을 저장합니다.
+         *     - 모든 페이지가 완료되면 페이지 순서대로 결과를 결합해 SheetProject 제목/조성 및 `ChordInfo`를 저장합니다.
          *     - `status=failed`: SheetProject를 `FAILED`로 마킹하고 실패 사유를 저장합니다.
          *     - `queued`, `processing` 같은 중간 상태 callback은 상태 변경 없이 무시됩니다.
          */
@@ -765,6 +793,61 @@ export interface paths {
          * @description 후보·반려 문서를 standard/lesson 으로 확정하고, 이때 비로소 청킹·임베딩해 검색 대상에 포함시킵니다.
          */
         post: operations["confirmDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/project-preprocesses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 프로젝트 파일 전처리
+         * @description 이미지 또는 PDF를 검증·페이지 변환한 뒤 첫 페이지를 MusicVision의
+         *     `/documents/classify`, `/metadata/extract`에 전달합니다.
+         *
+         *     - 응답의 문서 유형과 제목/작곡가/연주자는 제안값이며 사용자가 수정할 수 있습니다.
+         *     - 분류 또는 메타데이터 추출 일부가 실패해도 `READY` 세션을 만들고 `warnings`에 원인을 반환합니다.
+         *     - PDF는 최대 20페이지이며 모든 페이지를 300 DPI PNG로 보관하지만 자동 인식은 첫 페이지만 사용합니다.
+         *     - 세션 유효시간은 기본 1시간입니다. 확정 전에는 실제 프로젝트나 전체 OMR 작업이 생성되지 않습니다.
+         */
+        post: operations["create_2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/project-preprocesses/{preprocessId}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 메타데이터 확정 및 프로젝트 생성
+         * @description 사용자가 확인·정정한 최종 값을 확정하고 문서 유형에 맞는 프로젝트와 비동기 OMR 배치를 생성합니다.
+         *
+         *     - `documentType=sheet_music`: `SheetProject` 및 전체 악보 OMR 배치 생성
+         *     - `documentType=chord_chart`: `ChordProject` 및 코드 차트 OMR 배치 생성
+         *     - `title`, `documentType`은 필수입니다.
+         *     - `key` 미입력 시 `C_MAJOR`, `timeSignature` 미입력 시 `4/4`를 사용합니다.
+         *     - 확정값은 후속 OMR 결과로 덮어쓰지 않습니다.
+         *     - 동일 세션을 다시 확정하면 최초 생성 프로젝트를 반환하여 중복 생성을 막습니다.
+         *
+         *     응답의 `projectPublicId`로 해당 프로젝트의 기존 `omr-status` API를 폴링하세요.
+         */
+        post: operations["confirm"];
         delete?: never;
         options?: never;
         head?: never;
@@ -949,7 +1032,7 @@ export interface paths {
          *     > **타이 처리**: 타이로 묶인 음은 첫 번째 음만 피처 계산에 포함됩니다.
          *     > **쉼표 처리**: `nEvents`, `pitches`, `intervals` 계산 시 쉼표는 제외됩니다.
          */
-        post: operations["create_2"];
+        post: operations["create_3"];
         delete?: never;
         options?: never;
         head?: never;
@@ -967,8 +1050,9 @@ export interface paths {
         put?: never;
         /**
          * OMR로 릭 생성 (악보 파일 업로드)
-         * @description 악보 이미지 파일을 MusicVision OMR 서버에 비동기로 제출하고 `isOMR=true`인 Lick을 생성합니다.
-         *     	이 API는 최종 MusicXML 파싱 결과를 즉시 반환하지 않습니다. 응답의 `publicId`를 저장한 뒤 전용 `/omr-status` API로 처리 상태를 확인하세요.
+         * @description PDF 또는 악보 이미지를 요청 메모리에서 페이지 PNG로 변환하고 `isOMR=true`인 Lick을 생성합니다.
+         *     	응답은 백그라운드 worker 실행 속도와 무관하게 항상 `omrStatus=PENDING`인 생성 시점 스냅샷입니다.
+         *     	최종 결과는 즉시 반환하지 않으므로 응답의 `publicId`를 저장한 뒤 전용 `/omr-status` API로 처리 상태를 확인하세요.
          *
          *     ### 요청 형식
          *     `multipart/form-data`로 전송해야 합니다.
@@ -976,7 +1060,7 @@ export interface paths {
          *     ### multipart 파트
          *     | 파라미터 | 타입 | 설명 |
          *     |---------|------|------|
-         *     | `file` | file | 악보 이미지 파일. `png`, `jpg`, `jpeg`만 허용 |
+         *     | `file` | file | `pdf`, `png`, `jpg`, `jpeg`. 최대 업로드 크기 20MB |
          *     | `metadata` | string(JSON) | 사용자 메타데이터 JSON 문자열. 모든 속성을 생략한 `{}`도 허용 |
          *
          *     ### `metadata` JSON 속성
@@ -998,28 +1082,30 @@ export interface paths {
          *     | `userId` | string(UUID) | 소유자 ID. 잘못된 UUID 문자열은 `null`로 처리 |
          *
          *     ### 처리 흐름
-         *     1. 파일 확장자/빈 파일 검증
-         *     2. PENDING Lick 생성. 제목은 사용자 입력값 또는 `Untitled`
-         *     3. MusicVision `/omr/dev/process` 또는 `/omr/prod/process`로 제출 (`X-OMR-API-Key` 사용)
-         *     4. 제출 성공 시 `omrStatus=PROCESSING`, `omrProgress=10` 응답
-         *     5. MusicVision callback 수신 시 `/omr/jobs/{jobId}/musicxml`과 `/chord-assignments` 조회
-         *     6. MusicXML 파싱, 화성 맥락 및 유사도 피처 자동 계산
-         *     7. Lick 데이터 채우기 및 `omrStatus=COMPLETED`, 실패 시 `FAILED`
+         *     1. 요청 메모리에서 파일을 검증하고 PDF는 페이지별 300 DPI PNG(최대 20페이지), 이미지는 파생 PNG 1페이지로 변환해 로컬 작업 디렉터리에 즉시 기록
+         *     2. 원본 바이트는 저장하지 않고 PENDING Lick과 파생 PNG 상대경로만 DB에 저장
+         *     3. 응답 이후 각 페이지를 MusicVision에 비동기 개별 제출하고 페이지별 callback 결과를 영속화
+         *     4. 모든 페이지가 성공하면 페이지 순서대로 원문 envelope를 저장하고 MusicXML 본문을 결합
+         *     5. 첫 페이지의 악보 전역 메타데이터를 사용하되 사용자 입력값을 우선 적용
+         *     6. 화성 맥락 및 유사도 피처 계산 후 `COMPLETED`; 한 페이지라도 실패하면 전체 `FAILED`
+         *
+         *     암호화·손상 PDF, 20페이지 초과 PDF, 해석할 수 없는 이미지는 생성 요청에서 동기 오류로 반환됩니다.
+         *     파생 페이지 PNG는 파일 스트리밍으로 제출하며 OMR 접수 완료 또는 전체 실패 시 삭제됩니다.
          *
          *     ### 상태 확인
-         *     `GET /v1/licks/{publicId}/omr-status` 응답의 `status`, `progress`, `failureReason`을 확인하세요.
+         *     `GET /v1/licks/{publicId}/omr-status` 응답의 `status`, `progress`, `totalPages`, `completedPages`, `failureReason`을 확인하세요.
          *
          *     ### 에러
-         *     - `400 OMR_004`: 지원하지 않는 파일 형식
+         *     - `400 OMR_004`: 지원하지 않는 파일 형식 또는 해석할 수 없는 이미지
          *     - `400 OMR_005`: 빈 파일
+         *     - `400 OMR_011`: 암호화 PDF
+         *     - `400 OMR_012`: 20페이지 초과 PDF
+         *     - `400 OMR_013`: 손상되었거나 유효하지 않은 PDF
          *     - `400 GLOBAL_002`: `metadata` JSON 파싱 실패 또는 DTO validation 실패
          *     - `500 OMR_007`: 업로드 파일 읽기 실패
-         *     - `503 OMR_001`: OMR 서버 미설정
-         *     - `502 OMR_008`: OMR 서버 작업 제출 실패
-         *     - `502 OMR_002`: OMR 서버 결과 조회 실패
-         *     - `422 OMR_003`: MusicXML 파싱 실패
          *     - `401 OMR_009`: callback API key 불일치
-         *     - `404 OMR_010`: callback `job_id`에 해당하는 Lick 없음
+         *
+         *     PDF/이미지 검증 오류는 생성 요청의 HTTP 에러로 반환됩니다. OMR 제출·결과 조회, MusicXML 파싱 실패는 저장된 `FAILED/failureReason`으로 제공됩니다.
          *
          *     ### 태깅
          *     - OMR로 생성된 릭은 응답/저장 데이터의 `isOMR = true`로 태깅됩니다.
@@ -1045,10 +1131,11 @@ export interface paths {
          * @description MusicVision이 Lick OMR 작업을 완료하거나 실패했을 때 호출하는 내부 엔드포인트입니다.
          *     프론트엔드가 직접 호출하지 않습니다.
          *
-         *     - JWT 인증 없이 `X-OMR-Callback-API-Key` 헤더로 요청 유효성을 검증합니다.
-         *     - `job_id`는 Lick `publicId` 문자열이어야 합니다.
-         *     - `status=completed`: `/musicxml`과 `/chord-assignments`를 조회하고 sheetData, harmonic context, similarity features를 채운 뒤 `COMPLETED`로 마킹합니다.
-         *     - `status=failed`: Lick을 `FAILED`로 마킹하고 실패 사유를 저장합니다.
+         *     - JWT 인증 없이 수신하며, `omr.callback-api-key` 설정 시에만 `X-OMR-Callback-API-Key` 헤더를 검증합니다.
+         *     - `job_id`는 백엔드가 페이지별로 발급한 OMR 작업 ID입니다.
+         *     - `status=completed`: 해당 페이지의 `/musicxml`과 `/chord-assignments` 원문을 저장합니다.
+         *     - 모든 페이지가 완료되면 페이지 순서대로 본문을 결합하고 sheetData, harmonic context, similarity features를 채운 뒤 전체 배치를 `COMPLETED`로 마킹합니다.
+         *     - `status=failed`: 한 페이지라도 실패하면 Lick과 전체 배치를 `FAILED`로 마킹합니다.
          *     - `queued`, `processing` 같은 중간 상태 callback은 상태 변경 없이 무시됩니다.
          */
         post: operations["handleCallback_2"];
@@ -1106,7 +1193,7 @@ export interface paths {
          *     - `key`: 조성. MusicKey enum 이름을 문자열로 전달합니다. (예: `"G_MAJOR"`, `"B_FLAT_MAJOR"`, `"C_MINOR"`)
          *     - `timeSignature`: 박자 표기 (선택, 미입력 시 기본값 `"4/4"` 적용)
          */
-        post: operations["create_3"];
+        post: operations["create_4"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1194,7 +1281,7 @@ export interface paths {
         put?: never;
         /**
          * OMR로 코드 프로젝트 생성 요청
-         * @description 악보 또는 코드 차트 이미지를 MusicVision OMR 서버에 비동기로 제출하고 `ChordProject`를 생성합니다.
+         * @description 악보 또는 코드 차트 이미지/PDF를 영속 OMR 배치로 등록하고 즉시 `ChordProject`를 생성합니다.
          *     이 API는 최종 인식 결과를 즉시 반환하지 않습니다. 응답의 `project.publicId`로 상태 조회 API를 폴링하세요.
          *
          *     ### 요청 형식
@@ -1202,13 +1289,22 @@ export interface paths {
          *
          *     | 필드 | 필수 | 설명 |
          *     | --- | --- | --- |
-         *     | `file` | 예 | 이미지 파일. `png`, `jpg`, `jpeg`만 허용 |
+         *     | `file` | 예 | `png`, `jpg`, `jpeg` 이미지 또는 최대 20페이지 PDF |
          *     | `title` | 아니오 | 생성 직후/완료 시 사용자 입력값을 최우선 사용. 미입력 시 생성 직후 `Untitled`, 완료 시 OMR 제목, 둘 다 없으면 `Untitled` |
          *     | `key` | 아니오 | `MusicKey` enum 이름 또는 조성 표기. 예: `B_FLAT_MAJOR`, `Bb`, `B flat major`, `F#m`. 미입력 시 OMR 결과에서 추론, 실패하면 `CHORD_PROJECT_006` |
          *     | `timeSignature` | 아니오 | 예: `4/4`. 완료 시 사용자 입력값, OMR 박자표, 기본 `4/4` 순으로 적용 |
          *     | `sourceType` | 아니오 | `chart`/`chord-chart` 또는 `sheet`/`sheet-music`. 미입력 시 `chart` |
          *
-         *     ### MusicVision 제출 경로
+         *     ### 비동기 처리
+         *     - 요청 메모리에서 PDF를 한 페이지씩 300 DPI PNG로 변환해 로컬 OMR 작업 디렉터리에 기록한 뒤 PENDING 프로젝트와 페이지 작업을 저장하고 응답합니다.
+         *     - 원본 PDF/이미지 바이트는 저장하지 않으며, OMR 제출 복구에 필요한 파생 PNG만 접수 완료 또는 전체 실패 전까지 임시 저장합니다.
+         *     - 파생 PNG는 파일 스트리밍으로 제출하므로 모든 페이지 바이트를 애플리케이션 메모리에 누적하지 않습니다.
+         *     - 암호화·손상 PDF, 21페이지 이상 PDF, 해석할 수 없는 이미지는 생성 요청에서 동기 오류로 반환합니다.
+         *     - 생성 응답 이후 각 페이지를 독립 OMR 작업으로 비동기 제출합니다.
+         *     - 한 페이지라도 실패하면 전체 프로젝트가 `FAILED`가 됩니다.
+         *     - 모든 페이지가 완료되면 페이지 순서대로 본문을 결합하고 첫 페이지의 전역 메타데이터를 사용합니다.
+         *
+         *     ### MusicVision 페이지 제출 경로
          *     Spring active profile 기준으로 dev/prod가 선택됩니다.
          *
          *     | `sourceType` | dev endpoint | prod endpoint | callback URL | 완료 후 결과 조회 |
@@ -1219,21 +1315,30 @@ export interface paths {
          *     두 경로 모두 설정된 `omr.api-key`를 `X-OMR-API-Key`로 사용합니다.
          *
          *     ### 처리 결과
-         *     - 백엔드가 PENDING 프로젝트를 만든 뒤 MusicVision 제출까지 성공하면 보통 `omrStatus=PROCESSING`, `omrProgress=10` 상태로 반환합니다.
+         *     - 생성 API는 백그라운드 제출을 기다리지 않으며 항상 생성 시점 스냅샷인 `omrStatus=PENDING`, `omrProgress=0`을 반환합니다.
          *     - 생성 직후 제목은 사용자 입력값 또는 `Untitled`입니다. 더 이상 `OMR Processing`을 제목으로 저장하지 않습니다.
          *     - 생성 직후 `chords[]`는 비어 있습니다.
-         *     - 실제 `ChordInfo` 저장과 제목/조성/박자 확정은 MusicVision callback 수신 후 수행됩니다.
+         *     - 모든 페이지 결과가 수집된 뒤 `ChordInfo` 저장과 제목/조성/박자 확정이 수행됩니다.
+         *     - 상세 응답의 `omrResult`에는 sourceType에 따라 페이지별 원문 `chordChartJson` 또는 `musicXml`/`chordAssignmentsJson`이 보존됩니다.
          *     - 진행률은 `GET /v1/chord-projects/{publicId}/omr-status`로 확인합니다.
          *
-         *     ### 에러
-         *     - `400 OMR_004`: 지원하지 않는 파일 형식
+         *     ### 요청 시점 오류
+         *     - `400 OMR_004`: 지원하지 않는 파일 형식 또는 해석할 수 없는 이미지
          *     - `400 OMR_005`: 빈 파일
+         *     - `400 OMR_011`: 암호화 PDF
+         *     - `400 OMR_012`: 20페이지 초과 PDF
+         *     - `400 OMR_013`: 손상되었거나 유효하지 않은 PDF
          *     - `500 OMR_007`: 업로드 파일 읽기 실패
          *     - `400 GLOBAL_002`: 유효하지 않은 `key` 문자열
          *     - `400 CHORD_PROJECT_007`: 지원하지 않는 `sourceType`
-         *     - `400 CHORD_PROJECT_006`: 비동기 처리 중 조성 자동 판별 실패 및 key 미입력 (`omrStatus=FAILED`로 반영)
-         *     - `503 OMR_001`: OMR 서버 미설정
-         *     - `502 OMR_002`, `502 OMR_008`, `422 OMR_003`, `422 OMR_006`: 제출 또는 callback 처리 실패 시 `omrStatus=FAILED`와 `omrFailureReason`에 반영
+         *     - 서버 multipart 20MB 제한 초과 시 업로드 요청 자체가 거절됩니다.
+         *
+         *     ### 생성 응답 이후 `FAILED`로 반영되는 오류
+         *     - `CHORD_PROJECT_006`: 조성 자동 판별 실패 및 사용자 `key` 미입력
+         *     - `OMR_001`, `OMR_008`: 백그라운드 페이지 제출 시 OMR 서버 미설정 또는 제출 실패
+         *     - `OMR_002`, `OMR_003`, `OMR_006`: 페이지 결과 조회, 파싱 또는 마디 정렬 실패
+         *
+         *     비동기 오류는 생성 요청의 HTTP 오류가 아니라 상태 조회의 `status=FAILED`, `failureReason`으로 확인합니다.
          */
         post: operations["createFromOmr_3"];
         delete?: never;
@@ -1257,9 +1362,10 @@ export interface paths {
          *     프론트엔드가 직접 호출하지 않습니다.
          *
          *     - callback URL: `/api/v1/chord-projects/omr/callback`
-         *     - JWT 인증 없이 `X-OMR-Callback-API-Key` 헤더로 요청 유효성을 검증합니다.
-         *     - `job_id`는 ChordProject `publicId` 문자열이어야 합니다.
-         *     - `status=completed`: 저장된 `omrSourceType`에 따라 chord-chart JSON 또는 MusicXML + chord assignments를 조회하고 `ChordInfo`를 저장합니다.
+         *     - JWT 인증 없이 수신하며, `omr.callback-api-key` 설정 시에만 `X-OMR-Callback-API-Key` 헤더를 검증합니다.
+         *     - `job_id`는 백엔드가 페이지별로 발급한 OMR 작업 ID입니다.
+         *     - `status=completed`: 저장된 `omrSourceType`에 따라 해당 페이지의 chord-chart JSON 또는 MusicXML + chord assignments 원문을 저장합니다.
+         *     - 모든 페이지가 완료되면 페이지 순서대로 결과를 결합하고 `ChordInfo`를 저장합니다.
          *     - `status=failed`: ChordProject를 `FAILED`로 마킹하고 실패 사유를 저장합니다.
          *     - `queued`, `processing` 같은 중간 상태 callback은 상태 변경 없이 무시됩니다.
          */
@@ -1464,6 +1570,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/analysis/chords": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 구조화 코드 진행 분석
+         * @description 임의의 코드 진행을 질의 시점에 분석해 도수·기능·그룹·모호성 점수를 반환합니다. 같은 진행은 캐시에서 반환하며, 응답 필드는 프론트 LeadSheetChordAnalysis 와 동일한 camelCase 입니다.
+         */
+        post: operations["analyzeChords"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/users/me": {
         parameters: {
             query?: never;
@@ -1528,10 +1654,11 @@ export interface paths {
          * @description 비동기 OMR로 생성한 Solo의 현재 처리 상태를 조회합니다.
          *
          *     - `status`: `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`
-         *     - `progress`: 0~100 진행률. 처리 중이고 `omrJobId`가 있으면 MusicVision의 최신 진행률을 우선 사용합니다.
+         *     - `progress`: 영속화된 모든 페이지 작업의 평균 진행률(0~100)
+         *     - `totalPages`: 요청 시 변환·검증을 마친 전체 페이지 수
+         *     - `completedPages`: OMR 결과 회수가 완료된 페이지 수
          *     - `failureReason`: 실패 시 원인 메시지
          *
-         *     MusicVision 상태 조회가 일시적으로 실패하면 DB에 마지막으로 저장된 진행률을 반환합니다.
          *     존재하지 않는 `publicId`이면 `404 SOLO_001`을 반환합니다.
          */
         get: operations["getOmrStatus"];
@@ -1605,10 +1732,10 @@ export interface paths {
          * @description 비동기 OMR 프로젝트 생성의 현재 진행 상태를 조회합니다.
          *
          *     - `status`: `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`
-         *     - `progress`: 0~100 진행률. `PENDING`/`PROCESSING`이고 `omrJobId`가 있으면 MusicVision `GET /omr/jobs/{jobId}`의 최신 progress를 우선 사용합니다.
-         *     - `failureReason`: 실패 시 원인 메시지
-         *
-         *     MusicVision status 조회가 일시적으로 실패하면 DB에 마지막으로 저장된 progress를 fallback으로 반환합니다.
+         *     - `progress`: 영속 페이지 작업 진행률의 평균(0~100)
+         *     - `totalPages`: 요청 시 변환·검증을 마친 전체 페이지 수
+         *     - `completedPages`: 결과 회수가 완료된 페이지 수
+         *     - `failureReason`: 실패 페이지, OMR job ID와 OMR 서버가 제공한 상세 원인
          */
         get: operations["getOmrStatus_1"];
         put?: never;
@@ -1679,6 +1806,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/project-preprocesses/{preprocessId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 프로젝트 전처리 세션 조회
+         * @description 페이지 이동이나 새로고침 뒤 전처리 제안값을 복구합니다.
+         *     확정된 세션이면 `project`에 생성된 프로젝트 식별자를 함께 반환합니다.
+         *     만료된 세션은 `410 PROJECT_PREPROCESS_002`를 반환합니다.
+         */
+        get: operations["get"];
+        put?: never;
+        post?: never;
+        /**
+         * 프로젝트 전처리 취소
+         * @description READY 세션을 취소하고 임시 페이지를 삭제합니다. 이미 확정된 세션은 409를 반환합니다.
+         */
+        delete: operations["cancel"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/licks/{publicId}/omr-status": {
         parameters: {
             query?: never;
@@ -1691,10 +1844,11 @@ export interface paths {
          * @description 비동기 OMR로 생성한 Lick의 현재 처리 상태를 조회합니다.
          *
          *     - `status`: `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`
-         *     - `progress`: 0~100 진행률. 처리 중이고 `omrJobId`가 있으면 MusicVision의 최신 진행률을 우선 사용합니다.
+         *     - `progress`: 영속화된 모든 페이지 작업의 평균 진행률(0~100)
+         *     - `totalPages`: 요청 시 변환·검증을 마친 전체 페이지 수
+         *     - `completedPages`: OMR 결과 회수가 완료된 페이지 수
          *     - `failureReason`: 실패 시 원인 메시지
          *
-         *     MusicVision 상태 조회가 일시적으로 실패하면 DB에 마지막으로 저장된 진행률을 반환합니다.
          *     존재하지 않는 `publicId`이면 `404 LICK_001`을 반환합니다.
          */
         get: operations["getOmrStatus_2"];
@@ -1790,10 +1944,10 @@ export interface paths {
          * @description 비동기 OMR 프로젝트 생성의 현재 진행 상태를 조회합니다.
          *
          *     - `status`: `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`
-         *     - `progress`: 0~100 진행률. `PENDING`/`PROCESSING`이고 `omrJobId`가 있으면 MusicVision `GET /omr/jobs/{jobId}`의 최신 progress를 우선 사용합니다.
+         *     - `progress`: 영속 페이지 작업 진행률의 평균(0~100)
+         *     - `totalPages`: 요청 시 변환·검증을 마친 전체 페이지 수
+         *     - `completedPages`: 결과 회수가 완료된 페이지 수
          *     - `failureReason`: 실패 시 원인 메시지
-         *
-         *     MusicVision status 조회가 일시적으로 실패하면 DB에 마지막으로 저장된 progress를 fallback으로 반환합니다.
          */
         get: operations["getOmrStatus_3"];
         put?: never;
@@ -2015,6 +2169,18 @@ export interface components {
             gliss?: boolean;
             beamBreak?: boolean;
         };
+        OmrResultPageResponse: {
+            /** Format: int32 */
+            page?: number;
+            musicXml?: string;
+            chordAssignmentsJson?: string;
+            chordChartJson?: string;
+        };
+        OmrResultResponse: {
+            /** Format: int32 */
+            version?: number;
+            pages?: components["schemas"]["OmrResultPageResponse"][];
+        };
         SheetDataResponse: {
             title?: string;
             key?: string;
@@ -2040,6 +2206,7 @@ export interface components {
             /** Format: int32 */
             omrProgress?: number;
             omrFailureReason?: string;
+            omrResult?: components["schemas"]["OmrResultResponse"];
             performer?: string;
             composer?: string;
             title?: string;
@@ -2109,15 +2276,17 @@ export interface components {
             /** Format: uuid */
             publicId?: string;
             title?: string;
+            composer?: string;
+            performer?: string;
             /** @enum {string} */
             keySignature?: "C_MAJOR" | "C_SHARP_MAJOR" | "C_FLAT_MAJOR" | "C_MINOR" | "C_SHARP_MINOR" | "C_FLAT_MINOR" | "D_MAJOR" | "D_SHARP_MAJOR" | "D_FLAT_MAJOR" | "D_MINOR" | "D_SHARP_MINOR" | "D_FLAT_MINOR" | "E_MAJOR" | "E_SHARP_MAJOR" | "E_FLAT_MAJOR" | "E_MINOR" | "E_SHARP_MINOR" | "E_FLAT_MINOR" | "F_MAJOR" | "F_SHARP_MAJOR" | "F_FLAT_MAJOR" | "F_MINOR" | "F_SHARP_MINOR" | "F_FLAT_MINOR" | "G_MAJOR" | "G_SHARP_MAJOR" | "G_FLAT_MAJOR" | "G_MINOR" | "G_SHARP_MINOR" | "G_FLAT_MINOR" | "A_MAJOR" | "A_SHARP_MAJOR" | "A_FLAT_MAJOR" | "A_MINOR" | "A_SHARP_MINOR" | "A_FLAT_MINOR" | "B_MAJOR" | "B_SHARP_MAJOR" | "B_FLAT_MAJOR" | "B_MINOR" | "B_SHARP_MINOR" | "B_FLAT_MINOR";
-            /** Format: uuid */
-            filePublicId?: string;
+            timeSignature?: string;
             /** @enum {string} */
             omrStatus?: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
             /** Format: int32 */
             omrProgress?: number;
             omrFailureReason?: string;
+            omrResult?: components["schemas"]["OmrResultResponse"];
             /** Format: date-time */
             createdAt?: string;
             /** Format: date-time */
@@ -2197,6 +2366,7 @@ export interface components {
             /** Format: int32 */
             omrProgress?: number;
             omrFailureReason?: string;
+            omrResult?: components["schemas"]["OmrResultResponse"];
             performer?: string;
             composer?: string;
             title?: string;
@@ -2295,6 +2465,8 @@ export interface components {
             /** Format: uuid */
             publicId?: string;
             title?: string;
+            composer?: string;
+            performer?: string;
             /** @enum {string} */
             keySignature?: "C_MAJOR" | "C_SHARP_MAJOR" | "C_FLAT_MAJOR" | "C_MINOR" | "C_SHARP_MINOR" | "C_FLAT_MINOR" | "D_MAJOR" | "D_SHARP_MAJOR" | "D_FLAT_MAJOR" | "D_MINOR" | "D_SHARP_MINOR" | "D_FLAT_MINOR" | "E_MAJOR" | "E_SHARP_MAJOR" | "E_FLAT_MAJOR" | "E_MINOR" | "E_SHARP_MINOR" | "E_FLAT_MINOR" | "F_MAJOR" | "F_SHARP_MAJOR" | "F_FLAT_MAJOR" | "F_MINOR" | "F_SHARP_MINOR" | "F_FLAT_MINOR" | "G_MAJOR" | "G_SHARP_MAJOR" | "G_FLAT_MAJOR" | "G_MINOR" | "G_SHARP_MINOR" | "G_FLAT_MINOR" | "A_MAJOR" | "A_SHARP_MAJOR" | "A_FLAT_MAJOR" | "A_MINOR" | "A_SHARP_MINOR" | "A_FLAT_MINOR" | "B_MAJOR" | "B_SHARP_MAJOR" | "B_FLAT_MAJOR" | "B_MINOR" | "B_SHARP_MINOR" | "B_FLAT_MINOR";
             timeSignature?: string;
@@ -2303,6 +2475,7 @@ export interface components {
             /** Format: int32 */
             omrProgress?: number;
             omrFailureReason?: string;
+            omrResult?: components["schemas"]["OmrResultResponse"];
             chords?: components["schemas"]["ChordInfoResponse"][];
             /** Format: date-time */
             createdAt?: string;
@@ -2356,8 +2529,8 @@ export interface components {
             musicxml_path?: string;
             chord_assignments_path?: string;
             error?: string;
-            failed?: boolean;
             completed?: boolean;
+            failed?: boolean;
         };
         ApiResponseVoid: {
             data?: Record<string, never>;
@@ -2366,7 +2539,6 @@ export interface components {
             title?: string;
             /** @enum {string} */
             key?: "C_MAJOR" | "C_SHARP_MAJOR" | "C_FLAT_MAJOR" | "C_MINOR" | "C_SHARP_MINOR" | "C_FLAT_MINOR" | "D_MAJOR" | "D_SHARP_MAJOR" | "D_FLAT_MAJOR" | "D_MINOR" | "D_SHARP_MINOR" | "D_FLAT_MINOR" | "E_MAJOR" | "E_SHARP_MAJOR" | "E_FLAT_MAJOR" | "E_MINOR" | "E_SHARP_MINOR" | "E_FLAT_MINOR" | "F_MAJOR" | "F_SHARP_MAJOR" | "F_FLAT_MAJOR" | "F_MINOR" | "F_SHARP_MINOR" | "F_FLAT_MINOR" | "G_MAJOR" | "G_SHARP_MAJOR" | "G_FLAT_MAJOR" | "G_MINOR" | "G_SHARP_MINOR" | "G_FLAT_MINOR" | "A_MAJOR" | "A_SHARP_MAJOR" | "A_FLAT_MAJOR" | "A_MINOR" | "A_SHARP_MINOR" | "A_FLAT_MINOR" | "B_MAJOR" | "B_SHARP_MAJOR" | "B_FLAT_MAJOR" | "B_MINOR" | "B_SHARP_MINOR" | "B_FLAT_MINOR";
-            storageFileIds?: string[];
         };
         ApiResponseSheetProjectOmrCreateResponse: {
             data?: components["schemas"]["SheetProjectOmrCreateResponse"];
@@ -2391,6 +2563,80 @@ export interface components {
             title?: string;
             content?: string;
             topicTags?: string[];
+        };
+        ApiResponseProjectPreprocessResponse: {
+            data?: components["schemas"]["ProjectPreprocessResponse"];
+        };
+        ProjectDocumentTypeCandidateResponse: {
+            /** @enum {string} */
+            documentType?: "sheet_music" | "chord_chart" | "unknown";
+            /** Format: double */
+            confidence?: number;
+        };
+        ProjectMetadataConfidenceResponse: {
+            /** Format: double */
+            title?: number;
+            /** Format: double */
+            composer?: number;
+            /** Format: double */
+            performer?: number;
+            /** Format: double */
+            key?: number;
+            /** Format: double */
+            timeSignature?: number;
+        };
+        ProjectMetadataSuggestionResponse: {
+            title?: string;
+            composer?: string;
+            performer?: string;
+            key?: string;
+            timeSignature?: string;
+        };
+        ProjectPreprocessConfirmResponse: {
+            /** @enum {string} */
+            projectType?: "sheet_project" | "chord_project";
+            /** Format: uuid */
+            projectPublicId?: string;
+            /** @enum {string} */
+            omrStatus?: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+            /** Format: int32 */
+            omrProgress?: number;
+        };
+        ProjectPreprocessResponse: {
+            /** Format: uuid */
+            preprocessId?: string;
+            /** @enum {string} */
+            status?: "READY" | "CONFIRMED" | "CANCELLED" | "EXPIRED";
+            originalFilename?: string;
+            /** Format: int32 */
+            pageCount?: number;
+            /** Format: date-time */
+            expiresAt?: string;
+            /** @enum {string} */
+            documentType?: "sheet_music" | "chord_chart" | "unknown";
+            /** Format: double */
+            documentTypeConfidence?: number;
+            documentTypeCandidates?: components["schemas"]["ProjectDocumentTypeCandidateResponse"][];
+            metadata?: components["schemas"]["ProjectMetadataSuggestionResponse"];
+            confidence?: components["schemas"]["ProjectMetadataConfidenceResponse"];
+            warnings?: components["schemas"]["ProjectPreprocessWarningResponse"][];
+            project?: components["schemas"]["ProjectPreprocessConfirmResponse"];
+        };
+        ProjectPreprocessWarningResponse: {
+            code?: string;
+            message?: string;
+        };
+        ProjectPreprocessConfirmRequest: {
+            /** @enum {string} */
+            documentType: "sheet_music" | "chord_chart" | "unknown";
+            title?: string;
+            composer?: string;
+            performer?: string;
+            key?: string;
+            timeSignature?: string;
+        };
+        ApiResponseProjectPreprocessConfirmResponse: {
+            data?: components["schemas"]["ProjectPreprocessConfirmResponse"];
         };
         LickCreateRequest: {
             /** @enum {string} */
@@ -2542,6 +2788,11 @@ export interface components {
              * @default false
              */
             suppressInlineChart: boolean;
+            /**
+             * @description RAG 진단 블록(RAG_DEBUG) 포함 여부. null 또는 미입력 시 false
+             * @default false
+             */
+            debug: boolean;
         };
         JsonNode: Record<string, never>;
         StreamingResponseBody: Record<string, never>;
@@ -2611,6 +2862,92 @@ export interface components {
             ambiguityNote?: string;
             summary?: string;
         };
+        ChordEntryRequest: {
+            /** Format: int32 */
+            bar: number;
+            /** Format: double */
+            beat?: number;
+            symbol?: string;
+        };
+        ChordProgressionAnalysisRequest: {
+            key?: string;
+            timeSignature?: string;
+            chords?: components["schemas"]["ChordEntryRequest"][];
+        };
+        AnalyzedChord: {
+            /** Format: int32 */
+            bar?: number;
+            /** Format: double */
+            beat?: number;
+            symbol?: string;
+            analysis?: components["schemas"]["ChordAnalysis"];
+        };
+        ApiResponseChordProgressionAnalysisResponse: {
+            data?: components["schemas"]["ChordProgressionAnalysisResponse"];
+        };
+        ChordAnalysis: {
+            /** Format: int32 */
+            rootPc?: number;
+            /** Format: int32 */
+            bassPc?: number;
+            normalizedQuality?: string;
+            degree?: string;
+            isDiatonic?: boolean;
+            functions?: components["schemas"]["FunctionEntry"][];
+            groupMemberships?: components["schemas"]["GroupMembership"][];
+            secondaryDominant?: components["schemas"]["SecondaryDominantInfo"];
+            modalInterchange?: components["schemas"]["ModalInterchangeInfo"];
+            deceptiveResolution?: components["schemas"]["DeceptiveResolutionInfo"];
+            modeSegment?: string;
+            /** Format: double */
+            ambiguityScore?: number;
+        };
+        ChordProgressionAnalysisResponse: {
+            key?: string;
+            timeSignature?: string;
+            chords?: components["schemas"]["AnalyzedChord"][];
+        };
+        DeceptiveResolutionInfo: {
+            dominantChord?: string;
+            expectedResolution?: string;
+            actualResolution?: string;
+            actualDegree?: string;
+            commonPattern?: boolean;
+        };
+        FunctionEntry: {
+            function?: string;
+            /** Format: double */
+            confidence?: number;
+            note?: string;
+        };
+        GroupMembership: {
+            /** Format: int32 */
+            groupId?: number;
+            groupType?: string;
+            role?: string;
+            variant?: string;
+        };
+        ModalInterchangeInfo: {
+            sourceMode?: string;
+            borrowedDegree?: string;
+            allPossibleSources?: components["schemas"]["ModalInterchangeMatch"][];
+            commonBorrow?: boolean;
+        };
+        ModalInterchangeMatch: {
+            sourceMode?: string;
+            borrowedDegree?: string;
+            commonBorrow?: boolean;
+        };
+        SecondaryDominantInfo: {
+            type?: string;
+            impliedDominant?: string;
+            targetDegree?: string;
+            targetChord?: string;
+            resolved?: boolean;
+            originPosition?: {
+                [key: string]: Record<string, never>;
+            };
+        };
         UserProfileResponse: {
             /** Format: uuid */
             publicId?: string;
@@ -2641,31 +2978,31 @@ export interface components {
             first?: boolean;
             last?: boolean;
             /** Format: int32 */
-            numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
-            /** Format: int32 */
             size?: number;
             content?: components["schemas"]["SoloResponse"][];
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
             empty?: boolean;
         };
         PageableObject: {
+            /** Format: int64 */
+            offset?: number;
+            sort?: components["schemas"]["SortObject"];
             paged?: boolean;
             /** Format: int32 */
             pageNumber?: number;
             /** Format: int32 */
             pageSize?: number;
             unpaged?: boolean;
-            /** Format: int64 */
-            offset?: number;
-            sort?: components["schemas"]["SortObject"];
         };
         SortObject: {
+            empty?: boolean;
             sorted?: boolean;
             unsorted?: boolean;
-            empty?: boolean;
         };
         ApiResponseSoloOmrStatusResponse: {
             data?: components["schemas"]["SoloOmrStatusResponse"];
@@ -2675,8 +3012,24 @@ export interface components {
             publicId?: string;
             /** @enum {string} */
             status?: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description 모든 페이지의 평균 OMR 진행률
+             * @example 50
+             */
             progress?: number;
+            /**
+             * Format: int32
+             * @description PDF에서 변환된 전체 페이지 수
+             * @example 4
+             */
+            totalPages?: number;
+            /**
+             * Format: int32
+             * @description OMR 결과 회수가 완료된 페이지 수
+             * @example 2
+             */
+            completedPages?: number;
             failureReason?: string;
         };
         ApiResponseListSoloMetadataValueCountResponse: {
@@ -2698,14 +3051,14 @@ export interface components {
             first?: boolean;
             last?: boolean;
             /** Format: int32 */
-            numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
-            /** Format: int32 */
             size?: number;
             content?: components["schemas"]["SheetProjectResponse"][];
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
             empty?: boolean;
         };
         ApiResponseSheetProjectOmrStatusResponse: {
@@ -2716,8 +3069,28 @@ export interface components {
             publicId?: string;
             /** @enum {string} */
             status?: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description 모든 페이지의 평균 OMR 진행률
+             * @example 50
+             */
             progress?: number;
+            /**
+             * Format: int32
+             * @description PDF에서 변환된 전체 페이지 수
+             * @example 4
+             */
+            totalPages?: number;
+            /**
+             * Format: int32
+             * @description OMR 결과 회수가 완료된 페이지 수
+             * @example 2
+             */
+            completedPages?: number;
+            /**
+             * @description 실패 페이지, OMR job ID 및 OMR 서버가 제공한 상세 원인. 실패하지 않은 경우 null
+             * @example 페이지 4 OMR 처리 실패 (jobId=...-p004): Staff detection failed
+             */
             failureReason?: string;
         };
         ApiResponseRagSearchResponse: {
@@ -2772,14 +3145,14 @@ export interface components {
             first?: boolean;
             last?: boolean;
             /** Format: int32 */
-            numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
-            /** Format: int32 */
             size?: number;
             content?: components["schemas"]["RagDocumentSummaryResponse"][];
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
             empty?: boolean;
         };
         RagDocumentSummaryResponse: {
@@ -2821,14 +3194,14 @@ export interface components {
             first?: boolean;
             last?: boolean;
             /** Format: int32 */
-            numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
-            /** Format: int32 */
             size?: number;
             content?: components["schemas"]["LickResponse"][];
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
             empty?: boolean;
         };
         ApiResponseLickOmrStatusResponse: {
@@ -2839,8 +3212,24 @@ export interface components {
             publicId?: string;
             /** @enum {string} */
             status?: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description 모든 페이지의 평균 OMR 진행률
+             * @example 50
+             */
             progress?: number;
+            /**
+             * Format: int32
+             * @description PDF에서 변환된 전체 페이지 수
+             * @example 4
+             */
+            totalPages?: number;
+            /**
+             * Format: int32
+             * @description OMR 결과 회수가 완료된 페이지 수
+             * @example 2
+             */
+            completedPages?: number;
             failureReason?: string;
         };
         ApiResponseListLickMetadataValueCountResponse: {
@@ -2870,14 +3259,14 @@ export interface components {
             first?: boolean;
             last?: boolean;
             /** Format: int32 */
-            numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
-            /** Format: int32 */
             size?: number;
             content?: components["schemas"]["ChordProjectResponse"][];
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
             empty?: boolean;
         };
         ApiResponseChordProjectOmrStatusResponse: {
@@ -2888,8 +3277,24 @@ export interface components {
             publicId?: string;
             /** @enum {string} */
             status?: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
-            /** Format: int32 */
+            /**
+             * Format: int32
+             * @description 모든 페이지의 평균 OMR 진행률
+             * @example 50
+             */
             progress?: number;
+            /**
+             * Format: int32
+             * @description PDF에서 변환된 전체 페이지 수
+             * @example 4
+             */
+            totalPages?: number;
+            /**
+             * Format: int32
+             * @description OMR 결과 회수가 완료된 페이지 수
+             * @example 2
+             */
+            completedPages?: number;
             failureReason?: string;
         };
         ApiResponsePageChatSummaryResponse: {
@@ -2918,14 +3323,14 @@ export interface components {
             first?: boolean;
             last?: boolean;
             /** Format: int32 */
-            numberOfElements?: number;
-            pageable?: components["schemas"]["PageableObject"];
-            /** Format: int32 */
             size?: number;
             content?: components["schemas"]["ChatSummaryResponse"][];
             /** Format: int32 */
             number?: number;
             sort?: components["schemas"]["SortObject"];
+            /** Format: int32 */
+            numberOfElements?: number;
+            pageable?: components["schemas"]["PageableObject"];
             empty?: boolean;
         };
         ApiResponseChatDetailResponse: {
@@ -4563,9 +4968,9 @@ export interface operations {
     handleCallback: {
         parameters: {
             query?: never;
-            header: {
-                /** @description OMR 콜백 API 키 (X-OMR-Callback-API-Key) */
-                "X-OMR-Callback-API-Key": string;
+            header?: {
+                /** @description 설정된 경우 검증하는 OMR 콜백 API 키 (X-OMR-Callback-API-Key) */
+                "X-OMR-Callback-API-Key"?: string;
             };
             path?: never;
             cookie?: never;
@@ -4844,9 +5249,9 @@ export interface operations {
     handleCallback_1: {
         parameters: {
             query?: never;
-            header: {
-                /** @description OMR 콜백 API 키 (X-OMR-Callback-API-Key) */
-                "X-OMR-Callback-API-Key": string;
+            header?: {
+                /** @description 설정된 경우 검증하는 OMR 콜백 API 키 (X-OMR-Callback-API-Key) */
+                "X-OMR-Callback-API-Key"?: string;
             };
             path?: never;
             cookie?: never;
@@ -5190,6 +5595,149 @@ export interface operations {
             };
         };
     };
+    create_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectPreprocessResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    confirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                preprocessId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectPreprocessConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectPreprocessConfirmResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     getAll_2: {
         parameters: {
             query: {
@@ -5259,7 +5807,7 @@ export interface operations {
             };
         };
     };
-    create_2: {
+    create_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -5404,9 +5952,9 @@ export interface operations {
     handleCallback_2: {
         parameters: {
             query?: never;
-            header: {
-                /** @description OMR 콜백 API 키 (X-OMR-Callback-API-Key) */
-                "X-OMR-Callback-API-Key": string;
+            header?: {
+                /** @description 설정된 경우 검증하는 OMR 콜백 API 키 (X-OMR-Callback-API-Key) */
+                "X-OMR-Callback-API-Key"?: string;
             };
             path?: never;
             cookie?: never;
@@ -5609,7 +6157,7 @@ export interface operations {
             };
         };
     };
-    create_3: {
+    create_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -5892,9 +6440,9 @@ export interface operations {
     handleCallback_3: {
         parameters: {
             query?: never;
-            header: {
-                /** @description OMR 콜백 API 키 (X-OMR-Callback-API-Key) */
-                "X-OMR-Callback-API-Key": string;
+            header?: {
+                /** @description 설정된 경우 검증하는 OMR 콜백 API 키 (X-OMR-Callback-API-Key) */
+                "X-OMR-Callback-API-Key"?: string;
             };
             path?: never;
             cookie?: never;
@@ -6643,6 +7191,75 @@ export interface operations {
             };
         };
     };
+    analyzeChords: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChordProgressionAnalysisRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseChordProgressionAnalysisResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     getMe: {
         parameters: {
             query?: never;
@@ -7198,6 +7815,140 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListRagDocumentChunkResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                preprocessId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseProjectPreprocessResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                preprocessId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
                 };
             };
             /** @description Bad Request */

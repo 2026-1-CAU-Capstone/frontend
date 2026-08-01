@@ -20,10 +20,12 @@ export type ChordProjectOmrStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FA
  * 필드만 경계에서 명시한다. 필드가 rename/삭제되면 여기서 컴파일 에러 → 드리프트 감지.
  * BR-23(스펙에 required/nullable 선언) 완료 시 이 브릿지는 순수 alias로 축소 가능. */
 export type ChordProject =
-  Required<Omit<Schemas['ChordProjectResponse'], 'keySignature' | 'omrFailureReason' | 'chords'>>
+  Required<Omit<Schemas['ChordProjectResponse'],
+    'keySignature' | 'omrFailureReason' | 'chords' | 'omrResult'>>
   & {
       keySignature: ChordProjectKey | string;  // 프론트는 조성을 문자열로 다룸
       omrFailureReason: string | null;          // 실패 없으면 null
+      omrResult?: Schemas['OmrResultResponse']; // 단건 조회에만 실린다(목록엔 없음)
     };
 
 export type ChordProjectStatus = Required<Schemas['ChordProjectOmrStatusResponse']>;
