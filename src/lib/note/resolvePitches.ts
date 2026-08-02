@@ -15,7 +15,7 @@
  * 마디 내 반복 임시표에서 반음이 틀린다(예: 이조 후 "b 안 붙은" 음들).
  * 반드시 이 모듈을 경유해 소리 피치를 구할 것.
  * ──────────────────────────────────────────────────────────────────────── */
-import type { MeasureInfo } from '../../data/sampleMelody';
+import type { MeasureInfo, NoteInfo } from '../../data/sampleMelody';
 
 export type AccGlyph = '#' | 'b' | 'n' | '##' | 'bb';
 export type AccidentalStyle = 'score' | 'explicit';
@@ -236,13 +236,44 @@ export function bakeForScoreReading(
   sheetKey: string | undefined,
 ): MeasureInfo[] {
   let keySig = keySigLetterMap(sheetKey);
-  const sounding: SoundingNote[][][] = measures.map((m) => {
+  let anyChanged = false;
+  const out = measures.map((m) => {
     if (m.key) keySig = keySigLetterMap(m.key);
+    // score 해석이 보게 될 마디 내 상태 — 우리가 방출한 표기로만 갱신된다.
     const active = new Map<string, AccGlyph>();
-    return m.notes.map((n) => (n.duration.endsWith('r') ? [] : n.keys.map((k, ki) => ({
-      vexKey: k,
-      acc: soundingAccidental(active, keySig, k, n.accidentals?.[ki] as AccGlyph | undefined, 'explicit'),
-    }))));
+    let measureChanged = false;
+    const notes = m.notes.map((n) => {
+      if (n.duration.endsWith('r')) return n;
+      let accOut: Record<number, AccGlyph> | undefined;
+      let noteChanged = false;
+      n.keys.forEach((k, ki) => {
+        const dataAcc = n.accidentals?.[ki] as AccGlyph | undefined;
+        const letter = k.split('/')[0];
+        let want: AccGlyph | undefined;
+        if (/^[a-gA-G](##?|bb?|n)$/.test(letter)) {
+          want = undefined;          // baked 글자('eb/4') — 글자 자체가 소리다
+        } else if (dataAcc) {
+          // ★ 조표가 같은 임시표를 이미 준다고 해서 생략하지 않는다. 생략하면
+          //   표기가 조표에 의존하게 되어, 조표무시로 읽을 때 소리가 달라진다
+          //   (Eb 조표에서 E♭ 표기를 지우면 explicit 해석은 E내추럴이 됨).
+          want = dataAcc;
+        } else {
+          // 내추럴 — score 해석에서 조표나 마디 내 상태가 바꾸려 들면 ♮ 를 명시.
+          const wouldAlter = active.get(k) ?? keySig.get(letter);
+          want = wouldAlter && wouldAlter !== 'n' ? 'n' : undefined;
+        }
+        if (want) { (accOut ??= {})[ki] = want; active.set(k, want); }
+        if (want !== dataAcc) noteChanged = true;
+      });
+      if (!noteChanged) return n;
+      measureChanged = true;
+      const copy: NoteInfo = { ...n };
+      if (accOut) copy.accidentals = accOut; else delete copy.accidentals;
+      return copy;
+    });
+    if (!measureChanged) return m;
+    anyChanged = true;
+    return { ...m, notes };
   });
-  return emitScoreAccidentals(sounding, measures, sheetKey ?? 'C');
+  return anyChanged ? out : measures;
 }

@@ -12,7 +12,7 @@ import {
   type SoloInstrument,
   type SoloSource,
 } from '../api/solos';
-import type { NoteSheetData, MeasureInfo } from './sampleMelody';
+import type { NoteSheetData, MeasureInfo, SheetStaff } from './sampleMelody';
 
 /** Legacy localStorage key — pre-backend SoloGenerator wrote here. */
 export const LEGACY_SOLOS_KEY = 'jazzify_user_solos';
@@ -151,6 +151,9 @@ export function buildUserSoloDraft(opts: {
   tempo: number;
   measures: MeasureInfo[];
   bassMeasures?: MeasureInfo[];
+  /** 다중 스태프(자유 조합) — 있으면 sheetData.staves 로 그대로 실린다.
+   *  measures/bassMeasures 는 staves[0] 미러(stavesToSheetFields 규약). */
+  staves?: SheetStaff[];
   instrument?: SoloInstrument;
   source?: SoloSource;
   accidentalStyle?: 'explicit' | 'score';
@@ -163,6 +166,7 @@ export function buildUserSoloDraft(opts: {
     tempo: opts.tempo,
     ...(opts.genre ? { genre: opts.genre } : {}),
     measures: opts.measures,
+    ...(opts.staves ? { staves: opts.staves } : {}),
     ...(opts.bassMeasures ? { bassMeasures: opts.bassMeasures } : {}),
     ...(opts.accidentalStyle ? { accidentalStyle: opts.accidentalStyle } : {}),
   };

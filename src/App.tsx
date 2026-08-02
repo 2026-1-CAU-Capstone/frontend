@@ -14,6 +14,7 @@ import { AudioErrorBoundary } from './components/common/AudioErrorBoundary';
 import { AudioLifecycleGuard } from './components/common/AudioLifecycleGuard';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AdminRoute } from './components/auth/AdminRoute';
+import { AdminToolsDock } from './components/layout/AdminToolsDock';
 import { GlobalSettingsModal } from './components/auth/GlobalSettingsModal';
 
 /* Sheet-music tab pages — split out of the initial bundle so that vexflow
@@ -33,6 +34,7 @@ const InputPage           = lazy(() => import('./pages/InputPage'));
 const EditorPage          = lazy(() => import('./pages/EditorPage'));
 const YoutubeOnsetPage    = lazy(() => import('./pages/YoutubeOnsetPage'));
 const StemSplitterPage    = lazy(() => import('./pages/StemSplitterPage'));
+const CopyPage            = lazy(() => import('./pages/CopyPage'));
 const IntroPage           = lazy(() => import('./pages/IntroPage'));
 const LoginPage           = lazy(() => import('./pages/LoginPage'));
 const SharedChartPage     = lazy(() => import('./pages/SharedChartPage'));
@@ -126,6 +128,7 @@ export default function App() {
           <Route path="/input" element={<ProtectedRoute><InputPage /></ProtectedRoute>} />
           <Route path="/youtube-onset" element={<ProtectedRoute><YoutubeOnsetPage /></ProtectedRoute>} />
           <Route path="/stems" element={<ProtectedRoute><StemSplitterPage /></ProtectedRoute>} />
+          <Route path="/copy" element={<ProtectedRoute><CopyPage /></ProtectedRoute>} />
           <Route path="/my-licks" element={<ProtectedRoute><MyLicksPage /></ProtectedRoute>} />
           <Route path="/my-charts" element={<ProtectedRoute><MyChordChartsPage /></ProtectedRoute>} />
           <Route path="/my-sheets" element={<ProtectedRoute><MySheetProjectsPage /></ProtectedRoute>} />
@@ -171,6 +174,10 @@ export default function App() {
          *  BottomTabBar 전면 대체. No-ops on web; the component reads
          *  useIsNativeUi() which is also true under /preview/*. */}
         <NativeBottomBar />
+        {/* admin 도구 런처 — 라우트 밖 전역 상주. 예전엔 HomePage 에만 있어
+         *  다른 페이지에서는 홈으로 돌아가야 열 수 있었다. 내부에서 admin
+         *  계정을 검사해 그 외 계정에는 아무것도 렌더하지 않는다. */}
+        <AdminToolsDock />
         {/* AI 채팅 풀하이트 시트 — 하단 바와 달리 라우트 숨김 없이 상주해
          *  채팅 중 페이지 이동에도 대화가 유지된다. 라우트 트리의
          *  AudioErrorBoundary 밖에 있어 자체 바운더리 없이는 렌더 크래시가

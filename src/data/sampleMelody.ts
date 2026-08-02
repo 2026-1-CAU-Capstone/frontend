@@ -41,6 +41,10 @@ export interface NoteInfo {
   stem?: 'up' | 'down';                         // explicit stem direction (= XML <stem>); overrides autoStem
   chord?: string;                               // chord change at this note position
   ghost?: boolean;                              // ghost note — rendered in parentheses ()
+  /** TAB 수동 운지 — keys 인덱스별 강제 현 번호(1=가는 줄). 프렛은 음정에서
+   *  자동 계산되므로 표기·소리가 어긋날 수 없다. 해당 현에서 그 음이 안 나면
+   *  렌더러가 조용히 무시하고 자동 운지로 돌아간다(이조 후 안전). */
+  tabStrings?: Record<number, number>;
   ottavaStart?: '8va' | '8vb';                 // start of ottava bracket at this note
   ottavaEnd?: boolean;                          // end of ottava bracket at this note
 
@@ -105,6 +109,46 @@ export interface NoteSheetData {
    *  포함)만으로 음정을 판단·표기한다(조표를 안 그린 악보 전용). 생략/'score'면
    *  조표+마디 상속(기본). 렌더러(NoteSheet)·플레이어(GlobalPlayer) 공통 소비. */
   accidentalStyle?: 'explicit' | 'score';
+  /** 다중 스태프 악보(에디터 Staff 자유 조합). **존재하면 이것이 진실**이고,
+   *  `measures`/`bassMeasures`는 staves[0]의 미러다(구버전 리더·백엔드 feature
+   *  계산 호환용 — pack 헬퍼가 항상 함께 채운다). 없으면 기존 단일/양손 해석. */
+  staves?: SheetStaff[];
+}
+
+/* ─── 다중 스태프(보표) 모델 ──────────────────────────────────────────────
+ * 에디터 정보 탭 Staff 박스의 자유 조합이 이 배열로 저장된다. 각 스태프는
+ * 독립 파트(자기 마디·자기 악기)이며, 렌더 시 위에서 아래로 쌓인다.
+ * 정규화/직렬화는 lib/note/sheetStaves.ts 헬퍼만 사용할 것. */
+
+export type StaffKind =
+  | 'treble'      // 높은음자리표 단일
+  | 'treble-8vb'  // 높은음자리표 8vb (기타·테너 보컬 관례 — 소리는 표기보다 한 옥타브 아래)
+  | 'bass'        // 낮은음자리표 단일
+  | 'alto'        // 알토(C) 음자리표 — 비올라
+  | 'tenor'       // 테너(C) 음자리표 — 첼로·트롬본·바순 고음역
+  | 'grand'       // 피아노 양손 (measures=오른손, bassMeasures=왼손)
+  | 'guitar-tab'  // 기타 TAB 6현 — keys 는 일반 음정, 운지는 렌더 시 자동 계산
+  | 'bass-tab'    // 베이스 TAB 4현
+  | 'bass5-tab'   // 베이스 TAB 5현 (Low B)
+  | 'ukulele-tab' // 우쿨렐레 TAB 4현 (High-G 리엔트런트)
+  | 'drum';       // 드럼 — keys 의 MIDI 값이 곧 GM 퍼커션 키(채널 10 재생 호환)
+
+export interface SheetStaff {
+  kind: StaffKind;
+  measures: MeasureInfo[];
+  /** kind='grand' 전용 — 왼손(낮은음자리표). measures 와 인덱스 1:1. */
+  bassMeasures?: MeasureInfo[];
+  /** 이 파트의 재생 음색(MusyngKite 악기명). 드럼 파트는 무시된다. */
+  instrument?: string;
+  /** TAB 전용: 위에 표준 오선도 함께 표기(같은 음 자동 동기). */
+  withNotation?: boolean;
+  /** TAB 전용 — 카포 프렛(0=없음). 개방현이 이만큼 올라가고 프렛 숫자는 카포
+   *  기준 0부터 센다(실제 TAB 관행). 재생 음정은 데이터 keys 그대로. */
+  capo?: number;
+  /** TAB 전용 — 튜닝 프리셋. 생략 = 표준. drop-d 는 기타 6번줄만 D로. */
+  tuningPreset?: 'standard' | 'drop-d';
+  /** 기타·우쿨렐레 TAB 전용 — 마디 코드심볼로 프렛 다이어그램을 함께 표기. */
+  chordDiagrams?: boolean;
 }
 
 /* ─── Sample: 16-bar jazz melody in C major ─────────────────────────────── */

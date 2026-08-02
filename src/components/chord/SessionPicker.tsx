@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
-import { INSTRUMENT_ICONS, CATEGORIES, instrumentIconUrl, SESSION_ICON_SLUG } from '../../data/instrumentIcons';
+import { INSTRUMENT_ICONS, CATEGORIES, instrumentIconUrl, resolveInstrumentIconSlug } from '../../data/instrumentIcons';
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Session picker — the player declares which instrument they're using this
@@ -20,9 +20,9 @@ export type SessionInstrument = string;
  * cached copy at the same static URL. */
 const ICON_VER = '3';
 
-/** Resolve any stored value (icon slug or legacy generic id) to a canonical slug. */
+/** 저장된 값(아이콘 슬러그·레거시 id·GM 사운드폰트 이름) → 아이콘 슬러그. */
 function toSlug(v: string): string {
-  return SESSION_ICON_SLUG[v] ?? v;
+  return resolveInstrumentIconSlug(v) ?? v;
 }
 
 interface Props {
@@ -125,6 +125,8 @@ const Trigger = styled.button`
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* 직접 입력한 긴 악기명이 상자를 넘어 옆 글자와 겹치지 않게 잘라낸다. */
+  overflow: hidden;
   width: 36px;
   height: 36px;
   padding: 0;
@@ -245,7 +247,11 @@ const CustomChip = styled.span`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 8px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  padding: 0 4px;
   font-family: 'Pretendard', sans-serif;
   font-size: 0.78rem;
   font-weight: 700;

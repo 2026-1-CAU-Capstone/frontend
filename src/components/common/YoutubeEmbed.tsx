@@ -33,7 +33,8 @@ interface Props {
 
 let apiReady: Promise<YTNamespace> | null = null;
 
-function loadYTApi(): Promise<YTNamespace> {
+/** CopyPage(카피하기) 등 다른 화면도 같은 싱글턴 로더를 쓴다. */
+export function loadYTApi(): Promise<YTNamespace> {
   if (apiReady) return apiReady;
   apiReady = new Promise<YTNamespace>((resolve) => {
     if (window.YT?.Player) {

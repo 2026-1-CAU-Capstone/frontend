@@ -89,6 +89,9 @@ export const theme = {
     toast: 2000,
     /** 인트로 스플래시·앱 프리뷰 — 모든 것 위 */
     max: 9999,
+    /** admin 도구 독 — 문자 그대로 **모든 것 위**. 어느 페이지의 모달·오버레이·
+     *  재생 바(BackingPlayerBar 가 10000 을 직접 씀) 위에서도 열 수 있어야 한다. */
+    adminDock: 12000,
   },
 } as const;
 

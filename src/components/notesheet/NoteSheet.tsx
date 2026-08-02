@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState, useCallback } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, useCallback } from 'react';
 import { ghostHead } from '../../lib/note/ghostNote';
 import styled from 'styled-components';
 // vexflow는 ~1 MB이므로 dynamic import로 lazy-load.
@@ -29,6 +29,11 @@ import type {
   Tremolo as TremoloT,
   StaveHairpin as StaveHairpinT,
   StaveConnector as StaveConnectorT,
+  TabStave as TabStaveT,
+  TabNote as TabNoteT,
+  GhostNote as GhostNoteT,
+  TabSlide as TabSlideT,
+  TabTie as TabTieT,
 } from 'vexflow';
 // Type aliases — `StaveNote` etc. used as type annotations in the code below.
 type Renderer = RendererT;
@@ -81,6 +86,11 @@ let TextBracketPosition: typeof TextBracketPositionT;
 let Tremolo: typeof TremoloT;
 let StaveHairpin: typeof StaveHairpinT;
 let StaveConnector: typeof StaveConnectorT;
+let TabStave: typeof TabStaveT;
+let TabNote: typeof TabNoteT;
+let GhostNote: typeof GhostNoteT;
+let TabSlide: typeof TabSlideT;
+let TabTie: typeof TabTieT;
 let __vexflowLoaded = false;
 async function __ensureVexflow() {
   if (__vexflowLoaded) return;
@@ -110,9 +120,19 @@ async function __ensureVexflow() {
   Tremolo = vf.Tremolo;
   StaveHairpin = vf.StaveHairpin;
   StaveConnector = vf.StaveConnector;
+  TabStave = vf.TabStave;
+  TabNote = vf.TabNote;
+  GhostNote = vf.GhostNote;
+  TabSlide = vf.TabSlide;
+  TabTie = vf.TabTie;
   __vexflowLoaded = true;
 }
-import type { NoteSheetData, MeasureInfo, NoteInfo } from '../../data/sampleMelody';
+import type { NoteSheetData, MeasureInfo, NoteInfo, SheetStaff } from '../../data/sampleMelody';
+import { sheetToStaves, stavesToPlaybackParts, isTabKind, tabTuningFor, clefForKind, restKeyForClef, displayNotesFor, fitTabClefToStave, type NotationClef } from '../../lib/note/sheetStaves';
+import { buildDrumNote } from '../../lib/note/drumVexNote';
+import { assignTabPositions, type TabPos } from '../../lib/note/tabFingering';
+import { chordToDiagram, drawFretDiagram, type FretDiagram } from '../../lib/note/chordDiagram';
+import { resolveSheetMidis } from '../../lib/note/resolvePitches';
 import { keySigLetterMap, soundingAccidental, type AccGlyph } from '../../lib/note/resolvePitches';
 import { expandMeasures } from '../../lib/note/expandMeasures';
 import { useGlobalPlayer } from '../../lib/player';
@@ -931,6 +951,110 @@ function buildBassStaveNotes(
   return out;
 }
 
+/* ── 추가 스태프 행(뷰어) 음표 빌더 — 표기(피치)/드럼/TAB 3종. 꾸밈음은
+ * 추가 파트에선 생략(v1). 빌더는 lazy vexflow 바인딩 이후에만 호출된다. */
+const TAB_REST_KEY: Record<number, string> = { 6: 'b/4', 5: 'b/4', 4: 'a/4' };
+
+/** 뷰어 코드 다이어그램 높이/폭 + 캐시 — 에디터(DIAGRAM_H)와 같은 규격. */
+const VIEW_DIAGRAM_H = 50;
+const VIEW_DIAGRAM_W = 34;
+const viewerDiagramCache = new Map<string, FretDiagram | null>();
+function viewerCachedDiagram(chord: string, tuning: number[]): FretDiagram | null {
+  const key = chord + '|' + tuning.join(',');
+  if (!viewerDiagramCache.has(key)) viewerDiagramCache.set(key, chordToDiagram(chord, tuning));
+  return viewerDiagramCache.get(key) ?? null;
+}
+
+/* TAB 주법 — 마디 안 인접쌍: gliss→슬라이드(음정 방향), slurStart→slurStop
+ * 인접쌍→해머온(상행)/풀오프(하행). 에디터(drawTabTechniques)와 같은 규약. */
+function drawViewerTabTechniques(
+  ctx: ReturnType<Renderer['getContext']>,
+  notes: NoteInfo[],
+  vf: (StaveNote | TabNoteT | GhostNoteT)[],
+): void {
+  const real = notes.filter((n) => !n.grace);
+  const midiOf = (n: NoteInfo): number | null =>
+    n.duration.endsWith('r') || n.keys.length === 0 ? null : noteToMidi(n.keys[0], n.accidentals?.[0]);
+  for (let i = 0; i + 1 < real.length && i + 1 < vf.length; i++) {
+    const a = real[i], b = real[i + 1];
+    const va = vf[i], vb = vf[i + 1];
+    if (!(va instanceof TabNote) || !(vb instanceof TabNote)) continue;
+    const ma = midiOf(a), mb = midiOf(b);
+    if (ma === null || mb === null) continue;
+    const opts = { firstNote: va, lastNote: vb, firstIndexes: [0], lastIndexes: [0] };
+    try {
+      if (a.gliss) {
+        (mb >= ma ? TabSlide.createSlideUp(opts) : TabSlide.createSlideDown(opts)).setContext(ctx).draw();
+      } else if (a.slurStart && b.slurStop) {
+        (mb >= ma ? TabTie.createHammeron(opts) : TabTie.createPulloff(opts)).setContext(ctx).draw();
+      }
+    } catch { /* noop */ }
+  }
+}
+
+function buildExtraRowNotes(
+  kind: SheetStaff['kind'],
+  notes: NoteInfo[],
+  keySigAcc: Map<string, 'b' | '#'> | undefined,
+  explicitAcc: boolean,
+  clef: 'treble' | 'bass' | 'alto' | 'tenor',
+  tabPosRow: (TabPos[] | null)[] | null,
+  /** 표기 옥타브 시프트 판정용(TAB 동반 오선 등 kind 와 표기 규약이 다를 때). */
+  dispKind?: SheetStaff['kind'],
+  /** standalone TAB(동반 오선 없음) — 리듬 스템·플래그·진짜 쉼표를 TAB 에 그린다. */
+  tabStems = false,
+  /** 카포·튜닝 프리셋(줄 수·쉼표 위치 계산용). */
+  staffOpts?: Pick<SheetStaff, 'capo' | 'tuningPreset'>,
+): (StaveNote | TabNoteT | GhostNoteT)[] {
+  const real = displayNotesFor(dispKind ?? kind, notes.filter((n) => !n.grace));
+  if (isTabKind(kind)) {
+    const numLines = tabTuningFor(kind, staffOpts).length;
+    return real.map((n, ni) => {
+      const dur = buildDuration(n.duration, n.dotted);
+      const pos = tabPosRow?.[ni] ?? null;
+      if (n.duration.endsWith('r') || !pos || pos.length === 0) {
+        if (tabStems && n.duration.endsWith('r')) {
+          const rest = new StaveNote({ keys: [TAB_REST_KEY[numLines] ?? 'b/4'], duration: dur });
+          if (n.dotted) Dot.buildAndAttach([rest]);
+          return rest;
+        }
+        return new GhostNote(dur);
+      }
+      const tn = new TabNote({ positions: pos.map((tp) => ({ str: tp.str, fret: tp.fret })), duration: dur }, tabStems);
+      if (tabStems) {
+        tn.setStemDirection(-1);           // 출판 TAB 관례 — 스템은 보표 아래
+        if (n.dotted) Dot.buildAndAttach([tn]);
+      }
+      return tn;
+    });
+  }
+  if (kind === 'drum') {
+    /* 공용 빌더 — per-key 노트헤드(킥 타원 + 심벌 ✕ + 벨 ◆), 손/발 스템 방향,
+     * 고스트 괄호, 열린 하이햇 ○, 악센트. 에디터와 동일 표기. */
+    return real.map((n) => buildDrumNote(n));
+  }
+  const active = new Map<string, 'b' | '#' | 'n' | '##' | 'bb'>();
+  const out: (StaveNote | TabNoteT | GhostNoteT)[] = [];
+  for (const n of real) {
+    const isRest = n.duration.endsWith('r');
+    const keys = isRest ? [restKeyForClef(clef)] : n.keys;
+    const dur = buildDuration(n.duration, n.dotted);
+    let note: StaveNote;
+    try {
+      note = new StaveNote({ keys, duration: dur, autoStem: true, clef, ...ghostHead(n) });
+    } catch { continue; }
+    if (n.dotted) Dot.buildAndAttach([note]);
+    if (!isRest) {
+      for (let ki = 0; ki < keys.length; ki++) {
+        const glyph = resolveMeasureAccidental(active, keySigAcc, keys[ki], n.accidentals?.[ki], { courtesy: !explicitAcc });
+        if (glyph) note.addModifier(new Accidental(glyph), ki);
+      }
+    }
+    out.push(note);
+  }
+  return out;
+}
+
 /* buildVfNotes is now inlined in the render loop for context-aware accidentals */
 
 /* ─── component ─────────────────────────────────────────────────────────── */
@@ -1010,9 +1134,18 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
   data, selectedKey, allKeys, onKeyChange, selectable, selectedRanges, onSelectionChange,
   showMeasureNumbers, lineStartMeasureNumbers, forceAutoStem,
   hideTransport, noPreload, onPlayingChange, onTempoChange,
-  breakEditMode = false, breakPoints, onToggleBreak, extraParts,
+  breakEditMode = false, breakPoints, onToggleBreak, extraParts: extraPartsProp,
   partOptions, selectedPartId, onSelectPart, lockSwing,
 }, ref) {
+  /* 다중 스태프 악보(data.staves)의 추가 파트는 뷰어가 스스로 재생 파트를
+   * 만든다(TAB→해당 악기 음색, 드럼→퍼커션 채널·key C). 호출자가 extraParts 를
+   * 명시하면 그것이 우선 — 기존 호출부(양손 LH 전달 등)와 충돌하지 않는다. */
+  const extraParts = useMemo<NoteSheetData[] | undefined>(() => {
+    if (extraPartsProp) return extraPartsProp;
+    if (!data.staves || data.staves.length === 0) return undefined;
+    const parts = stavesToPlaybackParts(data, sheetToStaves(data)).slice(1);
+    return parts.length ? parts : undefined;
+  }, [extraPartsProp, data]);
   const [partMenuOpen, setPartMenuOpen] = useState(false);
   const partMenuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -1681,14 +1814,44 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
      * 로 파싱된 결과가 `bassMeasures` 로 들어온다. 사용자에게 묻지 않는다. */
     const grand = Array.isArray(data.bassMeasures) && data.bassMeasures.length > 0;
     const layout = getBarLayout(width, grand);
-    lineHRef.current = layout.lineH * layout.scale;
-    unscaledLineHRef.current = layout.lineH;
+    /* ── 다중 스태프(자유 조합) — staves[0] 은 measures/bassMeasures 미러라
+     * 기존 파이프라인이 그대로 그리고, staves[1..] 만 아래 행으로 쌓는다.
+     * (뷰어 v1 한계: 첫 파트가 TAB 이면 표준 오선으로, 드럼이면 퍼커션 매핑으로
+     *  폴백 — 에디터가 정본 표시를 담당한다.) */
+    const vStaves: SheetStaff[] = data.staves && data.staves.length > 0 ? sheetToStaves(data) : [];
+    const vExtras = vStaves.slice(1);
+    const v0Kind = vStaves[0]?.kind ?? (grand ? 'grand' : 'treble');
+    const VIEW_ROW_NOTATION = 92;
+    const VIEW_ROW_TAB = 118;
+    const extraRowH = (st: SheetStaff): number =>
+      st.kind === 'grand' ? VIEW_ROW_NOTATION * 2
+      : isTabKind(st.kind)
+        ? (st.withNotation ? VIEW_ROW_NOTATION : 0) + (st.chordDiagrams ? VIEW_DIAGRAM_H : 0) + VIEW_ROW_TAB
+      : VIEW_ROW_NOTATION;
+    const extrasH = vExtras.reduce((a, st) => a + extraRowH(st), 0);
+    const lineH = layout.lineH + extrasH;
+    const explicitAccPre = data.accidentalStyle === 'explicit';
+    /* part0 드럼은 main 루프에서 공용 빌더(buildDrumNote)가 GM 키 → 표준
+     * 표기(per-key 노트헤드·손/발 스템·고스트 괄호·열린 하이햇 ○)로 그린다.
+     * 예전의 "keys 를 미리 바꿔치기" 방식은 화음 전체에 한 노트헤드를 강제하고
+     * 킥 방향도 잃었다. */
+    const dispMeasures: MeasureInfo[] = data.measures;
+    const vTabPos = vExtras.map((st) => (isTabKind(st.kind)
+      ? assignTabPositions(
+          resolveSheetMidis(st.measures, data.key ?? 'C', explicitAccPre ? 'explicit' : 'score'),
+          tabTuningFor(st.kind, st),   // 카포·튜닝 프리셋 반영
+          // 에디터에서 지정한 수동 운지(tabStrings)도 뷰어가 그대로 존중한다.
+          st.measures.map((mm) => mm.notes.map((n) => n.tabStrings ?? null)),
+        )
+      : null));
+    lineHRef.current = lineH * layout.scale;
+    unscaledLineHRef.current = lineH;
     // Render at virtual (unscaled) size, then CSS-scale down
     const renderW = width / layout.scale;
     const totalW = renderW - MARGIN.left - MARGIN.right;
-    const lines = packLines(data.measures, totalW, layout.decorFirst, layout.decorOther);
+    const lines = packLines(dispMeasures, totalW, layout.decorFirst, layout.decorOther);
     const numLines = lines.length;
-    const totalH = MARGIN.top + numLines * layout.lineH + MARGIN.bottom;
+    const totalH = MARGIN.top + numLines * lineH + MARGIN.bottom;
 
     const renderer = new Renderer(el, Renderer.Backends.SVG);
     renderer.resize(renderW, totalH);
@@ -1744,13 +1907,13 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
       const indices = lines[li];
       const isFirstLine = li === 0;
       const isLastLine = li === numLines - 1;
-      const y = MARGIN.top + li * layout.lineH;
+      const y = MARGIN.top + li * lineH;
       const decorW = isFirstLine ? layout.decorFirst : layout.decorOther;
       const availForBars = totalW - decorW;
 
       // Per-bar min widths (more space for dense bars). Distribute the line's
       // available width proportionally; last partial line keeps natural widths.
-      const mins = indices.map((i) => measureMinWidth(data.measures[i]));
+      const mins = indices.map((i) => measureMinWidth(dispMeasures[i]));
       const totalMin = mins.reduce((a, b) => a + b, 0) || 1;
       const stretch = (isLastLine && indices.length < MAX_PER_LINE)
         ? 1
@@ -1762,11 +1925,11 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
       for (let j = 0; j < indices.length; j++) {
         const m = indices[j];
         const firstInLine = j === 0;
-        const isLastBar = m === data.measures.length - 1;
+        const isLastBar = m === dispMeasures.length - 1;
         const barW = barWidths[j];
         const w = firstInLine ? barW + decorW : barW;
 
-        const measure = data.measures[m];
+        const measure = dispMeasures[m];
 
         // track rect for highlighting
         rects[m] = { x, y, w };
@@ -1774,11 +1937,15 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
         // ── Stave ──
         const stave = new Stave(x, y, w);
         if (firstInLine) {
-          stave.addClef('treble');
+          if (v0Kind === 'drum') stave.addClef('percussion');
+          else {
+            const c0 = clefForKind(v0Kind);
+            stave.addClef(c0.clef === 'percussion' ? 'treble' : c0.clef, 'default', c0.annotation);
+          }
           // VexFlow only accepts plain keys ("G", "Em") — normalise jazz-style
           // strings like "G-maj" / "Eb-min" first or it throws BadKeySignature.
           const vexKey = normalizeVexKey(data.key);
-          if (!explicitAcc && vexKey !== 'C') stave.addKeySignature(vexKey);
+          if (!explicitAcc && vexKey !== 'C' && v0Kind !== 'drum') stave.addKeySignature(vexKey);
           if (isFirstLine) stave.addTimeSignature(data.timeSignature);
         }
         // Mid-piece changes (MusicXML <attributes> emitted mid-stream).
@@ -1814,7 +1981,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
         // Volta brackets
         if (measure.volta) {
           const v = measure.volta;
-          const prevV = m > 0 ? data.measures[m - 1]?.volta : undefined;
+          const prevV = m > 0 ? dispMeasures[m - 1]?.volta : undefined;
           const isS = prevV !== v;
           stave.setVoltaType(isS ? VoltaType.BEGIN : VoltaType.MID, `${v}.`, -25);
         }
@@ -1856,6 +2023,91 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
           new StaveConnector(stave, bassStave).setType(StaveConnector.type.SINGLE_RIGHT).setContext(ctx).draw();
         }
 
+        /* ── 추가 스태프 행(staves[1..]) — part0 아래로 쌓는다. 마디 폭·barline 은
+         * part0 와 동일, voice 는 아래에서 part0 와 한 Formatter 로 정렬한다. */
+        const extraRows: Array<{ stave: Stave; vf: (StaveNote | TabNoteT | GhostNoteT)[]; isTab: boolean; tabStems?: boolean; isDrum?: boolean; notes?: NoteInfo[] }> = [];
+        if (vExtras.length > 0) {
+          let rowY = y + (grand ? GRAND_BASS_DY : 0) + VIEW_ROW_NOTATION;
+          const mkExtraStave = (spec: { tab: SheetStaff['kind']; staff?: SheetStaff } | { clef: NotationClef; annotation?: '8vb' }, sy: number): Stave => {
+            const isTabStave = 'tab' in spec;
+            const st: Stave = isTabStave
+              ? new TabStave(x, sy, w, { numLines: tabTuningFor(spec.tab, spec.staff).length })
+              : new Stave(x, sy, w);
+            if (firstInLine) {
+              if (isTabStave) (st as TabStaveT).addTabGlyph();
+              else {
+                st.addClef(spec.clef, 'default', spec.annotation);
+                if (spec.clef !== 'percussion' && !explicitAcc) {
+                  const vk = normalizeVexKey(data.key);
+                  if (vk !== 'C') st.addKeySignature(vk);
+                }
+              }
+              if (isFirstLine && !isTabStave) st.addTimeSignature(data.timeSignature);
+            }
+            if (measure.repeatStart) st.setBegBarType(BarlineType.REPEAT_BEGIN);
+            if (measure.repeatEnd) st.setEndBarType(BarlineType.REPEAT_END);
+            else if (isLastBar) st.setEndBarType(BarlineType.END);
+            st.setContext(ctx).draw();
+            // TAB 글리프는 6줄 기준으로 그려져 4·5줄 보표에선 넘친다 → 높이에 맞춘다.
+            if (isTabStave) fitTabClefToStave(svgEl, st, tabTuningFor(spec.tab).length);
+            return st;
+          };
+          for (let vi = 0; vi < vExtras.length; vi++) {
+            const st = vExtras[vi];
+            const em = st.measures[m] ?? { notes: [] };
+            if (st.kind === 'grand') {
+              const st1 = mkExtraStave({ clef: 'treble' }, rowY);
+              const st2 = mkExtraStave({ clef: 'bass' }, rowY + VIEW_ROW_NOTATION);
+              if (firstInLine) {
+                try {
+                  new StaveConnector(st1, st2).setType(StaveConnector.type.BRACE).setContext(ctx).draw();
+                  new StaveConnector(st1, st2).setType(StaveConnector.type.SINGLE_LEFT).setContext(ctx).draw();
+                } catch { /* noop */ }
+              }
+              try { new StaveConnector(st1, st2).setType(StaveConnector.type.SINGLE_RIGHT).setContext(ctx).draw(); } catch { /* noop */ }
+              extraRows.push({ stave: st1, vf: buildExtraRowNotes('grand', em.notes, keySigAcc, explicitAcc, 'treble', null), isTab: false });
+              extraRows.push({ stave: st2, vf: buildExtraRowNotes('grand', st.bassMeasures?.[m]?.notes ?? [], keySigAcc, explicitAcc, 'bass', null), isTab: false });
+            } else if (isTabKind(st.kind)) {
+              if (st.withNotation) {
+                // TAB 동반 오선 — 악기 관례 클레프(기타 treble-8vb · 베이스 bass).
+                const notationKind: SheetStaff['kind'] =
+                  st.kind === 'guitar-tab' ? 'treble-8vb'
+                  : (st.kind === 'bass-tab' || st.kind === 'bass5-tab') ? 'bass'
+                  : 'treble';
+                const nc = clefForKind(notationKind);
+                const stN = mkExtraStave({ clef: nc.clef, annotation: nc.annotation }, rowY);
+                extraRows.push({
+                  stave: stN,
+                  vf: buildExtraRowNotes(st.kind, em.notes, keySigAcc, explicitAcc, nc.clef as 'treble' | 'bass' | 'alto' | 'tenor', null, notationKind),
+                  isTab: false,
+                });
+              }
+              const dgOff = st.chordDiagrams ? VIEW_DIAGRAM_H : 0;
+              const stT = mkExtraStave({ tab: st.kind, staff: st }, rowY + (st.withNotation ? VIEW_ROW_NOTATION : 0) + dgOff);
+              if (st.chordDiagrams) {
+                const chordTxt = (dispMeasures[m]?.chord ?? '').split(/\s{2,}/)[0]?.trim();
+                if (chordTxt) {
+                  const dg = viewerCachedDiagram(chordTxt, tabTuningFor(st.kind, st));
+                  if (dg && svgEl) {
+                    try { drawFretDiagram(svgEl as unknown as SVGElement, x + (firstInLine ? decorW : 0) + 10, stT.getY() - VIEW_DIAGRAM_H + 12, VIEW_DIAGRAM_W, dg, chordTxt); } catch { /* noop */ }
+                  }
+                }
+              }
+              extraRows.push({ stave: stT, vf: buildExtraRowNotes(st.kind, em.notes, keySigAcc, explicitAcc, 'treble', vTabPos[vi]?.[m] ?? null, undefined, !st.withNotation, st), isTab: true, tabStems: !st.withNotation, notes: em.notes });
+            } else {
+              const cf = clefForKind(st.kind);
+              const st1 = mkExtraStave({ clef: cf.clef, annotation: cf.annotation }, rowY);
+              extraRows.push({
+                stave: st1,
+                vf: buildExtraRowNotes(st.kind, em.notes, keySigAcc, explicitAcc, (cf.clef === 'percussion' ? 'treble' : cf.clef) as 'treble' | 'bass' | 'alto' | 'tenor', null),
+                isTab: false,
+                isDrum: st.kind === 'drum',
+              });
+            }
+            rowY += extraRowH(st);
+          }
+        }
+
         // ── Notes ──
         measureLine.set(m, li);
 
@@ -1875,6 +2127,21 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
           const n = measure.notes[mi_];
           const isRest = n.duration.endsWith('r');
           const dur = buildDuration(n.duration, n.dotted);
+
+          /* ── 드럼 파트 — 공용 빌더로 전부 처리(노트헤드·스템·고스트·○·악센트).
+           * 아래 일반 경로의 임시표·아티큘레이션 처리는 중복이므로 건너뛴다. */
+          if (v0Kind === 'drum') {
+            if (n.grace) { pendingGraces.push(buildDrumNote(n) as unknown as GraceNote); continue; }
+            const dn = buildDrumNote(n);
+            if (pendingGraces.length > 0) {
+              try { dn.addModifier(new GraceNoteGroup(pendingGraces, false), 0); } catch { /* noop */ }
+              pendingGraces = [];
+            }
+            vfNoteIdxOf[mi_] = vfNotes.length;
+            measureIdxOfVf.push(mi_);
+            vfNotes.push(dn);
+            continue;
+          }
 
           /* 저장된 표기를 그대로 쓴다 — 이명동음 강제 변환 없음.
            *
@@ -2083,8 +2350,13 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
         // forceAutoStem (Omnibook viewer): override the above and let Beam pick
         // a shared direction from pitch — otherwise each note's individual
         // autoStem decision can produce a jagged beam through the noteheads.
-        const beamAutoStem = forceAutoStem
-          || !measure.notes.some((nn) => nn.stem !== undefined);
+        const beamAutoStem = v0Kind === 'drum'
+          ? false   // 손(↑)/발(↓) 방향은 빌더가 정한 것이 진실 — 빔이 못 뒤집게
+          : (forceAutoStem || !measure.notes.some((nn) => nn.stem !== undefined));
+        /* 드럼: 스템 방향이 바뀌는 곳(손↔발)에서 빔을 끊는다 — 통용 표기. */
+        const drumDirBreak = (grp: StaveNote[], vn: StaveNote): boolean =>
+          v0Kind === 'drum' && grp.length > 0
+          && grp[grp.length - 1].getStemDirection() !== vn.getStemDirection();
         const explicitBeamMode = measure.notes.some((nn) => nn.noBeam || nn.beamBreak);
 
         if (explicitBeamMode) {
@@ -2115,6 +2387,10 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
             // tuplet/non-tuplet transitions and even tuplet/tuplet of differing N
             // (e.g. triplet 8ths into 9-tuplet 16ths on one primary beam).
 
+            if (drumDirBreak(beamGroup, vn)) {
+              if (beamGroup.length >= 2) pushBeam(beamGroup);
+              beamGroup = [];
+            }
             beamGroup.push(vn);
 
             if (sourceNote?.beamBreak) {
@@ -2156,6 +2432,10 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
             inTupletN = tupletN;
 
             if (isBeamable && !isRest) {
+              if (drumDirBreak(beamGroup, vn)) {
+                if (beamGroup.length >= 2) pushBeam(beamGroup);
+                beamGroup = [];
+              }
               if (!isTuplet && !postTupletMerged && beamGroup.length > 0 && beamBreaks.has(sourceIdx)) {
                 if (beamGroup.length >= 2) pushBeam(beamGroup);
                 beamGroup = [];
@@ -2193,16 +2473,51 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
           bassVoice.setStrict(false);
           bassVoice.addTickables(bassVfNotes);
         }
-        if (bassVoice) {
-          new Formatter()
-            .joinVoices([voice])
-            .joinVoices([bassVoice])
-            .formatToStave([voice, bassVoice], stave);
-        } else {
-          new Formatter().joinVoices([voice]).formatToStave([voice], stave);
+        const extraVoices: Voice[] = [];
+        for (const row of extraRows) {
+          if (row.vf.length === 0) continue;
+          const rv = new Voice({ numBeats, beatValue });
+          rv.setStrict(false);
+          rv.addTickables(row.vf as unknown as StaveNote[]);
+          extraVoices.push(rv);
+        }
+        {
+          const fmt = new Formatter();
+          const allVoices: Voice[] = [voice, ...(bassVoice ? [bassVoice] : []), ...extraVoices];
+          allVoices.forEach((v) => fmt.joinVoices([v]));
+          const allStaves: Stave[] = [stave, ...(bassStave ? [bassStave] : []), ...extraRows.map((r) => r.stave)];
+          if (allStaves.length > 1) { try { Stave.formatBegModifiers(allStaves); } catch { /* noop */ } }
+          fmt.formatToStave(allVoices, stave);
         }
         voice.draw(ctx, stave);
         if (bassVoice && bassStave) bassVoice.draw(ctx, bassStave);
+        {
+          let evi = 0;
+          for (const row of extraRows) {
+            if (row.vf.length === 0) continue;
+            const rv = extraVoices[evi++];
+            rv.draw(ctx, row.stave);
+            if (row.isTab && row.notes) drawViewerTabTechniques(ctx, row.notes, row.vf);
+            if (!row.isTab) {
+              try {
+                /* 드럼: 손(↑)/발(↓) 스템 방향은 빌더가 정한 것이 진실 —
+                 * maintainStemDirections 로 빔이 다시 뒤집지 못하게 한다. */
+                Beam.generateBeams(
+                  row.vf.filter((n0) => n0 instanceof StaveNote) as StaveNote[],
+                  row.isDrum ? { maintainStemDirections: true, beamRests: false } : undefined,
+                ).forEach((bm) => bm.setContext(ctx).draw());
+              } catch { /* noop */ }
+            } else if (row.tabStems) {
+              /* standalone TAB — 리듬 스템이 있으니 빔도 그린다(방향 보존). */
+              try {
+                Beam.generateBeams(
+                  row.vf.filter((n0) => n0 instanceof TabNote) as unknown as StaveNote[],
+                  { maintainStemDirections: true, beamRests: false },
+                ).forEach((bm) => bm.setContext(ctx).draw());
+              } catch { /* noop */ }
+            }
+          }
+        }
         beams.forEach((bm) => bm.setContext(ctx).draw());
 
         // Store SVG elements for note highlighting. Key by the SOURCE note
@@ -2303,8 +2618,8 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     // Below we walk measure.notes and skip graces, so flatIdx increments
     // 1:1 with allVfNotes regardless of how many graces are in between.
     let flatIdx = 0;
-    for (let mi = 0; mi < data.measures.length; mi++) {
-      const measure = data.measures[mi];
+    for (let mi = 0; mi < dispMeasures.length; mi++) {
+      const measure = dispMeasures[mi];
       for (let ni = 0; ni < measure.notes.length; ni++) {
         if (measure.notes[ni].grace) continue;
         if (measure.notes[ni].tie) {
@@ -2352,8 +2667,8 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     {
       const startStack: { flatIdx: number }[] = [];
       let flatIdxS = 0;
-      for (let mi = 0; mi < data.measures.length; mi++) {
-        const measure = data.measures[mi];
+      for (let mi = 0; mi < dispMeasures.length; mi++) {
+        const measure = dispMeasures[mi];
         for (let ni = 0; ni < measure.notes.length; ni++) {
           const n = measure.notes[ni];
           if (n.grace) continue;
@@ -2384,8 +2699,8 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     {
       let activeOttava: { kind: '8va' | '8vb'; flatIdx: number } | null = null;
       let flatIdxO = 0;
-      for (let mi = 0; mi < data.measures.length; mi++) {
-        const measure = data.measures[mi];
+      for (let mi = 0; mi < dispMeasures.length; mi++) {
+        const measure = dispMeasures[mi];
         for (let ni = 0; ni < measure.notes.length; ni++) {
           const n = measure.notes[ni];
           if (n.grace) continue;
@@ -2418,8 +2733,8 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     {
       let activeHairpin: { kind: 'cresc' | 'dim'; flatIdx: number } | null = null;
       let flatIdxH = 0;
-      for (let mi = 0; mi < data.measures.length; mi++) {
-        const measure = data.measures[mi];
+      for (let mi = 0; mi < dispMeasures.length; mi++) {
+        const measure = dispMeasures[mi];
         for (let ni = 0; ni < measure.notes.length; ni++) {
           const n = measure.notes[ni];
           if (n.grace) continue;
@@ -2449,8 +2764,8 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     const svgElGliss = el.querySelector('svg');
     if (svgElGliss) {
       flatIdx = 0;
-      for (let mi = 0; mi < data.measures.length; mi++) {
-        const measure = data.measures[mi];
+      for (let mi = 0; mi < dispMeasures.length; mi++) {
+        const measure = dispMeasures[mi];
         for (let ni = 0; ni < measure.notes.length; ni++) {
           if (measure.notes[ni].grace) continue;
           if (measure.notes[ni].gliss) {
@@ -2468,8 +2783,8 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     const svgElSf = el.querySelector('svg');
     if (svgElSf) {
       flatIdx = 0;
-      for (let mi = 0; mi < data.measures.length; mi++) {
-        const measure = data.measures[mi];
+      for (let mi = 0; mi < dispMeasures.length; mi++) {
+        const measure = dispMeasures[mi];
         for (let ni = 0; ni < measure.notes.length; ni++) {
           const n = measure.notes[ni];
           if (n.grace) continue;
@@ -2500,10 +2815,10 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
         svgElBracket!.appendChild(path);
       };
       let bi = 0;
-      while (bi < data.measures.length) {
-        if (data.measures[bi].bracket) {
+      while (bi < dispMeasures.length) {
+        if (dispMeasures[bi].bracket) {
           const groupStart = bi;
-          while (bi < data.measures.length && data.measures[bi].bracket) bi++;
+          while (bi < dispMeasures.length && dispMeasures[bi].bracket) bi++;
           const groupEnd = bi - 1;
           const pStart = stavePositions[groupStart];
           const pEnd = stavePositions[groupEnd];

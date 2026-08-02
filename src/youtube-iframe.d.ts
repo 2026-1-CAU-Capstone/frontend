@@ -13,6 +13,9 @@ declare global {
     pauseVideo(): void;
     playVideo(): void;
     seekTo(sec: number, allowSeekAhead?: boolean): void;
+    setPlaybackRate(rate: number): void;
+    getPlaybackRate(): number;
+    getAvailablePlaybackRates(): number[];
     destroy(): void;
   }
 

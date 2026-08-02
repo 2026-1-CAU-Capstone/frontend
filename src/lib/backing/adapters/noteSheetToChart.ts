@@ -166,6 +166,14 @@ export function extractMelody(sheet: NoteSheetData, opts?: ExtractMelodyOpts): M
 
       const nextOpen = isGrace ? openTies : new Map<number, number>();
       const isRest = isRestNote(note);
+      /* 표기 → 소리 세기: 고스트(괄호)는 여리게, 악센트/마르카토는 세게.
+       * 드럼 샘플러는 velocity 구간으로 아티큘레이션까지 고른다(<0.3 = 고스트
+       * 브러시 터치, >0.8 = 강타) — 악보에 적힌 대로 들리게 하는 핵심이다.
+       * 피치 악기도 동일하게 적용된다(악센트 음이 실제로 세게 난다). */
+      const noteVel = note.ghost ? 0.25
+        : note.articulations?.includes('marcato') ? 0.95
+        : note.articulations?.includes('accent') ? 0.9
+        : undefined;
       if (!isRest) {
         for (let i = 0; i < note.keys.length; i++) {
           const raw = vexKeyToMidi(
@@ -187,6 +195,7 @@ export function extractMelody(sheet: NoteSheetData, opts?: ExtractMelodyOpts): M
               durationBeats: GRACE_BEATS,
               srcMi: mi,
               srcNi,
+              ...(noteVel !== undefined ? { velocity: noteVel } : {}),
               ...(sheet.instrument ? { instrument: sheet.instrument } : {}),
               ...(sheet.isDrum ? { drumPiece: gmPercToDrumPiece(midi) ?? undefined } : {}),
             });
@@ -209,6 +218,7 @@ export function extractMelody(sheet: NoteSheetData, opts?: ExtractMelodyOpts): M
               durationBeats: beats,
               srcMi: mi,
               srcNi,
+              ...(noteVel !== undefined ? { velocity: noteVel } : {}),
               ...(sheet.instrument ? { instrument: sheet.instrument } : {}),
               ...(sheet.isDrum ? { drumPiece: gmPercToDrumPiece(midi) ?? undefined } : {}),
             });

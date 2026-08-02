@@ -15,7 +15,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
 import {
   listChats,
@@ -133,8 +133,8 @@ const RowLabel = styled.button<{ $active?: boolean }>`
   &:hover { color: #1a1a1a; }
 `;
 
-/* Chart-origin square shown left of the song name for chord/sheet-chart chats.
- * Color-coded: chord = gold, sheet = green (tonic). */
+/* 곡 이름 왼쪽의 출처 배지 — 코드 차트에서 시작한 채팅은 **노란색**,
+ * 악보 차트에서 시작한 채팅은 **초록색**. 아이콘은 사이드바의 같은 메뉴와 동일. */
 const ChartBadge = styled.span<{ $kind: ChatChartKind }>`
   flex-shrink: 0;
   width: 18px;
@@ -155,23 +155,22 @@ const LabelText = styled.span`
   white-space: nowrap;
 `;
 
-/* Chord chart glyph — "내 코드 차트"(MyChordChartIcon)와 동일한 모양(격자).
- * 색은 ChartBadge 가 gold 배경 + 흰색(currentColor)으로 유지. */
-const ChordChartGlyph = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="3" width="18" height="18" rx="2" />
-    <path d="M3 9h18" />
-    <path d="M3 15h18" />
-    <path d="M9 9v12" />
-    <path d="M15 9v12" />
-  </svg>
-);
-const SheetChartGlyph = () => (
-  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round">
-    <path d="M2 3h8M2 6h8M2 9h4" />
-    <circle cx="9" cy="9" r="1.4" fill="currentColor" stroke="none" />
-  </svg>
-);
+/* 차트 배지 아이콘 — 사이드바의 "내 코드 차트"·"내 악보 차트" 와 **같은 PNG**를
+ * 쓴다. 종전엔 비슷하게 그린 별도 SVG 라 같은 대상을 가리키는데도 모양이 미묘하게
+ * 달랐다. IconSidebar 의 PngIcon 과 같은 방식(마스크 + currentColor)이라 배지의
+ * 흰색을 그대로 받는다. */
+const SIDEBAR_ICON = (name: string) => `${import.meta.env.BASE_URL}icons/sidebar/${name}.png`;
+const BadgeIcon = styled.span<{ $src: string; $size: number }>`
+  display: inline-block;
+  flex-shrink: 0;
+  width: ${({ $size }) => $size}px;
+  height: ${({ $size }) => $size}px;
+  background-color: currentColor;
+  -webkit-mask: url(${({ $src }) => $src}) center / contain no-repeat;
+  mask: url(${({ $src }) => $src}) center / contain no-repeat;
+`;
+const ChordChartGlyph = () => <BadgeIcon $src={SIDEBAR_ICON('mychordchart')} $size={13} />;
+const SheetChartGlyph = () => <BadgeIcon $src={SIDEBAR_ICON('myscorechart')} $size={13} />;
 
 /* Optimistic placeholder shown at the top of the list while a brand-new chat
  * is being created on the backend — blank label + spinner until the GET lands. */
@@ -339,19 +338,6 @@ const ErrorRow = styled.div`
 /* Sidebar search input is now in ChatSearchModal (opened from IconSidebar
  * "검색" NavBtn). The styled-components used to live here. */
 
-/* Date-bucket sub-header — smaller and softer than the top SectionLabel
- * so the bucket reads as a sub-grouping, not a peer section. */
-const BucketLabel = styled.div`
-  font-family: ${({ theme }) => theme.fonts.ui};
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: ${({ theme }) => theme.colors.textSecondary};
-  opacity: 0.7;
-  padding: 10px ${ROW_PAD_X}px 4px ${LABEL_INDENT}px;
-`;
-
 /* "더 보기" button at the tail of the list. Stays visible while the
  * backend reports more pages exist; clicking it appends the next page. */
 const LoadMoreBtn = styled.button`
@@ -382,40 +368,17 @@ interface Props {
 
 const PAGE_SIZE = 30;
 
-/* Date-bucket categories — ChatGPT/Claude-style. The chat's `updatedAt`
- * decides the bucket (so a chat that was just replied to bubbles back to
- * "오늘" instead of staying in its creation bucket). Older-than-30-day
- * chats fall into a "YYYY년 M월" bucket so any number of past months stay
- * neatly separated. */
-function bucketLabel(updatedAt: string): string {
-  const t = new Date(updatedAt).getTime();
-  if (!Number.isFinite(t)) return '과거';
-  const now = Date.now();
-  const diffDay = (now - t) / (1000 * 60 * 60 * 24);
-  if (diffDay < 1) return '오늘';
-  if (diffDay < 2) return '어제';
-  if (diffDay < 7) return '지난 7일';
-  if (diffDay < 30) return '지난 30일';
-  const d = new Date(t);
-  return `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
-}
-
-const BUCKET_ORDER = ['오늘', '어제', '지난 7일', '지난 30일'];
-function bucketSortKey(label: string): number {
-  const i = BUCKET_ORDER.indexOf(label);
-  if (i >= 0) return i;
-  /* YYYY년 M월 buckets sort by negated year*12+month so newer months come
-   * first (smaller key = earlier in the list). The base constant must exceed
-   * any real year*12+month (~24k) or the key goes negative and month buckets
-   * jump ABOVE 오늘/지난 7일 — which is exactly the "6월 → 오늘 → 지난 7일"
-   * misorder this fixes. */
-  const m = label.match(/^(\d{4})년 (\d{1,2})월$/);
-  if (m) return BUCKET_ORDER.length + (999999 - (parseInt(m[1], 10) * 12 + parseInt(m[2], 10)));
-  return Number.MAX_SAFE_INTEGER;
-}
-
 export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactElement | null {
   const navigate = useNavigate();
+  /* 활성(회색) 표시는 그 채팅이 **현재 페이지의 내용**일 때만 — 홈 채팅('/')과
+   * 채팅 패널이 있는 차트 페이지들. 솔로 DB·카피하기 같은 메뉴 페이지로 가면
+   * activeChat 저장값이 남아 있어도 강조하지 않는다(활성 표시는 화면에 딱 1개,
+   * hover 는 별개). */
+  const { pathname } = useLocation();
+  const onChatRoute = pathname === '/'
+    || pathname.startsWith('/chord')
+    || pathname.startsWith('/mychord')
+    || pathname.startsWith('/note');
   /* Seed from the localStorage cache so a refresh paints the list instantly
    * instead of flashing the empty loading state. The network fetch below
    * reconciles it (stale-while-revalidate). */
@@ -708,25 +671,13 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
     }
   }, [pending, mergedItems]);
 
-  /* Bucket the visible items by updatedAt date. Order: bucket priority
-   * (BUCKET_ORDER) then most-recent first within each bucket. Title
-   * filtering is now handled by ChatSearchModal — the sidebar list
-   * shows every loaded chat. */
-  const groupedItems = useMemo(() => {
-    const groups = new Map<string, ChatSummary[]>();
-    for (const c of mergedItems) {
-      const k = bucketLabel(c.updatedAt);
-      const arr = groups.get(k);
-      if (arr) arr.push(c);
-      else groups.set(k, [c]);
-    }
-    return Array.from(groups.entries())
-      .map(([label, list]) => ({
-        label,
-        list: [...list].sort((a, b) => (b.updatedAt > a.updatedAt ? 1 : -1)),
-      }))
-      .sort((a, b) => bucketSortKey(a.label) - bucketSortKey(b.label));
-  }, [mergedItems]);
+  /* 최신 수정순 한 줄 목록. 예전엔 오늘/어제/지난 7일… 날짜 구간으로 묶었는데,
+   * 구간 머리글이 목록보다 시선을 끌고 짧은 목록에선 머리글이 항목보다 많아지는
+   * 일까지 있어 없앴다(2026-08-01). 제목 검색은 ChatSearchModal 담당. */
+  const sortedItems = useMemo(
+    () => [...mergedItems].sort((a, b) => (b.updatedAt > a.updatedAt ? 1 : -1)),
+    [mergedItems],
+  );
 
   if (!expanded || !loggedIn) return null;
 
@@ -755,10 +706,7 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
       {!error && !pending && loaded && mergedItems.length === 0 && (
         <Empty>아직 채팅이 없습니다.</Empty>
       )}
-      {groupedItems.map((group) => (
-        <div key={group.label}>
-          <BucketLabel>{group.label}</BucketLabel>
-          {group.list.map((c) => {
+      {sortedItems.map((c) => {
         const isMenuOpen = menuId === c.publicId;
         // A chord/sheet-chart chat = STARTED from a chart. Reliable signal is
         // the local mirror (kind); but that can be lost (cleared site data), so
@@ -781,12 +729,12 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
         return (
           <Row
             key={c.publicId}
-            $active={c.publicId === activeId}
+            $active={onChatRoute && c.publicId === activeId}
             $menuOpen={isMenuOpen}
             className={isMenuOpen ? 'menu-open' : ''}
           >
             <RowLabel
-              $active={c.publicId === activeId}
+              $active={onChatRoute && c.publicId === activeId}
               title={rowLabel}
               onClick={() => void handleRowOpen(c.publicId, meta?.route, chartKind, songName, c.projectPublicId ?? undefined)}
             >
@@ -836,8 +784,6 @@ export function RecentChatsList({ expanded, loggedIn }: Props): React.ReactEleme
           </Row>
         );
       })}
-        </div>
-      ))}
 
       {/* Infinite-scroll sentinel — when it scrolls into view the
        *  IntersectionObserver above triggers loadMore(). Hidden in

@@ -5,52 +5,72 @@ import styled from 'styled-components';
 import { mq } from '../styles/theme';
 import { IconSidebar } from '../components/layout/IconSidebar';
 
-const AppShell = styled.div`
+/* 상단바는 다른 페이지(음원 분리·카피하기·솔로 DB 등)와 같은 규격이다 —
+ * 왼쪽에 뒤로가기, 그 옆에 제목, 아래 경계선. 예전엔 상단바 없이 뒤로가기
+ * 버튼까지 본문과 함께 가운데 정렬돼 제목 위에 홀로 떠 있었다. */
+const Page = styled.div`
   display: flex;
   flex-direction: row;
   height: 100vh;
   height: 100dvh;
   width: 100%;
   background: ${({ theme }) => theme.colors.bgPrimary};
+  overflow: hidden;
 `;
 
-const PageContainer = styled.div`
-  position: relative;
+const PageBody = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  font-family: 'Pretendard', sans-serif;
+`;
+
+const TopBar = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px;
+  background: ${({ theme }) => theme.colors.barTop};
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+`;
+
+const Title = styled.h1`
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: ${({ theme }) => theme.colors.textPrimary};
+  white-space: nowrap;
+`;
+
+/* 업로드 카드 영역 — 상단바 아래에서 세로 가운데. */
+const Content = styled.div`
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex: 1;
-  min-width: 0;
-  font-family: 'Pretendard', sans-serif;
-  padding: 40px 20px;
+  padding: 32px 20px calc(env(safe-area-inset-bottom, 0px) + 32px);
 
   ${mq.mobile} {
-    padding: 24px 16px;
     justify-content: flex-start;
-    padding-top: 48px;
-  }
-`;
-
-const Title = styled.h1`
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: ${({ theme }) => theme.colors.textPrimary};
-  margin-bottom: 8px;
-
-  ${mq.mobile} {
-    font-size: 1.4rem;
+    padding: 24px 16px calc(env(safe-area-inset-bottom, 0px) + 24px);
   }
 `;
 
 const Subtitle = styled.p`
-  font-size: 1rem;
+  /* 제목이 상단바로 올라갔으므로 여기서는 업로드 카드 위 안내문 역할만 한다. */
+  margin: 0 0 18px;
+  font-size: 0.88rem;
   color: ${({ theme }) => theme.colors.textSecondary};
-  margin-bottom: 40px;
 
   ${mq.mobile} {
-    font-size: 0.9rem;
-    margin-bottom: 28px;
+    font-size: 0.82rem;
+    margin-bottom: 14px;
   }
 `;
 
@@ -242,12 +262,15 @@ export default function InputPage() {
   );
 
   return (
-    <AppShell>
+    <Page>
       <IconSidebar />
-      <PageContainer>
-      <BackButton onClick={() => navigate('/')} label="홈으로" />
+      <PageBody>
+      <TopBar>
+        <BackButton onClick={() => navigate('/')} label="홈으로" />
+        <Title>악보 인식 (OMR)</Title>
+      </TopBar>
 
-      <Title>악보 인식 (OMR)</Title>
+      <Content>
       <Subtitle>악보 이미지를 업로드하면 자동으로 분석합니다</Subtitle>
 
       <DropZone
@@ -294,7 +317,8 @@ export default function InputPage() {
       )}
 
       <AnalyzeBtn className={file ? 'active' : ''}>분석 시작</AnalyzeBtn>
-      </PageContainer>
-    </AppShell>
+      </Content>
+      </PageBody>
+    </Page>
   );
 }

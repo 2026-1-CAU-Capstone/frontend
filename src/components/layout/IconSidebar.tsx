@@ -27,7 +27,9 @@ const Rail = styled.nav<{ $expanded: boolean }>`
   display: flex;
   flex-direction: column;
   align-items: ${({ $expanded }) => ($expanded ? 'stretch' : 'center')};
-  padding: 0 ${({ $expanded }) => ($expanded ? '2px 0 12px' : '0')};
+  /* 좌우 여백 대칭(12px) — 예전엔 오른쪽이 2px 라 활성/hover 하이라이트가
+   * 오른쪽 끝에 붙어 보였다. 스크롤바(6px)는 이 안쪽에서 겹친다. */
+  padding: 0 ${({ $expanded }) => ($expanded ? '12px 0 12px' : '0')};
   gap: 4px;
   background: transparent;
   /* Solid right border so the rail visually separates from the chat area. */
@@ -539,81 +541,49 @@ function ChatIcon() {
   );
 }
 
-/* ── personal-library icons (Lucide-style) ── */
+/* ── personal-library icons ──
+ * 일부는 public/icons/sidebar/*.png 를 쓴다. 그 폴더에는 **실제로 사이드바에
+ * 출력되는 확정 아이콘만** 두고, 파일명은 항목 이름(mylick·stems …)으로 맞춘다.
+ * <img> 로 넣으면 색이 고정돼 테마·호버·비활성 상태를 못 따라가므로,
+ * **CSS mask + background-color: currentColor** 로 칠한다 — SVG 아이콘과
+ * 동일하게 동작한다. */
+const PngIcon = styled.span<{ $src: string; $size: number }>`
+  display: inline-block;
+  flex-shrink: 0;
+  width: ${({ $size }) => $size}px;
+  height: ${({ $size }) => $size}px;
+  background-color: currentColor;
+  -webkit-mask: url(${({ $src }) => $src}) center / contain no-repeat;
+  mask: url(${({ $src }) => $src}) center / contain no-repeat;
+`;
+const SIDEBAR_ICON = (name: string) => `${import.meta.env.BASE_URL}icons/sidebar/${name}.png`;
 
-/* 내 코드 차트 — table/grid (a chord chart is a grid of bars). Sized to match
- * the chat-nav icons above (18px / strokeWidth 1.7) so the rows align. */
-const MyChordChartIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="3" width="18" height="18" rx="2" />
-    <path d="M3 9h18" />
-    <path d="M3 15h18" />
-    <path d="M9 9v12" />
-    <path d="M15 9v12" />
-  </svg>
-);
+/* 내 코드 차트 — 격자. */
+const MyChordChartIcon = () => <PngIcon $src={SIDEBAR_ICON('mychordchart')} $size={18} />;
 
-/* 내 악보 차트 — a sheet/page with a music note (a score document). */
-const MyScoreChartIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
-    <path d="M14 3v6h6" />
-    <circle cx="9" cy="16.5" r="1.6" />
-    <path d="M10.6 16.5V11l4 1.1" />
-  </svg>
-);
+/* 내 악보 차트 — 음표 문서. */
+const MyScoreChartIcon = () => <PngIcon $src={SIDEBAR_ICON('myscorechart')} $size={18} />;
 
-/* 내 릭 — audio waveform (a lick is a short melodic phrase). */
-const MyLickIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M2 13v-2" />
-    <path d="M6 16V8" />
-    <path d="M10 19V5" />
-    <path d="M14 16V8" />
-    <path d="M18 14v-4" />
-    <path d="M22 13v-2" />
-  </svg>
-);
+/* 내 릭 — 음표 + 북마크. 가로로 긴 아이콘이라 정사각 캔버스 안에서 contain 으로 맞춰진다. */
+const MyLickIcon = () => <PngIcon $src={SIDEBAR_ICON('mylick')} $size={18} />;
 
-/* 음원 분리 — 믹서 페이더 3열. */
-const StemsIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-    <line x1="6" y1="4" x2="6" y2="20" /><line x1="12" y1="4" x2="12" y2="20" /><line x1="18" y1="4" x2="18" y2="20" />
-    <circle cx="6" cy="9" r="2" fill="currentColor" /><circle cx="12" cy="15" r="2" fill="currentColor" /><circle cx="18" cy="7" r="2" fill="currentColor" />
-  </svg>
-);
+/* 음원 분리 — 페이더. */
+const StemsIcon = () => <PngIcon $src={SIDEBAR_ICON('stems')} $size={20} />;
 
-/* 카피하기 — 색소폰. Material Design Icons(mdi:saxophone) 원본, Apache-2.0. */
-const SaxIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-    <path d="M4 2a1 1 0 0 0-1 1a1 1 0 0 0 1 1a3 3 0 0 1 3 3v8.5c0 3.6 2.9 6.5 6.5 6.5s6.5-2.9 6.5-6.5V13a1 1 0 0 0 1-1a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1a1 1 0 0 0 1 1v2a1 1 0 0 1-1 1a1 1 0 0 1-1-1v-4a1 1 0 0 0 1-1a1 1 0 0 0-1-1V8a1 1 0 0 0 1-1a1 1 0 0 0-1-1v-.5A3.5 3.5 0 0 0 8.5 2z" />
-  </svg>
-);
+/* 카피하기 — 귀 + 음표. */
+const SaxIcon = () => <PngIcon $src={SIDEBAR_ICON('copy')} $size={20} />;
 
 /* 연습하기 — 메트로놈. */
-const PracticeIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 4 h6 l3 16 H6 Z" />
-    <line x1="7" y1="15" x2="17" y2="15" />
-    <line x1="12" y1="15" x2="15" y2="7" />
-  </svg>
-);
+const PracticeIcon = () => <PngIcon $src={SIDEBAR_ICON('practice')} $size={20} />;
 
 /* 커뮤니티 — 두 사람. */
-const CommunityIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="9" cy="8" r="3" />
-    <path d="M3 20 v-1 a6 6 0 0 1 12 0 v1" />
-    <path d="M16 5.5 a3 3 0 0 1 0 5.4" />
-    <path d="M17.5 20 v-1 a6 6 0 0 0 -3.2 -5.2" />
-  </svg>
-);
+const CommunityIcon = () => <PngIcon $src={SIDEBAR_ICON('community')} $size={20} />;
 
 /* 개인 라이브러리 아래 도구 묶음 — 내 릭 밑에 약간 여백 두고 배치. 음원 분리는
  * 활성(/stems), 나머지는 준비중(비활성). 넷 다 로그인 시에만 사용 가능. */
 const LIB_TOOLS = [
   { icon: StemsIcon,     label: '음원 분리', to: '/stems' as string | undefined, soon: false },
-  { icon: SaxIcon,       label: '카피하기',  to: undefined as string | undefined, soon: true },
+  { icon: SaxIcon,       label: '카피하기',  to: '/copy' as string | undefined, soon: false },
   { icon: PracticeIcon,  label: '연습하기',  to: undefined as string | undefined, soon: true },
   { icon: CommunityIcon, label: '커뮤니티',  to: undefined as string | undefined, soon: true },
 ] as const;

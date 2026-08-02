@@ -154,3 +154,45 @@ export const DRUMKIT_ICON_SLUG: Record<string, string> = {
   brushes: 'drum-kit-brushes',
   sticks: 'drum-kit-acoustic',
 };
+
+/* ── 아이콘 슬러그 해석 ───────────────────────────────────────────────────
+ * 저장된 악기 값은 출처가 여럿이다 — 아이콘 슬러그('ukulele'), 레거시 일반 id
+ * ('guitar'), GM 사운드폰트 이름('acoustic_guitar_nylon'), 믹서 id 등.
+ * 어느 것이든 아이콘 하나로 떨어뜨린다. 표에 없는 GM 이름은 계열 키워드로
+ * 근사시킨다 — 이게 없으면 UI 가 아이콘 대신 'acoustic_guitar_nylon' 같은
+ * 원시 문자열을 그려 좁은 슬롯을 넘쳐 옆 글자와 겹쳤다. */
+const FAMILY_ICON: Array<[RegExp, string]> = [
+  [/ukulele/, 'ukulele'],
+  [/banjo|mandolin|archtop|jazz_guitar/, 'archtop-guitar'],
+  [/guitar/, 'archtop-guitar'],
+  [/bass/, 'electric-bass'],
+  [/soprano_sax/, 'soprano-saxophone'],
+  [/tenor_sax/, 'tenor-saxophone'],
+  [/baritone_sax/, 'baritone-saxophone'],
+  [/sax/, 'alto-saxophone'],
+  [/organ/, 'hammond-organ'],
+  [/piano|clavi|harpsichord/, 'piano'],
+  [/trumpet/, 'trumpet'],
+  [/trombone/, 'trombone'],
+  [/horn/, 'french-horn'],
+  [/clarinet/, 'clarinet'],
+  [/flute|recorder|piccolo/, 'flute'],
+  [/violin|viola|fiddle|strings/, 'violin'],
+  [/cello/, 'cello'],
+  [/harp/, 'harp'],
+  [/choir|voice|vocal/, 'vocal'],
+  [/drum|percussion|timpani/, 'drum-kit'],
+  [/vibraphone|marimba|xylophone/, 'vibraphone'],
+];
+
+/** 저장된 악기 값 → 아이콘 슬러그. 끝내 못 찾으면 null(=직접 입력한 이름). */
+export function resolveInstrumentIconSlug(value: string): string | null {
+  if (!value) return null;
+  const direct = SESSION_ICON_SLUG[value] ?? MELODY_ICON_SLUG[value]
+    ?? BASS_ICON_SLUG[value] ?? DRUMKIT_ICON_SLUG[value];
+  if (direct) return direct;
+  if (INSTRUMENT_ICONS.some((i) => i.slug === value)) return value;
+  const v = value.toLowerCase();
+  for (const [re, slug] of FAMILY_ICON) if (re.test(v)) return slug;
+  return null;
+}

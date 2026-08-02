@@ -43,6 +43,8 @@ export interface MidiSettings {
   auditionOnInput: boolean;
   /** 벨로시티(세게 칠수록)를 오디션 소리 크기에 반영할지. */
   velocityToAudition: boolean;
+  /** 동시에 누른 화음을 코드 심볼로 인식해 코드칸에 넣을지(음표는 입력하지 않음). */
+  chordDetect: boolean;
 }
 
 export interface MidiActivity { midi: number; velocity: number; channel: number; on: boolean; t: number }
@@ -53,6 +55,7 @@ const DEFAULTS: MidiSettings = {
   inputId: null, outputId: null, echoToOutput: false,
   velocityThreshold: 1, channel: -1, octaveShift: 0,
   auditionOnInput: true, velocityToAudition: true,
+  chordDetect: false,
 };
 
 function loadSettings(): MidiSettings {

@@ -4,11 +4,13 @@
  * 예전에는 좌측 IconSidebar 하단에 admin 전용 NAV(Chord/Note/Lick/Solo/Editor/
  * YouTube/OMR)를 붙였는데, "좌측 사이드바는 admin·일반 동일" 요구에 따라 여기
  * 우측 하단 독립 위젯으로 분리했다. **admin 계정에서만** 렌더된다(그 외 null).
- * position:fixed 라 홈 어디에 마운트하든 우측 하단에 뜬다.
+ * position:fixed + 최상위 z-index 라 **어느 페이지에서도** 우측 하단에 뜨고,
+ * 모달·오버레이·재생 바 위에서도 열린다. 마운트는 App.tsx 한 곳(전역).
  * ──────────────────────────────────────────────────────────────────────── */
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
+import { mq } from '../../styles/theme';
 import { getCachedUser, onAuthChange, isAdminUser, type AuthUser } from '../../api/auth';
 
 /* ── 도구 아이콘 (IconSidebar admin nav 에서 이동) ─────────────────────────── */
@@ -138,11 +140,18 @@ const Dock = styled.div`
   position: fixed;
   right: 18px;
   bottom: 18px;
-  z-index: 7000;
+  z-index: ${({ theme }) => theme.zIndex.adminDock};
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 10px;
+
+  /* 좁은 레이아웃에는 같은 자리(bottom 24 · right 20 · 52px)에 MobileChatFab 이
+   * 있다. 전역 상주로 바뀌면서 겹치게 됐으므로, 그 위로 올려 나란히 쌓는다
+   * (24 + 52 + 14 = 90). 데스크톱에는 채팅 FAB 이 없어 그대로 둔다. */
+  ${mq.compactLayout} {
+    bottom: 90px;
+  }
 `;
 const Fab = styled.button<{ $open: boolean }>`
   width: 46px;

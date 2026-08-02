@@ -122,6 +122,11 @@ export function MidiSettingsBody({ midi }: { midi: UseMidi }) {
             onChange={(e) => setSettings({ velocityToAudition: e.target.checked })} />
           <label htmlFor="midi-veltoaud">세게 칠수록 크게</label>
         </CheckRow>
+        <CheckRow title="화음을 동시에 누르면 코드 이름(예: CM7)을 알아내 현재 마디의 코드칸에 넣습니다. 이 모드에선 음표는 입력되지 않습니다.">
+          <input id="midi-chorddetect" type="checkbox" checked={settings.chordDetect}
+            onChange={(e) => setSettings({ chordDetect: e.target.checked })} />
+          <label htmlFor="midi-chorddetect">화음 → 코드 심볼 인식</label>
+        </CheckRow>
       </Box>
     </>
   );
@@ -130,11 +135,13 @@ export function MidiSettingsBody({ midi }: { midi: UseMidi }) {
 /* ─── styles ─────────────────────────────────────────────────────────────
  * 상자 규격은 EditorPage 의 툴바 Section 과 동일하게 맞춘다. */
 const Box = styled.div`
+  position: relative;   /* BoxTitle(윗 테두리 겹침 라벨) 기준 */
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 3px;
-  padding: 5px 9px;
+  /* 라벨이 테두리에 걸치므로 위 여백을 살짝 더 준다 — EditorPage 섹션과 동일 결. */
+  padding: 8px 9px 5px;
   border: 2px solid rgba(0, 0, 0, 0.13);
   border-radius: 12px;
   background: #fff;
@@ -142,13 +149,20 @@ const Box = styled.div`
   color: #222;
   min-width: 0;
 `;
-const BoxTitle = styled.div`
-  font-size: 10.5px;
+/* EditorPage 의 BoxLegend 와 같은 규격 — 섹션 제목이 윗 테두리에 겹친다. */
+const BoxTitle = styled.span`
+  position: absolute;
+  top: -8px;
+  left: 12px;
+  z-index: 1;
+  padding: 0 6px;
+  background: ${({ theme }) => theme.colors.barBelow};
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.76rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #8a97a4;
-  margin-bottom: 1px;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  white-space: nowrap;
+  line-height: 1;
 `;
 const Warn = styled.div`
   display: flex;
