@@ -13,7 +13,7 @@ import {
   Renderer, Stave, StaveNote, Voice, Formatter, Beam, Accidental, Dot, BarlineType, StaveTie, Tuplet, Repetition,
   TextBracket, TextBracketPosition, Articulation, Annotation, AnnotationVerticalJustify,
   Ornament, Tremolo, Curve, StaveConnector, GraceNote, GraceNoteGroup, StaveHairpin,
-  TabStave, TabNote, GhostNote, TabTie, TabSlide,
+  TabStave, TabNote, GhostNote, TabTie, TabSlide, PedalMarking,
 } from 'vexflow';
 import { minWidthForNotes, barWidthFromMin, heuristicWidth, packLines } from '../lib/notesheet/sheetLayout';
 import { PianoKeyboard, playMidi, type PianoNote } from '../components/notesheet/PianoKeyboard';
@@ -37,9 +37,14 @@ import { resolveSheetMidis } from '../lib/note/resolvePitches';
 import { useEditorBackingPlayback } from '../hooks/useEditorBackingPlayback';
 import { useDismissable } from '../hooks/useDismissable';
 import { GenreSelect, BpmControl, RepeatControl, TransportButtons, MixerButton } from '../components/backing/BackingPlayerBar';
+import { Smufl } from '../components/common/Smufl';
+import { dynamicToSmufl } from '../lib/note/smufl';
 import { vexToMidi, noteMetricBeats } from '../lib/note/melodyTiming';
 import { computeBeamBreaks } from '../lib/note/beamPolicy';
 import { bottomNoteGlyphY } from '../lib/note/chordClearance';
+import {
+  lineHeadroom, cumulativeLineOffsets, totalExtraHeight, defaultHeadroom, clampChordTop,
+} from '../lib/note/chordRowLayout';
 import { bakeExplicitAccidentals, bakeForScoreReading } from '../lib/note/resolvePitches';
 import { resolveMeasureAccidental, type RenderAcc } from '../lib/note/measureAccidentals';
 import { drawScoopFall } from '../lib/note/scoopFall';
@@ -54,6 +59,8 @@ import {
   type CompingGenre,
 } from '../data/compingData';
 import { NoteIcon, RestIcon } from '../components/notesheet/NotationIcon';
+import { useNoteNameStyle } from '../hooks/useNoteNameStyle';
+import { drawNoteNameLabels, type NoteNameStyle, type NoteNameTarget } from '../lib/note/noteNameLabels';
 
 const SHARP_TO_FLAT: Record<string, string> = { c: 'd', d: 'e', f: 'g', g: 'a', a: 'b' };
 
@@ -72,6 +79,19 @@ function convertAcc(pn: PianoNote, mode: 'b' | '#'): { vexKey: string; acc?: 'b'
   const flatLetter = SHARP_TO_FLAT[letter];
   if (!flatLetter) return { vexKey: pn.vexKey };
   return { vexKey: `${flatLetter}/${oct}`, acc: 'b' };
+}
+
+/* 겹임시표 입력 리스펠 — 눌린 음(midi)을 겹샤프/겹플랫 표기로 바꾼다.
+ * ##: 자연음 글자가 midi−2 에 있으면 그 글자 + 𝄪 (D 입력 → C𝄪).
+ * bb: 자연음 글자가 midi+2 에 있으면 그 글자 + 𝄫 (C 입력 → D𝄫).
+ * 그런 글자가 없으면(대상이 흑건이면) 단일 ♯/♭ 로 폴백한다. */
+const NATURAL_PC: Record<number, string> = { 0: 'c', 2: 'd', 4: 'e', 5: 'f', 7: 'g', 9: 'a', 11: 'b' };
+function convertAccDouble(pn: PianoNote, mode: '##' | 'bb'): { vexKey: string; acc?: 'b' | '#' | '##' | 'bb' } {
+  const base = mode === '##' ? pn.midi - 2 : pn.midi + 2;
+  const letter = NATURAL_PC[((base % 12) + 12) % 12];
+  if (!letter) return convertAcc(pn, mode === '##' ? '#' : 'b');
+  const oct = Math.floor(base / 12) - 1;
+  return { vexKey: `${letter}/${oct}`, acc: mode };
 }
 
 /** MIDI 음번호 → PianoNote(온스크린 피아노와 동일한 샤프-스펠 형태). 검은건반은
@@ -431,6 +451,8 @@ interface NotePos {
   staff?: 'bass';
   /** 추가 스태프 행 소속(1..N). 첫 파트는 undefined. */
   part?: number;
+  /** 보이스 2 소속 음표. */
+  v2?: boolean;
 }
 
 /* 음표 클릭은 **머리(notehead)를 정확히 눌렀을 때만** 활성화한다(사양) —
@@ -474,7 +496,7 @@ function collectHeadRect(vfNote: {
   return {};
 }
 type StaffId = 'treble' | 'bass';
-interface NoteSel { mi: number; ni: number; staff?: StaffId; /** 추가 스태프 소속(1..N). 첫 파트는 undefined. */ part?: number; }
+interface NoteSel { mi: number; ni: number; staff?: StaffId; /** 추가 스태프 소속(1..N). 첫 파트는 undefined. */ part?: number; /** 보이스 2 소속. */ v2?: boolean; }
 
 function buildDuration(dur: string, dotted?: boolean, doubleDotted?: boolean): string {
   // VexFlow 는 duration 문자열의 'd' 개수로 점 수를 읽는다('qdd' → 겹점).
@@ -561,7 +583,8 @@ function buildVfNote(
         keys: isRest ? [restKey] : n.keys,
         duration: dur,
         clef,
-        autoStem: true,
+        /* XML <stem> / 플립 버튼의 명시 방향이 autoStem 보다 우선한다. */
+        ...(n.stem ? { autoStem: false, stemDirection: n.stem === 'up' ? 1 : -1 } : { autoStem: true }),
         ...ghostHead(n),
       });
   // 점 글리프는 modifier 로 붙인다(길이는 위 duration 문자열이 이미 반영).
@@ -586,6 +609,8 @@ function buildVfNote(
       staccato: 'a.', staccatissimo: 'av',
       accent: 'a>', tenuto: 'a-',
       marcato: 'a^', 'detached-legato': 'a-.',
+      harmonic: 'ah', 'lh-pizz': 'a+', 'snap-pizz': 'ao',
+      'up-bow': 'a|', 'down-bow': 'am',
     };
     for (const a of n.articulations) {
       const code = ART_VF[a];
@@ -602,6 +627,13 @@ function buildVfNote(
   if (n.dynamics) {
     const ann = new Annotation(n.dynamics);
     ann.setVerticalJustification(AnnotationVerticalJustify.BOTTOM);
+    note.addModifier(ann, 0);
+  }
+  if (n.textAbove) {
+    // 연주 지시 텍스트(pizz./arco/mute …) — 음표 위 이탤릭.
+    const ann = new Annotation(n.textAbove);
+    ann.setVerticalJustification(AnnotationVerticalJustify.TOP);
+    try { ann.setFont('Georgia', 11, 'normal', 'italic'); } catch { /* noop */ }
     note.addModifier(ann, 0);
   }
   if (n.ornaments) {
@@ -800,7 +832,8 @@ interface ExtraRowBuilt {
   rows: Array<{ stave: Stave; vf: (StaveNote | TabNote | GhostNote)[]; notes: NoteInfo[]; isTab: boolean; isBassRow?: boolean; isDrum?: boolean; tabStems?: boolean }>;
 }
 
-function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number, currentIdx: number, activeIdx: number, positions: MeasurePos[], sheetKey?: string, notePositions?: NotePos[], selectedNotes?: NoteSel[] | null, noteElMap?: Map<string, SVGElement>, bassMeasures?: MeasureInfo[] | null, explicitAcc?: boolean, activeStaff: StaffId = 'treble', extraParts?: RenderPart[] | null, part0Kind: StaffKind = 'treble', activePartIdx = 0, part0Staff?: Pick<RenderPart, 'capo' | 'tuningPreset' | 'withNotation' | 'chordDiagrams'>) {
+function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number, currentIdx: number, activeIdx: number, positions: MeasurePos[], sheetKey?: string, notePositions?: NotePos[], selectedNotes?: NoteSel[] | null, noteElMap?: Map<string, SVGElement>, bassMeasures?: MeasureInfo[] | null, explicitAcc?: boolean, activeStaff: StaffId = 'treble', extraParts?: RenderPart[] | null, part0Kind: StaffKind = 'treble', activePartIdx = 0, part0Staff?: Pick<RenderPart, 'capo' | 'tuningPreset' | 'withNotation' | 'chordDiagrams'>, timeSig = '4/4',
+  noteNameStyle?: NoteNameStyle) {
   positions.length = 0;
   if (notePositions) notePositions.length = 0;
   if (noteElMap) noteElMap.clear();
@@ -819,6 +852,9 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
   const p0Clef = clefForKind(part0Kind);
   const clef0 = (p0Clef.clef === 'percussion' ? 'treble' : p0Clef.clef) as 'treble' | 'bass' | 'alto' | 'tenor';
   const accStyle: 'explicit' | 'score' = explicitAcc ? 'explicit' : 'score';
+  const tsMatch = /^([0-9]+)\/([0-9]+)$/.exec(timeSig);
+  const vNumBeats = tsMatch ? Number(tsMatch[1]) : 4;
+  const vBeatValue = tsMatch ? Number(tsMatch[2]) : 4;
   /* TAB 운지는 파트 전체를 한 번에 — 손 위치 연속성이 마디를 넘어 이어진다. */
   const tabPosOf = (ms: MeasureInfo[], kind: StaffKind, staff?: Pick<RenderPart, 'capo' | 'tuningPreset'>): (TabPos[] | null)[][] =>
     assignTabPositions(
@@ -835,7 +871,9 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
   const totalW = innerW - MARGIN.left - MARGIN.right;
   /* 양손이면 마디 폭은 두 보표 중 밀도가 높은 쪽 기준. */
   // 조표 무시(explicit): keySig를 비워 마디 안의 임시표만으로 표기·상속 판단.
-  const keySigAcc = explicitAcc ? new Map<string, 'b' | '#'>() : keySigAccidentals(sheetKey || 'C');
+  let keySigAcc = explicitAcc ? new Map<string, 'b' | '#'>() : keySigAccidentals(sheetKey || 'C');
+  /* 마디 중간 조성 변경(measure.key) — 줄 시작 조표 표기용 현재 조성 추적. */
+  let curKeyName = sheetKey || 'C';
 
   /* 마디 폭 사전 측정 — 자체 추정 테이블 대신 VexFlow에게 실제로 필요한 최소
    * 폭을 물어본다. 여기서 만드는 StaveNote는 측정 전용이고, 아래 렌더 루프는
@@ -844,13 +882,15 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
    * 임시표 상태(tieCarry)는 렌더 루프와 똑같이 마디 순서대로 전파해야 측정폭이
    * 실제 렌더와 일치한다. packLines가 순서를 보존하므로 이 전제가 성립한다. */
   let probeCarry: Map<string, RenderAcc> | undefined;
+  let probeKeySig = keySigAcc;
   const widths = measures.map((m, i) => {
+    if (measures[i].key && !explicitAcc) probeKeySig = keySigAccidentals(measures[i].key!);
     let minW = 0;
     let floor = heuristicWidth(m.notes);
     if (p0Notation) {
       const active: Map<string, RenderAcc> = probeCarry ? new Map(probeCarry) : new Map();
       probeCarry = undefined;
-      const probe = displayNotesFor(part0Kind, m.notes).map((n) => buildVfNote(n, clef0, active, keySigAcc));
+      const probe = displayNotesFor(part0Kind, m.notes).map((n) => buildVfNote(n, clef0, active, probeKeySig));
       const last = m.notes[m.notes.length - 1];
       if (last?.tie && !last.duration.endsWith('r')) {
         const acc = last.accidentals?.[0] as 'b' | '#' | undefined;
@@ -874,10 +914,40 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
     }
     return barWidthFromMin(minW, floor);
   });
-  const lines = packLines(widths, totalW, {
-    decorFirst: DECOR_FIRST, decorOther: DECOR_OTHER, maxPerLine: MAX_PER_LINE,
-  });
-  const totalH = MARGIN.top + lines.length * lineH + MARGIN.bottom;
+  /* 강제 줄바꿈(measure.lineBreak) — 플래그 지점에서 분절해 각각 패킹한 뒤 잇는다.
+   * 뒤 구간의 첫 줄은 decorFirst 가 아니라 decorOther 규격이다(첫 줄이 아니므로). */
+  const lines: number[][] = [];
+  {
+    let segStart = 0;
+    const flush = (endExclusive: number) => {
+      if (endExclusive <= segStart) return;
+      const segWidths = widths.slice(segStart, endExclusive);
+      const packed = packLines(segWidths, totalW, {
+        decorFirst: segStart === 0 ? DECOR_FIRST : DECOR_OTHER,
+        decorOther: DECOR_OTHER, maxPerLine: MAX_PER_LINE,
+      });
+      for (const ln of packed) lines.push(ln.map((i2) => i2 + segStart));
+      segStart = endExclusive;
+    };
+    for (let i2 = 0; i2 < measures.length; i2++) {
+      if (measures[i2].lineBreak) flush(i2 + 1);
+    }
+    flush(measures.length);
+  }
+  /* 줄별 코드칸 자리 확보 — 고음이 있는 줄은 그만큼 아래로 밀어 윗줄 침범을
+   * 원천 차단한다(chordRowLayout 규칙). 고음이 없으면 초과분이 0 이라 좌표가
+   * 예전과 완전히 같다. lineGap 은 VexFlow 오선 한 칸(=10). */
+  const chordMetrics = {
+    rowH: CHORD_CELL_H / SHEET_SCALE, staffGap: CHORD_STAFF_GAP, noteGap: CHORD_NOTE_GAP,
+  };
+  /* alto·tenor 는 코드칸을 쓰지 않는 파트라 treble 기준으로 근사해도 안전하다
+   * (예약이 조금 넉넉해질 뿐, 부족해지지 않는다). */
+  const headClef = clef0 === 'bass' ? 'bass' : 'treble';
+  const lineHeadrooms = lines.map((idxs) =>
+    lineHeadroom(idxs.map((i2) => measures[i2]?.notes ?? []), 10, chordMetrics, headClef));
+  const lineYExtra = cumulativeLineOffsets(lineHeadrooms, chordMetrics);
+  const totalH = MARGIN.top + lines.length * lineH + MARGIN.bottom
+    + totalExtraHeight(lineHeadrooms, chordMetrics);
   const renderer = new Renderer(el, Renderer.Backends.SVG);
   renderer.resize(innerW, totalH);
   const ctx = renderer.getContext();
@@ -905,8 +975,12 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
     }
   };
 
+  /* 음이름 라벨 대상 — 음높이 보표만 모은다(TAB 숫자·드럼 GM 키는 제외). */
+  const nameTargets: NoteNameTarget[] = [];
   const allVfNotes: { mi: number; ni: number; vfNote: StaveNote }[] = [];
   const allBassVfNotes: { mi: number; ni: number; vfNote: StaveNote }[] = [];
+  /** 보이스 2(part0) — 선택·타이·빔 용. */
+  const allV2VfNotes: { mi: number; ni: number; vfNote: StaveNote }[] = [];
   /* 추가 파트 음표 — 타이(표기 행)·notePositions(활성 파트)·선택 하이라이트용. */
   const allExtraVf: Array<{ pi: number; mi: number; ni: number; vfNote: StaveNote; bassRow: boolean; isTabRow: boolean }> = [];
   let tieCarryAcc: Map<string, RenderAcc> | undefined;
@@ -919,7 +993,10 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
     const indices = lines[li];
     const isFirstLine = li === 0;
     const isLastLine = li === lines.length - 1;
-    const y = MARGIN.top + li * lineH;
+    /* 균등 배치가 아니라 **누적** — 이 줄이 코드칸 때문에 더 높은 자리가 필요하면
+     * 그만큼 아래로 내려간다. 윗줄과의 겹침이 구조적으로 불가능해진다. */
+    const y = MARGIN.top + li * lineH + (lineYExtra[li] ?? 0);
+    const lineHeadroomPx = lineHeadrooms[li] ?? defaultHeadroom(chordMetrics);
     const decorW = isFirstLine ? DECOR_FIRST : DECOR_OTHER;
     const availForBars = totalW - decorW;
     /* 코드칸 높이는 한 줄 안에서 모두 같아야 한다 — 그 줄에서 가장 높이
@@ -956,16 +1033,24 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         if (p0Tab) (stave as TabStave).addTabGlyph();
         else if (p0Drum) stave.addClef('percussion');
         else stave.addClef(clef0, 'default', p0Clef.annotation);
-        if (p0Notation && !explicitAcc && sheetKey && sheetKey !== 'C') stave.addKeySignature(sheetKey);
-        if (isFirstLine && !p0Tab) stave.addTimeSignature('4/4');
+        if (p0Notation && !explicitAcc && curKeyName && curKeyName !== 'C') stave.addKeySignature(curKeyName);
+        if (isFirstLine && !p0Tab) stave.addTimeSignature(timeSig);
       }
       // Repeat / end barlines. Default in VexFlow is SINGLE, but assigning
       // it explicitly avoids edge cases where adjacent staves overlap and
       // the bar line visually disappears (the bug screenshot).
       const mData = measures[m];
+      /* 마디 중간 조성 변경 — 이 마디부터 임시표 해석·조표 표기가 바뀐다. */
+      if (mData.key) {
+        curKeyName = mData.key;
+        keySigAcc = explicitAcc ? new Map() : keySigAccidentals(curKeyName);
+        if (p0Notation && !explicitAcc && !firstInLine) stave.addKeySignature(curKeyName);
+      }
       if (mData.repeatStart) stave.setBegBarType(BarlineType.REPEAT_BEGIN);
       if (mData.repeatEnd) stave.setEndBarType(BarlineType.REPEAT_END);
-      else if (isLast) stave.setEndBarType(BarlineType.END);
+      else if (mData.barline === 'double') stave.setEndBarType(BarlineType.DOUBLE);
+      else if (mData.barline === 'end' || isLast) stave.setEndBarType(BarlineType.END);
+      else if (mData.barline === 'none') stave.setEndBarType(BarlineType.NONE);
       else stave.setEndBarType(BarlineType.SINGLE);
       // Navigation markers (D.C., Coda, Segno, Fine, etc.)
       if (mData.navigation) {
@@ -992,6 +1077,25 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         num.setAttribute('fill', '#9aa0a6');
         num.textContent = String(mNum);
         svgEl.appendChild(num);
+      }
+
+      // 리허설 마크 — 마디 시작 위 네모 상자(B1 등).
+      if (mData.rehearsal && svgEl) {
+        const gR = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        const tx = x + (firstInLine ? decorW : 0) + 2;
+        const tyTop = y + 2;
+        const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        t.setAttribute('x', String(tx + 5)); t.setAttribute('y', String(tyTop + 13));
+        t.setAttribute('font-size', '12'); t.setAttribute('font-weight', '800');
+        t.setAttribute('font-family', "'Pretendard', sans-serif"); t.setAttribute('fill', '#222');
+        t.textContent = mData.rehearsal;
+        const wBox = 10 + mData.rehearsal.length * 8;
+        const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        r.setAttribute('x', String(tx)); r.setAttribute('y', String(tyTop));
+        r.setAttribute('width', String(wBox)); r.setAttribute('height', '18');
+        r.setAttribute('fill', 'none'); r.setAttribute('stroke', '#222'); r.setAttribute('stroke-width', '1.4');
+        gR.appendChild(r); gR.appendChild(t);
+        svgEl.appendChild(gR);
       }
 
       // Draw volta brackets manually so vertical lines reach the stave
@@ -1140,7 +1244,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       const voices: Voice[] = [];
       let voice: Voice | null = null;
       if (realVfNotes.length > 0) {
-        voice = new Voice({ numBeats: 4, beatValue: 4 });
+        voice = new Voice({ numBeats: vNumBeats, beatValue: vBeatValue });
         voice.setStrict(false);
         voice.addTickables(realVfNotes); // 꾸밈음 제외 — 그룹 수식으로만 그려짐
         voices.push(voice);
@@ -1162,12 +1266,34 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         bassVfNotes = bassAll.filter((_, ni) => !bassM.notes[ni].grace);
         realBassNotes = bassM.notes.filter((n) => !n.grace);
         if (bassVfNotes.length > 0) {
-          bassVoice = new Voice({ numBeats: 4, beatValue: 4 });
+          bassVoice = new Voice({ numBeats: vNumBeats, beatValue: vBeatValue });
           bassVoice.setStrict(false);
           bassVoice.addTickables(bassVfNotes);
           voices.push(bassVoice);
         }
       }
+      /* ── 보이스 2 — 같은 보표의 두 번째 성부. 보이스1 기둥 위·보이스2 기둥
+       * 아래 관례(명시 stem 이 있으면 그쪽 우선). 한 Formatter 로 묶여 세로
+       * 정렬되고, 빔·타이는 성부별 독립. */
+      let v2VfNotes: StaveNote[] = [];
+      let v2Notes: NoteInfo[] = [];
+      let v2Voice: Voice | null = null;
+      if (p0Notation && (measure.voice2?.length ?? 0) > 0) {
+        v2Notes = measure.voice2!;
+        const v2Acc: Map<string, RenderAcc> = new Map();
+        v2VfNotes = displayNotesFor(part0Kind, v2Notes).map((n) => buildVfNote(n, clef0, v2Acc, keySigAcc));
+        v2VfNotes.forEach((vn, vi2) => { if (!v2Notes[vi2].stem) try { vn.setStemDirection(-1); } catch { /* noop */ } });
+        // 보이스1은 위로 — 두 성부가 겹치지 않게.
+        realVfNotes.forEach((vn, vi2) => { if (!realNotes[vi2]?.stem) try { vn.setStemDirection(1); } catch { /* noop */ } });
+        v2Voice = new Voice({ numBeats: vNumBeats, beatValue: vBeatValue });
+        v2Voice.setStrict(false);
+        v2Voice.addTickables(v2VfNotes);
+        voices.push(v2Voice);
+        for (let ni2 = 0; ni2 < v2VfNotes.length; ni2++) {
+          allV2VfNotes.push({ mi: m, ni: ni2, vfNote: v2VfNotes[ni2] });
+        }
+      }
+
       /* ── 추가 파트 행 — part0 아래로 쌓는다. 마디 폭·barline 은 part0 와
        * 동일(도돌이 등 반복 구조는 시스템 전체 속성). 음표는 파트 종류별
        * 빌더로 만들고, 아래에서 part0 voices 와 **한 Formatter** 로 묶어
@@ -1193,7 +1319,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
               // 조표는 피치 클레프 전부(C 클레프 포함) — 퍼커션만 제외.
               if (spec.clef !== 'percussion' && !explicitAcc && sheetKey && sheetKey !== 'C') st.addKeySignature(sheetKey);
             }
-            if (isFirstLine && !isTabStave) st.addTimeSignature('4/4');
+            if (isFirstLine && !isTabStave) st.addTimeSignature(timeSig);
           }
           if (mData.repeatStart) st.setBegBarType(BarlineType.REPEAT_BEGIN);
           if (mData.repeatEnd) st.setEndBarType(BarlineType.REPEAT_END);
@@ -1244,7 +1370,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
             }
           }
           if (reals.length > 0) {
-            const v = new Voice({ numBeats: 4, beatValue: 4 });
+            const v = new Voice({ numBeats: vNumBeats, beatValue: vBeatValue });
             v.setStrict(false);
             v.addTickables(reals);
             extraBuilt.voices.push(v);
@@ -1252,6 +1378,10 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
           extraBuilt.rows.push({ stave: st, vf, notes: ms.notes, isTab: !!opts.isTab, isBassRow: opts.bassRow, isDrum: kind === 'drum', tabStems: opts.tabStems });
           for (let ni0 = 0; ni0 < vf.length; ni0++) {
             allExtraVf.push({ pi, mi: m, ni: ni0, vfNote: vf[ni0] as unknown as StaveNote, bassRow: !!opts.bassRow, isTabRow: !!opts.isTab });
+            /* TAB(숫자)·드럼(GM 퍼커션 키)은 음이름을 붙이면 거짓 정보가 된다. */
+            if (!opts.isTab && kind !== 'drum') {
+              nameTargets.push({ vfNote: vf[ni0] as unknown as StaveNote, keys: ms.notes[ni0]?.keys ?? [] });
+            }
           }
           positions.push({
             idx: m, x: chordX, y: st.getY(), w: w - (firstInLine ? decorW : 0) - 4, chordX,
@@ -1360,6 +1490,11 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       if (voice) voice.draw(ctx, stave);
       if (p0Tab && voice) drawTabTechniques(ctx, realNotes, realVfNotes as unknown as (StaveNote | TabNote | GhostNote)[]);
       beams.forEach((bm) => bm.setContext(ctx).draw());
+      if (v2Voice) {
+        v2Voice.draw(ctx, stave);
+        buildBeams(v2Notes, v2VfNotes).forEach((bm) => bm.setContext(ctx).draw());
+        drawTupletBrackets(v2Notes, v2VfNotes, ctx);
+      }
       if (bassVoice && bassStave) bassVoice.draw(ctx, bassStave);
       bassBeams.forEach((bm) => bm.setContext(ctx).draw());
       /* 추가 파트 행 드로우 — 표기 행은 빔·투플렛까지, TAB 행은 숫자만. */
@@ -1388,10 +1523,21 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       if (bassVfNotes.length) drawTupletBrackets(realBassNotes, bassVfNotes, ctx);
 
       /* 이 마디에서 가장 높이 올라간 요소의 Y. bbox 는 기둥·빔까지 포함하므로
-       * 음높이만 보는 것보다 정확하다 — voice.draw() 뒤라야 유효하다. */
-      for (const vn of vfNotes) {
+       * 음높이만 보는 것보다 정확하다 — voice.draw() 뒤라야 유효하다.
+       * ⚠ 꾸밈음(GraceNote)은 제외 — voice 에 들어가지 않고 GraceNoteGroup
+       * 수식으로 그려져 자체 bbox 가 미포맷 좌표(y≈0)로 남는다. 포함하면
+       * 그 줄의 lineContentTop 이 0 으로 무너져 코드칸 전부가 시트 맨 위
+       * (CHORD_TOP_MIN)로 날아간다 — MusicXML 수입 악보에서 실측된 버그. */
+      for (const vn of realVfNotes) {
         const bb = vn.getBoundingBox();
-        if (bb) lineContentTop = Math.min(lineContentTop, bb.getY());
+        if (!bb) continue;
+        const bbY = bb.getY();
+        /* GraceNoteGroup 이 붙은 본음표는 bbox 가 미포맷 그룹 좌표(y≈0)로
+         * 무너진다 — 이 줄 위로 상식적 범위(덧줄+장식 ≤150px)를 벗어난 값은
+         * 무시한다. 안 그러면 그 줄 코드칸 전체가 시트 맨 위로 날아간다
+         * (MusicXML 꾸밈음 수입 악보에서 실측). */
+        if (!Number.isFinite(bbY) || bbY < y - 150) continue;
+        lineContentTop = Math.min(lineContentTop, bbY);
       }
 
       // 하이라이트는 줄 기준 높이가 확정된 뒤(마디 루프 종료 후) 그린다.
@@ -1399,9 +1545,11 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
 
       for (let ni = 0; ni < vfNotes.length; ni++) {
         allVfNotes.push({ mi: m, ni, vfNote: vfNotes[ni] });
+        if (p0Notation) nameTargets.push({ vfNote: vfNotes[ni], keys: measure.notes[ni]?.keys ?? [] });
       }
       for (let ni = 0; ni < bassVfNotes.length; ni++) {
         allBassVfNotes.push({ mi: m, ni, vfNote: bassVfNotes[ni] });
+        nameTargets.push({ vfNote: bassVfNotes[ni], keys: bassM.notes[ni]?.keys ?? [] });
       }
 
       x += w;
@@ -1415,8 +1563,10 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       const p = positions[pi2];
       if (p.staff || p.part) continue;              // 코드칸은 첫 파트 트레블에만
       const md = measures[p.idx];
-      p.chordTop = chordRowTopY(
-        p.staveTop, { volta: !!md?.volta, bracket: !!md?.bracket }, lineContentTop,
+      /* 예약해 둔 headroom 밖으로는 절대 못 나간다 — 윗줄 침범 차단 빗장. */
+      p.chordTop = clampChordTop(
+        chordRowTopY(p.staveTop, { volta: !!md?.volta, bracket: !!md?.bracket }, lineContentTop),
+        p.staveTop, lineHeadroomPx,
       );
     }
 
@@ -1445,7 +1595,10 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         /* 베이스 보표 위에는 코드 입력 행이 없으니 오선 첫 줄에서 조금만 띄운다. */
         ? hStave.getYForLine(0) + GRAND_BASS_DY - 10
         // 코드칸과 완전히 같은 계산 — 칸이 밀려 올라가면 하이라이트도 따라간다.
-        : chordRowTopY(hStave.getYForLine(0), { volta: !!hData.volta, bracket: !!hData.bracket }, lineContentTop)
+        : clampChordTop(
+            chordRowTopY(hStave.getYForLine(0), { volta: !!hData.volta, bracket: !!hData.bracket }, lineContentTop),
+            hStave.getYForLine(0), lineHeadroomPx,
+          )
           - (hData.altChords ? 17 : 0)
           - 4;                                     // 코드 입력 윗변 + 살짝
 
@@ -1462,6 +1615,9 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       paintMeasureHighlight(el, hx, hw, HL_TOP, HL_BOT);
     }
   }
+
+  /* 음이름 라벨 — 모든 보표를 그린 뒤 마지막에 얹는다(레이아웃 불변). */
+  if (noteNameStyle) drawNoteNameLabels(svgEl, nameTargets, noteNameStyle);
 
   // Build measure→line lookup
   const measureLine = new Map<number, number>();
@@ -1540,7 +1696,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
   // bracket signals "sounds an octave up / down". The player applies the
   // matching ±12 semitones at scheduling time so playback stays correct.
   {
-    let active: { kind: '8va' | '8vb'; idx: number } | null = null;
+    let active: { kind: '8va' | '8vb' | '15ma' | '15mb'; idx: number } | null = null;
     let oIdx = 0;
     for (let mi = 0; mi < measures.length; mi++) {
       const measure = measures[mi];
@@ -1552,12 +1708,13 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
           const to = allVfNotes[oIdx];
           if (from && to) {
             try {
+              const up = active.kind === '8va' || active.kind === '15ma';
               const tb = new TextBracket({
                 start: from.vfNote,
                 stop: to.vfNote,
-                text: '8',
-                superscript: active.kind === '8va' ? 'va' : 'vb',
-                position: active.kind === '8va' ? TextBracketPosition.TOP : TextBracketPosition.BOTTOM,
+                text: active.kind.startsWith('15') ? '15' : '8',
+                superscript: active.kind === '8va' ? 'va' : active.kind === '8vb' ? 'vb' : active.kind === '15ma' ? 'ma' : 'mb',
+                position: up ? TextBracketPosition.TOP : TextBracketPosition.BOTTOM,
               });
               tb.setContext(ctx).draw();
             } catch (e) { console.warn('ottava draw failed', e); }
@@ -1687,6 +1844,50 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
     }
   }
 
+  // 보이스 2 타이 — 같은 줄 안의 단순 타이(왼손 파트와 동일 규칙).
+  if (allV2VfNotes.length) {
+    const byPos = new Map<string, { vfNote: StaveNote; mi: number }>();
+    allV2VfNotes.forEach((e) => byPos.set(`${e.mi}-${e.ni}`, { vfNote: e.vfNote, mi: e.mi }));
+    for (let mi = 0; mi < measures.length; mi++) {
+      const vn2 = measures[mi].voice2 ?? [];
+      for (let ni = 0; ni < vn2.length; ni++) {
+        if (!vn2[ni].tie) continue;
+        const from = byPos.get(`${mi}-${ni}`);
+        const to = byPos.get(`${mi}-${ni + 1}`) ?? byPos.get(`${mi + 1}-0`);
+        if (!from || !to) continue;
+        if (measureLine.get(from.mi) !== measureLine.get(to.mi)) continue;
+        try {
+          new StaveTie({ firstNote: from.vfNote, lastNote: to.vfNote, firstIndexes: [0], lastIndexes: [0] }).setContext(ctx).draw();
+        } catch (e) { console.warn('voice2 tie draw failed', e); }
+      }
+    }
+  }
+
+  // 페달 마킹 — pedalStart(Ped.) 음표부터 pedalEnd(*) 음표까지, 같은 줄일 때만.
+  if (p0Notation) {
+    let pedalFrom: number | null = null;
+    let pIdx = 0;
+    for (let mi = 0; mi < measures.length; mi++) {
+      for (let ni = 0; ni < measures[mi].notes.length; ni++) {
+        const n = measures[mi].notes[ni];
+        if (n.pedalStart && pedalFrom === null) pedalFrom = pIdx;
+        if (n.pedalEnd && pedalFrom !== null) {
+          const from = allVfNotes[pedalFrom];
+          const to = allVfNotes[pIdx];
+          if (from && to && measureLine.get(from.mi) === measureLine.get(to.mi)) {
+            try {
+              const pm = new PedalMarking([from.vfNote, to.vfNote]);
+              pm.setType(PedalMarking.type.MIXED);
+              pm.setContext(ctx).draw();
+            } catch (e) { console.warn('pedal draw failed', e); }
+          }
+          pedalFrom = null;
+        }
+        pIdx++;
+      }
+    }
+  }
+
   // 추가 파트 타이 — 표기 행만, 같은 줄 안의 단순 타이(왼손 파트와 동일 규칙).
   if (allExtraVf.length) {
     const byPos = new Map<string, { vfNote: StaveNote; mi: number }>();
@@ -1724,6 +1925,30 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       const bb = entry.vfNote.getBoundingBox();
       if (bb && notePositions && activePartIdx === 0) {
         notePositions.push({ mi: entry.mi, ni: entry.ni, x: bb.getX(), y: bb.getY(), w: bb.getW(), h: bb.getH(), ...collectHeadRect(entry.vfNote), staff: 'bass' });
+      }
+    }
+    for (const entry of allV2VfNotes) {
+      const bb = entry.vfNote.getBoundingBox();
+      if (bb && notePositions && activePartIdx === 0) {
+        notePositions.push({ mi: entry.mi, ni: entry.ni, x: bb.getX(), y: bb.getY(), w: bb.getW(), h: bb.getH(), ...collectHeadRect(entry.vfNote), v2: true });
+      }
+      if (activePartIdx === 0 && selectedNotes?.some((s2) => s2.v2 && s2.mi === entry.mi && s2.ni === entry.ni)) {
+        const RED = '#d32f2f';
+        const noteSvg = entry.vfNote.getSVGElement?.();
+        if (noteSvg) {
+          const applyRed = (elm: Element) => {
+            const st2 = (elm as SVGElement).style;
+            st2.fill = RED; st2.stroke = RED;
+            elm.querySelectorAll('*').forEach((c2) => { const cs = (c2 as SVGElement).style; cs.fill = RED; cs.stroke = RED; });
+          };
+          applyRed(noteSvg);
+          let parent = noteSvg.parentElement;
+          while (parent && parent !== (svgEl as unknown as HTMLElement)) {
+            const cls = parent.getAttribute('class') || '';
+            if (cls.includes('vf-stavenote') || cls.includes('vf-stemmablenote')) { applyRed(parent); break; }
+            parent = parent.parentElement;
+          }
+        }
       }
     }
     /* 활성 추가 파트의 음표 좌표 + 선택 하이라이트 — 편집은 항상 활성 파트라
@@ -2490,7 +2715,8 @@ const BoxLegend = styled.span`
 const InfoCols = styled.div`
   display: flex;
   gap: 26px;
-  align-items: flex-start;
+  /* 좌(Title~Player 4줄) · 우(Genre/Key/박자 3줄) 열을 서로 세로 가운데로 맞춘다. */
+  align-items: center;
   padding: 6px 10px;
 `;
 
@@ -3786,11 +4012,18 @@ const NoteEditBtn = styled.button<{ $active?: boolean }>`
 `;
 /* 셈여림 글리프 버튼 — 음표(DurBtn) 규격 그대로 54×54, 서체만 악보 관례
  * (이탤릭 세리프 pp·mf·sfz …)로. */
+/* 셈여림 — Bravura 의 정식 셈여림 글리프(p·m·f·s·r·z 조합). 이탤릭 세리프
+ * 흉내가 아니라 실제 악보에 찍히는 그 모양이다. */
 const DynBtn = styled(DurBtn)`
-  font-family: Georgia, 'Times New Roman', serif;
-  font-style: italic;
-  font-weight: 700;
-  font-size: 1.05rem;
+  font-family: 'Bravura', serif;
+  font-style: normal;
+  font-weight: normal;
+  font-size: 1.5rem;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  /* Bravura 셈여림 글리프는 baseline 위쪽에 그려진다 — 버튼 정중앙으로 내린다
+   * (측정값: 중심 ≈ 0.13em). */
+  padding-top: 0.26em;
 `;
 
 /* 아티큘레이션·다이내믹스 탭 섹션 — 공용 Section + BoxLegend(윗 테두리 라벨).
@@ -4014,6 +4247,8 @@ export default function EditorPage() {
   /* 화음 모드 — ON이면 피아노 입력이 새 음표 대신 마지막(또는 선택된) 음표에
    * 음을 쌓는다. */
   const [chordInput, setChordInput] = useState(false);
+  /* 보이스 — 1(기본, 열린 마디 흐름) / 2(선택·마지막 확정 마디의 voice2 에 추가). */
+  const [voiceMode, setVoiceMode] = useState<1 | 2>(1);
   /* 양손 모드에서 클릭으로 활성화된 베이스 마디 — 🎹 입력이 이 마디로 간다. */
   const [selectedBassMeasure, setSelectedBassMeasure] = useState<number | null>(null);
   const [curChord1, setCurChord1] = useState('');
@@ -4059,6 +4294,20 @@ export default function EditorPage() {
   useEffect(() => { setCompingGenre(genreToCompingGenre(genre)); }, [genre]);
   const [sheetTitle, setSheetTitle] = useState('');
   const [sheetKey, setSheetKey] = useState('C');
+  /* ── 박자표 — 전역(악보 단위). 마디 자동 마감·분할·Voice 박 수·표기가 전부
+   * 여기서 파생된다. barBeats 는 **4분음표 단위**(6/8=3.0) — 음가 산술
+   * (noteMetricBeats/measureBeats)이 4분음표 기준이라 그대로 합산 가능. */
+  const [timeSig, setTimeSig] = useState('4/4');
+  const [tsNum, tsDen] = useMemo(() => {
+    const m = /^([0-9]+)\/([0-9]+)$/.exec(timeSig);
+    return m ? [Number(m[1]), Number(m[2])] : [4, 4];
+  }, [timeSig]);
+  const barBeats = useMemo(() => tsNum * (4 / tsDen), [tsNum, tsDen]);
+  /* 표시용 — 분모 단위 박 수(6/8이면 8분음표 6개). */
+  const beatsInDenUnits = useCallback((quarterBeats: number) => {
+    const v = quarterBeats * (tsDen / 4);
+    return Number.isInteger(v) ? v : Math.round(v * 100) / 100;
+  }, [tsDen]);
   /* 에디터의 조성은 '표시 전환'이 아니라 **영구 이조**다. 뷰어(코드차트/솔로
    * 상세)는 드롭다운으로 보이는 키만 바꾸지만, 여기서는 음표 데이터 자체를
    * 옮겨야 저장 결과가 달라진다. 그래서 헤더의 조성은 읽기 전용 표시로 두고
@@ -4077,7 +4326,7 @@ export default function EditorPage() {
   const [dotted, setDotted] = useState(false);
   /* 겹점 — 단일점과 배타(하나를 켜면 다른 하나는 꺼진다). */
   const [doubleDotted, setDoubleDotted] = useState(false);
-  const [accMode, setAccMode] = useState<'b' | '#' | 'n'>('b');
+  const [accMode, setAccMode] = useState<'b' | '#' | 'n' | '##' | 'bb'>('b');
   const [tieNext, setTieNext] = useState(false);
   const [tripletMode, setTripletMode] = useState(false);
   /* 꾸밈음 입력 모드 — 켜져 있으면 피아노/삽입으로 만든 음이 acciaccatura
@@ -4114,7 +4363,7 @@ export default function EditorPage() {
   /* ── 8va / 8vb bracket toggle. Activate before entering notes, then call
    *    handleOttavaToggle(same kind) on the last note to close. Same UX as
    *    LickCreator. */
-  const [ottavaMode, setOttavaMode] = useState<'8va' | '8vb' | null>(null);
+  const [ottavaMode, setOttavaMode] = useState<'8va' | '8vb' | '15ma' | '15mb' | null>(null);
   const ottavaOpenRef = useRef(false);
   const [repeatStart, setRepeatStart] = useState(false);
   const [repeatEnd, setRepeatEnd] = useState(false);
@@ -4173,6 +4422,8 @@ export default function EditorPage() {
   /* 드래그로 처리한 포인터의 뒤따르는 click(선택 토글)을 한 번 억제. */
   const suppressClickRef = useRef(false);
   const [notePositions, setNotePositions] = useState<NotePos[]>([]);
+  /* 음이름 표시 — 전역 설정 + '에디터' 페이지 덮어쓰기. */
+  const noteNameStyle = useNoteNameStyle();
 
   const [selectedNote, setSelectedNote] = useState<NoteSel | null>(null);
   /* 복수 선택 — Ctrl/Cmd + 클릭으로 앵커(selectedNote) 위에 덧붙인 음표들.
@@ -4275,6 +4526,7 @@ export default function EditorPage() {
         if (prefillSheet.title) setSheetTitle(prefillSheet.title);
         if (prefillSheet.composer) setComposer(prefillSheet.composer);
         if (prefillSheet.key) setSheetKey(prefillSheet.key);
+        if (/^[0-9]+\/[0-9]+$/.test(prefillSheet.timeSignature ?? '')) setTimeSig(prefillSheet.timeSignature);
         setExplicitAcc(isExplicitSheet);
         if (prefillSheet.tempo) {
           setBpm(prefillSheet.tempo);
@@ -4359,6 +4611,7 @@ export default function EditorPage() {
       if (typeof d.genre === 'string') setGenre(d.genre);
       if (typeof d.sheetTitle === 'string') setSheetTitle(d.sheetTitle);
       if (typeof d.sheetKey === 'string') setSheetKey(d.sheetKey);
+      if (typeof d.timeSig === 'string' && /^[0-9]+\/[0-9]+$/.test(d.timeSig)) setTimeSig(d.timeSig);
       if (typeof d.bpm === 'number' && d.bpm >= 20 && d.bpm <= 400) {
         setBpm(d.bpm);
         bpmManualRef.current = true;
@@ -4374,8 +4627,8 @@ export default function EditorPage() {
    * 전부 넣던 이전 구현은 키 입력마다 타이머가 0부터 리셋돼 "10초마다"가 아니라
    * "마지막 입력 후 10초 무입력"이어야 저장됐다 — 연속 입력 중 크래시하면
    * 드래프트가 한 번도 안 남았다. */
-  const draftRef = useRef({ measures, bassMeasures, staffMode, curNotes, curChord1, curChord2, composer, genre, sheetTitle, sheetKey, bpm, partMetas, activePart, partStore: partStoreRef.current });
-  draftRef.current = { measures, bassMeasures, staffMode, curNotes, curChord1, curChord2, composer, genre, sheetTitle, sheetKey, bpm, partMetas, activePart, partStore: partStoreRef.current };
+  const draftRef = useRef({ measures, bassMeasures, staffMode, curNotes, curChord1, curChord2, composer, genre, sheetTitle, sheetKey, timeSig, bpm, partMetas, activePart, partStore: partStoreRef.current });
+  draftRef.current = { measures, bassMeasures, staffMode, curNotes, curChord1, curChord2, composer, genre, sheetTitle, sheetKey, timeSig, bpm, partMetas, activePart, partStore: partStoreRef.current };
   useEffect(() => {
     const intv = setInterval(() => {
       try {
@@ -4429,7 +4682,7 @@ export default function EditorPage() {
     if (!target || target === sheetKey) { setTransposeOpen(false); return; }
     pushEditUndo();
     const packed: NoteSheetData = {
-      title: sheetTitle, composer, key: sheetKey, timeSignature: '4/4',
+      title: sheetTitle, composer, key: sheetKey, timeSignature: timeSig,
       // 편집 중인 마지막 마디(curNotes)도 함께 옮겨야 이조 후 이어서 쓸 수 있다.
       measures: [...measures, { notes: curNotes }],
       ...(bassMeasures.length ? { bassMeasures } : {}),
@@ -4455,7 +4708,7 @@ export default function EditorPage() {
     if (!target || target === sheetKey) { setTransposeOpen(false); return; }
     pushEditUndo();
     const packed: NoteSheetData = {
-      title: sheetTitle, composer, key: sheetKey, timeSignature: '4/4',
+      title: sheetTitle, composer, key: sheetKey, timeSignature: timeSig,
       measures: [...measures, { notes: curNotes }],
       ...(bassMeasures.length ? { bassMeasures } : {}),
     };
@@ -4468,6 +4721,10 @@ export default function EditorPage() {
     setSheetKey(out.key || target);
     setTransposeOpen(false);
   }, [sheetKey, sheetTitle, composer, measures, curNotes, bassMeasures, pushEditUndo]);
+
+  /* maybeAutoClose 등 deps-고정 콜백이 읽는 barBeats 미러. */
+  const barBeatsRef = useRef(4);
+  barBeatsRef.current = barBeats;
 
   const curChord1Ref = useRef(curChord1);
   curChord1Ref.current = curChord1;
@@ -4644,7 +4901,7 @@ export default function EditorPage() {
 
   const maybeAutoClose = useCallback((notes: NoteInfo[]) => {
     const beats = notes.reduce((s, n) => s + noteMetricBeats(n), 0);
-    if (notes.length > 0 && beats >= 4 - 0.001) {
+    if (notes.length > 0 && beats >= barBeatsRef.current - 0.001) {
       const chord = joinChords(curChord1Ref.current, curChord2Ref.current);
       setMeasures((prev) => {
         // 새로 닫힌 마디를 활성 상태로 — '선택 없음'에서 입력을 시작하면 그 마디가 켜진다.
@@ -4694,7 +4951,7 @@ export default function EditorPage() {
    *    its start). Click the same button again to close — last note in
    *    curNotes (or last note of last measure if curNotes is empty) gets
    *    ottavaEnd. */
-  const handleOttavaToggle = useCallback((kind: '8va' | '8vb') => {
+  const handleOttavaToggle = useCallback((kind: '8va' | '8vb' | '15ma' | '15mb') => {
     if (ottavaMode === kind && ottavaOpenRef.current) {
       // Close — stamp ottavaEnd on the last entered note.
       pushEditUndo();
@@ -4760,16 +5017,23 @@ export default function EditorPage() {
     return () => ro.disconnect();
   }, []);
 
-  const updateNote = useCallback((mi: number, ni: number, updater: (n: NoteInfo) => NoteInfo, staff?: StaffId) => {
+  const updateNote = useCallback((mi: number, ni: number, updater: (n: NoteInfo) => NoteInfo, staff?: StaffId, v2?: boolean) => {
     pushEditUndo();
-    if (staff === 'bass') {
+    /* v2 미지정 호출(음표 탭 칩 등)이 선택된 보이스2 음표를 겨냥하면 자동 라우팅 —
+     * 40여 개 칩 호출부가 성부를 몰라도 된다. */
+    if (v2 === undefined && selectedNote?.v2 && selectedNote.mi === mi && selectedNote.ni === ni && selectedNote.staff === staff) {
+      v2 = true;
+    }
+    if (v2) {
+      setMeasures((prev) => prev.map((m, i) => i === mi ? { ...m, voice2: (m.voice2 ?? []).map((n, j) => j === ni ? updater(n) : n) } : m));
+    } else if (staff === 'bass') {
       setBassMeasures((prev) => prev.map((m, i) => i === mi ? { ...m, notes: m.notes.map((n, j) => j === ni ? updater(n) : n) } : m));
     } else if (mi < measures.length) {
       setMeasures((prev) => prev.map((m, i) => i === mi ? { ...m, notes: m.notes.map((n, j) => j === ni ? updater(n) : n) } : m));
     } else {
       setCurNotes((prev) => prev.map((n, j) => j === ni ? updater(n) : n));
     }
-  }, [measures.length, pushEditUndo]);
+  }, [measures.length, pushEditUndo, selectedNote]);
 
   const setChordAtNote = useCallback((mi: number, ni: number, chord: string) => {
     updateNote(mi, ni, (n) => ({ ...n, chord: chord || undefined }));
@@ -4876,8 +5140,19 @@ export default function EditorPage() {
   }, [measures.length, pushEditUndo]);
 
   /** Delete a single note at (mi, ni). */
-  const deleteNote = useCallback((mi: number, ni: number, staff?: StaffId) => {
+  const deleteNote = useCallback((mi: number, ni: number, staff?: StaffId, v2?: boolean) => {
     pushEditUndo();
+    if (v2 === undefined && selectedNote?.v2 && selectedNote.mi === mi && selectedNote.ni === ni && selectedNote.staff === staff) {
+      v2 = true;
+    }
+    if (v2) {
+      setMeasures((prev) => prev.map((m, i) => {
+        if (i !== mi) return m;
+        const next = (m.voice2 ?? []).filter((_, j) => j !== ni);
+        return { ...m, voice2: next.length ? next : undefined };
+      }));
+      return;
+    }
     if (staff === 'bass') {
       setBassMeasures((prev) => prev.map((m, i) => {
         if (i !== mi) return m;
@@ -4892,7 +5167,7 @@ export default function EditorPage() {
       setCurNotes((prev) => prev.filter((_, j) => j !== ni));
     }
     setSelectedNote(null);
-  }, [measures.length, pushEditUndo]);
+  }, [measures.length, pushEditUndo, selectedNote]);
 
   /** 선택된 음표를 보표 한 칸(다음/이전 글자)씩 올리거나 내린다.
    *  다이어토닉 스텝이므로 임시표는 지우고 순수 글자 피치로 이동 —
@@ -4981,11 +5256,12 @@ export default function EditorPage() {
     const np = noteAtPoint(e.clientX, e.clientY);
     if (!np) return;
     const staff = np.staff;
-    const note = (staff === 'bass' ? bassMeasures : allMeasures)[np.mi]?.notes[np.ni];
+    const srcM = (staff === 'bass' ? bassMeasures : allMeasures)[np.mi];
+    const note = np.v2 ? srcM?.voice2?.[np.ni] : srcM?.notes[np.ni];
     if (!note || note.duration.endsWith('r')) return; // 쉼표는 음정 없음
     setInsertPos(null); // 음표 클릭 = 삽입 모드 종료(기존 click 동작 유지)
-    const sel: NoteSel = { mi: np.mi, ni: np.ni, ...(staff ? { staff } : {}) };
-    const wasSelected = !!selectedNote && selectedNote.mi === sel.mi && selectedNote.ni === sel.ni && selectedNote.staff === staff;
+    const sel: NoteSel = { mi: np.mi, ni: np.ni, ...(staff ? { staff } : {}), ...(np.v2 ? { v2: true } : {}) };
+    const wasSelected = !!selectedNote && selectedNote.mi === sel.mi && selectedNote.ni === sel.ni && selectedNote.staff === staff && !!selectedNote.v2 === !!np.v2;
     if (!wasSelected) {
       setSelectedNote(sel);
       setSelectedMeasure(null);
@@ -5012,7 +5288,7 @@ export default function EditorPage() {
       const updated = { ...n, keys: newKeys as string[] };
       delete updated.accidentals;
       return updated;
-    }, d.sel.staff);
+    }, d.sel.staff, d.sel.v2);
     playMidi(vexToMidi(newKeys[0] as string));
   }, [updateNote, pushEditUndo]);
 
@@ -5038,7 +5314,11 @@ export default function EditorPage() {
     /* raw(드럼 팔레트): keys 는 GM 퍼커션 절대값이라 임시표 변환·다이어토닉
      * 리스펠을 모두 우회한다 — 스펠링이 바뀌면 표기 매핑(vexKeyToMidi)이 어긋난다. */
     const raw = opts?.raw === true;
-    const conv = raw ? { vexKey: pn.vexKey, acc: undefined as ('b' | '#' | undefined) } : convertAcc(pn, accMode === 'n' ? 'b' : accMode);
+    const conv: { vexKey: string; acc?: 'b' | '#' | '##' | 'bb' } = raw
+      ? { vexKey: pn.vexKey, acc: undefined }
+      : (accMode === '##' || accMode === 'bb')
+        ? convertAccDouble(pn, accMode)
+        : convertAcc(pn, accMode === 'n' ? 'b' : accMode);
     /* 드럼은 피아노 음원이 아니라 재생과 같은 샘플 킷으로 들려준다 — 패드로 들은
      * 소리와 저장 후 재생되는 소리가 같아야 한다. */
     if (raw) auditionDrumGm(pn.midi);
@@ -5131,7 +5411,7 @@ export default function EditorPage() {
         updateNote(selectedNote.mi, selectedNote.ni, (n) => addKeyToNote(n, conv.vexKey, chordAcc), selectedNote.staff);
         return;
       }
-      const acc: Record<number, 'b' | '#' | 'n'> | undefined =
+      const acc: Record<number, 'b' | '#' | 'n' | '##' | 'bb'> | undefined =
         respelled ? undefined
         : accMode === 'n' ? { 0: 'n' as const }
         : conv.acc ? { 0: conv.acc }
@@ -5195,6 +5475,27 @@ export default function EditorPage() {
       return;
     }
 
+    // ── 보이스 2 입력 — 선택(없으면 마지막) 확정 마디의 voice2 에 추가.
+    if (voiceMode === 2 && !raw) {
+      const ti = selectedMeasure != null && selectedMeasure < measures.length
+        ? selectedMeasure
+        : measures.length - 1;
+      if (ti >= 0) {
+        pushEditUndo();
+        const ni: NoteInfo = { keys: [conv.vexKey], duration, dotted: dotted || undefined, doubleDotted: doubleDotted || undefined, ...(ghostMode ? { ghost: true as const } : {}) };
+        if (!respelled && accMode === 'n') ni.accidentals = { 0: 'n' };
+        else if (conv.acc) ni.accidentals = { 0: conv.acc };
+        if (tripletMode) ni.tuplet = 3;
+        setMeasures((prev) => prev.map((m2, i2) => (i2 === ti ? { ...m2, voice2: [...(m2.voice2 ?? []), ni] } : m2)));
+        if (tripletMode) {
+          tripletCountRef.current += 1;
+          if (tripletCountRef.current >= 3) { setTripletMode(false); tripletCountRef.current = 0; }
+        }
+        return;
+      }
+      // 확정 마디가 없으면 보이스1 흐름으로 폴백.
+    }
+
     // 마디가 선택돼 있으면 그 마디의 끝에 음표를 추가 — 중간에 삽입한 빈
     // 마디를 피아노로 바로 채우는 OMR 교정 플로우. (열린 입력 마디가 아니라
     // 선택된 committed 마디로 들어간다.)
@@ -5215,7 +5516,7 @@ export default function EditorPage() {
         /* 4박을 넘기면 열린 마디와 똑같이 **자동으로 나눈다**. 예전엔 여기서
          * 그냥 밀어 넣기만 해 한 마디가 무한정 불어났다(추가 스태프는 클릭=마디
          * 선택이라 이 경로만 타서 특히 티가 났다). */
-        const split = splitMeasuresByBeats([{ ...target, notes }], 4);
+        const split = splitMeasuresByBeats([{ ...target, notes }], barBeats);
         const next = [...prev];
         next.splice(selectedMeasure, 1, ...split);
         // 이어서 입력할 수 있도록 마지막으로 나뉜 마디를 활성으로 옮긴다.
@@ -5624,7 +5925,7 @@ export default function EditorPage() {
         notePositionsRef.current, multiSel, noteElMapRef.current,
         p0.kind === 'grand' ? (p0.bassMeasures ?? null) : null,
         explicitAcc, activeStaff,
-        renderParts.slice(1), p0.kind, activePart, p0,
+        renderParts.slice(1), p0.kind, activePart, p0, timeSig, noteNameStyle,
       );
     } catch {
       positionsRef.current.length = 0;
@@ -5633,12 +5934,13 @@ export default function EditorPage() {
     }
     setMeasurePositions([...positionsRef.current]);
     setNotePositions([...notePositionsRef.current]);
-  }, [allMeasures, renderParts, activePart, sheetWidth, currentIdx, activeIdx, sheetKey, multiSel, explicitAcc, activeStaff]);
+  }, [allMeasures, renderParts, activePart, sheetWidth, currentIdx, activeIdx, sheetKey, multiSel, explicitAcc, activeStaff, timeSig, noteNameStyle]);
 
   const selNoteInfo = useMemo<NoteInfo | null>(() => {
     if (!selectedNote) return null;
     const m = selectedNote.staff === 'bass' ? bassMeasures[selectedNote.mi] : allMeasures[selectedNote.mi];
     if (!m) return null;
+    if (selectedNote.v2) return m.voice2?.[selectedNote.ni] ?? null;
     return m.notes[selectedNote.ni] ?? null;
   }, [selectedNote, allMeasures, bassMeasures]);
 
@@ -5654,7 +5956,8 @@ export default function EditorPage() {
   useEffect(() => {
     if (!selectedNote) return;
     const m = selectedNote.staff === 'bass' ? bassMeasures[selectedNote.mi] : allMeasures[selectedNote.mi];
-    if (!m?.notes[selectedNote.ni]) {
+    const exists = selectedNote.v2 ? m?.voice2?.[selectedNote.ni] : m?.notes[selectedNote.ni];
+    if (!exists) {
       setSelectedNote(null);
     }
   }, [allMeasures, bassMeasures, selectedNote]);
@@ -5729,8 +6032,8 @@ export default function EditorPage() {
     }
     if (best) {
       const staff = best.staff;
-      const hit: NoteSel = { mi: best.mi, ni: best.ni, ...(staff ? { staff } : {}) };
-      const same = (a: NoteSel, b: NoteSel) => a.mi === b.mi && a.ni === b.ni && a.staff === b.staff;
+      const hit: NoteSel = { mi: best.mi, ni: best.ni, ...(staff ? { staff } : {}), ...(best.v2 ? { v2: true } : {}) };
+      const same = (a: NoteSel, b: NoteSel) => a.mi === b.mi && a.ni === b.ni && a.staff === b.staff && !!a.v2 === !!b.v2;
       // Ctrl(Win)/Cmd(Mac) + 클릭 = 복수 선택 토글. 앵커(selectedNote)는 건드리지
       // 않는다 — 앵커가 바뀌면 복수 선택이 초기화되기 때문.
       if ((e.ctrlKey || e.metaKey) && selectedNote) {
@@ -5863,7 +6166,7 @@ export default function EditorPage() {
       composer: composer || 'Unknown',
       ...(genre ? { genre } : {}),
       key: sheetKey,
-      timeSignature: '4/4',
+      timeSignature: timeSig,
       tempo: bpm,
       measures: outMeasures,
       ...(bassOut ? { bassMeasures: bassOut } : {}),
@@ -5883,7 +6186,7 @@ export default function EditorPage() {
     title: sheetTitle || (mode === 'solo' ? 'Untitled Solo' : 'Untitled Lick'),
     composer: composer || 'Unknown',
     key: sheetKey,
-    timeSignature: '4/4',
+    timeSignature: timeSig,
     tempo: bpm,
     ...(genre ? { genre } : {}),
     measures: outMeasures,
@@ -5899,7 +6202,7 @@ export default function EditorPage() {
     const staves = buildAllStaves();
     const base: NoteSheetData = {
       title: 'Part', composer: composer || 'Unknown', key: sheetKey,
-      timeSignature: '4/4', tempo: bpm, measures: [],
+      timeSignature: timeSig, tempo: bpm, measures: [],
       ...(explicitAcc ? { accidentalStyle: 'explicit' as const } : {}),
     };
     // 첫 원소는 part0 오른손(메인) — buildSheet 와 중복이라 버린다.
@@ -5993,7 +6296,7 @@ export default function EditorPage() {
           composer: composer || 'Unknown',
           genre: genre || undefined,
           key: sheetKey,
-          timeSignature: '4/4',
+          timeSignature: timeSig,
           tempo: bpm,
           measures: packed.measures,
           bassMeasures: packed.bassMeasures ?? undefined,
@@ -6030,7 +6333,7 @@ export default function EditorPage() {
           title: sheetTitle || 'Untitled',
           composer: composer || 'Unknown',
           key: sheetKey,
-          timeSignature: '4/4',
+          timeSignature: timeSig,
           tempo: bpm,
           measures: packedC.measures,
           ...(packedC.bassMeasures ? { bassMeasures: packedC.bassMeasures } : {}),
@@ -6082,7 +6385,7 @@ export default function EditorPage() {
             title: `${composer || 'Unknown'} — ${sheetTitle || 'Untitled'}`,
             composer,
             key: sheetKey,
-            timeSignature: '4/4',
+            timeSignature: timeSig,
             tempo: bpm,
             measures: outMeasures,
             ...(bassOut ? { bassMeasures: bassOut } : {}),
@@ -6372,7 +6675,7 @@ export default function EditorPage() {
                   <MetaField><MetaLabel>Composer</MetaLabel><MetaInput value={composer} onChange={(e) => setComposer(e.target.value)} placeholder="e.g. Joseph Kosma" /></MetaField>
                   <MetaField><MetaLabel>Player</MetaLabel><MetaInput value={performer} onChange={(e) => setPerformer(e.target.value)} placeholder="e.g. Charlie Parker" /></MetaField>
                 </InfoCol>
-                <InfoCol style={{ justifyContent: 'flex-end', gap: 9 }}>
+                <InfoCol style={{ gap: 9 }}>
                   <MetaField $tight><MetaLabel>Genre</MetaLabel><GenreFill><GenreSelect value={genre} onChange={setGenre} /></GenreFill></MetaField>
                   <MetaField $tight>
                     <MetaLabel>Key</MetaLabel>
@@ -6406,6 +6709,28 @@ export default function EditorPage() {
                       />
                       )}
                       </KeyAnchor>
+                  </MetaField>
+                  <MetaField $tight>
+                    <MetaLabel>박자</MetaLabel>
+                    <TimeSigSelect
+                      value={timeSig}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        if (next === timeSig) return;
+                        const hasNotes = measures.some((mm) => mm.notes.length > 0) || curNotes.length > 0;
+                        if (hasNotes && !window.confirm(`박자표를 ${next} 로 바꾸고 기존 마디를 새 박자로 다시 나눌까요?`)) return;
+                        pushEditUndo();
+                        const m2 = /^([0-9]+)\/([0-9]+)$/.exec(next)!;
+                        const nb = Number(m2[1]) * (4 / Number(m2[2]));
+                        setMeasures((prev) => splitMeasuresByBeats(prev, nb));
+                        setBassMeasures((prev) => (prev.length ? splitMeasuresByBeats(prev, nb) : prev));
+                        setTimeSig(next);
+                      }}
+                    >
+                      {['2/4', '3/4', '4/4', '5/4', '6/4', '3/8', '4/8', '5/8', '6/8', '7/8', '9/8', '12/8', '2/2', '3/2'].map((t2) => (
+                        <option key={t2} value={t2}>{t2}</option>
+                      ))}
+                    </TimeSigSelect>
                   </MetaField>
                 </InfoCol>
               </InfoCols>
@@ -6584,13 +6909,13 @@ export default function EditorPage() {
             <NoteEditBtn
             $active={measures[activeMeasureIdx].navigation === 'segno'}
             onClick={() => updateMeasure(activeMeasureIdx, (m) => ({ ...m, navigation: m.navigation === 'segno' ? undefined : 'segno' }))}
-            style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.1rem' }}
-            >{''}</NoteEditBtn>
+            title="Segno — 세뇨"
+            ><Smufl glyph="segno" size={19} /></NoteEditBtn>
             <NoteEditBtn
             $active={measures[activeMeasureIdx].navigation === 'coda'}
             onClick={() => updateMeasure(activeMeasureIdx, (m) => ({ ...m, navigation: m.navigation === 'coda' ? undefined : 'coda' }))}
-            style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '1.1rem' }}
-            >{''}</NoteEditBtn>
+            title="Coda — 코다"
+            ><Smufl glyph="coda" size={19} /></NoteEditBtn>
             <NoteEditBtn
             $active={measures[activeMeasureIdx].navigation === 'fine'}
             onClick={() => updateMeasure(activeMeasureIdx, (m) => ({ ...m, navigation: m.navigation === 'fine' ? undefined : 'fine' }))}
@@ -6599,8 +6924,8 @@ export default function EditorPage() {
             <NoteEditBtn
             $active={measures[activeMeasureIdx].navigation === 'toCoda'}
             onClick={() => updateMeasure(activeMeasureIdx, (m) => ({ ...m, navigation: m.navigation === 'toCoda' ? undefined : 'toCoda' }))}
-            style={{ fontFamily: "'MuseJazz Text', serif", fontSize: '0.75rem' }}
-            ><span style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '0.6rem', fontWeight: 700, fontStyle: 'italic', marginRight: 1 }}>To</span>{''}</NoteEditBtn>
+            title="To Coda"
+            ><span style={{ fontFamily: "'Pretendard', sans-serif", fontSize: '0.6rem', fontWeight: 700, fontStyle: 'italic', marginRight: 2 }}>To</span><Smufl glyph="coda" size={15} /></NoteEditBtn>
             <NavSelect
             value={measures[activeMeasureIdx].navigation && ['dc', 'dcAlCoda', 'dcAlFine', 'ds', 'dsAlCoda', 'dsAlFine'].includes(measures[activeMeasureIdx].navigation) ? measures[activeMeasureIdx].navigation : ''}
             onChange={(e) => updateMeasure(activeMeasureIdx, (m) => ({ ...m, navigation: (e.target.value as NavigationMarker) || undefined }))}
@@ -6619,6 +6944,55 @@ export default function EditorPage() {
             onClick={() => updateMeasure(activeMeasureIdx, (m) => ({ ...m, bracket: !m.bracket || undefined }))}
             style={{ fontSize: '0.85rem', fontWeight: 300, fontFamily: 'serif' }}
             >(&thinsp;)</NoteEditBtn>
+            <NoteEditBtn
+            $active={measures[activeMeasureIdx].volta === 3}
+            onClick={() => updateMeasure(activeMeasureIdx, (m) => ({ ...m, volta: m.volta === 3 ? undefined : 3 }))}
+            title="3번 괄호(볼타)"
+            >
+            <svg width="18" height="14" viewBox="0 0 22 18" style={{ display: 'inline-block', verticalAlign: 'middle' }}><path d="M1 1 L1 6 L21 6" stroke="currentColor" strokeWidth="1.5" fill="none"/><text x="4" y="16" fontSize="10" fontWeight="700" fill="currentColor" fontFamily="DM Sans, sans-serif">3.</text></svg>
+            </NoteEditBtn>
+            <Sep />
+            {/* 세로줄 — 겹세로줄·끝세로줄·숨김 (도돌이 표시가 있으면 그쪽 우선). */}
+            {([['double', 'barlineDouble', '겹세로줄'], ['end', 'barlineFinal', '끝세로줄']] as const).map(([bl, gl, tt]) => (
+              <NoteEditBtn key={bl}
+                $active={measures[activeMeasureIdx].barline === bl}
+                onClick={() => updateMeasure(activeMeasureIdx, (m) => ({ ...m, barline: m.barline === bl ? undefined : bl }))}
+                title={tt}
+              ><Smufl glyph={gl} size={20} /></NoteEditBtn>
+            ))}
+            <NoteEditBtn
+              $active={measures[activeMeasureIdx].barline === 'none'}
+              onClick={() => updateMeasure(activeMeasureIdx, (m) => ({ ...m, barline: m.barline === 'none' ? undefined : 'none' }))}
+              title="세로줄 숨김"
+              style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '-0.02em' }}
+            >숨김</NoteEditBtn>
+            <NoteEditBtn
+              $active={!!measures[activeMeasureIdx].lineBreak}
+              onClick={() => updateMeasure(activeMeasureIdx, (m) => ({ ...m, lineBreak: !m.lineBreak || undefined }))}
+              title="이 마디 뒤에서 줄바꿈 강제(시스템 브레이크)"
+            >↵</NoteEditBtn>
+            <NoteEditBtn
+              $active={!!measures[activeMeasureIdx].rehearsal}
+              onClick={() => {
+                const cur = measures[activeMeasureIdx].rehearsal ?? '';
+                const v = window.prompt('리허설 마크 (예: A, B1) — 비우면 제거', cur);
+                if (v === null) return;
+                updateMeasure(activeMeasureIdx, (m) => ({ ...m, rehearsal: v.trim() || undefined }));
+              }}
+              title="리허설 마크 — 마디 위 네모 상자"
+              style={{ fontWeight: 800, fontSize: '0.72rem' }}
+            >{measures[activeMeasureIdx].rehearsal ? `[${measures[activeMeasureIdx].rehearsal}]` : '[A]'}</NoteEditBtn>
+            <NavSelect
+              value={measures[activeMeasureIdx].key ?? ''}
+              onChange={(e) => updateMeasure(activeMeasureIdx, (m) => ({ ...m, key: e.target.value || undefined }))}
+              title="이 마디부터 조성 변경(조표 교체)"
+              style={{ fontSize: '0.65rem' }}
+            >
+              <option value="">조성변경</option>
+              {['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb'].map((k2) => (
+                <option key={k2} value={k2}>{k2}</option>
+              ))}
+            </NavSelect>
             </>)}
             <button type="button" onClick={() => { setSelectedMeasure(null); setSelectedNote(null); }}>선택 해제</button>
           </MeasureTabBar>
@@ -6647,23 +7021,23 @@ export default function EditorPage() {
             <ToolBar>
               <LabeledSection>
                 <BoxLegend>주법</BoxLegend>
-                <DurBtn $active={art('staccato')} onClick={() => toggleArt('staccato')} title="Staccato — 짧게"
-                  style={{ fontSize: '1.9rem', fontWeight: 700 }}>·</DurBtn>
-                <DurBtn $active={art('staccatissimo')} onClick={() => toggleArt('staccatissimo')} title="Staccatissimo — 아주 짧게(쐐기)">▾</DurBtn>
-                <DurBtn $active={art('accent')} onClick={() => toggleArt('accent')} title="Accent (>)"
-                  style={{ fontWeight: 700 }}>&gt;</DurBtn>
-                <DurBtn $active={art('tenuto')} onClick={() => toggleArt('tenuto')} title="Tenuto — 음가를 충분히 (—)"
-                  style={{ fontWeight: 700 }}>—</DurBtn>
-                <DurBtn $active={art('marcato')} onClick={() => toggleArt('marcato')} title="Marcato — 강한 강세 (^)"
-                  style={{ fontWeight: 700 }}>^</DurBtn>
-                <DurBtn $active={art('detached-legato')} onClick={() => toggleArt('detached-legato')} title="Detached legato (—·)"
-                  style={{ fontSize: '1.1rem', fontWeight: 700 }}>—·</DurBtn>
+                <DurBtn $active={art('staccato')} onClick={() => toggleArt('staccato')} title="Staccato — 짧게"><Smufl glyph="staccato" size={26} /></DurBtn>
+                <DurBtn $active={art('staccatissimo')} onClick={() => toggleArt('staccatissimo')} title="Staccatissimo — 아주 짧게(쐐기)"><Smufl glyph="staccatissimo" size={26} /></DurBtn>
+                <DurBtn $active={art('accent')} onClick={() => toggleArt('accent')} title="Accent — 강세"><Smufl glyph="accent" size={26} /></DurBtn>
+                <DurBtn $active={art('tenuto')} onClick={() => toggleArt('tenuto')} title="Tenuto — 음가를 충분히"><Smufl glyph="tenuto" size={26} /></DurBtn>
+                <DurBtn $active={art('marcato')} onClick={() => toggleArt('marcato')} title="Marcato — 강한 강세"><Smufl glyph="marcato" size={26} /></DurBtn>
+                <DurBtn $active={art('detached-legato')} onClick={() => toggleArt('detached-legato')} title="Detached legato — 테누토+스타카토"><Smufl glyph="tenutoStaccato" size={26} /></DurBtn>
                 <DurBtn $active={!!info.fermata}
                   onClick={() => updateNote(sel.mi, sel.ni, (n) => ({ ...n, fermata: !n.fermata || undefined }), sel.staff)}
-                  title="Fermata — 늘임표" style={{ fontFamily: 'serif' }}>𝄐</DurBtn>
+                  title="Fermata — 늘임표"><Smufl glyph="fermata" size={24} /></DurBtn>
                 <DurBtn $active={!!info.ghost}
                   onClick={() => updateNote(sel.mi, sel.ni, (n) => ({ ...n, ghost: !n.ghost || undefined }), sel.staff)}
-                  title="Ghost note — 괄호 머리 ( )" style={{ fontSize: '1.0rem', fontWeight: 300, fontFamily: 'serif' }}>( )</DurBtn>
+                  title="Ghost note — ✕ 노트헤드"><Smufl glyph="noteheadX" size={22} /></DurBtn>
+                <DurBtn $active={art('harmonic')} onClick={() => toggleArt('harmonic')} title="Harmonic — 자연 하모닉"><Smufl glyph="harmonic" size={24} /></DurBtn>
+                <DurBtn $active={art('lh-pizz')} onClick={() => toggleArt('lh-pizz')} title="Left-hand pizzicato — 왼손 뜯기"><Smufl glyph="lhPizzicato" size={24} /></DurBtn>
+                <DurBtn $active={art('snap-pizz')} onClick={() => toggleArt('snap-pizz')} title="Snap(Bartók) pizzicato"><Smufl glyph="snapPizzicato" size={24} /></DurBtn>
+                <DurBtn $active={art('up-bow')} onClick={() => toggleArt('up-bow')} title="Up bow — 올려 켜기/업 스트로크"><Smufl glyph="upBow" size={24} /></DurBtn>
+                <DurBtn $active={art('down-bow')} onClick={() => toggleArt('down-bow')} title="Down bow — 내려 켜기/다운 스트로크"><Smufl glyph="downBow" size={24} /></DurBtn>
               </LabeledSection>
               <LabeledSection>
                 <BoxLegend>장식음</BoxLegend>
@@ -6675,8 +7049,7 @@ export default function EditorPage() {
                     return { ...n, ornaments: next.length ? next : undefined };
                   }, sel.staff)}
                   title="Trill — 떨림음 (독립 토글: 다른 장식과 겹칠 수 있음)"
-                  style={{ fontStyle: 'italic', fontFamily: 'serif', fontSize: '1.15rem' }}
-                >tr</DurBtn>
+                ><Smufl glyph="trill" size={22} /></DurBtn>
                 <DurBtn $active={curOrn === 'mordent'} onClick={() => setOrn(curOrn === 'mordent' ? null : 'mordent')} title="Mordent — 본음-윗음-본음">
                   <svg width="26" height="16" viewBox="0 0 20 12" style={{ display: 'block' }}>
                     <path d="M2 9 L6 3 L10 9 L14 3 L18 9" stroke="currentColor" strokeWidth="1.7" fill="none" strokeLinejoin="round" />
@@ -6740,7 +7113,10 @@ export default function EditorPage() {
         ) : (() => {
           const sel = selectedNote;
           const info = selNoteInfo;
-          const DYNS: DynamicName[] = ['pp', 'p', 'mp', 'mf', 'f', 'ff', 'fff', 'sfz', 'fp'];
+          const DYNS: DynamicName[] = [
+            'ppp', 'pp', 'p', 'mp', 'mf', 'f', 'ff', 'fff',
+            'fp', 'pf', 'sf', 'sfz', 'sff', 'sffz', 'sfp', 'rfz', 'rf', 'fz',
+          ];
           return (
             <ToolBar>
               <LabeledSection>
@@ -6751,7 +7127,7 @@ export default function EditorPage() {
                       { ...n, dynamics: n.dynamics === d ? undefined : d }
                     ), sel.staff)}
                     title={`Dynamics — ${d}`}
-                  >{d}</DynBtn>
+                  >{dynamicToSmufl(d)}</DynBtn>
                 ))}
               </LabeledSection>
               <LabeledSection>
@@ -6837,8 +7213,24 @@ export default function EditorPage() {
           </ModCol>
           <ModCol>
             {/* ♯ / ♭ 는 라디오 — 하나를 켜면 다른 하나가 꺼진다. */}
-            <DurBtn $active={accMode === '#'} onClick={() => setAccMode('#')} title="Sharp mode" style={{ fontSize: '1.2rem', fontWeight: 700 }}>&#9839;</DurBtn>
-            <DurBtn $active={accMode === 'b'} onClick={() => setAccMode('b')} title="Flat mode" style={{ fontSize: '1.2rem', fontWeight: 700 }}>&#9837;</DurBtn>
+            <DurBtn $active={accMode === '#'} onClick={() => setAccMode('#')} title="Sharp mode"><Smufl glyph="sharp" size={24} /></DurBtn>
+            <DurBtn $active={accMode === 'b'} onClick={() => setAccMode('b')} title="Flat mode"><Smufl glyph="flat" size={24} /></DurBtn>
+          </ModCol>
+          <ModCol>
+            {/* 겹임시표 입력 모드 — 흰건반을 누르면 그 음을 겹샤프/겹플랫 표기로
+                리스펠(D→C𝄪, C→D𝄫). 대상 글자가 없으면 단일 ♯/♭ 폴백. */}
+            <DurBtn $active={accMode === '##'} onClick={() => setAccMode('##')} title="Double-sharp mode — D 를 누르면 겹샤프 표기로 입력"><Smufl glyph="doubleSharp" size={22} /></DurBtn>
+            <DurBtn $active={accMode === 'bb'} onClick={() => setAccMode('bb')} title="Double-flat mode — C 를 누르면 겹플랫 표기로 입력"><Smufl glyph="doubleFlat" size={22} /></DurBtn>
+          </ModCol>
+          <ModCol>
+            {/* 보이스 — 2를 켜면 입력이 선택(없으면 마지막) 마디의 두 번째 성부로
+                들어간다(기둥 아래 방향). 마디가 하나도 없으면 보이스1 흐름 유지. */}
+            <DurBtn $active={voiceMode === 1} onClick={() => setVoiceMode(1)} title="보이스 1 — 기본 성부(기둥 위)">
+              <VoiceGlyph><Smufl glyph="noteQuarterUp" size={17} /><b>1</b></VoiceGlyph>
+            </DurBtn>
+            <DurBtn $active={voiceMode === 2} onClick={() => setVoiceMode(2)} title="보이스 2 — 같은 보표의 둘째 성부(기둥 아래). 선택한(없으면 마지막) 마디에 쌓인다">
+              <VoiceGlyph><Smufl glyph="noteQuarterUp" size={17} /><b>2</b></VoiceGlyph>
+            </DurBtn>
           </ModCol>
           <ModCol>
           <DurBtn
@@ -6924,7 +7316,7 @@ export default function EditorPage() {
                       onClick={() => handleOttavaToggle('8va')}
                       title="한 번 눌러 시작, 마지막 음에서 다시 눌러 닫기"
                     >
-                      <MarkGlyph style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontWeight: 700, fontSize: '0.95rem' }}>8va</MarkGlyph>
+                      <MarkGlyph><Smufl glyph="ottavaAlta" size={16} /></MarkGlyph>
                       <MarkLabel>옥타브 위</MarkLabel>
                     </MarkBtn>
                     <MarkBtn
@@ -6932,7 +7324,7 @@ export default function EditorPage() {
                       onClick={() => handleOttavaToggle('8vb')}
                       title="한 번 눌러 시작, 마지막 음에서 다시 눌러 닫기"
                     >
-                      <MarkGlyph style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontWeight: 700, fontSize: '0.95rem' }}>8vb</MarkGlyph>
+                      <MarkGlyph><Smufl glyph="ottavaAlta" size={16} /></MarkGlyph>
                       <MarkLabel>옥타브 아래</MarkLabel>
                     </MarkBtn>
                   </MarkRow>
@@ -7094,7 +7486,7 @@ export default function EditorPage() {
               <>
                 <StatusItem><b>{Math.min(measures.length + 1, Math.max(allMeasures.length, 1))}</b>/{allMeasures.length} bars</StatusItem>
                 <StatusDot />
-                <StatusItem $warn={curBeats > 4}><b>{curBeats}</b>/4 beats</StatusItem>
+                <StatusItem $warn={curBeats > barBeats}><b>{beatsInDenUnits(curBeats)}</b>/{tsNum} beats</StatusItem>
               </>
             )}
           </SectionStatus>
@@ -7163,12 +7555,7 @@ export default function EditorPage() {
                         onClick={() => { if (!isRest) updateNote(sel.mi, sel.ni, (n) => ({ ...n, scoop: !n.scoop || undefined })); }}
                         title={isRest ? '쉼표에는 스쿱을 붙일 수 없습니다' : '스쿱 — 음표 앞에서 아래→위로 끌어올려 진입'}
                       >
-                        <i>
-                          <svg width="20" height="14" viewBox="0 0 20 15">
-                            <path d="M3 13 Q4 4 12 3" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" />
-                            <circle cx="14.5" cy="3" r="2.3" fill="currentColor" />
-                          </svg>
-                        </i>
+                        <i><Smufl glyph="scoop" size={20} /></i>
                         <em>Scoop</em>
                       </NoteChipBtn>
                       <NoteChipBtn
@@ -7177,39 +7564,59 @@ export default function EditorPage() {
                         onClick={() => { if (!isRest) updateNote(sel.mi, sel.ni, (n) => ({ ...n, fall: !n.fall || undefined })); }}
                         title={isRest ? '쉼표에는 폴을 붙일 수 없습니다' : '폴 — 음표 뒤에서 아래로 떨어지는 곡선'}
                       >
-                        <i>
-                          <svg width="20" height="14" viewBox="0 0 20 15">
-                            <circle cx="5.5" cy="3" r="2.3" fill="currentColor" />
-                            <path d="M8 3 Q16 4 17 13" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" />
-                          </svg>
-                        </i>
+                        <i><Smufl glyph="fall" size={20} /></i>
                         <em>Fall</em>
                       </NoteChipBtn>
                     </>
                   );
                 })()}
                 <NoteChipBtn
-                  $active={!!info.ottavaStart}
+                  $active={!!info.stem}
+                  disabled={isRest}
                   onClick={() => updateNote(sel.mi, sel.ni, (n) => {
-                    if (n.ottavaStart) {
-                      const next = { ...n };
-                      delete next.ottavaStart;
-                      return next;
-                    }
-                    return { ...n, ottavaStart: '8va' };
+                    // 자동 → 위 → 아래 → 자동 순환 (MuseScore 의 X 플립 대응).
+                    const next = !n.stem ? 'up' as const : n.stem === 'up' ? 'down' as const : undefined;
+                    if (!next) { const { stem, ...rest } = n; void stem; return rest; }
+                    return { ...n, stem: next };
                   })}
-                  title="8va 시작 — 이 음표부터 한 옥타브 위로 표기"
+                  title={isRest ? '쉼표에는 기둥이 없습니다'
+                    : `기둥 방향 — 현재 ${info.stem === 'up' ? '위 고정' : info.stem === 'down' ? '아래 고정' : '자동'} (누르면 자동→위→아래 순환)`}
                 >
-                  <i style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontSize: '0.9rem' }}>8va◜</i>
-                  <em>시작</em>
+                  <i><Smufl size={13} glyph={info.stem === 'down' ? 'arrowDown' : 'arrowUp'} /></i>
+                  <em>{info.stem === 'up' ? '기둥↑' : info.stem === 'down' ? '기둥↓' : '기둥'}</em>
                 </NoteChipBtn>
+                {/* 옥타브 브래킷 — 4종(8va·8vb·15ma·15mb) 시작 + 공용 끝.
+                    같은 종류를 다시 누르면 해제, 다른 종류를 누르면 교체. */}
+                {(['8va', '8vb', '15ma', '15mb'] as const).map((ok2) => (
+                  <NoteChipBtn
+                    key={ok2}
+                    $active={info.ottavaStart === ok2}
+                    onClick={() => updateNote(sel.mi, sel.ni, (n) => {
+                      if (n.ottavaStart === ok2) {
+                        const next = { ...n };
+                        delete next.ottavaStart;
+                        return next;
+                      }
+                      return { ...n, ottavaStart: ok2 };
+                    })}
+                    title={
+                      ok2 === '8va' ? '8va 시작 — 한 옥타브 위 소리'
+                      : ok2 === '8vb' ? '8vb 시작 — 한 옥타브 아래 소리'
+                      : ok2 === '15ma' ? '15ma 시작 — 두 옥타브 위 소리'
+                      : '15mb 시작 — 두 옥타브 아래 소리'
+                    }
+                  >
+                    <i><Smufl glyph={ok2.startsWith('15') ? 'quindicesimaAlta' : 'ottavaAlta'} size={15} /></i>
+                    <em>{ok2}</em>
+                  </NoteChipBtn>
+                ))}
                 <NoteChipBtn
                   $active={!!info.ottavaEnd}
                   onClick={() => updateNote(sel.mi, sel.ni, (n) => ({ ...n, ottavaEnd: !n.ottavaEnd || undefined }))}
-                  title="8va 끝 — 이 음표에서 옥타브 표기 종료"
+                  title="옥타브 브래킷 끝 — 이 음표에서 종료"
                 >
-                  <i style={{ fontStyle: 'italic', fontFamily: "'Times New Roman', serif", fontSize: '0.9rem' }}>◞8va</i>
-                  <em>끝</em>
+                  <i style={{ fontSize: '1.05rem', fontWeight: 700 }}>⌐</i>
+                  <em>브래킷끝</em>
                 </NoteChipBtn>
                 </EditGrid>
 
@@ -7232,13 +7639,11 @@ export default function EditorPage() {
                       title={beamable ? '빔 분리 — 이 음표 뒤에서 빔을 끊는다' : '빔 분리는 8분·16분음표에만 적용됩니다'}
                     >
                       <i>
-                        <svg width="22" height="14" viewBox="0 0 24 16">
-                          <line x1="3" y1="4" x2="9" y2="4" stroke="currentColor" strokeWidth="2.4" />
-                          <line x1="15" y1="4" x2="21" y2="4" stroke="currentColor" strokeWidth="2.4" />
-                          <line x1="4" y1="4" x2="4" y2="14" stroke="currentColor" strokeWidth="1.4" />
-                          <line x1="20" y1="4" x2="20" y2="14" stroke="currentColor" strokeWidth="1.4" />
-                          <line x1="12" y1="1" x2="12" y2="15" stroke="currentColor" strokeWidth="1.2" strokeDasharray="2 2" />
-                        </svg>
+                        <DivideGlyph>
+                          <Smufl glyph="note8thUp" size={15} />
+                          <span className="cut" />
+                          <Smufl glyph="note8thUp" size={15} />
+                        </DivideGlyph>
                       </i>
                       <em>Divide</em>
                     </NoteChipBtn>
@@ -7259,8 +7664,42 @@ export default function EditorPage() {
                   }}
                   title={info?.chord ? `이 음표의 코드: ${info.chord}` : '이 음표 위치에 코드 입력'}
                 >
-                  <i style={{ fontSize: '0.78rem', fontWeight: 700 }}>{info?.chord || 'C△'}</i>
+                  <i style={{ fontSize: '0.78rem', fontWeight: 700 }}>
+                    {info?.chord ? info.chord : <>C<Smufl glyph="chordSymbolMaj" size={9} /></>}
+                  </i>
                   <em>Chord</em>
+                </NoteChipBtn>
+                <NoteChipBtn
+                  $active={!!info.textAbove}
+                  onClick={() => {
+                    const v = window.prompt('음표 위 텍스트 (pizz. / arco / mute / legato …) — 비우면 제거', info.textAbove ?? '');
+                    if (v === null) return;
+                    updateNote(sel.mi, sel.ni, (n) => {
+                      const t = v.trim();
+                      if (!t) { const { textAbove, ...rest } = n; void textAbove; return rest; }
+                      return { ...n, textAbove: t };
+                    });
+                  }}
+                  title={info.textAbove ? `텍스트: ${info.textAbove}` : '연주 지시 텍스트 붙이기'}
+                >
+                  <i style={{ fontStyle: 'italic', fontFamily: 'Georgia, serif', fontSize: '0.8rem' }}>{info.textAbove ? info.textAbove.slice(0, 5) : 'expr'}</i>
+                  <em>텍스트</em>
+                </NoteChipBtn>
+                <NoteChipBtn
+                  $active={!!info.pedalStart}
+                  onClick={() => updateNote(sel.mi, sel.ni, (n) => ({ ...n, pedalStart: !n.pedalStart || undefined }))}
+                  title="서스테인 페달 시작(Ped.) — 끝낼 음표에 ✱ 를 찍으면 그려진다"
+                >
+                  <i><Smufl glyph="pedalPed" size={17} /></i>
+                  <em>페달</em>
+                </NoteChipBtn>
+                <NoteChipBtn
+                  $active={!!info.pedalEnd}
+                  onClick={() => updateNote(sel.mi, sel.ni, (n) => ({ ...n, pedalEnd: !n.pedalEnd || undefined }))}
+                  title="서스테인 페달 끝(✱)"
+                >
+                  <i><Smufl glyph="pedalUp" size={16} /></i>
+                  <em>페달끝</em>
                 </NoteChipBtn>
                 </EditRow>
 
@@ -7269,7 +7708,7 @@ export default function EditorPage() {
                 <EditRow>
 
 
-                {(['b', '#', 'n'] as const).map((g) => (
+                {(['b', '#', 'n', '##', 'bb'] as const).map((g) => (
                   <NoteChipBtn
                     key={g}
                     $active={info.accidentals?.[0] === g}
@@ -7284,10 +7723,13 @@ export default function EditorPage() {
                         return { ...n, accidentals: { 0: g } };
                       });
                     }}
-                    title={g === 'b' ? '플랫' : g === '#' ? '샤프' : '내추럴'}
+                    title={g === 'b' ? '플랫' : g === '#' ? '샤프' : g === 'n' ? '내추럴' : g === '##' ? '겹샤프' : '겹플랫'}
                   >
-                    <i style={{ fontFamily: 'serif', fontSize: '1.25rem' }}>{g === 'b' ? '♭' : g === '#' ? '♯' : '♮'}</i>
-                    <em>{g === 'b' ? 'Flat' : g === '#' ? 'Sharp' : 'Nat'}</em>
+                    <i>
+                      <Smufl size={19} dy={g === '##' ? 0 : 1}
+                        glyph={g === 'b' ? 'flat' : g === '#' ? 'sharp' : g === 'n' ? 'natural' : g === '##' ? 'doubleSharp' : 'doubleFlat'} />
+                    </i>
+                    <em>{g === 'b' ? 'Flat' : g === '#' ? 'Sharp' : g === 'n' ? 'Nat' : g === '##' ? '𝄪2' : '𝄫2'}</em>
                   </NoteChipBtn>
                 ))}
                 {/* ── TAB 수동 운지 — 활성 파트가 TAB일 때만 나타나는 그룹.
@@ -7965,5 +8407,41 @@ const TabCfgPop = styled.div`
     margin-top: 2px; padding: 4px 0; border: none; border-radius: 7px;
     background: #f1f1f4; font-size: 0.7rem; font-weight: 700; cursor: pointer;
     &:hover { background: #e6e6ea; }
+  }
+`;
+
+/* 정보 탭 박자표 선택 — Key 표시와 같은 폭 규격의 컴팩트 셀렉트. */
+const TimeSigSelect = styled.select`
+  width: 100%;
+  padding: 5px 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border: 1.5px solid ${({ theme }) => theme.colors.border};
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  &:hover { border-color: #b8b8be; }
+`;
+
+/* 보이스 토글 — SMuFL 4분음표 + 성부 번호(입력 툴바 관례). */
+const VoiceGlyph = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  b { font-size: 0.72rem; font-weight: 800; line-height: 1; }
+`;
+
+/* 빔 분리 — 8분음표 둘 사이를 점선으로 끊어 의미를 그대로 보여준다. */
+const DivideGlyph = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  .cut {
+    width: 0;
+    height: 13px;
+    border-left: 1.3px dashed currentColor;
+    opacity: 0.75;
+    margin: 0 1px;
   }
 `;

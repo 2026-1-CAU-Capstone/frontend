@@ -1033,7 +1033,7 @@ export function LickCard({ lick, width, visible, compact, displayId, fitToWidth,
     const svg = el.querySelector('svg');
     if (svg) {
       flatIdx = 0;
-      let ottavaActive: '8va' | '8vb' | null = null;
+      let ottavaActive: '8va' | '8vb' | '15ma' | '15mb' | null = null;
       let ottavaStartX = 0;
       let ottavaY = 0;
 

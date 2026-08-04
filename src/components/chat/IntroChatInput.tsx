@@ -1,11 +1,11 @@
 import { Fragment, useState, useRef, useEffect, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
 import styled from 'styled-components';
 import { mq } from '../../styles/theme';
-import { isNativeApp } from '../../lib/platform';
 import { IntroPlusSheet } from './IntroPlusSheet';
 import { getCachedUser, onAuthChange } from '../../api/auth';
 import type { ChordOverlay } from '../../data/types';
 import { formatChordsInText } from './chordFormat';
+import { useIsNativeUi } from '../../contexts/AppPreviewContext';
 import {
   SelectedContext,
   SelectedContextClose,
@@ -119,7 +119,7 @@ export function IntroChatInput({
   const menuRef = useRef<HTMLDivElement>(null);
   const plusBtnRef = useRef<HTMLButtonElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const native = isNativeApp();
+  const native = useIsNativeUi();
 
   const showSelectionQuickAction = !hideSelectionQuickAction && !!onToggleSelectionMode;
   const showLickQuickAction = selectedChords.length > 0 && !!onRequestLicks;

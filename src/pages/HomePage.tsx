@@ -11,7 +11,6 @@ import { AccountModal } from '../components/chat/AccountModal';
 import { NativeHomeDashboard } from '../components/native/NativeHomeDashboard';
 import { ChatHistoryModal, type ChatConversation } from '../components/chat/ChatHistoryModal';
 import { ConfirmNewChatModal } from '../components/chat/ConfirmNewChatModal';
-import { isNativeApp } from '../lib/platform';
 import { useIsNativeUi } from '../contexts/AppPreviewContext';
 import {
   bootstrapAuth,
@@ -19,6 +18,7 @@ import {
   getCachedUser,
   logout as apiLogout,
   onAuthChange,
+  isAdminUser,
   type AuthUser,
 } from '../api/auth';
 import { listChats, setActiveChat } from '../api/chat';
@@ -587,7 +587,8 @@ const MOCK_SCORES = [
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const native = isNativeApp();
+  /* 네이티브 · /preview · 터치 모바일 웹 모두 앱 셸. (useIsNativeUi 단일 게이트) */
+  const native = useIsNativeUi();
   /* 네이티브(iPhone·iPad 공통)면 노션형 대시보드 셸. 이전에는 iPad 가
    * min-width 768px 기준으로 데스크톱형 IconSidebar 경로로 빠졌지만,
    * 새 디자인은 "아이패드·아이폰 동일, 웹 미적용"이 요구사항이라 플랫폼
@@ -604,6 +605,8 @@ export default function HomePage() {
    * bootstrapAuth() to refresh the token via the cookie and confirm the
    * session is still valid (logs user out if it isn't). */
   const [authUser, setAuthUser] = useState<AuthUser | null>(() => getCachedUser());
+  /* 내부 도구 카드·드로어 메뉴는 admin 에게만 — AdminToolsDock 과 같은 판정. */
+  const isAdmin = isAdminUser(authUser);
   const isLoggedIn = authUser !== null;
 
   useEffect(() => {
@@ -687,7 +690,9 @@ export default function HomePage() {
       <Subtitle>화성학, 재즈 이론, 코드 진행에 대해 물어보세요</Subtitle>
       {/* ToolGrid hidden on native (both iPhone and iPad) for a cleaner
        * ChatGPT-style empty state. Web keeps the action cards. */}
-      {!native && (
+      {/* 이 카드들은 AdminToolsDock 과 **같은 내부 도구 목록**이다. 게이팅이 없어
+       * 로그아웃 상태에서도 그대로 보였다 — admin 에게만 노출한다(2026-08-03). */}
+      {!native && isAdmin && (
         <ToolGrid>
           {TOOLS.map((t) => (
             <ToolCard key={t.path} onClick={() => goTo(t.path)}>
@@ -818,7 +823,8 @@ export default function HomePage() {
 
               <DrawerDivider />
 
-              {/* 메뉴: 모든 툴 (chord/note + lick/solo/editor/yt/omr) */}
+              {/* 메뉴: 내부 도구 (chord/note + lick/solo/editor/yt/omr) — admin 전용 */}
+              {isAdmin && <>
               <DrawerSectionTitle>메뉴</DrawerSectionTitle>
               {DRAWER_TOOLS.slice(0, 2).map((t) => (
                 <DrawerNavItem key={t.path} onClick={() => goTo(t.path)}>
@@ -833,6 +839,7 @@ export default function HomePage() {
                   <NavItemLabel>{t.label}</NavItemLabel>
                 </DrawerNavItem>
               ))}
+              </>}
 
               {/* 로그인된 경우에만: 악보 + 채팅 기록 */}
               {isLoggedIn && (

@@ -34,6 +34,7 @@ import type {
   GhostNote as GhostNoteT,
   TabSlide as TabSlideT,
   TabTie as TabTieT,
+  PedalMarking as PedalMarkingT,
 } from 'vexflow';
 // Type aliases — `StaveNote` etc. used as type annotations in the code below.
 type Renderer = RendererT;
@@ -91,6 +92,7 @@ let TabNote: typeof TabNoteT;
 let GhostNote: typeof GhostNoteT;
 let TabSlide: typeof TabSlideT;
 let TabTie: typeof TabTieT;
+let PedalMarking: typeof PedalMarkingT;
 let __vexflowLoaded = false;
 async function __ensureVexflow() {
   if (__vexflowLoaded) return;
@@ -125,6 +127,7 @@ async function __ensureVexflow() {
   GhostNote = vf.GhostNote;
   TabSlide = vf.TabSlide;
   TabTie = vf.TabTie;
+  PedalMarking = vf.PedalMarking;
   __vexflowLoaded = true;
 }
 import type { NoteSheetData, MeasureInfo, NoteInfo, SheetStaff } from '../../data/sampleMelody';
@@ -159,6 +162,11 @@ import { resolveMeasureAccidental } from '../../lib/note/measureAccidentals';
 import { drawScoopFall } from '../../lib/note/scoopFall';
 import { computeBeamBreaks } from '../../lib/note/beamPolicy';
 import { chordBaselineY } from '../../lib/note/chordClearance';
+import {
+  lineHeadroom, cumulativeLineOffsets, totalExtraHeight, defaultHeadroom, clampChordTop,
+} from '../../lib/note/chordRowLayout';
+import { useNoteNameStyle } from '../../hooks/useNoteNameStyle';
+import { drawNoteNameLabels } from '../../lib/note/noteNameLabels';
 
 /* ─── constants ─────────────────────────────────────────────────────────── */
 
@@ -1177,6 +1185,8 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
   /* ── player state ────────────────────────────────────────────────── */
   const { player } = useGlobalPlayer();
   const [playing, setPlaying] = useState(false);
+  /* 음이름 표시 — 전역 설정 + 현재 페이지 덮어쓰기. */
+  const noteNameStyle = useNoteNameStyle();
   const [tempo, setTempo] = useState(data.tempo ?? 120);
   const [tempoText, setTempoText] = useState(String(data.tempo ?? 120));
   const [activeMeasure, setActiveMeasure] = useState(-1);
@@ -1849,9 +1859,34 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     // Render at virtual (unscaled) size, then CSS-scale down
     const renderW = width / layout.scale;
     const totalW = renderW - MARGIN.left - MARGIN.right;
-    const lines = packLines(dispMeasures, totalW, layout.decorFirst, layout.decorOther);
+    /* 강제 줄바꿈(measure.lineBreak) — 플래그 지점에서 분절 패킹(에디터와 동일). */
+    const lines: number[][] = [];
+    {
+      let segStart = 0;
+      const flush = (endEx: number) => {
+        if (endEx <= segStart) return;
+        const packed = packLines(dispMeasures.slice(segStart, endEx), totalW,
+          segStart === 0 ? layout.decorFirst : layout.decorOther, layout.decorOther);
+        for (const ln of packed) lines.push(ln.map((i2) => i2 + segStart));
+        segStart = endEx;
+      };
+      for (let i2 = 0; i2 < dispMeasures.length; i2++) {
+        if (dispMeasures[i2].lineBreak) flush(i2 + 1);
+      }
+      flush(dispMeasures.length);
+    }
     const numLines = lines.length;
-    const totalH = MARGIN.top + numLines * lineH + MARGIN.bottom;
+    /* 코드 글자 자리 확보 — 에디터와 **같은 규칙**(chordRowLayout). 고음이 있는
+     * 줄은 그만큼 아래로 밀어 윗줄 침범을 원천 차단한다.
+     * 기준값: VexFlow 는 Stave 원점과 오선 첫 줄 사이를 40 비우므로(space_above_
+     * staff_ln 4칸), 기본 baseline(y+12)은 첫 줄보다 28 위. 글자는 baseline 위로
+     * 폰트 크기(24)만큼 올라간다 → 기본 확보량 52. */
+    const chordMetrics = { rowH: 24, staffGap: 28, noteGap: 4 };
+    const lineHeadrooms = lines.map((idxs) =>
+      lineHeadroom(idxs.map((i2) => dispMeasures[i2]?.notes ?? []), 10, chordMetrics, 'treble'));
+    const lineYExtra = cumulativeLineOffsets(lineHeadrooms, chordMetrics);
+    const totalH = MARGIN.top + numLines * lineH + MARGIN.bottom
+      + totalExtraHeight(lineHeadrooms, chordMetrics);
 
     const renderer = new Renderer(el, Renderer.Backends.SVG);
     renderer.resize(renderW, totalH);
@@ -1907,7 +1942,9 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
       const indices = lines[li];
       const isFirstLine = li === 0;
       const isLastLine = li === numLines - 1;
-      const y = MARGIN.top + li * lineH;
+      /* 균등 배치가 아니라 누적 — 코드 글자가 필요로 하는 만큼 줄이 내려간다. */
+      const y = MARGIN.top + li * lineH + (lineYExtra[li] ?? 0);
+      const lineHeadroomPx = lineHeadrooms[li] ?? defaultHeadroom(chordMetrics);
       const decorW = isFirstLine ? layout.decorFirst : layout.decorOther;
       const availForBars = totalW - decorW;
 
@@ -1977,7 +2014,26 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
         // Repeat / end barlines
         if (measure.repeatStart) stave.setBegBarType(BarlineType.REPEAT_BEGIN);
         if (measure.repeatEnd) stave.setEndBarType(BarlineType.REPEAT_END);
-        else if (isLastBar) stave.setEndBarType(BarlineType.END);
+        else if (measure.barline === 'double') stave.setEndBarType(BarlineType.DOUBLE);
+        else if (measure.barline === 'end' || isLastBar) stave.setEndBarType(BarlineType.END);
+        else if (measure.barline === 'none') stave.setEndBarType(BarlineType.NONE);
+        // 리허설 마크 — 마디 시작 위 네모 상자(에디터와 동일 표기).
+        if (measure.rehearsal && svgEl) {
+          const gR = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          const tx = x + (firstInLine ? decorW : 0) + 2;
+          const tyTop = y + 2;
+          const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          t.setAttribute('x', String(tx + 5)); t.setAttribute('y', String(tyTop + 13));
+          t.setAttribute('font-size', '12'); t.setAttribute('font-weight', '800');
+          t.setAttribute('font-family', "'Pretendard', sans-serif"); t.setAttribute('fill', '#222');
+          t.textContent = measure.rehearsal;
+          const rct = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          rct.setAttribute('x', String(tx)); rct.setAttribute('y', String(tyTop));
+          rct.setAttribute('width', String(10 + measure.rehearsal.length * 8)); rct.setAttribute('height', '18');
+          rct.setAttribute('fill', 'none'); rct.setAttribute('stroke', '#222'); rct.setAttribute('stroke-width', '1.4');
+          gR.appendChild(rct); gR.appendChild(t);
+          svgEl.appendChild(gR);
+        }
         // Volta brackets
         if (measure.volta) {
           const v = measure.volta;
@@ -2196,6 +2252,8 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
               staccato: 'a.', staccatissimo: 'av',
               accent: 'a>', tenuto: 'a-',
               marcato: 'a^', 'detached-legato': 'a-.',
+              harmonic: 'ah', 'lh-pizz': 'a+', 'snap-pizz': 'ao',
+              'up-bow': 'a|', 'down-bow': 'am',
             };
             // Engraving convention: most articulations (staccato/tenuto/accent)
             // go on the OPPOSITE side of the stem. Marcato by tradition usually
@@ -2237,6 +2295,13 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
           if (n.dynamics) {
             const ann = new Annotation(n.dynamics);
             ann.setVerticalJustification(AnnotationVerticalJustify.BOTTOM);
+            note.addModifier(ann, 0);
+          }
+          if (n.textAbove) {
+            // 연주 지시 텍스트(pizz./arco …) — 에디터와 동일 표기(위·이탤릭).
+            const ann = new Annotation(n.textAbove);
+            ann.setVerticalJustification(AnnotationVerticalJustify.TOP);
+            try { ann.setFont('Georgia', 11, 'normal', 'italic'); } catch { /* noop */ }
             note.addModifier(ann, 0);
           }
           // Grace notes — attach a GraceNoteGroup so the grace appears
@@ -2301,9 +2366,14 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
           // 덧줄을 타고 올라간 고음이 코드 글자를 뚫지 않도록 baseline 을 위로
           // 밀어 올린다(음높이 기반 — 코드는 voice.draw 보다 먼저 그려서 bbox 를
           // 쓸 수 없다). 보표 안에 머무는 음은 기본 위치 그대로.
-          const chordY = chordBaselineY(
-            measure.notes, (line) => stave.getYForLine(line), y + 12,
-            { gap: 4, minY: 12 },
+          /* 확보해 둔 headroom 밖으로는 못 나간다 — 윗줄 침범 차단 빗장.
+           * baseline 기준이므로 글자 높이(rowH)만큼 안쪽으로 잡는다. */
+          const chordY = clampChordTop(
+            chordBaselineY(
+              measure.notes, (line) => stave.getYForLine(line), y + 12,
+              { gap: 4, minY: 12 },
+            ),
+            stave.getYForLine(0), lineHeadroomPx - chordMetrics.rowH,
           );
           const svgEl = el.querySelector('svg');
           if (svgEl) {
@@ -2481,15 +2551,46 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
           rv.addTickables(row.vf as unknown as StaveNote[]);
           extraVoices.push(rv);
         }
+        /* 보이스 2 — 같은 보표의 둘째 성부(기둥 아래). 에디터와 동일 규약. */
+        let v2Voice: Voice | null = null;
+        let v2Vf: (StaveNote | TabNoteT | GhostNoteT)[] = [];
+        if ((measure.voice2?.length ?? 0) > 0) {
+          v2Vf = buildExtraRowNotes('treble', measure.voice2!, keySigAcc, explicitAcc, 'treble', null);
+          v2Vf.forEach((vn, vi2) => {
+            const src = measure.voice2![vi2];
+            if (vn instanceof StaveNote && !src?.stem && !src?.duration.endsWith('r')) {
+              try { vn.setStemDirection(-1); } catch { /* noop */ }
+            }
+          });
+          vfNotes.forEach((vn, vi2) => {
+            const srcNi = measureIdxOfVf[vi2];
+            const src = measure.notes[srcNi];
+            if (!src?.stem && !src?.duration.endsWith('r')) {
+              try { vn.setStemDirection(1); } catch { /* noop */ }
+            }
+          });
+          if (v2Vf.length > 0) {
+            v2Voice = new Voice({ numBeats, beatValue });
+            v2Voice.setStrict(false);
+            v2Voice.addTickables(v2Vf as unknown as StaveNote[]);
+          }
+        }
         {
           const fmt = new Formatter();
-          const allVoices: Voice[] = [voice, ...(bassVoice ? [bassVoice] : []), ...extraVoices];
+          const allVoices: Voice[] = [voice, ...(bassVoice ? [bassVoice] : []), ...(v2Voice ? [v2Voice] : []), ...extraVoices];
           allVoices.forEach((v) => fmt.joinVoices([v]));
           const allStaves: Stave[] = [stave, ...(bassStave ? [bassStave] : []), ...extraRows.map((r) => r.stave)];
           if (allStaves.length > 1) { try { Stave.formatBegModifiers(allStaves); } catch { /* noop */ } }
           fmt.formatToStave(allVoices, stave);
         }
         voice.draw(ctx, stave);
+        if (v2Voice) {
+          v2Voice.draw(ctx, stave);
+          try {
+            Beam.generateBeams(v2Vf.filter((n0) => n0 instanceof StaveNote) as StaveNote[], { maintainStemDirections: true, beamRests: false })
+              .forEach((bm) => bm.setContext(ctx).draw());
+          } catch { /* noop */ }
+        }
         if (bassVoice && bassStave) bassVoice.draw(ctx, bassStave);
         {
           let evi = 0;
@@ -2697,7 +2798,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
 
     // Draw ottava brackets (8va / 8vb).
     {
-      let activeOttava: { kind: '8va' | '8vb'; flatIdx: number } | null = null;
+      let activeOttava: { kind: '8va' | '8vb' | '15ma' | '15mb'; flatIdx: number } | null = null;
       let flatIdxO = 0;
       for (let mi = 0; mi < dispMeasures.length; mi++) {
         const measure = dispMeasures[mi];
@@ -2712,12 +2813,13 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
             const to = allVfNotes[flatIdxO];
             if (from && to && measureLine.get(from.mi) === measureLine.get(to.mi)) {
               try {
+                const up = activeOttava.kind === '8va' || activeOttava.kind === '15ma';
                 const tb = new TextBracket({
                   start: from.vfNote,
                   stop: to.vfNote,
-                  text: activeOttava.kind === '8va' ? '8' : '8',
-                  superscript: 'va',
-                  position: activeOttava.kind === '8va' ? TextBracketPosition.TOP : TextBracketPosition.BOTTOM,
+                  text: activeOttava.kind.startsWith('15') ? '15' : '8',
+                  superscript: activeOttava.kind === '8va' ? 'va' : activeOttava.kind === '8vb' ? 'vb' : activeOttava.kind === '15ma' ? 'ma' : 'mb',
+                  position: up ? TextBracketPosition.TOP : TextBracketPosition.BOTTOM,
                 });
                 tb.setContext(ctx).draw();
               } catch (e) { console.warn('ottava draw failed', e); }
@@ -2756,6 +2858,31 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
             activeHairpin = null;
           }
           flatIdxH++;
+        }
+      }
+    }
+
+    // 페달 마킹 — pedalStart(Ped.) ~ pedalEnd(✱), 같은 줄 안에서만(에디터 동일).
+    {
+      let pedalFrom: number | null = null;
+      let pIdx = 0;
+      for (let mi = 0; mi < dispMeasures.length; mi++) {
+        for (const n of dispMeasures[mi].notes) {
+          if (n.grace) continue;   // allVfNotes 는 꾸밈음 제외 — 인덱스 미증가
+          if (n.pedalStart && pedalFrom === null) pedalFrom = pIdx;
+          if (n.pedalEnd && pedalFrom !== null) {
+            const from = allVfNotes[pedalFrom];
+            const to = allVfNotes[pIdx];
+            if (from && to && measureLine.get(from.mi) === measureLine.get(to.mi)) {
+              try {
+                const pm = new PedalMarking([from.vfNote, to.vfNote]);
+                pm.setType(PedalMarking.type.MIXED);
+                pm.setContext(ctx).draw();
+              } catch (e) { console.warn('pedal draw failed', e); }
+            }
+            pedalFrom = null;
+          }
+          pIdx++;
         }
       }
     }
@@ -2834,9 +2961,12 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
       }
     }
 
+    /* 음이름 라벨 — 모든 음표를 다 그린 뒤 마지막에 얹는다(레이아웃 불변). */
+    drawNoteNameLabels(svgEl, allVfNotes, noteNameStyle);
+
     measureRectsRef.current = rects;
     } // end renderNotation
-  }, [data, width, forceAutoStem]);
+  }, [data, width, forceAutoStem, noteNameStyle]);
 
   /* ── line-start measure numbers ───────────────────────────────────────
    * A tiny number at the left edge of each LINE's first bar (note page +

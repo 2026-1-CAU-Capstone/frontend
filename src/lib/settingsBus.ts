@@ -20,6 +20,7 @@ export type SettingsTabId =
 
 /** 악보/연주 탭 안의 2차 사이드바 항목. */
 export type PerformanceSectionId =
+  | 'sheetDisplay'
   | 'transpose'
   | 'mixer'
   | 'chordAnalysis'

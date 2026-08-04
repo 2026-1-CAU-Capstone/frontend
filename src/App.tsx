@@ -120,13 +120,14 @@ export default function App() {
            * (deep-link, refresh, share) without a session redirects to /login,
            * passing the original location so the user lands back here after
            * signing in. */}
-          <Route path="/chord" element={<ProtectedRoute><ChordPage /></ProtectedRoute>} />
+          {/* 내부 분석 워크벤치 — 사용자 진입점이 없다(사용자는 /mychord 를 쓴다). admin 전용. */}
+          <Route path="/chord" element={<AdminRoute><ChordPage /></AdminRoute>} />
           <Route path="/mychord" element={<ProtectedRoute><KeyedChordPage mychordMode /></ProtectedRoute>} />
-          <Route path="/note" element={<ProtectedRoute><NotePage /></ProtectedRoute>} />
+          <Route path="/note" element={<AdminRoute><NotePage /></AdminRoute>} />
           <Route path="/licks" element={<ProtectedRoute><LicksPage /></ProtectedRoute>} />
           <Route path="/solos" element={<ProtectedRoute><SolosPage /></ProtectedRoute>} />
           <Route path="/input" element={<ProtectedRoute><InputPage /></ProtectedRoute>} />
-          <Route path="/youtube-onset" element={<ProtectedRoute><YoutubeOnsetPage /></ProtectedRoute>} />
+          <Route path="/youtube-onset" element={<AdminRoute><YoutubeOnsetPage /></AdminRoute>} />
           <Route path="/stems" element={<ProtectedRoute><StemSplitterPage /></ProtectedRoute>} />
           <Route path="/copy" element={<ProtectedRoute><CopyPage /></ProtectedRoute>} />
           <Route path="/my-licks" element={<ProtectedRoute><MyLicksPage /></ProtectedRoute>} />

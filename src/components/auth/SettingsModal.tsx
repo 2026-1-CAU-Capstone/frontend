@@ -18,6 +18,11 @@ import { useAnalysisFilters, type AnalysisFilters } from '../../hooks/useAnalysi
 import { STEM_PRESETS, type StemPresetId } from '../../lib/stems/mockSeparate';
 import type { SettingsTabId, PerformanceSectionId } from '../../lib/settingsBus';
 import type { ProjectViewMode } from '../../hooks/useViewModePref';
+import {
+  noteNamesOn, noteNameLang, noteNameColor, noteNameSize, noteNamesForPage,
+  NOTE_NAME_SIZE_MIN, NOTE_NAME_SIZE_MAX, NOTE_NAME_COLOR_DEFAULT,
+  SHEET_PAGE_LABELS, type SheetPageKey, type PageOverride,
+} from '../../lib/note/noteNamePrefs';
 
 /* 풀스크린 설정 모달 — Claude 데스크탑 설정 페이지 패턴.
  *
@@ -54,6 +59,7 @@ const PERF_SECTIONS: ReadonlyArray<{ id: PerformanceSectionId; label: string }> 
   { id: 'transpose', label: '이조 악기' },
   { id: 'mixer', label: '믹서' },
   { id: 'chordAnalysis', label: '코드 분석' },
+  { id: 'sheetDisplay', label: '악보 표시' },
   { id: 'editor', label: '에디터' },
   { id: 'myCharts', label: '내 코드 차트' },
   { id: 'mySheets', label: '내 악보 차트' },
@@ -149,13 +155,14 @@ function PerformanceSection({ section }: { section: PerformanceSectionId }) {
     case 'transpose':     return <PerformancePanel />;
     case 'mixer':         return <MixerPanel />;
     case 'chordAnalysis': return <ChordAnalysisPanel />;
+    case 'sheetDisplay':  return <SheetDisplayPanel />;
     case 'editor':        return <EditorPanel />;
     case 'myCharts':      return <ProjectListPanel kind="charts" />;
     case 'mySheets':      return <ProjectListPanel kind="sheets" />;
     case 'stems':         return <StemsPanel />;
     /* 내 릭은 지금 페이지에 영속되는 설정이 없다(필터는 세션 한정). 새 설정을
      * 임의로 만들지 않고 자리만 잡아둔다. */
-    case 'myLicks':       return <Placeholder>준비 중</Placeholder>;
+    case 'myLicks':       return <MyLicksPanel />;
   }
 }
 
@@ -311,6 +318,138 @@ function ChordAnalysisPanel() {
  * 음표를 실제로 옮기는 동작이라, 악보가 없는 설정 창에서는 의미가 없다.
  * 에디터의 undo/redo 줄에 남는다. MIDI 기기 설정도 연결된 포트를 실시간으로
  * 읽어야 해서 에디터의 MIDI 버튼에 그대로 둔다. */
+
+/* ── 악보 표시 — 음이름 라벨(전역 + 페이지별) ─────────────────────────────
+ *
+ * 전역에서 켜기·언어·색·크기를 정하고, 아래 목록에서 페이지마다 따로 끄거나
+ * 켤 수 있다. 각 페이지 섹션(에디터·내 코드 차트…)에도 같은 덮어쓰기 컨트롤이
+ * 있어 어디서 찾든 같은 값을 만진다. */
+function SheetDisplayPanel() {
+  const [on, setOn] = usePref(noteNamesOn);
+  const [lang, setLang] = usePref(noteNameLang);
+  const [color, setColor] = usePref(noteNameColor);
+  const [size, setSize] = usePref(noteNameSize);
+
+  return (
+    <PanelInner>
+      <SectionTitle>음표에 음 표시하기</SectionTitle>
+
+      <FieldRow>
+        <div>
+          <FieldLabel as="span">음이름 표시</FieldLabel>
+          <FieldHelper style={{ margin: '2px 0 0' }}>
+            켜면 모든 악보에서 <b>음표 머리 바로 위</b>에 음이름이 함께 뜹니다.
+            TAB 숫자와 드럼 보표에는 붙지 않습니다(음높이가 아니라서요).
+          </FieldHelper>
+        </div>
+        <FieldControl>
+          <Switch
+            type="button" role="switch" aria-checked={on} aria-label="음이름 표시"
+            $on={on} onClick={() => setOn(!on)}
+          />
+        </FieldControl>
+      </FieldRow>
+
+      <FieldRow>
+        <div>
+          <FieldLabel as="span">표기 언어</FieldLabel>
+          <FieldHelper style={{ margin: '2px 0 0' }}>
+            한국어는 계이름(도·레·미), 영어는 음이름(C·D·E)으로 적습니다. 임시표는 ♯·♭로 붙습니다.
+          </FieldHelper>
+        </div>
+        <FieldControl>
+          <Segmented>
+            <SegBtn type="button" $on={lang === 'ko'} onClick={() => setLang('ko')}>한국어</SegBtn>
+            <SegBtn type="button" $on={lang === 'en'} onClick={() => setLang('en')}>English</SegBtn>
+          </Segmented>
+        </FieldControl>
+      </FieldRow>
+
+      <FieldRow>
+        <div>
+          <FieldLabel as="span">글자 색</FieldLabel>
+          <FieldHelper style={{ margin: '2px 0 0' }}>악보의 검정과 구분되는 색을 고르세요.</FieldHelper>
+        </div>
+        <FieldControl>
+          <ColorPickRow>
+            <input type="color" value={color} onChange={(e) => setColor(e.target.value)}
+              aria-label="음이름 글자 색" />
+            <ColorHex>{color.toUpperCase()}</ColorHex>
+            <SegBtn type="button" onClick={() => setColor(NOTE_NAME_COLOR_DEFAULT)}>기본값</SegBtn>
+          </ColorPickRow>
+        </FieldControl>
+      </FieldRow>
+
+      <FieldRow>
+        <div>
+          <FieldLabel as="span">글자 크기</FieldLabel>
+          <FieldHelper style={{ margin: '2px 0 0' }}>
+            악보 배율에 함께 곱해지므로 어느 화면에서든 같은 비율로 보입니다.
+          </FieldHelper>
+        </div>
+        <FieldControl>
+          <ColorPickRow>
+            <input type="range" min={NOTE_NAME_SIZE_MIN} max={NOTE_NAME_SIZE_MAX} step={1}
+              value={size} onChange={(e) => setSize(Number(e.target.value))}
+              aria-label="음이름 글자 크기" />
+            <ColorHex>{size}</ColorHex>
+          </ColorPickRow>
+        </FieldControl>
+      </FieldRow>
+
+      <SectionTitle style={{ marginTop: 30 }}>페이지별 설정</SectionTitle>
+      <FieldHelper style={{ marginTop: -6 }}>
+        기본은 전역 설정을 따릅니다. 특정 화면에서만 켜거나 끄고 싶을 때 바꾸세요.
+      </FieldHelper>
+      {SHEET_PAGE_LABELS.map((pg) => (
+        <NoteNameOverrideRow key={pg.key} page={pg.key} label={pg.label} compact />
+      ))}
+    </PanelInner>
+  );
+}
+
+/** 한 페이지의 덮어쓰기 한 줄. 전역 섹션과 각 페이지 섹션이 함께 쓴다. */
+function NoteNameOverrideRow(
+  { page, label, compact }: { page: SheetPageKey; label?: string; compact?: boolean },
+) {
+  const [ov, setOv] = usePref(noteNamesForPage(page));
+  const [globalOn] = usePref(noteNamesOn);
+  const opts: ReadonlyArray<{ v: PageOverride; t: string }> = [
+    { v: 'inherit', t: '전역 따름' }, { v: 'on', t: '켜기' }, { v: 'off', t: '끄기' },
+  ];
+  return (
+    <FieldRow>
+      <div>
+        <FieldLabel as="span">{label ?? '이 화면의 음이름 표시'}</FieldLabel>
+        {!compact && (
+          <FieldHelper style={{ margin: '2px 0 0' }}>
+            전역 설정(악보 표시)을 이 화면에서만 다르게 적용합니다.
+          </FieldHelper>
+        )}
+      </div>
+      <FieldControl>
+        <Segmented>
+          {opts.map((o) => (
+            <SegBtn key={o.v} type="button" $on={ov === o.v} onClick={() => setOv(o.v)}>
+              {o.v === 'inherit' ? `전역 따름 (${globalOn ? '켜짐' : '꺼짐'})` : o.t}
+            </SegBtn>
+          ))}
+        </Segmented>
+      </FieldControl>
+    </FieldRow>
+  );
+}
+
+/* 내 릭 — 지금은 음이름 표시 외에 영속 설정이 없다. */
+function MyLicksPanel() {
+  return (
+    <PanelInner>
+      <SectionTitle>내 릭</SectionTitle>
+      <NoteNameOverrideRow page="myLicks" />
+    </PanelInner>
+  );
+}
+
 function EditorPanel() {
   const [explicitAcc, setExplicitAcc] = usePref(editorExplicitAcc);
 
@@ -333,6 +472,8 @@ function EditorPanel() {
           />
         </FieldControl>
       </FieldRow>
+
+      <NoteNameOverrideRow page="editor" />
 
       <FieldHelper style={{ marginTop: 36 }}>
         옥타브 이동은 편집 중인 악보를 직접 바꾸는 동작이라 에디터 화면에 있습니다.
@@ -382,6 +523,9 @@ function ProjectListPanel({ kind }: { kind: 'charts' | 'sheets' }) {
           </SelectInput>
         </FieldControl>
       </FieldRow>
+
+      <SectionTitle style={{ marginTop: 26 }}>악보 표시</SectionTitle>
+      <NoteNameOverrideRow page={kind === 'charts' ? 'myCharts' : 'mySheets'} />
     </PanelInner>
   );
 }
@@ -899,6 +1043,25 @@ const TextArea = styled.textarea`
   resize: vertical;
   outline: none;
   &:focus { border-color: rgba(0, 0, 0, 0.4); }
+`;
+
+/* 색 선택기·슬라이더 한 줄 — 값 표시와 기본값 버튼을 옆에 붙인다. */
+const ColorPickRow = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  input[type='color'] {
+    width: 34px; height: 26px; padding: 0; cursor: pointer;
+    border: 1px solid ${({ theme }) => theme.colors.border}; border-radius: 6px; background: none;
+  }
+  input[type='range'] { width: 130px; accent-color: #2f6fe0; cursor: pointer; }
+`;
+const ColorHex = styled.span`
+  font-family: ${({ theme }) => theme.fonts.chord};
+  font-size: 12px;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  min-width: 30px;
 `;
 
 const Switch = styled.button<{ $on?: boolean }>`

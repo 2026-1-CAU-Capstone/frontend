@@ -895,12 +895,17 @@ export function harmonySymbol(harmonyEl: Element): string {
   const kindEl = harmonyEl.querySelector('kind');
   const kind  = (kindEl?.textContent ?? '').trim();
   const acc   = alter === '1' ? '#' : alter === '-1' ? 'b' : '';
-  // Prefer the engraver-supplied text="…" hint when present (e.g. text="7"
-  // for dominant, text="m7b5" for half-diminished). Otherwise fall back to
-  // a kind-keyed default — using '' for plain major triads (Omnibook
-  // convention: just the root letter) and '°' for plain diminished.
+  // text="…" 처리에는 두 가지 관례가 있다:
+  //  · use-symbols="no"(기본): text 가 품질 전체의 표기 힌트 (예: text="m7b5").
+  //    그대로 쓴다.
+  //  · use-symbols="yes"(MuseScore 재즈 스타일): 품질 기호(-, △, °, ø, +)는
+  //    **렌더러가 kind 로 그리라**는 뜻이고 text 에는 나머지 텍스트 조각만 남는다
+  //    (minor-seventh 인데 text="7", major-minor 인데 text="t7" 등). 이때 text 를
+  //    그대로 쓰면 B-7→"B7", C-△7→"Ct7" 처럼 품질이 통째로 사라진다 — kind 를
+  //    기호로 변환한 kindToSymbol 결과를 쓴다.
   const kindText = kindEl?.getAttribute('text');
-  const baseSuffix = (kindText !== null && kindText !== undefined)
+  const useSymbols = kindEl?.getAttribute('use-symbols') === 'yes';
+  const baseSuffix = (!useSymbols && kindText !== null && kindText !== undefined)
     ? kindText
     : kindToSymbol(kind);
 
@@ -960,6 +965,15 @@ function kindToSymbol(kind: string): string {
     'major-ninth': '△9',
     'dominant-ninth': '9',
     'minor-ninth': '-9',
+    'dominant-11th': '11',
+    'dominant-13th': '13',
+    'major-11th': '△11',
+    'major-13th': '△13',
+    'minor-11th': '-11',
+    'minor-13th': '-13',
+    'suspended-second': 'sus2',
+    'minor-major': '-△7',
+    power: '5',
   };
   return MAP[kind] ?? kind;
 }
@@ -1306,6 +1320,12 @@ export async function loadXmlParts(url: string, fallbackTitle: string, opts?: Xm
   const res = await fetch(url);
   const doc = new DOMParser().parseFromString(await res.text(), 'application/xml');
   return parseAllParts(doc, fallbackTitle, opts);
+}
+
+/** .mxl(압축 MusicXML) **버퍼**를 파싱한다 — 파일 업로드 경로용(fetch 없음). */
+export function parseMxlArrayBuffer(buf: ArrayBuffer, fallbackTitle: string, opts?: XmlParseOpts): ScorePart[] {
+  const xmlText = extractXmlFromMxl(new Uint8Array(buf));
+  return parseXmlString(xmlText, fallbackTitle, opts);
 }
 
 export async function loadMxlParts(url: string, fallbackTitle: string, opts?: XmlParseOpts): Promise<ScorePart[]> {

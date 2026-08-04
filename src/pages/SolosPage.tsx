@@ -8,6 +8,9 @@ import { NoteSheet, type NoteSheetHandle } from '../components/notesheet/NoteShe
 import { BpmControl, RepeatControl, TransportButtons, MixerButton, GenreSelect } from '../components/backing/BackingPlayerBar';
 import { KeyControl } from '../components/leadsheet/LeadSheet';
 import { useGlobalPlayer } from '../lib/player';
+import { parseXmlString, parseMxlArrayBuffer, sortPartsByMelody, type ScorePart } from '../lib/note/xmlMelodyParser';
+import { parseMidiArrayBuffer } from '../lib/note/midiMelodyParser';
+import type { NoteSheetData, SheetStaff } from '../data/sampleMelody';
 import {
   deleteSolo,
   listSolos,
@@ -234,6 +237,45 @@ const OMRBtn = styled.button`
   color: #fff;
   cursor: pointer;
   &:hover { opacity: 0.9; }
+`;
+
+/* MusicXML/MIDI 가져오기 모달. */
+const ImportOverlay = styled.div`
+  position: fixed; inset: 0; z-index: 120;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex; align-items: center; justify-content: center;
+`;
+const ImportBox = styled.div`
+  width: 560px; max-width: 92vw; max-height: 84vh; overflow-y: auto;
+  background: #fff; border-radius: 12px; padding: 22px 24px;
+  font-family: 'Pretendard', sans-serif;
+  display: flex; flex-direction: column; gap: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  h3 { margin: 0; font-size: 1.08rem; }
+  .sub { margin: 0; font-size: 0.82rem; line-height: 1.5; color: #777; }
+`;
+const ImportFileRow = styled.div`
+  input { font-size: 0.85rem; }
+`;
+const ImportDivider = styled.div`
+  font-size: 0.75rem; color: #999; text-align: center;
+  display: flex; align-items: center; gap: 10px;
+  &::before, &::after { content: ''; flex: 1; height: 1px; background: #e4e4e8; }
+`;
+const ImportTextarea = styled.textarea`
+  font-family: 'JetBrains Mono', 'Menlo', monospace;
+  font-size: 0.72rem; line-height: 1.4;
+  min-height: 180px; resize: vertical;
+  border: 1px solid #d8d8dc; border-radius: 8px; padding: 10px;
+  outline: none;
+  &:focus { border-color: #b8960a; }
+`;
+const ImportActions = styled.div`
+  display: flex; justify-content: flex-end; gap: 8px;
+`;
+const ImportError = styled.div`
+  font-size: 0.8rem; color: #c62828;
+  background: rgba(198, 40, 40, 0.08); border-radius: 6px; padding: 8px 10px;
 `;
 
 const MergeDoBtn = styled.button<{ $big?: boolean }>`
@@ -1549,6 +1591,65 @@ export default function SolosPage() {
   /* 제목 클릭 시 펼쳐지는 메타데이터 패널 (연주자·악기·장르·BPM·조성·고유 키). */
   const [metaOpen, setMetaOpen] = useState(false);
   const [omrOpen, setOmrOpen] = useState(false);
+  /* MusicXML/MIDI 파일 → 파싱 → 에디터 prefill 로 넘기는 가져오기 모달. */
+  const [importModal, setImportModal] = useState<null | 'xml' | 'midi'>(null);
+  const [importText, setImportText] = useState('');
+  const [importError, setImportError] = useState('');
+  const [importBusy, setImportBusy] = useState(false);
+
+  /** ScorePart[] → prefillSheet. 다중 파트는 멜로디 우선 정렬 뒤 staves 로 전부
+   *  싣는다 — 에디터가 파트 메타/스토어로 복원해 그대로 VexFlow 로 그린다. */
+  const partsToSheet = useCallback((parts: ScorePart[]): NoteSheetData => {
+    const sorted = sortPartsByMelody(parts);
+    const first = sorted[0].data;
+    if (sorted.length === 1) return first;
+    const staves: SheetStaff[] = sorted.map((pt) => ({
+      kind: pt.data.bassMeasures?.length ? 'grand' as const
+        : pt.data.isDrum ? 'drum' as const
+        : 'treble' as const,
+      measures: pt.data.measures,
+      ...(pt.data.bassMeasures?.length ? { bassMeasures: pt.data.bassMeasures } : {}),
+      ...(pt.data.instrument && !pt.data.isDrum ? { instrument: pt.data.instrument } : {}),
+    }));
+    return { ...first, staves };
+  }, []);
+
+  const finishImport = useCallback((sheet: NoteSheetData) => {
+    setImportModal(null); setImportText(''); setImportError('');
+    navigate('/editor?mode=solo', { state: { prefillSheet: sheet } });
+  }, [navigate]);
+
+  const importFromFile = useCallback(async (f: File) => {
+    setImportBusy(true); setImportError('');
+    try {
+      const name = f.name.replace(/\.(mxl|xml|musicxml|mid|midi)$/i, '');
+      const lower = f.name.toLowerCase();
+      if (importModal === 'midi' || lower.endsWith('.mid') || lower.endsWith('.midi')) {
+        const sheet = parseMidiArrayBuffer(await f.arrayBuffer(), name, '');
+        if (!sheet.measures.length) throw new Error('MIDI 에서 음표를 찾지 못했습니다.');
+        finishImport(sheet);
+      } else if (lower.endsWith('.mxl')) {
+        finishImport(partsToSheet(parseMxlArrayBuffer(await f.arrayBuffer(), name)));
+      } else {
+        finishImport(partsToSheet(parseXmlString(await f.text(), name)));
+      }
+    } catch (e) {
+      setImportError(e instanceof Error ? e.message : '파싱에 실패했습니다.');
+    } finally {
+      setImportBusy(false);
+    }
+  }, [importModal, partsToSheet, finishImport]);
+
+  const importFromText = useCallback(() => {
+    setImportBusy(true); setImportError('');
+    try {
+      finishImport(partsToSheet(parseXmlString(importText.trim(), 'Imported Score')));
+    } catch (e) {
+      setImportError(e instanceof Error ? e.message : '파싱에 실패했습니다.');
+    } finally {
+      setImportBusy(false);
+    }
+  }, [importText, partsToSheet, finishImport]);
 
   /* 큐 영속 기록(admin 전용) — 자리를 비웠다 와도, 새로고침해도 결과가 남는다. */
   const [authUserForAdmin, setAuthUserForAdmin] = useState(() => getCachedUser());
@@ -2386,6 +2487,12 @@ export default function SolosPage() {
                     <OMRBtn onClick={() => navigate('/editor?mode=solo')} title="에디터에서 직접 솔로 작성">
                       ✏ Editor로 생성하기
                     </OMRBtn>
+                    <OMRBtn onClick={() => setImportModal('xml')} title="MusicXML(.xml/.musicxml/.mxl) 파일이나 원문 붙여넣기로 악보 불러오기">
+                      🎼 MusicXML로 생성하기
+                    </OMRBtn>
+                    <OMRBtn onClick={() => setImportModal('midi')} title="MIDI(.mid) 파일에서 멜로디를 추출해 악보로 불러오기">
+                      🎹 MIDI로 생성하기
+                    </OMRBtn>
                     {isAdmin && (
                       <OMRBtn
                         onClick={() => { setQueueLogEntries(listQueueLog()); setQueueLogOpen(true); }}
@@ -2773,6 +2880,45 @@ export default function SolosPage() {
           </CenterColumn>
         </MainArea>
       </RightSection>
+
+      {importModal && (
+        <ImportOverlay onClick={() => { if (!importBusy) { setImportModal(null); setImportText(''); setImportError(''); } }}>
+          <ImportBox onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <h3>{importModal === 'xml' ? 'MusicXML로 생성하기' : 'MIDI로 생성하기'}</h3>
+            <p className="sub">
+              {importModal === 'xml'
+                ? '.xml · .musicxml · .mxl 파일을 선택하거나, 아래에 MusicXML 원문을 붙여넣으세요. 파싱된 악보는 에디터에서 열립니다 — 확인 후 저장하면 Solo Database 에 등록됩니다.'
+                : '.mid 파일을 선택하세요. 멜로디 트랙을 자동으로 골라 8분음표 그리드로 양자화해 악보로 만듭니다. 에디터에서 확인 후 저장하세요.'}
+            </p>
+            <ImportFileRow>
+              <input
+                type="file"
+                accept={importModal === 'xml' ? '.xml,.musicxml,.mxl' : '.mid,.midi'}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) void importFromFile(f); e.target.value = ''; }}
+              />
+            </ImportFileRow>
+            {importModal === 'xml' && (
+              <>
+                <ImportDivider>또는 원문 붙여넣기</ImportDivider>
+                <ImportTextarea
+                  placeholder={'<?xml version="1.0" ...?>\n<score-partwise ...>'}
+                  value={importText}
+                  onChange={(e) => setImportText(e.target.value)}
+                />
+                <ImportActions>
+                  <MergeDoBtn type="button" $big disabled={!importText.trim() || importBusy} onClick={importFromText}>
+                    {importBusy ? '파싱 중…' : '파싱해서 에디터로'}
+                  </MergeDoBtn>
+                </ImportActions>
+              </>
+            )}
+            {importError && <ImportError>{importError}</ImportError>}
+            <ImportActions>
+              <RefreshBtn type="button" $big onClick={() => { setImportModal(null); setImportText(''); setImportError(''); }}>닫기</RefreshBtn>
+            </ImportActions>
+          </ImportBox>
+        </ImportOverlay>
+      )}
 
       <OMRUploadModal
         open={omrOpen}

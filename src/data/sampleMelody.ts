@@ -6,7 +6,12 @@ export type Articulation =
   | 'accent'          // >
   | 'tenuto'          // –
   | 'marcato'         // ^  strong accent
-  | 'detached-legato'; // –· tenuto + staccato
+  | 'detached-legato' // –· tenuto + staccato
+  | 'harmonic'        // ○  natural harmonic
+  | 'lh-pizz'         // +  left-hand pizzicato
+  | 'snap-pizz'       // ◦| snap(Bartók) pizzicato
+  | 'up-bow'          // V  up bow / up stroke
+  | 'down-bow';       // ⊓  down bow / down stroke
 
 export type Ornament =
   | 'trill'           // tr
@@ -17,8 +22,9 @@ export type Ornament =
   | 'tremolo';
 
 export type Dynamic =
-  | 'pp' | 'p' | 'mp' | 'mf' | 'f' | 'ff' | 'fff'
-  | 'sfz' | 'fp';
+  | 'ppp' | 'pp' | 'p' | 'mp' | 'mf' | 'f' | 'ff' | 'fff'
+  | 'fp' | 'pf' | 'sf' | 'sfz' | 'sff' | 'sffz' | 'sfp'
+  | 'rfz' | 'rf' | 'fz';
 
 export interface NoteInfo {
   keys: string[];                               // VexFlow keys e.g. ['c/5']
@@ -45,7 +51,12 @@ export interface NoteInfo {
    *  자동 계산되므로 표기·소리가 어긋날 수 없다. 해당 현에서 그 음이 안 나면
    *  렌더러가 조용히 무시하고 자동 운지로 돌아간다(이조 후 안전). */
   tabStrings?: Record<number, number>;
-  ottavaStart?: '8va' | '8vb';                 // start of ottava bracket at this note
+  /** 음표 위 텍스트(연주 지시 — pizz./arco/mute/legato 등 자유 문자열). */
+  textAbove?: string;
+  /** 서스테인 페달 시작(Ped.) / 끝(*) — 같은 줄 안에서만 그려진다. */
+  pedalStart?: boolean;
+  pedalEnd?: boolean;
+  ottavaStart?: '8va' | '8vb' | '15ma' | '15mb'; // start of ottava/quindicesima bracket at this note
   ottavaEnd?: boolean;                          // end of ottava bracket at this note
 
   // ── Phrasing & expression (MusicXML import) ─────────────────────────────
@@ -83,6 +94,15 @@ export interface MeasureInfo {
   timeSignature?: string;         // override at this measure (e.g. '3/4' switch)
   key?: string;                   // override key (display name like 'F' / 'Eb')
   clef?: 'treble' | 'bass' | 'alto' | 'tenor'; // mid-piece clef change
+  /** 이 마디의 끝 세로줄 오버라이드 — 겹줄·끝줄·숨김. 도돌이 표시가 있으면 그쪽 우선. */
+  barline?: 'double' | 'end' | 'none';
+  /** 리허설 마크(A, B1 …) — 마디 시작 위에 네모 상자로 표기. */
+  rehearsal?: string;
+  /** 이 마디 뒤에서 줄바꿈 강제(시스템 브레이크). */
+  lineBreak?: boolean;
+  /** 보이스 2 — 같은 보표의 두 번째 성부(기둥 아래 방향). notes(보이스 1)와
+   *  독립 타임라인이며 재생 시 별도 파트로 합쳐진다. */
+  voice2?: NoteInfo[];
   anacrusis?: boolean;            // pickup measure — fewer beats than time sig
   tempo?: number;                 // mid-piece tempo change (BPM, quarter=N)
 }

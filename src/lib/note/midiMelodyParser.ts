@@ -386,7 +386,16 @@ export async function loadMidiMelody(
   composer: string,
 ): Promise<NoteSheetData> {
   const res = await fetch(url);
-  const buf = await res.arrayBuffer();
+  return parseMidiArrayBuffer(await res.arrayBuffer(), title, composer);
+}
+
+/** SMF **버퍼**를 파싱한다 — 파일 업로드 경로용(fetch 없음). 멜로디 트랙 자동
+ *  선별 → 스카이라인 단선율 추출 → 8분 그리드 양자화까지 동일 파이프라인. */
+export function parseMidiArrayBuffer(
+  buf: ArrayBuffer,
+  title: string,
+  composer: string,
+): NoteSheetData {
   const midi = parseMidi(buf);
 
   // Metadata may live in track 0 or the melody track

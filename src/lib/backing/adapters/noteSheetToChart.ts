@@ -118,7 +118,7 @@ export interface ExtractMelodyOpts {
 export function extractMelody(sheet: NoteSheetData, opts?: ExtractMelodyOpts): MelodyNote[] {
   const style: AccidentalStyle = opts?.accidentalStyle ?? "score";
   const out: MelodyNote[] = [];
-  let ottavaShift = 0; // ±12 while inside an 8va/8vb bracket
+  let ottavaShift = 0; // ±12(8va/8vb) · ±24(15ma/15mb) while inside a bracket
   // Apply the sheet's key signature to bare notes so playback pitch matches
   // what the rendered key signature makes the reader see/hear. Mid-piece key
   // overrides (measure.key) switch the signature from that bar on.
@@ -163,6 +163,8 @@ export function extractMelody(sheet: NoteSheetData, opts?: ExtractMelodyOpts): M
 
       if (note.ottavaStart === "8va") ottavaShift = 12;
       else if (note.ottavaStart === "8vb") ottavaShift = -12;
+      else if (note.ottavaStart === "15ma") ottavaShift = 24;
+      else if (note.ottavaStart === "15mb") ottavaShift = -24;
 
       const nextOpen = isGrace ? openTies : new Map<number, number>();
       const isRest = isRestNote(note);

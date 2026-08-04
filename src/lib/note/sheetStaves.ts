@@ -225,6 +225,19 @@ export function stavesToPlaybackParts(base: NoteSheetData, staves: SheetStaff[])
        * 킥(36)이 림샷(37)으로 바뀐다. 항상 C(조표 없음)로 해석시킨다. */
       ...(s.kind === 'drum' ? { key: 'C' } : {}),
     });
+    /* 보이스 2 — 같은 음색의 별도 파트. ⚠ 반드시 메인 파트 **뒤에** 넣는다:
+     * parts[0] 은 '첫 파트 보이스1' 이라는 계약(에디터 buildSheet·slice(1))이 있다. */
+    if (s.measures.some((m) => (m.voice2?.length ?? 0) > 0)) {
+      parts.push({
+        ...base,
+        measures: s.measures.map((m) => ({ notes: m.voice2 ?? [] })),
+        bassMeasures: undefined,
+        staves: undefined,
+        instrument: s.kind === 'drum' ? undefined : (s.instrument ?? meta.defaultInstrument),
+        isDrum: s.kind === 'drum' ? true : undefined,
+        ...(s.kind === 'drum' ? { key: 'C' } : {}),
+      });
+    }
   }
   return parts;
 }

@@ -6,7 +6,6 @@ import { useTransitionState } from '../../hooks/useTransitionState';
 import { RightChatPanel } from '../layout/RightChatPanel';
 import { onAiChatSheetRequest } from '../../lib/nativeShell';
 import { setActiveChat } from '../../api/chat';
-import { isNativeApp } from '../../lib/platform';
 
 /* ─────────────────────────────────────────────────────────────────────────
  * AI 채팅 시트 — 네이티브 셸의 "제일 긴" 풀하이트 바텀시트.
@@ -21,7 +20,7 @@ import { isNativeApp } from '../../lib/platform';
 
 export function AiChatSheet() {
   const isNativeUi = useIsNativeUi();
-  const native = isNativeApp();
+  const native = useIsNativeUi();
 
   const [open, setOpen] = useState(false);
   /* 'new' 요청 시 RightChatPanel 을 리마운트해 대화를 초기화한다 —

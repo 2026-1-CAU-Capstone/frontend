@@ -26,6 +26,7 @@ export default function LoginPage() {
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const usernameRef = useRef<HTMLInputElement>(null);
@@ -38,6 +39,7 @@ export default function LoginPage() {
     setMode(next);
     setError(null);
     setPassword('');
+    setPasswordConfirm('');
     if (next === 'login') setName('');
   };
 
@@ -54,6 +56,7 @@ export default function LoginPage() {
     if (u.length < 2 || u.length > 10) return '아이디는 2~10자로 입력해 주세요.';
     if (password.length < 8 || password.length > 20) return '비밀번호는 8~20자로 입력해 주세요.';
     if (!/^(?=.*[A-Za-z])(?=.*\d).+$/.test(password)) return '비밀번호는 영문과 숫자를 모두 포함해야 합니다.';
+    if (password !== passwordConfirm) return '비밀번호가 일치하지 않습니다.';
     return null;
   };
 
@@ -85,7 +88,9 @@ export default function LoginPage() {
   };
 
   const canSubmit =
-    !!username.trim() && !!password && (!isSignup || !!name.trim()) && !submitting;
+    !!username.trim() && !!password
+    && (!isSignup || (!!name.trim() && password === passwordConfirm))
+    && !submitting;
 
   return (
     <Page>
@@ -141,6 +146,21 @@ export default function LoginPage() {
               maxLength={isSignup ? 20 : undefined}
               disabled={submitting}
             />
+            {isSignup && (
+              <input
+                type="password"
+                value={passwordConfirm}
+                onChange={(e) => setPasswordConfirm(e.target.value)}
+                placeholder="비밀번호 확인"
+                autoComplete="new-password"
+                maxLength={20}
+                disabled={submitting}
+                aria-invalid={!!passwordConfirm && password !== passwordConfirm}
+              />
+            )}
+            {isSignup && !!passwordConfirm && password !== passwordConfirm && (
+              <FieldHint>비밀번호가 일치하지 않습니다.</FieldHint>
+            )}
             {error && <ErrorMsg>{error}</ErrorMsg>}
             <ContinueBtn type="submit" disabled={!canSubmit} aria-busy={submitting}>
               {submitting ? <Spinner aria-label="로딩 중" /> : isSignup ? '회원가입' : '로그인'}
@@ -319,6 +339,14 @@ const Form = styled.form`
 const ErrorMsg = styled.div`
   padding: 0 4px;
   font-size: 12.5px;
+  color: #c0392b;
+`;
+
+/* 입력 바로 아래 실시간 안내(비밀번호 불일치 등) — ErrorMsg 보다 조용한 톤. */
+const FieldHint = styled.div`
+  margin-top: -4px;
+  padding: 0 4px;
+  font-size: 12px;
   color: #c0392b;
 `;
 

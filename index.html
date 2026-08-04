@@ -33,7 +33,18 @@
          DM Sans where chord symbols look broken. crossorigin matches the
          @font-face request so the browser actually uses the preloaded copy. -->
     <link rel="preload" as="font" type="font/otf" href="/MuseJazzText.otf" crossorigin>
+    <!-- Bravura: SMuFL 표준 음악 폰트. 팔레트·툴바 버튼의 악보 기호(임시표·
+         아티큘레이션·음자리표·세뇨/코다 …)를 실제 악보와 같은 글리프로 찍는다.
+         (PDF 내보내기(scoreToPdf)에서도 같은 파일을 임베드한다) -->
+    <link rel="preload" as="font" type="font/woff2" href="/bravura.woff2" crossorigin>
     <style>
+      @font-face {
+        font-family: 'Bravura';
+        src: url('/bravura.woff2') format('woff2');
+        font-weight: normal;
+        font-style: normal;
+        font-display: block;
+      }
       @font-face {
         font-family: 'MuseJazz Text';
         src: url('/MuseJazzText.otf') format('opentype');
