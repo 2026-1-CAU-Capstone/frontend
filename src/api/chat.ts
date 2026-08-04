@@ -72,6 +72,12 @@ export interface ChatStreamRequest {
    *  and prefixes the stream with a \x00RAG_DEBUG\x00 … \x00END_DEBUG\x00
    *  block; otherwise it returns a plain Anthropic stream. */
   useRag?: boolean;
+  /** RAG 진단 블록(RAG_DEBUG) 포함 여부. **백엔드에서 옵트인으로 바뀌었다** —
+   *  이 플래그가 없으면 RAG 를 켜도 디버그 블록이 오지 않고, 그 블록의 `chunks`
+   *  를 쓰는 **출처 인용까지 함께 꺼진다**. 생략하면 streamChat 이 `useRag` 를
+   *  따라 자동으로 켠다(아래) — 일반 사용자 모드에서 패널을 숨기려면 그때
+   *  명시적으로 false 를 넘긴다. */
+  debug?: boolean;
   /** Ask the backend NOT to emit an inline chord chart in the reply. */
   suppressInlineChart?: boolean;
   chatPublicId?: string;
@@ -284,7 +290,11 @@ export async function streamChat(
    * (+ projectPublicId/songTitle) — that's what drives the Recent Chats icon +
    * "reopen on the chart" behaviour. Everything else is a global/direct chat.
    * `chartKind` is a client-only hint; strip it from the wire body. */
-  const { chartKind, ...body } = req;
+  const { chartKind, ...rest } = req;
+  /* RAG 디버그 블록은 백엔드에서 **옵트인**이다(2026-07-28 변경). 플래그를 빼면
+   * 디버그 패널과 출처 인용이 조용히 꺼지므로, 호출부가 따로 지정하지 않으면
+   * `useRag` 를 그대로 따라간다 — 새 호출부가 생겨도 누락되지 않는다. */
+  const body = { ...rest, debug: rest.debug ?? !!rest.useRag };
   const path =
     chartKind === 'chord' && body.projectPublicId ? '/v1/chat/chord-project/stream'
     : chartKind === 'sheet' && body.projectPublicId ? '/v1/chat/sheet-project/stream'

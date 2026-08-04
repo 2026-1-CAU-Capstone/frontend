@@ -27,22 +27,22 @@ export const UserImageThumb = styled.img`
   object-fit: contain;
   object-position: top right;
   border-radius: 14px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  background: #fff;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  background: ${({ theme }) => theme.colors.surface};
   display: block;
 `;
 
 export const Bubble = styled.div<{ $role: 'user' | 'assistant' }>`
   position: relative;
 
-  ${({ $role }) =>
+  ${({ $role, theme }) =>
     $role === 'user'
       ? `
     max-width: 78%;
     padding: 14px 18px;
     border-radius: 18px;
     /* Neutral gray bubble — clearly distinct from the warm bgChat canvas. */
-    background: rgba(0, 0, 0, 0.06);
+    background: ${theme.colors.activeFill};
     border: none;
     font-size: 15.5px;
     line-height: 1.55;
@@ -82,17 +82,17 @@ export const EditUserRow = styled.div`
 
 export const EditUserTextarea = styled.textarea`
   width: 100%;
-  border: 1px solid rgba(0, 0, 0, 0.18);
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 12px;
   padding: 10px 12px;
   font-family: inherit;
   font-size: 15.5px;
   line-height: 1.55;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   color: ${({ theme }) => theme.colors.textPrimary};
   resize: vertical;
   outline: none;
-  &:focus { border-color: rgba(0, 0, 0, 0.35); }
+  &:focus { border-color: ${({ theme }) => theme.colors.border}; }
 `;
 
 export const EditUserActions = styled.div`
@@ -102,22 +102,22 @@ export const EditUserActions = styled.div`
 `;
 
 export const EditUserGhostBtn = styled.button`
-  border: 1px solid rgba(0, 0, 0, 0.16);
-  background: #fff;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 999px;
   padding: 6px 14px;
   font-family: inherit;
   font-size: 13.5px;
   font-weight: 600;
-  color: rgba(0, 0, 0, 0.75);
+  color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
-  &:hover { background: rgba(0, 0, 0, 0.04); }
+  &:hover { background: ${({ theme }) => theme.colors.hover}; }
 `;
 
 export const EditUserPrimaryBtn = styled.button`
   border: none;
-  background: #1a1a1a;
-  color: #fff;
+  background: ${({ theme }) => theme.colors.inkSurface};
+  color: ${({ theme }) => theme.colors.onInk};
   border-radius: 999px;
   padding: 6px 14px;
   font-family: inherit;
@@ -141,15 +141,15 @@ export const EditUserPencilBtn = styled.button`
   height: 28px;
   border: none;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.04);
-  color: rgba(0, 0, 0, 0.55);
+  background: ${({ theme }) => theme.colors.hover};
+  color: ${({ theme }) => theme.colors.textSecondary};
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
   transition: opacity 0.15s, background 0.12s, color 0.12s;
-  &:hover { background: rgba(0, 0, 0, 0.08); color: ${({ theme }) => theme.colors.textPrimary}; }
+  &:hover { background: ${({ theme }) => theme.colors.activeFill}; color: ${({ theme }) => theme.colors.textPrimary}; }
   &:focus-visible { opacity: 1; outline: 2px solid rgba(43, 138, 239, 0.5); outline-offset: 2px; }
 `;
 
@@ -199,7 +199,7 @@ export const ActionBtn = styled.button`
   padding: 0;
 
   &:hover {
-    background: rgba(0, 0, 0, 0.05);
+    background: ${({ theme }) => theme.colors.hover};
     color: ${({ theme }) => theme.colors.textPrimary};
   }
 `;
@@ -218,10 +218,10 @@ export const ErrorBanner = styled.div`
   gap: 10px;
   margin-top: 6px;
   padding: 10px 12px;
-  background: #fdeeec;
-  border: 1px solid #f5c4be;
+  background: ${({ theme }) => theme.colors.dangerFill};
+  border: 1px solid ${({ theme }) => theme.colors.dangerBorder};
   border-radius: 10px;
-  color: #8a2a1f;
+  color: ${({ theme }) => theme.colors.danger};
   font-size: 13.5px;
   line-height: 1.4;
 `;
@@ -238,9 +238,9 @@ export const RetryBtn = styled.button`
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
-  border: 1px solid #d96e62;
-  background: #fff;
-  color: #8a2a1f;
+  border: 1px solid ${({ theme }) => theme.colors.dangerBorder};
+  background: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.danger};
   border-radius: 999px;
   padding: 5px 11px;
   font-family: inherit;
@@ -248,7 +248,7 @@ export const RetryBtn = styled.button`
   font-weight: 700;
   cursor: pointer;
   transition: background 0.12s;
-  &:hover { background: #fbe4e0; }
+  &:hover { background: ${({ theme }) => theme.colors.dangerFill}; }
   svg { width: 14px; height: 14px; }
 `;
 
@@ -259,10 +259,10 @@ export const RetryBtn = styled.button`
 export const CodeBlockShell = styled.div`
   position: relative;
   margin: 8px 0;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 10px;
   overflow: hidden;
-  background: #f6f6f8;
+  background: ${({ theme }) => theme.colors.surfaceSunken};
   & > pre {
     margin: 0;
     padding: 12px 14px;
@@ -280,8 +280,8 @@ export const CodeBlockHeader = styled.div`
   align-items: center;
   justify-content: space-between;
   padding: 4px 10px;
-  background: rgba(0, 0, 0, 0.035);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: ${({ theme }) => theme.colors.hover};
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
 `;
 
 export const CodeBlockLang = styled.span`
@@ -289,14 +289,14 @@ export const CodeBlockLang = styled.span`
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: rgba(0, 0, 0, 0.5);
+  color: ${({ theme }) => theme.colors.textSecondary};
   text-transform: uppercase;
 `;
 
 export const CodeBlockCopy = styled.button`
   border: none;
   background: transparent;
-  color: rgba(0, 0, 0, 0.55);
+  color: ${({ theme }) => theme.colors.textSecondary};
   padding: 3px 8px;
   border-radius: 6px;
   font-family: inherit;
@@ -304,7 +304,7 @@ export const CodeBlockCopy = styled.button`
   font-weight: 600;
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
-  &:hover { background: rgba(0, 0, 0, 0.06); color: ${({ theme }) => theme.colors.textPrimary}; }
+  &:hover { background: ${({ theme }) => theme.colors.activeFill}; color: ${({ theme }) => theme.colors.textPrimary}; }
   &[data-copied="1"] > span::after { content: '됨'; margin-left: 2px; }
 `;
 
@@ -342,14 +342,14 @@ export const AssistantName = styled.span`
 export const UserSelectedContext = styled.div`
   margin: 0 0 8px;
   padding: 8px 10px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.45);
+  background: ${({ theme }) => (theme.mode === 'dark' ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.45)')};
 `;
 
 export const UserSelectedLabel = styled.div`
   margin-bottom: 5px;
-  color: rgba(0, 0, 0, 0.58);
+  color: ${({ theme }) => theme.colors.textSecondary};
   font-size: 10.5px;
   font-weight: 700;
   line-height: 1.2;
@@ -377,7 +377,7 @@ export const UserSelectedChord = styled.span`
   font-size: 1rem;
   font-weight: 600;
   line-height: 1;
-  color: #000;
+  color: ${({ theme }) => theme.colors.textPrimary};
 
   span {
     font-family: 'MuseJazz Text', 'Oswald', 'Pretendard', sans-serif !important;
@@ -390,7 +390,7 @@ export const UserSelectedArrow = styled(ProgressionArrow)`
   flex: 0 0 auto;
   width: 17px;
   height: 9px;
-  color: rgba(0, 0, 0, 0.44);
+  color: ${({ theme }) => theme.colors.textSecondary};
   transform: translateY(1px);
 `;
 

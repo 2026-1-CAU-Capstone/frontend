@@ -106,7 +106,7 @@ const Row = styled.div<{ $active?: boolean; $menuOpen?: boolean }>`
     $active ? 'rgba(0, 0, 0, 0.06)' :
     'transparent'};
   transition: background 0.12s;
-  &:hover { background: rgba(0, 0, 0, 0.05); }
+  &:hover { background: ${({ theme }) => theme.colors.hover}; }
   &:hover .row-kebab,
   &.menu-open .row-kebab { opacity: 1; pointer-events: auto; }
 `;
@@ -130,7 +130,7 @@ const RowLabel = styled.button<{ $active?: boolean }>`
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  &:hover { color: #1a1a1a; }
+  &:hover { color: ${({ theme }) => theme.colors.textPrimary}; }
 `;
 
 /* 곡 이름 왼쪽의 출처 배지 — 코드 차트에서 시작한 채팅은 **노란색**,
@@ -187,14 +187,14 @@ const SkeletonBar = styled.span`
   min-width: 0;
   height: 9px;
   border-radius: 5px;
-  background: rgba(0, 0, 0, 0.08);
+  background: ${({ theme }) => theme.colors.activeFill};
 `;
 const Spinner = styled.span`
   flex-shrink: 0;
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  border: 2px solid rgba(0, 0, 0, 0.12);
+  border: 2px solid ${({ theme }) => theme.colors.border};
   border-top-color: ${({ theme }) => theme.colors.gold};
   animation: ${spin} 0.7s linear infinite;
 `;
@@ -213,11 +213,11 @@ const RowKebab = styled.button`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #4a4a4a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.12s, background 0.12s;
-  &:hover { background: rgba(0, 0, 0, 0.08); }
+  &:hover { background: ${({ theme }) => theme.colors.activeFill}; }
 `;
 const KebabDots = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -235,8 +235,8 @@ const Menu = styled.div`
   top: calc(100% + 4px);
   right: 4px;
   min-width: 200px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 12px;
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.16);
   padding: 8px 6px;
@@ -276,7 +276,7 @@ const MenuIco = styled.span`
 `;
 const MenuDivider = styled.div`
   height: 1px;
-  background: rgba(0, 0, 0, 0.08);
+  background: ${({ theme }) => theme.colors.activeFill};
   margin: 6px 4px;
 `;
 
@@ -330,7 +330,7 @@ const Empty = styled.div`
 const ErrorRow = styled.div`
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 12px;
-  color: #c0392b;
+  color: ${({ theme }) => theme.colors.danger};
   padding: 6px ${ROW_PAD_X}px 6px ${LABEL_INDENT}px;
   word-break: break-word;
 `;
@@ -344,7 +344,7 @@ const LoadMoreBtn = styled.button`
   margin: 8px ${ROW_PAD_X}px 4px;
   padding: 6px 10px;
   background: transparent;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 8px;
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 12px;
@@ -353,7 +353,7 @@ const LoadMoreBtn = styled.button`
   cursor: pointer;
   transition: background 0.1s, border-color 0.1s, color 0.1s;
   &:hover:not(:disabled) {
-    background: rgba(0, 0, 0, 0.04);
+    background: ${({ theme }) => theme.colors.hover};
     color: ${({ theme }) => theme.colors.textPrimary};
   }
   &:disabled { opacity: 0.5; cursor: default; }

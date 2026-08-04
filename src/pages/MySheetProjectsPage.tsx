@@ -47,7 +47,7 @@ import {
 import { isComposingEvent } from '../lib/ime';
 import { useNavigate } from 'react-router-dom';
 import { useIsNativeUi } from '../contexts/AppPreviewContext';
-import styled from 'styled-components';
+import styled, { css } from 'styled-components';
 import { IconSidebar } from '../components/layout/IconSidebar';
 import { NoteSheet } from '../components/notesheet/NoteSheet';
 import type { NoteSheetData } from '../data/sampleMelody';
@@ -951,9 +951,8 @@ function ListSheetMini() {
 
 
 
-const CARD_HOVER_BG = '#FAF6E9';
 
-const CardBase = `
+const CardBase = css`
   position: relative;
   display: flex;
   flex-direction: column;
@@ -961,13 +960,13 @@ const CardBase = `
   width: 100%;
   max-width: 200px;
   justify-self: start;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 14px;
   overflow: visible;
   cursor: pointer;
   transition: border-color 0.12s, transform 0.1s, box-shadow 0.12s, background 0.15s;
-  &:hover { border-color: rgba(0, 0, 0, 0.18); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06); background: ${CARD_HOVER_BG}; }
+  &:hover { border-color: ${({ theme }) => theme.colors.border}; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06); background: ${({ theme }) => theme.colors.cardHover}; }
   &:active { transform: scale(0.985); }
 `;
 
@@ -977,9 +976,9 @@ const NewCard = styled.button`
   align-items: center;
   justify-content: center;
   gap: 6px;
-  border: 1.5px dashed rgba(0, 0, 0, 0.18);
+  border: 1.5px dashed ${({ theme }) => theme.colors.border};
   background: transparent;
-  color: rgba(0, 0, 0, 0.55);
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 // 페이지별 의도적 디자인 차이 — 상대 페이지와 통합 금지 (§8 R9, sharedStyles.ts 헤더 참조)
@@ -1003,9 +1002,9 @@ const SheetCard = styled.div<{ $selected?: boolean; $menuOpen?: boolean }>`
   ${({ $selected }) =>
     $selected &&
     `border-color: #2b8aef; box-shadow: 0 0 0 2px rgba(43, 138, 239, 0.5);`}
-  ${({ $menuOpen }) =>
+  ${({ $menuOpen, theme }) =>
     $menuOpen &&
-    `background: ${CARD_HOVER_BG}; border-color: rgba(0, 0, 0, 0.18); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+    `background: ${theme.colors.cardHover}; border-color: ${theme.colors.border}; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
      ${MENU_OPEN_STACKING}`}
 `;
 
@@ -1015,7 +1014,7 @@ const ScoreThumbWrap = styled.div`
   width: 100%;
   flex: 1;
   min-height: 0;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   overflow: hidden;
   contain: layout paint style;
   isolation: isolate;
@@ -1037,7 +1036,7 @@ const ScoreThumbScaler = styled.div`
     flex: none !important;
     overflow: visible !important;
     padding: 0 !important;
-    background: #fff !important;
+    background: ${({ theme }) => theme.colors.surface} !important;
     box-shadow: none !important;
     display: block !important;
   }
@@ -1049,7 +1048,7 @@ const ScoreThumbScaler = styled.div`
 const ScoreSkeleton = styled.div`
   height: 100%;
   padding: 12px 10px;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
 `;
 
 const SkeletonTitle = styled.div`
@@ -1057,13 +1056,13 @@ const SkeletonTitle = styled.div`
   height: 5px;
   margin: 0 auto 14px;
   border-radius: 99px;
-  background: rgba(0, 0, 0, 0.12);
+  background: ${({ theme }) => theme.colors.border};
 `;
 
 const SkeletonLine = styled.div`
   height: 1px;
   margin: 12px 0;
-  background: rgba(0, 0, 0, 0.18);
+  background: ${({ theme }) => theme.colors.border};
 `;
 
 const UploadedThumb = styled.div`
@@ -1073,7 +1072,7 @@ const UploadedThumb = styled.div`
   min-height: 0;
   margin: 10px 10px 0;
   width: calc(100% - 20px);
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border-top-left-radius: 8px;
   border-top-right-radius: 8px;
   overflow: hidden;
@@ -1082,7 +1081,7 @@ const UploadedThumb = styled.div`
   align-items: center;
   justify-content: center;
   gap: 8px;
-  color: rgba(0, 0, 0, 0.45);
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 const UploadedThumbText = styled.span`
@@ -1114,7 +1113,7 @@ const CardTitleRow = styled.div`
 const CardTitle = styled.div`
   font-size: 14px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
@@ -1131,7 +1130,7 @@ const ComposerText = styled.span`
   max-width: 100%;
   font-size: 12px;
   font-weight: 500;
-  color: rgba(0, 0, 0, 0.55);
+  color: ${({ theme }) => theme.colors.textSecondary};
   letter-spacing: -0.005em;
   white-space: nowrap;
   overflow: hidden;
@@ -1160,7 +1159,8 @@ const CardCheckbox = styled.button<{ $checked?: boolean }>`
   height: 24px;
   border-radius: 6px;
   border: 1.5px solid ${({ $checked }) => ($checked ? '#2b8aef' : 'rgba(0, 0, 0, 0.28)')};
-  background: ${({ $checked }) => ($checked ? '#2b8aef' : 'rgba(255, 255, 255, 0.92)')};
+  background: ${({ $checked, theme }) => ($checked ? '#2b8aef'
+    : theme.mode === 'dark' ? 'rgba(255, 255, 255, 0.16)' : 'rgba(255, 255, 255, 0.92)')};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1170,8 +1170,8 @@ const CardCheckbox = styled.button<{ $checked?: boolean }>`
 const CheckMark = styled.span`
   width: 10px;
   height: 6px;
-  border-left: 2px solid #fff;
-  border-bottom: 2px solid #fff;
+  border-left: 2px solid ${({ theme }) => theme.colors.surface};
+  border-bottom: 2px solid ${({ theme }) => theme.colors.surface};
   transform: rotate(-45deg) translateY(-1px);
 `;
 
@@ -1186,7 +1186,7 @@ const ModalBackdrop = styled.div`
   position: fixed;
   inset: 0;
   z-index: 100;
-  background: rgba(0, 0, 0, 0.22);
+  background: ${({ theme }) => theme.colors.border};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1196,7 +1196,7 @@ const ModalBackdrop = styled.div`
 // 페이지별 의도적 디자인 차이 — 상대 페이지와 통합 금지 (§8 R9, sharedStyles.ts 헤더 참조)
 const ModalCard = styled.div`
   width: min(420px, 100%);
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 16px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.22);
   padding: 20px;
@@ -1210,7 +1210,7 @@ const ModalTitle = styled.h2`
   margin: 0;
   font-size: 18px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 /* Bulk-delete confirm modal body — short, info-only stack of lines. */
@@ -1220,15 +1220,15 @@ const ModalBody = styled.div`
   gap: 6px;
   margin-top: 12px;
   font-size: 14px;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 const ModalWarn = styled.div`
   font-size: 12.5px;
-  color: rgba(0, 0, 0, 0.55);
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 const SkippedNote = styled.div`
   font-size: 12.5px;
-  color: rgba(0, 0, 0, 0.45);
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 const ModalField = styled.label`
@@ -1242,26 +1242,26 @@ const ModalField = styled.label`
 const ModalInput = styled.input`
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 10px;
   padding: 11px 12px;
   font-family: inherit;
   font-size: 14px;
   outline: none;
-  &:focus { border-color: #1a1a1a; }
+  &:focus { border-color: ${({ theme }) => theme.colors.textPrimary}; }
 `;
 
 const ModalSelect = styled.select`
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 10px;
   padding: 11px 12px;
   font-family: inherit;
   font-size: 14px;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   outline: none;
-  &:focus { border-color: #1a1a1a; }
+  &:focus { border-color: ${({ theme }) => theme.colors.textPrimary}; }
 `;
 
 const FilePickLabel = styled.label`
@@ -1269,11 +1269,11 @@ const FilePickLabel = styled.label`
   align-items: center;
   gap: 10px;
   min-height: 44px;
-  border: 1px dashed rgba(0, 0, 0, 0.22);
+  border: 1px dashed ${({ theme }) => theme.colors.border};
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 13.5px;
-  color: rgba(0, 0, 0, 0.62);
+  color: ${({ theme }) => theme.colors.textSecondary};
   cursor: pointer;
   overflow: hidden;
   span {
@@ -1295,8 +1295,8 @@ const PageErrorBanner = styled.div`
   margin: 0 22px 8px;
   padding: 10px 12px;
   border-radius: 10px;
-  background: #fdecea;
-  color: #a03022;
+  background: ${({ theme }) => theme.colors.dangerFill};
+  color: ${({ theme }) => theme.colors.danger};
   font-size: 13px;
 `;
 const PageErrorClose = styled.button`
@@ -1311,8 +1311,8 @@ const PageErrorClose = styled.button`
 const ModalError = styled.div`
   padding: 9px 11px;
   border-radius: 10px;
-  background: #fdecea;
-  color: #a03022;
+  background: ${({ theme }) => theme.colors.dangerFill};
+  color: ${({ theme }) => theme.colors.danger};
   font-size: 12.5px;
 `;
 

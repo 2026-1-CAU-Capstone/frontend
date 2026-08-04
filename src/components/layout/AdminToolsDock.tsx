@@ -103,7 +103,25 @@ export function AdminToolsDock() {
   const [authUser, setAuthUser] = useState<AuthUser | null>(() => getCachedUser());
   const [open, setOpen] = useState(false);
 
-  useEffect(() => onAuthChange((loggedIn, user) => setAuthUser(loggedIn ? user : null)), []);
+  /* 로그인 상태 구독. 로그인 알림에 user 가 비어 오면(부분 payload) 캐시로 보강한다. */
+  useEffect(() => onAuthChange((loggedIn, user) => {
+    setAuthUser(loggedIn ? (user ?? getCachedUser()) : null);
+  }), []);
+
+  /* 라우트가 바뀔 때 캐시에서 다시 읽어 온다.
+   *
+   * 이 독은 App 루트에 상주하지만, 페이지 이동 중 프로액티브 리프레시나 어떤
+   * API 의 일시적 401 로 `onAuthChange(false)` 가 한 번 흐르면 authUser 가
+   * null 이 된 채 **다시는 복구되지 않아** 그 뒤로 모든 페이지에서 사라졌다
+   * (실측: 홈에서만 보이고 다른 페이지로 가면 없어짐). 진짜 로그아웃은
+   * 사용자 캐시까지 지우므로, 캐시가 살아 있으면 세션은 유효한 것으로 보고
+   * 되살린다. */
+  useEffect(() => {
+    if (!authUser) {
+      const cached = getCachedUser();
+      if (cached) setAuthUser(cached);
+    }
+  }, [pathname, authUser]);
 
   if (!isAdminUser(authUser)) return null;
 
@@ -165,12 +183,12 @@ const Fab = styled.button<{ $open: boolean }>`
   background: ${({ $open }) => ($open ? '#455a64' : '#37474f')};
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
   transition: transform 0.12s, background 0.15s;
-  &:hover { background: #263238; }
+  &:hover { background: ${({ theme }) => theme.colors.inkSurface}; }
   &:active { transform: scale(0.94); }
 `;
 const Panel = styled.div`
   width: 210px;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 12px;
   padding: 8px;
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.24);
@@ -186,7 +204,7 @@ const PanelHead = styled.div`
   font-size: 12px;
   font-weight: 800;
   color: #546e7a;
-  border-bottom: 1px solid #eceff3;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   margin-bottom: 4px;
 `;
 const HeadClose = styled.button`
@@ -194,8 +212,8 @@ const HeadClose = styled.button`
   background: transparent;
   cursor: pointer;
   font-size: 13px;
-  color: #90a4ae;
-  &:hover { color: #37474f; }
+  color: ${({ theme }) => theme.colors.textSecondary};
+  &:hover { color: ${({ theme }) => theme.colors.textPrimary}; }
 `;
 const Item = styled.button<{ $on?: boolean }>`
   display: flex;

@@ -135,7 +135,7 @@ const Trigger = styled.button`
   background: transparent;
   cursor: pointer;
   transition: background 0.15s;
-  &:hover { background: rgba(0, 0, 0, 0.06); }
+  &:hover { background: ${({ theme }) => theme.colors.activeFill}; }
 `;
 
 const TriggerImg = styled.img`
@@ -162,7 +162,7 @@ const Modal = styled.div`
   max-height: 84vh;
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 18px;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.24);
   padding: 24px 22px 8px;
@@ -173,14 +173,14 @@ const Title = styled.h2`
   margin: 0;
   font-size: 19px;
   font-weight: 800;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   text-align: center;
 `;
 
 const Sub = styled.p`
   margin: 6px 0 16px;
   font-size: 13.5px;
-  color: rgba(0, 0, 0, 0.5);
+  color: ${({ theme }) => theme.colors.textSecondary};
   text-align: center;
 `;
 
@@ -217,11 +217,11 @@ const Cell = styled.button<{ $active?: boolean }>`
   border: 1.5px solid ${({ $active }) => ($active ? '#1a1a1a' : 'rgba(0, 0, 0, 0.1)')};
   border-radius: 12px;
   background: ${({ $active }) => ($active ? 'rgba(0, 0, 0, 0.04)' : '#fff')};
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
   font-family: inherit;
   transition: border-color 0.12s, background 0.12s, transform 0.1s;
-  &:hover { border-color: #1a1a1a; background: rgba(0, 0, 0, 0.03); }
+  &:hover { border-color: ${({ theme }) => theme.colors.textPrimary}; background: ${({ theme }) => theme.colors.hover}; }
   &:active { transform: scale(0.97); }
 `;
 

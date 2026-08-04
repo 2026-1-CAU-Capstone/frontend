@@ -81,7 +81,7 @@ const ModalBackdrop = styled.div`
   padding: 24px;
 `;
 const ModalCard = styled.div`
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 14px;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.24);
   padding: 22px 24px 18px;
@@ -93,13 +93,13 @@ const ModalTitle = styled.h2`
   margin: 0 0 6px;
   font-size: 19px;
   font-weight: 800;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   letter-spacing: -0.01em;
 `;
 const ModalBody = styled.p`
   margin: 0 0 18px;
   font-size: 14px;
-  color: rgba(0, 0, 0, 0.55);
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 const ModalActions = styled.div`
   display: flex;

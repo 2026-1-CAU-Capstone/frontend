@@ -64,11 +64,6 @@ export function UserMenu({ user, compact = false }: Props) {
             <MenuLabel>설정</MenuLabel>
             <MenuShortcut>⇧⌘,</MenuShortcut>
           </MenuItem>
-          <MenuItem type="button">
-            <MenuIcon><GlobeIcon /></MenuIcon>
-            <MenuLabel>언어</MenuLabel>
-            <Chevron>›</Chevron>
-          </MenuItem>
           <MenuItem type="button" $highlight>
             <MenuIcon><HelpIcon /></MenuIcon>
             <MenuLabel>도움 받기</MenuLabel>
@@ -148,14 +143,6 @@ const SettingsIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
     <circle cx="12" cy="12" r="3" />
     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-  </svg>
-);
-
-const GlobeIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <circle cx="12" cy="12" r="10" />
-    <line x1="2" y1="12" x2="22" y2="12" />
-    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
   </svg>
 );
 
@@ -261,15 +248,15 @@ const Trigger = styled.button<{ $compact?: boolean }>`
       border-radius: 10px;
     `}
 
-  &:hover { background: rgba(0, 0, 0, 0.04); }
+  &:hover { background: ${({ theme }) => theme.colors.hover}; }
 `;
 
 const Avatar = styled.span`
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: #1a1a1a;
-  color: #fff;
+  background: ${({ theme }) => theme.colors.inkSurface};
+  color: ${({ theme }) => theme.colors.onInk};
   font-family: inherit;
   font-size: 15px;
   font-weight: 700;
@@ -292,7 +279,7 @@ const Texts = styled.span`
 const Name = styled.span`
   font-size: 14px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
@@ -302,12 +289,12 @@ const Name = styled.span`
 const Sub = styled.span`
   font-size: 12px;
   font-weight: 400;
-  color: rgba(0, 0, 0, 0.55);
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 const ChevronWrap = styled.span`
   flex-shrink: 0;
-  color: rgba(0, 0, 0, 0.45);
+  color: ${({ theme }) => theme.colors.textSecondary};
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -320,18 +307,18 @@ const DownloadBox = styled.span`
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.14);
+  border: 1px solid ${({ theme }) => theme.colors.border};
   background: transparent;
-  color: rgba(0, 0, 0, 0.55);
+  color: ${({ theme }) => theme.colors.textSecondary};
   flex-shrink: 0;
 `;
 
 const Menu = styled.div<{ $compact?: boolean }>`
   position: absolute;
   bottom: calc(100% + 8px);
-  background: #ffffff;
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 14px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid ${({ theme }) => theme.colors.border};
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.18);
   padding: 6px 0;
   font-family: ${({ theme }) => theme.fonts.ui};
@@ -352,7 +339,7 @@ const MenuHeader = styled.div`
   padding: 8px 14px 6px;
   font-size: 13px;
   font-weight: 500;
-  color: rgba(0, 0, 0, 0.7);
+  color: ${({ theme }) => theme.colors.textPrimary};
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -361,7 +348,7 @@ const MenuHeader = styled.div`
 const MenuDivider = styled.hr`
   margin: 4px 10px;
   border: none;
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  border-top: 1px solid ${({ theme }) => theme.colors.border};
 `;
 
 const MenuItem = styled.button<{ $highlight?: boolean }>`
@@ -376,9 +363,9 @@ const MenuItem = styled.button<{ $highlight?: boolean }>`
   font-family: inherit;
   font-size: 14px;
   text-align: left;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   transition: background 0.1s;
-  &:hover { background: rgba(0, 0, 0, 0.06); }
+  &:hover { background: ${({ theme }) => theme.colors.activeFill}; }
 `;
 
 const MenuIcon = styled.span`
@@ -387,7 +374,7 @@ const MenuIcon = styled.span`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: rgba(0, 0, 0, 0.75);
+  color: ${({ theme }) => theme.colors.textPrimary};
   flex-shrink: 0;
 `;
 
@@ -400,12 +387,12 @@ const MenuLabel = styled.span`
 
 const MenuShortcut = styled.span`
   font-size: 12px;
-  color: rgba(0, 0, 0, 0.45);
+  color: ${({ theme }) => theme.colors.textSecondary};
   letter-spacing: 0.04em;
 `;
 
 const Chevron = styled.span`
   font-size: 15px;
-  color: rgba(0, 0, 0, 0.45);
+  color: ${({ theme }) => theme.colors.textSecondary};
   line-height: 1;
 `;

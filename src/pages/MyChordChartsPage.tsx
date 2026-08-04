@@ -48,7 +48,7 @@ import {
 } from '../components/projects/sharedStyles';
 import { isComposingEvent } from '../lib/ime';
 import { useNavigate } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { css } from 'styled-components';
 import { mq } from '../styles/theme';
 import { IconSidebar } from '../components/layout/IconSidebar';
 import { useIsNativeUi } from '../contexts/AppPreviewContext';
@@ -1678,9 +1678,9 @@ const CrumbBack = styled.button`
   border: none;
   border-radius: 50%;
   background: transparent;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
-  &:hover { background: rgba(0, 0, 0, 0.06); }
+  &:hover { background: ${({ theme }) => theme.colors.activeFill}; }
 `;
 
 const Crumb = styled.button<{ $current?: boolean }>`
@@ -1696,12 +1696,12 @@ const Crumb = styled.button<{ $current?: boolean }>`
   font-weight: ${({ $current }) => ($current ? 700 : 500)};
   color: ${({ $current }) => ($current ? '#1a1a1a' : 'rgba(0, 0, 0, 0.6)')};
   cursor: pointer;
-  &:hover { background: rgba(0, 0, 0, 0.04); color: #1a1a1a; }
+  &:hover { background: ${({ theme }) => theme.colors.hover}; color: ${({ theme }) => theme.colors.textPrimary}; }
   svg { color: ${({ $current }) => ($current ? '#1a1a1a' : 'rgba(0, 0, 0, 0.5)')}; }
 `;
 
 const Sep = styled.span`
-  color: rgba(0, 0, 0, 0.35);
+  color: ${({ theme }) => theme.colors.textSecondary};
   font-size: 14px;
   padding: 0 2px;
 `;
@@ -1733,8 +1733,8 @@ const ErrorBanner = styled.div`
   margin: 0 22px 8px;
   padding: 10px 12px;
   border-radius: 10px;
-  background: #fdecea;
-  color: #a03022;
+  background: ${({ theme }) => theme.colors.dangerFill};
+  color: ${({ theme }) => theme.colors.danger};
   font-size: 13px;
   ${mq.mobile} { margin: 0 14px 8px; }
 `;
@@ -1744,7 +1744,7 @@ const ErrorClose = styled.button`
   border-radius: 999px;
   padding: 5px 9px;
   background: rgba(160, 48, 34, 0.08);
-  color: #a03022;
+  color: ${({ theme }) => theme.colors.danger};
   font-family: inherit;
   font-weight: 700;
   cursor: pointer;
@@ -1754,8 +1754,8 @@ const LoadingStrip = styled.div`
   margin: 0 22px 8px;
   padding: 9px 12px;
   border-radius: 10px;
-  background: rgba(0, 0, 0, 0.04);
-  color: rgba(0, 0, 0, 0.55);
+  background: ${({ theme }) => theme.colors.hover};
+  color: ${({ theme }) => theme.colors.textSecondary};
   font-size: 13px;
   ${mq.mobile} { margin: 0 14px 8px; }
 `;
@@ -1766,7 +1766,6 @@ const LoadingStrip = styled.div`
 /* Shared 1:1 card chrome (video + folder). Hover lifts the card with a
  * soft cream tint (matches the folder-hover mock); the actual hover
  * overlay arrow is added per card type since only folders show it. */
-const CARD_HOVER_BG = '#FAF6E9';
 /* overflow:visible (was hidden) so the kebab menu can drop below the card
  * without being clipped. Top-corner rounding is therefore enforced on each
  * thumb child (Thumb / FolderTop / SheetThumbWrap) instead of relying on
@@ -1788,7 +1787,7 @@ const MENU_OPEN_STACKING = `
   &:active { transform: none; }
 `;
 
-const CardBase = `
+const CardBase = css`
   position: relative;
   display: flex;
   flex-direction: column;
@@ -1796,13 +1795,13 @@ const CardBase = `
   width: 100%;
   max-width: 200px;
   justify-self: start;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 14px;
   overflow: visible;
   cursor: pointer;
   transition: border-color 0.12s, transform 0.1s, box-shadow 0.12s, background 0.15s;
-  &:hover { border-color: rgba(0, 0, 0, 0.18); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06); background: ${CARD_HOVER_BG}; }
+  &:hover { border-color: ${({ theme }) => theme.colors.border}; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06); background: ${({ theme }) => theme.colors.cardHover}; }
   &:active { transform: scale(0.985); }
 `;
 
@@ -1822,7 +1821,7 @@ const NewCard = styled.button<{ $on?: boolean }>`
   max-width: 200px;
   justify-self: start;
   aspect-ratio: 4 / 3;
-  background: ${({ $on }) => ($on ? CARD_HOVER_BG : 'transparent')};
+  background: ${({ $on, theme }) => ($on ? theme.colors.cardHover : 'transparent')};
   border: 1.5px dashed ${({ $on }) => ($on ? 'rgba(0,0,0,0.3)' : 'rgba(0, 0, 0, 0.18)')};
   border-radius: 14px;
   color: ${({ $on }) => ($on ? '#1a1a1a' : 'rgba(0, 0, 0, 0.55)')};
@@ -1832,9 +1831,9 @@ const NewCard = styled.button<{ $on?: boolean }>`
   /* Same cream tint as the other cards' hover bg so the column reads as
    * one consistent affordance. */
   &:hover {
-    border-color: rgba(0, 0, 0, 0.3);
-    color: #1a1a1a;
-    background: ${CARD_HOVER_BG};
+    border-color: ${({ theme }) => theme.colors.border};
+    color: ${({ theme }) => theme.colors.textPrimary};
+    background: ${({ theme }) => theme.colors.cardHover};
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
   }
 `;
@@ -1852,8 +1851,8 @@ const NewMenu = styled.div`
   left: 0;
   min-width: 240px;
   padding: 6px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 14px;
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.06);
   z-index: 80;
@@ -1873,21 +1872,21 @@ const NewMenuItem = styled.button`
   border: none;
   border-radius: 10px;
   background: transparent;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   font-family: inherit;
   font-size: 15px;
   font-weight: 550;
   text-align: left;
   cursor: pointer;
   transition: background 0.12s;
-  & svg { flex-shrink: 0; color: rgba(0, 0, 0, 0.62); }
-  &:hover { background: rgba(0, 0, 0, 0.05); }
+  & svg { flex-shrink: 0; color: ${({ theme }) => theme.colors.textSecondary}; }
+  &:hover { background: ${({ theme }) => theme.colors.hover}; }
 `;
 
 const NewMenuDivider = styled.div`
   height: 1px;
   margin: 5px 8px;
-  background: rgba(0, 0, 0, 0.08);
+  background: ${({ theme }) => theme.colors.activeFill};
 `;
 
 const NmEditIcon = () => (
@@ -1930,9 +1929,9 @@ const VideoCard = styled.div<{ $selected?: boolean; $sheet?: boolean; $menuOpen?
   ${({ $selected }) =>
     $selected &&
     `border-color: #2b8aef; box-shadow: 0 0 0 2px rgba(43, 138, 239, 0.5);`}
-  ${({ $menuOpen }) =>
+  ${({ $menuOpen, theme }) =>
     $menuOpen &&
-    `background: ${CARD_HOVER_BG}; border-color: rgba(0, 0, 0, 0.18); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+    `background: ${theme.colors.cardHover}; border-color: ${theme.colors.border}; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
      ${MENU_OPEN_STACKING}`}
 `;
 const Thumb = styled.div`
@@ -1980,9 +1979,9 @@ const FolderCard = styled.div<{ $selected?: boolean; $menuOpen?: boolean }>`
   ${({ $selected }) =>
     $selected &&
     `border-color: #2b8aef; box-shadow: 0 0 0 2px rgba(43, 138, 239, 0.5);`}
-  ${({ $menuOpen }) =>
+  ${({ $menuOpen, theme }) =>
     $menuOpen &&
-    `background: ${CARD_HOVER_BG}; border-color: rgba(0, 0, 0, 0.18); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+    `background: ${theme.colors.cardHover}; border-color: ${theme.colors.border}; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
      ${MENU_OPEN_STACKING}`}
   /* Reveal the FolderTop hover overlay on card hover. The overlay lives
    * inside FolderTop with opacity:0 and pointer-events:none so it doesn't
@@ -1994,7 +1993,7 @@ const FolderTop = styled.div`
   width: 100%;
   flex: 1;
   min-height: 0;
-  background: #f2f2f3;
+  background: ${({ theme }) => theme.colors.surfaceSunken};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2013,7 +2012,7 @@ const FolderGlyph = styled.span`
 const CardTitle = styled.div`
   font-size: 14px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
@@ -2038,7 +2037,7 @@ const Badge = styled.span<{ $tone: 'youtube' | 'folder' | 'sheet' }>`
 `;
 const DateText = styled.span`
   font-size: 11.5px;
-  color: rgba(0, 0, 0, 0.45);
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 /* 제목 + 키칩 + 박자칩을 한 줄에. 제목이 flex:1 로 남는 폭을 전부 먹고(길면
@@ -2073,7 +2072,7 @@ const ProgressTrack = styled.div`
   max-width: 132px;
   height: 5px;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.1);
+  background: ${({ theme }) => theme.colors.border};
   overflow: hidden;
 `;
 const ProgressFill = styled.div`
@@ -2173,7 +2172,7 @@ const PREVIEW_FILTERS = {
 
 /* Padded wrapper around the SheetPreview — gives the chord chart a small
  * inset from the card edges (the card's own background colour shows in the
- * gap, going cream on hover via CARD_HOVER_BG). Also serves as the relative
+ * gap, going cream on hover via theme.colors.cardHover). Also serves as the relative
  * positioning context for the absolutely-positioned hover overlay. */
 /* Flex column that grows to fill whatever vertical room the card has left
  * after CardMeta. SheetThumbWrap inside is flex:1, so the chord-chart
@@ -2189,7 +2188,7 @@ const SheetThumbWrap = styled.div`
   width: 100%;
   flex: 1;
   min-height: 0;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   overflow: hidden;
   contain: layout paint style;
   isolation: isolate;
@@ -2218,7 +2217,7 @@ const SheetThumbScaler = styled.div`
     flex: none !important;
     overflow: visible !important;
     padding: 0 !important;
-    background: #fff !important;
+    background: ${({ theme }) => theme.colors.surface} !important;
     display: block !important;
   }
   /* 미리보기 썸네일에서만 곡 제목(SheetTitle h1)을 크게 — 카드에서 곡명이
@@ -2233,8 +2232,8 @@ const Spinner = styled.div`
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  border: 3px solid rgba(0, 0, 0, 0.12);
-  border-top-color: rgba(0, 0, 0, 0.45);
+  border: 3px solid ${({ theme }) => theme.colors.border};
+  border-top-color: ${({ theme }) => theme.colors.border};
   animation: spin 0.8s linear infinite;
   @keyframes spin {
     to { transform: rotate(360deg); }
@@ -2248,7 +2247,7 @@ const ProjectPreviewState = styled.div`
   align-items: center;
   justify-content: center;
   gap: 7px;
-  color: rgba(0, 0, 0, 0.42);
+  color: ${({ theme }) => theme.colors.textSecondary};
   font-size: 11px;
   font-weight: 700;
   text-align: center;
@@ -2456,7 +2455,8 @@ const CardCheckbox = styled.button<{ $checked?: boolean }>`
   height: 22px;
   border-radius: 6px;
   border: 1.5px solid ${({ $checked }) => ($checked ? '#2b8aef' : 'rgba(0, 0, 0, 0.3)')};
-  background: ${({ $checked }) => ($checked ? '#2b8aef' : 'rgba(255, 255, 255, 0.92)')};
+  background: ${({ $checked, theme }) => ($checked ? '#2b8aef'
+    : theme.mode === 'dark' ? 'rgba(255, 255, 255, 0.16)' : 'rgba(255, 255, 255, 0.92)')};
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2486,7 +2486,7 @@ const ModalBackdrop = styled.div`
 const ModalCard = styled.div`
   width: 100%;
   max-width: 380px;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 16px;
   box-shadow: 0 28px 72px rgba(0, 0, 0, 0.24);
   padding: 22px 22px 18px;
@@ -2498,7 +2498,7 @@ const ModalTitle = styled.h2`
   margin: 0 0 14px;
   font-size: 17px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 // 페이지별 의도적 디자인 차이 — 상대 페이지와 통합 금지 (§8 R9, sharedStyles.ts 헤더 참조)
@@ -2506,14 +2506,14 @@ const ModalInput = styled.input`
   width: 100%;
   height: 40px;
   padding: 0 12px;
-  border: 1px solid rgba(0, 0, 0, 0.14);
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 9px;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   font-family: inherit;
   font-size: 14.5px;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   outline: none;
-  &:focus { border-color: rgba(0, 0, 0, 0.4); }
+  &:focus { border-color: ${({ theme }) => theme.colors.border}; }
 `;
 
 const ModalTextarea = styled.textarea`
@@ -2521,15 +2521,15 @@ const ModalTextarea = styled.textarea`
   min-height: 92px;
   box-sizing: border-box;
   padding: 10px 12px;
-  border: 1px solid rgba(0, 0, 0, 0.14);
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 9px;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   font-family: inherit;
   font-size: 14.5px;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   outline: none;
   resize: vertical;
-  &:focus { border-color: rgba(0, 0, 0, 0.4); }
+  &:focus { border-color: ${({ theme }) => theme.colors.border}; }
 `;
 
 const ModalField = styled.label`
@@ -2543,7 +2543,7 @@ const ModalField = styled.label`
 const ModalHint = styled.div`
   margin-top: 8px;
   font-size: 12px;
-  color: rgba(0, 0, 0, 0.48);
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 // 페이지별 의도적 디자인 차이 — 상대 페이지와 통합 금지 (§8 R9, sharedStyles.ts 헤더 참조)
@@ -2668,8 +2668,8 @@ const ListStar = styled.button`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: rgba(0, 0, 0, 0.35);
-  &:hover { background: rgba(0, 0, 0, 0.05); color: #2a73d9; }
+  color: ${({ theme }) => theme.colors.textSecondary};
+  &:hover { background: ${({ theme }) => theme.colors.hover}; color: #2a73d9; }
 `;
 
 /* Format an ISO date ("2026-05-20") as a localized row subtitle. Falls back

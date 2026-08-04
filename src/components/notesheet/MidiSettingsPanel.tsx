@@ -142,11 +142,11 @@ const Box = styled.div`
   gap: 3px;
   /* 라벨이 테두리에 걸치므로 위 여백을 살짝 더 준다 — EditorPage 섹션과 동일 결. */
   padding: 8px 9px 5px;
-  border: 2px solid rgba(0, 0, 0, 0.13);
+  border: 2px solid ${({ theme }) => theme.colors.border};
   border-radius: 12px;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   font-size: 12.5px;
-  color: #222;
+  color: ${({ theme }) => theme.colors.textPrimary};
   min-width: 0;
 `;
 /* EditorPage 의 BoxLegend 와 같은 규격 — 섹션 제목이 윗 테두리에 겹친다. */
@@ -173,7 +173,7 @@ const Warn = styled.div`
 `;
 const RetryBtn = styled.button`
   flex-shrink: 0;
-  border: 1px solid #d88; background: #fff; color: #b23b3b;
+  border: 1px solid #d88; background: ${({ theme }) => theme.colors.surface}; color: #b23b3b;
   border-radius: 6px; padding: 2px 8px; cursor: pointer; font-size: 12px;
 `;
 /* 수신 점멸을 상태가 아니라 애니메이션으로 처리한다 — 음을 칠 때마다
@@ -189,7 +189,7 @@ const flashOff = keyframes`
 `;
 const Monitor = styled.div`
   display: flex; align-items: center; gap: 7px;
-  background: #f6f8fa; border: 1px solid #e3e8ee; border-radius: 7px;
+  background: ${({ theme }) => theme.colors.surface}; border: 1px solid ${({ theme }) => theme.colors.border}; border-radius: 7px;
   padding: 4px 8px;
   min-width: 0;
 `;
@@ -204,15 +204,15 @@ const MonText = styled.span`
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 `;
 const Row = styled.div`display: flex; align-items: center; gap: 7px; min-width: 0;`;
-const Label = styled.span`width: 46px; flex-shrink: 0; color: #556;`;
+const Label = styled.span`width: 46px; flex-shrink: 0; color: ${({ theme }) => theme.colors.textSecondary};`;
 const Range = styled.input`flex: 1; min-width: 60px; accent-color: #ef6c00;`;
 const Num = styled.span`width: 26px; text-align: right; font-variant-numeric: tabular-nums;`;
 const Select = styled.select`
-  flex: 1; min-width: 0; padding: 3px 5px; border: 1px solid #ccc; border-radius: 6px;
-  font-size: 12px; background: #fff; color: #222;
+  flex: 1; min-width: 0; padding: 3px 5px; border: 1px solid ${({ theme }) => theme.colors.border}; border-radius: 6px;
+  font-size: 12px; background: ${({ theme }) => theme.colors.surface}; color: ${({ theme }) => theme.colors.textPrimary};
 `;
 const CheckRow = styled.div`
   display: flex; align-items: center; gap: 7px;
-  label { color: #445; }
-  input:disabled + label { color: #aab; }
+  label { color: ${({ theme }) => theme.colors.textPrimary}; }
+  input:disabled + label { color: ${({ theme }) => theme.colors.textSecondary}; }
 `;

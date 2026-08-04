@@ -47,13 +47,11 @@ const fadeIn = keyframes`from { opacity: 0; transform: translateY(8px); } to { o
 /* Soft warm canvas — light enough that the white chat input pill barely
  * peels off it, but still warmer than pure white so the page doesn't feel
  * sterile. Web stays on the theme's pure-white bg. */
-const NATIVE_BG = '#f1f0ec';
-
 const Wrapper = styled.div<{ $native?: boolean }>`
   display: flex;
   height: 100vh;
   height: 100dvh;
-  background: ${({ theme, $native }) => ($native ? NATIVE_BG : theme.colors.bgPrimary)};
+  background: ${({ theme, $native }) => ($native ? theme.colors.bgChat : theme.colors.bgPrimary)};
   font-family: ${({ theme }) => theme.fonts.ui};
   overflow: hidden;
   position: relative;
@@ -250,7 +248,7 @@ const HamburgerBtn = styled.button`
   justify-content: center;
   border: none;
   border-radius: 999px;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
   cursor: pointer;
   z-index: 60;
@@ -268,7 +266,7 @@ const HamburgerIcon = () => (
 const Drawer = styled.aside<{ $open: boolean }>`
   position: fixed;
   inset: 0;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   display: flex;
   flex-direction: column;
   transform: translateX(${({ $open }) => ($open ? '0' : '-110%')});
@@ -353,7 +351,7 @@ const DrawerNavItem = styled.button`
   cursor: pointer;
   border-radius: 12px;
   transition: background 0.1s;
-  &:active { background: #f5f5f5; }
+  &:active { background: ${({ theme }) => theme.colors.surfaceSunken}; }
 `;
 
 const NavItemIcon = styled.div`
@@ -363,14 +361,14 @@ const NavItemIcon = styled.div`
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: #111;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 const NavItemLabel = styled.span`
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 1.02rem;
   font-weight: 500;
-  color: #111;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 const DrawerMoreRow = styled.div`
@@ -385,12 +383,12 @@ const MoreDots = styled.div`
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  border: 1.5px solid #ddd;
+  border: 1.5px solid ${({ theme }) => theme.colors.border};
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1rem;
-  color: #888;
+  color: ${({ theme }) => theme.colors.textSecondary};
   font-weight: 700;
   letter-spacing: 0.05em;
 `;
@@ -399,14 +397,14 @@ const DrawerSectionTitle = styled.div`
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 0.95rem;
   font-weight: 700;
-  color: #111;
+  color: ${({ theme }) => theme.colors.textPrimary};
   padding: 18px 12px 6px;
 `;
 
 const DrawerDivider = styled.hr`
   margin: 6px 14px;
   border: none;
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  border-top: 1px solid ${({ theme }) => theme.colors.border};
 `;
 
 /* Logged-out drawer body — plain text links above the auth CTA. */
@@ -423,9 +421,9 @@ const DrawerTextLink = styled.button`
   padding: 0;
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 16px;
-  color: rgba(0, 0, 0, 0.55);
+  color: ${({ theme }) => theme.colors.textSecondary};
   cursor: pointer;
-  &:hover { color: #111; }
+  &:hover { color: ${({ theme }) => theme.colors.textPrimary}; }
 `;
 
 /* Logged-out drawer footer — small blurb + black sign-up/login pill. */
@@ -433,7 +431,7 @@ const AuthFootBlurb = styled.div`
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 14px;
   line-height: 1.5;
-  color: rgba(0, 0, 0, 0.55);
+  color: ${({ theme }) => theme.colors.textSecondary};
   padding: 0 6px 14px;
 `;
 const AuthPrimaryBtn = styled.button`
@@ -441,8 +439,8 @@ const AuthPrimaryBtn = styled.button`
   padding: 16px;
   border-radius: 999px;
   border: none;
-  background: #1a1a1a;
-  color: #fff;
+  background: ${({ theme }) => theme.colors.inkSurface};
+  color: ${({ theme }) => theme.colors.onInk};
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 16px;
   font-weight: 600;
@@ -461,8 +459,8 @@ const DrawerNewChatBtn = styled.button`
   height: 48px;
   border-radius: 999px;
   border: none;
-  background: #1a1a1a;
-  color: #fff;
+  background: ${({ theme }) => theme.colors.inkSurface};
+  color: ${({ theme }) => theme.colors.onInk};
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 1rem;
   font-weight: 600;

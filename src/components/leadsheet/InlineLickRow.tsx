@@ -5,6 +5,8 @@ import type { NoteSheetData } from '../../data/sampleMelody';
 import { buildVfNotes, buildBeams, buildTuplets } from '../chat/LickRecommendMessage';
 import { useGlobalPlayer } from '../../lib/player';
 import { getPlayerSettings, subscribePlayerSettings } from '../../lib/note/playerSettings';
+import { useNoteNameStyle } from '../../hooks/useNoteNameStyle';
+import { drawNoteNameLabels } from '../../lib/note/noteNameLabels';
 
 /* ─────────────────────────────────────────────────────────────────────────
  * InlineLickRow — renders a saved lick's notation IN FLOW directly under a
@@ -93,7 +95,7 @@ const Tab = styled.button`
   height: 24px;
   border: none;
   border-radius: 6px;
-  background: rgba(0, 0, 0, 0.82);
+  background: ${({ theme }) => theme.colors.scrim};
   color: #fff;
   font-size: 15px;
   font-weight: 700;
@@ -102,7 +104,7 @@ const Tab = styled.button`
   z-index: 2;
   opacity: 0;                 /* shown only on hover (see Row:hover) */
   transition: opacity .12s;
-  &:hover { background: #000; }
+  &:hover { background: ${({ theme }) => theme.colors.inkSurface}; }
 `;
 
 interface Props {
@@ -130,6 +132,7 @@ export function InlineLickRow({
   sheet, measureOffset, colStart, colCount, firstGlobalBar, rowHasBracket, showClose, onClose,
 }: Props) {
   const { player } = useGlobalPlayer();
+  const noteNameStyle = useNoteNameStyle();
   const gridRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const regionRef = useRef<HTMLDivElement>(null);
@@ -208,6 +211,9 @@ export function InlineLickRow({
         voice.draw(ctx, stave);
         beams.forEach((b) => b.setContext(ctx).draw());
         tuplets.forEach((t) => t.setContext(ctx).draw());
+        drawNoteNameLabels(host.querySelector('svg'), vfNotes.map((vf, ni) => (
+          { vfNote: vf, keys: measure.notes[ni]?.keys ?? [] }
+        )), noteNameStyle);
         // Map each non-rest note to its SVG element, keyed by SOURCE note index
         // (measure.notes index) so it matches the player's onNote srcNi — which
         // identifies notes by source position, not by non-rest ordinal. Keying
@@ -231,7 +237,7 @@ export function InlineLickRow({
 
     const svg = host.querySelector('svg');
     if (svg) { (svg as SVGElement).style.overflow = 'visible'; }
-  }, [gridW, sheet, measureOffset, colStart, colCount]);
+  }, [gridW, sheet, measureOffset, colStart, colCount, noteNameStyle]);
 
   // Subscribe to the player so the inline lick highlights its current note (blue)
   // + current measure (light-blue box) as the chord chart plays over it.

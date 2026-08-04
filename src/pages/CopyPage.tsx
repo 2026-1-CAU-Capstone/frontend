@@ -1006,7 +1006,7 @@ const DropSub = styled.div`
 const ErrorText = styled.div`
   margin-top: 6px;
   font-size: 0.85rem;
-  color: #c0392b;
+  color: ${({ theme }) => theme.colors.danger};
 `;
 
 /* ── 파일 정보 ── */
@@ -1055,8 +1055,8 @@ const PrimaryBtn = styled.button`
   padding: 9px 18px;
   border: none;
   border-radius: 8px;
-  background: #1a1a1a;
-  color: #fff;
+  background: ${({ theme }) => theme.colors.inkSurface};
+  color: ${({ theme }) => theme.colors.onInk};
   font-family: inherit;
   font-size: 0.85rem;
   font-weight: 600;
@@ -1070,7 +1070,7 @@ const WaveWrap = styled.div`
   height: 130px;
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 12px;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   overflow: hidden;
   touch-action: none;
   cursor: crosshair;
@@ -1160,9 +1160,9 @@ const Box = styled.div`
   flex-direction: column;
   gap: 8px;
   padding: 14px 12px 10px;
-  border: 2px solid rgba(0, 0, 0, 0.13);
+  border: 2px solid ${({ theme }) => theme.colors.border};
   border-radius: 12px;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
 `;
 
 const BoxTitle = styled.span`
@@ -1198,8 +1198,8 @@ const StepBtn = styled.button`
   height: 28px;
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 7px;
-  background: #fff;
-  color: #333;
+  background: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.textPrimary};
   font-family: inherit;
   font-size: 0.76rem;
   font-weight: 700;
@@ -1224,8 +1224,8 @@ const ResetBtn = styled.button`
   padding: 4px 10px;
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 7px;
-  background: #fff;
-  color: #333;
+  background: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.textPrimary};
   font-family: inherit;
   font-size: 0.75rem;
   font-weight: 600;
@@ -1238,7 +1238,7 @@ const AdvanceRow = styled.div`
   align-items: center;
   gap: 5px;
   font-size: 0.78rem;
-  color: #445;
+  color: ${({ theme }) => theme.colors.textPrimary};
   label { cursor: pointer; }
 `;
 
@@ -1255,7 +1255,7 @@ const SmallLabel = styled.span`
   flex-shrink: 0;
   width: 44px;
   font-size: 0.78rem;
-  color: #556;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 const SmallValue = styled.span`
@@ -1264,7 +1264,7 @@ const SmallValue = styled.span`
   text-align: right;
   font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
-  color: #334;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 const MixSelect = styled.select`
@@ -1274,8 +1274,8 @@ const MixSelect = styled.select`
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 7px;
   font-size: 0.8rem;
-  background: #fff;
-  color: #222;
+  background: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 /* ── 루프 박스 ── */
@@ -1339,7 +1339,7 @@ const Chip = styled.span`
   align-items: center;
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 999px;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   overflow: hidden;
 `;
 
@@ -1350,7 +1350,7 @@ const ChipBody = styled.button`
   font-family: inherit;
   font-size: 0.78rem;
   font-weight: 600;
-  color: #334;
+  color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
 `;
 
@@ -1359,9 +1359,9 @@ const ChipX = styled.button`
   background: transparent;
   padding: 5px 9px 5px 4px;
   font-size: 0.7rem;
-  color: #999;
+  color: ${({ theme }) => theme.colors.textSecondary};
   cursor: pointer;
-  &:hover { color: #c0392b; }
+  &:hover { color: ${({ theme }) => theme.colors.danger}; }
 `;
 
 const HintText = styled.div`
@@ -1385,8 +1385,8 @@ const YtInput = styled.input`
   border-radius: 9px;
   font-family: inherit;
   font-size: 0.86rem;
-  background: #fff;
-  color: #222;
+  background: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 const YtFrame = styled.div`
@@ -1397,7 +1397,7 @@ const YtFrame = styled.div`
   margin: 0 auto;
   border-radius: 12px;
   overflow: hidden;
-  background: #000;
+  background: ${({ theme }) => theme.colors.inkSurface};
 
   iframe {
     position: absolute;

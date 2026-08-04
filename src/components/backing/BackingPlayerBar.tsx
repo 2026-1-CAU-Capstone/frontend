@@ -613,7 +613,7 @@ const MetroBtn = styled.button<{ $on?: boolean }>`
   color: ${({ $on }) => ($on ? '#0a0a0a' : '#d6d6d6')};
   cursor: pointer;
   transition: color 0.15s, background 0.15s;
-  &:hover { background: rgba(0, 0, 0, 0.05); }
+  &:hover { background: ${({ theme }) => theme.colors.hover}; }
 `;
 
 /* Transport mixer button + its dropdown popover. */
@@ -636,7 +636,7 @@ const MixerIconBtn = styled.button<{ $on?: boolean }>`
   color: #fff;
   cursor: pointer;
   transition: background 0.15s, transform 0.1s;
-  &:hover { background: #000; }
+  &:hover { background: ${({ theme }) => theme.colors.inkSurface}; }
   &:active { transform: scale(0.94); }
 `;
 const MixerPopover = styled.div`
@@ -649,8 +649,8 @@ const MixerPopover = styled.div`
   max-height: 72vh;
   display: flex;
   flex-direction: column;
-  background: #fff;
-  border: 1px solid #e2e2e2;
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 14px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
   overflow: hidden;
@@ -660,7 +660,7 @@ const MixerModalBackdrop = styled.div`
   position: fixed;
   inset: 0;
   z-index: 10000;
-  background: rgba(0, 0, 0, 0.4);
+  background: ${({ theme }) => theme.colors.scrim};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -671,7 +671,7 @@ const MixerModal = styled.div`
   max-height: 86vh;
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 16px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   overflow: hidden;
@@ -690,7 +690,7 @@ const MixerPanelTitle = styled.span`
   font-family: 'Pretendard', sans-serif;
   font-size: 1.05rem;
   font-weight: 800;
-  color: #222;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 /* 믹서 제목 오른쪽 톱니 — 목록 페이지 툴바의 톱니와 같은 모양/역할. */
 const MixerPanelGear = styled.button`
@@ -702,22 +702,22 @@ const MixerPanelGear = styled.button`
   border: none;
   border-radius: 7px;
   background: transparent;
-  color: #8b8b84;
+  color: ${({ theme }) => theme.colors.textSecondary};
   cursor: pointer;
-  &:hover { background: rgba(0, 0, 0, 0.06); color: #1a1a1a; }
+  &:hover { background: ${({ theme }) => theme.colors.activeFill}; color: ${({ theme }) => theme.colors.textPrimary}; }
 `;
 
 const MixerPanelClose = styled.button`
   margin-left: auto;
   border: none;
   background: transparent;
-  color: #999;
+  color: ${({ theme }) => theme.colors.textSecondary};
   font-size: 1rem;
   line-height: 1;
   padding: 4px 6px;
   cursor: pointer;
   border-radius: 6px;
-  &:hover { background: #f2f2f2; color: #333; }
+  &:hover { background: ${({ theme }) => theme.colors.surfaceSunken}; color: ${({ theme }) => theme.colors.textPrimary}; }
 `;
 
 /* Genre — visual mock dropdown. Shrinks (min-width:0) so it gives up width as
@@ -740,13 +740,13 @@ const GenreBtn = styled.button`
   font-family: 'Pretendard', sans-serif;
   font-size: 1.04rem;
   font-weight: 600;
-  color: #1a1a1a;
-  background: #fff;
-  border: 1.5px solid #ccc;
+  color: ${({ theme }) => theme.colors.textPrimary};
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1.5px solid ${({ theme }) => theme.colors.border};
   border-radius: 6px;
   padding: 0 12px;
   cursor: pointer;
-  &:hover { border-color: #888; }
+  &:hover { border-color: ${({ theme }) => theme.colors.textPrimary}; }
 `;
 
 /* Label truncates with an ellipsis when the cell is squeezed. */
@@ -763,8 +763,8 @@ const GenreMenu = styled.div<{ $up?: boolean }>`
   left: 0;
   z-index: 60;
   min-width: 160px;
-  background: #fff;
-  border: 1px solid #e0e0e0;
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
   padding: 6px;
@@ -784,7 +784,7 @@ const GenreOpt = styled.button<{ $on?: boolean }>`
   border-radius: 7px;
   padding: 8px 10px;
   cursor: pointer;
-  &:hover { background: #f0f0f1; }
+  &:hover { background: ${({ theme }) => theme.colors.surfaceSunken}; }
 `;
 
 /* BPM / 반복 — boxed buttons that open a dropdown (display only). */
@@ -800,12 +800,12 @@ const FieldBtn = styled.button<{ $tight?: boolean }>`
   display: inline-flex;
   align-items: center;
   gap: ${({ $tight }) => ($tight ? '0' : '4px')};
-  background: #fff;
-  border: 1.5px solid #ccc;
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1.5px solid ${({ theme }) => theme.colors.border};
   border-radius: 6px;
   padding: 0 12px;
   cursor: pointer;
-  &:hover:not(:disabled) { border-color: #888; }
+  &:hover:not(:disabled) { border-color: ${({ theme }) => theme.colors.textPrimary}; }
   &:disabled { opacity: 0.5; cursor: not-allowed; }
 `;
 
@@ -814,7 +814,7 @@ const FieldVal = styled.span`
   font-size: 1.04rem;
   font-weight: 700;
   line-height: 1;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 const FieldU = styled.span`
@@ -822,7 +822,7 @@ const FieldU = styled.span`
   font-size: 0.96rem;
   font-weight: 600;
   line-height: 1;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 /* Dropdown panel (iOS-tempo style): title + big number + circular ± + extras. */
@@ -832,8 +832,8 @@ const MenuPanel = styled.div<{ $up?: boolean }>`
   left: 0;
   z-index: 80;
   width: 220px;
-  background: #fff;
-  border: 1px solid #e0e0e0;
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 14px;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
   padding: 14px 16px 16px;
@@ -847,7 +847,7 @@ const MenuTitle = styled.div`
   font-family: 'Pretendard', sans-serif;
   font-size: 0.9rem;
   font-weight: 600;
-  color: #888;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 /* Static, clickable big number — clicking swaps in BigNumInput. */
@@ -858,13 +858,13 @@ const BigNumBtn = styled.button`
   width: 100%;
   border: none;
   background: transparent;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   text-align: center;
   line-height: 1.1;
   cursor: text;
   border-radius: 8px;
   padding: 0;
-  &:hover { background: #f4f4f5; }
+  &:hover { background: ${({ theme }) => theme.colors.surfaceSunken}; }
 `;
 
 /* Bordered input revealed when the big number is clicked. */
@@ -876,8 +876,8 @@ const BigNumInput = styled.input`
   box-sizing: border-box;
   border: 2px solid #2b8aef;
   border-radius: 8px;
-  background: #fff;
-  color: #1a1a1a;
+  background: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.textPrimary};
   text-align: center;
   line-height: 1.1;
   padding: 0 4px;
@@ -891,7 +891,7 @@ const BigNumStatic = styled.div`
   font-family: 'Pretendard', sans-serif;
   font-size: 3rem;
   font-weight: 200;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   line-height: 1;
 `;
 
@@ -932,7 +932,7 @@ const MetroGlyphBtn = styled.button<{ $on?: boolean }>`
   color: ${({ $on }) => ($on ? '#0a0a0a' : '#d6d6d6')};
   cursor: pointer;
   transition: color 0.15s, background 0.15s;
-  &:hover { background: rgba(0, 0, 0, 0.05); }
+  &:hover { background: ${({ theme }) => theme.colors.hover}; }
 `;
 
 const InfToggle = styled.button<{ $on?: boolean }>`
@@ -995,7 +995,7 @@ const MixerScroll = styled.div`
   flex-direction: column;
   gap: 22px;
   padding: 8px 18px 18px;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
 `;
 
 /* Flat sections — no card backgrounds / borders. A hairline divider plus
@@ -1006,7 +1006,7 @@ const MixerSection = styled.div<{ $accent?: string }>`
   flex-direction: column;
   gap: 12px;
   padding-bottom: 22px;
-  border-bottom: 1px solid #efefef;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
 
   &:last-child {
     padding-bottom: 0;
@@ -1018,7 +1018,7 @@ const MixerSectionTitle = styled.div`
   font-family: 'Pretendard', sans-serif;
   font-size: 1.05rem;
   font-weight: 700;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   letter-spacing: 0;
   display: flex;
   align-items: center;
@@ -1036,7 +1036,7 @@ const MixerLabel = styled.span`
   font-family: 'Pretendard', sans-serif;
   font-size: 0.95rem;
   font-weight: 500;
-  color: #444;
+  color: ${({ theme }) => theme.colors.textSecondary};
   width: 82px;
   flex-shrink: 0;
   white-space: nowrap;
@@ -1057,7 +1057,7 @@ const SliderValue = styled.span`
   font-family: 'JetBrains Mono', 'Menlo', monospace;
   font-size: 0.74rem;
   font-weight: 600;
-  color: #888;
+  color: ${({ theme }) => theme.colors.textSecondary};
   pointer-events: none;
   white-space: nowrap;
 `;
@@ -1080,14 +1080,14 @@ const LoopClearBtn = styled.button`
   font-size: 0.8rem;
   font-weight: 700;
   color: #e5484d;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border: 1.5px solid #f3b6b8;
   border-radius: 8px;
   padding: 5px 12px;
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
-  &:hover { background: #fff5f5; border-color: #e5484d; }
+  &:hover { background: ${({ theme }) => theme.colors.surface}; border-color: #e5484d; }
 `;
 
 const MixerSlider = styled.input`
@@ -1100,7 +1100,7 @@ const MixerSlider = styled.input`
   min-width: 0;
   height: 6px;
   border-radius: 3px;
-  background: #e4e4e6;
+  background: ${({ theme }) => theme.colors.surfaceSunken};
   outline: none;
   &::-webkit-slider-thumb {
     -webkit-appearance: none;
@@ -1157,12 +1157,12 @@ const InstDDBtn = styled.button`
   font-size: 0.85rem;
   font-weight: 600;
   padding: 5px 6px;
-  border: 1.5px solid #dcdcdc;
+  border: 1.5px solid ${({ theme }) => theme.colors.border};
   border-radius: 8px;
-  background: #fff;
-  color: #333;
+  background: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
-  &:hover { background: #f7f7f8; }
+  &:hover { background: ${({ theme }) => theme.colors.surface}; }
 `;
 const InstDDLabel = styled.span`
   flex: 1;
@@ -1175,7 +1175,7 @@ const InstDDLabel = styled.span`
 const InstCaret = styled.span`
   flex: 0 0 auto;
   font-size: 0.7rem;
-  color: #999;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 const InstDDMenu = styled.div`
   position: absolute;
@@ -1185,8 +1185,8 @@ const InstDDMenu = styled.div`
   min-width: 150px;
   max-height: 280px;
   overflow-y: auto;
-  background: #fff;
-  border: 1px solid #e2e2e2;
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.14);
   padding: 4px;
@@ -1227,7 +1227,7 @@ const SmGroup = styled.div`
 const AttribLine = styled.div`
   font-family: 'Pretendard', sans-serif;
   font-size: 0.78rem;
-  color: #999;
+  color: ${({ theme }) => theme.colors.textSecondary};
   margin-top: 2px;
   text-align: right;
   line-height: 1.3;
@@ -1237,7 +1237,7 @@ const AttribLine = styled.div`
 const MixerNote = styled.div`
   font-family: 'Pretendard', sans-serif;
   font-size: 0.78rem;
-  color: #9a9a9a;
+  color: ${({ theme }) => theme.colors.textSecondary};
   line-height: 1.4;
   padding: 0 16px 2px;
 `;
@@ -1261,7 +1261,7 @@ const Switch = styled.button<{ $on?: boolean }>`
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    background: #fff;
+    background: ${({ theme }) => theme.colors.surface};
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
     transition: left 0.18s ease;
   }
@@ -1272,7 +1272,7 @@ const AdvItem = styled.div`
   justify-content: space-between;
   gap: 12px;
   padding: 8px 0;
-  & + & { border-top: 1px solid #f1f1f3; }
+  & + & { border-top: 1px solid ${({ theme }) => theme.colors.border}; }
 `;
 const AdvText = styled.div`
   display: flex;
@@ -1284,12 +1284,12 @@ const AdvItemTitle = styled.span`
   font-family: 'Pretendard', sans-serif;
   font-size: 0.95rem;
   font-weight: 600;
-  color: #333;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 const AdvItemDesc = styled.span`
   font-family: 'Pretendard', sans-serif;
   font-size: 0.78rem;
-  color: #9a9a9a;
+  color: ${({ theme }) => theme.colors.textSecondary};
   line-height: 1.4;
 `;
 const AdvSubRow = styled.div`
@@ -1301,7 +1301,7 @@ const AdvSubRow = styled.div`
 const AdvSubLabel = styled.span`
   font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
-  color: #777;
+  color: ${({ theme }) => theme.colors.textSecondary};
   flex-shrink: 0;
 `;
 

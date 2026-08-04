@@ -62,15 +62,15 @@ export const ComposerBox = styled.div`
   min-width: 0;
   display: flex;
   flex-direction: column;
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 28px;
-  background: #ffffff;
+  background: ${({ theme }) => theme.colors.surface};
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   overflow: hidden;
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 
   &:focus-within {
-    border-color: rgba(0, 0, 0, 0.18);
+    border-color: ${({ theme }) => theme.colors.border};
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
   }
 `;
@@ -201,7 +201,7 @@ export const Input = styled.textarea`
   box-sizing: border-box;
 
   &::placeholder {
-    color: rgba(0, 0, 0, 0.38);
+    color: ${({ theme }) => theme.colors.textSecondary};
   }
 `;
 
@@ -213,8 +213,8 @@ export const SendButton = styled.button`
   height: 36px;
   border-radius: 50%;
   border: none;
-  background: #1a1a1a;
-  color: #ffffff;
+  background: ${({ theme }) => theme.colors.inkSurface};
+  color: ${({ theme }) => theme.colors.onInk};
   cursor: pointer;
   display: inline-flex;
   align-items: center;

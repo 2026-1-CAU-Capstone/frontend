@@ -575,7 +575,7 @@ const GearBtn = styled.button`
   background: transparent;
   color: ${({ theme }) => theme.colors.textSecondary};
   cursor: pointer;
-  &:hover { background: rgba(0, 0, 0, 0.04); color: ${({ theme }) => theme.colors.textPrimary}; }
+  &:hover { background: ${({ theme }) => theme.colors.hover}; color: ${({ theme }) => theme.colors.textPrimary}; }
 `;
 
 const Page = styled.div`
@@ -691,7 +691,7 @@ const DropSub = styled.div`
 const ErrorText = styled.div`
   margin-top: 8px;
   font-size: 0.85rem;
-  color: #c0392b;
+  color: ${({ theme }) => theme.colors.danger};
   font-weight: 600;
 `;
 
@@ -713,7 +713,7 @@ const ProgressOuter = styled.div`
   width: 100%;
   height: 10px;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.08);
+  background: ${({ theme }) => theme.colors.activeFill};
   overflow: hidden;
 `;
 const shimmer = keyframes`to { background-position-x: -40px; }`;
@@ -780,7 +780,7 @@ const GhostBtn = styled.button`
   font-size: 0.86rem;
   font-weight: 600;
   cursor: pointer;
-  &:hover { background: rgba(0, 0, 0, 0.04); }
+  &:hover { background: ${({ theme }) => theme.colors.hover}; }
 `;
 
 /* ── 트랜스포트 ── */
@@ -876,12 +876,12 @@ const WaveWrap = styled.div`
   height: 44px;
   border-radius: 8px;
   overflow: hidden;
-  background: rgba(0, 0, 0, 0.03);
+  background: ${({ theme }) => theme.colors.hover};
 `;
 const WaveProgress = styled.div`
   position: absolute;
   inset: 0 auto 0 0;
-  background: rgba(0, 0, 0, 0.12);
+  background: ${({ theme }) => theme.colors.border};
   pointer-events: none;
 `;
 const TrackControls = styled.div`
@@ -943,5 +943,5 @@ const DemoNote = styled.p`
   margin: 8px 0 0;
   font-size: 0.78rem;
   color: ${({ theme }) => theme.colors.textSecondary};
-  code { background: rgba(0,0,0,0.05); padding: 1px 5px; border-radius: 4px; }
+  code { background: ${({ theme }) => theme.colors.hover}; padding: 1px 5px; border-radius: 4px; }
 `;

@@ -26,6 +26,8 @@ export const mq = {
 } as const;
 
 export const theme = {
+  /** 라이트/다크 판별용 표시. 조건부 CSS(global.ts 악보 잉크 등)가 이걸 본다. */
+  mode: 'light',
   colors: {
     // 브랜드
     gold: '#D4A843',
@@ -57,6 +59,36 @@ export const theme = {
     barBelow: '#FFFFFF',
     /** Warm soft gray used as the chat surface across HomePage / Chord / Note. */
     bgChat: '#F1F0EC',
+    /* ── 다크 모드 대응 의미 토큰 (2026-08-05) ────────────────────────
+     * 컴포넌트에 하드코딩된 색을 이 토큰들로 옮긴다. 특히 hover/scrim 은
+     * `rgba(0,0,0,…)` 로 박아두면 어두운 배경에서 아무것도 안 보인다. */
+    /** 모달·메뉴처럼 배경 위에 떠 있는 면. */
+    surface: '#FFFFFF',
+    /** 그 위에 한 단계 더 얹히는 면(입력칸·코드블록 등). */
+    surfaceSunken: '#F5F5F7',
+    /** hover 시 덮는 옅은 막. */
+    hover: 'rgba(0, 0, 0, 0.05)',
+    /** 선택/활성 상태의 옅은 막. */
+    activeFill: 'rgba(0, 0, 0, 0.06)',
+    /** 모달 뒤를 덮는 어두운 막. */
+    scrim: 'rgba(20, 20, 24, 0.45)',
+    /** 파괴적 동작(삭제·로그아웃). */
+    danger: '#C0392B',
+    dangerBorder: '#E3B5B0',
+    dangerFill: '#FDF3F2',
+    /** 강조(링크·포커스). */
+    accent: '#2F6FE0',
+
+    /* 검은 알약 버튼(배경 #1a1a1a + 흰 글자) 짝. 배경만 밝히면 흰 글자가 사라지므로
+     * 둘을 한 짝으로 뒤집는다 — 다크에서는 밝은 면 + 어두운 글자가 된다. */
+    inkSurface: '#1a1a1a',
+    /* 따뜻한 페이지 배경(로그인·네이티브 홈). 하드코딩 상수로 흩어져 있던 것을 모았다. */
+    pageWarm: '#F5F1E9',
+    /* 카드 hover 의 크림 틴트 — 내 코드 차트·내 악보 차트가 공유한다. */
+    cardHover: '#FAF6E9',
+    /* 본문보다 한 단 연한 잉크(코드 다이어그램 격자 등). */
+    inkSoft: '#3A3A3A',
+    onInk: '#FFFFFF',
     border: '#EEEEEE',
     textPrimary: '#1A1A1A',
     textSecondary: '#888888',
@@ -95,4 +127,13 @@ export const theme = {
   },
 } as const;
 
-export type Theme = typeof theme;
+/* 리터럴 타입을 문자열로 넓힌다 — 다크 테마(styles/darkTheme.ts)가 같은 토큰에
+ * 다른 색 문자열을 담아야 하는데, `as const` 리터럴 그대로면 '#D4A843' 만 허용돼
+ * 대입이 막힌다. 숫자(zIndex 등)는 그대로 둔다. */
+type WidenStrings<T> = {
+  -readonly [K in keyof T]: T[K] extends string ? string
+    : T[K] extends object ? WidenStrings<T[K]>
+    : T[K];
+};
+
+export type Theme = WidenStrings<typeof theme>;

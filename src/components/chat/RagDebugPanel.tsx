@@ -29,7 +29,7 @@ const Header = styled.button<{ $offline?: boolean }>`
   color: ${({ $offline }) => ($offline ? '#a02020' : '#5a4800')};
   font-weight: 600;
 
-  &:hover { background: rgba(0,0,0,0.04); }
+  &:hover { background: ${({ theme }) => theme.colors.hover}; }
 `;
 
 const Badge = styled.span<{ $color?: string }>`
@@ -55,7 +55,7 @@ const Section = styled.div`
 const SectionTitle = styled.div`
   font-size: 10px;
   font-weight: 700;
-  color: #888;
+  color: ${({ theme }) => theme.colors.textSecondary};
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin-bottom: 4px;
@@ -66,7 +66,7 @@ const QueryRow = styled.div`
   align-items: baseline;
   gap: 6px;
   padding: 2px 0;
-  color: #333;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 const QueryText = styled.span`
@@ -79,7 +79,7 @@ const QueryText = styled.span`
 const LvTag = styled.span`
   flex-shrink: 0;
   font-size: 10px;
-  color: #999;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 /* ── 청크 섹션 ── */
@@ -107,7 +107,7 @@ const ChunkHeader = styled.button`
   text-align: left;
   font-family: inherit;
   font-size: 11px;
-  color: #333;
+  color: ${({ theme }) => theme.colors.textPrimary};
 
   &:hover { background: #fff9c4; }
 `;
@@ -117,7 +117,7 @@ const ChunkHeader = styled.button`
 const ScoreBar = styled.div`
   width: 60px;
   height: 6px;
-  background: rgba(0, 0, 0, 0.07);
+  background: ${({ theme }) => theme.colors.activeFill};
   border-radius: 3px;
   flex-shrink: 0;
   overflow: hidden;
@@ -140,9 +140,9 @@ const ScoreNum = styled.span<{ $pct: number }>`
 
 const ChunkBody = styled.div`
   padding: 6px 8px;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border-top: 1px solid #f5e500;
-  color: #444;
+  color: ${({ theme }) => theme.colors.textSecondary};
   line-height: 1.55;
   white-space: pre-wrap;
   font-size: 11px;

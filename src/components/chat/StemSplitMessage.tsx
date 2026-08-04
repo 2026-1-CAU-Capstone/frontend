@@ -312,7 +312,7 @@ const Bar = styled.div`
   margin-top: 6px;
   height: 7px;
   border-radius: 999px;
-  background: rgba(0,0,0,0.08);
+  background: ${({ theme }) => theme.colors.activeFill};
   overflow: hidden;
 `;
 const BarFill = styled.div`
@@ -324,7 +324,7 @@ const BarFill = styled.div`
 const ErrorLine = styled.div`
   margin-top: 12px;
   font-size: 0.85rem;
-  color: #c0392b;
+  color: ${({ theme }) => theme.colors.danger};
 `;
 const Rows = styled.div`
   margin-top: 12px;

@@ -76,10 +76,10 @@ export const IconOnlyBtn = styled.button`
   border: none;
   border-radius: 50%;
   background: transparent;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
   transition: background 0.12s;
-  &:hover { background: rgba(0, 0, 0, 0.06); }
+  &:hover { background: ${({ theme }) => theme.colors.activeFill}; }
 `;
 
 export const Kebab = styled.button`
@@ -97,14 +97,14 @@ export const Kebab = styled.button`
   align-items: center;
   justify-content: center;
   gap: 2px;
-  &:hover { background: rgba(0, 0, 0, 0.05); }
+  &:hover { background: ${({ theme }) => theme.colors.hover}; }
 `;
 
 export const KebabDot = styled.span`
   width: 3px;
   height: 3px;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.5);
+  background: ${({ theme }) => theme.colors.scrim};
 `;
 
 export const KebabMenuIcon = styled.span`
@@ -175,14 +175,14 @@ export const ListNewRow = styled.button`
   width: 100%;
   padding: 10px 12px;
   border: none;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   background: transparent;
   cursor: pointer;
   font-family: inherit;
   text-align: left;
-  color: rgba(0, 0, 0, 0.6);
+  color: ${({ theme }) => theme.colors.textSecondary};
   transition: background 0.1s, color 0.1s;
-  &:hover { background: rgba(0, 0, 0, 0.03); color: #1a1a1a; }
+  &:hover { background: ${({ theme }) => theme.colors.hover}; color: ${({ theme }) => theme.colors.textPrimary}; }
 `;
 
 export const ListRow = styled.div<{ $selected?: boolean }>`
@@ -191,7 +191,7 @@ export const ListRow = styled.div<{ $selected?: boolean }>`
   align-items: center;
   gap: 16px;
   padding: 10px 12px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   cursor: pointer;
   background: ${({ $selected }) => ($selected ? 'rgba(43, 138, 239, 0.07)' : 'transparent')};
   transition: background 0.1s;
@@ -200,7 +200,7 @@ export const ListRow = styled.div<{ $selected?: boolean }>`
 
 export const ListSubtitle = styled.div`
   font-size: 12px;
-  color: rgba(0, 0, 0, 0.42);
+  color: ${({ theme }) => theme.colors.textSecondary};
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -209,7 +209,7 @@ export const ListSubtitle = styled.div`
 export const ListTitle = styled.div`
   font-size: 15px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
@@ -225,7 +225,7 @@ export const MetaRow = styled.div`
 export const ModalLabel = styled.span`
   font-size: 12px;
   font-weight: 700;
-  color: rgba(0, 0, 0, 0.55);
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 export const Page = styled.div`
@@ -242,17 +242,17 @@ export const PillBtn = styled.button`
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(0, 0, 0, 0.05);
+  background: ${({ theme }) => theme.colors.hover};
   border: none;
   border-radius: 999px;
   padding: 8px 14px;
   font-family: inherit;
   font-size: 13.5px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
   transition: background 0.12s;
-  &:hover { background: rgba(0, 0, 0, 0.08); }
+  &:hover { background: ${({ theme }) => theme.colors.activeFill}; }
 `;
 
 export const SbBtn = styled.button<{ $danger?: boolean }>`
@@ -269,7 +269,7 @@ export const SbBtn = styled.button<{ $danger?: boolean }>`
   color: ${({ $danger }) => ($danger ? '#e74c3c' : '#1a1a1a')};
   cursor: pointer;
   transition: background 0.12s, opacity 0.12s;
-  &:hover:not(:disabled) { background: rgba(0, 0, 0, 0.04); }
+  &:hover:not(:disabled) { background: ${({ theme }) => theme.colors.hover}; }
   &:disabled { opacity: 0.4; cursor: not-allowed; }
 `;
 
@@ -283,8 +283,8 @@ export const SelectionBar = styled.div`
   align-items: center;
   gap: 4px;
   padding: 6px 10px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 999px;
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.14);
 `;
@@ -314,7 +314,7 @@ export const SortItem = styled.button<{ $active?: boolean }>`
   text-align: left;
   color: ${({ $active }) => ($active ? '#1a1a1a' : 'rgba(0, 0, 0, 0.45)')};
   transition: background 0.1s;
-  &:hover { background: rgba(0, 0, 0, 0.04); }
+  &:hover { background: ${({ theme }) => theme.colors.hover}; }
 `;
 
 export const SortLabel = styled.span<{ $active?: boolean }>`
@@ -345,17 +345,17 @@ export const Title = styled.h1`
   font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.01em;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 export const ViewToggle = styled.div`
   display: inline-flex;
   align-items: center;
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 999px;
   padding: 2px;
   gap: 2px;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
 `;
 
 export const ViewToggleBtn = styled.button<{ $active?: boolean }>`
@@ -407,8 +407,8 @@ export const KebabMenu = styled.div`
   right: 6px;
   top: calc(100% + 4px);
   min-width: 132px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 12px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
   padding: 6px;
@@ -428,8 +428,8 @@ export const SortMenu = styled.div`
    * right edge lines up with the button's right edge. */
   right: 0;
   min-width: 180px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 14px;
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.14);
   padding: 6px;
@@ -458,21 +458,21 @@ export const ListThumb = styled.div<{ $tone?: 'folder' | 'sheet' | 'new' }>`
   width: 64px;
   height: 44px;
   border-radius: 6px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  background: ${({ $tone }) =>
-    $tone === 'folder' ? '#f2f2f3'
-      : $tone === 'sheet' ? '#fff'
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  background: ${({ $tone, theme }) =>
+    $tone === 'folder' ? theme.colors.surfaceSunken
+      : $tone === 'sheet' ? theme.colors.surface
       : $tone === 'new' ? 'transparent'
-      : '#e5e5e5'};
-  ${({ $tone }) => $tone === 'new' && `
+      : theme.colors.border};
+  ${({ $tone, theme }) => $tone === 'new' && `
     border-style: dashed;
-    border-color: rgba(0, 0, 0, 0.22);
+    border-color: ${theme.colors.border};
   `}
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  color: rgba(0, 0, 0, 0.55);
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 /* ── 상세 페이지 공통 셸 (내 코드 차트 · 내 악보 차트 · 내 릭) ──────────────
@@ -485,7 +485,7 @@ export const ListThumb = styled.div<{ $tone?: 'folder' | 'sheet' | 'new' }>`
  * 전부 흰색(barBelow). 예전엔 반대로 헤더가 흰색·본문이 회색이었다. */
 export const DetailHeader = styled.div`
   background: ${({ theme }) => theme.colors.barTop};
-  border-bottom: 1px solid #ececec;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 14px;
 `;
 
@@ -529,7 +529,7 @@ export const DetailTitle = styled.h1`
   font-size: 20px;
   font-weight: 800;
   letter-spacing: -0.01em;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

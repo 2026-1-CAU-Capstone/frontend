@@ -4,8 +4,6 @@ import styled, { keyframes } from 'styled-components';
 import { login, signup, getCachedUser } from '../api/auth';
 import { BrandLogoImage } from '../components/common/BrandLogoImage';
 
-const BG = '#f5f1e9';
-
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -223,7 +221,7 @@ const SpinnerSvg = styled.svg`
 
 const Page = styled.div`
   min-height: 100vh;
-  background: ${BG};
+  background: ${({ theme }) => theme.colors.pageWarm};
   display: flex;
   flex-direction: column;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Pretendard', sans-serif;
@@ -254,7 +252,7 @@ const Center = styled.div`
 const Headline = styled.h1`
   font-size: clamp(2.2rem, 4.4vw, 3.6rem);
   font-weight: 400;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   letter-spacing: -0.02em;
   line-height: 1.18;
   text-align: center;
@@ -264,7 +262,7 @@ const Headline = styled.h1`
 const SubHead = styled.p`
   font-size: clamp(1rem, 1.6vw, 1.2rem);
   font-weight: 600;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   text-align: center;
   margin: 0 0 36px;
   letter-spacing: -0.01em;
@@ -273,8 +271,8 @@ const SubHead = styled.p`
 const Card = styled.div`
   width: 100%;
   max-width: 460px;
-  background: rgba(255, 255, 255, 0.42);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: ${({ theme }) => (theme.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.42)')};
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 20px;
   padding: 26px 26px 28px;
   display: flex;
@@ -287,9 +285,9 @@ const SocialBtn = styled.button`
   width: 100%;
   height: 54px;
   border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.14);
-  background: #fff;
-  color: #1a1a1a;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  background: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.textPrimary};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -300,14 +298,14 @@ const SocialBtn = styled.button`
   font-family: inherit;
   transition: background 0.1s, border-color 0.1s, transform 0.06s;
 
-  &:hover { background: rgba(0, 0, 0, 0.02); border-color: rgba(0, 0, 0, 0.2); }
+  &:hover { background: ${({ theme }) => theme.colors.hover}; border-color: ${({ theme }) => theme.colors.border}; }
   &:active { transform: scale(0.99); }
 `;
 
 const OrLabel = styled.div`
   text-align: center;
   font-size: 13.5px;
-  color: rgba(0, 0, 0, 0.42);
+  color: ${({ theme }) => theme.colors.textSecondary};
   margin: 0;
 `;
 
@@ -319,27 +317,27 @@ const Form = styled.form`
   input {
     width: 100%;
     height: 54px;
-    border: 1px solid rgba(0, 0, 0, 0.14);
+    border: 1px solid ${({ theme }) => theme.colors.border};
     border-radius: 12px;
-    background: #fff;
+    background: ${({ theme }) => theme.colors.surface};
     padding: 0 18px;
     font-size: 15px;
     font-family: inherit;
-    color: #1a1a1a;
+    color: ${({ theme }) => theme.colors.textPrimary};
     outline: none;
     box-sizing: border-box;
     transition: border-color 0.12s, box-shadow 0.12s;
 
-    &::placeholder { color: rgba(0, 0, 0, 0.4); }
-    &:focus { border-color: rgba(0, 0, 0, 0.5); box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.04); }
-    &:disabled { background: #fafafa; color: rgba(0, 0, 0, 0.5); }
+    &::placeholder { color: ${({ theme }) => theme.colors.textSecondary}; }
+    &:focus { border-color: ${({ theme }) => theme.colors.border}; box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.04); }
+    &:disabled { background: ${({ theme }) => theme.colors.surfaceSunken}; color: ${({ theme }) => theme.colors.textSecondary}; }
   }
 `;
 
 const ErrorMsg = styled.div`
   padding: 0 4px;
   font-size: 12.5px;
-  color: #c0392b;
+  color: ${({ theme }) => theme.colors.danger};
 `;
 
 /* 입력 바로 아래 실시간 안내(비밀번호 불일치 등) — ErrorMsg 보다 조용한 톤. */
@@ -347,7 +345,7 @@ const FieldHint = styled.div`
   margin-top: -4px;
   padding: 0 4px;
   font-size: 12px;
-  color: #c0392b;
+  color: ${({ theme }) => theme.colors.danger};
 `;
 
 /* 로그인 ↔ 회원가입 전환 — 카드 하단 중앙. */
@@ -357,7 +355,7 @@ const SwitchRow = styled.div`
   justify-content: center;
   gap: 6px;
   font-size: 13.5px;
-  color: rgba(0, 0, 0, 0.5);
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 const SwitchLink = styled.button`
@@ -367,7 +365,7 @@ const SwitchLink = styled.button`
   font-size: 13.5px;
   font-weight: 700;
   font-family: inherit;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -381,8 +379,8 @@ const ContinueBtn = styled.button`
   height: 54px;
   border-radius: 12px;
   border: none;
-  background: #1a1a1a;
-  color: #fff;
+  background: ${({ theme }) => theme.colors.inkSurface};
+  color: ${({ theme }) => theme.colors.onInk};
   font-size: 15px;
   font-weight: 600;
   font-family: inherit;
@@ -396,6 +394,6 @@ const ContinueBtn = styled.button`
   &:hover:not(:disabled) { opacity: 0.88; }
   &:active:not(:disabled) { transform: scale(0.99); }
   &:disabled { cursor: default; }
-  &[aria-busy='true'] { background: rgba(0, 0, 0, 0.22); opacity: 1; }
+  &[aria-busy='true'] { background: ${({ theme }) => theme.colors.border}; opacity: 1; }
   &:disabled:not([aria-busy='true']) { opacity: 0.32; }
 `;

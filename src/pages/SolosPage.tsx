@@ -233,8 +233,8 @@ const OMRBtn = styled.button`
   padding: 6px 14px;
   border: none;
   border-radius: 6px;
-  background: #1a1a1a;
-  color: #fff;
+  background: ${({ theme }) => theme.colors.inkSurface};
+  color: ${({ theme }) => theme.colors.onInk};
   cursor: pointer;
   &:hover { opacity: 0.9; }
 `;
@@ -242,31 +242,31 @@ const OMRBtn = styled.button`
 /* MusicXML/MIDI 가져오기 모달. */
 const ImportOverlay = styled.div`
   position: fixed; inset: 0; z-index: 120;
-  background: rgba(0, 0, 0, 0.45);
+  background: ${({ theme }) => theme.colors.scrim};
   display: flex; align-items: center; justify-content: center;
 `;
 const ImportBox = styled.div`
   width: 560px; max-width: 92vw; max-height: 84vh; overflow-y: auto;
-  background: #fff; border-radius: 12px; padding: 22px 24px;
+  background: ${({ theme }) => theme.colors.surface}; border-radius: 12px; padding: 22px 24px;
   font-family: 'Pretendard', sans-serif;
   display: flex; flex-direction: column; gap: 12px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
   h3 { margin: 0; font-size: 1.08rem; }
-  .sub { margin: 0; font-size: 0.82rem; line-height: 1.5; color: #777; }
+  .sub { margin: 0; font-size: 0.82rem; line-height: 1.5; color: ${({ theme }) => theme.colors.textSecondary}; }
 `;
 const ImportFileRow = styled.div`
   input { font-size: 0.85rem; }
 `;
 const ImportDivider = styled.div`
-  font-size: 0.75rem; color: #999; text-align: center;
+  font-size: 0.75rem; color: ${({ theme }) => theme.colors.textSecondary}; text-align: center;
   display: flex; align-items: center; gap: 10px;
-  &::before, &::after { content: ''; flex: 1; height: 1px; background: #e4e4e8; }
+  &::before, &::after { content: ''; flex: 1; height: 1px; background: ${({ theme }) => theme.colors.surfaceSunken}; }
 `;
 const ImportTextarea = styled.textarea`
   font-family: 'JetBrains Mono', 'Menlo', monospace;
   font-size: 0.72rem; line-height: 1.4;
   min-height: 180px; resize: vertical;
-  border: 1px solid #d8d8dc; border-radius: 8px; padding: 10px;
+  border: 1px solid ${({ theme }) => theme.colors.border}; border-radius: 8px; padding: 10px;
   outline: none;
   &:focus { border-color: #b8960a; }
 `;
@@ -309,7 +309,7 @@ const ToolBtn = styled.button<{ $lit?: boolean }>`
   transition: background 0.15s, color 0.15s;
   ${({ $lit }) => $lit && 'filter: drop-shadow(0 0 4px rgba(232, 168, 56, 0.55));'}
 
-  &:hover:not(:disabled) { background: rgba(0, 0, 0, 0.06); }
+  &:hover:not(:disabled) { background: ${({ theme }) => theme.colors.activeFill}; }
   &:disabled { opacity: 0.4; cursor: default; }
 `;
 
@@ -610,7 +610,7 @@ const RowIconBtn = styled.button`
 
   &:hover:not(:disabled) {
     color: ${({ theme }) => theme.colors.textPrimary};
-    background: rgba(0, 0, 0, 0.06);
+    background: ${({ theme }) => theme.colors.activeFill};
   }
   &:disabled { opacity: 0.4; cursor: default; }
   svg { display: block; }
@@ -1109,8 +1109,8 @@ const ErrorBanner = styled.div`
   padding: 8px 12px;
   border: 1px solid #e08080;
   border-radius: 6px;
-  background: #fdecea;
-  color: #a03022;
+  background: ${({ theme }) => theme.colors.dangerFill};
+  color: ${({ theme }) => theme.colors.danger};
   font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
 `;
@@ -1248,7 +1248,7 @@ const OmrOpenBtn = styled.button`
 const QueueCard = styled.div`
   border: 1px solid #e6d3a0;
   border-radius: 12px;
-  background: #fffdf7;
+  background: ${({ theme }) => theme.colors.surface};
   box-shadow: 0 8px 26px rgba(0, 0, 0, 0.14);
   overflow: hidden;
   font-family: ${({ theme }) => theme.fonts.ui};
@@ -1288,11 +1288,11 @@ const QueueHeadIcon = styled.span<{ $running: boolean }>`
 const QueueHeadMain = styled.span` flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; `;
 const QueueHeadTitle = styled.span`
   display: flex; align-items: baseline; gap: 8px;
-  font-size: 0.92rem; font-weight: 800; color: #1a1a1a;
+  font-size: 0.92rem; font-weight: 800; color: ${({ theme }) => theme.colors.textPrimary};
 `;
 const QueueHeadPct = styled.span` font-size: 0.78rem; font-weight: 700; color: #b8860b; `;
 const QueueHeadFail = styled.span`
-  font-size: 0.72rem; font-weight: 700; color: #c0392b;
+  font-size: 0.72rem; font-weight: 700; color: ${({ theme }) => theme.colors.danger};
   background: rgba(196, 92, 92, 0.12); padding: 1px 7px; border-radius: 999px;
 `;
 const QueueHeadSub = styled.span`
@@ -1307,7 +1307,7 @@ const QueueChevron = styled.span<{ $open: boolean }>`
 /* 진행 바 — 완료(골드) + 오류(빨강) 구간을 이어 그린다. */
 const QueueBarTrack = styled.div`
   position: relative; height: 6px; margin: 0 12px 12px;
-  background: rgba(0, 0, 0, 0.07); border-radius: 3px; overflow: hidden;
+  background: ${({ theme }) => theme.colors.activeFill}; border-radius: 3px; overflow: hidden;
 `;
 const QueueBarDone = styled.div<{ $pct: number }>`
   position: absolute; inset: 0 auto 0 0;
@@ -1352,7 +1352,7 @@ const QueueRowIcon = styled.span<{ $status: SoloOmrJobStatus }>`
   justify-content: center;
   font-size: 10.5px;
   font-weight: 800;
-  ${({ $status }) => $status === 'PROCESSING'
+  ${({ $status, theme }) => $status === 'PROCESSING'
     ? css`
         border: 2.5px solid rgba(184, 134, 11, 0.25);
         border-top-color: #b8860b;
@@ -1362,11 +1362,11 @@ const QueueRowIcon = styled.span<{ $status: SoloOmrJobStatus }>`
       ? css`background: #1f9a52; color: #fff;`
       : $status === 'FAILED'
         ? css`background: #c45c5c; color: #fff;`
-        : css`background: rgba(0, 0, 0, 0.06); color: #999;`}
+        : css`background: ${theme.colors.activeFill}; color: ${theme.colors.textSecondary};`}
 `;
 const QueueRowMain = styled.span` flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; `;
 const QueueRowName = styled.span`
-  font-size: 0.82rem; font-weight: 600; color: #2a2a2a;
+  font-size: 0.82rem; font-weight: 600; color: ${({ theme }) => theme.colors.textPrimary};
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 `;
 const QueueRowInfo = styled.span<{ $fail?: boolean }>`
@@ -1376,7 +1376,7 @@ const QueueRowInfo = styled.span<{ $fail?: boolean }>`
 `;
 const QueueRowRemove = styled.button`
   flex: none; width: 20px; height: 20px; border: none; border-radius: 50%;
-  background: transparent; color: #b0b0b0; font-size: 14px; line-height: 1; cursor: pointer;
+  background: transparent; color: ${({ theme }) => theme.colors.textSecondary}; font-size: 14px; line-height: 1; cursor: pointer;
   &:hover { background: rgba(196, 92, 92, 0.12); color: #c45c5c; }
 `;
 /* 진행 중 큐에 파일 추가 — 헤더의 둥근 ＋ 버튼과 상세 하단의 점선 행. */
@@ -1417,22 +1417,22 @@ const HiddenQueueInput = styled.input`
 /* ── 큐 영속 기록 모달 (admin) ─────────────────────────────────────────── */
 type QLogSt = 'QUEUED' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'INTERRUPTED';
 const QLogBackdrop = styled.div`
-  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5);
+  position: fixed; inset: 0; background: ${({ theme }) => theme.colors.scrim};
   z-index: ${({ theme }) => theme.zIndex.max};
   display: flex; align-items: center; justify-content: center; padding: 24px;
 `;
 const QLogCard = styled.div`
   width: min(560px, 100%); max-height: 84vh;
   display: flex; flex-direction: column;
-  background: #fff; border-radius: 16px; overflow: hidden;
+  background: ${({ theme }) => theme.colors.surface}; border-radius: 16px; overflow: hidden;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
   font-family: ${({ theme }) => theme.fonts.ui};
 `;
 const QLogHead = styled.div`
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 16px 18px 12px; border-bottom: 1px solid #f0f0f0;
+  padding: 16px 18px 12px; border-bottom: 1px solid ${({ theme }) => theme.colors.border};
 `;
-const QLogTitle = styled.h2` margin: 0; font-size: 16px; font-weight: 800; color: #1a1a1a; `;
+const QLogTitle = styled.h2` margin: 0; font-size: 16px; font-weight: 800; color: ${({ theme }) => theme.colors.textPrimary}; `;
 const QLogSummary = styled.div` display: flex; gap: 6px; margin-left: auto; `;
 const QLogStat = styled.span<{ $tone?: 'ok' | 'fail' | 'warn' }>`
   font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
@@ -1440,8 +1440,8 @@ const QLogStat = styled.span<{ $tone?: 'ok' | 'fail' | 'warn' }>`
   background: ${({ $tone }) => ($tone === 'ok' ? 'rgba(45,143,94,0.12)' : $tone === 'fail' ? 'rgba(196,92,92,0.12)' : $tone === 'warn' ? 'rgba(184,134,11,0.14)' : '#f1f1ef')};
 `;
 const QLogClose = styled.button`
-  border: none; background: transparent; color: #999; font-size: 20px; line-height: 1; cursor: pointer;
-  &:hover { color: #444; }
+  border: none; background: transparent; color: ${({ theme }) => theme.colors.textSecondary}; font-size: 20px; line-height: 1; cursor: pointer;
+  &:hover { color: ${({ theme }) => theme.colors.textSecondary}; }
 `;
 const QLogHint = styled.div`
   margin: 10px 18px 0; padding: 9px 12px; border-radius: 9px;
@@ -1451,7 +1451,7 @@ const QLogHint = styled.div`
 const QLogList = styled.div`
   flex: 1; min-height: 0; overflow-y: auto; padding: 10px 12px; scrollbar-width: thin;
 `;
-const QLogEmpty = styled.div` padding: 28px 0; text-align: center; color: #aaa; font-size: 13px; `;
+const QLogEmpty = styled.div` padding: 28px 0; text-align: center; color: ${({ theme }) => theme.colors.textSecondary}; font-size: 13px; `;
 const QLogRow = styled.div<{ $st: QLogSt }>`
   display: flex; align-items: center; gap: 10px;
   padding: 8px 8px; border-radius: 9px;
@@ -1473,7 +1473,7 @@ const QLogIcon = styled.span<{ $st: QLogSt }>`
 `;
 const QLogMain = styled.div` flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; `;
 const QLogName = styled.div`
-  font-size: 13px; font-weight: 600; color: #2a2a2a;
+  font-size: 13px; font-weight: 600; color: ${({ theme }) => theme.colors.textPrimary};
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 `;
 const QLogInfo = styled.div<{ $st: QLogSt }>`
@@ -1481,14 +1481,14 @@ const QLogInfo = styled.div<{ $st: QLogSt }>`
   color: ${({ $st }) => ($st === 'FAILED' ? '#c0392b' : $st === 'INTERRUPTED' ? '#8a6d1c' : '#999')};
   word-break: break-word;
 `;
-const QLogTime = styled.div` flex: none; font-size: 10.5px; color: #b0b0b0; white-space: nowrap; `;
+const QLogTime = styled.div` flex: none; font-size: 10.5px; color: ${({ theme }) => theme.colors.textSecondary}; white-space: nowrap; `;
 const QLogFoot = styled.div`
-  display: flex; justify-content: flex-end; padding: 10px 16px; border-top: 1px solid #f0f0f0;
+  display: flex; justify-content: flex-end; padding: 10px 16px; border-top: 1px solid ${({ theme }) => theme.colors.border};
 `;
 const QLogClearBtn = styled.button`
-  border: 1px solid #e2e2e2; background: #fff; border-radius: 8px; padding: 6px 14px;
-  font-size: 12px; font-weight: 600; color: #888; cursor: pointer;
-  &:hover { background: rgba(196, 92, 92, 0.07); color: #c0392b; border-color: rgba(196, 92, 92, 0.35); }
+  border: 1px solid ${({ theme }) => theme.colors.border}; background: ${({ theme }) => theme.colors.surface}; border-radius: 8px; padding: 6px 14px;
+  font-size: 12px; font-weight: 600; color: ${({ theme }) => theme.colors.textSecondary}; cursor: pointer;
+  &:hover { background: rgba(196, 92, 92, 0.07); color: ${({ theme }) => theme.colors.danger}; border-color: rgba(196, 92, 92, 0.35); }
 `;
 
 /** One OMR job tracked by the status panel. `progress` 0 ⇒ indeterminate bar. */

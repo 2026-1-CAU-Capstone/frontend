@@ -19,7 +19,12 @@
       worker-src 'self' blob:;
       object-src 'none';
       base-uri 'self'">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- 파비콘 — 앱 로고(jazzifylogo.png)에서 생성. 예전엔 색소폰 이모지를 넣은
+         SVG 라 브라우저·OS 마다 다른 모양으로 그려졌다(이모지 폰트 의존).
+         .ico 는 16~256px 다중 해상도라 탭·북마크·즐겨찾기에서 각각 선명하다. -->
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />

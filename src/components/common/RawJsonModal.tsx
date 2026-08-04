@@ -149,7 +149,7 @@ const Backdrop = styled.div`
   inset: 0;
   /* 최상위 — admin 디버깅 도구라 어떤 오버레이보다 위에 떠야 확인이 된다. */
   z-index: ${({ theme }) => theme.zIndex.max};
-  background: rgba(0, 0, 0, 0.45);
+  background: ${({ theme }) => theme.colors.scrim};
   display: flex;
   align-items: center;
   justify-content: center;

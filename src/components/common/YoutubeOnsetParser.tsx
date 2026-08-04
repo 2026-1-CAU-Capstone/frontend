@@ -584,7 +584,7 @@ const PlayerWrap = styled.div`
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  background: #000;
+  background: ${({ theme }) => theme.colors.inkSurface};
   border-radius: 10px;
   overflow: hidden;
 `;

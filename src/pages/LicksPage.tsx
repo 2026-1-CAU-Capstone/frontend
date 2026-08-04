@@ -100,10 +100,10 @@ const OMRBtn = styled.button`
   font-size: 0.82rem;
   font-weight: 600;
   padding: 4px 12px;
-  border: 1px solid #1a1a1a;
+  border: 1px solid ${({ theme }) => theme.colors.textPrimary};
   border-radius: 999px;
-  background: #1a1a1a;
-  color: #fff;
+  background: ${({ theme }) => theme.colors.inkSurface};
+  color: ${({ theme }) => theme.colors.onInk};
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -176,7 +176,7 @@ const MelodyBtn = styled.button<{ $active?: boolean }>`
   color: ${({ $active }) => ($active ? '#3070a0' : '#666')};
   cursor: pointer;
   font-weight: 600;
-  &:hover { background: #e8f0f8; }
+  &:hover { background: ${({ theme }) => theme.colors.surfaceSunken}; }
 `;
 
 const MelodyPanel = styled.div`
@@ -207,7 +207,7 @@ const NoteBadge = styled.span`
   font-family: 'JetBrains Mono', 'Menlo', monospace;
   font-size: 0.7rem;
   padding: 1px 5px;
-  background: #f0ebe0;
+  background: ${({ theme }) => theme.colors.surfaceSunken};
   border-radius: 3px;
   color: #8B6914;
 `;
@@ -225,13 +225,13 @@ const SmallBtn = styled.button`
   font-family: 'Pretendard', sans-serif;
   font-size: 0.78rem;
   padding: 4px 14px;
-  border: 1px solid #bbb;
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 4px;
-  background: #f5f5f5;
+  background: ${({ theme }) => theme.colors.surfaceSunken};
   cursor: pointer;
-  color: #555;
+  color: ${({ theme }) => theme.colors.textSecondary};
   font-weight: 600;
-  &:hover { background: #e8e8e8; }
+  &:hover { background: ${({ theme }) => theme.colors.surfaceSunken}; }
   &:disabled { opacity: 0.35; cursor: default; }
 `;
 

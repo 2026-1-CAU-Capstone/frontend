@@ -24,6 +24,7 @@ import { useIsNativeLandscape } from '../../hooks/useIsNativeLandscape';
 import { useIsNativeUi } from '../../contexts/AppPreviewContext';
 import { usePlayerBarPosition } from '../../contexts/PlayerBarPositionContext';
 import { chordToInputString } from '../../lib/leadSheetChordEdit';
+import { ChordDiagram } from './ChordDiagram';
 import { breakBeatForBar, type BreakPoint } from '../../lib/breakPoints';
 import { getModalInterchangeTemplate } from '../../lib/modalInterchangeTemplates';
 import { ModalInterchangePopup } from './ModalInterchangePopup';
@@ -56,7 +57,28 @@ const LABEL_FONT   = "'Pretendard', 'Pretendard', sans-serif"; // gothic for A/B
 
 /* ─── page ───────────────────────────────────────────────────────────────── */
 
-const ViewerOuter = styled.div<{ $fs?: boolean; $fit?: boolean }>`
+/** 전체화면 상단 재생바 높이(px). ViewerOuter 여백과 바 자체가 같이 본다. */
+const FS_TOOLBAR_H = 52;
+
+/** 전체화면 안 **맨 위**에 얹히는 재생바. ViewerOuter(fixed)가 기준이라
+ *  absolute 로 붙여도 화면 상단 툴바 바로 아래에 정확히 붙는다. */
+const FullscreenToolbar = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: ${FS_TOOLBAR_H}px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 12px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+`;
+
+const ViewerOuter = styled.div<{ $fs?: boolean; $fit?: boolean; $fsToolbar?: boolean }>`
   position: relative;
   flex: 1;
   overflow: auto;
@@ -76,7 +98,7 @@ const ViewerOuter = styled.div<{ $fs?: boolean; $fit?: boolean }>`
   ${mq.compactLayout} {
     justify-content: stretch;
     padding: 0;
-    background: #fff;
+    background: ${({ theme }) => theme.colors.surface};
   }
 
   ${mq.mobile} {
@@ -105,11 +127,17 @@ const ViewerOuter = styled.div<{ $fs?: boolean; $fit?: boolean }>`
     overflow: hidden;
     padding: 0;
   `}
+
+  /* 전체화면 재생바가 있을 때만 그 높이만큼 위를 비운다. 배치(가로 중앙 정렬)는
+   * 원래 그대로 두고 여백만 준다 — 바는 아래에서 absolute 로 얹는다. */
+  ${({ $fs, $fsToolbar }) => $fs && $fsToolbar && `
+    padding-top: ${FS_TOOLBAR_H}px;
+  `}
 `;
 
 const Page = styled.div<{ $web?: boolean }>`
   position: relative;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   width: 100%;
   box-shadow: ${({ theme }) => theme.shadows.xl};
   border-radius: 4px;
@@ -117,7 +145,7 @@ const Page = styled.div<{ $web?: boolean }>`
    * 꽉 차게 보인다. 상하는 유지. 앱/프리뷰는 기존 32px. */
   padding: ${({ $web }) => ($web ? '50px 14px 48px' : '50px 32px 48px')};
   font-family: ${CHORD_FONT};
-  color: #000;
+  color: ${({ theme }) => theme.colors.textPrimary};
 
   ${mq.compactLayout} {
     min-height: 100%;
@@ -208,8 +236,8 @@ const KeyButton = styled.button`
   max-width: 100%;
   overflow: hidden;
   white-space: nowrap;
-  background: #fff;
-  border: 1.5px solid #ccc;
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1.5px solid ${({ theme }) => theme.colors.border};
   border-radius: 6px;
   padding: 0 10px;
   cursor: pointer;
@@ -217,13 +245,13 @@ const KeyButton = styled.button`
   font-size: 1.12rem;
   font-weight: 600;
   line-height: 1;
-  color: #222;
-  &:hover { border-color: #888; }
+  color: ${({ theme }) => theme.colors.textPrimary};
+  &:hover { border-color: ${({ theme }) => theme.colors.textPrimary}; }
 
   &::after {
     content: '▾';
     font-size: 0.7em;
-    color: #999;
+    color: ${({ theme }) => theme.colors.textSecondary};
   }
 `;
 
@@ -237,8 +265,8 @@ const KeyMenu = styled.div<{ $up?: boolean }>`
   position: absolute;
   ${({ $up }) => ($up ? 'bottom: calc(100% + 4px);' : 'top: calc(100% + 4px);')}
   left: 0;
-  background: #fff;
-  border: 1px solid #ddd;
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 8px;
   padding: 8px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.15);
@@ -334,7 +362,7 @@ const TimeSig = styled.div`
 const TimeSigDivider = styled.div`
   width: 100%;
   height: 2px;
-  background: #000;
+  background: ${({ theme }) => theme.colors.inkSurface};
   margin: 1px 0;
 `;
 
@@ -375,8 +403,8 @@ const SectionLabel = styled.div`
   position: absolute;
   top: -${LABEL_OFFSET}px;
   left: 6px;
-  background: #000;
-  color: #fff;
+  background: ${({ theme }) => theme.colors.inkSurface};
+  color: ${({ theme }) => theme.colors.onInk};
   font-family: ${LABEL_FONT};
   font-size: clamp(1rem, 2.4cqi, 1.5rem);
   font-weight: 800;
@@ -408,7 +436,7 @@ const VoltaBracket = styled.div<{ $cols?: number }>`
   left: 0;
   width: ${({ $cols }) => $cols != null ? `${($cols / 4) * 100}%` : '100%'};
   height: ${VOLTA_HEIGHT - 2}px;
-  border: 2.5px solid #000;
+  border: 2.5px solid ${({ theme }) => theme.colors.textPrimary};
   border-bottom: none;
   border-right: none;
   pointer-events: none;
@@ -510,7 +538,7 @@ const BeatMarker = styled.button<{ $active?: boolean }>`
   background: transparent;
   padding: 0;
   cursor: pointer;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   opacity: ${({ $active }) => ($active ? 1 : 0.26)};
   transition: opacity 0.12s, transform 0.06s;
   &:hover { opacity: ${({ $active }) => ($active ? 1 : 0.6)}; }
@@ -538,8 +566,8 @@ const BreakLabel = styled.div`
   top: -34px;
   left: ${BARLINE_PAD}px;
   z-index: 30;
-  background: #1a1a1a;
-  color: #fff;
+  background: ${({ theme }) => theme.colors.inkSurface};
+  color: ${({ theme }) => theme.colors.onInk};
   font-family: 'Pretendard', sans-serif;
   font-size: 10.5px;
   font-weight: 700;
@@ -876,31 +904,47 @@ function resolveRepeats(data: LeadSheetData): LeadSheetData {
 
 /* ─── degree label (rule-based analysis) ─────────────────────────────────── */
 
-const ChordColumn = styled.div<{ $selected?: boolean; $selectable?: boolean; $editable?: boolean }>`
+/* 코드 아래 기타 다이어그램 자리 — flex 흐름을 벗어나지 않도록 얇게. */
+const DiagramSlot = styled.div`
+  display: flex;
+  justify-content: center;
+  line-height: 0;
+  pointer-events: none;
+`;
+
+const ChordColumn = styled.div<{ $selected?: boolean; $selectable?: boolean; $editable?: boolean; $diagram?: boolean }>`
   position: relative;
   display: inline-flex;
-  align-items: flex-end;
+  /* 다이어그램 모드: 코드 위 / 기타 다이어그램 아래로 세로 스택. */
+  flex-direction: ${({ $diagram }) => ($diagram ? 'column' : 'row')};
+  align-items: ${({ $diagram }) => ($diagram ? 'center' : 'flex-end')};
+  gap: ${({ $diagram }) => ($diagram ? '3px' : '0')};
   min-width: 0;
   z-index: 2;
   cursor: ${({ $selectable, $editable }) => $selectable ? 'crosshair' : $editable ? 'pointer' : 'default'};
   touch-action: ${({ $selectable }) => $selectable ? 'none' : 'auto'};
   user-select: none;
 
-  /* Edit-mode affordance: a faint rounded highlight on hover so the user
-   * knows the chord is clickable. Uses a negative-inset pseudo so it never
-   * changes the glyph's footprint (no layout shift, no size change). */
-  ${({ $editable }) => $editable && `
+  /* 수정 모드 어포던스: 코드마다 **입력칸처럼 보이는 회색 판**을 깐다 —
+   * 어디를 눌러 고칠 수 있는지 한눈에 보이게(예전엔 hover 해야만 보였다).
+   * 음수 inset 의사요소라 글리프의 실제 폭·높이는 건드리지 않는다
+   * (레이아웃 밀림·글자 크기 변화 없음). */
+  ${({ $editable, theme }) => $editable && `
     &::before {
       content: '';
       position: absolute;
       inset: -3px -5px;
       border-radius: 5px;
-      background: transparent;
-      transition: background 0.12s;
+      background: ${theme.colors.hover};
+      box-shadow: inset 0 0 0 1px ${theme.colors.border};
+      transition: background 0.12s, box-shadow 0.12s;
       pointer-events: none;
       z-index: -1;
     }
-    &:hover::before { background: rgba(66, 133, 244, 0.1); }
+    &:hover::before {
+      background: rgba(66, 133, 244, 0.14);
+      box-shadow: inset 0 0 0 1px rgba(66, 133, 244, 0.35);
+    }
   `}
 `;
 
@@ -918,7 +962,7 @@ const ChordInlineInput = styled.input<{ $size?: ChordSize }>`
   letter-spacing: -0.01em;
   font-family: ${CHORD_FONT};
   line-height: 0.88;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   text-align: center;
   background: rgba(66, 133, 244, 0.1);
   border: none;
@@ -969,7 +1013,7 @@ const SubVBandText = styled.span<{ $size?: ChordSize }>`
   font-family: 'Noto Serif', 'Georgia', 'Times New Roman', serif;
   font-weight: 700;
   font-style: italic;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   line-height: 1;
   letter-spacing: 0.04em;
   white-space: nowrap;
@@ -998,6 +1042,8 @@ interface ChordSymbolProps {
   iiviHovered?: boolean;
   editMode?: boolean;
   onEdit?: (value: string) => void;
+  /** 코드 아래 기타 코드 다이어그램 표시 (내 코드 차트 다이어그램 모드). */
+  showDiagrams?: boolean;
 }
 
 function ChordSymbol({
@@ -1019,7 +1065,10 @@ function ChordSymbol({
   iiviHovered = false,
   editMode = false,
   onEdit,
+  showDiagrams = false,
 }: ChordSymbolProps) {
+  const diagramSymbol = showDiagrams && chord.root && !chord.isRepeat && !editMode
+    ? chordToInputString(chord) : null;
   /* Edit mode: clicking a chord swaps its glyph for an inline text input
    * rendered at the same font-size, so you type the new value directly in
    * place (no separate popover). The rule-based analysis decorations stay
@@ -1061,6 +1110,7 @@ function ChordSymbol({
       $selected={selected}
       $selectable={selectionMode}
       $editable={editMode}
+      $diagram={!!diagramSymbol}
       onClick={
         editMode
           ? (e) => { e.stopPropagation(); setEditing(true); }
@@ -1158,6 +1208,11 @@ function ChordSymbol({
           </SlashBass>
         )}
       </ChordWrap>
+      )}
+      {diagramSymbol && (
+        <DiagramSlot>
+          <ChordDiagram symbol={diagramSymbol} />
+        </DiagramSlot>
       )}
     </ChordColumn>
   );
@@ -1271,6 +1326,7 @@ interface SystemRowProps {
   onPickLoopBar?: (flatBar: number) => void;
   onLoopBarPointerDown?: (flatBar: number) => void;
   onLoopBarPointerEnter?: (flatBar: number) => void;
+  showDiagrams?: boolean;
 }
 
 function SystemRowComponent({
@@ -1307,6 +1363,7 @@ function SystemRowComponent({
   onPickLoopBar,
   onLoopBarPointerDown,
   onLoopBarPointerEnter,
+  showDiagrams = false,
 }: SystemRowProps) {
   const [top, bot] = timeSignature.split('/');
   const beatsPerBar = parseInt(top, 10) || 4;
@@ -1407,6 +1464,7 @@ function SystemRowComponent({
                 iiviHovered={hoveredIiviChordKeys?.has(chordKey)}
                 editMode={editMode}
                 onEdit={(value) => onChordEdit?.(systemIndex, i, chordIndex, value)}
+                showDiagrams={showDiagrams}
               />
             );
           };
@@ -1574,6 +1632,8 @@ interface LeadSheetProps {
   analysisFilters?: AnalysisFilters;
   /** @deprecated Use analysisFilters instead */
   showAnalysis?: boolean;
+  /** 각 코드 아래에 기타 코드 다이어그램을 표시. */
+  showDiagrams?: boolean;
   /**
    * Flat bar index (across all systems) of the currently playing bar.
    * Pass -1 (or omit) to disable the playback highlight.
@@ -1602,6 +1662,10 @@ interface LeadSheetProps {
     sheet: NoteSheetData;
   } | null;
   onInlineLickClose?: () => void;
+  /** 전체화면일 때 **맨 위**에 얹을 재생바. 평소 재생 컨트롤은 전체화면 오버레이에
+   *  덮여 손이 닿지 않으므로, 같은 컨트롤을 여기로 넘기면 전체화면 안에서 쓸 수 있다.
+   *  전체화면이 아닐 때는 렌더하지 않는다(부모가 조건 분기할 필요 없음). */
+  fullscreenToolbar?: React.ReactNode;
   /** Controlled transpose key. When provided the host owns the key — e.g.
    *  ChordPage renders the transpose control in the player transport.
    *  Omit for the standalone uncontrolled (original-key) display. */
@@ -1818,6 +1882,7 @@ export function LeadSheet({
   data,
   analysisFilters,
   showAnalysis,
+  showDiagrams = false,
   activeBar = -1,
   bpm,
   onChordClick,
@@ -1828,6 +1893,7 @@ export function LeadSheet({
   onSavedLickBadgeClick,
   inlineLick,
   onInlineLickClose,
+  fullscreenToolbar,
   selectedKey: selectedKeyProp,
   styleSlot,
   editMode = false,
@@ -3041,7 +3107,15 @@ export function LeadSheet({
   }, [effectiveScale, fitToScreen, isFullscreen, isNativeLandscape, isCompactLayout, pageNaturalSize.w]);
 
   return (
-    <ViewerOuter ref={outerRef} $fs={isFullscreen} $fit={isNativeLandscape && !isFullscreen}>
+    <ViewerOuter
+      ref={outerRef}
+      $fs={isFullscreen}
+      $fsToolbar={isFullscreen && !!fullscreenToolbar}
+      $fit={isNativeLandscape && !isFullscreen}
+    >
+      {isFullscreen && fullscreenToolbar && (
+        <FullscreenToolbar>{fullscreenToolbar}</FullscreenToolbar>
+      )}
       <FullscreenButton isFullscreen={isFullscreen} onClick={toggleFullscreen} />
       {/* Corner button row (right-anchored, uniform 6px gaps):
        *   [   -  %  +   ] gap6 [ compact ] gap6 [ fullscreen ]
@@ -3139,7 +3213,7 @@ export function LeadSheet({
                       left: lab.offsetX,
                       top: '50%',
                       transform: 'translateY(-50%)',
-                      color: '#111',
+                      color: '${({ theme }) => theme.colors.textPrimary}',
                       fontFamily: "'Noto Serif', 'Georgia', 'Times New Roman', serif",
                       fontWeight: 700,
                       // Pivot stacks two numerals in the 22px tab → shrink.
@@ -3157,7 +3231,7 @@ export function LeadSheet({
                     {lab.roleBottom ? (
                       <>
                         <span>{lab.role}</span>
-                        <span style={{ width: '1.3em', height: 1, background: 'rgba(0,0,0,0.4)', margin: '1.5px 0' }} />
+                        <span style={{ width: '1.3em', height: 1, background: '${({ theme }) => theme.colors.scrim}', margin: '1.5px 0' }} />
                         <span>{lab.roleBottom}</span>
                       </>
                     ) : lab.role}
@@ -3205,7 +3279,7 @@ export function LeadSheet({
                   left: hl.bandLabel.offsetX,
                   top: '50%',
                   transform: 'translate(-50%, -50%)',
-                  color: '#111',
+                  color: '${({ theme }) => theme.colors.textPrimary}',
                   fontFamily: "'Noto Serif', 'Georgia', 'Times New Roman', serif",
                   fontWeight: 700,
                   fontSize: '0.95rem',
@@ -3303,6 +3377,7 @@ export function LeadSheet({
               registerGridEl={registerGridEl}
               showColors={af.showColors}
               showIIVI={af.showIIVI}
+              showDiagrams={showDiagrams}
               onModalClick={setMiPopupChord}
               onSubVClick={setSubVPopupChord}
               onChordClick={onChordClick}

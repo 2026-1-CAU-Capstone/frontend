@@ -37,6 +37,26 @@ export const GlobalStyle = createGlobalStyle`
     height: 100dvh;
   }
 
+  /* ── 악보 잉크(VexFlow) ─────────────────────────────────────────────
+   * VexFlow 5 는 루트 <svg> 에 fill/stroke="black" 을 얹고 자식이 그걸 상속한다
+   * (자식은 fill="none" 처럼 예외만 직접 지정한다). 그래서 **CSS 한 줄로 악보
+   * 잉크 전체를 뒤집을 수 있다** — 렌더러 수십 곳을 고칠 필요가 없다.
+   * 선택자는 VexFlow 가 항상 넣는 font-family(Bravura)로 잡는다.
+   *
+   * 속성이 아니라 CSS 라는 점이 중요하다: PDF 내보내기는 SVG 를 **직렬화**하므로
+   * (scoreToPdf) 이 규칙이 따라가지 않는다 — 인쇄물은 계속 흰 종이·검은 잉크다. */
+  ${({ theme }) => theme.mode === 'dark' && `
+    svg[font-family*='Bravura'] {
+      fill: ${theme.colors.textPrimary};
+      stroke: ${theme.colors.textPrimary};
+    }
+    /* 덧줄(ledger line)은 VexFlow 가 #444 로 직접 칠한다 — 상속이 아니라서
+     * 따로 뒤집어야 한다. 원래 본선보다 살짝 연하므로 보조 글자색을 쓴다. */
+    svg[font-family*='Bravura'] [stroke='#444'] {
+      stroke: ${theme.colors.textSecondary};
+    }
+  `}
+
   /* PDF / 인쇄 — SolosPage 의 PDF 버튼은 window.print() 를 호출하고,
    * 그 직전에 캡쳐 대상 엘리먼트에 .pdf-print-target 클래스를 붙인다.
    * 인쇄 시점에는 그 엘리먼트만 보이게 하고 나머지 UI 는 visibility:hidden
@@ -70,6 +90,15 @@ export const GlobalStyle = createGlobalStyle`
       width: 100% !important;
       height: auto !important;
       overflow: visible !important;
+    }
+    /* 다크 모드로 인쇄하면 흰 잉크가 흰 종이에 찍혀 아무것도 안 나온다.
+     * 화면 테마와 무관하게 인쇄는 검은 잉크로 못박는다. */
+    .pdf-print-target svg[font-family*='Bravura'] {
+      fill: #000000 !important;
+      stroke: #000000 !important;
+    }
+    .pdf-print-target svg[font-family*='Bravura'] [stroke='#444'] {
+      stroke: #444444 !important;
     }
     @page { margin: 12mm; }
   }

@@ -26,6 +26,12 @@ import {
   type LickMatch,
 } from '../../lib/lickMatcher';
 import { loadLicks, loadUserLicksSync, loadBackupLicks } from '../../data/lickData';
+import { usePref } from '../../lib/prefsStore';
+import { myInstruments } from '../../lib/note/instrumentPrefs';
+import {
+  lickFollowMyInstrument, lickInstruments,
+  resolveLickInstruments, filterLicksByInstrument,
+} from '../../lib/note/lickRecoPrefs';
 import type { LickEntry } from '../../data/lickData';
 import {
   PanelContainer,
@@ -139,36 +145,36 @@ const RevealOlderBtn = styled.button`
   align-self: center;
   margin: 8px 0 4px;
   padding: 6px 14px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 999px;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   font-family: inherit;
   font-size: 12.5px;
   font-weight: 600;
-  color: rgba(0, 0, 0, 0.6);
+  color: ${({ theme }) => theme.colors.textSecondary};
   cursor: pointer;
   transition: background 0.12s, color 0.12s, border-color 0.12s;
   &:hover {
-    background: rgba(0, 0, 0, 0.04);
-    color: #1a1a1a;
-    border-color: rgba(0, 0, 0, 0.2);
+    background: ${({ theme }) => theme.colors.hover};
+    color: ${({ theme }) => theme.colors.textPrimary};
+    border-color: ${({ theme }) => theme.colors.border};
   }
 `;
 const ExportBtn = styled.button`
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  background: #fff;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 999px;
   padding: 5px 10px;
   font-family: inherit;
   font-size: 12px;
   font-weight: 600;
-  color: rgba(0, 0, 0, 0.7);
+  color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s, color 0.12s;
-  &:hover { background: rgba(0, 0, 0, 0.04); color: #1a1a1a; border-color: rgba(0, 0, 0, 0.18); }
+  &:hover { background: ${({ theme }) => theme.colors.hover}; color: ${({ theme }) => theme.colors.textPrimary}; border-color: ${({ theme }) => theme.colors.border}; }
   svg { width: 14px; height: 14px; }
 `;
 const ExportIcon = () => (
@@ -399,6 +405,19 @@ export function RightChatPanel({
   const isScrolledUpRef = useRef(false);
   const historyRef = useRef<ClaudeMessage[]>([]);
   const allLicksRef = useRef<LickEntry[]>([]);
+  /* 릭 추천 범위(설정 › 채팅) — 원본 풀은 그대로 두고 **추천을 뽑을 때만** 거른다.
+   * 이미 표시된 카드([LICK:id] 해석)는 범위를 바꿔도 사라지면 안 되기 때문이다. */
+  const [lickFollow] = usePref(lickFollowMyInstrument);
+  const [lickPicked] = usePref(lickInstruments);
+  const [myInsts] = usePref(myInstruments);
+  const allowedLickInsts = useMemo(
+    () => resolveLickInstruments(lickFollow, lickPicked, myInsts),
+    [lickFollow, lickPicked, myInsts],
+  );
+  const allowedRef = useRef(allowedLickInsts);
+  allowedRef.current = allowedLickInsts;
+  /** 추천용 릭 풀 — 설정된 악기 범위로 거른 것. */
+  const recoLicks = () => filterLicksByInstrument(allLicksRef.current, allowedRef.current);
   // Flips true once the lick DB has loaded — drives reload re-hydration of
   // [LICK:id] score cards (see the effect below).
   const [licksReady, setLicksReady] = useState(false);
@@ -591,7 +610,7 @@ export function RightChatPanel({
   const handleRequestLicks = useCallback(() => {
     if (selectedChords.length === 0) return;
 
-    const allLicks = allLicksRef.current;
+    const allLicks = recoLicks();
     // Extract song key root from chordContext (e.g. "Key: Eb" → "Eb")
     const keyMatch = chordContext?.match(/Key:\s*([A-G][b#]?)/);
     const songKey = keyMatch ? keyMatch[1] : 'C';
@@ -719,14 +738,14 @@ export function RightChatPanel({
       const detectedProg = detectProgressionKeyword(text);
 
       // 우선순위: 1) 선택한 코드 진행에 맞는 릭  2) 연주자(+진행)  3) 진행만.
-      lickMatchesForMsg = findMatchingLicks(chordsForMatch, songTitle, songKey, allLicksRef.current, 5);
+      lickMatchesForMsg = findMatchingLicks(chordsForMatch, songTitle, songKey, recoLicks(), 5);
       if (lickMatchesForMsg.length === 0) {
         // "찰리파커 2-5-1" 류 — 그 연주자의 해당 진행 릭 우선, 부족하면 같은 진행의
         // 다른 거장으로 보완. (연주자만 언급했고 진행이 없으면 연주자 릭 그대로.)
-        lickMatchesForMsg = findLicksByPerformerAndProgression(text, detectedProg, allLicksRef.current, 5);
+        lickMatchesForMsg = findLicksByPerformerAndProgression(text, detectedProg, recoLicks(), 5);
       }
       if (lickMatchesForMsg.length === 0 && detectedProg) {
-        lickMatchesForMsg = findLicksByProgression(detectedProg, allLicksRef.current, 5);
+        lickMatchesForMsg = findLicksByProgression(detectedProg, recoLicks(), 5);
       }
 
       if (lickMatchesForMsg.length > 0) {

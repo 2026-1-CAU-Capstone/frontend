@@ -8,7 +8,7 @@ const EmbedFrame = styled.div`
   margin: 8px 0 4px;
   border-radius: 8px;
   overflow: hidden;
-  background: #000;
+  background: ${({ theme }) => theme.colors.inkSurface};
 
   iframe {
     position: absolute;

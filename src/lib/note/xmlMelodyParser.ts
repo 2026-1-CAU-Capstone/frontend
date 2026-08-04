@@ -978,6 +978,56 @@ function kindToSymbol(kind: string): string {
   return MAP[kind] ?? kind;
 }
 
+/* ─── <note> 표현 정보 추출 (단선율·양손 공용) ──────────────────────────
+ * 잇단음표·아티큘레이션·꾸밈기호·페르마타·이음줄·글리산도를 NoteInfo 필드로
+ * 옮긴다. 예전엔 단선율 파서에만 있어서 **피아노 양손(그랜드스태프) 악보를
+ * 수입하면 이 정보가 통째로 사라졌다**(실측: Red Garland 잇단음표 24개·
+ * 페르마타 2개 → 0개). 두 파서가 같은 함수를 쓰게 해 다시 갈리지 않게 한다. */
+export function applyNoteExpressions(nEl: Element, ni: NoteInfo): void {
+  // 잇단음표 — 비율(actual:normal)을 그대로 보존한다(7:6, 5:3 같은 변칙 포함).
+  const tmEl = nEl.querySelector('time-modification');
+  if (tmEl) {
+    const actual = parseInt(text(tmEl, 'actual-notes') ?? '0', 10);
+    const normal = parseInt(text(tmEl, 'normal-notes') ?? '0', 10);
+    if (actual > normal && actual > 1) { ni.tuplet = actual; ni.tupletNormal = normal; }
+  }
+  const notations = nEl.querySelector('notations');
+  if (!notations) return;
+
+  const tupletStartEl = notations.querySelector('tuplet[type="start"]');
+  if (tupletStartEl) {
+    const br = tupletStartEl.getAttribute('bracket');
+    if (br === 'no') ni.tupletBracket = false;
+    else if (br === 'yes') ni.tupletBracket = true;
+  }
+  for (const sl of notations.querySelectorAll('slur')) {
+    const t = sl.getAttribute('type');
+    if (t === 'start') ni.slurStart = true;
+    if (t === 'stop') ni.slurStop = true;
+  }
+  const artEl = notations.querySelector('articulations');
+  if (artEl) {
+    const arts: Articulation[] = [];
+    for (const a of Array.from(artEl.children)) {
+      const mapped = ARTICULATION_TAGS[a.tagName];
+      if (mapped) arts.push(mapped);
+    }
+    if (arts.length) ni.articulations = arts;
+  }
+  if (notations.querySelector('fermata')) ni.fermata = true;
+  const ornEl = notations.querySelector('ornaments');
+  if (ornEl) {
+    const orns: Ornament[] = [];
+    for (const o of Array.from(ornEl.children)) {
+      const mapped = ORNAMENT_TAGS[o.tagName];
+      if (mapped) orns.push(mapped);
+    }
+    if (orns.length) ni.ornaments = orns;
+  }
+  const glissEl = notations.querySelector('glissando, slide');
+  if (glissEl && glissEl.getAttribute('type') === 'start') ni.gliss = true;
+}
+
 /* ─── Grand-staff (piano) parser ─────────────────────────────────────────
  * A focused two-stave parser that preserves polyphony the single-line
  * parseXmlDoc intentionally drops: it keeps BOTH staves and ALL chord tones.
@@ -1086,6 +1136,10 @@ function parseGrandStaff(doc: Document, fallbackTitle: string, partEl?: Element)
      * staff 지정 없이 마디 단위로 오고, 렌더러도 트레블 위에만 코드를 그린다. */
     const measureChords: string[] = [];
     let curTick = 0;
+    /* 다음 음표에 붙일 셈여림/헤어핀 — <direction> 이 음표보다 먼저 온다. */
+    let pendingDynamic: Dynamic | undefined;
+    let pendingHairpinStart: 'cresc' | 'dim' | undefined;
+    let pendingHairpinStop = false;
 
     for (const child of Array.from(mEl.children)) {
       const tag = child.tagName;
@@ -1103,6 +1157,29 @@ function parseGrandStaff(doc: Document, fallbackTitle: string, partEl?: Element)
       }
       if (tag === 'backup') { curTick -= parseInt(text(child, 'duration') ?? '0', 10) || 0; continue; }
       if (tag === 'forward') { curTick += parseInt(text(child, 'duration') ?? '0', 10) || 0; continue; }
+      /* <direction> 의 셈여림(p·mf·ff…)과 크레셴도/디미누엔도(wedge)는 음표가
+       * 아니라 방향 지시로 오므로, 다음에 오는 음표에 붙여 준다(단선율 파서와
+       * 같은 규칙). 이게 없어서 양손 악보는 셈여림이 통째로 사라졌다. */
+      if (tag === 'direction') {
+        const dirType = child.querySelector('direction-type');
+        if (dirType) {
+          const dyn = dirType.querySelector('dynamics');
+          if (dyn) {
+            for (const dn of Array.from(dyn.children)) {
+              const name = dn.tagName.toLowerCase();
+              if (DYNAMIC_TAGS.has(name as Dynamic)) { pendingDynamic = name as Dynamic; break; }
+            }
+          }
+          const wedgeEl = dirType.querySelector('wedge');
+          if (wedgeEl) {
+            const wt = wedgeEl.getAttribute('type');
+            if (wt === 'crescendo') pendingHairpinStart = 'cresc';
+            else if (wt === 'diminuendo') pendingHairpinStart = 'dim';
+            else if (wt === 'stop') pendingHairpinStop = true;
+          }
+        }
+        continue;
+      }
       if (tag !== 'note') continue;
 
       const nEl = child;
@@ -1151,6 +1228,7 @@ function parseGrandStaff(doc: Document, fallbackTitle: string, partEl?: Element)
               && Math.abs(durTicks / state.divisions - state.beatsPerMeasure) < 0.01);
         const rn: NoteInfo = { keys: ['b/4'], duration: isFull ? 'wr' : vf + 'r' };
         if (isDotted) rn.dotted = true;
+        applyNoteExpressions(nEl, rn);   // 쉼표도 잇단음표·페르마타를 가질 수 있다
         ev[staff].push({ startTick, durTicks, ni: rn, tones: [] });
         curTick += advance;
         continue;
@@ -1183,6 +1261,14 @@ function parseGrandStaff(doc: Document, fallbackTitle: string, partEl?: Element)
         if (pb === null) ni.noBeam = true;
         else if (pb === 'end') ni.beamBreak = true;
       }
+      // 잇단음표·아티큘레이션·꾸밈기호·페르마타·이음줄·글리산도 (단선율과 같은 규칙).
+      applyNoteExpressions(nEl, ni);
+      if (pendingDynamic) { ni.dynamics = pendingDynamic; pendingDynamic = undefined; }
+      if (pendingHairpinStart) { ni.hairpinStart = pendingHairpinStart; pendingHairpinStart = undefined; }
+      if (pendingHairpinStop) { ni.hairpinStop = true; pendingHairpinStop = false; }
+      // 스템 방향은 조판자의 선택 — 양손 악보에서 성부 구분의 핵심이라 보존한다.
+      const stemTxt = text(nEl, 'stem');
+      if (stemTxt === 'up' || stemTxt === 'down') ni.stem = stemTxt;
       ev[staff].push({
         startTick,
         durTicks: isGrace ? 0 : durTicks,

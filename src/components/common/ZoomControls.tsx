@@ -42,7 +42,7 @@ const ZoomBtn = styled.button`
   width: 26px;
   height: 30px;
   border: none;
-  background: rgba(0, 0, 0, 0.15);
+  background: ${({ theme }) => theme.colors.border};
   color: #fff;
   cursor: pointer;
   transition: background 0.2s;
@@ -56,14 +56,14 @@ const ZoomBtn = styled.button`
   }
 
   &:hover {
-    background: rgba(0, 0, 0, 0.3);
+    background: ${({ theme }) => theme.colors.scrim};
   }
 
   &:disabled {
     opacity: 0.4;
     cursor: default;
     &:hover {
-      background: rgba(0, 0, 0, 0.15);
+      background: ${({ theme }) => theme.colors.border};
     }
   }
 `;
@@ -76,7 +76,7 @@ const PercentBtn = styled.button`
   min-width: 48px;
   height: 30px;
   border: none;
-  background: rgba(0, 0, 0, 0.15);
+  background: ${({ theme }) => theme.colors.border};
   color: #fff;
   font-size: 12px;
   font-weight: 500;
@@ -85,7 +85,7 @@ const PercentBtn = styled.button`
   user-select: none;
 
   &:hover {
-    background: rgba(0, 0, 0, 0.3);
+    background: ${({ theme }) => theme.colors.scrim};
   }
 `;
 
@@ -97,7 +97,7 @@ const Dropdown = styled.ul`
   padding: 4px 0;
   margin: 0;
   list-style: none;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
   overflow: hidden;
@@ -108,7 +108,7 @@ const DropdownItem = styled.li<{ $active?: boolean }>`
   align-items: center;
   padding: 8px 16px;
   font-size: 13px;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
   background: ${({ $active }) => ($active ? '#e8f0fe' : 'transparent')};
 

@@ -35,13 +35,13 @@ const Btn = styled.button`
   height: 30px;
   border: none;
   border-radius: 6px;
-  background: rgba(0, 0, 0, 0.15);
+  background: ${({ theme }) => theme.colors.border};
   color: #fff;
   cursor: pointer;
   transition: background 0.2s;
 
   &:hover {
-    background: rgba(0, 0, 0, 0.3);
+    background: ${({ theme }) => theme.colors.scrim};
   }
 `;
 

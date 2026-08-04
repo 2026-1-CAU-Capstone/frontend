@@ -98,6 +98,8 @@ import { prepareLickIntro } from '../../lib/note/anacrusis';
 import { resolveMeasureAccidental } from '../../lib/note/measureAccidentals';
 import { computeBeamBreaks } from '../../lib/note/beamPolicy';
 import { formatChordDisplay, chordBaseSegments, chordExtStyle, splitChordParts } from '../../lib/jazz-harmony';
+import { useNoteNameStyle } from '../../hooks/useNoteNameStyle';
+import { drawNoteNameLabels } from '../../lib/note/noteNameLabels';
 
 /* ─── layout constants ──────────────────────────────────────────────── */
 
@@ -291,7 +293,7 @@ const Badge = styled.span<{ $color?: string }>`
   padding: 2px 8px;
   border-radius: 3px;
   background: ${({ $color }) => $color ?? '#f0ebe0'};
-  color: #555;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 
@@ -299,12 +301,12 @@ const PlayBtn = styled.button<{ $active?: boolean }>`
   font-size: 0.85rem;
   line-height: 1;
   background: ${({ $active }) => ($active ? '#f0e8d0' : 'transparent')};
-  border: 1px solid #ddd;
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 4px;
   padding: 2px 8px;
   cursor: pointer;
-  color: #333;
-  &:hover { background: #f0f0f0; }
+  color: ${({ theme }) => theme.colors.textPrimary};
+  &:hover { background: ${({ theme }) => theme.colors.surfaceSunken}; }
 `;
 
 const BpmInput = styled.input`
@@ -312,10 +314,10 @@ const BpmInput = styled.input`
   font-size: 0.82rem;
   width: 44px;
   padding: 2px 4px;
-  border: 1px solid #ddd;
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 4px;
-  background: #fff;
-  color: #333;
+  background: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.textPrimary};
   text-align: center;
   outline: none;
 `;
@@ -577,6 +579,7 @@ interface LickCardProps {
 }
 
 export function LickCard({ lick, width, visible, compact, displayId, fitToWidth, onDelete, onEdit, onTranspose, onPractice, onApprove, saved, onClick }: LickCardProps) {
+  const noteNameStyle = useNoteNameStyle();
   const svgRef = useRef<HTMLDivElement>(null);
   const renderedRef = useRef(false);
 
@@ -914,6 +917,10 @@ export function LickCard({ lick, width, visible, compact, displayId, fitToWidth,
         new Formatter({ softmaxFactor: 5 }).joinVoices([voice]).formatToStave([voice], stave);
         voice.draw(ctx, stave);
         beams.forEach((b) => b.setContext(ctx).draw());
+        /* 음이름 라벨 — 그린 뒤 얹는다(레이아웃 불변). */
+        drawNoteNameLabels(svgEl, vfNotes.map((vf, ni) => (
+          { vfNote: vf, keys: measure.notes[ni]?.keys ?? [] }
+        )), noteNameStyle);
 
         if (measure.chord) {
           const barContentX = firstInLine ? x + lineDecorW + 4 : x + 4;
@@ -1159,7 +1166,7 @@ export function LickCard({ lick, width, visible, compact, displayId, fitToWidth,
     }
     noteElMapRef.current = noteMap;
     } // end renderLick
-  }, [visible, width, containerW, lick, fitToWidth]);
+  }, [visible, width, containerW, lick, fitToWidth, noteNameStyle]);
 
   const keyNorm = (() => {
     const k = lick.key || '';

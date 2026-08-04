@@ -366,8 +366,8 @@ const ColorDot = styled.span<{ $color: string }>`
 const Chev = styled.span`
   width: 9px;
   height: 9px;
-  border-right: 1.7px solid rgba(0, 0, 0, 0.3);
-  border-bottom: 1.7px solid rgba(0, 0, 0, 0.3);
+  border-right: 1.7px solid ${({ theme }) => theme.colors.border};
+  border-bottom: 1.7px solid ${({ theme }) => theme.colors.border};
   transform: rotate(-45deg);
   margin-left: 6px;
   flex-shrink: 0;
@@ -381,7 +381,7 @@ const slideUp = keyframes`from { transform: translateY(100%) } to { transform: t
 const Backdrop = styled.div`
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35);
+  background: ${({ theme }) => theme.colors.scrim};
   z-index: 300;
   animation: ${fadeBg} 0.18s ease both;
 `;
@@ -396,7 +396,7 @@ const Sheet = styled.div`
   top: max(120px, calc(env(safe-area-inset-top, 0px) + 80px));
   bottom: 0;
   z-index: 301;
-  background: #f2eee5;
+  background: ${({ theme }) => theme.colors.surfaceSunken};
   border-radius: 22px 22px 0 0;
   padding: 12px 16px calc(20px + env(safe-area-inset-bottom, 0px));
   overflow-y: auto;
@@ -414,8 +414,8 @@ const CloseBtn = styled.button`
   height: 38px;
   border-radius: 50%;
   border: none;
-  background: #fff;
-  color: rgba(0, 0, 0, 0.75);
+  background: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.textPrimary};
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -455,9 +455,9 @@ const AvatarEditBadge = styled.span`
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: #fff;
-  border: 2px solid #f2eee5;
-  color: rgba(0, 0, 0, 0.7);
+  background: ${({ theme }) => theme.colors.surface};
+  border: 2px solid ${({ theme }) => theme.colors.border};
+  color: ${({ theme }) => theme.colors.textPrimary};
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -467,19 +467,19 @@ const Name = styled.div`
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 22px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 const SectionLabel = styled.div`
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 13px;
   font-weight: 500;
-  color: rgba(0, 0, 0, 0.45);
+  color: ${({ theme }) => theme.colors.textSecondary};
   margin: 16px 6px 6px;
 `;
 
 const Card = styled.div`
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 14px;
   overflow: hidden;
 `;
@@ -491,7 +491,7 @@ const SettingRow = styled.div`
   padding: 14px 14px;
   cursor: pointer;
   transition: background 0.1s;
-  &:active { background: rgba(0, 0, 0, 0.03); }
+  &:active { background: ${({ theme }) => theme.colors.hover}; }
 `;
 
 const RowIcon = styled.div<{ $color?: string }>`
@@ -509,17 +509,17 @@ const RowLabel = styled.div`
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 16px;
   font-weight: 500;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 const RowValue = styled.div`
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 15px;
-  color: rgba(0, 0, 0, 0.45);
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 const Divider = styled.hr`
   margin: 0 0 0 52px;
   border: none;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  border-top: 1px solid ${({ theme }) => theme.colors.border};
 `;

@@ -284,12 +284,12 @@ const Tip = styled.div`
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
 
   b { font-size: 0.74rem; font-weight: 800; line-height: 1.2; }
-  span { font-size: 0.62rem; color: #cfcfd6; line-height: 1.2; }
+  span { font-size: 0.62rem; color: ${({ theme }) => theme.colors.textSecondary}; line-height: 1.2; }
 `;
 
 const Readout = styled.div`
   font-size: 0.72rem;
-  color: #555;
+  color: ${({ theme }) => theme.colors.textSecondary};
   height: 15px;
   line-height: 15px;
   white-space: nowrap;
@@ -297,7 +297,7 @@ const Readout = styled.div`
   text-overflow: ellipsis;
   max-width: 100%;
 
-  b { font-weight: 800; color: #222; }
-  span { color: #888; }
-  .dim { color: #a0a0a8; }
+  b { font-weight: 800; color: ${({ theme }) => theme.colors.textPrimary}; }
+  span { color: ${({ theme }) => theme.colors.textSecondary}; }
+  .dim { color: ${({ theme }) => theme.colors.textSecondary}; }
 `;

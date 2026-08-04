@@ -180,7 +180,7 @@ const Card = styled.div`
   width: 100%;
   max-width: 780px;
   max-height: min(720px, 90vh);
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 22px;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.2);
   font-family: ${({ theme }) => theme.fonts.ui};
@@ -207,7 +207,7 @@ const HeaderTitle = styled.h2`
   margin: 0;
   font-size: 22px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   letter-spacing: -0.015em;
 `;
 
@@ -221,16 +221,16 @@ const GhostBtn = styled.button`
   height: 34px;
   padding: 0 14px;
   border-radius: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.14);
-  background: #fff;
-  color: #1a1a1a;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  background: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.textPrimary};
   font-family: inherit;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s;
-  &:hover { background: rgba(0, 0, 0, 0.03); }
-  &[aria-pressed='true'] { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  &:hover { background: ${({ theme }) => theme.colors.hover}; }
+  &[aria-pressed='true'] { background: ${({ theme }) => theme.colors.inkSurface}; color: ${({ theme }) => theme.colors.onInk}; border-color: ${({ theme }) => theme.colors.textPrimary}; }
 `;
 
 const PrimaryBtn = styled.button`
@@ -238,8 +238,8 @@ const PrimaryBtn = styled.button`
   padding: 0 16px;
   border-radius: 10px;
   border: none;
-  background: #1a1a1a;
-  color: #fff;
+  background: ${({ theme }) => theme.colors.inkSurface};
+  color: ${({ theme }) => theme.colors.onInk};
   font-family: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -255,13 +255,13 @@ const CloseBtn = styled.button`
   border-radius: 50%;
   border: none;
   background: transparent;
-  color: rgba(0, 0, 0, 0.55);
+  color: ${({ theme }) => theme.colors.textSecondary};
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
-  &:hover { background: rgba(0, 0, 0, 0.05); color: #000; }
+  &:hover { background: ${({ theme }) => theme.colors.hover}; color: ${({ theme }) => theme.colors.textPrimary}; }
 `;
 
 const SearchWrap = styled.div`
@@ -274,7 +274,7 @@ const SearchIconSlot = styled.span`
   left: 14px;
   top: 50%;
   transform: translateY(-50%);
-  color: rgba(0, 0, 0, 0.45);
+  color: ${({ theme }) => theme.colors.textSecondary};
   display: inline-flex;
 `;
 
@@ -283,14 +283,14 @@ const SearchInput = styled.input`
   height: 44px;
   padding: 0 14px 0 40px;
   border-radius: 12px;
-  border: 1.5px solid rgba(0, 0, 0, 0.1);
-  background: #fff;
+  border: 1.5px solid ${({ theme }) => theme.colors.border};
+  background: ${({ theme }) => theme.colors.surface};
   font-family: inherit;
   font-size: 14.5px;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   outline: none;
   transition: border-color 0.12s;
-  &::placeholder { color: rgba(0, 0, 0, 0.4); }
+  &::placeholder { color: ${({ theme }) => theme.colors.textSecondary}; }
   &:focus { border-color: rgba(63, 117, 245, 0.7); }
 `;
 
@@ -310,19 +310,19 @@ const Row = styled.button`
   padding: 14px 8px;
   border: none;
   background: transparent;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   cursor: pointer;
   text-align: left;
   font-family: inherit;
   transition: background 0.1s;
-  &:hover { background: rgba(0, 0, 0, 0.025); }
+  &:hover { background: ${({ theme }) => theme.colors.hover}; }
   &:last-child { border-bottom: none; }
 `;
 
 const RowTitle = styled.span`
   font-size: 14.5px;
   font-weight: 500;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -331,13 +331,13 @@ const RowTitle = styled.span`
 
 const RowMeta = styled.span`
   font-size: 13px;
-  color: rgba(0, 0, 0, 0.42);
+  color: ${({ theme }) => theme.colors.textSecondary};
   flex-shrink: 0;
 `;
 
 const RowBadge = styled.span`
   font-size: 13px;
-  color: rgba(0, 0, 0, 0.42);
+  color: ${({ theme }) => theme.colors.textSecondary};
   flex-shrink: 0;
   margin-left: auto;
   overflow: hidden;
@@ -350,5 +350,5 @@ const EmptyState = styled.div`
   padding: 60px 16px;
   text-align: center;
   font-size: 14px;
-  color: rgba(0, 0, 0, 0.45);
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;

@@ -24,9 +24,9 @@ export const ScrollToBottomBtn = styled.button`
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  background: #fff;
-  color: #1a1a1a;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  background: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -35,7 +35,7 @@ export const ScrollToBottomBtn = styled.button`
   z-index: 5;
   transition: transform 0.12s, background 0.15s;
 
-  &:hover { background: rgba(0, 0, 0, 0.04); }
+  &:hover { background: ${({ theme }) => theme.colors.hover}; }
   &:active { transform: translateX(-50%) scale(0.95); }
 `;
 
@@ -164,8 +164,8 @@ export const ChatLoadingSpinner = styled.div`
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  border: 2px solid rgba(0, 0, 0, 0.1);
-  border-top-color: rgba(0, 0, 0, 0.45);
+  border: 2px solid ${({ theme }) => theme.colors.border};
+  border-top-color: ${({ theme }) => theme.colors.border};
   animation: chatSpin 0.8s linear infinite;
   @keyframes chatSpin {
     to { transform: rotate(360deg); }

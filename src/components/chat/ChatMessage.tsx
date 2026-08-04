@@ -32,8 +32,8 @@ const InlineSectionTag = styled.span`
   width: 1.42em;
   height: 1.42em;
   box-sizing: border-box;
-  background: #000;
-  color: #fff;
+  background: ${({ theme }) => theme.colors.inkSurface};
+  color: ${({ theme }) => theme.colors.onInk};
   /* ALWAYS gothic. !important + the descendant rule below defeat the recursive
    * markdown formatter, which can otherwise wrap the section letter in a
    * chord-typography (MuseJazz) span and flip the badge's font. */
@@ -108,7 +108,7 @@ const CiteBadge = styled.sup`
   font-weight: 700;
   line-height: 1;
   color: #2b6cb0;
-  background: #e9f1fb;
+  background: ${({ theme }) => theme.colors.surfaceSunken};
   border: 1px solid #cfe0f5;
   border-radius: 999px;
   vertical-align: super;
@@ -129,17 +129,17 @@ const CiteVideoLink = styled.a`
   font-size: 0.78em;
   font-weight: 600;
   line-height: 1;
-  color: #1f1f1f;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  color: ${({ theme }) => theme.colors.textPrimary};
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 999px;
   text-decoration: none;
   vertical-align: baseline;
   white-space: nowrap;
   transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
   &:hover {
-    background: #fafafa;
-    border-color: rgba(0, 0, 0, 0.22);
+    background: ${({ theme }) => theme.colors.surfaceSunken};
+    border-color: ${({ theme }) => theme.colors.border};
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   }
 `;
@@ -147,7 +147,7 @@ const CiteVideoLink = styled.a`
 const CiteVideoTime = styled.span`
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
-  color: #404040;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 /* Official YouTube-style logo glyph: red rounded rectangle with a white

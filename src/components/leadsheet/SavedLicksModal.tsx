@@ -18,7 +18,7 @@ interface Props {
 const Overlay = styled.div`
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: ${({ theme }) => theme.colors.scrim};
   z-index: ${({ theme }) => theme.zIndex.max};
   display: flex;
   align-items: center;
@@ -28,7 +28,7 @@ const Overlay = styled.div`
 `;
 
 const Card = styled.div`
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 12px;
   width: min(640px, 100%);
   max-height: min(80vh, 720px);
@@ -43,7 +43,7 @@ const Header = styled.div`
   align-items: baseline;
   justify-content: space-between;
   padding: 16px 20px 14px;
-  border-bottom: 1px solid #e8e8e8;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   flex-shrink: 0;
   gap: 12px;
 `;
@@ -58,14 +58,14 @@ const TitleGroup = styled.div`
 const Title = styled.span`
   font-size: 15px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   white-space: nowrap;
 `;
 
 const ProgLabel = styled.span`
   font-size: 13px;
   font-weight: 400;
-  color: #999;
+  color: ${({ theme }) => theme.colors.textSecondary};
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -83,15 +83,15 @@ const CloseBtn = styled.button`
   height: 28px;
   border-radius: 50%;
   border: none;
-  background: #f0f0f0;
-  color: #666;
+  background: ${({ theme }) => theme.colors.surfaceSunken};
+  color: ${({ theme }) => theme.colors.textSecondary};
   font-size: 14px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  &:hover { background: #e0e0e0; color: #1a1a1a; }
+  &:hover { background: ${({ theme }) => theme.colors.surfaceSunken}; color: ${({ theme }) => theme.colors.textPrimary}; }
 `;
 
 const ScrollBody = styled.div`
@@ -103,7 +103,7 @@ const ScrollBody = styled.div`
 
 const ItemWrap = styled.div`
   & + & {
-    border-top: 1px solid #efefef;
+    border-top: 1px solid ${({ theme }) => theme.colors.border};
   }
 `;
 
@@ -111,7 +111,7 @@ const Empty = styled.div`
   padding: 48px 0;
   text-align: center;
   font-size: 13px;
-  color: #aaa;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 export function SavedLicksModal({ spanLabel, matches, onClose, songTempo, onShowInline, activeInlineLickId }: Props) {

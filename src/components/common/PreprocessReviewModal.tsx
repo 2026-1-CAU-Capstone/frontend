@@ -254,24 +254,24 @@ function ReviewForm({ preprocess, confirming, error, onCancel, onConfirm }: Form
 /* ── styles — ProjectCreateModal 과 동일 토큰을 쓴다 ────────────────────── */
 
 const Backdrop = styled.div`
-  position: fixed; inset: 0; background: rgba(0,0,0,.55);
+  position: fixed; inset: 0; background: ${({ theme }) => theme.colors.scrim};
   z-index: ${({ theme }) => theme.zIndex.max}; display: flex; align-items: center; justify-content: center; padding: 24px;
 `;
 const Card = styled.div`
-  background: #fff; border-radius: 14px; width: min(520px, 100%);
+  background: ${({ theme }) => theme.colors.surface}; border-radius: 14px; width: min(520px, 100%);
   padding: 22px 22px 18px; box-shadow: 0 16px 48px rgba(0,0,0,.3);
   display: flex; flex-direction: column; gap: 13px;
   max-height: calc(100vh - 48px); overflow-y: auto;
 `;
-const CardTitle = styled.h2`margin: 0; font-size: 18px; font-weight: 800; color: #16161d;`;
-const SubText = styled.div`font-size: 12.5px; color: #8a8a93; margin-top: -8px;`;
+const CardTitle = styled.h2`margin: 0; font-size: 18px; font-weight: 800; color: ${({ theme }) => theme.colors.textPrimary};`;
+const SubText = styled.div`font-size: 12.5px; color: ${({ theme }) => theme.colors.textSecondary}; margin-top: -8px;`;
 const Field = styled.div`display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1;`;
 const Row = styled.div`display: flex; gap: 10px;`;
 const Label = styled.label`
-  font-size: 12.5px; font-weight: 600; color: #55555f;
+  font-size: 12.5px; font-weight: 600; color: ${({ theme }) => theme.colors.textSecondary};
   display: flex; align-items: center; gap: 6px;
 `;
-const Req = styled.span`font-size: 11.5px; font-weight: 600; color: #c0392b;`;
+const Req = styled.span`font-size: 11.5px; font-weight: 600; color: ${({ theme }) => theme.colors.danger};`;
 const Conf = styled.span<{ $tone: 'high' | 'low' }>`
   font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 999px;
   background: ${({ $tone }) => ($tone === 'high' ? '#eef7f1' : '#fdf4e7')};
@@ -290,14 +290,14 @@ const SegBtn = styled.button<{ $on: boolean }>`
   border: 1.5px solid ${({ $on }) => ($on ? '#B8860B' : '#e6e6ec')};
   background: ${({ $on }) => ($on ? '#fdf6e7' : '#fff')};
   color: ${({ $on }) => ($on ? '#7a5b00' : '#33333c')};
-  small { font-size: 11px; font-weight: 500; color: #9a9aa3; }
+  small { font-size: 11px; font-weight: 500; color: ${({ theme }) => theme.colors.textSecondary}; }
 `;
 const WarnBox = styled.div`
   display: flex; flex-direction: column; gap: 4px;
-  background: #fdf6e7; border: 1px solid #f0e0bb; border-radius: 9px;
+  background: ${({ theme }) => theme.colors.surfaceSunken}; border: 1px solid #f0e0bb; border-radius: 9px;
   padding: 9px 11px; font-size: 12.5px; color: #7a5b00; line-height: 1.45;
 `;
-const ErrorMsg = styled.div`font-size: 12.5px; color: #c0392b;`;
+const ErrorMsg = styled.div`font-size: 12.5px; color: ${({ theme }) => theme.colors.danger};`;
 const Actions = styled.div`
   display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px;
 `;

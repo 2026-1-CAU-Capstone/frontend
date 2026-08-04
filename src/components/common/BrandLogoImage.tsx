@@ -35,6 +35,9 @@ const Img = styled.img<{ $clickable: boolean }>`
   width: auto;
   user-select: none;
   -webkit-user-drag: none;
+  /* 워드마크는 검정 단색 PNG 라 어두운 배경에서 사라진다. 밝은 버전 에셋을 따로
+   * 두는 대신 반전시킨다 — 단색이므로 반전만으로 흰 워드마크가 정확히 나온다. */
+  ${({ theme }) => theme.mode === 'dark' && 'filter: invert(1);'}
   ${({ $clickable }) => ($clickable ? 'cursor: pointer;' : '')}
 `;
 

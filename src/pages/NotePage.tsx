@@ -381,7 +381,7 @@ const ToolBtn = styled.button<{ $lit?: boolean }>`
   transition: background 0.15s, color 0.15s;
   ${({ $lit }) => $lit && 'filter: drop-shadow(0 0 4px rgba(232, 168, 56, 0.55));'}
 
-  &:hover { background: rgba(0, 0, 0, 0.06); }
+  &:hover { background: ${({ theme }) => theme.colors.activeFill}; }
 `;
 
 /* ─── tool icons (Lucide, 24×24 stroke) — copied from ChordPage ─────────── */
@@ -431,10 +431,10 @@ const AllPartsStack = styled.div`
 const AllPartsPicker = styled.select`
   margin: 4px 0 10px 16px;
   padding: 6px 12px;
-  border: 1px solid rgba(0, 0, 0, 0.18);
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 8px;
-  background: #1a1a1a;
-  color: #fff;
+  background: ${({ theme }) => theme.colors.inkSurface};
+  color: ${({ theme }) => theme.colors.onInk};
   font-family: 'Pretendard', sans-serif;
   font-size: 0.85rem;
   font-weight: 600;
@@ -450,7 +450,7 @@ const PartScaleLabel = styled.div`
   font-family: 'Pretendard', sans-serif;
   font-size: 1.1rem;
   font-weight: 700;
-  color: #555;
+  color: ${({ theme }) => theme.colors.textSecondary};
   margin: 0 0 2px 18px;
 `;
 
@@ -479,8 +479,8 @@ const RightPanelWrapper = styled.div<{ $width: number }>`
 /* Tab strip splitting the right panel into 믹서 / AI 채팅 (matches ChordPage). */
 const PanelTabs = styled.div`
   display: flex;
-  background: #fff;
-  border-bottom: 1px solid #e6e6e6;
+  background: ${({ theme }) => theme.colors.surface};
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   flex-shrink: 0;
 `;
 

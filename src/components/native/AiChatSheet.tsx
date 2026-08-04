@@ -121,7 +121,7 @@ const Sheet = styled.div<{ $entered: boolean }>`
   height: calc(100dvh - max(env(safe-area-inset-top, 0px), 12px) - 8px - 56px);
   display: flex;
   flex-direction: column;
-  background: #ffffff;
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 18px 18px 0 0;
   box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.22);
   transform: translateY(${({ $entered }) => ($entered ? '0%' : '100%')});
@@ -133,7 +133,7 @@ const SheetHandle = styled.div`
   width: 40px;
   height: 4.5px;
   border-radius: 999px;
-  background: #d9dce1;
+  background: ${({ theme }) => theme.colors.surfaceSunken};
   margin: 8px auto 4px;
   flex: 0 0 auto;
 `;
@@ -150,8 +150,8 @@ const CloseBtn = styled.button`
   justify-content: center;
   border: none;
   border-radius: 50%;
-  background: #f1f3f6;
-  color: #4a4f57;
+  background: ${({ theme }) => theme.colors.surfaceSunken};
+  color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
 
   &:active { opacity: 0.6; }
@@ -187,10 +187,10 @@ const EmptyLogo = styled.img`
 const EmptyGreeting = styled.div`
   font-size: 1.12rem;
   font-weight: 700;
-  color: #1d2129;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 const EmptyHint = styled.div`
   font-size: 0.85rem;
-  color: #8a8f98;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;

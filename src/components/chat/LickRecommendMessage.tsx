@@ -25,6 +25,8 @@ import { YoutubeEmbed } from '../common/YoutubeEmbed';
 import { getLickVideo } from '../../data/lickVideos';
 import { computeBeamBreaks } from '../../lib/note/beamPolicy';
 import { chordBaselineY } from '../../lib/note/chordClearance';
+import { useNoteNameStyle } from '../../hooks/useNoteNameStyle';
+import { drawNoteNameLabels, type NoteNameStyle } from '../../lib/note/noteNameLabels';
 
 /* ── AI 생성 릭: glick JSON → LickEntry 변환 ────────────────────────────── */
 
@@ -114,8 +116,8 @@ const TransposeBadge = styled.span`
 const DevIdBadge = styled.span`
   font-size: 10px;
   font-weight: 500;
-  color: #888;
-  background: rgba(0, 0, 0, 0.06);
+  color: ${({ theme }) => theme.colors.textSecondary};
+  background: ${({ theme }) => theme.colors.activeFill};
   padding: 2px 6px;
   border-radius: 4px;
   flex-shrink: 0;
@@ -309,6 +311,8 @@ function renderScore(
   availW: number,
   measureRectsRef: MutableRefObject<{ x: number; y: number; w: number }[]>,
   noteElMapRef: MutableRefObject<Map<string, SVGElement>>,
+  /* 음이름 라벨 — 모듈 함수라 훅을 못 쓴다. 호출부가 넘긴다. */
+  noteNameStyle: NoteNameStyle,
 ) {
   el.innerHTML = '';
   measureRectsRef.current = [];
@@ -362,6 +366,9 @@ function renderScore(
     new Formatter().joinVoices([voice]).formatToStave([voice], stave);
     voice.draw(ctx, stave);
     beams.forEach((b) => b.setContext(ctx).draw());
+    drawNoteNameLabels(el.querySelector('svg'), vfNotes.map((vf, ni) => (
+      { vfNote: vf, keys: measure.notes[ni]?.keys ?? [] }
+    )), noteNameStyle);
 
     for (let ni = 0; ni < vfNotes.length; ni++) {
       const svgNode = vfNotes[ni].getSVGElement?.() as SVGElement | undefined;
@@ -463,6 +470,7 @@ export function LickRecommendMessage({ match, tempoOverride, onShowInline, inlin
     loadUserLicksSync().some((l) => l.id === lick.id)
   );
   const video = lick.video ?? getLickVideo(lick.id);
+  const noteNameStyle = useNoteNameStyle();
 
   useEffect(() => {
     const wrapper = wrapperRef.current;
@@ -474,7 +482,7 @@ export function LickRecommendMessage({ match, tempoOverride, onShowInline, inlin
       if (cancelled) return false;
       const availW = wrapper.clientWidth;
       if (availW < 60) return false; // 폭 아직 미정 — rAF 루프/ResizeObserver 가 재시도
-      renderScore(el, lick, Math.max(availW - 2, 100), measureRectsRef, noteElMapRef);
+      renderScore(el, lick, Math.max(availW - 2, 100), measureRectsRef, noteElMapRef, noteNameStyle);
       prevNoteKeyRef.current = null;
       return true;
     };
@@ -493,7 +501,7 @@ export function LickRecommendMessage({ match, tempoOverride, onShowInline, inlin
     const ro = new ResizeObserver(() => render());
     ro.observe(wrapper);
     return () => { cancelled = true; ro.disconnect(); };
-  }, [lick]);
+  }, [lick, noteNameStyle]);
 
   const colorNote = useCallback((key: string, color: string) => {
     const el = noteElMapRef.current.get(key);

@@ -36,7 +36,7 @@ const Box = styled.div<{ $local: boolean }>`
   letter-spacing: 0.01em;
   color: #fff;
   background: ${({ $local }) => ($local ? '#1f7a4d' : '#c0392b')};
-  border: 1px solid rgba(0, 0, 0, 0.18);
+  border: 1px solid ${({ theme }) => theme.colors.border};
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
   user-select: none;
   pointer-events: none;

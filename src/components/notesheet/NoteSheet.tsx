@@ -446,7 +446,7 @@ const Wrapper = styled.div`
   position: relative;
   flex: 1;
   overflow: auto;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
 
   &:hover .fullscreen-btn {
     opacity: 1;
@@ -481,7 +481,7 @@ const Header = styled.div`
 const HeaderLeft = styled.span`
   font-family: 'Pretendard', sans-serif;
   font-size: 1.05rem;
-  color: #999;
+  color: ${({ theme }) => theme.colors.textSecondary};
 
   @media (max-width: 960px) {
     font-size: 0.7rem;
@@ -501,7 +501,7 @@ const Title = styled.h1`
 const Composer = styled.span`
   font-family: 'Pretendard', sans-serif;
   font-size: 1.05rem;
-  color: #999;
+  color: ${({ theme }) => theme.colors.textSecondary};
 
   @media (max-width: 960px) {
     font-size: 0.7rem;
@@ -526,8 +526,8 @@ const PartButton = styled.button`
   display: flex;
   align-items: center;
   gap: 5px;
-  background: #1a1a1a;
-  color: #fff;
+  background: ${({ theme }) => theme.colors.inkSurface};
+  color: ${({ theme }) => theme.colors.onInk};
   border: none;
   border-radius: 6px;
   padding: 4px 10px;
@@ -540,7 +540,7 @@ const PartButton = styled.button`
   overflow: hidden;
   text-overflow: ellipsis;
   &::after { content: '▾'; font-size: 0.85em; opacity: 0.7; }
-  &:hover { background: #333; }
+  &:hover { background: ${({ theme }) => theme.colors.inkSurface}; }
 `;
 
 const PartMenu = styled.div`
@@ -548,8 +548,8 @@ const PartMenu = styled.div`
   top: calc(100% + 4px);
   left: 0;
   z-index: 40;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.14);
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
   padding: 4px;
@@ -570,9 +570,9 @@ const PartOption = styled.button<{ $active?: boolean }>`
   font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
   font-weight: ${({ $active }) => ($active ? 700 : 500)};
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   white-space: nowrap;
-  &:hover { background: rgba(0, 0, 0, 0.05); }
+  &:hover { background: ${({ theme }) => theme.colors.hover}; }
 `;
 
 /* ── key dropdown ──────────────────────────────────────────────────────── */
@@ -587,8 +587,8 @@ const KeyButton = styled.button`
   display: flex;
   align-items: center;
   gap: 4px;
-  background: #fff;
-  border: 1.5px solid #ccc;
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1.5px solid ${({ theme }) => theme.colors.border};
   border-radius: 5px;
   padding: 5px 14px;
   cursor: pointer;
@@ -596,9 +596,9 @@ const KeyButton = styled.button`
   font-size: 1.4rem;
   font-weight: 600;
   line-height: 1.3;
-  color: #222;
-  &:hover { border-color: #888; }
-  &::after { content: '▾'; font-size: 0.7em; color: #999; }
+  color: ${({ theme }) => theme.colors.textPrimary};
+  &:hover { border-color: ${({ theme }) => theme.colors.textPrimary}; }
+  &::after { content: '▾'; font-size: 0.7em; color: ${({ theme }) => theme.colors.textSecondary}; }
 
   @media (max-width: 960px) {
     font-size: 1rem;
@@ -613,8 +613,8 @@ const KeyMenu = styled.div`
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 3px;
-  background: #fff;
-  border: 1px solid #ddd;
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 8px;
   padding: 8px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.15);
@@ -659,7 +659,7 @@ const PlayerBar = styled.div`
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: #1e1e1e;
+  background: ${({ theme }) => theme.colors.inkSurface};
   padding: 12px 16px;
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.4);
@@ -696,7 +696,7 @@ const PlayerIconBtn = styled.button`
 const BpmLabel = styled.span`
   font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
-  color: #ccc;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 const BpmInput = styled.input`
@@ -704,22 +704,22 @@ const BpmInput = styled.input`
   font-size: 0.92rem;
   width: 50px;
   padding: 5px 5px;
-  border: 1px solid #555;
+  border: 1px solid ${({ theme }) => theme.colors.textPrimary};
   border-radius: 6px;
-  background: #2a2a2a;
-  color: #fff;
+  background: ${({ theme }) => theme.colors.inkSurface};
+  color: ${({ theme }) => theme.colors.onInk};
   text-align: center;
   outline: none;
   -moz-appearance: textfield;
   &::-webkit-inner-spin-button,
   &::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-  &:focus { border-color: #888; }
+  &:focus { border-color: ${({ theme }) => theme.colors.textPrimary}; }
 `;
 
 const MixSep = styled.div`
   width: 1px;
   height: 20px;
-  background: #444;
+  background: ${({ theme }) => theme.colors.inkSurface};
 `;
 
 const MixToggle = styled.button<{ $on?: boolean }>`
@@ -733,7 +733,7 @@ const MixToggle = styled.button<{ $on?: boolean }>`
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.15s;
-  &:hover { border-color: #888; }
+  &:hover { border-color: ${({ theme }) => theme.colors.textPrimary}; }
 `;
 
 /* ─── mixer popup (slides up from PlayerBar) ──────────────────────────── */
@@ -746,8 +746,8 @@ const MixerPopup = styled.div`
   bottom: calc(100% + 10px);
   left: 0;
   width: 340px;
-  background: linear-gradient(180deg, #1d1d1d 0%, #161616 100%);
-  border: 1px solid #2a2a2a;
+  background: linear-gradient(180deg, ${({ theme }) => theme.colors.inkSurface} 0%, #161616 100%);
+  border: 1px solid ${({ theme }) => theme.colors.textPrimary};
   border-radius: 14px;
   padding: 14px 14px 12px;
   box-shadow: 0 12px 38px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.02) inset;
@@ -770,13 +770,13 @@ const MixerHeader = styled.div`
   justify-content: space-between;
   padding: 0 2px 8px;
   margin-bottom: 4px;
-  border-bottom: 1px solid #262626;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.textPrimary};
 
   & > span {
     font-family: 'Pretendard', sans-serif;
     font-size: 0.74rem;
     font-weight: 700;
-    color: #d4d4d4;
+    color: ${({ theme }) => theme.colors.textSecondary};
     letter-spacing: 0.6px;
     text-transform: uppercase;
   }
@@ -788,14 +788,14 @@ const MixerSection = styled.div`
   flex-direction: column;
   gap: 6px;
   padding: 8px 4px 10px;
-  &:not(:last-child) { border-bottom: 1px solid #232323; }
+  &:not(:last-child) { border-bottom: 1px solid ${({ theme }) => theme.colors.textPrimary}; }
 `;
 
 const MixerSectionTitle = styled.div`
   font-family: 'Pretendard', sans-serif;
   font-size: 0.78rem;
   font-weight: 600;
-  color: #cfcfcf;
+  color: ${({ theme }) => theme.colors.textSecondary};
   letter-spacing: 0.2px;
   display: flex;
   align-items: center;
@@ -811,7 +811,7 @@ const MixerRow = styled.div`
 const MixerLabel = styled.span`
   font-family: 'Pretendard', sans-serif;
   font-size: 0.7rem;
-  color: #888;
+  color: ${({ theme }) => theme.colors.textSecondary};
   width: 36px;
   flex-shrink: 0;
   white-space: nowrap;
@@ -820,7 +820,7 @@ const MixerLabel = styled.span`
 const MixerValue = styled.span`
   font-family: 'JetBrains Mono', 'Menlo', monospace;
   font-size: 0.68rem;
-  color: #9a9a9a;
+  color: ${({ theme }) => theme.colors.textSecondary};
   width: 30px;
   text-align: right;
   flex-shrink: 0;
@@ -846,7 +846,7 @@ const MixerSlider = styled.input.attrs<{ $pct?: number }>(({ $pct }) => ({
     width: 13px;
     height: 13px;
     border-radius: 50%;
-    background: #fff;
+    background: ${({ theme }) => theme.colors.surface};
     box-shadow: 0 1px 4px rgba(0,0,0,0.5);
     cursor: pointer;
   }
@@ -854,7 +854,7 @@ const MixerSlider = styled.input.attrs<{ $pct?: number }>(({ $pct }) => ({
     width: 13px;
     height: 13px;
     border-radius: 50%;
-    background: #fff;
+    background: ${({ theme }) => theme.colors.surface};
     border: none;
     box-shadow: 0 1px 4px rgba(0,0,0,0.5);
     cursor: pointer;
@@ -866,8 +866,8 @@ const KitGroup = styled.div`
   gap: 4px;
   flex: 1;
   padding: 2px;
-  background: #161616;
-  border: 1px solid #262626;
+  background: ${({ theme }) => theme.colors.inkSurface};
+  border: 1px solid ${({ theme }) => theme.colors.textPrimary};
   border-radius: 999px;
 `;
 
@@ -892,7 +892,7 @@ const KitBtn = styled.button<{ $active?: boolean }>`
 
 const AttribLine = styled.div`
   font-size: 9px;
-  color: #6e6e6e;
+  color: ${({ theme }) => theme.colors.textSecondary};
   margin-top: 2px;
   padding: 0 2px;
   text-align: right;

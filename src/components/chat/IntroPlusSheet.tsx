@@ -176,8 +176,8 @@ const WebIcon = () => (
 const ChevronRight = styled.span`
   width: 10px;
   height: 10px;
-  border-right: 1.7px solid rgba(0, 0, 0, 0.3);
-  border-bottom: 1.7px solid rgba(0, 0, 0, 0.3);
+  border-right: 1.7px solid ${({ theme }) => theme.colors.border};
+  border-bottom: 1.7px solid ${({ theme }) => theme.colors.border};
   transform: rotate(-45deg);
   margin-left: 6px;
   flex-shrink: 0;
@@ -193,7 +193,7 @@ const slideUp = keyframes`from { transform: translateY(100%) } to { transform: t
 const Backdrop = styled.div`
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35);
+  background: ${({ theme }) => theme.colors.scrim};
   z-index: 200;
   animation: ${fadeBg} 0.18s ease both;
 `;
@@ -204,7 +204,7 @@ const Sheet = styled.div`
   right: 0;
   bottom: 0;
   z-index: 201;
-  background: #fbfaf6;
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 22px 22px 0 0;
   padding: 8px 16px calc(20px + env(safe-area-inset-bottom, 0px));
   box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.12);
@@ -217,7 +217,7 @@ const Handle = styled.div`
   width: 38px;
   height: 4px;
   border-radius: 2px;
-  background: rgba(0, 0, 0, 0.2);
+  background: ${({ theme }) => theme.colors.border};
   margin: 6px auto 12px;
 `;
 
@@ -233,8 +233,8 @@ const CloseBtn = styled.button`
   height: 36px;
   border-radius: 50%;
   border: none;
-  background: #fff;
-  color: rgba(0, 0, 0, 0.75);
+  background: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.textPrimary};
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -250,7 +250,7 @@ const Title = styled.div`
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 16px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 const Squares = styled.div`
@@ -269,13 +269,13 @@ const Square = styled.button`
   padding: 18px 8px 16px;
   border: none;
   border-radius: 18px;
-  background: rgba(0, 0, 0, 0.04);
-  color: #1a1a1a;
+  background: ${({ theme }) => theme.colors.hover};
+  color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
   transition: background 0.12s, transform 0.08s;
 
   &:active {
-    background: rgba(0, 0, 0, 0.08);
+    background: ${({ theme }) => theme.colors.activeFill};
     transform: scale(0.97);
   }
 `;
@@ -284,13 +284,13 @@ const SquareLabel = styled.span`
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 15px;
   font-weight: 500;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 const Divider = styled.hr`
   margin: 8px 12px;
   border: none;
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  border-top: 1px solid ${({ theme }) => theme.colors.border};
 `;
 
 const Row = styled.div`
@@ -302,7 +302,7 @@ const Row = styled.div`
   transition: background 0.12s;
   border-radius: 10px;
 
-  &:active { background: rgba(0, 0, 0, 0.03); }
+  &:active { background: ${({ theme }) => theme.colors.hover}; }
 `;
 
 const RowIcon = styled.div<{ $color?: string }>`
@@ -320,13 +320,13 @@ const RowLabel = styled.div`
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 16px;
   font-weight: 500;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 const RowValue = styled.div`
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 15px;
-  color: rgba(0, 0, 0, 0.45);
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 /* iOS-style toggle switch */
@@ -349,7 +349,7 @@ const Switch = styled.button<{ $on: boolean }>`
     width: 26px;
     height: 26px;
     border-radius: 50%;
-    background: #fff;
+    background: ${({ theme }) => theme.colors.surface};
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
     transition: left 0.18s;
   }

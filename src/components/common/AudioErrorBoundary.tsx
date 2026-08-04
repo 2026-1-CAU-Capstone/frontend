@@ -51,7 +51,7 @@ export class AudioErrorBoundary extends Component<Props, State> {
           alignItems: 'center',
           justifyContent: 'center',
           gap: 16,
-          color: '#888',
+          color: '${({ theme }) => theme.colors.textSecondary}',
           fontSize: 14,
           textAlign: 'center',
           padding: 24,

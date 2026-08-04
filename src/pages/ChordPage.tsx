@@ -232,39 +232,6 @@ const TransportBar = styled.div<{ $bottom?: boolean; $safeTop?: boolean }>`
 
 /* Second toolbar row shown only in edit mode — the chord "modify tool".
  * For now it just holds the Save button. */
-const EditBar = styled.div`
-  position: relative;
-  z-index: 59;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 7px 14px;
-  background: #fff7e6;
-  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  flex-shrink: 0;
-`;
-
-const EditBarLabel = styled.span`
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: #9a6b00;
-`;
-
-const EditSaveBtn = styled.button`
-  font-family: 'Pretendard', sans-serif;
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: #fff;
-  background: #1f9a52;
-  border: none;
-  border-radius: 7px;
-  padding: 7px 18px;
-  cursor: pointer;
-  transition: background 0.15s;
-  &:hover { background: #18803f; }
-`;
 
 const BarLeft = styled.div<{ $native?: boolean }>`
   display: flex;
@@ -330,7 +297,7 @@ const ToolBtn = styled.button<{ $lit?: boolean }>`
   transition: background 0.15s, color 0.15s;
   ${({ $lit }) => $lit && 'filter: drop-shadow(0 0 4px rgba(232, 168, 56, 0.55));'}
 
-  &:hover { background: rgba(0, 0, 0, 0.06); }
+  &:hover { background: ${({ theme }) => theme.colors.activeFill}; }
 `;
 
 /* ─── native 전용 배치 (iRealPro 참고 — 컴포넌트 디자인은 기존 그대로, 배치만
@@ -419,7 +386,7 @@ const SidebarBackdrop = styled.div<{ $entered: boolean }>`
 const SidebarPanel = styled.aside<{ $entered: boolean }>`
   width: min(380px, 80vw);
   height: 100%;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   display: flex;
   flex-direction: column;
   box-shadow: 4px 0 28px rgba(0, 0, 0, 0.18);
@@ -436,7 +403,7 @@ const SidebarHeader = styled.header`
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
 `;
 
 const SidebarIconBtn = styled.button`
@@ -457,7 +424,7 @@ const SidebarTitle = styled.div`
   flex: 1;
   font-size: 1.05rem;
   font-weight: 700;
-  color: #111;
+  color: ${({ theme }) => theme.colors.textPrimary};
   text-align: left;
 `;
 
@@ -470,12 +437,12 @@ const SidebarSearchInput = styled.input`
   height: 34px;
   border-radius: 9px;
   border: none;
-  background: #eef0f3;
+  background: ${({ theme }) => theme.colors.surfaceSunken};
   padding: 0 12px;
   font-family: inherit;
   font-size: 0.92rem;
   outline: none;
-  &::placeholder { color: #9a9a9a; }
+  &::placeholder { color: ${({ theme }) => theme.colors.textSecondary}; }
 `;
 
 const SidebarList = styled.div`
@@ -490,7 +457,7 @@ const SongRow = styled.button<{ $active?: boolean }>`
   text-align: left;
   padding: 10px 16px;
   border: none;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ $active }) => ($active ? '#eef4ff' : 'transparent')};
   cursor: pointer;
   font-family: inherit;
@@ -500,13 +467,13 @@ const SongRow = styled.button<{ $active?: boolean }>`
 const SongTitle = styled.div`
   font-size: 0.98rem;
   font-weight: 700;
-  color: #111;
+  color: ${({ theme }) => theme.colors.textPrimary};
   margin-bottom: 2px;
 `;
 
 const SongComposer = styled.div`
   font-size: 0.78rem;
-  color: #777;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 const SongMeta = styled.div`
@@ -515,7 +482,7 @@ const SongMeta = styled.div`
   gap: 12px;
   margin-top: 4px;
   font-size: 0.72rem;
-  color: #999;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 /* ─── tool icons (Lucide, 24×24 stroke) ───────────────────────────────── */
@@ -584,6 +551,20 @@ const GearIcon = () => (
   </svg>
 );
 
+/* 기타 코드 다이어그램 토글 아이콘 — 프렛보드(줄+프렛+운지점) 미니 심볼. */
+const GuitarChordIcon = ({ lit }: { lit: boolean }) => (
+  <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="6" y="4" width="12" height="16" rx="1.4" />
+    <line x1="9" y1="4" x2="9" y2="20" />
+    <line x1="12" y1="4" x2="12" y2="20" />
+    <line x1="15" y1="4" x2="15" y2="20" />
+    <line x1="6" y1="9" x2="18" y2="9" />
+    <line x1="6" y1="14" x2="18" y2="14" />
+    <circle cx="9" cy="11.5" r="1.3" fill={lit ? 'currentColor' : 'none'} stroke="none" />
+    <circle cx="15" cy="16.5" r="1.3" fill={lit ? 'currentColor' : 'none'} stroke="none" />
+  </svg>
+);
+
 /* ─── settings modal (analysis sub-filters) ───────────────────────────── */
 const ModalOverlay = styled.div<{ $entered: boolean }>`
   position: fixed;
@@ -600,7 +581,7 @@ const ModalOverlay = styled.div<{ $entered: boolean }>`
 const ModalCard = styled.div<{ $entered: boolean }>`
   width: 340px;
   max-width: calc(100vw - 32px);
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 16px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
   padding: 22px 24px 24px;
@@ -615,23 +596,23 @@ const ModalTitle = styled.h3`
   margin: 0 0 4px;
   font-size: 1.1rem;
   font-weight: 700;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 const ModalSub = styled.p`
   margin: 0 0 16px;
   font-size: 0.82rem;
-  color: #888;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 const ModalInput = styled.input`
   width: 100%;
   height: 38px;
-  border: 1px solid #d9d9d9;
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 8px;
   padding: 0 10px;
   font-size: 0.9rem;
-  color: #222;
+  color: ${({ theme }) => theme.colors.textPrimary};
   box-sizing: border-box;
   outline: none;
 
@@ -647,19 +628,19 @@ const ProgressionPreview = styled.pre`
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-word;
-  border: 1px solid #ececec;
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 8px;
-  background: #fafafa;
+  background: ${({ theme }) => theme.colors.surfaceSunken};
   padding: 10px;
   font-size: 0.78rem;
   line-height: 1.45;
-  color: #444;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 const ModalError = styled.div`
   margin-top: 10px;
   border-radius: 8px;
-  background: #fff1f0;
+  background: ${({ theme }) => theme.colors.surface};
   border: 1px solid #ffccc7;
   color: #a8071a;
   padding: 8px 10px;
@@ -689,6 +670,61 @@ const ModalButton = styled.button<{ $primary?: boolean }>`
     opacity: 0.58;
     cursor: default;
   }
+`;
+
+/* ─── 기타 다이어그램 보기 선택 옵션 카드 ─────────────────────────────── */
+const OptionList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+`;
+
+const OptionCard = styled.button<{ $active: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1.5px solid ${({ $active, theme }) => ($active ? '#1f6feb' : theme.colors.border)};
+  background: ${({ $active }) => ($active ? 'rgba(31, 111, 235, 0.07)' : 'transparent')};
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+
+  &:hover {
+    border-color: ${({ $active }) => ($active ? '#1f6feb' : '#b7c4d6')};
+  }
+`;
+
+const OptionIconBox = styled.div<{ $active: boolean }>`
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: ${({ $active }) => ($active ? 'rgba(31, 111, 235, 0.12)' : 'rgba(120, 130, 145, 0.1)')};
+  color: ${({ $active }) => ($active ? '#1f6feb' : '#68727f')};
+`;
+
+const OptionText = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`;
+
+const OptionLabel = styled.span`
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: ${({ theme }) => theme.colors.textPrimary};
+`;
+
+const OptionDesc = styled.span`
+  font-size: 0.76rem;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 /* ─── native-only chat window + mixer bottom-sheet ─────────────────────── */
@@ -730,14 +766,14 @@ const ChatWindowHeader = styled.div`
 const ChatWindowTitle = styled.div`
   font-size: 1rem;
   font-weight: 700;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 const ChatWindowClose = styled.button`
   border: none;
   background: transparent;
   font-size: 1.4rem;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
   line-height: 1;
 `;
@@ -765,7 +801,7 @@ const SheetBackdrop = styled.div<{ $entered: boolean }>`
 const SheetCard = styled.div<{ $entered: boolean }>`
   width: 100%;
   max-width: 540px;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border-top-left-radius: 18px;
   border-top-right-radius: 18px;
   max-height: 80vh;
@@ -783,7 +819,7 @@ const SheetHandle = styled.div`
   width: 40px;
   height: 4px;
   border-radius: 2px;
-  background: rgba(0, 0, 0, 0.18);
+  background: ${({ theme }) => theme.colors.border};
   margin: 8px auto 4px;
 `;
 
@@ -792,13 +828,13 @@ const SheetHeader = styled.div`
   align-items: center;
   justify-content: space-between;
   padding: 4px 16px 10px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
 `;
 
 const SheetTitle = styled.div`
   font-size: 15px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 const SheetDone = styled.button`
@@ -816,7 +852,7 @@ const SheetBody = styled.div`
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
 `;
 
 /* "iRealPro 1460" label — now lives in the toolbar's leftExtra slot. */
@@ -1001,6 +1037,9 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   const [sidebarQuery, setSidebarQuery] = useState('');
   const [chatOpen, setChatOpen] = useState(false);
   const [mixerSheetOpen, setMixerSheetOpen] = useState(false);
+  /* 코드 심볼 아래 기타 프렛 다이어그램 표시 여부 + 그 선택 모달. */
+  const [showDiagrams, setShowDiagrams] = useState(false);
+  const [diagramModalOpen, setDiagramModalOpen] = useState(false);
 
   /* All overlays use a shared mount + transition pattern so they slide in
    * and back out smoothly instead of popping. Durations match the CSS
@@ -1595,10 +1634,19 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     setSheet((s) => (s ? { ...s, key: k } : s));
   }, []);
 
-  /* Enter/leave chord-chart edit mode. Entering clears any pending edits;
-   * leaving via the pencil discards them (Save is the only commit path). */
+  /* 코드 수정 모드 토글.
+   *   켤 때  — 이전에 남은 편집값을 비우고 시작한다.
+   *   끌 때  — **편집한 내용을 그대로 반영**한다(예전엔 버렸고, 별도 '저장'
+   *            버튼을 눌러야만 반영됐다). 연필을 다시 누르는 게 곧 확정이다.
+   * 커밋은 아래 commitEdits 가 담당한다 — 선언 순서상 ref 로 참조한다. */
+  const commitEditsRef = useRef<(() => void) | null>(null);
+  const editModeRef = useRef(false);
+  useEffect(() => { editModeRef.current = editMode; }, [editMode]);
   const toggleEditMode = useCallback(() => {
-    editValuesRef.current.clear();
+    /* 부수효과는 setState 업데이터 밖에서 — StrictMode 는 업데이터를 두 번
+     * 호출할 수 있어 커밋이 중복 실행된다. */
+    if (editModeRef.current) commitEditsRef.current?.();
+    else editValuesRef.current.clear();
     setEditMode((on) => !on);
   }, []);
 
@@ -1609,8 +1657,8 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     [],
   );
 
-  const handleSaveEdit = useCallback(() => {
-    if (!sheet) return;
+  const commitEdits = useCallback(() => {
+    if (!sheet || editValuesRef.current.size === 0) return;
     const next: LeadSheetData = structuredClone(sheet);
     editValuesRef.current.forEach((value, key) => {
       const [s, b, c] = key.split('-').map(Number);
@@ -1630,8 +1678,8 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
 
     saveChartEdit(songId, next);
     editValuesRef.current.clear();
-    setEditMode(false);
   }, [mychordMode, sheet, songId]);
+  useEffect(() => { commitEditsRef.current = commitEdits; }, [commitEdits]);
 
   /* 부분 실패 재시도 시 create부터 다시 돌면 코드 없는 빈 프로젝트가 백엔드에
    * 중복 누적된다 — 생성된 publicId를 보관해 재시도는 addChords/analyze부터
@@ -1795,6 +1843,14 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
               >
                 <LightbulbIcon lit={filters.showAnalysis} />
               </ToolBtn>
+              <ToolBtn
+                type="button"
+                title="기타 코드 다이어그램"
+                $lit={showDiagrams}
+                onClick={() => setDiagramModalOpen(true)}
+              >
+                <GuitarChordIcon lit={showDiagrams} />
+              </ToolBtn>
               <ToolBtn type="button" title="고급 설정" onClick={() => openPerformanceSettings('chordAnalysis')}>
                 <GearIcon />
               </ToolBtn>
@@ -1827,24 +1883,52 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
               <ToolBtn type="button" title="공유" onClick={handleShare} disabled={!sheet || loading}>
                 <ShareIcon />
               </ToolBtn>
+              <ToolBtn
+                type="button"
+                title="기타 코드 다이어그램"
+                $lit={showDiagrams}
+                onClick={() => setDiagramModalOpen(true)}
+              >
+                <GuitarChordIcon lit={showDiagrams} />
+              </ToolBtn>
               <ToolBtn type="button" title="고급 설정" onClick={() => openPerformanceSettings('chordAnalysis')}>
                 <GearIcon />
               </ToolBtn>
             </NativeTopBar>
           )}
 
-          {editMode && (
-            <EditBar>
-              <EditBarLabel>코드 수정 모드 — 코드를 클릭해 직접 수정하세요</EditBarLabel>
-              <EditSaveBtn type="button" onClick={handleSaveEdit}>저장</EditSaveBtn>
-            </EditBar>
-          )}
 
           {sheet && !loading ? (
             <LeadSheet
               data={sheet}
+              /* 전체화면 안 맨 위에 얹을 재생 컨트롤 — 평소 바(TransportBar/
+               * BottomControlPanel)는 오버레이에 덮이므로 같은 것을 넘겨준다.
+               * 재생 상태가 하나뿐이라 두 곳이 어긋날 일은 없다. */
+              fullscreenToolbar={(
+                <>
+                  <TransportButtons
+                    playing={isPlaying}
+                    onPlayPause={handlePlayPause}
+                    onStop={handleStop}
+                    disabled={!sheet || loading}
+                  />
+                  <BpmControl tempo={tempo} onTempoChange={setTempo} disabled={!sheet || loading} />
+                  <RepeatControl repeatCount={repeatCount} onRepeatChange={setRepeatCount} disabled={!sheet || loading} />
+                  <GenreSelect />
+                  <MixerButton
+                    inlineLick
+                    breakEditMode={breakEditMode}
+                    onToggleBreakEdit={() => setBreakEditMode((v) => !v)}
+                    loopEditMode={loopEditMode}
+                    onToggleLoopEdit={handleToggleLoopEdit}
+                    loopRegion={loopRegion}
+                    onClearLoop={handleClearLoop}
+                  />
+                </>
+              )}
               analysisFilters={editMode || breakEditMode ? ANALYSIS_OFF : effective}
               selectedKey={editMode ? chartOriginalKey : writtenKey}
+              showDiagrams={showDiagrams}
               editMode={editMode}
               onChordEdit={handleChordEdit}
               breakEditMode={breakEditMode}
@@ -2072,6 +2156,45 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
             💡 릭 추천받기
           </div>
         </div>
+      )}
+
+      {diagramModalOpen && (
+        <ModalOverlay $entered onClick={() => setDiagramModalOpen(false)}>
+          <ModalCard $entered onClick={(e) => e.stopPropagation()}>
+            <ModalTitle>기타 코드 다이어그램</ModalTitle>
+            <ModalSub>코드 심볼 아래에 기타 운지 다이어그램을 함께 볼 수 있어요.</ModalSub>
+            <OptionList>
+              <OptionCard
+                type="button"
+                $active={!showDiagrams}
+                onClick={() => { setShowDiagrams(false); setDiagramModalOpen(false); }}
+              >
+                <OptionIconBox $active={!showDiagrams}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6 8h4M14 8h4M6 12h6M15 12h3M6 16h3M12 16h6" />
+                  </svg>
+                </OptionIconBox>
+                <OptionText>
+                  <OptionLabel>코드만 보기</OptionLabel>
+                  <OptionDesc>코드 심볼만 깔끔하게 표시합니다.</OptionDesc>
+                </OptionText>
+              </OptionCard>
+              <OptionCard
+                type="button"
+                $active={showDiagrams}
+                onClick={() => { setShowDiagrams(true); setDiagramModalOpen(false); }}
+              >
+                <OptionIconBox $active={showDiagrams}>
+                  <GuitarChordIcon lit={showDiagrams} />
+                </OptionIconBox>
+                <OptionText>
+                  <OptionLabel>기타 다이어그램도 보기</OptionLabel>
+                  <OptionDesc>코드 아래에 세로로 프렛 다이어그램을 붙입니다.</OptionDesc>
+                </OptionText>
+              </OptionCard>
+            </OptionList>
+          </ModalCard>
+        </ModalOverlay>
       )}
 
       {saveConfirmOpen && (

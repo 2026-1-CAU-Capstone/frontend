@@ -402,7 +402,7 @@ const Page = styled.div`
    * 이 컨테이너 기준으로 정상 동작한다. */
   height: 100dvh;
   overflow-y: auto;
-  background: #f7f7f7;
+  background: ${({ theme }) => theme.colors.surfaceSunken};
   font-family: 'Pretendard', sans-serif;
   /* 하단 5탭 바(78px)에 가리지 않게 */
   padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px));
@@ -418,7 +418,9 @@ const TopBar = styled.header<{ $scrolled?: boolean }>`
   z-index: 50;
   /* 흰색 상단 바. 스크롤 다운 시 살짝 투명해져 뒤 콘텐츠가 비친다(요청). 라운드는
    * 상단 바가 아니라 아래 회색 Body 가 진다(Body 상단 코너 필렛). */
-  background: ${({ $scrolled }) => ($scrolled ? 'rgba(255, 255, 255, 0.72)' : '#ffffff')};
+  background: ${({ $scrolled, theme }) => ($scrolled
+    ? (theme.mode === 'dark' ? 'rgba(38, 38, 43, 0.72)' : 'rgba(255, 255, 255, 0.72)')
+    : theme.colors.surface)};
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   transition: background 0.25s ease;
@@ -438,11 +440,11 @@ const ProfileWrap = styled.div`
 const AvatarBtn = styled.button`
   width: 40px;
   height: 40px;
-  border: 1.5px solid rgba(0, 0, 0, 0.12);
+  border: 1.5px solid ${({ theme }) => theme.colors.border};
   border-radius: 50%;
   /* 크림색 상단 바 위 — 흰 원 + 진한 글자로 대비 확보 */
-  background: #ffffff;
-  color: #1d2129;
+  background: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.textPrimary};
   font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
@@ -453,12 +455,12 @@ const AvatarBtn = styled.button`
 const LoginChip = styled.button`
   height: 40px;
   padding: 0 14px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 999px;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   font-size: 0.88rem;
   font-weight: 650;
-  color: #1d2129;
+  color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
 `;
 
@@ -473,7 +475,7 @@ const TopCircle = styled.button<{ $on?: boolean }>`
   border-radius: 50%;
   /* 크림색 상단 바 위 — 반투명 검정 배경 + 진한 아이콘 */
   background: ${({ $on }) => ($on ? 'rgba(0, 0, 0, 0.08)' : 'rgba(0, 0, 0, 0.045)')};
-  color: #1d2129;
+  color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
 
   &:active { opacity: 0.65; }
@@ -492,8 +494,8 @@ const NotifMenu = styled.div`
   right: 0;
   min-width: 240px;
   padding: 6px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 14px;
   box-shadow: 0 14px 44px rgba(0, 0, 0, 0.18);
   z-index: 60;
@@ -503,8 +505,8 @@ const NotifTitle = styled.div`
   padding: 8px 10px 6px;
   font-size: 0.82rem;
   font-weight: 700;
-  color: #8a8f98;
-  border-bottom: 1px solid #f0f1f3;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   margin-bottom: 4px;
 `;
 
@@ -512,7 +514,7 @@ const NotifEmpty = styled.div`
   padding: 22px 10px;
   text-align: center;
   font-size: 0.88rem;
-  color: #9aa0a8;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 const BellGlyph = () => (
@@ -537,7 +539,7 @@ const SectionHead = styled.h2`
   margin: 10px 2px 7px;
   font-size: 0.86rem;
   font-weight: 700;
-  color: #73787f;
+  color: ${({ theme }) => theme.colors.textSecondary};
 
   &:first-of-type {
     margin-top: 4px;
@@ -560,9 +562,9 @@ const QuadCell = styled.button`
   align-items: flex-start;
   justify-content: space-between;
   padding: 16px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 18px;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   cursor: pointer;
   box-shadow: 0 1px 5px rgba(0, 0, 0, 0.05);
   min-width: 0;
@@ -587,7 +589,7 @@ const QuadFoot = styled.span`
 const QuadLabel = styled.span`
   font-size: 1.02rem;
   font-weight: 700;
-  color: #1d2129;
+  color: ${({ theme }) => theme.colors.textPrimary};
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -596,7 +598,7 @@ const QuadLabel = styled.span`
 
 const QuadCount = styled.span`
   font-size: 0.8rem;
-  color: #8a8f98;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 /* ── 목록 ── */
@@ -604,9 +606,9 @@ const QuadCount = styled.span`
 const List = styled.div`
   display: flex;
   flex-direction: column;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 14px;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   overflow: hidden;
 `;
 
@@ -616,13 +618,13 @@ const Row = styled.button`
   gap: 11px;
   padding: 12px 13px;
   border: none;
-  border-bottom: 1px solid #f2f3f5;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   background: transparent;
   text-align: left;
   cursor: pointer;
 
   &:last-child { border-bottom: none; }
-  &:active { background: #f6f7f9; }
+  &:active { background: ${({ theme }) => theme.colors.surface}; }
 `;
 
 const RowIcon = styled.span`
@@ -635,7 +637,7 @@ const RowTitle = styled.span`
   min-width: 0;
   font-size: 0.92rem;
   font-weight: 550;
-  color: #1d2129;
+  color: ${({ theme }) => theme.colors.textPrimary};
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -644,16 +646,16 @@ const RowTitle = styled.span`
 const RowTag = styled.span`
   flex: 0 0 auto;
   font-size: 0.72rem;
-  color: #9aa0a8;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 const EmptyRow = styled.div`
   padding: 18px 14px;
-  border: 1px dashed rgba(0, 0, 0, 0.12);
+  border: 1px dashed ${({ theme }) => theme.colors.border};
   border-radius: 14px;
   font-size: 0.86rem;
-  color: #8a8f98;
-  background: #fbfbfa;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  background: ${({ theme }) => theme.colors.surface};
 `;
 
 /* ── guest ── */
@@ -676,12 +678,12 @@ const GuestLogo = styled.img`
 const GuestTitle = styled.div`
   font-size: 1.3rem;
   font-weight: 800;
-  color: #1d2129;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 const GuestDesc = styled.div`
   font-size: 0.92rem;
-  color: #73787f;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 const GuestBtn = styled.button`
@@ -690,8 +692,8 @@ const GuestBtn = styled.button`
   padding: 0 22px;
   border: none;
   border-radius: 12px;
-  background: #1d2129;
-  color: #fff;
+  background: ${({ theme }) => theme.colors.inkSurface};
+  color: ${({ theme }) => theme.colors.onInk};
   font-size: 0.95rem;
   font-weight: 700;
   cursor: pointer;
@@ -713,8 +715,8 @@ const BottomBar = styled.nav`
   align-items: flex-end;
   height: 90px;
   padding: 0 4px calc(4px + env(safe-area-inset-bottom, 0px));
-  background: #ffffff;
-  border-top: 1px solid rgba(0, 0, 0, 0.07);
+  background: ${({ theme }) => theme.colors.surface};
+  border-top: 1px solid ${({ theme }) => theme.colors.border};
   font-family: 'Pretendard', sans-serif;
 `;
 
@@ -782,7 +784,7 @@ const PlusBackdrop = styled.div`
    * 비교된다 — BarTab(auto) 보다는 높게, PlusWrap(2) 보다는 낮게 둬서
    * 좌우 4탭은 dim 되고 버블/× 버튼만 밝게 위에 뜨도록 한다. */
   z-index: 1;
-  background: rgba(0, 0, 0, 0.72);
+  background: ${({ theme }) => theme.colors.scrim};
 `;
 
 const BubbleCluster = styled.div`
@@ -818,7 +820,7 @@ const BubbleCircle = styled.span`
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: #ffffff;
+  background: ${({ theme }) => theme.colors.surface};
   font-size: 24px;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
   transition: transform 0.1s;
@@ -827,7 +829,7 @@ const BubbleCircle = styled.span`
 const BubbleLabel = styled.span`
   font-size: 0.76rem;
   font-weight: 650;
-  color: #ffffff;
+  color: ${({ theme }) => theme.colors.onInk};
   white-space: nowrap;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 `;
@@ -842,9 +844,9 @@ const AiFab = styled.button<{ $dimmed?: boolean }>`
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  border: 2px solid #ffffff;
-  background: #1d2129;
-  color: #ffffff;
+  border: 2px solid ${({ theme }) => theme.colors.surface};
+  background: ${({ theme }) => theme.colors.inkSurface};
+  color: ${({ theme }) => theme.colors.onInk};
   display: flex;
   align-items: center;
   justify-content: center;

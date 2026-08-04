@@ -185,16 +185,16 @@ const Feed = styled.div`
 const Intro = styled.p`
   margin: 4px 2px 16px;
   font-size: 0.88rem;
-  color: #73787f;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 const Stats = styled.b`
-  color: #1d2129;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 const Compare = styled.section`
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.07);
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 14px;
   padding: 14px 14px 10px;
   margin: 0 0 16px;
@@ -215,13 +215,13 @@ const DbNum = styled.span`
 
 const MetaTitle = styled.span`
   font-weight: 700;
-  color: #1d2129;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 const Chip = styled.span`
   font-size: 0.72rem;
-  color: #73787f;
-  background: rgba(0, 0, 0, 0.045);
+  color: ${({ theme }) => theme.colors.textSecondary};
+  background: ${({ theme }) => theme.colors.hover};
   border-radius: 999px;
   padding: 2px 8px;
 `;
@@ -239,8 +239,8 @@ const Badge = styled.span<{ $tier: CompareItem['tier'] }>`
 const MatchLine = styled.div`
   margin: 8px 0 6px;
   font-size: 0.86rem;
-  color: #55595f;
-  b { color: #1d2129; }
+  color: ${({ theme }) => theme.colors.textSecondary};
+  b { color: ${({ theme }) => theme.colors.textPrimary}; }
 `;
 
 const Bar = styled.span`
@@ -254,7 +254,7 @@ const Pct = styled.span`
 `;
 
 const Faint = styled.span`
-  color: #9aa0a8;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 const YtLink = styled.a`
@@ -264,7 +264,7 @@ const YtLink = styled.a`
   font-weight: 600;
   color: #a9761f;
   text-decoration: none;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid ${({ theme }) => theme.colors.border};
   background: rgba(169, 118, 31, 0.07);
   border-radius: 999px;
   padding: 4px 10px;
@@ -277,5 +277,5 @@ const PaneLabel = styled.div`
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: #9aa0a8;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;

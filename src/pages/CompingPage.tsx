@@ -373,14 +373,14 @@ const IntroHead = styled.div`
   padding: calc(env(safe-area-inset-top, 0px) + 14px) 18px 12px;
   /* 페이지 최상단 바 — 전 페이지 공통 회색. */
   background: ${({ theme }) => theme.colors.barTop};
-  border-bottom: 1px solid #ececec;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   flex-wrap: wrap;
 `;
 const IntroTitle = styled.h1`
   margin: 0;
   font-size: 20px;
   font-weight: 800;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   letter-spacing: -0.01em;
   font-family: ${({ theme }) => theme.fonts.ui};
 `;
@@ -401,15 +401,15 @@ const IntroActions = styled.div`
 `;
 const ActionBtn = styled.button`
   padding: 8px 14px;
-  border: 1px solid #e2e2e2;
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 10px;
-  background: #fff;
-  color: #333;
+  background: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.textPrimary};
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   font-family: ${({ theme }) => theme.fonts.ui};
-  &:hover { background: #f6f6f4; border-color: ${GOLD}; }
+  &:hover { background: ${({ theme }) => theme.colors.surfaceSunken}; border-color: ${GOLD}; }
 `;
 const Split = styled.div`
   flex: 1;
@@ -421,13 +421,13 @@ const GenrePane = styled.div`
   width: 190px;
   flex: 0 0 auto;
   padding: 12px 10px;
-  background: #fff;
-  border-right: 1px solid #ececec;
+  background: ${({ theme }) => theme.colors.surface};
+  border-right: 1px solid ${({ theme }) => theme.colors.border};
   display: flex;
   flex-direction: column;
   gap: 4px;
   font-family: ${({ theme }) => theme.fonts.ui};
-  ${mq.mobile} { width: 100%; flex-direction: row; flex-wrap: wrap; border-right: none; border-bottom: 1px solid #ececec; }
+  ${mq.mobile} { width: 100%; flex-direction: row; flex-wrap: wrap; border-right: none; border-bottom: 1px solid ${({ theme }) => theme.colors.border}; }
 `;
 const GenreRow = styled.button<{ $on: boolean }>`
   display: flex;
@@ -442,7 +442,7 @@ const GenreRow = styled.button<{ $on: boolean }>`
   box-shadow: ${({ $on }) => ($on ? `inset 3px 0 0 ${GOLD}` : 'none')};
   &:hover { background: ${({ $on }) => ($on ? 'rgba(184,134,11,0.12)' : '#f6f6f4')}; }
 `;
-const GenreName = styled.span` font-size: 14px; font-weight: 700; color: #2a2a2a; `;
+const GenreName = styled.span` font-size: 14px; font-weight: 700; color: ${({ theme }) => theme.colors.textPrimary}; `;
 const GenreCount = styled.span`
   font-size: 11.5px;
   font-weight: 700;
@@ -455,10 +455,10 @@ const GenreHint = styled.div`
   margin-top: auto;
   padding: 10px 11px;
   border-radius: 9px;
-  background: #fafaf8;
+  background: ${({ theme }) => theme.colors.surface};
   font-size: 11.5px;
   line-height: 1.55;
-  color: #999;
+  color: ${({ theme }) => theme.colors.textSecondary};
   ${mq.mobile} { display: none; }
 `;
 const ListPane = styled.div`
@@ -467,18 +467,18 @@ const ListPane = styled.div`
   min-height: 0;
   overflow-y: auto;
   padding: 12px;
-  background: #fff;
-  border-right: 1px solid #ececec;
+  background: ${({ theme }) => theme.colors.surface};
+  border-right: 1px solid ${({ theme }) => theme.colors.border};
   display: flex;
   flex-direction: column;
   gap: 6px;
   font-family: ${({ theme }) => theme.fonts.ui};
-  ${mq.mobile} { width: 100%; border-right: none; border-bottom: 1px solid #ececec; max-height: 40vh; }
+  ${mq.mobile} { width: 100%; border-right: none; border-bottom: 1px solid ${({ theme }) => theme.colors.border}; max-height: 40vh; }
 `;
 const SearchInput = styled.input`
   height: 36px;
   padding: 0 12px;
-  border: 1px solid #e6e6e6;
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 9px;
   outline: none;
   font-size: 13.5px;
@@ -500,13 +500,13 @@ const EntryRow = styled.button<{ $on: boolean }>`
 const EntryTitle = styled.span`
   font-size: 14px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 `;
-const EntryMeta = styled.span` font-size: 11.5px; color: #999; `;
-const EmptyNote = styled.div` padding: 22px 8px; font-size: 13px; color: #aaa; text-align: center; line-height: 1.6; `;
+const EntryMeta = styled.span` font-size: 11.5px; color: ${({ theme }) => theme.colors.textSecondary}; `;
+const EmptyNote = styled.div` padding: 22px 8px; font-size: 13px; color: ${({ theme }) => theme.colors.textSecondary}; text-align: center; line-height: 1.6; `;
 const PreviewPane = styled.div`
   flex: 1;
   min-width: 0;
@@ -529,7 +529,7 @@ const PreviewTitle = styled.h2`
   min-width: 0;
   font-size: 17px;
   font-weight: 800;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -553,7 +553,7 @@ const Placeholder = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #bbb;
+  color: ${({ theme }) => theme.colors.textSecondary};
   font-size: 14px;
   font-family: ${({ theme }) => theme.fonts.ui};
 `;
@@ -593,7 +593,7 @@ const HiddenInput = styled.input`
 const ConfirmBackdrop = styled.div`
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: ${({ theme }) => theme.colors.scrim};
   z-index: ${({ theme }) => theme.zIndex.max};
   display: flex;
   align-items: center;
@@ -602,7 +602,7 @@ const ConfirmBackdrop = styled.div`
 `;
 const ConfirmCard = styled.div`
   width: min(380px, 100%);
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 14px;
   padding: 22px;
   display: flex;
@@ -611,19 +611,19 @@ const ConfirmCard = styled.div`
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
   font-family: ${({ theme }) => theme.fonts.ui};
 `;
-const ConfirmTitle = styled.h2` margin: 0; font-size: 16px; font-weight: 800; color: #1a1a1a; `;
-const ConfirmText = styled.p` margin: 0; font-size: 13px; line-height: 1.6; color: #666; `;
+const ConfirmTitle = styled.h2` margin: 0; font-size: 16px; font-weight: 800; color: ${({ theme }) => theme.colors.textPrimary}; `;
+const ConfirmText = styled.p` margin: 0; font-size: 13px; line-height: 1.6; color: ${({ theme }) => theme.colors.textSecondary}; `;
 const ConfirmActions = styled.div` display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; `;
 const GhostBtn = styled.button`
   border: none;
   background: transparent;
-  color: #888;
+  color: ${({ theme }) => theme.colors.textSecondary};
   padding: 8px 14px;
   border-radius: 9px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  &:hover { background: #f2f2f2; }
+  &:hover { background: ${({ theme }) => theme.colors.surfaceSunken}; }
 `;
 const DangerBtn = styled.button`
   border: none;

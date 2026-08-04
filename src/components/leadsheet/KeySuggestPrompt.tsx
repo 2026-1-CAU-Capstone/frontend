@@ -65,14 +65,14 @@ function pct(r: number): string {
 
 const Backdrop = styled.div`
   position: fixed; inset: 0; z-index: 1200;
-  background: rgba(0, 0, 0, 0.42);
+  background: ${({ theme }) => theme.colors.scrim};
   display: flex; align-items: center; justify-content: center;
   padding: 16px;
 `;
 
 const Card = styled.div`
   width: 100%; max-width: 420px;
-  background: #fff; border-radius: 14px;
+  background: ${({ theme }) => theme.colors.surface}; border-radius: 14px;
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
   padding: 22px 22px 18px;
 `;
@@ -82,7 +82,7 @@ const Title = styled.h3`
 `;
 
 const Sub = styled.p`
-  margin: 0 0 14px; font-size: 13px; line-height: 1.55; color: #5a6577;
+  margin: 0 0 14px; font-size: 13px; line-height: 1.55; color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 const KeyRow = styled.div`
@@ -96,17 +96,17 @@ const KeyChip = styled.span<{ $accent?: boolean }>`
   background: ${(p) => (p.$accent ? '#e8f0fe' : '#f3f4f6')};
 `;
 
-const Arrow = styled.span`color: #9aa3af; font-size: 15px;`;
+const Arrow = styled.span`color: ${({ theme }) => theme.colors.textSecondary}; font-size: 15px;`;
 
 const Evidence = styled.ul`
   margin: 0 0 16px; padding: 12px 14px; list-style: none;
-  background: #f8fafc; border: 1px solid #eef1f5; border-radius: 10px;
+  background: ${({ theme }) => theme.colors.surface}; border: 1px solid ${({ theme }) => theme.colors.border}; border-radius: 10px;
   font-size: 12.5px; color: #40506a; line-height: 1.7;
-  li::before { content: '·'; margin-right: 6px; color: #9aa3af; }
+  li::before { content: '·'; margin-right: 6px; color: ${({ theme }) => theme.colors.textSecondary}; }
 `;
 
 const Note = styled.p`
-  margin: 0 0 16px; font-size: 12px; color: #7b8794; line-height: 1.5;
+  margin: 0 0 16px; font-size: 12px; color: ${({ theme }) => theme.colors.textSecondary}; line-height: 1.5;
 `;
 
 const Actions = styled.div`display: flex; gap: 8px; justify-content: flex-end;`;

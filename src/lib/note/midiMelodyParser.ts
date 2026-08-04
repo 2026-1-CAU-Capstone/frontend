@@ -224,6 +224,11 @@ interface NoteEv {
   end: number;      // tick
 }
 
+/** 양자화된 음 — 3연음 격자에 붙었는지(`trip`)를 함께 들고 다닌다. */
+interface QNote extends NoteEv {
+  trip?: boolean;
+}
+
 function extractNotes(track: MidiEvent[]): NoteEv[] {
   const pending = new Map<number, number>();
   const notes: NoteEv[] = [];
@@ -287,52 +292,85 @@ function extractMelodyLine(notes: NoteEv[]): NoteEv[] {
 }
 
 /**
- * Quantise an expressive performance line onto a straight-8th grid.
+ * Quantise an expressive performance line onto a musical grid.
  *
- * WjazzD (Weimar Jazz Database) MIDIs are TRANSCRIPTIONS OF REAL SOLOS, not
- * engraved scores: onsets sit off the beat, durations reflect articulation
- * (staccato/legato), and 8th notes are SWUNG (long ≈0.6 beat, short ≈0.4).
+ * WjazzD(바이마르 재즈 DB)류 MIDI 는 **연주 실황을 그대로 찍은 것**이지 조판된
+ * 악보가 아니다: 온셋이 박에서 밀려 있고, 길이는 아티큘레이션(스타카토·레가토)
+ * 을 반영하며, 8분음표는 스윙(길게 ≈0.66 / 짧게 ≈0.33)으로 친다.
  *
- * Feeding those raw values to the duration grid produced the broken look the
- * user reported — a swung short-8th (~0.4) snapped to 0.375 = a DOTTED 16th,
- * and articulation jitter produced random 16ths. The musical convention is to
- * notate swing 8ths as STRAIGHT 8ths (swing is a feel, not a literal dotted
- * figure), so we:
+ * 예전엔 **직선 8분 한 종류**로만 스냅했다. 그래서 실측상 3연음 91개·16분 48개가
+ * 전부 8분으로 뭉개져(같은 곡 MusicXML 과 A/B 비교) 리듬이 통째로 뭉개졌다.
  *
- *   1. Trim leading empty bars (a solo that enters in bar 10 shouldn't render
- *      9 bars of rests) — shift so the first note's bar becomes bar 0.
- *   2. Snap each onset to the nearest straight-8th (½-beat) grid point, with a
- *      monotonic guard so two notes never collapse onto the same slot. This
- *      collapses a swing 8th pair (0.6 / 0.4) into two clean 0.5-beat 8ths.
- *   3. Take each note's notated duration from the INTER-ONSET interval (gap to
- *      the next note), capped by the note's own snapped length — so a real
- *      pause becomes a rest, while back-to-back notes read as legato 8ths.
+ * 이제 두 격자를 함께 본다:
+ *   · 직선 격자 — 16분(¼박) 단위
+ *   · 3연음 격자 — ⅓박 단위 (스윙 8분·8분 3연음)
+ * 온셋마다 **더 가까운 쪽**을 고르고, 3연음 격자에 붙은 음은 `tuplet: 3` 을 달아
+ * 렌더러가 3연음으로 조판하게 한다.
  *
- * Result: every duration is a clean multiple of a straight 8th (½/1/1½/2…),
- * which the existing measure assembler renders without dotted-16th clutter.
+ * 스윙은 '느낌'이지 점8분+16분이 아니므로, 한 박 안에서 3연음 격자에 붙은 음이
+ * **딱 2개(0, ⅔)** 면 스윙 8분 쌍으로 보고 직선 8분 2개로 되돌린다 — 재즈 조판
+ * 관례. 3개(0, ⅓, ⅔)가 모이면 진짜 3연음으로 남긴다.
+ *
+ * 앞의 빈 마디는 잘라낸다(10번째 마디에 들어오는 솔로가 9마디 쉼표로 시작하지
+ * 않게).
  */
-function quantizeToGrid(notes: NoteEv[], tpb: number, numBeats: number): NoteEv[] {
+function quantizeToGrid(notes: NoteEv[], tpb: number, numBeats: number): QNote[] {
   if (notes.length === 0) return [];
-  const gTicks = 0.5 * tpb;                 // straight-8th grid step
+  const eighth = tpb / 2;                    // 8분  (가장 흔한 단위)
+  const trip = tpb / 3;                      // 8분 3연음
+  const sixteenth = tpb / 4;                 // 16분 (마지막 수단)
   const barTicks = numBeats * tpb;
-  const shift = Math.floor(notes[0].start / barTicks) * barTicks; // trim lead-in bars
+  const shift = Math.floor(notes[0].start / barTicks) * barTicks;
 
+  /* 1) 온셋 스냅 — **거친 격자 우선**. 가장 가까운 격자를 그냥 고르면 연주의
+   *    미세한 흔들림이 전부 16분으로 떨어져 리듬이 잘게 부서진다(실측: 16분
+   *    173개 vs 정답 38개). 8분 → 3연음 → 16분 순으로, 허용 오차 안에 들어오는
+   *    **가장 거친** 격자를 쓴다. */
+  const TOL_EIGHTH = tpb * 0.15;             // 8분 격자 허용 오차(≈0.15박)
+  const TOL_TRIP = tpb * 0.12;
   let prevOn = -1;
   const snapped = notes.map((n) => {
-    let on = Math.round((n.start - shift) / gTicks) * gTicks;
-    if (on <= prevOn) on = prevOn + gTicks;  // keep onsets ≥ one 8th apart
+    const t = n.start - shift;
+    const e8 = Math.round(t / eighth) * eighth;
+    const e3 = Math.round(t / trip) * trip;
+    let on: number; let step: number; let useTrip = false;
+    if (Math.abs(t - e8) <= TOL_EIGHTH) { on = e8; step = eighth; }
+    else if (Math.abs(t - e3) <= TOL_TRIP) { on = e3; step = trip; useTrip = true; }
+    else { on = Math.round(t / sixteenth) * sixteenth; step = sixteenth; }
+    if (on <= prevOn) on = prevOn + step;     // 두 음이 같은 자리에 겹치지 않게
     prevOn = on;
-    const len = Math.max(gTicks, Math.round((n.end - n.start) / gTicks) * gTicks);
-    return { midi: n.midi, start: on, len };
+    const rawLen = n.end - n.start;
+    const len = Math.max(step, Math.round(rawLen / step) * step);
+    return { midi: n.midi, start: on, len, trip: useTrip };
   });
 
-  const out: NoteEv[] = [];
+  /* 2) 스윙 8분 쌍 되돌리기 — 한 박에 3연음 격자 음이 정확히 2개면 직선으로. */
+  const beatOf = (tick: number) => Math.floor(tick / tpb);
+  const tripPerBeat = new Map<number, number[]>();
+  snapped.forEach((n, i) => {
+    if (!n.trip) return;
+    const b = beatOf(n.start);
+    (tripPerBeat.get(b) ?? tripPerBeat.set(b, []).get(b)!).push(i);
+  });
+  for (const idxs of tripPerBeat.values()) {
+    if (idxs.length !== 2) continue;          // 3개면 진짜 3연음 — 그대로 둔다
+    for (const i of idxs) {
+      const n = snapped[i];
+      n.trip = false;
+      n.start = Math.round(n.start / eighth) * eighth;       // 0 · ½박 으로
+      n.len = Math.max(eighth, Math.round(n.len / eighth) * eighth);
+    }
+  }
+
+  /* 3) 표기 길이는 다음 음까지의 간격(inter-onset)으로 — 실제 쉼은 쉼표가 되고,
+   *    이어 붙은 음은 레가토로 읽힌다. */
+  const out: QNote[] = [];
   for (let i = 0; i < snapped.length; i++) {
-    const gap = i < snapped.length - 1
-      ? snapped[i + 1].start - snapped[i].start
-      : snapped[i].len;
-    const dur = Math.max(gTicks, Math.min(snapped[i].len, gap));
-    out.push({ midi: snapped[i].midi, start: snapped[i].start, end: snapped[i].start + dur });
+    const cur = snapped[i];
+    const step = cur.trip ? trip : sixteenth;
+    const gap = i < snapped.length - 1 ? snapped[i + 1].start - cur.start : cur.len;
+    const dur = Math.max(step, Math.min(cur.len, gap));
+    out.push({ midi: cur.midi, start: cur.start, end: cur.start + dur, trip: cur.trip });
   }
   return out;
 }
@@ -443,7 +481,14 @@ export function parseMidiArrayBuffer(
 
       // Duration clamped to barline
       const rawBeats = Math.min(ev.end - onset, mEnd - onset) / tpb;
-      const q = quantise(rawBeats);
+      /* 3연음 격자 음은 실제 길이가 ⅓·⅔박이라 직선 격자(quantise)로는 표기할 수
+       * 없다 — 표기는 8분(또는 4분)으로 하고 tuplet:3 을 달아 렌더러·플레이어가
+       * 3분할로 해석하게 한다. */
+      const q = ev.trip
+        ? (rawBeats >= 0.55
+            ? { vf: 'q', dot: false, beats: 2 / 3 }
+            : { vf: '8', dot: false, beats: 1 / 3 })
+        : quantise(rawBeats);
 
       const { key: vk, accidental } = midiToVex(ev.midi, preferSharps);
       // Convention: keys[0] + accidentals[0] together encode the absolute pitch.
@@ -454,6 +499,7 @@ export function parseMidiArrayBuffer(
       // glyphs. When a note's letter is altered by the key sig but the note is
       // the natural, emit 'n' so player and renderer agree on the override.
       const ni: NoteInfo = { keys: [vk], duration: q.vf, dotted: q.dot || undefined };
+      if (ev.trip) { ni.tuplet = 3; ni.tupletNormal = 2; }
       const letter = vk.split('/')[0];
       if (accidental) {
         ni.accidentals = { 0: accidental };

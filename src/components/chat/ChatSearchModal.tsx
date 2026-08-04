@@ -176,7 +176,7 @@ const Backdrop = styled.div`
 const Card = styled.div`
   width: 100%;
   max-width: 560px;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 14px;
   box-shadow: 0 26px 70px rgba(0, 0, 0, 0.22);
   display: flex;
@@ -195,7 +195,7 @@ const SearchHeader = styled.div`
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
-  color: rgba(0, 0, 0, 0.55);
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 const SearchInput = styled.input`
@@ -207,22 +207,22 @@ const SearchInput = styled.input`
   font-size: 16px;
   font-weight: 500;
   color: ${({ theme }) => theme.colors.textPrimary};
-  &::placeholder { color: rgba(0, 0, 0, 0.4); }
+  &::placeholder { color: ${({ theme }) => theme.colors.textSecondary}; }
 `;
 
 const CloseHint = styled.span`
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
-  color: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  color: ${({ theme }) => theme.colors.textSecondary};
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 6px;
   padding: 2px 6px;
 `;
 
 const Divider = styled.div`
   height: 1px;
-  background: rgba(0, 0, 0, 0.08);
+  background: ${({ theme }) => theme.colors.activeFill};
 `;
 
 const ResultList = styled.div`
@@ -272,5 +272,5 @@ const Hint = styled.div`
 const ErrorMsg = styled.div`
   padding: 14px;
   font-size: 13px;
-  color: #c0392b;
+  color: ${({ theme }) => theme.colors.danger};
 `;

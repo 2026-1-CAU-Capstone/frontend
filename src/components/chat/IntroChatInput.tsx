@@ -607,8 +607,8 @@ const CloseX = () => (
 
 const Box = styled.div<{ $compact?: boolean }>`
   width: 100%;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.16);
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${({ $compact }) => ($compact ? '22px' : '28px')};
   box-shadow: ${({ $compact }) => ($compact ? '0 2px 8px rgba(0, 0, 0, 0.04)' : '0 10px 36px rgba(0, 0, 0, 0.06)')};
   display: flex;
@@ -618,7 +618,7 @@ const Box = styled.div<{ $compact?: boolean }>`
   position: relative;
 
   &:focus-within {
-    border-color: rgba(0, 0, 0, 0.18);
+    border-color: ${({ theme }) => theme.colors.border};
     box-shadow: ${({ $compact }) => ($compact
       ? '0 4px 16px rgba(0, 0, 0, 0.08)'
       : '0 2px 6px rgba(0, 0, 0, 0.04), 0 22px 50px -12px rgba(0, 0, 0, 0.18)')};
@@ -627,14 +627,14 @@ const Box = styled.div<{ $compact?: boolean }>`
   /* ── Touch / compact (phones + iPads) — white pill, tighter padding so the
    * input feels native-y on iPad instead of inheriting the desktop hero box. */
   ${mq.compactLayout} {
-    background: #ffffff;
-    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: ${({ theme }) => theme.colors.surface};
+    border: 1px solid ${({ theme }) => theme.colors.border};
     border-radius: 22px;
     padding: 10px 16px 8px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 
     &:focus-within {
-      border-color: rgba(0, 0, 0, 0.14);
+      border-color: ${({ theme }) => theme.colors.border};
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     }
   }
@@ -656,13 +656,13 @@ const DragOverlay = styled.div`
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: rgba(255, 255, 255, 0.92);
+  background: ${({ theme }) => (theme.mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.92)')};
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: #3a3a3a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   font-family: ${({ theme }) => theme.fonts.ui};
   font-weight: 500;
   pointer-events: none;
@@ -670,7 +670,7 @@ const DragOverlay = styled.div`
 `;
 const DragOverlayText = styled.div`
   font-size: 15px;
-  color: #3a3a3a;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 /* Attachment thumbnails — rounded image previews (or a doc card for PDFs),
@@ -694,15 +694,15 @@ const ThumbImg = styled.img`
   height: 100%;
   object-fit: cover;
   border-radius: 14px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid ${({ theme }) => theme.colors.border};
   display: block;
 `;
 const DocThumb = styled.div`
   width: 100%;
   height: 100%;
   border-radius: 14px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  background: ${({ theme }) => theme.colors.hover};
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -713,7 +713,7 @@ const DocThumb = styled.div`
 const DocName = styled.span`
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 10px;
-  color: rgba(0, 0, 0, 0.55);
+  color: ${({ theme }) => theme.colors.textSecondary};
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -726,15 +726,15 @@ const ThumbRemove = styled.button`
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  border: 2px solid #fff;
-  background: #2b2b2b;
+  border: 2px solid ${({ theme }) => theme.colors.surface};
+  background: ${({ theme }) => theme.colors.inkSurface};
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
   transition: background 0.12s;
-  &:hover { background: #000; }
+  &:hover { background: ${({ theme }) => theme.colors.inkSurface}; }
 `;
 
 const TA = styled.textarea<{ $compact?: boolean }>`
@@ -745,14 +745,14 @@ const TA = styled.textarea<{ $compact?: boolean }>`
   border: none;
   outline: none;
   background: transparent;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: ${({ $compact }) => ($compact ? '15px' : '20px')};
   line-height: ${({ $compact }) => ($compact ? '1.45' : '1.55')};
   padding: ${({ $compact }) => ($compact ? '6px 2px 0' : '0')};
 
   &::placeholder {
-    color: rgba(0, 0, 0, 0.35);
+    color: ${({ theme }) => theme.colors.textSecondary};
   }
 
   ${mq.compactLayout} {
@@ -798,9 +798,9 @@ const PlusBtn = styled.button`
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid ${({ theme }) => theme.colors.border};
   background: transparent;
-  color: rgba(0, 0, 0, 0.7);
+  color: ${({ theme }) => theme.colors.textPrimary};
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -808,16 +808,16 @@ const PlusBtn = styled.button`
   transition: background 0.12s, border-color 0.12s, color 0.12s;
   flex-shrink: 0;
 
-  &:hover { background: rgba(0, 0, 0, 0.04); color: #000; }
+  &:hover { background: ${({ theme }) => theme.colors.hover}; color: ${({ theme }) => theme.colors.textPrimary}; }
 
   @media (max-width: 768px) {
     width: 34px;
     height: 34px;
     border: none;
-    background: rgba(0, 0, 0, 0.04);
-    color: rgba(0, 0, 0, 0.75);
+    background: ${({ theme }) => theme.colors.hover};
+    color: ${({ theme }) => theme.colors.textPrimary};
 
-    &:hover { background: rgba(0, 0, 0, 0.07); }
+    &:hover { background: ${({ theme }) => theme.colors.activeFill}; }
   }
 `;
 
@@ -830,20 +830,20 @@ const ModelPill = styled.button`
   border-radius: 18px;
   border: none;
   background: transparent;
-  color: rgba(0, 0, 0, 0.65);
+  color: ${({ theme }) => theme.colors.textSecondary};
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 14px;
   font-weight: 500;
   cursor: default;
   flex-shrink: 0;
 
-  &:hover { background: rgba(0, 0, 0, 0.04); color: #000; }
+  &:hover { background: ${({ theme }) => theme.colors.hover}; color: ${({ theme }) => theme.colors.textPrimary}; }
 
   @media (max-width: 768px) {
     padding: 6px 12px;
     border-radius: 16px;
-    background: rgba(0, 0, 0, 0.04);
-    color: rgba(0, 0, 0, 0.75);
+    background: ${({ theme }) => theme.colors.hover};
+    color: ${({ theme }) => theme.colors.textPrimary};
     font-size: 14px;
     font-weight: 500;
   }
@@ -862,12 +862,12 @@ const MicBtn = styled.button`
     height: 34px;
     border-radius: 50%;
     border: none;
-    background: rgba(0, 0, 0, 0.04);
-    color: rgba(0, 0, 0, 0.75);
+    background: ${({ theme }) => theme.colors.hover};
+    color: ${({ theme }) => theme.colors.textPrimary};
     cursor: pointer;
     flex-shrink: 0;
 
-    &:hover { background: rgba(0, 0, 0, 0.07); }
+    &:hover { background: ${({ theme }) => theme.colors.activeFill}; }
   }
 `;
 
@@ -879,8 +879,8 @@ const DarkCircle = styled.button`
   height: 36px;
   border-radius: 50%;
   border: none;
-  background: #1a1a1a;
-  color: #fff;
+  background: ${({ theme }) => theme.colors.inkSurface};
+  color: ${({ theme }) => theme.colors.onInk};
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -907,7 +907,7 @@ const Disclaimer = styled.p`
   text-align: center;
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 11.5px;
-  color: rgba(0, 0, 0, 0.4);
+  color: ${({ theme }) => theme.colors.textSecondary};
   line-height: 1.3;
 
   @media (max-width: 768px) {
@@ -921,8 +921,8 @@ const Menu = styled.div<{ $up?: boolean }>`
   ${({ $up }) => ($up ? 'bottom: calc(100% + 8px);' : 'top: calc(100% + 8px);')}
   left: 0;
   min-width: 256px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 16px;
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
   padding: 6px 4px;
@@ -952,17 +952,17 @@ const MenuItem = styled.button`
   text-align: left;
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 15px;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   transition: background 0.1s, color 0.1s;
 
   &:hover:not(:disabled),
   &:focus-visible:not(:disabled) {
-    background: rgba(0, 0, 0, 0.04);
+    background: ${({ theme }) => theme.colors.hover};
     outline: none;
   }
 
   &:disabled {
-    color: rgba(0, 0, 0, 0.32);
+    color: ${({ theme }) => theme.colors.textSecondary};
     cursor: default;
   }
 `;
@@ -984,7 +984,7 @@ const MenuLabel = styled.span`
 
 const MenuDivider = styled.div`
   height: 1px;
-  background: rgba(0, 0, 0, 0.08);
+  background: ${({ theme }) => theme.colors.activeFill};
   margin: 6px 4px;
 `;
 
@@ -993,6 +993,6 @@ const MenuDivider = styled.div`
 const MenuHint = styled.div`
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 13.5px;
-  color: rgba(0, 0, 0, 0.42);
+  color: ${({ theme }) => theme.colors.textSecondary};
   padding: 6px 12px 4px;
 `;

@@ -82,7 +82,7 @@ const Backdrop = styled.div`
 const Card = styled.div`
   width: 100%;
   max-width: 420px;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 22px;
   padding: 28px 28px 22px;
   position: relative;
@@ -108,20 +108,20 @@ const CloseBtn = styled.button`
   border-radius: 50%;
   border: none;
   background: transparent;
-  color: rgba(0, 0, 0, 0.55);
+  color: ${({ theme }) => theme.colors.textSecondary};
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
-  &:hover { background: rgba(0, 0, 0, 0.05); color: #000; }
+  &:hover { background: ${({ theme }) => theme.colors.hover}; color: ${({ theme }) => theme.colors.textPrimary}; }
 `;
 
 const Title = styled.h2`
   margin: 4px 0 0;
   font-size: 19px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   text-align: center;
   letter-spacing: -0.01em;
 `;
@@ -130,14 +130,14 @@ const Subtitle = styled.p`
   margin: 0 0 8px;
   font-size: 14px;
   line-height: 1.55;
-  color: rgba(0, 0, 0, 0.55);
+  color: ${({ theme }) => theme.colors.textSecondary};
   text-align: center;
 `;
 
 /* The bold "회원 가입" / "로그인" inline words double as text links. */
 const Bold = styled.span`
   font-weight: 700;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
   &:hover { text-decoration: underline; }
 `;
@@ -147,8 +147,8 @@ const PrimaryBtn = styled.button`
   height: 48px;
   border-radius: 999px;
   border: none;
-  background: #1a1a1a;
-  color: #fff;
+  background: ${({ theme }) => theme.colors.inkSurface};
+  color: ${({ theme }) => theme.colors.onInk};
   font-family: inherit;
   font-size: 15px;
   font-weight: 600;
@@ -162,14 +162,14 @@ const SecondaryBtn = styled.button`
   width: 100%;
   height: 48px;
   border-radius: 999px;
-  border: 1px solid rgba(0, 0, 0, 0.18);
-  background: #fff;
-  color: #1a1a1a;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  background: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.textPrimary};
   font-family: inherit;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.12s, border-color 0.12s, transform 0.08s;
-  &:hover { background: rgba(0, 0, 0, 0.03); border-color: rgba(0, 0, 0, 0.28); }
+  &:hover { background: ${({ theme }) => theme.colors.hover}; border-color: ${({ theme }) => theme.colors.border}; }
   &:active { transform: scale(0.99); }
 `;

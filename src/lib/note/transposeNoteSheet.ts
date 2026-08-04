@@ -113,8 +113,11 @@ export function transposeNoteSheet(data: NoteSheetData, targetKeyRaw: string): N
     const notes = m.notes.map((n) => {
       if (n.duration.endsWith('r')) { soundRow.push([]); return n; }
       const per: Sounding[] = n.keys.map((k, ki) => {
+        // 원본 시트의 임시표 의미론을 따른다 — '조표 무시'(explicit) 시트를
+        // score 로 읽으면 조표가 없는 음에 조표를 얹어 **이조 결과의 음이 틀어진다**.
         const srcAcc = soundingAccidental(
-          active, srcKeySig, k, n.accidentals?.[ki] as AccGlyph | undefined, 'score',
+          active, srcKeySig, k, n.accidentals?.[ki] as AccGlyph | undefined,
+          data.accidentalStyle ?? 'score',
         );
         const newMidi = midiFromKey(k, srcAcc) + semitones;
         const pc = ((newMidi % 12) + 12) % 12;

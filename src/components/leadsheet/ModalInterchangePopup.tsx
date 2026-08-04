@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 const Backdrop = styled.div`
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35);
+  background: ${({ theme }) => theme.colors.scrim};
   z-index: ${({ theme }) => theme.zIndex.popover};
   display: flex;
   align-items: center;

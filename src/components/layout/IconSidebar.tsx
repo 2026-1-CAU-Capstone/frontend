@@ -33,7 +33,7 @@ const Rail = styled.nav<{ $expanded: boolean }>`
   gap: 4px;
   background: transparent;
   /* Solid right border so the rail visually separates from the chat area. */
-  border-right: 1px solid rgba(0, 0, 0, 0.12);
+  border-right: 1px solid ${({ theme }) => theme.colors.border};
   /* 즉시 전환 — width 를 애니메이션하면 옆 콘텐츠(flex:1) 폭이 매 프레임 바뀌어
    * 악보/차트의 ResizeObserver 가 220ms 동안 수십 번 재렌더되며 심하게 버벅였다.
    * 스냅 전환은 콘텐츠를 단 1회만 reflow 시켜 끊김이 없다. (align-items 는 애초에
@@ -83,8 +83,8 @@ const ToggleTooltip = styled.span`
   top: 50%;
   transform: translateY(-50%) translateX(-4px);
   white-space: nowrap;
-  background: #1a1a1a;
-  color: #fff;
+  background: ${({ theme }) => theme.colors.inkSurface};
+  color: ${({ theme }) => theme.colors.onInk};
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 12.5px;
   font-weight: 600;
@@ -117,7 +117,7 @@ const ToggleBtn = styled.button<{ $expanded?: boolean }>`
   transition: background 0.15s, color 0.15s;
 
   &:hover {
-    background: rgba(0, 0, 0, 0.05);
+    background: ${({ theme }) => theme.colors.hover};
     color: ${({ theme }) => theme.colors.textPrimary};
   }
 
@@ -157,11 +157,11 @@ const ScrollArea = styled.div<{ $expanded: boolean }>`
   align-items: ${({ $expanded }) => ($expanded ? 'stretch' : 'center')};
   gap: 4px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
+  scrollbar-color: ${({ theme }) => theme.colors.textSecondary} transparent;
 
   &::-webkit-scrollbar { width: 6px; }
-  &::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); border-radius: 3px; }
-  &::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.28); }
+  &::-webkit-scrollbar-thumb { background: ${({ theme }) => theme.colors.border}; border-radius: 3px; }
+  &::-webkit-scrollbar-thumb:hover { background: ${({ theme }) => theme.colors.scrim}; }
 
   ${mq.phone} { align-items: center; }
 `;
@@ -188,9 +188,10 @@ const NavBtn = styled.button<{ $active?: boolean; $expanded?: boolean; disabled?
   align-items: center;
   border: none;
   background: ${({ $active }) => ($active ? 'rgba(0, 0, 0, 0.06)' : 'transparent')};
-  /* 사이드바 라벨은 거의 검정에 준하는 진한 회색으로 통일 — 가독성 우선.
-   *  활성 상태는 배경 하이라이트로 구분되므로 색은 동일하게 둠. */
-  color: ${({ $active }) => ($active ? '#1a1a1a' : '#2a2a2a')};
+  /* 라벨 색은 **테마 토큰**을 쓴다 — 예전엔 '#1a1a1a'/'#2a2a2a' 로 박아 두어
+   *  다크 모드에서 어두운 배경에 어두운 글자가 되어 읽을 수 없었다.
+   *  활성 상태는 배경 하이라이트로 구분되므로 색은 동일하게 둔다. */
+  color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
   transition: background 0.15s, color 0.15s, opacity 0.15s;
   font-family: ${({ theme }) => theme.fonts.ui};
@@ -200,8 +201,8 @@ const NavBtn = styled.button<{ $active?: boolean; $expanded?: boolean; disabled?
   overflow: hidden;
 
   &:hover:not(:disabled) {
-    background: rgba(0, 0, 0, 0.05);
-    color: #1a1a1a;
+    background: ${({ theme }) => theme.colors.hover};
+    color: ${({ theme }) => theme.colors.textPrimary};
   }
 
   &:disabled {
@@ -228,8 +229,8 @@ const NavTooltip = styled.span`
   top: 50%;
   transform: translateY(-50%) translateX(-4px);
   white-space: nowrap;
-  background: #1a1a1a;
-  color: #fff;
+  background: ${({ theme }) => theme.colors.inkSurface};
+  color: ${({ theme }) => theme.colors.onInk};
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 12.5px;
   font-weight: 600;
@@ -291,8 +292,8 @@ const Soon = styled.span`
   margin-left: 6px;
   font-size: 9px;
   font-weight: 700;
-  color: #9aa4ae;
-  background: rgba(0, 0, 0, 0.06);
+  color: ${({ theme }) => theme.colors.textSecondary};
+  background: ${({ theme }) => theme.colors.activeFill};
   border-radius: 6px;
   padding: 1px 5px;
   line-height: 1.4;
@@ -317,7 +318,7 @@ const Divider = styled.div<{ $expanded?: boolean }>`
   /* 부모 ScrollArea 가 flex column + overflow 라, flex-shrink 기본값(1)이면
    * 이 1px 이 0 으로 찌그러져 선이 아예 그려지지 않는다. */
   flex-shrink: 0;
-  background: rgba(0, 0, 0, 0.08);
+  background: ${({ theme }) => theme.colors.activeFill};
 
   /* Rail 의 좌우 패딩이 비대칭이라(왼쪽 12px / 오른쪽 2px) 같은 margin 을 주면
    * 오른쪽만 가장자리에 붙어 보인다. 좌우 시각 여백이 20px 로 같아지도록 보정.
@@ -426,7 +427,7 @@ const TrailingIconBtn = styled.span`
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.14);
+  border: 1px solid ${({ theme }) => theme.colors.border};
   background: transparent;
   color: ${({ theme }) => theme.colors.textSecondary};
   flex-shrink: 0;
@@ -484,9 +485,9 @@ const PromoLoginBtn = styled.button`
   margin-top: 4px;
   height: 36px;
   border-radius: 999px;
-  border: 1px solid rgba(0, 0, 0, 0.18);
-  background: #ffffff;
-  color: #1a1a1a;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  background: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.textPrimary};
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 13px;
   font-weight: 600;
@@ -494,8 +495,8 @@ const PromoLoginBtn = styled.button`
   transition: background 0.15s, border-color 0.15s, transform 0.12s;
 
   &:hover {
-    background: rgba(0, 0, 0, 0.04);
-    border-color: rgba(0, 0, 0, 0.28);
+    background: ${({ theme }) => theme.colors.hover};
+    border-color: ${({ theme }) => theme.colors.border};
   }
   &:active { transform: scale(0.98); }
 `;

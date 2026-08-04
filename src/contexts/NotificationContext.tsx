@@ -176,7 +176,7 @@ const Toast = styled.div<{ $kind: NotificationKind }>`
   border-radius: 12px;
   background: ${({ theme }) => theme.colors.bgPrimary};
   box-shadow: ${({ theme }) => theme.shadows.xl};
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid ${({ theme }) => theme.colors.border};
   font-family: ${({ theme }) => theme.fonts.ui};
   animation: ${slideIn} 0.18s ease-out;
   overflow: hidden;

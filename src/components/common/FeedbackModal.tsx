@@ -177,7 +177,7 @@ const Overlay = styled.div`
   position: fixed;
   inset: 0;
   z-index: ${({ theme }) => theme.zIndex.toast};
-  background: rgba(0, 0, 0, 0.45);
+  background: ${({ theme }) => theme.colors.scrim};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -189,7 +189,7 @@ const Card = styled.div`
   max-width: 560px;
   max-height: 90vh;
   overflow-y: auto;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 20px;
   padding: 28px 28px 22px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
@@ -208,7 +208,7 @@ const IconBox = styled.div`
   height: 48px;
   flex-shrink: 0;
   border-radius: 12px;
-  background: #f1f1f0;
+  background: ${({ theme }) => theme.colors.surfaceSunken};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -217,13 +217,13 @@ const IconBox = styled.div`
 const Title = styled.h2`
   font-size: 1.3rem;
   font-weight: 700;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   margin: 0 0 4px;
 `;
 
 const Subtitle = styled.p`
   font-size: 0.9rem;
-  color: #888;
+  color: ${({ theme }) => theme.colors.textSecondary};
   margin: 0;
   line-height: 1.4;
 `;
@@ -236,7 +236,7 @@ const Label = styled.label`
   display: block;
   font-size: 0.92rem;
   font-weight: 700;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   margin-bottom: 8px;
 `;
 
@@ -248,45 +248,45 @@ const Select = styled.select`
   width: 100%;
   height: 52px;
   padding: 0 16px;
-  border: 1px solid #e3e3e0;
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 12px;
-  background: #fafafa;
+  background: ${({ theme }) => theme.colors.surfaceSunken};
   font-family: inherit;
   font-size: 1rem;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
 `;
 
 const Textarea = styled.textarea`
   width: 100%;
   padding: 14px 16px;
-  border: 2px solid #1a1a1a;
+  border: 2px solid ${({ theme }) => theme.colors.textPrimary};
   border-radius: 14px;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   font-family: inherit;
   font-size: 1rem;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   resize: vertical;
   min-height: 140px;
   line-height: 1.5;
 
-  &::placeholder { color: #aaa; }
-  &:focus { outline: none; border-color: #1a1a1a; }
+  &::placeholder { color: ${({ theme }) => theme.colors.textSecondary}; }
+  &:focus { outline: none; border-color: ${({ theme }) => theme.colors.textPrimary}; }
 `;
 
 const Input = styled.input`
   width: 100%;
   height: 60px;
   padding: 0 16px;
-  border: 1px solid #e3e3e0;
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 12px;
-  background: #fafafa;
+  background: ${({ theme }) => theme.colors.surfaceSunken};
   font-family: inherit;
   font-size: 0.95rem;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
 
-  &::placeholder { color: #aaa; }
-  &:focus { outline: none; border-color: #bbb; }
+  &::placeholder { color: ${({ theme }) => theme.colors.textSecondary}; }
+  &:focus { outline: none; border-color: ${({ theme }) => theme.colors.border}; }
 `;
 
 const DropZone = styled.div<{ $dragOver: boolean }>`
@@ -304,26 +304,26 @@ const DropZone = styled.div<{ $dragOver: boolean }>`
 
 const DropText = styled.span`
   font-size: 0.92rem;
-  color: #999;
+  color: ${({ theme }) => theme.colors.textSecondary};
   display: inline-flex;
   align-items: center;
 `;
 
 const Hint = styled.p`
   font-size: 0.8rem;
-  color: #aaa;
+  color: ${({ theme }) => theme.colors.textSecondary};
   margin: 8px 2px 0;
 `;
 
 const RefundNotice = styled.div`
-  background: #f4f4f2;
+  background: ${({ theme }) => theme.colors.surfaceSunken};
   border-radius: 12px;
   padding: 14px 16px;
   font-size: 0.9rem;
-  color: #555;
+  color: ${({ theme }) => theme.colors.textSecondary};
   margin-bottom: 20px;
 
-  strong { color: #1a1a1a; font-weight: 700; }
+  strong { color: ${({ theme }) => theme.colors.textPrimary}; font-weight: 700; }
 `;
 
 const Footer = styled.div`
@@ -335,16 +335,16 @@ const Footer = styled.div`
 const CancelBtn = styled.button`
   height: 48px;
   padding: 0 26px;
-  border: 1px solid #d8d8d5;
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 999px;
-  background: #fff;
-  color: #1a1a1a;
+  background: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.textPrimary};
   font-family: inherit;
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.12s;
-  &:hover { background: #f5f5f5; }
+  &:hover { background: ${({ theme }) => theme.colors.surfaceSunken}; }
 `;
 
 const SubmitBtn = styled.button<{ $enabled: boolean }>`

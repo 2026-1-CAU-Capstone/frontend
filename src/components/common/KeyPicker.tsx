@@ -157,16 +157,16 @@ const Wrap = styled.div`position: relative;`;
 const Trigger = styled.button`
   height: 38px; box-sizing: border-box; width: 100%;
   display: inline-flex; align-items: center; gap: 2px;
-  background: #fff; border: 1px solid #e0e0e6; border-radius: 9px; padding: 0 12px;
-  cursor: pointer; font-family: ${KEY_FONT}; font-size: 1.15rem; font-weight: 600; color: #222;
+  background: ${({ theme }) => theme.colors.surface}; border: 1px solid ${({ theme }) => theme.colors.border}; border-radius: 9px; padding: 0 12px;
+  cursor: pointer; font-family: ${KEY_FONT}; font-size: 1.15rem; font-weight: 600; color: ${({ theme }) => theme.colors.textPrimary};
   &:hover { border-color: #B8860B; }
-  &::after { content: '▾'; font-size: 0.66em; color: #999; margin-left: auto; }
+  &::after { content: '▾'; font-size: 0.66em; color: ${({ theme }) => theme.colors.textSecondary}; margin-left: auto; }
 `;
 const Qual = styled.span`font-size: 0.6em; margin-left: 3px;`;
 
 const Panel = styled.div`
   position: absolute; top: calc(100% + 4px); left: 0;
-  background: #fff; border: 1px solid #ddd; border-radius: 10px; padding: 10px;
+  background: ${({ theme }) => theme.colors.surface}; border: 1px solid ${({ theme }) => theme.colors.border}; border-radius: 10px; padding: 10px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.16); z-index: 100;
   display: flex; flex-direction: column; gap: 9px;
 `;
@@ -185,7 +185,7 @@ const Cols = styled.div`display: flex; gap: 12px;`;
 const Col = styled.div`display: flex; flex-direction: column; gap: 5px;`;
 const ColHead = styled.div`
   font-family: 'Pretendard', sans-serif; font-size: 11px; font-weight: 700;
-  color: #9a9aa3; text-align: center; letter-spacing: 0.02em;
+  color: ${({ theme }) => theme.colors.textSecondary}; text-align: center; letter-spacing: 0.02em;
 `;
 const Grid = styled.div`display: grid; grid-template-columns: repeat(4, 38px); gap: 3px;`;
 const Cell = styled.button<{ $active?: boolean }>`

@@ -22,6 +22,8 @@ import { getLickVideo, type LickVideo } from '../data/lickVideos';
 import { YoutubeEmbed } from '../components/common/YoutubeEmbed';
 import { formatChordDisplay, chordBaseSegments, chordExtStyle, splitChordParts } from '../lib/jazz-harmony';
 import { keyPrefersFlats } from '../lib/transpose';
+import { useNoteNameStyle } from '../hooks/useNoteNameStyle';
+import { drawNoteNameLabels, type NoteNameStyle } from '../lib/note/noteNameLabels';
 
 /* ─── transposition helpers ───────────────────────────────────────────── */
 
@@ -393,7 +395,9 @@ function appendChordSVG(
   svgEl.appendChild(txt);
 }
 
-function renderMeasures(el: HTMLDivElement, measures: MeasureInfo[], minWidth: number, keyName?: string) {
+function renderMeasures(el: HTMLDivElement, measures: MeasureInfo[], minWidth: number,
+  /* 음이름 라벨 — 모듈 함수라 훅을 못 쓴다. 호출부(KeyRow)가 넘긴다. */
+  noteNameStyle: NoteNameStyle, keyName?: string) {
   el.innerHTML = '';
   if (measures.length === 0) return;
   const nMeasures = measures.length;
@@ -495,6 +499,9 @@ function renderMeasures(el: HTMLDivElement, measures: MeasureInfo[], minWidth: n
     new Formatter().joinVoices([voice]).formatToStave([voice], stave);
     voice.draw(ctx, stave);
     beams.forEach((b) => b.setContext(ctx).draw());
+    drawNoteNameLabels(el.querySelector('svg'), vfNotes.map((vf, ni) => (
+      { vfNote: vf, keys: measure.notes[ni]?.keys ?? [] }
+    )), noteNameStyle);
 
     // Render tuplet brackets — any N-tuplet (3, 5, 6, 7, …) with the correct number above
     {
@@ -680,7 +687,7 @@ const SheetWrap = styled.div`
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 8px;
   padding: 4px 0;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   position: relative;
 `;
 
@@ -731,6 +738,7 @@ function KeyRow({ keyName, sheetData, width, isOriginal, defaultBpm, video }: {
   keyName: string; sheetData: NoteSheetData; width: number; isOriginal: boolean; defaultBpm: number; video?: LickVideo;
 }) {
   const measures = sheetData.measures;
+  const noteNameStyle = useNoteNameStyle();
   const svgRef = useRef<HTMLDivElement>(null);
   const renderedRef = useRef(false);
   const visRef = useRef<HTMLDivElement>(null);
@@ -755,8 +763,8 @@ function KeyRow({ keyName, sheetData, width, isOriginal, defaultBpm, video }: {
   useEffect(() => {
     if (!visible || renderedRef.current || !svgRef.current) return;
     renderedRef.current = true;
-    renderMeasures(svgRef.current, measures, width, keyName);
-  }, [visible, width, measures]);
+    renderMeasures(svgRef.current, measures, width, noteNameStyle, keyName);
+  }, [visible, width, measures, noteNameStyle]);
 
   /* ── 통합 릭 플레이어 (스윙 + 왼손 피아노 컴핑 + 베이스/드럼) ──
    * 릭 데이터베이스의 LickCard 와 동일한 재생 경로. 이 조로 이조한 sheetData 를

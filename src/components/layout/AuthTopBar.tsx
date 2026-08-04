@@ -30,8 +30,8 @@ const AuthBtn = styled.button`
   padding: 0 20px;
   border-radius: 999px;
   border: none;
-  background: #1a1a1a;
-  color: #fff;
+  background: ${({ theme }) => theme.colors.inkSurface};
+  color: ${({ theme }) => theme.colors.onInk};
   font-size: 13.5px;
   font-weight: 600;
   letter-spacing: -0.01em;

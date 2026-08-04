@@ -125,7 +125,7 @@ const Page = styled.div`
  * 버튼이 상태바에 바짝 붙지 않는다. */
 const Header = styled.div`
   padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 14px;
-  border-bottom: 1px solid #efefef;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ theme }) => theme.colors.barTop};
 `;
 
@@ -143,7 +143,7 @@ const HeaderTitle = styled.h1`
   font-size: 20px;
   font-weight: 800;
   letter-spacing: -0.01em;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -178,13 +178,13 @@ const UserName = styled.div`
 const Greeting = styled.div`
   font-size: 16px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   margin-bottom: 8px;
 `;
 
 const EditProfile = styled.button`
   font-size: 13px;
-  color: #999;
+  color: ${({ theme }) => theme.colors.textSecondary};
   border: none;
   background: transparent;
   cursor: pointer;
@@ -212,7 +212,7 @@ const SubCard = styled.div`
   justify-content: space-between;
   align-items: center;
   padding: 14px 16px;
-  background: #f0f0f5;
+  background: ${({ theme }) => theme.colors.surfaceSunken};
   border-radius: 12px;
 `;
 
@@ -228,7 +228,7 @@ const SubLogo = styled.div`
 
 const SubText = styled.div`
   font-size: 14px;
-  color: #999;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 const UpgradeBtn = styled.button`
@@ -248,9 +248,9 @@ const StatsGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 12px;
-  border: 1px solid #efefef;
+  border: 1px solid ${({ theme }) => theme.colors.border};
   padding: 20px 0;
 `;
 
@@ -259,7 +259,7 @@ const StatItem = styled.div`
   padding: 0 8px;
 
   &:not(:last-child) {
-    border-right: 1px solid #efefef;
+    border-right: 1px solid ${({ theme }) => theme.colors.border};
   }
 `;
 
@@ -272,17 +272,17 @@ const StatValue = styled.div`
 
 const StatLabel = styled.div`
   font-size: 12px;
-  color: #999;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 const MenuTabs = styled.div`
   display: flex;
   justify-content: space-around;
   align-items: center;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 12px;
   padding: 12px 0;
-  border: 1px solid #efefef;
+  border: 1px solid ${({ theme }) => theme.colors.border};
 `;
 
 const MenuTab = styled.button`
@@ -291,7 +291,7 @@ const MenuTab = styled.button`
   border: none;
   background: transparent;
   font-size: 13px;
-  color: #666;
+  color: ${({ theme }) => theme.colors.textSecondary};
   cursor: pointer;
 
   &:active { opacity: 0.6; }
@@ -300,14 +300,14 @@ const MenuTab = styled.button`
 const Divider = styled.div`
   width: 1px;
   height: 20px;
-  background: #efefef;
+  background: ${({ theme }) => theme.colors.surfaceSunken};
 `;
 
 const ActionSection = styled.div`
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 12px;
   padding: 16px;
-  border: 1px solid #efefef;
+  border: 1px solid ${({ theme }) => theme.colors.border};
 `;
 
 const ActionHeading = styled.div`
@@ -320,12 +320,12 @@ const ActionHeading = styled.div`
 const ActionTitle = styled.div`
   font-size: 14px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 const ActionMore = styled.button`
   font-size: 12px;
-  color: #999;
+  color: ${({ theme }) => theme.colors.textSecondary};
   border: none;
   background: transparent;
   cursor: pointer;
@@ -336,17 +336,17 @@ const ActionMore = styled.button`
 
 const ActionDesc = styled.div`
   font-size: 12px;
-  color: #999;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 const FooterTabs = styled.div`
   display: flex;
   justify-content: space-around;
   align-items: center;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 12px;
   padding: 12px 0;
-  border: 1px solid #efefef;
+  border: 1px solid ${({ theme }) => theme.colors.border};
 `;
 
 const FooterTab = styled.button`
@@ -355,7 +355,7 @@ const FooterTab = styled.button`
   border: none;
   background: transparent;
   font-size: 13px;
-  color: #1a1a1a;
+  color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
 
   &:active { opacity: 0.6; }
@@ -369,7 +369,7 @@ const LogoutBtn = styled.button`
   width: 100%;
   padding: 12px;
   background: transparent;
-  border: 1px solid #efefef;
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 8px;
   font-size: 14px;
   color: #e74c3c;

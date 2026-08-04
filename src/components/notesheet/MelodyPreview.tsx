@@ -11,6 +11,8 @@ import {
   BarlineType,
 } from 'vexflow';
 import { resolveMeasureAccidental, type RenderAcc } from '../../lib/note/measureAccidentals';
+import { useNoteNameStyle } from '../../hooks/useNoteNameStyle';
+import { drawNoteNameLabels } from '../../lib/note/noteNameLabels';
 
 /* ─── midi → vexflow ─────────────────────────────────────────────────── */
 
@@ -40,6 +42,7 @@ interface Props {
 
 export function MelodyPreview({ midis, width }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+  const noteNameStyle = useNoteNameStyle();
 
   useEffect(() => {
     const el = ref.current;
@@ -103,10 +106,14 @@ export function MelodyPreview({ midis, width }: Props) {
       new Formatter().joinVoices([voice]).formatToStave([voice], stave);
       voice.draw(ctx, stave);
       beams.forEach((b) => b.setContext(ctx).draw());
+      /* keys 는 StaveNote 가 들고 있는 것을 그대로 쓴다(midi 에서 만든 것). */
+      drawNoteNameLabels(el.querySelector('svg'), vfNotes.map((vf) => (
+        { vfNote: vf, keys: vf.getKeys() }
+      )), noteNameStyle);
 
       x += w;
     }
-  }, [midis, width]);
+  }, [midis, width, noteNameStyle]);
 
   return <Wrap ref={ref} />;
 }

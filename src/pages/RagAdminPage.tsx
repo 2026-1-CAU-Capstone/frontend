@@ -519,7 +519,7 @@ const NewBtn = styled.button`
 const Split = styled.div` flex: 1; min-height: 0; display: flex; background: ${({ theme }) => theme.colors.barBelow}; `;
 const ListPane = styled.div<{ $detailOpen: boolean }>`
   width: 380px; flex: 0 0 auto; display: flex; flex-direction: column; min-height: 0;
-  background: #fff; border-right: 1px solid #ececec;
+  background: ${({ theme }) => theme.colors.surface}; border-right: 1px solid ${({ theme }) => theme.colors.border};
   @media (max-width: 860px) { width: 100%; ${({ $detailOpen }) => ($detailOpen ? 'display: none;' : '')} }
 `;
 const DetailPane = styled.div<{ $open: boolean }>`
@@ -527,7 +527,7 @@ const DetailPane = styled.div<{ $open: boolean }>`
   @media (max-width: 860px) { ${({ $open }) => (!$open ? 'display: none;' : '')} }
 `;
 
-const Toolbar = styled.div` padding: 14px 14px 10px; border-bottom: 1px solid #f0f0f0; display: flex; flex-direction: column; gap: 10px; `;
+const Toolbar = styled.div` padding: 14px 14px 10px; border-bottom: 1px solid ${({ theme }) => theme.colors.border}; display: flex; flex-direction: column; gap: 10px; `;
 const Tabs = styled.div` display: flex; gap: 6px; flex-wrap: wrap; `;
 const Tab = styled.button<{ $on: boolean }>`
   padding: 6px 13px; border: none; border-radius: 999px; cursor: pointer;
@@ -538,14 +538,14 @@ const Tab = styled.button<{ $on: boolean }>`
   &:hover { background: ${({ $on }) => ($on ? '#a5790a' : '#e8e8e6')}; }
 `;
 const SearchWrap = styled.div`
-  display: flex; align-items: center; gap: 8px; padding: 0 11px; background: #f4f4f2;
-  border-radius: 9px; color: #999; height: 38px;
+  display: flex; align-items: center; gap: 8px; padding: 0 11px; background: ${({ theme }) => theme.colors.surfaceSunken};
+  border-radius: 9px; color: ${({ theme }) => theme.colors.textSecondary}; height: 38px;
 `;
 const SearchInput = styled.input`
   flex: 1; min-width: 0; border: none; background: transparent; outline: none;
-  font-family: ${({ theme }) => theme.fonts.ui}; font-size: 14px; color: #1a1a1a;
+  font-family: ${({ theme }) => theme.fonts.ui}; font-size: 14px; color: ${({ theme }) => theme.colors.textPrimary};
 `;
-const ClearBtn = styled.button` border: none; background: transparent; color: #aaa; cursor: pointer; font-size: 13px; &:hover { color: #666; } `;
+const ClearBtn = styled.button` border: none; background: transparent; color: ${({ theme }) => theme.colors.textSecondary}; cursor: pointer; font-size: 13px; &:hover { color: ${({ theme }) => theme.colors.textSecondary}; } `;
 
 const DocList = styled.div` flex: 1; min-height: 0; overflow-y: auto; padding: 6px; `;
 const DocRow = styled.button<{ $on: boolean }>`
@@ -558,11 +558,11 @@ const DocRow = styled.button<{ $on: boolean }>`
 `;
 const RowTop = styled.div` display: flex; align-items: center; gap: 8px; min-width: 0; `;
 const RowTitle = styled.span`
-  flex: 1; min-width: 0; font-size: 14px; font-weight: 600; color: #1a1a1a;
+  flex: 1; min-width: 0; font-size: 14px; font-weight: 600; color: ${({ theme }) => theme.colors.textPrimary};
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 `;
 const RowMeta = styled.div` display: flex; align-items: center; gap: 6px; flex-wrap: wrap; `;
-const ChunkCount = styled.span` font-size: 11.5px; color: #999; `;
+const ChunkCount = styled.span` font-size: 11.5px; color: ${({ theme }) => theme.colors.textSecondary}; `;
 const StatusDot = styled.span<{ $status: RagStatus }>`
   font-size: 11px; font-weight: 600;
   color: ${({ $status }) => ($status === 'candidate' ? '#b07a1a' : '#a04c4c')};
@@ -577,7 +577,7 @@ const StatusBadge = styled.span<{ $status: RagStatus }>`
   color: ${({ $status }) => ($status === 'confirmed' ? '#2d8f5e' : $status === 'candidate' ? '#b07a1a' : '#a04c4c')};
   background: ${({ $status }) => ($status === 'confirmed' ? 'rgba(45,143,94,0.12)' : $status === 'candidate' ? 'rgba(214,152,18,0.14)' : 'rgba(196,92,92,0.12)')};
 `;
-const TagChip = styled.span` font-size: 10.5px; color: #777; background: #f0f0ee; padding: 2px 7px; border-radius: 5px; `;
+const TagChip = styled.span` font-size: 10.5px; color: ${({ theme }) => theme.colors.textSecondary}; background: ${({ theme }) => theme.colors.surfaceSunken}; padding: 2px 7px; border-radius: 5px; `;
 
 const DetailScroll = styled.div` flex: 1; min-height: 0; overflow-y: auto; padding: 20px 24px 8px; `;
 const BackToList = styled.button`
@@ -586,20 +586,20 @@ const BackToList = styled.button`
   @media (max-width: 860px) { display: inline-block; }
 `;
 const DHeadRow = styled.div` display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; `;
-const DHeadTitle = styled.h2` margin: 0; flex: 1 1 100%; font-size: 20px; font-weight: 800; color: #1a1a1a; letter-spacing: -0.01em; `;
+const DHeadTitle = styled.h2` margin: 0; flex: 1 1 100%; font-size: 20px; font-weight: 800; color: ${({ theme }) => theme.colors.textPrimary}; letter-spacing: -0.01em; `;
 const DMetaLine = styled.div`
-  display: flex; flex-wrap: wrap; gap: 14px; font-size: 12.5px; color: #999; margin-bottom: 12px;
-  code { background: #f0f0ee; padding: 1px 6px; border-radius: 5px; color: #666; }
+  display: flex; flex-wrap: wrap; gap: 14px; font-size: 12.5px; color: ${({ theme }) => theme.colors.textSecondary}; margin-bottom: 12px;
+  code { background: ${({ theme }) => theme.colors.surfaceSunken}; padding: 1px 6px; border-radius: 5px; color: ${({ theme }) => theme.colors.textSecondary}; }
 `;
 const SourceUrlRow = styled.div` display: flex; align-items: center; gap: 10px; margin-bottom: 14px; `;
 const SourceUrlLink = styled.a` font-size: 13px; color: #2570c8; text-decoration: none; &:hover { text-decoration: underline; } `;
-const MiniBtn = styled.button` border: 1px solid #e0e0e0; background: #fff; border-radius: 7px; padding: 3px 9px; font-size: 11.5px; color: #666; cursor: pointer; &:hover { background: #f6f6f4; } `;
+const MiniBtn = styled.button` border: 1px solid ${({ theme }) => theme.colors.border}; background: ${({ theme }) => theme.colors.surface}; border-radius: 7px; padding: 3px 9px; font-size: 11.5px; color: ${({ theme }) => theme.colors.textSecondary}; cursor: pointer; &:hover { background: ${({ theme }) => theme.colors.surfaceSunken}; } `;
 const ReviewHint = styled.div`
   font-size: 12.5px; line-height: 1.55; color: #8a7a52; background: ${GOLD_TINT};
   padding: 10px 13px; border-radius: 10px; margin-bottom: 14px;
 `;
 
-const TabBar = styled.div` display: flex; gap: 4px; border-bottom: 1px solid #ececec; margin-bottom: 16px; `;
+const TabBar = styled.div` display: flex; gap: 4px; border-bottom: 1px solid ${({ theme }) => theme.colors.border}; margin-bottom: 16px; `;
 const DetailTabBtn = styled.button<{ $on: boolean }>`
   border: none; background: transparent; cursor: pointer; padding: 9px 4px; margin-right: 14px;
   font-family: ${({ theme }) => theme.fonts.ui}; font-size: 13.5px;
@@ -609,27 +609,27 @@ const DetailTabBtn = styled.button<{ $on: boolean }>`
 `;
 const ContentBox = styled.pre`
   white-space: pre-wrap; word-break: break-word; font-family: ${({ theme }) => theme.fonts.ui};
-  font-size: 13.5px; line-height: 1.7; color: #333; background: #fff; margin: 0;
-  border: 1px solid #eee; border-radius: 12px; padding: 18px;
+  font-size: 13.5px; line-height: 1.7; color: ${({ theme }) => theme.colors.textPrimary}; background: ${({ theme }) => theme.colors.surface}; margin: 0;
+  border: 1px solid ${({ theme }) => theme.colors.border}; border-radius: 12px; padding: 18px;
 `;
 const ChunkList = styled.div` display: flex; flex-direction: column; gap: 12px; `;
-const ChunkCard = styled.div` border: 1px solid #eee; border-radius: 12px; padding: 14px 16px; background: #fff; `;
+const ChunkCard = styled.div` border: 1px solid ${({ theme }) => theme.colors.border}; border-radius: 12px; padding: 14px 16px; background: ${({ theme }) => theme.colors.surface}; `;
 const ChunkHead = styled.div` display: flex; align-items: center; gap: 8px; margin-bottom: 8px; `;
 const SectionId = styled.span` font-size: 11px; font-weight: 700; color: #fff; background: ${GOLD}; padding: 2px 8px; border-radius: 6px; `;
-const ChunkTitle = styled.span` flex: 1; min-width: 0; font-size: 14px; font-weight: 700; color: #1a1a1a; `;
-const LevelChip = styled.span` font-size: 11px; color: #888; background: #f1f1ef; padding: 2px 8px; border-radius: 6px; `;
-const ChunkQ = styled.div` font-size: 13px; font-weight: 600; color: #555; margin-bottom: 6px; `;
-const ChunkBody = styled.div` font-size: 13px; line-height: 1.65; color: #444; white-space: pre-wrap; `;
+const ChunkTitle = styled.span` flex: 1; min-width: 0; font-size: 14px; font-weight: 700; color: ${({ theme }) => theme.colors.textPrimary}; `;
+const LevelChip = styled.span` font-size: 11px; color: ${({ theme }) => theme.colors.textSecondary}; background: ${({ theme }) => theme.colors.surfaceSunken}; padding: 2px 8px; border-radius: 6px; `;
+const ChunkQ = styled.div` font-size: 13px; font-weight: 600; color: ${({ theme }) => theme.colors.textSecondary}; margin-bottom: 6px; `;
+const ChunkBody = styled.div` font-size: 13px; line-height: 1.65; color: ${({ theme }) => theme.colors.textSecondary}; white-space: pre-wrap; `;
 const ChunkTags = styled.div` display: flex; gap: 5px; flex-wrap: wrap; margin-top: 10px; `;
 
-const MetaTable = styled.div` display: flex; flex-direction: column; border: 1px solid #eee; border-radius: 12px; overflow: hidden; `;
-const MetaTableRow = styled.div` display: flex; border-bottom: 1px solid #f2f2f2; &:last-child { border-bottom: none; } `;
-const MetaKey = styled.div` flex: 0 0 140px; padding: 10px 14px; font-size: 12.5px; font-weight: 600; color: #888; background: #fafafa; `;
-const MetaVal = styled.div` flex: 1; min-width: 0; padding: 10px 14px; font-size: 13px; color: #333; word-break: break-word; `;
+const MetaTable = styled.div` display: flex; flex-direction: column; border: 1px solid ${({ theme }) => theme.colors.border}; border-radius: 12px; overflow: hidden; `;
+const MetaTableRow = styled.div` display: flex; border-bottom: 1px solid ${({ theme }) => theme.colors.border}; &:last-child { border-bottom: none; } `;
+const MetaKey = styled.div` flex: 0 0 140px; padding: 10px 14px; font-size: 12.5px; font-weight: 600; color: ${({ theme }) => theme.colors.textSecondary}; background: ${({ theme }) => theme.colors.surfaceSunken}; `;
+const MetaVal = styled.div` flex: 1; min-width: 0; padding: 10px 14px; font-size: 13px; color: ${({ theme }) => theme.colors.textPrimary}; word-break: break-word; `;
 
 const ActionBar = styled.div`
   flex: 0 0 auto; display: flex; gap: 8px; padding: 12px 24px calc(12px + env(safe-area-inset-bottom, 0px));
-  border-top: 1px solid #ececec; background: #fff; flex-wrap: wrap;
+  border-top: 1px solid ${({ theme }) => theme.colors.border}; background: ${({ theme }) => theme.colors.surface}; flex-wrap: wrap;
 `;
 const ActBtn = styled.button<{ $danger?: boolean }>`
   display: inline-flex; align-items: center; gap: 6px; padding: 9px 15px; border-radius: 10px; cursor: pointer;
@@ -646,54 +646,54 @@ const ConfirmActBtn = styled.button`
   background: #2d8f5e; color: #fff; &:hover { background: #26794f; } &:active { transform: scale(0.97); }
 `;
 
-const Placeholder = styled.div` flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: #ccc; `;
+const Placeholder = styled.div` flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: ${({ theme }) => theme.colors.textSecondary}; `;
 const PlaceholderIcon = styled.div` color: #d8d0b8; `;
-const PlaceholderText = styled.div` font-size: 14px; color: #aaa; `;
-const SkeletonNote = styled.div` padding: 14px; font-size: 13px; color: #999; `;
-const EmptyNote = styled.div` padding: 24px 14px; font-size: 13px; color: #aaa; text-align: center; `;
-const ErrorBar = styled.div` margin: 10px 14px; padding: 9px 12px; border-radius: 9px; background: rgba(160,48,34,0.08); color: #a03022; font-size: 12.5px; `;
+const PlaceholderText = styled.div` font-size: 14px; color: ${({ theme }) => theme.colors.textSecondary}; `;
+const SkeletonNote = styled.div` padding: 14px; font-size: 13px; color: ${({ theme }) => theme.colors.textSecondary}; `;
+const EmptyNote = styled.div` padding: 24px 14px; font-size: 13px; color: ${({ theme }) => theme.colors.textSecondary}; text-align: center; `;
+const ErrorBar = styled.div` margin: 10px 14px; padding: 9px 12px; border-radius: 9px; background: rgba(160,48,34,0.08); color: ${({ theme }) => theme.colors.danger}; font-size: 12.5px; `;
 
 /* 모달 */
 const ModalBackdrop = styled.div`
-  position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: ${({ theme }) => theme.zIndex.max};
+  position: fixed; inset: 0; background: ${({ theme }) => theme.colors.scrim}; z-index: ${({ theme }) => theme.zIndex.max};
   display: flex; align-items: center; justify-content: center; padding: 24px;
 `;
 const ModalCard = styled.div`
-  background: #fff; border-radius: 16px; width: min(600px, 100%); max-height: 90vh; overflow-y: auto;
+  background: ${({ theme }) => theme.colors.surface}; border-radius: 16px; width: min(600px, 100%); max-height: 90vh; overflow-y: auto;
   padding: 24px; box-shadow: 0 16px 48px rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 14px;
   font-family: ${({ theme }) => theme.fonts.ui};
 `;
-const ModalTitle = styled.h2` margin: 0; font-size: 18px; font-weight: 800; color: #1a1a1a; `;
+const ModalTitle = styled.h2` margin: 0; font-size: 18px; font-weight: 800; color: ${({ theme }) => theme.colors.textPrimary}; `;
 const ConfirmNote = styled.div` font-size: 12.5px; line-height: 1.5; color: #2d8f5e; background: rgba(45,143,94,0.08); padding: 9px 12px; border-radius: 9px; `;
 const Field = styled.div` display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; `;
 const Row2 = styled.div` display: flex; gap: 12px; align-items: flex-end; `;
-const FieldLabel = styled.label` font-size: 12.5px; font-weight: 600; color: #777; `;
+const FieldLabel = styled.label` font-size: 12.5px; font-weight: 600; color: ${({ theme }) => theme.colors.textSecondary}; `;
 const TextInput = styled.input`
-  height: 38px; padding: 0 12px; border: 1px solid #e0e0e6; border-radius: 9px; outline: none;
-  font-family: ${({ theme }) => theme.fonts.ui}; font-size: 14px; color: #1a1a1a;
-  &:focus { border-color: ${GOLD}; } &:disabled { background: #f6f6f4; color: #999; }
+  height: 38px; padding: 0 12px; border: 1px solid ${({ theme }) => theme.colors.border}; border-radius: 9px; outline: none;
+  font-family: ${({ theme }) => theme.fonts.ui}; font-size: 14px; color: ${({ theme }) => theme.colors.textPrimary};
+  &:focus { border-color: ${GOLD}; } &:disabled { background: ${({ theme }) => theme.colors.surfaceSunken}; color: ${({ theme }) => theme.colors.textSecondary}; }
 `;
 const TextArea = styled.textarea`
-  min-height: 240px; resize: vertical; padding: 12px; border: 1px solid #e0e0e6; border-radius: 9px; outline: none;
-  font-family: ${({ theme }) => theme.fonts.chord}; font-size: 13px; line-height: 1.6; color: #1a1a1a;
+  min-height: 240px; resize: vertical; padding: 12px; border: 1px solid ${({ theme }) => theme.colors.border}; border-radius: 9px; outline: none;
+  font-family: ${({ theme }) => theme.fonts.chord}; font-size: 13px; line-height: 1.6; color: ${({ theme }) => theme.colors.textPrimary};
   &:focus { border-color: ${GOLD}; }
 `;
 const FormatHint = styled.div`
   font-size: 11.5px; line-height: 1.5; color: #8a7a52; background: ${GOLD_TINT}; padding: 8px 11px; border-radius: 8px;
-  code { background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 4px; font-family: ${({ theme }) => theme.fonts.chord}; }
+  code { background: ${({ theme }) => theme.colors.activeFill}; padding: 1px 5px; border-radius: 4px; font-family: ${({ theme }) => theme.fonts.chord}; }
 `;
-const Segmented = styled.div` display: inline-flex; background: #f1f1ef; border-radius: 9px; padding: 3px; `;
+const Segmented = styled.div` display: inline-flex; background: ${({ theme }) => theme.colors.surfaceSunken}; border-radius: 9px; padding: 3px; `;
 const SegBtn = styled.button<{ $on: boolean }>`
   border: none; border-radius: 7px; padding: 7px 14px; cursor: pointer; font-size: 13px;
   font-family: ${({ theme }) => theme.fonts.ui}; font-weight: ${({ $on }) => ($on ? 700 : 500)};
   color: ${({ $on }) => ($on ? '#fff' : '#777')}; background: ${({ $on }) => ($on ? GOLD : 'transparent')};
 `;
-const ModalError = styled.div` font-size: 12.5px; color: #c0392b; `;
+const ModalError = styled.div` font-size: 12.5px; color: ${({ theme }) => theme.colors.danger}; `;
 const ModalActions = styled.div` display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; `;
 const GhostBtn = styled.button`
-  border: none; background: transparent; color: #888; cursor: pointer; padding: 9px 16px; border-radius: 9px;
+  border: none; background: transparent; color: ${({ theme }) => theme.colors.textSecondary}; cursor: pointer; padding: 9px 16px; border-radius: 9px;
   font-family: ${({ theme }) => theme.fonts.ui}; font-size: 13.5px; font-weight: 600;
-  &:hover { background: #f2f2f2; color: #555; } &:disabled { opacity: 0.5; }
+  &:hover { background: ${({ theme }) => theme.colors.surfaceSunken}; color: ${({ theme }) => theme.colors.textSecondary}; } &:disabled { opacity: 0.5; }
 `;
 const PrimaryBtn = styled.button`
   border: none; background: ${GOLD}; color: #fff; cursor: pointer; padding: 9px 20px; border-radius: 9px;
@@ -702,13 +702,13 @@ const PrimaryBtn = styled.button`
 `;
 const ConfirmModal = styled(ModalBackdrop)``;
 const ConfirmCard = styled(ModalCard)` width: min(400px, 100%); gap: 10px; `;
-const ConfirmTitle = styled.h2` margin: 0; font-size: 17px; font-weight: 800; color: #1a1a1a; `;
-const ConfirmText = styled.p` margin: 0; font-size: 13.5px; line-height: 1.6; color: #666; `;
+const ConfirmTitle = styled.h2` margin: 0; font-size: 17px; font-weight: 800; color: ${({ theme }) => theme.colors.textPrimary}; `;
+const ConfirmText = styled.p` margin: 0; font-size: 13.5px; line-height: 1.6; color: ${({ theme }) => theme.colors.textSecondary}; `;
 const ConfirmActionsRow = styled.div` display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; `;
 const DangerBtn = styled(PrimaryBtn)` background: #c04c4c; &:hover { background: #a83e3e; } `;
 
 const Toast = styled.div`
   position: fixed; left: 50%; bottom: 32px; transform: translateX(-50%); z-index: ${({ theme }) => theme.zIndex.toast};
-  background: #1a1a1a; color: #fff; font-size: 13px; font-weight: 500; padding: 11px 18px; border-radius: 10px;
+  background: ${({ theme }) => theme.colors.inkSurface}; color: ${({ theme }) => theme.colors.onInk}; font-size: 13px; font-weight: 500; padding: 11px 18px; border-radius: 10px;
   box-shadow: 0 6px 20px rgba(0,0,0,0.25); font-family: ${({ theme }) => theme.fonts.ui}; max-width: 90vw;
 `;
