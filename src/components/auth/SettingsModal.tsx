@@ -707,14 +707,7 @@ function GeneralPanel({ user }: { user: AuthUser }) {
       </FieldRow>
 
       <FieldRow>
-        <div>
-          <FieldLabel as="span">모양</FieldLabel>
-          {/* 악보 편집기 화면은 아직 색이 하드코딩돼 있어 어두워지지 않는다.
-            * 나머지 화면은 모두 테마 토큰을 따른다. */}
-          <FieldHelper style={{ margin: '2px 0 0' }}>
-            악보 편집기 화면은 아직 밝게 표시됩니다.
-          </FieldHelper>
-        </div>
+        <FieldLabel>모양</FieldLabel>
         <FieldControl>
           <ThemeToggle>
             {([
@@ -1333,21 +1326,30 @@ const PickerCheck = styled.span`
 `;
 /* 이조 — 악기 아이콘 자리에 조(調) 글자를 같은 크기로 둔다. 아이콘이 있는
  * '내 악기' 항목과 좌측 정렬이 맞아 두 드롭다운이 한 세트로 보인다. */
+/* ⚠️ `&&` 로 특이도를 올린다 — PickerItem 의 `span { flex: 1; … }` 규칙이
+ * (클래스+타입 = 0,1,1) 이 컴포넌트의 클래스(0,1,0)를 이겨서, 그냥 두면 조(調)
+ * 칸이 flex:1 로 늘어나 행마다 폭이 달라진다(= 설명 텍스트 좌측이 들쭉날쭉).
+ * 두 글자(B♭·E♭)가 들어가도 안 밀리도록 폭도 넉넉히 잡고 왼쪽 정렬한다. */
 const TransposeKey = styled.span`
-  flex: none;
-  width: 22px;
-  text-align: center;
+  && {
+    flex: none;
+    width: 30px;
+    text-align: left;
+    overflow: visible;
+  }
   font-family: ${({ theme }) => theme.fonts.ui};
   font-size: 14px;
   font-weight: 800;
   color: ${({ theme }) => theme.colors.textPrimary};
 `;
 const TransposeMeta = styled.span`
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  && {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   font-weight: 500;
   color: ${({ theme }) => theme.colors.textSecondary};
 `;

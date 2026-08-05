@@ -18,6 +18,7 @@ import { usePlayerBarPosition } from '../../contexts/PlayerBarPositionContext';
 import { openPerformanceSettings } from '../../lib/settingsBus';
 import { SettingsGearIcon } from '../common/SettingsGearIcon';
 import { instrumentIconUrl, MELODY_ICON_SLUG, BASS_ICON_SLUG, DRUMKIT_ICON_SLUG } from '../../data/instrumentIcons';
+import { tint } from '../../styles/theme';
 
 /** Close a popover when a mousedown lands outside its container. */
 function useOutsideClose(
@@ -1087,7 +1088,7 @@ const LoopClearBtn = styled.button`
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
-  &:hover { background: ${({ theme }) => theme.colors.surface}; border-color: #e5484d; }
+  &:hover { background: ${tint('#fff5f5', 'rgba(240, 113, 103, 0.13)')}; border-color: #e5484d; }
 `;
 
 const MixerSlider = styled.input`

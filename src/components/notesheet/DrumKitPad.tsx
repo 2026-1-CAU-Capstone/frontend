@@ -284,7 +284,8 @@ const Tip = styled.div`
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
 
   b { font-size: 0.74rem; font-weight: 800; line-height: 1.2; }
-  span { font-size: 0.62rem; color: ${({ theme }) => theme.colors.textSecondary}; line-height: 1.2; }
+  /* 툴팁은 두 테마 모두 어두운 판이다 — 라벨은 밝은 회색으로 고정한다. */
+  span { font-size: 0.62rem; color: #cfcfd6; line-height: 1.2; }
 `;
 
 const Readout = styled.div`

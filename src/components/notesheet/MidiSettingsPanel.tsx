@@ -12,6 +12,7 @@
  * ──────────────────────────────────────────────────────────────────────── */
 import styled, { keyframes } from 'styled-components';
 import { midiToName, type UseMidi } from '../../hooks/useMidiInput';
+import { tint } from '../../styles/theme';
 
 export function MidiSettingsBody({ midi }: { midi: UseMidi }) {
   const { supported, error, enabled, requestAccess, inputs, outputs, settings, setSettings, last, pulse } = midi;
@@ -189,7 +190,7 @@ const flashOff = keyframes`
 `;
 const Monitor = styled.div`
   display: flex; align-items: center; gap: 7px;
-  background: ${({ theme }) => theme.colors.surface}; border: 1px solid ${({ theme }) => theme.colors.border}; border-radius: 7px;
+  background: #f6f8fa; border: 1px solid ${tint('#e3e8ee', 'rgba(107, 164, 255, 0.20)')}; border-radius: 7px;
   padding: 4px 8px;
   min-width: 0;
 `;

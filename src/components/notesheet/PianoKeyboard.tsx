@@ -121,7 +121,7 @@ const WhiteKeyEl = styled.div<{ $x: number; $pressed: boolean }>`
   width: ${WHITE_W - 1}px;
   height: ${WHITE_H}px;
   background: ${({ $pressed }) => ($pressed ? '#e8e0c8' : '#fff')};
-  border: 1px solid ${({ theme }) => theme.colors.border};
+  border: 1px solid #bbb;
   border-radius: 0 0 4px 4px;
   cursor: pointer;
   z-index: 1;
@@ -133,7 +133,7 @@ const WhiteKeyEl = styled.div<{ $x: number; $pressed: boolean }>`
   padding-bottom: 8px;
 
   &:hover {
-    background: ${({ theme }) => theme.colors.surfaceSunken};
+    background: #f5f0e0;
   }
   &:active {
     background: #e8e0c8;
@@ -157,10 +157,10 @@ const BlackKeyEl = styled.div<{ $x: number; $pressed: boolean }>`
   padding-bottom: 6px;
 
   &:hover {
-    background: ${({ theme }) => theme.colors.inkSurface};
+    background: #444;
   }
   &:active {
-    background: ${({ theme }) => theme.colors.inkSurface};
+    background: #555;
   }
 `;
 
@@ -175,7 +175,7 @@ const ShortcutLabel = styled.span<{ $black?: boolean }>`
 const NoteLabel = styled.span`
   font-family: 'Pretendard', sans-serif;
   font-size: 0.72rem;
-  color: ${({ theme }) => theme.colors.textSecondary};
+  color: #aaa;
   pointer-events: none;
   line-height: 1;
   margin-bottom: 2px;

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import styled from 'styled-components';
-import { mq } from '../styles/theme';
+import { mq, tint } from '../styles/theme';
 import { IconSidebar } from '../components/layout/IconSidebar';
 import { TopToolbar } from '../components/layout/TopToolbar';
 import { RightChatPanel } from '../components/layout/RightChatPanel';
@@ -386,7 +386,7 @@ const SidebarBackdrop = styled.div<{ $entered: boolean }>`
 const SidebarPanel = styled.aside<{ $entered: boolean }>`
   width: min(380px, 80vw);
   height: 100%;
-  background: ${({ theme }) => theme.colors.surface};
+  background: ${tint('#fff1f0', 'rgba(240, 113, 103, 0.13)')};
   display: flex;
   flex-direction: column;
   box-shadow: 4px 0 28px rgba(0, 0, 0, 0.18);
@@ -551,19 +551,12 @@ const GearIcon = () => (
   </svg>
 );
 
-/* 기타 코드 다이어그램 토글 아이콘 — 프렛보드(줄+프렛+운지점) 미니 심볼. */
-const GuitarChordIcon = ({ lit }: { lit: boolean }) => (
-  <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="6" y="4" width="12" height="16" rx="1.4" />
-    <line x1="9" y1="4" x2="9" y2="20" />
-    <line x1="12" y1="4" x2="12" y2="20" />
-    <line x1="15" y1="4" x2="15" y2="20" />
-    <line x1="6" y1="9" x2="18" y2="9" />
-    <line x1="6" y1="14" x2="18" y2="14" />
-    <circle cx="9" cy="11.5" r="1.3" fill={lit ? 'currentColor' : 'none'} stroke="none" />
-    <circle cx="15" cy="16.5" r="1.3" fill={lit ? 'currentColor' : 'none'} stroke="none" />
-  </svg>
-);
+/* 기타 코드 다이어그램 토글 버튼 — SolosPage의 "🎹 MIDI로 생성하기" 와 동일한
+ * 피아노 건반 이모지. ToolBtn 안에서 다른 SVG 아이콘과 광학 크기를 맞춘다. */
+const PianoEmoji = styled.span`
+  font-size: 20px;
+  line-height: 1;
+`;
 
 /* ─── settings modal (analysis sub-filters) ───────────────────────────── */
 const ModalOverlay = styled.div<{ $entered: boolean }>`
@@ -1849,7 +1842,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
                 $lit={showDiagrams}
                 onClick={() => setDiagramModalOpen(true)}
               >
-                <GuitarChordIcon lit={showDiagrams} />
+                <PianoEmoji>🎹</PianoEmoji>
               </ToolBtn>
               <ToolBtn type="button" title="고급 설정" onClick={() => openPerformanceSettings('chordAnalysis')}>
                 <GearIcon />
@@ -1889,7 +1882,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
                 $lit={showDiagrams}
                 onClick={() => setDiagramModalOpen(true)}
               >
-                <GuitarChordIcon lit={showDiagrams} />
+                <PianoEmoji>🎹</PianoEmoji>
               </ToolBtn>
               <ToolBtn type="button" title="고급 설정" onClick={() => openPerformanceSettings('chordAnalysis')}>
                 <GearIcon />
@@ -2185,7 +2178,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
                 onClick={() => { setShowDiagrams(true); setDiagramModalOpen(false); }}
               >
                 <OptionIconBox $active={showDiagrams}>
-                  <GuitarChordIcon lit={showDiagrams} />
+                  <span style={{ fontSize: 22, lineHeight: 1 }}>🎸</span>
                 </OptionIconBox>
                 <OptionText>
                   <OptionLabel>기타 다이어그램도 보기</OptionLabel>

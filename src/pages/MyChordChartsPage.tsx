@@ -49,7 +49,7 @@ import {
 import { isComposingEvent } from '../lib/ime';
 import { useNavigate } from 'react-router-dom';
 import styled, { css } from 'styled-components';
-import { mq } from '../styles/theme';
+import { mq, tint } from '../styles/theme';
 import { IconSidebar } from '../components/layout/IconSidebar';
 import { useIsNativeUi } from '../contexts/AppPreviewContext';
 import { LeadSheet } from '../components/leadsheet/LeadSheet';
@@ -1733,7 +1733,7 @@ const ErrorBanner = styled.div`
   margin: 0 22px 8px;
   padding: 10px 12px;
   border-radius: 10px;
-  background: ${({ theme }) => theme.colors.dangerFill};
+  background: ${tint('#fdecea', 'rgba(240, 113, 103, 0.13)')};
   color: ${({ theme }) => theme.colors.danger};
   font-size: 13px;
   ${mq.mobile} { margin: 0 14px 8px; }

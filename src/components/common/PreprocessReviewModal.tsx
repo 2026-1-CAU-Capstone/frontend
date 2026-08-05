@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import styled from 'styled-components';
+import { tint } from '../../styles/theme';
 import { KeyPicker } from './KeyPicker';
 import { isValidTimeSignature } from '../../api/projectPreprocessRules';
 import type {
@@ -294,7 +295,7 @@ const SegBtn = styled.button<{ $on: boolean }>`
 `;
 const WarnBox = styled.div`
   display: flex; flex-direction: column; gap: 4px;
-  background: ${({ theme }) => theme.colors.surfaceSunken}; border: 1px solid #f0e0bb; border-radius: 9px;
+  background: ${tint('#fdf6e7', 'rgba(224, 184, 88, 0.12)')}; border: 1px solid #f0e0bb; border-radius: 9px;
   padding: 9px 11px; font-size: 12.5px; color: #7a5b00; line-height: 1.45;
 `;
 const ErrorMsg = styled.div`font-size: 12.5px; color: ${({ theme }) => theme.colors.danger};`;

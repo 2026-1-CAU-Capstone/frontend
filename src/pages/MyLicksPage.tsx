@@ -14,7 +14,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-import { mq } from '../styles/theme';
+import { mq, tint } from '../styles/theme';
 import { IconSidebar } from '../components/layout/IconSidebar';
 import { useIsNativeUi } from '../contexts/AppPreviewContext';
 import {
@@ -218,7 +218,7 @@ const MelodyBtn = styled.button<{ $active?: boolean }>`
   color: ${({ $active }) => ($active ? '#3070a0' : '#666')};
   cursor: pointer;
   font-weight: 600;
-  &:hover { background: ${({ theme }) => theme.colors.surfaceSunken}; }
+  &:hover { background: ${tint('#e8f0f8', 'rgba(107, 164, 255, 0.13)')}; }
 `;
 
 const MelodyPanel = styled.div`
@@ -249,7 +249,7 @@ const NoteBadge = styled.span`
   font-family: 'JetBrains Mono', 'Menlo', monospace;
   font-size: 0.7rem;
   padding: 1px 5px;
-  background: ${({ theme }) => theme.colors.surfaceSunken};
+  background: ${tint('#f0ebe0', 'rgba(224, 184, 88, 0.12)')};
   border-radius: 3px;
   color: #8B6914;
 `;

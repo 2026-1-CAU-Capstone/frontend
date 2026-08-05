@@ -136,4 +136,18 @@ type WidenStrings<T> = {
     : T[K];
 };
 
+/**
+ * 옅은 틴트 배경 — 라이트 값은 **그대로 보존**하고 다크만 갈아끼운다.
+ *
+ * `#fdecea`(분홍 경고) · `#fff7e6`(골드 강조) · `#e9f1fb`(파랑 정보) 처럼 거의 흰
+ * 틴트는 토큰 하나로 뭉갤 수 없다. 중립 회색으로 바꿔버리면 **라이트 모드에서**
+ * 경고·정보의 색 신호가 사라진다(실제로 한 번 그렇게 만들었다가 되돌렸다).
+ * 그래서 값을 두 개 받아 모드로 고른다.
+ *
+ *   background: ${tint('#fdecea', 'rgba(240, 113, 103, 0.13)')};
+ */
+export function tint(light: string, dark: string) {
+  return ({ theme }: { theme: Theme }) => (theme.mode === 'dark' ? dark : light);
+}
+
 export type Theme = WidenStrings<typeof theme>;

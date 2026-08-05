@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import styled, { keyframes, css } from 'styled-components';
-import { mq } from '../styles/theme';
+import { mq, tint } from '../styles/theme';
 import { exportScoreSvgToPdf } from '../lib/note/scoreToPdf';
 import { IconSidebar } from '../components/layout/IconSidebar';
 import { NoteSheet, type NoteSheetHandle } from '../components/notesheet/NoteSheet';
@@ -247,7 +247,7 @@ const ImportOverlay = styled.div`
 `;
 const ImportBox = styled.div`
   width: 560px; max-width: 92vw; max-height: 84vh; overflow-y: auto;
-  background: ${({ theme }) => theme.colors.surface}; border-radius: 12px; padding: 22px 24px;
+  background: ${tint('#fffdf7', 'rgba(224, 184, 88, 0.10)')}; border-radius: 12px; padding: 22px 24px;
   font-family: 'Pretendard', sans-serif;
   display: flex; flex-direction: column; gap: 12px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
@@ -1109,7 +1109,7 @@ const ErrorBanner = styled.div`
   padding: 8px 12px;
   border: 1px solid #e08080;
   border-radius: 6px;
-  background: ${({ theme }) => theme.colors.dangerFill};
+  background: ${tint('#fdecea', 'rgba(240, 113, 103, 0.13)')};
   color: ${({ theme }) => theme.colors.danger};
   font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;

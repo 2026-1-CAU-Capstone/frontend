@@ -13,6 +13,7 @@ import type { LickEntry } from '../../data/lickData';
 import { ChatChartCard } from './ChatChartCard';
 import { parseChatChart, splitChordTables, type ChatChart } from '../../lib/chatChartParser';
 import styled, { keyframes } from 'styled-components';
+import { tint } from '../../styles/theme';
 
 /* Inline section label — small black filled SQUARE sized to the surrounding
  * text's cap-height so it reads as part of the sentence, not an oversized
@@ -108,7 +109,7 @@ const CiteBadge = styled.sup`
   font-weight: 700;
   line-height: 1;
   color: #2b6cb0;
-  background: ${({ theme }) => theme.colors.surfaceSunken};
+  background: ${tint('#e9f1fb', 'rgba(107, 164, 255, 0.13)')};
   border: 1px solid #cfe0f5;
   border-radius: 999px;
   vertical-align: super;

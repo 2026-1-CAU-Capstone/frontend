@@ -1,4 +1,5 @@
 import styled, { keyframes } from 'styled-components';
+import { tint } from '../../styles/theme';
 
 /* iOS-style account / settings full-screen sheet modeled on the ChatGPT
  * iOS app. Triggered by tapping the avatar in the drawer header. All
@@ -396,7 +397,7 @@ const Sheet = styled.div`
   top: max(120px, calc(env(safe-area-inset-top, 0px) + 80px));
   bottom: 0;
   z-index: 301;
-  background: ${({ theme }) => theme.colors.surfaceSunken};
+  background: ${tint('#f2eee5', '#2A2A2F')};
   border-radius: 22px 22px 0 0;
   padding: 12px 16px calc(20px + env(safe-area-inset-bottom, 0px));
   overflow-y: auto;
@@ -456,7 +457,7 @@ const AvatarEditBadge = styled.span`
   height: 26px;
   border-radius: 50%;
   background: ${({ theme }) => theme.colors.surface};
-  border: 2px solid ${({ theme }) => theme.colors.border};
+  border: 2px solid ${tint('#f2eee5', '#2A2A2F')};
   color: ${({ theme }) => theme.colors.textPrimary};
   display: inline-flex;
   align-items: center;

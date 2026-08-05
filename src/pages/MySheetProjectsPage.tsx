@@ -63,6 +63,7 @@ import {
 } from '../api/sheetProjects';
 import { getCachedUser } from '../api/auth';
 import { uploadStorageFile } from '../api/storageFiles';
+import { tint } from '../styles/theme';
 
 
 interface UploadedSheetProject {
@@ -1295,7 +1296,7 @@ const PageErrorBanner = styled.div`
   margin: 0 22px 8px;
   padding: 10px 12px;
   border-radius: 10px;
-  background: ${({ theme }) => theme.colors.dangerFill};
+  background: ${tint('#fdecea', 'rgba(240, 113, 103, 0.13)')};
   color: ${({ theme }) => theme.colors.danger};
   font-size: 13px;
 `;
@@ -1311,7 +1312,7 @@ const PageErrorClose = styled.button`
 const ModalError = styled.div`
   padding: 9px 11px;
   border-radius: 10px;
-  background: ${({ theme }) => theme.colors.dangerFill};
+  background: ${tint('#fdecea', 'rgba(240, 113, 103, 0.13)')};
   color: ${({ theme }) => theme.colors.danger};
   font-size: 12.5px;
 `;

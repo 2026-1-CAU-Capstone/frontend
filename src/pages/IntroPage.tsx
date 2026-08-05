@@ -303,7 +303,7 @@ const NavCta = styled.a`
   background: ${C.ink}; color: #fff !important; padding: 9px 18px;
   border-radius: 999px; font-weight: 600 !important; font-size: 0.88rem !important;
   transition: transform 0.12s, box-shadow 0.2s;
-  &:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(0,0,0,0.18); color: ${({ theme }) => theme.colors.surface} !important; }
+  &:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(0,0,0,0.18); color: #fff !important; }
 `;
 
 /* ── 히어로 ──────────────────────────────────────────────────────────── */
@@ -400,15 +400,15 @@ const Browser = styled.div<{ $float?: boolean }>`
   border-radius: 16px;
   box-shadow: 0 30px 80px rgba(0,0,0,0.4), 0 4px 14px rgba(0,0,0,0.2);
   overflow: hidden;
-  border: 1px solid ${({ theme }) => theme.colors.border};
+  border: 1px solid rgba(0,0,0,0.08);
   animation: ${({ $float }) => ($float ? floaty : 'none')} 7s ease-in-out infinite;
 `;
 const BrowserBar = styled.div`
   display: flex; align-items: center; gap: 7px;
-  padding: 11px 14px; background: ${({ theme }) => theme.colors.surfaceSunken}; border-bottom: 1px solid ${C.line};
+  padding: 11px 14px; background: #ECE7DD; border-bottom: 1px solid ${C.line};
   span { width: 11px; height: 11px; border-radius: 50%; }
   .r { background: #ED6A5E; } .y { background: #F4BF4F; } .g { background: #61C554; }
-  .url { margin-left: 12px; flex: 1; height: 22px; border-radius: 6px; background: ${({ theme }) => theme.colors.surface};
+  .url { margin-left: 12px; flex: 1; height: 22px; border-radius: 6px; background: #fff;
     border: 1px solid ${C.line}; display: flex; align-items: center; padding: 0 10px;
     font-size: 0.7rem; color: ${C.textSecondary}; font-family: ${FONT_UI}; }
 `;
@@ -461,7 +461,7 @@ const WhiteKey = styled.div<{ $hl?: 'ct' | 'tn' | 'av' }>`
     : $hl === 'tn' ? 'linear-gradient(to bottom, #fff 60%, rgba(212,168,67,0.55))'
     : $hl === 'av' ? 'linear-gradient(to bottom, #fff 60%, rgba(196,92,92,0.45))'
     : '#fff'};
-  border: 1px solid ${({ theme }) => theme.colors.border}; border-top: none; border-radius: 0 0 5px 5px;
+  border: 1px solid #CFC8BA; border-top: none; border-radius: 0 0 5px 5px;
   position: relative; box-shadow: inset 0 -3px 4px rgba(0,0,0,0.04);
 `;
 const KeyLabel = styled.span`
@@ -473,7 +473,7 @@ const BlackKeys = styled.div`
 `;
 const BlackKey = styled.div<{ $left: number }>`
   position: absolute; top: 0; left: ${({ $left }) => $left}%;
-  width: 8.5%; height: 100%; background: linear-gradient(to bottom, ${({ theme }) => theme.colors.inkSurface}, #13110D);
+  width: 8.5%; height: 100%; background: linear-gradient(to bottom, #2A2620, #13110D);
   border-radius: 0 0 4px 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.4);
 `;
 

@@ -7,7 +7,8 @@ import { transposeNoteSheet, respellNoteSheetKey, normalizeNoteKeyDisplay } from
 import { ghostHead } from '../lib/note/ghostNote';
 import { isComposingEvent } from '../lib/ime';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import styled, { keyframes } from 'styled-components';
+import { tint } from '../styles/theme';
+import styled, { keyframes, css } from 'styled-components';
 import { IconSidebar } from '../components/layout/IconSidebar';
 import {
   Renderer, Stave, StaveNote, Voice, Formatter, Beam, Accidental, Dot, BarlineType, StaveTie, Tuplet, Repetition,
@@ -45,7 +46,7 @@ import { bottomNoteGlyphY } from '../lib/note/chordClearance';
 import {
   lineHeadroom, cumulativeLineOffsets, totalExtraHeight, defaultHeadroom, clampChordTop,
 } from '../lib/note/chordRowLayout';
-import { bakeExplicitAccidentals, bakeForScoreReading } from '../lib/note/resolvePitches';
+import { bakeExplicitAccidentals, bakeForScoreReading, emitForKeySignature } from '../lib/note/resolvePitches';
 import { resolveMeasureAccidental, type RenderAcc } from '../lib/note/measureAccidentals';
 import { drawScoopFall } from '../lib/note/scoopFall';
 import { normalizeChord, formatChordDisplay, splitChordParts } from '../lib/jazz-harmony';
@@ -399,6 +400,23 @@ function chordRowTopY(
   const lifted = contentTop - CHORD_NOTE_GAP - cellH;
   return Math.max(CHORD_TOP_MIN, Math.min(base, lifted));
 }
+/** VexFlow 음표의 **신뢰할 수 있는** 좌표. 꾸밈음(GraceNote)은 voice 의 tickable
+ * 이 아니라 GraceNoteGroup 수식으로 그려져서 `getBoundingBox()` 가 포맷 전
+ * 좌표(0,0)를 그대로 돌려준다. 그 값을 좌표로 쓰면
+ *   · 코드칸이 "마디의 첫 음표" 로 x≈0 을 골라 악보 왼쪽 끝에 겹쳐 쌓이고,
+ *   · 클릭 판정도 엉뚱한 곳을 가리킨다.
+ * 실제로 그려진 SVG 의 bbox 로 보정하고, 그것도 못 믿으면 null 을 돌려
+ * 아예 수집하지 않는다. */
+function reliableNoteRect(vfNote: StaveNote): { x: number; y: number; w: number; h: number } | null {
+  const bb = vfNote.getBoundingBox?.();
+  if (bb && bb.getX() > 0) return { x: bb.getX(), y: bb.getY(), w: bb.getW(), h: bb.getH() };
+  try {
+    const gb = (vfNote.getSVGElement?.() as SVGGraphicsElement | undefined)?.getBBox?.();
+    if (gb && gb.x > 0 && Number.isFinite(gb.x)) return { x: gb.x, y: gb.y, w: gb.width, h: gb.height };
+  } catch { /* jsdom 등 getBBox 미지원 */ }
+  return null;
+}
+
 /** 선택된 마디 하이라이트 면을 SVG 맨 뒤(가장 아래 레이어)에 깐다. */
 /** 악보 위 '마디 활성' 하이라이트 색 — VexFlow 렌더러와 상단 상태 띠가
  *  **같은 값**을 쓴다(둘이 갈리면 같은 상태가 화면마다 다른 색으로 보인다). */
@@ -569,6 +587,11 @@ function buildVfNote(
   clef: 'treble' | 'bass' | 'alto' | 'tenor',
   activeAcc: Map<string, RenderAcc>,
   keySigAcc: Map<string, 'b' | '#'>,
+  /** 조표를 그리는 악보(=조표무시 OFF)면 courtesy 규칙으로 그린다 — NoteSheet(뷰어)
+   *  와 플레이어(resolvePitches 'score')가 쓰는 규칙과 같아야 한다. 예전엔 이 인자가
+   *  없어 항상 explicit 규칙으로 그렸고, 그 결과 **조표가 그려진 악보에서 임시표 없는
+   *  음에 ♮ 가 붙는데 소리는 조표를 따르는**(D장조 c → 화면 ♮, 소리 C♯) 어긋남이 났다. */
+  courtesy = false,
 ): StaveNote {
   const isRest = n.duration.endsWith('r');
   const dur = buildDuration(n.duration, n.dotted, n.doubleDotted);
@@ -595,7 +618,7 @@ function buildVfNote(
     // Octave-aware accidental rule — single shared helper, every chord tone.
     for (let ki = 0; ki < n.keys.length; ki++) {
       const realAcc = n.accidentals?.[ki] as RenderAcc | undefined;
-      const glyph = resolveMeasureAccidental(activeAcc, keySigAcc, n.keys[ki], realAcc);
+      const glyph = resolveMeasureAccidental(activeAcc, keySigAcc, n.keys[ki], realAcc, { courtesy });
       if (glyph) note.addModifier(new Accidental(glyph), ki);
     }
   }
@@ -890,7 +913,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
     if (p0Notation) {
       const active: Map<string, RenderAcc> = probeCarry ? new Map(probeCarry) : new Map();
       probeCarry = undefined;
-      const probe = displayNotesFor(part0Kind, m.notes).map((n) => buildVfNote(n, clef0, active, probeKeySig));
+      const probe = displayNotesFor(part0Kind, m.notes).map((n) => buildVfNote(n, clef0, active, probeKeySig, !explicitAcc));
       const last = m.notes[m.notes.length - 1];
       if (last?.tie && !last.duration.endsWith('r')) {
         const acc = last.accidentals?.[0] as 'b' | '#' | undefined;
@@ -900,7 +923,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
     }
     if (grand) {
       const bassActive: Map<string, RenderAcc> = new Map();
-      const bassProbe = bassAt(i).notes.map((n) => buildVfNote(n, 'bass', bassActive, keySigAcc));
+      const bassProbe = bassAt(i).notes.map((n) => buildVfNote(n, 'bass', bassActive, keySigAcc, !explicitAcc));
       minW = Math.max(minW, minWidthForNotes(bassProbe));
       floor = Math.max(floor, heuristicWidth(bassAt(i).notes));
     }
@@ -1199,7 +1222,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         ? measure.notes.map((n, ni0) => buildTabVfNote(n, tabPos0?.[m]?.[ni0] ?? null, true, tabTuningFor(part0Kind).length) as unknown as StaveNote)
         : p0Drum
           ? measure.notes.map((n) => buildDrumVfNote(n))
-          : displayNotesFor(part0Kind, measure.notes).map((n) => buildVfNote(n, clef0, activeAcc, keySigAcc));
+          : displayNotesFor(part0Kind, measure.notes).map((n) => buildVfNote(n, clef0, activeAcc, keySigAcc, !explicitAcc));
       // 꾸밈음을 다음 실음에 부착 (연속 꾸밈음은 한 그룹으로 묶는다).
       if (p0Notation || p0Drum) {
         let pending: GraceNote[] = [];
@@ -1254,7 +1277,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       let bassVoice: Voice | null = null;
       if (grand && bassM.notes.length > 0 && bassStave) {
         const bassActive: Map<string, RenderAcc> = new Map();
-        const bassAll = bassM.notes.map((n) => buildVfNote(n, 'bass', bassActive, keySigAcc));
+        const bassAll = bassM.notes.map((n) => buildVfNote(n, 'bass', bassActive, keySigAcc, !explicitAcc));
         let pending: GraceNote[] = [];
         for (let ni = 0; ni < bassM.notes.length; ni++) {
           if (bassM.notes[ni].grace) pending.push(bassAll[ni] as unknown as GraceNote);
@@ -1281,7 +1304,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       if (p0Notation && (measure.voice2?.length ?? 0) > 0) {
         v2Notes = measure.voice2!;
         const v2Acc: Map<string, RenderAcc> = new Map();
-        v2VfNotes = displayNotesFor(part0Kind, v2Notes).map((n) => buildVfNote(n, clef0, v2Acc, keySigAcc));
+        v2VfNotes = displayNotesFor(part0Kind, v2Notes).map((n) => buildVfNote(n, clef0, v2Acc, keySigAcc, !explicitAcc));
         v2VfNotes.forEach((vn, vi2) => { if (!v2Notes[vi2].stem) try { vn.setStemDirection(-1); } catch { /* noop */ } });
         // 보이스1은 위로 — 두 성부가 겹치지 않게.
         realVfNotes.forEach((vn, vi2) => { if (!realNotes[vi2]?.stem) try { vn.setStemDirection(1); } catch { /* noop */ } });
@@ -1348,7 +1371,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
               ? ms.notes.map((n) => buildDrumVfNote(n))
               : (() => {
                   const acc: Map<string, RenderAcc> = new Map();
-                  return displayNotesFor(opts.dispKind ?? kind, ms.notes).map((n) => buildVfNote(n, opts.clef ?? 'treble', acc, keySigAcc));
+                  return displayNotesFor(opts.dispKind ?? kind, ms.notes).map((n) => buildVfNote(n, opts.clef ?? 'treble', acc, keySigAcc, !explicitAcc));
                 })();
           /* 꾸밈음은 tickable 이 아니다 — voice 에 넣으면 마디 시간이 넘친다.
            * part0 와 같은 규칙: 실음만 voice 에, grace 는 다음 실음의
@@ -1922,15 +1945,15 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
   // Collect note bounding boxes for click detection & highlight selected note
   if (svgEl) {
     for (const entry of allBassVfNotes) {
-      const bb = entry.vfNote.getBoundingBox();
-      if (bb && notePositions && activePartIdx === 0) {
-        notePositions.push({ mi: entry.mi, ni: entry.ni, x: bb.getX(), y: bb.getY(), w: bb.getW(), h: bb.getH(), ...collectHeadRect(entry.vfNote), staff: 'bass' });
+      const rect = reliableNoteRect(entry.vfNote);
+      if (rect && notePositions && activePartIdx === 0) {
+        notePositions.push({ mi: entry.mi, ni: entry.ni, x: rect.x, y: rect.y, w: rect.w, h: rect.h, ...collectHeadRect(entry.vfNote), staff: 'bass' });
       }
     }
     for (const entry of allV2VfNotes) {
-      const bb = entry.vfNote.getBoundingBox();
-      if (bb && notePositions && activePartIdx === 0) {
-        notePositions.push({ mi: entry.mi, ni: entry.ni, x: bb.getX(), y: bb.getY(), w: bb.getW(), h: bb.getH(), ...collectHeadRect(entry.vfNote), v2: true });
+      const rect = reliableNoteRect(entry.vfNote);
+      if (rect && notePositions && activePartIdx === 0) {
+        notePositions.push({ mi: entry.mi, ni: entry.ni, x: rect.x, y: rect.y, w: rect.w, h: rect.h, ...collectHeadRect(entry.vfNote), v2: true });
       }
       if (activePartIdx === 0 && selectedNotes?.some((s2) => s2.v2 && s2.mi === entry.mi && s2.ni === entry.ni)) {
         const RED = '#d32f2f';
@@ -1955,10 +1978,10 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
      * notePositions 는 그 파트 것만 수집한다(비활성 파트는 마디 클릭 = 전환). */
     for (const entry of allExtraVf) {
       if (entry.pi !== activePartIdx) continue;   // entry.pi 는 이미 1-based partIdx
-      const bb = entry.vfNote.getBoundingBox?.();
+      const bb = reliableNoteRect(entry.vfNote);
       if (bb && notePositions) {
         notePositions.push({
-          mi: entry.mi, ni: entry.ni, x: bb.getX(), y: bb.getY(), w: bb.getW(), h: bb.getH(),
+          mi: entry.mi, ni: entry.ni, x: bb.x, y: bb.y, w: bb.w, h: bb.h,
           ...collectHeadRect(entry.vfNote as unknown as { getNoteHeadBeginX(): number; getNoteHeadEndX(): number; getYs(): number[] }),
           part: activePartIdx, ...(entry.bassRow ? { staff: 'bass' as const } : {}),
         });
@@ -1983,16 +2006,16 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       }
     }
     for (const entry of allVfNotes) {
-      const bb = entry.vfNote.getBoundingBox();
-      if (bb && notePositions && activePartIdx === 0) {
+      const rect = reliableNoteRect(entry.vfNote);
+      if (rect && notePositions && activePartIdx === 0) {
         /* 아티큘레이션·주석은 note bbox 밖(위)으로 나간다 — SVG 그룹 bbox 로
          * 상단을 확장해야 코드칸 간격 계산(lineContentTop)이 장식까지 피한다. */
-        let topY = bb.getY();
+        let topY = rect.y;
         try {
           const gb = (entry.vfNote.getSVGElement?.() as SVGGraphicsElement | undefined)?.getBBox?.();
           if (gb && Number.isFinite(gb.y) && gb.y < topY && gb.y > topY - 80) topY = gb.y;
         } catch { /* jsdom 등 getBBox 미지원 */ }
-        notePositions.push({ mi: entry.mi, ni: entry.ni, x: bb.getX(), y: topY, w: bb.getW(), h: bb.getY() + bb.getH() - topY, ...collectHeadRect(entry.vfNote) });
+        notePositions.push({ mi: entry.mi, ni: entry.ni, x: rect.x, y: topY, w: rect.w, h: rect.y + rect.h - topY, ...collectHeadRect(entry.vfNote) });
       }
       if (noteElMap) {
         const svgNode = entry.vfNote.getSVGElement();
@@ -2142,10 +2165,17 @@ const StaffKindPreview = ({ kind }: { kind: StaffKind }) => {
         const gap = n >= 6 ? 7 : 8;
         const y0 = Math.round((64 - (n - 1) * gap) / 2);
         const mid = y0 + Math.round(((n - 1) / 2) * gap);
+        /* TAB 라벨 — writing-mode: vertical-rl 에서 y 는 글자 블록의 **위쪽**이다.
+         * 예전엔 mid+10 에서 시작해 3글자(≈3×fontSize)가 아래로 흘러 오선은 물론
+         * viewBox(64) 밖까지 8px 내려갔다. 실제 TAB 클레프처럼 오선 높이에 맞춰
+         * 크기를 정하고, 그 블록을 오선 중앙에 맞춘다. */
+        const staffH = (n - 1) * gap;
+        const tabFs = Math.min(11, Math.max(7, Math.round(staffH / 3)));
+        const tabTop = y0 + Math.round((staffH - tabFs * 3) / 2);
         return (
           <>
             {lines(n, y0, gap)}
-            <text x="12" y={mid + 10} fontSize="10" fontWeight="700" fill="#555" style={{ writingMode: 'vertical-rl' as const }}>TAB</text>
+            <text x="12" y={tabTop} fontSize={tabFs} fontWeight="700" fill="#555" style={{ writingMode: 'vertical-rl' as const }}>TAB</text>
             <text x="52" y={y0 + gap + 3} fontSize="9" fontWeight="700" fill="#333">3</text>
             <text x="72" y={y0 + gap * (n - 2) + 3} fontSize="9" fontWeight="700" fill="#333">5</text>
             <text x="92" y={mid + 3} fontSize="9" fontWeight="700" fill="#333">7</text>
@@ -2254,7 +2284,7 @@ const NoteActionPop = styled.div`
   padding: 4px 6px;
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 9px;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
   white-space: nowrap;
 `;
@@ -2267,8 +2297,8 @@ const MeasureEditBarBox = styled.div`
   align-items: center;
   gap: 4px;
   padding: 4px 8px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.14);
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 8px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
   font-family: 'Pretendard', sans-serif;
@@ -2285,15 +2315,15 @@ const MeasureEditBarBox = styled.div`
     font-size: 0.74rem;
     font-weight: 600;
     padding: 3px 8px;
-    border: 1px solid rgba(0, 0, 0, 0.14);
+    border: 1px solid ${({ theme }) => theme.colors.border};
     border-radius: 5px;
-    background: #fafafa;
-    color: #333;
+    background: ${({ theme }) => theme.colors.surfaceSunken};
+    color: ${({ theme }) => theme.colors.textPrimary};
     cursor: pointer;
     white-space: nowrap;
-    &:hover { border-color: #b8860b; background: #fff; }
-    &.danger { color: #c0392b; }
-    &.danger:hover { border-color: #c0392b; }
+    &:hover { border-color: #b8860b; background: ${({ theme }) => theme.colors.surface}; }
+    &.danger { color: ${({ theme }) => theme.colors.danger}; }
+    &.danger:hover { border-color: ${({ theme }) => theme.colors.dangerBorder}; }
   }
 `;
 
@@ -2554,9 +2584,9 @@ const TabIconBtn = styled.button`
   border: none;
   border-radius: 7px;
   background: none;
-  color: #5b5b5b;
+  color: ${({ theme }) => theme.colors.textSecondary};
   cursor: pointer;
-  &:hover:not(:disabled) { background: rgba(0, 0, 0, 0.06); }
+  &:hover:not(:disabled) { background: ${({ theme }) => theme.colors.activeFill}; }
   &:disabled { opacity: 0.35; cursor: default; }
 `;
 
@@ -2683,11 +2713,11 @@ const DeselectBtn = styled.button`
   border-radius: 5px;
   background: transparent;
   /* 옅은 색 띠(SectionStatusBar) 위에 놓이므로 검정이 가장 잘 읽힌다. */
-  color: #111;
+  color: ${({ theme }) => theme.colors.textPrimary};
   font-size: 1.35rem;
   line-height: 1;
   cursor: pointer;
-  &:hover { background: rgba(0, 0, 0, 0.09); }
+  &:hover { background: ${({ theme }) => theme.colors.activeFill}; }
 `;
 
 /* 상자 안 좌측 상단에 놓는 제목 — 테두리와 겹치지 않는다. */
@@ -2754,7 +2784,7 @@ const MeasureTabBar = styled.div`
     padding: 7px 12px;
     border: 1px solid ${({ theme }) => theme.colors.border};
     border-radius: 7px;
-    background: #fff;
+    background: ${({ theme }) => theme.colors.surface};
     color: ${({ theme }) => theme.colors.textPrimary};
     cursor: pointer;
     white-space: nowrap;
@@ -2802,9 +2832,9 @@ const Section = styled.div`
   min-height: 0;      /* 내용이 길어도 툴바 높이를 밀어내지 않게 */
   gap: 4px;
   padding: 5px;
-  border: 2px solid rgba(0, 0, 0, 0.13);
+  border: 2px solid ${({ theme }) => theme.colors.border};
   border-radius: 12px;
-  background: #fff;          /* 섹션 배경은 흰색으로 통일 */
+  background: ${({ theme }) => theme.colors.surface};          /* 섹션 배경은 흰색으로 통일 */
 `;
 
 /* 정보 탭 상자 — 공용 Section 규격 그대로. $grow 면 남는 폭을 채운다. */
@@ -2908,7 +2938,7 @@ const RestBtn = styled.button`
   cursor: pointer;
   color: ${({ theme }) => theme.colors.textSecondary};
   /* 같은 섹션의 음표 버튼(DurBtn)과 같은 파랑 hover. */
-  &:hover { background: #eef6fd; }
+  &:hover { background: ${tint('#eef6fd', 'rgba(107, 164, 255, 0.13)')}; }
 `;
 
 const Sep = styled.div`
@@ -3051,7 +3081,7 @@ const Btn = styled.button`
   background: transparent;
   cursor: pointer;
   color: ${({ theme }) => theme.colors.textPrimary};
-  &:hover { background: #f0f0f0; }
+  &:hover { background: ${({ theme }) => theme.colors.surfaceSunken}; }
   &:disabled { opacity: 0.35; cursor: default; }
 `;
 
@@ -3081,7 +3111,7 @@ const ToolBtn = styled.button<{ $lit?: boolean }>`
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
   ${({ $lit }) => $lit && 'filter: drop-shadow(0 0 4px rgba(232, 168, 56, 0.55));'}
-  &:hover:not(:disabled) { background: rgba(0, 0, 0, 0.06); }
+  &:hover:not(:disabled) { background: ${({ theme }) => theme.colors.activeFill}; }
   &:disabled { opacity: 0.4; cursor: default; }
 `;
 
@@ -3100,7 +3130,12 @@ const SaveTabBtn = styled(TabIconBtn)<{ $error?: boolean; $busy?: boolean }>`
     color: #c62828;
     &:hover:not(:disabled) { background: rgba(198, 40, 40, 0.10); }
   `}
-  svg { ${({ $busy }) => $busy && `animation: ${saveSpin} 0.9s linear infinite;`} }
+  /* 키프레임 보간은 반드시 css 헬퍼 안에서 한다 — 일반 문자열에 넣으면
+   * styled-components 가 해석하지 못하고 렌더에서 예외를 던진다
+   * ("interpolating a keyframe declaration into an untagged string").
+   * 저장 버튼이 $busy 로 바뀌는 순간 터져 저장 자체가 막혔다.
+   * (주의: styled 템플릿 안의 주석에 백틱을 쓰면 템플릿이 거기서 끊긴다.) */
+  svg { ${({ $busy }) => $busy && css`animation: ${saveSpin} 0.9s linear infinite;`} }
 `;
 
 /* ── 단축키 도움말(?) ─────────────────────────────────────────────────
@@ -3159,7 +3194,7 @@ const Kbd = styled.kbd`
   font-family: 'Pretendard', sans-serif;
   font-size: 0.76rem;
   font-weight: 700;
-  color: #444;
+  color: ${({ theme }) => theme.colors.textSecondary};
   background: ${({ theme }) => theme.colors.bgSecondary};
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-bottom-width: 2px;
@@ -3214,18 +3249,18 @@ const KeyDisplay = styled.button<{ $open?: boolean }>`
   justify-content: center;
   gap: 2px;
   white-space: nowrap;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border: 1.5px solid ${({ $open }) => ($open ? '#e8a838' : '#ccc')};
   border-radius: 6px;
   padding: 0 10px;
   font-family: ${KEY_FONT};
   font-size: 1.12rem;
   font-weight: 600;
-  color: #222;
+  color: ${({ theme }) => theme.colors.textPrimary};
   cursor: pointer;
   transition: border-color 0.14s, background 0.14s;
 
-  &:hover { background: #fffdf7; }
+  &:hover { background: ${tint('#fffdf7', 'rgba(224, 184, 88, 0.10)')}; }
 
   /* 조성 텍스트 — hover/열림 시 흐려져 아이콘에 자리를 내준다.
    * line-height 를 건드리지 않는다: 1 로 조이면 줄상자가 글꼴 크기까지 압축돼
@@ -3685,11 +3720,11 @@ const ChordCellWrap = styled.div<{ $hasValue?: boolean; $active?: boolean }>`
   height: 28px;
   border-radius: 3px;
   /* 활성 마디의 코드칸은 스테이브와 같은 크림색 배경으로 칠한다. */
-  background: ${({ $hasValue, $active }) =>
-    $active ? 'rgba(184, 150, 10, 0.13)' : $hasValue ? 'transparent' : 'rgba(0,0,0,0.04)'};
+  background: ${({ $hasValue, $active, theme }) =>
+    $active ? 'rgba(184, 150, 10, 0.13)' : $hasValue ? 'transparent' : theme.colors.hover};
   cursor: text;
   transition: background 0.12s;
-  &:hover { background: ${({ $active }) => ($active ? 'rgba(184, 150, 10, 0.22)' : 'rgba(0,0,0,0.07)')}; }
+  &:hover { background: ${({ $active, theme }) => ($active ? 'rgba(184, 150, 10, 0.22)' : theme.colors.activeFill)}; }
 `;
 
 /* 대체 코드 행의 양끝 괄호 — 활성화되면 항상 함께 그려진다. */
@@ -3711,7 +3746,7 @@ const ChordCellDisplay = styled.span`
   padding: 0 5px;
   height: 28px;
   font-family: 'MuseJazz Text', 'Pretendard', sans-serif;
-  color: #222;
+  color: ${({ theme }) => theme.colors.textPrimary};
   white-space: nowrap;
   line-height: 28px;
 `;
@@ -3761,9 +3796,9 @@ const ChordCellInput = styled.input`
   padding: 2px 4px;
   border: none;
   border-radius: 3px;
-  background: #fff;
-  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.15);
-  color: #222;
+  background: ${({ theme }) => theme.colors.surface};
+  box-shadow: 0 0 0 1.5px ${({ theme }) => theme.colors.border};
+  color: ${({ theme }) => theme.colors.textPrimary};
   outline: none;
 `;
 
@@ -3882,7 +3917,7 @@ const NoteEditBar = styled.div`
   gap: 8px;
   padding: 6px 18px;
   border-bottom: 2px solid #d32f2f;
-  background: #fff5f5;
+  background: ${tint('#fff5f5', 'rgba(240, 113, 103, 0.13)')};
   flex-wrap: wrap;
 `;
 
@@ -4008,7 +4043,7 @@ const NoteEditBtn = styled.button<{ $active?: boolean }>`
   cursor: pointer;
   color: ${({ $active }) => ($active ? '#d32f2f' : '#333')};
   font-weight: ${({ $active }) => ($active ? 700 : 400)};
-  &:hover { background: #ffebee; }
+  &:hover { background: ${tint('#ffebee', 'rgba(240, 113, 103, 0.16)')}; }
 `;
 /* 셈여림 글리프 버튼 — 음표(DurBtn) 규격 그대로 54×54, 서체만 악보 관례
  * (이탤릭 세리프 pp·mf·sfz …)로. */
@@ -4062,7 +4097,7 @@ const NoteChordOverlayInput = styled.input`
 const ModalOverlay = styled.div`
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: ${({ theme }) => theme.colors.scrim};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4070,7 +4105,7 @@ const ModalOverlay = styled.div`
 `;
 
 const ModalBox = styled.div`
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 12px;
   padding: 24px;
   width: 560px;
@@ -4086,13 +4121,13 @@ const ModalTitle = styled.h3`
   margin: 0;
   font-family: 'Pretendard', sans-serif;
   font-size: 1.1rem;
-  color: #333;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 const ModalTextarea = styled.textarea`
   font-family: 'JetBrains Mono', 'Menlo', monospace;
   font-size: 0.75rem;
-  border: 1px solid #ccc;
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 8px;
   padding: 12px;
   min-height: 260px;
@@ -4131,7 +4166,7 @@ const spin = keyframes`
 `;
 
 const SavingBox = styled.div`
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   border-radius: 14px;
   padding: 28px 36px;
   display: flex;
@@ -4145,7 +4180,7 @@ const Spinner = styled.div`
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  border: 3px solid rgba(0, 0, 0, 0.12);
+  border: 3px solid ${({ theme }) => theme.colors.border};
   border-top-color: #ef6c00;
   animation: ${spin} 0.8s linear infinite;
 `;
@@ -4154,13 +4189,13 @@ const SavingText = styled.div`
   font-family: 'Pretendard', sans-serif;
   font-size: 1rem;
   font-weight: 700;
-  color: #333;
+  color: ${({ theme }) => theme.colors.textPrimary};
 `;
 
 const SavingSub = styled.div`
   font-family: 'Pretendard', sans-serif;
   font-size: 0.82rem;
-  color: #888;
+  color: ${({ theme }) => theme.colors.textSecondary};
 `;
 
 /* ─── component ────────────────────────────────────────────────────────── */
@@ -4321,6 +4356,26 @@ export default function EditorPage() {
    * 임시표로만 표기된 악보를 불러오면 그 악보가 제대로 그려지도록 아래에서
    * 이 값을 맞춰 세팅한다 — 설정 창에도 그 상태가 그대로 보인다. */
   const [explicitAcc, setExplicitAcc] = usePref(editorExplicitAcc);
+  /* '조표 무시' 를 켜고 끌 때 **소리가 바뀌지 않도록 임시표를 변환**한다.
+   *   켤 때  — 조표가 주던 ♯/♭ 을 각 음표에 명시로 펼친다(조표가 사라져도 같은 소리).
+   *   끌 때  — 다시 조표 기준 최소 표기로 되돌린다.
+   * 이게 없으면 토글만으로 조표의 ♯/♭ 이 통째로 증발해 음이 틀어진다.
+   * 시트 로드가 값을 바꾼 경우는 변환하지 않는다(그건 이미 그 표기법의 데이터다). */
+  const prevExplicitRef = useRef(explicitAcc);
+  const skipAccConvertRef = useRef(true);   // 첫 렌더 + 로드 직후는 건너뛴다
+  useEffect(() => {
+    const prev = prevExplicitRef.current;
+    prevExplicitRef.current = explicitAcc;
+    if (skipAccConvertRef.current) { skipAccConvertRef.current = false; return; }
+    if (prev === explicitAcc) return;
+    const convert = (ms: MeasureInfo[]) => (explicitAcc
+      ? bakeExplicitAccidentals(ms, sheetKey)   // 조표 → 음표에 펼치기
+      : emitForKeySignature(ms, sheetKey));     // 음표 → 조표 기준 최소 표기
+    setMeasures((prevMs) => convert(prevMs));
+    setBassMeasures((prevMs) => (prevMs.length ? convert(prevMs) : prevMs));
+    setCurNotes((prevNs) => (prevNs.length ? convert([{ notes: prevNs }])[0].notes : prevNs));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [explicitAcc]);
 
   const [duration, setDuration] = useState('8');
   const [dotted, setDotted] = useState(false);
@@ -4501,8 +4556,15 @@ export default function EditorPage() {
             ...(st.tuningPreset && st.tuningPreset !== 'standard' ? { tuningPreset: st.tuningPreset } : {}),
             ...(st.chordDiagrams ? { chordDiagrams: true } : {}),
           })));
+          /* 4박 초과 마디 쪼개기는 손으로 만든 데이터의 안전망이다. 단 **양손
+           * (grand)은 쪼개면 안 된다** — 오른손만 마디가 늘어나 왼손과 1:1
+           * 인덱스 정렬이 깨지고, 그 지점부터 코드·왼손이 통째로 밀린다
+           * (실측: MusicXML 피아노 수입에서 오른손 79 vs 왼손 72). 수입 악보의
+           * 마디 구분은 원본이 진실이므로 그대로 싣는다. */
           partStoreRef.current = loadedStaves.map((st) => ({
-            measures: splitMeasuresByBeats(bakePart(st, st.measures), 4),
+            measures: st.kind === 'grand'
+              ? bakePart(st, st.measures)
+              : splitMeasuresByBeats(bakePart(st, st.measures), 4),
             bassMeasures: st.bassMeasures ? bakePart(st, st.bassMeasures) : [],
           }));
           const first = partStoreRef.current[0];
@@ -4512,10 +4574,12 @@ export default function EditorPage() {
           if (loadedStaves[0].kind === 'grand') setStaffMode('grand');
           setMetaInstrument(loadedStaves[0].instrument ?? '');
         } else {
-          const normalized = splitMeasuresByBeats(bake(prefillSheet.measures), 4);
-          setMeasures(normalized);
-          if (Array.isArray(prefillSheet.bassMeasures) && prefillSheet.bassMeasures.length > 0) {
-            setBassMeasures(bake(prefillSheet.bassMeasures));
+          /* 양손이면 쪼개지 않는다 — 위와 같은 이유(오른손/왼손 인덱스 정렬). */
+          const isGrand = Array.isArray(prefillSheet.bassMeasures) && prefillSheet.bassMeasures.length > 0;
+          const baked = bake(prefillSheet.measures);
+          setMeasures(isGrand ? baked : splitMeasuresByBeats(baked, 4));
+          if (isGrand) {
+            setBassMeasures(bake(prefillSheet.bassMeasures!));
             setStaffMode('grand');
             setPartMetas([{ kind: 'grand' }]);
           }
@@ -4527,7 +4591,10 @@ export default function EditorPage() {
         if (prefillSheet.composer) setComposer(prefillSheet.composer);
         if (prefillSheet.key) setSheetKey(prefillSheet.key);
         if (/^[0-9]+\/[0-9]+$/.test(prefillSheet.timeSignature ?? '')) setTimeSig(prefillSheet.timeSignature);
-        setExplicitAcc(isExplicitSheet);
+        // 시트가 값을 명시할 때만 따른다. 백엔드가 accidentalStyle 을 저장하지
+        // 않아(BR-33) '값 없음'은 "조표적용"이 아니라 **모름**이다 — 사용자가 켜둔
+        // 설정을 로드할 때마다 꺼버리던 원인.
+        if (prefillSheet.accidentalStyle) { skipAccConvertRef.current = true; setExplicitAcc(isExplicitSheet); }
         if (prefillSheet.tempo) {
           setBpm(prefillSheet.tempo);
           bpmManualRef.current = true;
@@ -4666,6 +4733,15 @@ export default function EditorPage() {
     editRedoStack.current = [];  // 새 편집이 발생하면 redo 분기는 무효화된다.
   }, [captureSnapshot]);
 
+  /* 조성(이조·키만 변경)처럼 **스냅샷에 담기지 않는 상태**를 바꾸는 작업은
+   * 되돌리기 이력을 통째로 비운다. 스냅샷은 measures/curNotes 만 담고 sheetKey 는
+   * 담지 않으므로, 이력을 남겨두면 Ctrl+Z 가 "이전 조성의 음표 + 새 조표" 라는
+   * 어긋난 상태를 만든다(B→D 이조 후 Ctrl+Z 하면 음표만 B 로 돌아가고 조표는 D). */
+  const resetEditHistory = useCallback(() => {
+    editUndoStack.current = [];
+    editRedoStack.current = [];
+  }, []);
+
   const curBeats = useMemo(() => measureBeats(curNotes), [curNotes]);
   /* 선택이 없을 때 보여줄 전체 박 수 — 확정 마디 + 입력 중인 마디. */
   const totalBeats = useMemo(
@@ -4680,12 +4756,13 @@ export default function EditorPage() {
   const applyTranspose = useCallback((targetKey: string) => {
     const target = normalizeNoteKeyDisplay(targetKey);
     if (!target || target === sheetKey) { setTransposeOpen(false); return; }
-    pushEditUndo();
+    resetEditHistory();   // 조성 변경은 Ctrl+Z 대상이 아니다(어긋난 상태 방지)
     const packed: NoteSheetData = {
       title: sheetTitle, composer, key: sheetKey, timeSignature: timeSig,
       // 편집 중인 마지막 마디(curNotes)도 함께 옮겨야 이조 후 이어서 쓸 수 있다.
       measures: [...measures, { notes: curNotes }],
       ...(bassMeasures.length ? { bassMeasures } : {}),
+      ...(explicitAcc ? { accidentalStyle: 'explicit' as const } : {}),
     };
     const out = transposeNoteSheet(packed, target);
     const outMeasures = out.measures ?? [];
@@ -4696,7 +4773,7 @@ export default function EditorPage() {
     if (out.bassMeasures) setBassMeasures(out.bassMeasures);
     setSheetKey(out.key || target);
     setTransposeOpen(false);
-  }, [sheetKey, sheetTitle, composer, measures, curNotes, bassMeasures, pushEditUndo]);
+  }, [sheetKey, sheetTitle, composer, measures, curNotes, bassMeasures, resetEditHistory, explicitAcc]);
 
   /* '키만 변경' — 음표는 그대로 두고 조성 표기(조표)만 교체한다. (SolosPage 와 동일 개념) */
   /* 키만 변경 — 조표 표기만 바꾸고 **소리는 그대로 둔다**.
@@ -4706,11 +4783,12 @@ export default function EditorPage() {
   const applyKeyOnly = useCallback((targetKey: string) => {
     const target = normalizeNoteKeyDisplay(targetKey);
     if (!target || target === sheetKey) { setTransposeOpen(false); return; }
-    pushEditUndo();
+    resetEditHistory();   // 조성 변경은 Ctrl+Z 대상이 아니다(어긋난 상태 방지)
     const packed: NoteSheetData = {
       title: sheetTitle, composer, key: sheetKey, timeSignature: timeSig,
       measures: [...measures, { notes: curNotes }],
       ...(bassMeasures.length ? { bassMeasures } : {}),
+      ...(explicitAcc ? { accidentalStyle: 'explicit' as const } : {}),
     };
     const out = respellNoteSheetKey(packed, target);
     const outMeasures = out.measures ?? [];
@@ -4720,7 +4798,7 @@ export default function EditorPage() {
     if (out.bassMeasures) setBassMeasures(out.bassMeasures);
     setSheetKey(out.key || target);
     setTransposeOpen(false);
-  }, [sheetKey, sheetTitle, composer, measures, curNotes, bassMeasures, pushEditUndo]);
+  }, [sheetKey, sheetTitle, composer, measures, curNotes, bassMeasures, resetEditHistory, explicitAcc]);
 
   /* maybeAutoClose 등 deps-고정 콜백이 읽는 barBeats 미러. */
   const barBeatsRef = useRef(4);
@@ -5813,7 +5891,7 @@ export default function EditorPage() {
       if (data.composer) setComposer(data.composer);
       if (data.genre) setGenre(data.genre);
       if (data.key) setSheetKey(data.key);
-      setExplicitAcc(data.accidentalStyle === 'explicit');
+      if (data.accidentalStyle) { skipAccConvertRef.current = true; setExplicitAcc(data.accidentalStyle === 'explicit'); }
       if (data.tempo) { setBpm(data.tempo); bpmManualRef.current = true; }
       setSelectedNote(null);
       setShowLoadModal(false);
@@ -8308,7 +8386,7 @@ const StaffRowBtn = styled.div<{ $on: boolean }>`
   .opt {
     display: inline-flex; align-items: center; gap: 3px; flex: none;
     white-space: nowrap;   /* 폭이 빠듯해도 '오선' 이 두 줄로 접히지 않게 */
-    font-size: 0.68rem; color: #666; cursor: pointer;
+    font-size: 0.68rem; color: ${({ theme }) => theme.colors.textSecondary}; cursor: pointer;
     input { width: 13px; height: 13px; accent-color: #b8960a; cursor: pointer; }
   }
   /* 행 폭이 고정이라 auto 여백이면 ⇆↑↓✕ 가 전 행에서 정확히 같은 x 에 온다. */
@@ -8316,8 +8394,8 @@ const StaffRowBtn = styled.div<{ $on: boolean }>`
     margin-left: auto; display: inline-flex; gap: 2px;
     button {
       border: none; background: transparent; cursor: pointer; border-radius: 5px;
-      width: 21px; height: 21px; font-size: 0.72rem; color: #888; line-height: 1;
-      &:hover:not(:disabled) { background: #eee; color: #333; }
+      width: 21px; height: 21px; font-size: 0.72rem; color: ${({ theme }) => theme.colors.textSecondary}; line-height: 1;
+      &:hover:not(:disabled) { background: ${({ theme }) => theme.colors.surfaceSunken}; color: ${({ theme }) => theme.colors.textPrimary}; }
       &:disabled { opacity: 0.3; cursor: default; }
     }
   }
@@ -8330,8 +8408,8 @@ const AddStaffBtn = styled.button`
   width: 64px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 2px;
-  border: 1.4px dashed #c8c8ce; background: transparent; border-radius: 10px;
-  font-size: 1.05rem; font-weight: 800; color: #777; cursor: pointer;
+  border: 1.4px dashed ${({ theme }) => theme.colors.border}; background: transparent; border-radius: 10px;
+  font-size: 1.05rem; font-weight: 800; color: ${({ theme }) => theme.colors.textSecondary}; cursor: pointer;
   line-height: 1;
   em { font-style: normal; font-size: 0.66rem; font-weight: 700; line-height: 1.25; text-align: center; }
   &:hover:not(:disabled) { border-color: #b8960a; color: #b8960a; }
@@ -8346,10 +8424,10 @@ const StaffModalOverlay = styled.div`
 
 const StaffModalCard = styled.div`
   width: min(680px, calc(100vw - 40px)); max-height: calc(100vh - 80px);
-  overflow-y: auto; background: #fff; border-radius: 16px;
+  overflow-y: auto; background: ${({ theme }) => theme.colors.surface}; border-radius: 16px;
   padding: 22px 24px 18px; box-shadow: 0 18px 50px rgba(0,0,0,0.25);
   h2 { margin: 0 0 4px; font-size: 1.05rem; font-weight: 800; }
-  .sub { margin: 0 0 14px; font-size: 0.78rem; color: #888; line-height: 1.5; }
+  .sub { margin: 0 0 14px; font-size: 0.78rem; color: ${({ theme }) => theme.colors.textSecondary}; line-height: 1.5; }
 `;
 
 const StaffKindGrid = styled.div`
@@ -8363,15 +8441,15 @@ const StaffKindCard = styled.button<{ $on?: boolean }>`
   background: ${({ $on }) => ($on ? 'rgba(184,150,10,0.07)' : '#fff')};
   border-radius: 12px; transition: border-color .13s, box-shadow .13s;
   &:hover { border-color: #b8960a; box-shadow: 0 2px 12px rgba(184,150,10,0.16); }
-  svg { background: #fafafa; border: 1px solid #f0f0f2; border-radius: 8px; width: 100%; height: auto; }
-  b { font-size: 0.85rem; font-weight: 800; color: #222; }
-  span { font-size: 0.71rem; color: #8a8a92; line-height: 1.45; }
+  svg { background: ${({ theme }) => theme.colors.surfaceSunken}; border: 1px solid ${({ theme }) => theme.colors.border}; border-radius: 8px; width: 100%; height: auto; }
+  b { font-size: 0.85rem; font-weight: 800; color: ${({ theme }) => theme.colors.textPrimary}; }
+  span { font-size: 0.71rem; color: ${({ theme }) => theme.colors.textSecondary}; line-height: 1.45; }
 `;
 
 const StaffModalClose = styled.button`
   margin-top: 14px; width: 100%; padding: 9px 0; border: none; border-radius: 9px;
-  background: #f1f1f4; font-weight: 700; font-size: 0.82rem; cursor: pointer;
-  &:hover { background: #e6e6ea; }
+  background: ${({ theme }) => theme.colors.surfaceSunken}; font-weight: 700; font-size: 0.82rem; cursor: pointer;
+  &:hover { background: ${({ theme }) => theme.colors.surfaceSunken}; }
 `;
 
 /* 드럼 킷 입력은 DrumKitPad(킷 그림)가 담당한다 — 건반 자리를 대신한다. */
@@ -8387,26 +8465,26 @@ const TabCfgPop = styled.div`
   gap: 6px;
   width: 168px;
   padding: 9px 10px;
-  border: 1px solid #ddd;
+  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 10px;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
   cursor: default;
 
   .row {
     display: flex; align-items: center; justify-content: space-between; gap: 8px;
-    font-size: 0.72rem; color: #555;
+    font-size: 0.72rem; color: ${({ theme }) => theme.colors.textSecondary};
     select {
       flex: 1; min-width: 0; font-size: 0.7rem; padding: 2px 3px;
-      border: 1px solid #ddd; border-radius: 6px; background: #fff; cursor: pointer;
+      border: 1px solid ${({ theme }) => theme.colors.border}; border-radius: 6px; background: ${({ theme }) => theme.colors.surface}; cursor: pointer;
     }
     input { width: 14px; height: 14px; accent-color: #b8960a; cursor: pointer; }
   }
   .chk { cursor: pointer; }
   .close {
     margin-top: 2px; padding: 4px 0; border: none; border-radius: 7px;
-    background: #f1f1f4; font-size: 0.7rem; font-weight: 700; cursor: pointer;
-    &:hover { background: #e6e6ea; }
+    background: ${({ theme }) => theme.colors.surfaceSunken}; font-size: 0.7rem; font-weight: 700; cursor: pointer;
+    &:hover { background: ${({ theme }) => theme.colors.surfaceSunken}; }
   }
 `;
 
@@ -8418,10 +8496,10 @@ const TimeSigSelect = styled.select`
   font-weight: 700;
   border: 1.5px solid ${({ theme }) => theme.colors.border};
   border-radius: 8px;
-  background: #fff;
+  background: ${({ theme }) => theme.colors.surface};
   cursor: pointer;
   font-variant-numeric: tabular-nums;
-  &:hover { border-color: #b8b8be; }
+  &:hover { border-color: ${({ theme }) => theme.colors.border}; }
 `;
 
 /* 보이스 토글 — SMuFL 4분음표 + 성부 번호(입력 툴바 관례). */
