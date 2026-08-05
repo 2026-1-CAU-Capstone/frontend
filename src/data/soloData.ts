@@ -144,7 +144,12 @@ export async function migrateLegacySolos(): Promise<{ ok: number; failed: number
  */
 export function buildUserSoloDraft(opts: {
   title: string;
-  composer: string;
+  /** 작곡가 — 곡을 쓴 사람. */
+  composer?: string;
+  /** 연주자 — **Solo Database 의 분류 기준**. 비우면 작곡가로 대체하지 않고
+   *  'Unknown' 이 된다(예전엔 작곡가 값을 연주자로 저장해 분류가 뒤엉켰다). */
+  performer?: string;
+  album?: string;
   genre?: string;
   key: string;
   timeSignature: string;
@@ -174,7 +179,9 @@ export function buildUserSoloDraft(opts: {
     source: opts.source ?? 'user',
     title: opts.title || 'Untitled',
     instrument: opts.instrument ?? 'p',
-    performer: opts.composer || undefined,
+    performer: opts.performer?.trim() || undefined,
+    composer: opts.composer?.trim() || undefined,
+    ...(opts.album?.trim() ? { album: opts.album.trim() } : {}),
     tempo: opts.tempo,
     key: opts.key,
     timeSignature: opts.timeSignature,

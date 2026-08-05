@@ -1,12 +1,13 @@
 import type { MeasureInfo, NoteSheetData } from '../../data/sampleMelody';
 import {
   keySigLetterMap,
-  normalizeKeyName,
   soundingAccidental,
   midiFromKey,
   emitScoreAccidentals,
+  emitExplicitAccidentals,
   type AccGlyph,
 } from './resolvePitches';
+import { spellMidi, spellChordRoot } from './spelling';
 
 export const ALL_KEYS_MAJOR = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'] as const;
 export const ALL_KEYS_MINOR = ['Cm', 'Dbm', 'Dm', 'Ebm', 'Em', 'Fm', 'F#m', 'Gm', 'Abm', 'Am', 'Bbm', 'Bm'] as const;
@@ -15,26 +16,6 @@ const NOTE_TO_PC: Record<string, number> = {
   C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11,
 };
 
-/* 조표가 플랫 계열(또는 C/Am — 재즈 관례상 플랫 선호)인 키의 임시표 스펠링. */
-const FLAT_SPELLING_KEYS = new Set([
-  'C', 'F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb', 'Cb',
-  'Am', 'Dm', 'Gm', 'Cm', 'Fm', 'Bbm', 'Ebm', 'Abm',
-]);
-
-const PC_FLAT: [string, AccGlyph | undefined][] = [
-  ['c', undefined], ['d', 'b'], ['d', undefined], ['e', 'b'], ['e', undefined],
-  ['f', undefined], ['g', 'b'], ['g', undefined], ['a', 'b'], ['a', undefined],
-  ['b', 'b'], ['b', undefined],
-];
-
-const PC_SHARP: [string, AccGlyph | undefined][] = [
-  ['c', undefined], ['c', '#'], ['d', undefined], ['d', '#'], ['e', undefined],
-  ['f', undefined], ['f', '#'], ['g', undefined], ['g', '#'], ['a', undefined],
-  ['a', '#'], ['b', undefined],
-];
-
-const CHORD_KEY_NAMES_FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
-const CHORD_KEY_NAMES_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const CHORD_NAME_TO_SEMI: Record<string, number> = {
   C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3,
   E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8,
@@ -60,13 +41,15 @@ export function keyToPc(key: string): number {
   return ((NOTE_TO_PC[root] ?? 0) + (acc === '#' ? 1 : acc === 'b' ? -1 : 0) + 12) % 12;
 }
 
-function transposeChord(chord: string, semitones: number, useFlats: boolean): string {
+/** 코드 심볼 이조 — 루트·슬래시 베이스를 **대상 조성의 도수**로 스펠링한다.
+ *  고정 테이블이 아니라 조성마다 계산하므로, D장조의 ♭II 는 E♭ 이 되고
+ *  B장조의 vi 는 G♯ 이 된다(둘 다 관례에 맞는 이름). */
+function transposeChord(chord: string, semitones: number, targetKey: string): string {
   if (!chord) return chord;
-  const names = useFlats ? CHORD_KEY_NAMES_FLAT : CHORD_KEY_NAMES_SHARP;
   return chord.replace(/([A-G][b#]?)/g, (match) => {
     const rootSemi = CHORD_NAME_TO_SEMI[match] ?? 0;
     const newSemi = ((rootSemi + semitones) % 12 + 12) % 12;
-    return names[newSemi];
+    return spellChordRoot(newSemi, targetKey);
   });
 }
 
@@ -99,8 +82,6 @@ export function transposeNoteSheet(data: NoteSheetData, targetKeyRaw: string): N
   // 최단 방향: +7 이 아니라 -5 로 — 전체 레지스터 이동을 최소화해 윤곽 보존.
   const semitones = up > 6 ? up - 12 : up;
 
-  const useFlats = FLAT_SPELLING_KEYS.has(normalizeKeyName(targetKey));
-  const table = useFlats ? PC_FLAT : PC_SHARP;
 
   /* 1) 소스 의미론으로 소리 피치 확정 → 이동 → 리스펠링. */
   let srcKeySig = keySigLetterMap(originalKey);
@@ -120,12 +101,9 @@ export function transposeNoteSheet(data: NoteSheetData, targetKeyRaw: string): N
           data.accidentalStyle ?? 'score',
         );
         const newMidi = midiFromKey(k, srcAcc) + semitones;
-        const pc = ((newMidi % 12) + 12) % 12;
-        const [letter, acc] = table[pc];
-        // 스펠링된 글자의 내추럴 pc 로부터 옥타브 역산 — B/C 경계 안전
-        // (테이블은 Cb/B# 를 만들지 않으므로 floor 로 충분).
-        const octave = Math.floor((newMidi - (acc ? ({ '#': 1, b: -1, n: 0, '##': 2, bb: -2 } as const)[acc] : 0)) / 12) - 1;
-        return { vexKey: `${letter}/${octave}`, acc };
+        // 대상 조성의 **도수**로 스펠링(옥타브는 글자 기준 역산 — C♭/B♯ 안전).
+        const sp = spellMidi(newMidi, targetKey);
+        return { vexKey: sp.vexKey, acc: sp.acc as AccGlyph | undefined };
       });
       soundRow.push(per);
       // keys 는 여기서 갈아끼우고, accidentals 는 아래 emit 단계가 다시 계산.
@@ -135,15 +113,21 @@ export function transposeNoteSheet(data: NoteSheetData, targetKeyRaw: string): N
     return {
       ...m,
       key: m.key ? normalizeNoteKeyDisplay(transposeSheetKey(m.key, ((semitones % 12) + 12) % 12)) : m.key,
-      chord: m.chord ? transposeChord(m.chord, ((semitones % 12) + 12) % 12, useFlats) : m.chord,
+      chord: m.chord ? transposeChord(m.chord, ((semitones % 12) + 12) % 12, targetKey) : m.chord,
       notes: notes.map((n) => (
-        n.chord ? { ...n, chord: transposeChord(n.chord, ((semitones % 12) + 12) % 12, useFlats) } : n
+        n.chord ? { ...n, chord: transposeChord(n.chord, ((semitones % 12) + 12) % 12, targetKey) } : n
       )),
     };
   });
 
-  /* 2) 대상 조성 기준 최소 표기 임시표 재-방출. */
-  const emitted = emitScoreAccidentals(perNote, outMeasures, targetKey);
+  /* 2) 임시표 재-방출 — **시트의 표기법에 맞춰서**.
+   *    score    : 조표 기준 최소 표기(조표가 주는 임시표는 생략)
+   *    explicit : 조표에 의존하지 않는 전체 명시
+   *    예전엔 항상 score 로 방출해, 조표무시 시트를 이조하면 조표가 주던 ♯ 이
+   *    생략된 채 explicit 으로 읽혀 **음이 반음 낮아졌다**(B→D 에서 라♯→도, +2). */
+  const emitted = (data.accidentalStyle === 'explicit')
+    ? emitExplicitAccidentals(perNote, outMeasures)
+    : emitScoreAccidentals(perNote, outMeasures, targetKey);
 
   return { ...data, key: targetKey, measures: emitted };
 }

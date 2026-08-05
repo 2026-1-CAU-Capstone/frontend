@@ -76,9 +76,12 @@ export function soundingAccidental(
   // (midiFromKey/vexKeyToMidi 가 baked 를 읽으므로 여기선 추가 변화 없음).
   if (/^[a-gA-G](##?|bb?|n)$/.test(letter)) return undefined;
   if (style === 'explicit') return undefined; // 명시 없음 = 내추럴
-  // score: 마디 내 상속 → 조표 → 내추럴
-  const inherited = active.get(vexKey) ?? keySig.get(letter);
-  return inherited === 'n' ? undefined : inherited;
+  // score: 조표 기본값. **마디 내 상속은 하지 않는다** — 렌더러
+  // (measureAccidentals.resolveMeasureAccidental, courtesy 모드)가 임시표 없는
+  // 음을 "앞선 변화를 취소하고 조표 기본값으로" 그리기 때문이다. 예전엔 여기서만
+  // 상속을 적용해, 화면엔 ♮ 가 붙는데 소리는 ♯ 으로 나는 표시-재생 불일치가 있었다
+  // (C장조 한 마디 안 `c♯ → c` 케이스). 표기가 곧 소리여야 하므로 렌더러에 맞춘다.
+  return keySig.get(letter);   // 조표는 'b'|'#' 만 담는다
 }
 
 export function midiFromKey(vexKey: string, acc: AccGlyph | undefined): number {
@@ -258,9 +261,9 @@ export function bakeForScoreReading(
           //   (Eb 조표에서 E♭ 표기를 지우면 explicit 해석은 E내추럴이 됨).
           want = dataAcc;
         } else {
-          // 내추럴 — score 해석에서 조표나 마디 내 상태가 바꾸려 들면 ♮ 를 명시.
-          const wouldAlter = active.get(k) ?? keySig.get(letter);
-          want = wouldAlter && wouldAlter !== 'n' ? 'n' : undefined;
+          // 내추럴 — score 해석에서 조표가 바꾸려 들 때만 ♮ 를 명시한다
+          // (score 는 마디 내 상속을 하지 않으므로 조표만 보면 된다).
+          want = keySig.get(letter) ? 'n' : undefined;
         }
         if (want) { (accOut ??= {})[ki] = want; active.set(k, want); }
         if (want !== dataAcc) noteChanged = true;
@@ -276,4 +279,49 @@ export function bakeForScoreReading(
     return { ...m, notes };
   });
   return anyChanged ? out : measures;
+}
+
+/** 조표무시(explicit) 표기를 **조표 기준 최소 표기**로 되돌린다(조표무시 OFF 전환용).
+ *  소리는 그대로 두고, 조표가 제공하는 임시표는 생략한다. */
+export function emitForKeySignature(
+  measures: MeasureInfo[],
+  sheetKey: string | undefined,
+): MeasureInfo[] {
+  let keySig = keySigLetterMap(sheetKey);
+  const sounding: SoundingNote[][][] = measures.map((m) => {
+    if (m.key) keySig = keySigLetterMap(m.key);
+    const active = new Map<string, AccGlyph>();
+    return m.notes.map((n) => (n.duration.endsWith('r') ? [] : n.keys.map((k, ki) => ({
+      vexKey: k,
+      acc: soundingAccidental(active, keySig, k, n.accidentals?.[ki] as AccGlyph | undefined, 'explicit'),
+    }))));
+  });
+  return emitScoreAccidentals(sounding, measures, sheetKey ?? 'C');
+}
+
+/** 소리 피치에 **explicit(조표무시) 표기**를 붙인다 — 조표에 의존하지 않는다.
+ *  변화음은 전부 자기 임시표를 갖고, 내추럴은 표기 없음(= explicit 의미론).
+ *  `emitScoreAccidentals` 는 조표가 주는 임시표를 생략하므로, 시트가 explicit 인데
+ *  그걸 쓰면 "조표 없이 읽으면 내추럴" 이 되어 **이조 결과의 음이 틀어진다**. */
+export function emitExplicitAccidentals(
+  perNoteSounding: SoundingNote[][][],
+  measures: MeasureInfo[],
+): MeasureInfo[] {
+  return measures.map((m, mi) => ({
+    ...m,
+    notes: m.notes.map((n, ni) => {
+      if (n.duration.endsWith('r')) return n;
+      const sounding = perNoteSounding[mi]?.[ni];
+      if (!sounding) return n;
+      const keys: string[] = [];
+      let accOut: Record<number, AccGlyph> | undefined;
+      sounding.forEach((s, ki) => {
+        keys[ki] = s.vexKey;
+        if (s.acc) (accOut ??= {})[ki] = s.acc;
+      });
+      const out: NoteInfo = { ...n, keys };
+      if (accOut) out.accidentals = accOut; else delete out.accidentals;
+      return out;
+    }),
+  }));
 }

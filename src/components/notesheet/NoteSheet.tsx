@@ -163,8 +163,12 @@ import { drawScoopFall } from '../../lib/note/scoopFall';
 import { computeBeamBreaks } from '../../lib/note/beamPolicy';
 import { chordBaselineY } from '../../lib/note/chordClearance';
 import {
-  lineHeadroom, cumulativeLineOffsets, totalExtraHeight, defaultHeadroom, clampChordTop,
+  lineHeadroom, defaultHeadroom, clampChordTop,
 } from '../../lib/note/chordRowLayout';
+import { grandStaffDy, GRAND_BASS_DY } from '../../lib/note/grandStaffLayout';
+import {
+  staffExtent, lineOrigins, sheetHeight, SPACE_ABOVE, NO_EXTENT, type LineBox,
+} from '../../lib/note/sheetVerticalLayout';
 import { useNoteNameStyle } from '../../hooks/useNoteNameStyle';
 import { drawNoteNameLabels } from '../../lib/note/noteNameLabels';
 
@@ -257,7 +261,6 @@ function getBarLayout(containerW: number, grand = false) {
 }
 
 /** 양손 악보에서 트레블 보표 y 로부터 베이스 보표까지의 간격(px). */
-const GRAND_BASS_DY = 92;
 
 const FIXED_BAR_W = 175;
 const DECOR_FIRST = 80;
@@ -1884,9 +1887,31 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
     const chordMetrics = { rowH: 24, staffGap: 28, noteGap: 4 };
     const lineHeadrooms = lines.map((idxs) =>
       lineHeadroom(idxs.map((i2) => dispMeasures[i2]?.notes ?? []), 10, chordMetrics, 'treble'));
-    const lineYExtra = cumulativeLineOffsets(lineHeadrooms, chordMetrics);
-    const totalH = MARGIN.top + numLines * lineH + MARGIN.bottom
-      + totalExtraHeight(lineHeadrooms, chordMetrics);
+    /* 양손 두 보표 간격 — 에디터와 **같은 규칙**(grandStaffLayout). */
+    const lineBassDy = lines.map((idxs) => (grand
+      ? grandStaffDy(
+          idxs.map((i2) => dispMeasures[i2]?.notes ?? []),
+          idxs.map((i2) => data.bassMeasures?.[i2]?.notes ?? []),
+          10,
+        )
+      : GRAND_BASS_DY));
+
+    /* 줄별 세로 상자 — 에디터와 **같은 모델**(sheetVerticalLayout). 위/아래를 한
+     * 식으로 재서 이웃 줄과 겹치지 않는 간격을 구한다. */
+    const lineBoxes: LineBox[] = lines.map((idxs, li2) => {
+      const tExt = staffExtent(idxs.map((i2) => dispMeasures[i2]?.notes ?? []), 10, 'treble');
+      const bExt = grand
+        ? staffExtent(idxs.map((i2) => data.bassMeasures?.[i2]?.notes ?? []), 10, 'bass')
+        : NO_EXTENT;
+      return {
+        chordRow: lineHeadrooms[li2] ?? 0,
+        above: tExt.above,
+        bottomLine4: (grand ? lineBassDy[li2] : 0) + SPACE_ABOVE + 4 * 10 + extrasH,
+        below: grand ? bExt.below : tExt.below,
+      };
+    });
+    const lineOriginY = lineOrigins(lineBoxes, lineH, MARGIN.top);
+    const totalH = sheetHeight(lineBoxes, lineOriginY, MARGIN.bottom);
 
     const renderer = new Renderer(el, Renderer.Backends.SVG);
     renderer.resize(renderW, totalH);
@@ -1943,7 +1968,8 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
       const isFirstLine = li === 0;
       const isLastLine = li === numLines - 1;
       /* 균등 배치가 아니라 누적 — 코드 글자가 필요로 하는 만큼 줄이 내려간다. */
-      const y = MARGIN.top + li * lineH + (lineYExtra[li] ?? 0);
+      const y = lineOriginY[li];
+      const bassDy = lineBassDy[li] ?? GRAND_BASS_DY;
       const lineHeadroomPx = lineHeadrooms[li] ?? defaultHeadroom(chordMetrics);
       const decorW = isFirstLine ? layout.decorFirst : layout.decorOther;
       const availForBars = totalW - decorW;
@@ -2059,7 +2085,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
          * 구간 선택·재생 하이라이트·스크롤이 모두 그 값에 걸려 있다. */
         let bassStave: Stave | null = null;
         if (grand) {
-          bassStave = new Stave(x, y + GRAND_BASS_DY, w);
+          bassStave = new Stave(x, y + bassDy, w);
           if (firstInLine) {
             bassStave.addClef('bass');
             const vexKey = normalizeVexKey(data.key);
@@ -2083,7 +2109,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
          * part0 와 동일, voice 는 아래에서 part0 와 한 Formatter 로 정렬한다. */
         const extraRows: Array<{ stave: Stave; vf: (StaveNote | TabNoteT | GhostNoteT)[]; isTab: boolean; tabStems?: boolean; isDrum?: boolean; notes?: NoteInfo[] }> = [];
         if (vExtras.length > 0) {
-          let rowY = y + (grand ? GRAND_BASS_DY : 0) + VIEW_ROW_NOTATION;
+          let rowY = y + (grand ? bassDy : 0) + VIEW_ROW_NOTATION;
           const mkExtraStave = (spec: { tab: SheetStaff['kind']; staff?: SheetStaff } | { clef: NotationClef; annotation?: '8vb' }, sy: number): Stave => {
             const isTabStave = 'tab' in spec;
             const st: Stave = isTabStave

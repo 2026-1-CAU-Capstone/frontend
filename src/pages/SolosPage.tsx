@@ -1985,27 +1985,31 @@ export default function SolosPage() {
   /* OMR upload → backend persists the Solo and returns it. Jump into the
    * Editor (solo mode) pre-loaded with the result so the user can review/edit
    * immediately, mirroring the lick OMR flow. (Same prefill shape as the row
-   * "Edit" button — composer overridden with performer so re-save updates the
-   * same solo rather than creating an "Unknown" copy.) */
+   * "Edit" button.) */
   /** Open a fully-loaded solo in the Editor (solo mode), prefilled so re-save
-   *  updates the same record. (composer ← performer mirrors the row Edit btn.) */
+   *  updates the same record — 덮어쓰기 판정이 title + performer 라서 연주자를
+   *  Performer 칸에 그대로 실어 보낸다(예전엔 Composer 칸에 밀어넣었다). */
   const openSoloInEditor = useCallback((full: SoloResponse) => {
     const sheet = full.sheetData;
     navigate('/editor?mode=solo', {
       state: {
         prefillSheet: {
           ...sheet,
-          composer: full.performer ?? sheet.composer ?? '',
+          /* sheetData.composer 는 백엔드가 저장하지 않으므로 레코드의 top-level
+           * composer 가 진짜 값이다(BR-40). */
+          composer: full.composer ?? sheet.composer ?? '',
           tempo: full.tempo ?? sheet.tempo,
           key: sheet.key,
         },
+        prefillPerformer: full.performer ?? '',
+        prefillAlbum: full.album ?? '',
       },
     });
   }, [navigate]);
 
   /** Row "Edit" — the row may be metadata-only (no sheetData), so fetch the
-   *  full solo first, then open the Editor prefilled (composer ← performer so
-   *  re-save updates the same record). */
+   *  full solo first, then open the Editor prefilled (연주자를 Performer 칸에
+   *  실어야 재저장이 같은 레코드를 갱신한다). */
   const editRow = useCallback(async (row: SoloResponse) => {
     let s = row;
     if (!s.sheetData?.measures?.length) {
@@ -2019,10 +2023,12 @@ export default function SolosPage() {
       state: {
         prefillSheet: {
           ...s.sheetData,
-          composer: s.performer ?? s.sheetData.composer ?? '',
+          composer: s.composer ?? s.sheetData.composer ?? '',
           tempo: s.tempo ?? s.sheetData.tempo,
           key: s.sheetData.key,
         },
+        prefillPerformer: s.performer ?? '',
+        prefillAlbum: s.album ?? '',
       },
     });
   }, [navigate]);

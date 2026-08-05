@@ -4,6 +4,8 @@ import type { LeadSheetChord, LeadSheetData } from '../../data/leadSheetTypes';
 
 /* ─── transposition ──────────────────────────────────────────────────────── */
 
+import { spellPitchClass } from '../../lib/note/spelling';
+
 export const ALL_MAJOR_KEYS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'] as const;
 export const ALL_MINOR_KEYS = ['Cm', 'C#m', 'Dm', 'Ebm', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Am', 'Bbm', 'Bm'] as const;
 
@@ -11,19 +13,7 @@ const NOTE_TO_PC: Record<string, number> = {
   C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11,
 };
 
-const FLAT_KEYS = new Set(['C', 'F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb']);
 
-// pitch-class → [root, accidental]
-const PC_FLAT:  [string, 'b' | '#' | undefined][] = [
-  ['C',undefined],['D','b'],['D',undefined],['E','b'],['E',undefined],
-  ['F',undefined],['G','b'],['G',undefined],['A','b'],['A',undefined],
-  ['B','b'],['B',undefined],
-];
-const PC_SHARP: [string, 'b' | '#' | undefined][] = [
-  ['C',undefined],['C','#'],['D',undefined],['D','#'],['E',undefined],
-  ['F',undefined],['F','#'],['G',undefined],['G','#'],['A',undefined],
-  ['A','#'],['B',undefined],
-];
 
 function keyToPc(key: string): number {
   // handle e.g. "Bb", "F#", "C", "Cm", "F#m", "Bb-"
@@ -46,20 +36,25 @@ export function shiftKey(key: string, semitones: number): string {
   return isMinorKey(key) ? ALL_MINOR_KEYS[newPc] : ALL_MAJOR_KEYS[newPc];
 }
 
-export function transposeChord(chord: LeadSheetChord, semitones: number, useFlats: boolean): LeadSheetChord {
+/** 코드 이조 — 루트·슬래시 베이스를 **대상 조성의 도수**로 스펠링한다
+ *  (고정 플랫/샤프 테이블이 아니라 `spellPitchClass` 단일 원칙). */
+export function transposeChord(chord: LeadSheetChord, semitones: number, targetKey: string): LeadSheetChord {
   if (!chord.root || chord.isRepeat) return chord;
 
-  const table = useFlats ? PC_FLAT : PC_SHARP;
+  const spell = (pc: number) => {
+    const sp = spellPitchClass(pc, targetKey);
+    return [sp.letter, (sp.acc === '#' || sp.acc === 'b') ? sp.acc : undefined] as const;
+  };
   const rootPc = ((NOTE_TO_PC[chord.root] ?? 0) + (chord.accidental === '#' ? 1 : chord.accidental === 'b' ? -1 : 0) + 12) % 12;
   const newPc = (rootPc + semitones + 12) % 12;
-  const [newRoot, newAcc] = table[newPc];
+  const [newRoot, newAcc] = spell(newPc);
 
   const result: LeadSheetChord = { ...chord, root: newRoot, accidental: newAcc };
 
   if (chord.bass) {
     const bassPc = ((NOTE_TO_PC[chord.bass.root] ?? 0) + (chord.bass.accidental === '#' ? 1 : chord.bass.accidental === 'b' ? -1 : 0) + 12) % 12;
     const newBassPc = (bassPc + semitones + 12) % 12;
-    const [bRoot, bAcc] = table[newBassPc];
+    const [bRoot, bAcc] = spell(newBassPc);
     result.bass = { root: bRoot, accidental: bAcc };
   }
 
@@ -82,8 +77,6 @@ export function transposeData(data: LeadSheetData, targetKey: string): LeadSheet
   // No pitch change needed — just update key label (e.g. relative key switch)
   if (semitones === 0) return { ...data, key: targetKey };
 
-  const cleanTarget = targetKey.replace(/[-m]$/, '');
-  const useFlats = FLAT_KEYS.has(cleanTarget);
   return {
     ...data,
     key: targetKey,
@@ -91,7 +84,7 @@ export function transposeData(data: LeadSheetData, targetKey: string): LeadSheet
       ...sys,
       bars: sys.bars.map((bar) => ({
         ...bar,
-        chords: bar.chords.map((ch) => transposeChord(ch, semitones, useFlats)),
+        chords: bar.chords.map((ch) => transposeChord(ch, semitones, targetKey)),
       })),
     })),
   };

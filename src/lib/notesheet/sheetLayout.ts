@@ -38,6 +38,38 @@ export function minWidthForNotes(notes: StaveNote[], numBeats = 4, beatValue = 4
   }
 }
 
+/**
+ * 여러 보이스를 **함께** 그릴 때 필요한 최소 폭(px).
+ *
+ * 양손(그랜드 스태프)·다중 파트는 한 마디 칸을 공유하고, VexFlow 는 그 보이스들을
+ * **하나의 Formatter 로 joinVoices** 해서 배치한다. 이때 서로 다른 박에 놓인 음표는
+ * 각자 자기 컬럼을 요구하므로, 합쳐 그릴 때의 최소 폭은 **각각 잰 값의 최댓값보다
+ * 크다**(예: 위 4분음표 4개 + 아래 8분음표 8개 → 컬럼 8개가 필요).
+ *
+ * 예전엔 보표별로 따로 재서 `Math.max` 를 썼는데, 그 값은 실제 필요 폭보다 작아
+ * 음표가 마디선을 넘어갔다. 그래서 렌더와 **같은 방식으로** 한 번에 잰다.
+ */
+export function minWidthForVoices(
+  voiceNotes: readonly StaveNote[][], numBeats = 4, beatValue = 4,
+): number {
+  const nonEmpty = voiceNotes.filter((ns) => ns.length > 0);
+  if (nonEmpty.length === 0) return 0;
+  try {
+    const voices = nonEmpty.map((ns) => {
+      const v = new Voice({ numBeats, beatValue });
+      v.setStrict(false);
+      v.addTickables(ns);
+      return v;
+    });
+    const fmt = new Formatter();
+    fmt.joinVoices(voices);
+    return fmt.preCalculateMinTotalWidth(voices);
+  } catch {
+    // 측정 실패해도 렌더는 계속돼야 한다 — 호출부가 휴리스틱 하한으로 폴백.
+    return 0;
+  }
+}
+
 /** 음길이별 대략 폭 — 구 휴리스틱. 이제 주 계산이 아니라 **안전 하한선**이다. */
 const NOTE_W: Record<string, number> = { w: 90, h: 64, q: 42, '8': 26, '16': 18, '32': 14, '64': 12 };
 

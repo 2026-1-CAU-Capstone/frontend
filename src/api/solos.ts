@@ -63,6 +63,8 @@ export interface SoloResponse {
   createdAt: string;
   updatedAt: string;
   performer?: string | null;
+  /** 작곡가 — 분류축인 `performer` 와 별개다(Solo Database 는 연주자로 묶는다). */
+  composer?: string | null;
   title: string;
   album?: string | null;
   instrument: SoloInstrument;
@@ -104,7 +106,10 @@ export interface SoloDraft {
   sheetData: NoteSheetData;             // REQUIRED
   userId?: string | null;
   sourceUrl?: string | null;
+  /** 연주자 — Solo Database 의 **분류 기준**이다(목록·필터가 이 값으로 묶는다). */
   performer?: string;
+  /** 곡을 쓴 사람. 분류에는 쓰지 않는다(연주자와 다른 개념). */
+  composer?: string;
   album?: string;
   style?: SoloStyle;
   tempo?: number | null;
@@ -164,6 +169,9 @@ function buildBody(draft: SoloDraft): Record<string, unknown> {
   if (draft.userId != null) body.userId = draft.userId;
   if (draft.sourceUrl) body.sourceUrl = draft.sourceUrl;
   if (draft.performer) body.performer = draft.performer;
+  /* 작곡가는 연주자와 별개 필드다 — 예전엔 아예 안 보내서 백엔드에 항상
+   * 'Unknown' 으로 남았다(실측: 라운드트립 후 composer='Unknown'). */
+  if (draft.composer) body.composer = draft.composer;
   if (draft.album) body.album = draft.album;
   const style = enumOrUndefined(draft.style, STYLE_SET);
   if (style) body.style = style;

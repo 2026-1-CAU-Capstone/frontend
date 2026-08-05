@@ -44,6 +44,8 @@ const NOTE_TO_PC: Record<string, number> = {
   c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11,
 };
 
+import { spellChordRoot, spellMidi } from './note/spelling';
+
 const PC_TO_FLAT  = ['c', 'db', 'd', 'eb', 'e', 'f', 'gb', 'g', 'ab', 'a', 'bb', 'b'];
 const PC_TO_SHARP = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#', 'b'];
 
@@ -75,7 +77,7 @@ function extractKeyRoot(key: string): string {
 /* ── chord transposition ─────────────────────────────────────────────────── */
 
 /** Transpose a chord label string like "G-7", "Dh7", "C-7" by N semitones */
-function transposeChordLabel(chord: string, semitones: number, useFlats: boolean): string {
+function transposeChordLabel(chord: string, semitones: number, targetKey: string): string {
   if (!chord || semitones === 0) return chord;
   const m = chord.match(/^([A-G])([b#]?)(.*)$/);
   if (!m) return chord;
@@ -83,16 +85,15 @@ function transposeChordLabel(chord: string, semitones: number, useFlats: boolean
   const pc = NOTE_TO_PC[letter] ?? 0;
   const midiPc = ((pc + (acc === '#' ? 1 : acc === 'b' ? -1 : 0)) + 12) % 12;
   const newPc = (midiPc + semitones + 12) % 12;
-  const name = useFlats ? PC_TO_FLAT[newPc] : PC_TO_SHARP[newPc];
-  return name[0].toUpperCase() + (name.length > 1 ? name[1] : '') + quality;
+  return spellChordRoot(newPc, targetKey) + quality;   // 대상 조성의 도수로 스펠링
 }
 
 /* ── sheetData transposition ─────────────────────────────────────────────── */
 
-function transposeMeasures(measures: MeasureInfo[], semitones: number, useFlats: boolean): MeasureInfo[] {
+function transposeMeasures(measures: MeasureInfo[], semitones: number, targetKey: string): MeasureInfo[] {
   return measures.map((measure) => ({
     ...measure,
-    chord: measure.chord ? transposeChordLabel(measure.chord, semitones, useFlats) : measure.chord,
+    chord: measure.chord ? transposeChordLabel(measure.chord, semitones, targetKey) : measure.chord,
     notes: measure.notes.map((note) => {
       if (note.duration.endsWith('r')) return note; // rest: no change
 
@@ -109,10 +110,10 @@ function transposeMeasures(measures: MeasureInfo[], semitones: number, useFlats:
         const adjPc = ((pc + (acc === '#' ? 1 : acc === 'b' ? -1 : 0)) + 12) % 12;
         const midi = (octave + 1) * 12 + adjPc;
         const newMidi = midi + semitones;
-        const newOctave = Math.floor(newMidi / 12) - 1;
-        const newPc = ((newMidi % 12) + 12) % 12;
-
-        const name = useFlats ? PC_TO_FLAT[newPc] : PC_TO_SHARP[newPc];
+        const sp = spellMidi(newMidi, targetKey);     // 도수 스펠링 + 글자 기준 옥타브
+        const [spLetter, spOct] = sp.vexKey.split('/');
+        const name = spLetter + (sp.acc ?? '');
+        const newOctave = Number(spOct);
         if (name.length === 1) {
           newKeys.push(`${name}/${newOctave}`);
         } else {
@@ -244,13 +245,14 @@ function transposeLick(lick: LickEntry, semitones: number): LickEntry {
   const isMinor = lick.key.toLowerCase().includes('min') || lick.key.includes('-min');
   const newKey = `${newKeyRoot}-${isMinor ? 'min' : 'maj'}`;
 
-  const transposed = transposeMeasures(lick.sheetData.measures, semitones, uf);
+  const targetKeyName = newKeyRoot + (isMinor ? 'm' : '');
+  const transposed = transposeMeasures(lick.sheetData.measures, semitones, targetKeyName);
   const fitted = fitOctaveRange(transposed);
 
   return {
     ...lick,
     key: newKey,
-    chords: lick.chords.map((c) => transposeChordLabel(c, semitones, uf)),
+    chords: lick.chords.map((c) => transposeChordLabel(c, semitones, targetKeyName)),
     sheetData: {
       ...lick.sheetData,
       // Keep sheetData.key in sync with the transposed measures — consumers that

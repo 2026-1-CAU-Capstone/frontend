@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useState, useCallback, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import { BackButton } from '../components/common/BackButton';
 import { SessionPicker } from '../components/chord/SessionPicker';
 import { INSTRUMENT_ICONS, SESSION_ICON_SLUG, instrumentIconUrl } from '../data/instrumentIcons';
@@ -16,7 +16,7 @@ import {
   Ornament, Tremolo, Curve, StaveConnector, GraceNote, GraceNoteGroup, StaveHairpin,
   TabStave, TabNote, GhostNote, TabTie, TabSlide, PedalMarking,
 } from 'vexflow';
-import { minWidthForNotes, barWidthFromMin, heuristicWidth, packLines } from '../lib/notesheet/sheetLayout';
+import { minWidthForVoices, barWidthFromMin, heuristicWidth, packLines } from '../lib/notesheet/sheetLayout';
 import { PianoKeyboard, playMidi, type PianoNote } from '../components/notesheet/PianoKeyboard';
 import { useMidiInput, type MidiNoteEvent } from '../hooks/useMidiInput';
 import { MidiSettingsBody } from '../components/notesheet/MidiSettingsPanel';
@@ -44,8 +44,12 @@ import { vexToMidi, noteMetricBeats } from '../lib/note/melodyTiming';
 import { computeBeamBreaks } from '../lib/note/beamPolicy';
 import { bottomNoteGlyphY } from '../lib/note/chordClearance';
 import {
-  lineHeadroom, cumulativeLineOffsets, totalExtraHeight, defaultHeadroom, clampChordTop,
+  lineHeadroom, defaultHeadroom, clampChordTop,
 } from '../lib/note/chordRowLayout';
+import { grandStaffDy, GRAND_BASS_DY } from '../lib/note/grandStaffLayout';
+import {
+  staffExtent, lineOrigins, sheetHeight, SPACE_ABOVE, NO_EXTENT, type LineBox,
+} from '../lib/note/sheetVerticalLayout';
 import { bakeExplicitAccidentals, bakeForScoreReading, emitForKeySignature } from '../lib/note/resolvePitches';
 import { resolveMeasureAccidental, type RenderAcc } from '../lib/note/measureAccidentals';
 import { drawScoopFall } from '../lib/note/scoopFall';
@@ -303,7 +307,6 @@ function shiftDiatonicKey(k: string, steps: number): string | null {
 }
 /* 양손(그랜드 스태프): 트레블 stave 상단 → 베이스 stave 상단 오프셋과,
  * 줄당 추가 높이. 베이스 줄 아래에도 편집 바가 뜰 여백을 남긴다. */
-const GRAND_BASS_DY = 100;
 /** 마디 클릭 판정에서 오선 5줄 바깥으로 허용하는 여유(px). 오선 바로 위는
  *  코드 심볼 자리라 넉넉히 잡으면 행끼리 겹친다 — 작게 유지할 것. */
 const STAFF_HIT_PAD = 8;
@@ -376,6 +379,10 @@ const CHORD_STAFF_GAP = 11;
 const CHORD_STAFF_GAP_MARK = 4;
 /** SVG 위쪽으로 잘려나가지 않게 하는 하한. */
 const CHORD_TOP_MIN = 2;
+/** 코드 글리프가 자기 28px 상자 **위로 넘치는 양**(모델 단위).
+ *  ChordBase 는 1.85rem(≈30px) 을 28px line-height 에 담고, tension 위첨자는
+ *  다시 6px 올라간다 — 상자 rect 만 덮으면 글자 머리가 잘린다. */
+const CHORD_GLYPH_RISE = 8;
 
 /**
  * 코드 입력칸의 윗변 Y(내부 좌표).
@@ -432,6 +439,9 @@ function paintMeasureHighlight(el: HTMLDivElement, x: number, w: number, top: nu
   rect.setAttribute('height', String(bot - top));
   rect.setAttribute('fill', MEASURE_HL_FILL);
   rect.setAttribute('stroke', 'none');         // 테두리 없음 — 면만
+  /* 렌더 뒤 DOM 측정으로 윗변을 보정하기 위한 핸들(useLayoutEffect 가 찾는다).
+   * 코드칸은 HTML 오버레이라 SVG 를 그리는 시점엔 실제 높이를 알 수 없다. */
+  rect.setAttribute('class', 'jz-measure-hl');
   svgEl.insertBefore(rect, svgEl.firstChild);
 }
 
@@ -458,7 +468,10 @@ const DECOR_OTHER = 35;
 interface MeasurePos { idx: number; x: number; y: number; w: number; chordX: number; staveTop: number; staveBot: number;
   /** 코드 입력칸 윗변 Y(내부 좌표). **렌더러가 한 번 계산해** DOM 오버레이와
    *  마디 하이라이트가 같은 값을 쓴다 — 예전엔 양쪽이 각자 계산해 서로 어긋났다. */
-  chordTop: number; staff?: 'bass'; /** 추가 스태프 행(1..N). 첫 파트는 undefined — 기존 소비처(코드칸 등)가 그대로 첫 파트만 읽는다. */ part?: number; }
+  chordTop: number; staff?: 'bass'; /** 추가 스태프 행(1..N). 첫 파트는 undefined — 기존 소비처(코드칸 등)가 그대로 첫 파트만 읽는다. */ part?: number;
+  /** 이 줄의 양손 간격(px). 줄마다 다를 수 있어(내용에 따라 벌어짐) DOM 오버레이가
+   *  상수 대신 이 값을 봐야 보표와 어긋나지 않는다. */
+  bassDy: number; }
 interface NotePos {
   mi: number; ni: number;
   /** 글리프 전체 bbox(기둥·플래그 포함) — 하이라이트/폴백용. */
@@ -910,6 +923,10 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
     if (measures[i].key && !explicitAcc) probeKeySig = keySigAccidentals(measures[i].key!);
     let minW = 0;
     let floor = heuristicWidth(m.notes);
+    /* 한 마디 칸을 공유하는 보이스는 **함께** 재야 한다 — VexFlow 가 렌더 때
+     * joinVoices 로 한꺼번에 배치하므로, 따로 재서 max 를 쓰면 실제 필요 폭보다
+     * 작게 나와 음표가 마디선을 넘는다(양손 악보에서 실측된 원인). */
+    const probeVoices: StaveNote[][] = [];
     if (p0Notation) {
       const active: Map<string, RenderAcc> = probeCarry ? new Map(probeCarry) : new Map();
       probeCarry = undefined;
@@ -919,14 +936,14 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         const acc = last.accidentals?.[0] as 'b' | '#' | undefined;
         if (acc) probeCarry = new Map([[last.keys[0], acc]]);
       }
-      minW = minWidthForNotes(probe);
+      probeVoices.push(probe);
     }
     if (grand) {
       const bassActive: Map<string, RenderAcc> = new Map();
-      const bassProbe = bassAt(i).notes.map((n) => buildVfNote(n, 'bass', bassActive, keySigAcc, !explicitAcc));
-      minW = Math.max(minW, minWidthForNotes(bassProbe));
+      probeVoices.push(bassAt(i).notes.map((n) => buildVfNote(n, 'bass', bassActive, keySigAcc, !explicitAcc)));
       floor = Math.max(floor, heuristicWidth(bassAt(i).notes));
     }
+    minW = minWidthForVoices(probeVoices, vNumBeats, vBeatValue);
     /* 추가 파트도 같은 마디 칸을 쓰므로 밀도가 높은 파트가 폭 하한을 올린다. */
     for (const ep of extras) {
       const em = ep.measures[i];
@@ -968,9 +985,34 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
   const headClef = clef0 === 'bass' ? 'bass' : 'treble';
   const lineHeadrooms = lines.map((idxs) =>
     lineHeadroom(idxs.map((i2) => measures[i2]?.notes ?? []), 10, chordMetrics, headClef));
-  const lineYExtra = cumulativeLineOffsets(lineHeadrooms, chordMetrics);
-  const totalH = MARGIN.top + lines.length * lineH + MARGIN.bottom
-    + totalExtraHeight(lineHeadrooms, chordMetrics);
+  /* 양손 두 보표 간격 — 줄마다 내용에 맞춰 벌린다(겹치면 벌어지고, 아니면 기본값). */
+  const lineBassDy = lines.map((idxs) => (grand
+    ? grandStaffDy(
+        idxs.map((i2) => measures[i2]?.notes ?? []),
+        idxs.map((i2) => bassAt(i2).notes),
+        10,
+      )
+    : GRAND_BASS_DY));
+
+  /* 줄별 세로 상자 — 위(코드칸·고음·위빔)와 아래(저음·아래빔)를 **같은 모델**로
+   * 재서, 이웃 줄과 절대 겹치지 않는 간격을 구한다. 기본 줄 높이보다 좁아지지
+   * 않으므로 평범한 악보는 좌표가 그대로다. */
+  const lineBoxes: LineBox[] = lines.map((idxs, li2) => {
+    const tExt = staffExtent(idxs.map((i2) => measures[i2]?.notes ?? []), 10, headClef);
+    const bExt = grand
+      ? staffExtent(idxs.map((i2) => bassAt(i2).notes), 10, 'bass')
+      : NO_EXTENT;
+    const dy = lineBassDy[li2];
+    return {
+      chordRow: lineHeadrooms[li2] ?? 0,
+      above: tExt.above,
+      // 맨 아래 보표의 마지막 줄 위치 — 양손이면 베이스, 추가 파트가 있으면 그 아래.
+      bottomLine4: (grand ? dy : 0) + SPACE_ABOVE + 4 * 10 + extrasH + (p0Tab ? 25 : 0),
+      below: grand ? bExt.below : tExt.below,
+    };
+  });
+  const lineOriginY = lineOrigins(lineBoxes, lineH, MARGIN.top);
+  const totalH = sheetHeight(lineBoxes, lineOriginY, MARGIN.bottom);
   const renderer = new Renderer(el, Renderer.Backends.SVG);
   renderer.resize(innerW, totalH);
   const ctx = renderer.getContext();
@@ -1018,7 +1060,10 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
     const isLastLine = li === lines.length - 1;
     /* 균등 배치가 아니라 **누적** — 이 줄이 코드칸 때문에 더 높은 자리가 필요하면
      * 그만큼 아래로 내려간다. 윗줄과의 겹침이 구조적으로 불가능해진다. */
-    const y = MARGIN.top + li * lineH + (lineYExtra[li] ?? 0);
+    const y = lineOriginY[li];
+    /* 이 줄의 양손 간격 — 아래 보표 배치·하이라이트가 전부 이 값을 쓴다.
+     * 상수를 직접 쓰면 벌어진 줄에서 아래 보표만 제자리에 남아 어긋난다. */
+    const bassDy = lineBassDy[li] ?? GRAND_BASS_DY;
     const lineHeadroomPx = lineHeadrooms[li] ?? defaultHeadroom(chordMetrics);
     const decorW = isFirstLine ? DECOR_FIRST : DECOR_OTHER;
     const availForBars = totalW - decorW;
@@ -1040,8 +1085,13 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
     const totalIntrinsic = intrinsics.reduce((s, w) => s + w, 0);
     const shouldStretch =
       !isLastLine || indices.length >= MAX_PER_LINE || totalIntrinsic > availForBars;
+    /* ⚠ 늘리기만 한다 — 줄이지 않는다.
+     * intrinsic 은 "VexFlow 가 이만큼은 있어야 그릴 수 있다"고 답한 최소 폭이다.
+     * 비례 배분이 그보다 작은 값을 내면(줄이 꽉 차서 압축되는 경우) 음표가
+     * 마디선을 넘는다. 그래서 배분 결과와 intrinsic 중 **큰 쪽**을 쓴다.
+     * 그 결과 줄이 오른쪽 여백을 조금 넘을 수는 있어도, 겹치는 일은 없다. */
     const barWidths = shouldStretch && totalIntrinsic > 0
-      ? intrinsics.map((w) => (w / totalIntrinsic) * availForBars)
+      ? intrinsics.map((w) => Math.max((w / totalIntrinsic) * availForBars, w))
       : intrinsics;
 
     let x = MARGIN.left;
@@ -1160,7 +1210,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       positions.push({
         idx: m, x: chordX, y, w: w - (firstInLine ? decorW : 0) - 4, chordX,
         staveTop: stave.getYForLine(0), staveBot: stave.getYForLine(4),
-        chordTop: 0,   // 줄 렌더가 끝난 뒤 아래에서 확정
+        chordTop: 0, bassDy,   // 줄 렌더가 끝난 뒤 아래에서 확정
       });
 
 
@@ -1170,7 +1220,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       /* ── 양손: 트레블 아래 베이스 보표 + brace/barline 연결선 ── */
       let bassStave: Stave | null = null;
       if (grand) {
-        bassStave = new Stave(x, y + GRAND_BASS_DY, w);
+        bassStave = new Stave(x, y + bassDy, w);
         if (firstInLine) {
           bassStave.addClef('bass');
           if (!explicitAcc && sheetKey && sheetKey !== 'C') bassStave.addKeySignature(sheetKey);
@@ -1187,9 +1237,9 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         }
         new StaveConnector(stave, bassStave).setType(StaveConnector.type.SINGLE_RIGHT).setContext(ctx).draw();
         positions.push({
-          idx: m, x: chordX, y: y + GRAND_BASS_DY, w: w - (firstInLine ? decorW : 0) - 4, chordX,
+          idx: m, x: chordX, y: y + bassDy, w: w - (firstInLine ? decorW : 0) - 4, chordX,
           staveTop: bassStave.getYForLine(0), staveBot: bassStave.getYForLine(4),
-          staff: 'bass', chordTop: 0,   // 베이스 보표 위에는 코드칸이 없다
+          staff: 'bass', chordTop: 0, bassDy,   // 베이스 보표 위에는 코드칸이 없다
         });
       }
 
@@ -1200,10 +1250,10 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         if (m === activeIdx) {
           const onBass = grand && activeStaff === 'bass';
           const top = onBass
-            ? stave.getYForLine(0) + GRAND_BASS_DY - 10
+            ? stave.getYForLine(0) + bassDy - 10
             : chordRowTopY(y, { volta: !!mData.volta, bracket: !!mData.bracket }, Infinity)
               - (mData.altChords ? 17 : 0) - 4;
-          const bot = stave.getYForLine(4) + (onBass ? GRAND_BASS_DY : 0);
+          const bot = stave.getYForLine(4) + (onBass ? bassDy : 0);
           paintMeasureHighlight(el, x, w, top, bot);
         }
         x += w;
@@ -1329,7 +1379,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
         { kind: part0Kind, top: stave, bottom: bassStave ?? stave },
       ];
       {
-        let rowY = y + (grand ? GRAND_BASS_DY : 0) + (p0Tab ? EXTRA_ROW_TAB : EXTRA_ROW_NOTATION);
+        let rowY = y + (grand ? bassDy : 0) + (p0Tab ? EXTRA_ROW_TAB : EXTRA_ROW_NOTATION);
         const mkStave = (spec: { tab: StaffKind; staff?: RenderPart } | { clef: NotationClef; annotation?: '8vb' }, sy: number): Stave => {
           const isTabStave = 'tab' in spec;
           const st: Stave = isTabStave
@@ -1409,7 +1459,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
           positions.push({
             idx: m, x: chordX, y: st.getY(), w: w - (firstInLine ? decorW : 0) - 4, chordX,
             staveTop: st.getYForLine(0), staveBot: st.getYForLine(opts.isTab ? tabTuningFor(kind).length - 1 : 4),
-            part: pi, chordTop: 0,   // 추가 파트 행에는 코드칸이 없다
+            part: pi, chordTop: 0, bassDy,   // 추가 파트 행에는 코드칸이 없다
             ...(opts.bassRow ? { staff: 'bass' as const } : {}),
           });
           // 활성(선택) 마디 하이라이트 — 추가 파트 행은 오선 범위 기준의 단순형.
@@ -1616,7 +1666,7 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
 
       const HL_TOP = onBass
         /* 베이스 보표 위에는 코드 입력 행이 없으니 오선 첫 줄에서 조금만 띄운다. */
-        ? hStave.getYForLine(0) + GRAND_BASS_DY - 10
+        ? hStave.getYForLine(0) + bassDy - 10
         // 코드칸과 완전히 같은 계산 — 칸이 밀려 올라가면 하이라이트도 따라간다.
         : clampChordTop(
             chordRowTopY(hStave.getYForLine(0), { volta: !!hData.volta, bracket: !!hData.bracket }, lineContentTop),
@@ -1628,8 +1678,8 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       const HL_BOT = onBass
         ? extend(
             bottomNoteGlyphY(bassAt(hm).notes,
-              (line) => hStave.getYForLine(line) + GRAND_BASS_DY, 'bass'),
-            staffBot + GRAND_BASS_DY,
+              (line) => hStave.getYForLine(line) + bassDy, 'bass'),
+            staffBot + bassDy,
           )
         : extend(
             bottomNoteGlyphY(mNotes, (line) => hStave.getYForLine(line)),
@@ -2745,7 +2795,7 @@ const BoxLegend = styled.span`
 const InfoCols = styled.div`
   display: flex;
   gap: 26px;
-  /* 좌(Title~Player 4줄) · 우(Genre/Key/박자 3줄) 열을 서로 세로 가운데로 맞춘다. */
+  /* 좌(Title~Performer 4줄) · 우(Genre/Key/박자 3줄) 열을 서로 세로 가운데로 맞춘다. */
   align-items: center;
   padding: 6px 10px;
 `;
@@ -3830,10 +3880,12 @@ function parseTensions(tension: string): { acc: string; num: string; text: strin
 
 /* formatChordDisplay imported from src/lib/jazz-harmony — see top of file. */
 
-function ChordCell({ value, onChange, style, onContextMenu, active, cellId, registerFocus, onNavigate }: {
+function ChordCell({ value, onChange, style, onContextMenu, active, cellId, registerFocus, onNavigate, measureIdx }: {
   value: string;
   onChange: (v: string) => void;
   style: React.CSSProperties;
+  /** 이 칸이 속한 마디 index — 하이라이트가 DOM 을 측정할 때 쓰는 표식. */
+  measureIdx?: number;
   /** 우클릭 → 대체 코드 추가/제거 드롭다운 */
   onContextMenu?: (e: React.MouseEvent) => void;
   /** 이 칸이 속한 마디가 현재 활성 마디인지 — 활성 배경 표시 */
@@ -3862,6 +3914,7 @@ function ChordCell({ value, onChange, style, onContextMenu, active, cellId, regi
       $hasValue={!!value}
       $active={active}
       style={style}
+      data-chord-measure={measureIdx}
       onContextMenu={onContextMenu}
       onClick={() => { setEditing(true); setTimeout(() => inputRef.current?.focus(), 0); }}
     >
@@ -4233,10 +4286,17 @@ export default function EditorPage() {
    * skip the localStorage draft restore, and pre-populate the editor with it. */
   const navState = location.state as {
     prefillSheet?: NoteSheetData;
+    /* 분류축인 연주자/앨범은 NoteSheetData 가 아니라 Solo 레코드에 있으므로
+     * 별도 필드로 실려 온다. 이걸 Performer 칸에 넣어야 재저장이 같은 레코드를
+     * 갱신한다(덮어쓰기 판정이 title+performer 기준). */
+    prefillPerformer?: string;
+    prefillAlbum?: string;
     compingId?: string;
     compingGenre?: CompingGenre;
   } | null;
   const prefillSheet = navState?.prefillSheet;
+  const prefillPerformer = navState?.prefillPerformer;
+  const prefillAlbum = navState?.prefillAlbum;
   /* Comping 수정 저장 타깃 — CompingPage 에서 '에디터로 열기' 시 실려 온다.
    * (Comping 은 백엔드 없이 localStorage 저장이므로 id 로 로컬 항목을 갱신) */
   const [editingCompingId] = useState<string | null>(() => navState?.compingId ?? null);
@@ -4589,12 +4649,15 @@ export default function EditorPage() {
         setCurChord2('');
         if (prefillSheet.title) setSheetTitle(prefillSheet.title);
         if (prefillSheet.composer) setComposer(prefillSheet.composer);
+        if (prefillPerformer) setPerformer(prefillPerformer);
+        if (prefillAlbum) setAlbum(prefillAlbum);
         if (prefillSheet.key) setSheetKey(prefillSheet.key);
         if (/^[0-9]+\/[0-9]+$/.test(prefillSheet.timeSignature ?? '')) setTimeSig(prefillSheet.timeSignature);
-        // 시트가 값을 명시할 때만 따른다. 백엔드가 accidentalStyle 을 저장하지
-        // 않아(BR-33) '값 없음'은 "조표적용"이 아니라 **모름**이다 — 사용자가 켜둔
-        // 설정을 로드할 때마다 꺼버리던 원인.
-        if (prefillSheet.accidentalStyle) { skipAccConvertRef.current = true; setExplicitAcc(isExplicitSheet); }
+        // ⚠️ 반드시 시트의 표기법을 그대로 따른다. 이 값이 데이터의 실제 표기와
+        // 어긋나면, 아래 토글 변환이 잘못된 해석으로 임시표를 구워 **음이 바뀐다**
+        // (조표가 주던 C♯ 을 "C내추럴" 로 오해해 ♮ 를 박는 사고가 있었다).
+        skipAccConvertRef.current = true;
+        setExplicitAcc(isExplicitSheet);
         if (prefillSheet.tempo) {
           setBpm(prefillSheet.tempo);
           bpmManualRef.current = true;
@@ -4675,6 +4738,8 @@ export default function EditorPage() {
       if (typeof d.curChord1 === 'string') setCurChord1(d.curChord1);
       if (typeof d.curChord2 === 'string') setCurChord2(d.curChord2);
       if (typeof d.composer === 'string') setComposer(d.composer);
+      if (typeof d.performer === 'string') setPerformer(d.performer);
+      if (typeof d.album === 'string') setAlbum(d.album);
       if (typeof d.genre === 'string') setGenre(d.genre);
       if (typeof d.sheetTitle === 'string') setSheetTitle(d.sheetTitle);
       if (typeof d.sheetKey === 'string') setSheetKey(d.sheetKey);
@@ -4694,8 +4759,8 @@ export default function EditorPage() {
    * 전부 넣던 이전 구현은 키 입력마다 타이머가 0부터 리셋돼 "10초마다"가 아니라
    * "마지막 입력 후 10초 무입력"이어야 저장됐다 — 연속 입력 중 크래시하면
    * 드래프트가 한 번도 안 남았다. */
-  const draftRef = useRef({ measures, bassMeasures, staffMode, curNotes, curChord1, curChord2, composer, genre, sheetTitle, sheetKey, timeSig, bpm, partMetas, activePart, partStore: partStoreRef.current });
-  draftRef.current = { measures, bassMeasures, staffMode, curNotes, curChord1, curChord2, composer, genre, sheetTitle, sheetKey, timeSig, bpm, partMetas, activePart, partStore: partStoreRef.current };
+  const draftRef = useRef({ measures, bassMeasures, staffMode, curNotes, curChord1, curChord2, composer, performer, album, genre, sheetTitle, sheetKey, timeSig, bpm, partMetas, activePart, partStore: partStoreRef.current });
+  draftRef.current = { measures, bassMeasures, staffMode, curNotes, curChord1, curChord2, composer, performer, album, genre, sheetTitle, sheetKey, timeSig, bpm, partMetas, activePart, partStore: partStoreRef.current };
   useEffect(() => {
     const intv = setInterval(() => {
       try {
@@ -5891,7 +5956,8 @@ export default function EditorPage() {
       if (data.composer) setComposer(data.composer);
       if (data.genre) setGenre(data.genre);
       if (data.key) setSheetKey(data.key);
-      if (data.accidentalStyle) { skipAccConvertRef.current = true; setExplicitAcc(data.accidentalStyle === 'explicit'); }
+      skipAccConvertRef.current = true;   // 로드는 변환 대상이 아니다(이미 그 표기법의 데이터)
+      setExplicitAcc(data.accidentalStyle === 'explicit');
       if (data.tempo) { setBpm(data.tempo); bpmManualRef.current = true; }
       setSelectedNote(null);
       setShowLoadModal(false);
@@ -6005,7 +6071,11 @@ export default function EditorPage() {
         explicitAcc, activeStaff,
         renderParts.slice(1), p0.kind, activePart, p0, timeSig, noteNameStyle,
       );
-    } catch {
+    } catch (err) {
+      /* 렌더 도중 예외가 나면 el.innerHTML 이 이미 비워진 뒤라 **악보가 통째로
+       * 사라진다**. 예전엔 조용히 삼켜서 원인 추적이 불가능했다 — 콘솔에 남기고,
+       * 선택 상태만 정리한 뒤 다음 렌더에서 복구되게 한다. */
+      console.error('[Editor] 악보 렌더 실패 — 화면이 비었습니다:', err);
       positionsRef.current.length = 0;
       notePositionsRef.current.length = 0;
       setSelectedNote(null);
@@ -6013,6 +6083,41 @@ export default function EditorPage() {
     setMeasurePositions([...positionsRef.current]);
     setNotePositions([...notePositionsRef.current]);
   }, [allMeasures, renderParts, activePart, sheetWidth, currentIdx, activeIdx, sheetKey, multiSel, explicitAcc, activeStaff, timeSig, noteNameStyle]);
+
+  /* ── 마디 하이라이트 윗변 보정 ─────────────────────────────────────────
+   * 코드 입력칸은 SVG 가 아니라 **HTML 오버레이**라, 렌더러가 하이라이트를 그리는
+   * 시점엔 그 칸이 실제로 화면에서 어디까지 올라가는지 알 수 없다(글꼴 넘침·
+   * 위첨자 tension 은 계산으로 못 맞춘다 — 실제로 코드칸 윗부분이 잘려 보였다).
+   *
+   * 그래서 오버레이가 DOM 에 올라온 **뒤에** 실측해서, 하이라이트가 그 마디의
+   * 모든 코드칸(대체코드 행 포함)을 완전히 덮도록 위로 늘린다. 페인트 전에
+   * 끝나야 깜빡임이 없으므로 useLayoutEffect 다. */
+  useLayoutEffect(() => {
+    const host = svgRef.current;
+    if (!host || activeIdx < 0) return;
+    const rect = host.querySelector('rect.jz-measure-hl') as SVGRectElement | null;
+    if (!rect) return;
+    const cells = host.parentElement?.querySelectorAll(`[data-chord-measure="${activeIdx}"]`);
+    if (!cells || cells.length === 0) return;
+
+    const hostTop = host.getBoundingClientRect().top;
+    let minTop = Infinity;
+    cells.forEach((c) => {
+      const r = (c as HTMLElement).getBoundingClientRect();
+      if (r.height > 0) minTop = Math.min(minTop, r.top - hostTop);
+    });
+    if (!Number.isFinite(minTop)) return;
+
+    /* 화면 px → SVG 모델 좌표. CHORD_GLYPH_RISE 는 코드 글리프가 자기 상자 위로
+     * 삐져나오는 양(큰 글꼴 + 위첨자) — 상자만 덮으면 글자 머리가 잘린다. */
+    const modelTop = minTop / SHEET_SCALE - CHORD_GLYPH_RISE;
+    const curY = parseFloat(rect.getAttribute('y') ?? '0');
+    const curH = parseFloat(rect.getAttribute('height') ?? '0');
+    if (Number.isFinite(curY) && Number.isFinite(curH) && modelTop < curY) {
+      rect.setAttribute('y', String(modelTop));
+      rect.setAttribute('height', String(curH + (curY - modelTop)));
+    }
+  });
 
   const selNoteInfo = useMemo<NoteInfo | null>(() => {
     if (!selectedNote) return null;
@@ -6371,7 +6476,13 @@ export default function EditorPage() {
         const packed = stavesToSheetFields(buildAllStaves());
         const draft = buildUserSoloDraft({
           title: sheetTitle || 'Untitled',
-          composer: composer || 'Unknown',
+          /* 연주자(Performer)와 작곡가(Composer)는 별개다. Solo Database 는
+           * **연주자**로 분류하므로 Performer 칸이 그 값이 된다 — 예전엔
+           * Performer·Album 칸이 저장에 아예 안 쓰이고 Composer 값이 연주자로
+           * 들어가 분류가 뒤엉켰다. */
+          composer: composer || undefined,
+          performer: performer || undefined,
+          album: album || undefined,
           genre: genre || undefined,
           key: sheetKey,
           timeSignature: timeSig,
@@ -6382,12 +6493,13 @@ export default function EditorPage() {
           accidentalStyle: explicitAcc ? 'explicit' : undefined,
         });
         const titleLow = (sheetTitle || 'Untitled').toLowerCase();
-        const performerLow = (composer || 'Unknown').toLowerCase();
+        /* 덮어쓰기(수정) 판정도 연주자 기준 — 저장되는 값과 같은 축이어야 한다. */
+        const performerLow = (performer || '').toLowerCase();
         // Only treat this as an UPDATE of an existing solo when the user
         // actually typed a title AND performer. Otherwise the 'Untitled'/
         // 'Unknown' defaults would make every untitled save overwrite the
         // previous untitled one (data loss). Blank → always create new.
-        const canMatch = sheetTitle.trim() !== '' && composer.trim() !== '';
+        const canMatch = sheetTitle.trim() !== '' && performer.trim() !== '';
         const existing = canMatch ? await loadAllSolos() : [];
         const found = canMatch
           ? existing.find(
@@ -6490,7 +6602,7 @@ export default function EditorPage() {
       // Leave the overlay up if we're navigating; only restore on failure.
       if (!navigated) setSaving(false);
     }
-  }, [mode, allMeasures, outMeasures, bassOut, sheetTitle, composer, genre, sheetKey, bpm, saving, editingLickId, navigate, compingGenre, editingCompingId, explicitAcc]);
+  }, [mode, allMeasures, outMeasures, bassOut, sheetTitle, composer, performer, album, genre, sheetKey, bpm, saving, editingLickId, navigate, compingGenre, editingCompingId, explicitAcc]);
 
   const handleCopy = useCallback(() => {
     if (!jsonOutput) return;
@@ -6746,12 +6858,12 @@ export default function EditorPage() {
             {/* 2 — 텍스트 메타데이터 (두 열) */}
             <InfoBox>
               <InfoCols>
-                {/* Title~Player 를 한 열에 4줄로. 바 높이(146px)에 맞춰 입력을 얇게 잡았다. */}
+                {/* Title~Performer 를 한 열에 4줄로. 바 높이(146px)에 맞춰 입력을 얇게 잡았다. */}
                 <InfoCol>
                   <MetaField><MetaLabel>Title</MetaLabel><MetaInput value={sheetTitle} onChange={(e) => setSheetTitle(e.target.value)} placeholder="e.g. Autumn Leaves" /></MetaField>
                   <MetaField><MetaLabel>Album</MetaLabel><MetaInput value={album} onChange={(e) => setAlbum(e.target.value)} placeholder="e.g. Bird & Diz" /></MetaField>
                   <MetaField><MetaLabel>Composer</MetaLabel><MetaInput value={composer} onChange={(e) => setComposer(e.target.value)} placeholder="e.g. Joseph Kosma" /></MetaField>
-                  <MetaField><MetaLabel>Player</MetaLabel><MetaInput value={performer} onChange={(e) => setPerformer(e.target.value)} placeholder="e.g. Charlie Parker" /></MetaField>
+                  <MetaField><MetaLabel>Performer</MetaLabel><MetaInput value={performer} onChange={(e) => setPerformer(e.target.value)} placeholder="e.g. Charlie Parker" /></MetaField>
                 </InfoCol>
                 <InfoCol style={{ gap: 9 }}>
                   <MetaField $tight><MetaLabel>Genre</MetaLabel><GenreFill><GenreSelect value={genre} onChange={setGenre} /></GenreFill></MetaField>
@@ -8041,6 +8153,7 @@ export default function EditorPage() {
                     {alt.slice(0, ALT_SLOTS).map((av, si) => (
                       <ChordCell
                         key={si}
+                        measureIdx={pos.idx}
                         value={av}
                         onChange={(v) => updateAltSlot(pos.idx, si, v)}
                         onContextMenu={openMenu}
@@ -8056,6 +8169,7 @@ export default function EditorPage() {
                   </>
                 )}
                 <ChordCell
+                  measureIdx={pos.idx}
                   value={c1}
                   active={pos.idx === activeIdx}
                   cellId={`${pos.idx}:0`}
@@ -8066,6 +8180,7 @@ export default function EditorPage() {
                   style={{ left: chordLeftPx, top: chordTop * SHEET_SCALE, maxWidth: c1MaxWidth, ...(c1 ? {} : { width: 36 }) }}
                 />
                 <ChordCell
+                  measureIdx={pos.idx}
                   value={c2}
                   active={pos.idx === activeIdx}
                   cellId={`${pos.idx}:1`}
@@ -8094,7 +8209,7 @@ export default function EditorPage() {
                     left: (pos.x - 3) * SHEET_SCALE,
                     top: (pos.y - 44) * SHEET_SCALE,
                     width: (pos.w + 6) * SHEET_SCALE,
-                    height: ((grand ? GRAND_BASS_DY + 106 : 110)) * SHEET_SCALE,
+                    height: ((grand ? pos.bassDy + 106 : 110)) * SHEET_SCALE,
                   }}
                 />
                 <MeasureEditBarBox
@@ -8103,7 +8218,7 @@ export default function EditorPage() {
                   style={{
                     left: Math.max(4, pos.x * SHEET_SCALE),
                     // 하이라이트(노란 배경) 아래끝 바로 밑에 붙인다.
-                    top: (pos.y + (grand ? GRAND_BASS_DY + 68 : 70)) * SHEET_SCALE,
+                    top: (pos.y + (grand ? pos.bassDy + 68 : 70)) * SHEET_SCALE,
                     display: measureHover ? undefined : 'none',
                   }}
                 >
