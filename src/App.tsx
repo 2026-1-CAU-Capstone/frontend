@@ -150,18 +150,24 @@ export default function App() {
           {/* Standalone public marketing page — not linked from any in-app
               navigation. Reachable only via the direct URL (#/intro). */}
           <Route path="/intro" element={<IntroPage />} />
-          {/* 내부 검증 페이지 — 파커 릭 vs Omnibook 원본 대조. 정적 JSON 기반이라
-              비보호(직접 URL로만 접근, 앱 내 링크 없음). */}
-          <Route path="/lickonset" element={<LickOnsetPage />} />
+          {/* 내부 검증 페이지 — 파커 릭 vs Omnibook 원본 대조. 앱 내 링크는 없지만
+              어디까지나 내부 도구라 admin 등급을 요구한다("링크가 없다"는 보호가
+              아니다 — URL 만 알면 누구나 들어온다). */}
+          <Route path="/lickonset" element={<AdminRoute><LickOnsetPage /></AdminRoute>} />
           {/* /preview/* — browser-side design preview of app-only screens.
               AppPreviewProvider at the app root flips when pathname starts
               with /preview, so isNativeUi/isNativeLandscape pick it up
-              globally (including the bottom tab bar). */}
-          <Route path="/preview/chord" element={<ChordPage />} />
-          <Route path="/preview/mychord" element={<KeyedChordPage mychordMode />} />
-          <Route path="/preview/note" element={<NotePage />} />
+              globally (including the bottom tab bar).
+
+              가드는 **프리뷰 대상 화면의 원래 라우트와 같은 등급**으로 맞춘다.
+              예전엔 여기만 무방비라 `/preview/chord` 로 들어오면 admin 전용
+              ChordPage 가 비로그인에게 그대로 열렸다(원래 /chord 는 AdminRoute).
+              프리뷰 용도는 죽지 않는다 — 본인이 admin 이므로 로그인만 하면 된다. */}
+          <Route path="/preview/chord" element={<AdminRoute><ChordPage /></AdminRoute>} />
+          <Route path="/preview/mychord" element={<ProtectedRoute><KeyedChordPage mychordMode /></ProtectedRoute>} />
+          <Route path="/preview/note" element={<AdminRoute><NotePage /></AdminRoute>} />
           {/* 새 네이티브 홈(F14.8) 프리뷰 — 설치 없이 브라우저/폰 사파리로 검수 */}
-          <Route path="/preview/home" element={<HomePage />} />
+          <Route path="/preview/home" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
           <Route path="/preview" element={<Navigate to="/preview/home" replace />} />
           {/* Legacy routes — SoloGeneratorPage & LickInputPage merged into
               the unified EditorPage (mode=solo|lick). Keep redirects so old
