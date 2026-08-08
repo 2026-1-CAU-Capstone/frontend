@@ -11,7 +11,7 @@ import {
 import { usePref } from '../../lib/prefsStore';
 import {
   myChartsViewMode, mySheetsViewMode,
-  myChartsSort, mySheetsSort, stemPreset, editorExplicitAcc,
+  myChartsSort, mySheetsSort, stemPreset, editorExplicitAcc, showLyricsDefault, lyricsDefaultSeeded,
   SORT_MODES, SORT_LABELS, type SortMode,
 } from '../../lib/pagePrefs';
 import { useAnalysisFilters, type AnalysisFilters } from '../../hooks/useAnalysisFilters';
@@ -30,6 +30,7 @@ import {
   noteNamesOn, noteNameLang, noteNameColor, noteNameSize,
   NOTE_NAME_SIZE_MIN, NOTE_NAME_SIZE_MAX, NOTE_NAME_COLOR_DEFAULT,
 } from '../../lib/note/noteNamePrefs';
+import { chordDiagramsOn, diagramSuggestSeen } from '../../lib/note/chordDiagramPrefs';
 
 /* 풀스크린 설정 모달 — Claude 데스크탑 설정 페이지 패턴.
  *
@@ -460,9 +461,39 @@ function SheetDisplayBody() {
   const [lang, setLang] = usePref(noteNameLang);
   const [color, setColor] = usePref(noteNameColor);
   const [size, setSize] = usePref(noteNameSize);
+  const [diagrams, setDiagrams] = usePref(chordDiagramsOn);
+  const [, setSuggestSeen] = usePref(diagramSuggestSeen);
 
   return (
     <>
+      <SectionTitle>기타 코드 다이어그램</SectionTitle>
+
+      <FieldRow>
+        <div>
+          <FieldLabel as="span">코드 위에 운지 표시</FieldLabel>
+          <FieldHelper style={{ margin: '2px 0 0' }}>
+            켜면 코드심볼 아래에 <b>기타 프렛 다이어그램</b>이 함께 뜹니다. 운지는 사람이
+            검수한 공개 데이터(chords-db)를 그대로 가져옵니다 — 저희가 만들지 않습니다.
+            데이터에 없는 코드는 표시하지 않습니다.
+          </FieldHelper>
+          <FieldHelper style={{ margin: '4px 0 0' }}>
+            <b>표준 튜닝 전용</b>입니다. 카포·드롭D·베이스 보표에서는 폼이 맞지 않아
+            자동으로 표시하지 않습니다.
+          </FieldHelper>
+        </div>
+        <FieldControl>
+          <Switch
+            type="button" role="switch" aria-checked={diagrams} aria-label="기타 코드 다이어그램"
+            $on={diagrams}
+            onClick={() => {
+              /* 직접 정했으면 세션 변경 시 다시 권하지 않는다. */
+              setSuggestSeen(true);
+              setDiagrams(!diagrams);
+            }}
+          />
+        </FieldControl>
+      </FieldRow>
+
       <SectionTitle>음표에 음 표시하기</SectionTitle>
 
       <FieldRow>
@@ -536,6 +567,7 @@ function SheetDisplayBody() {
 
 function EditorOnlyBody() {
   const [explicitAcc, setExplicitAcc] = usePref(editorExplicitAcc);
+  const [lyricsOn, setLyricsOn] = usePref(showLyricsDefault);
 
   return (
     <>
@@ -553,6 +585,22 @@ function EditorOnlyBody() {
           <Switch
             type="button" role="switch" aria-checked={explicitAcc} aria-label="조표 무시"
             $on={explicitAcc} onClick={() => setExplicitAcc(!explicitAcc)}
+          />
+        </FieldControl>
+      </FieldRow>
+
+      <FieldRow>
+        <div>
+          <FieldLabel as="span">가사 표시</FieldLabel>
+          <FieldHelper style={{ margin: '2px 0 0' }}>
+            악보에 가사가 있으면 음표 아래에 절 순서대로 보여 줍니다(보컬용).
+            여기서 정한 값은 <b>기본값</b>이고, 악보마다 상단의 <b>가사</b> 버튼으로 따로 켜고 끌 수 있습니다.
+          </FieldHelper>
+        </div>
+        <FieldControl>
+          <Switch
+            type="button" role="switch" aria-checked={lyricsOn} aria-label="가사 표시"
+            $on={lyricsOn} onClick={() => setLyricsOn(!lyricsOn)}
           />
         </FieldControl>
       </FieldRow>
@@ -1053,6 +1101,15 @@ const Content = styled.section`
  */
 function MyInstrumentPicker() {
   const [picked, setPicked] = usePref(myInstruments);
+  /* 보컬을 고르면 가사 표시 기본값을 켠다 — **최초 1회만**. 사용자가 나중에
+   * 직접 끈 걸 다시 켜지 않도록 seeded 표식을 남긴다(온보딩 성격의 초기화). */
+  const [, setLyricsDefault] = usePref(showLyricsDefault);
+  const [seeded, setSeeded] = usePref(lyricsDefaultSeeded);
+  useEffect(() => {
+    if (seeded || !picked.includes('voc')) return;
+    setLyricsDefault(true);
+    setSeeded(true);
+  }, [picked, seeded, setLyricsDefault, setSeeded]);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {

@@ -17,13 +17,16 @@ import type { LyricSyllable } from '../../data/sampleMelody';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-/** 절 한 줄의 높이(px) — 폰트 크기에 맞춘 행간. */
-export const LYRIC_LINE_H = 15;
+/** 가사 글자 크기(px). */
+export const LYRIC_FONT_PX = 15;
+/** 절 한 줄의 높이(px) — 폰트 크기에 맞춘 행간. 크기를 키우면 같이 커져야
+ *  절끼리 겹치지 않는다. */
+export const LYRIC_LINE_H = Math.round(LYRIC_FONT_PX * 1.25);
 /** 오선 아래끝에서 첫 절 baseline 까지의 여백(px). */
 export const LYRIC_TOP_GAP = 18;
-/** 가사 글자 크기(px). */
-export const LYRIC_FONT_PX = 12;
-const LYRIC_FONT = "'Times New Roman', 'Georgia', serif";
+/* 한글·영문 모두 Pretendard(index.html 에서 로드). Times New Roman 은 한글
+ * 글리프가 없어 세리프 대체글꼴로 떨어졌고, 코드차트 가사와도 서체가 갈렸다. */
+const LYRIC_FONT = "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif";
 /** 멜리스마 선이 마지막 음표 머리를 지나 더 뻗는 길이(px). */
 const MELISMA_TAIL = 10;
 

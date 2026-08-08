@@ -20,6 +20,10 @@ import { getSongIndex, getSong, type SongEntry } from '../lib/ireal/irealLoader'
 import { buildChordContext } from '../api/chordContext';
 import { addChordProjectChords, analyzeChordProject, createChordProject, getChordProject, getChordProjectAnalysis } from '../api/chordProjects';
 import { analysisToLeadSheet } from '../lib/chordProjectToLeadSheet';
+import { showLyricsDefault, getChartLyrics, setChartLyrics } from '../lib/pagePrefs';
+import { usePref } from '../lib/prefsStore';
+import { chordDiagramsOn, diagramSuggestSeen } from '../lib/note/chordDiagramPrefs';
+import { useNotification } from '../contexts/NotificationContext';
 import { getCachedAnalysisEntry, setCachedAnalysis } from '../lib/analysisCache';
 import { leadSheetToChart } from '../lib/backing';
 import { extractMelody } from '../lib/backing/adapters/noteSheetToChart';
@@ -551,12 +555,27 @@ const GearIcon = () => (
   </svg>
 );
 
-/* 기타 코드 다이어그램 토글 버튼 — SolosPage의 "🎹 MIDI로 생성하기" 와 동일한
- * 피아노 건반 이모지. ToolBtn 안에서 다른 SVG 아이콘과 광학 크기를 맞춘다. */
-const PianoEmoji = styled.span`
-  font-size: 20px;
-  line-height: 1;
-`;
+/* 기타 코드 다이어그램 토글 — 건반 아이콘.
+ *
+ * 종전엔 🎹 이모지였다. 이모지는 OS 폰트가 그리는 **컬러 비트맵**이라 옆의
+ * Feather 계열 선화 아이콘들과 결이 전혀 달랐고(획 두께·색·모서리 모두 무관),
+ * `currentColor` 를 안 따르니 `$lit` 상태에서 앰버로 물들지도 않았다.
+ *
+ * 그래서 형제 아이콘과 **같은 규격**으로 다시 그렸다 — 24 격자 · strokeWidth 2 ·
+ * round cap/join · `fill: none` · `currentColor`.
+ *
+ * 건반 표현: 실제 피아노는 검은건반이 흰건반 경계 **위에** 놓이므로, 선만으로는
+ * 둘을 구분할 수 없다(전부 같은 x 의 세로선이 된다). 그래서 선화 아이콘의 관례를
+ * 따라 위쪽 짧은 선 3개 = 검은건반, 아래쪽 짧은 선 2개 = 흰건반 틈으로 나눴다.
+ * 검은건반을 색으로 채우는 방식도 검토했지만(가장 또렷함), 형제 아이콘 중
+ * 꽉 찬 잉크를 쓰는 것이 하나도 없어 무게가 튀었다. */
+const KeyboardIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2.5" y="6.5" width="19" height="11" rx="2" />
+    <path d="M7.7 6.5v5.3M12 6.5v5.3M16.3 6.5v5.3" />
+    <path d="M9.85 17.5v-3.1M14.15 17.5v-3.1" />
+  </svg>
+);
 
 /* ─── settings modal (analysis sub-filters) ───────────────────────────── */
 const ModalOverlay = styled.div<{ $entered: boolean }>`
@@ -992,6 +1011,15 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     }
   }, [setSearchParams]);
   const [sheet, setSheet] = useState<LeadSheetData | null>(null);
+  /* 가사 — 전역 기본값 위에 이 차트만의 오버라이드(솔로·악보차트와 같은 규칙). */
+  const [lyricsDefault] = usePref(showLyricsDefault);
+  const [lyricsOverride, setLyricsOverride] = useState<boolean | undefined>(undefined);
+  const lyricsShown = lyricsOverride ?? lyricsDefault;
+  useEffect(() => { setLyricsOverride(getChartLyrics(songId)); }, [songId]);
+  const hasLyrics = useMemo(
+    () => !!sheet?.systems.some((sy) => sy.bars.some((b) => b.lyrics?.some((t) => t?.trim()))),
+    [sheet],
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1000,6 +1028,10 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
    * Starts ON when the page is entered via `?edit=1` (used by the
    * "직접 입력하기" flow that lands on an empty sheet). */
   const [editMode, setEditMode] = useState(() => searchParams.get('edit') === '1');
+  /* 수정 모드로 들어가면 가사 줄을 펼친다 — 꺼진 채로는 입력칸이 보이지 않아
+   * 가사를 새로 넣을 수 없다. 저장된 오버라이드는 건드리지 않는다(임시 표시). */
+  useEffect(() => { if (editMode) setLyricsOverride((v) => (v === false ? true : v ?? true)); }, [editMode]);
+
   const editValuesRef = useRef<Map<string, string>>(new Map());
 
   /* Break Editor (고급 기능). Per-song break points, persisted to localStorage
@@ -1031,7 +1063,10 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   const [chatOpen, setChatOpen] = useState(false);
   const [mixerSheetOpen, setMixerSheetOpen] = useState(false);
   /* 코드 심볼 아래 기타 프렛 다이어그램 표시 여부 + 그 선택 모달. */
-  const [showDiagrams, setShowDiagrams] = useState(false);
+  /* 표기 설정(전역 pref) — 예전엔 useState(false) 라 페이지를 떠나면 꺼졌다. */
+  const [showDiagrams, setShowDiagrams] = usePref(chordDiagramsOn);
+  const [suggestSeen, setSuggestSeen] = usePref(diagramSuggestSeen);
+  const { notify } = useNotification();
   const [diagramModalOpen, setDiagramModalOpen] = useState(false);
 
   /* All overlays use a shared mount + transition pattern so they slide in
@@ -1650,9 +1685,31 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
     [],
   );
 
+  /* 마디 가사 편집 — 코드와 같은 방식으로 버퍼에 모았다가 수정 종료 때 커밋한다
+   * (글자마다 시트 전체를 다시 만들지 않으려고). 키는 `시스템-마디-절`. */
+  const lyricEditsRef = useRef<Map<string, string>>(new Map());
+  const handleLyricEdit = useCallback(
+    (systemIndex: number, barIndex: number, verse: number, value: string) => {
+      lyricEditsRef.current.set(`${systemIndex}-${barIndex}-${verse}`, value);
+    },
+    [],
+  );
+
   const commitEdits = useCallback(() => {
-    if (!sheet || editValuesRef.current.size === 0) return;
+    if (!sheet || (editValuesRef.current.size === 0 && lyricEditsRef.current.size === 0)) return;
     const next: LeadSheetData = structuredClone(sheet);
+    /* 가사 — 빈 문자열은 그 절을 지운다. 뒤쪽 빈 절은 잘라내 배열이 늘어나지 않게. */
+    lyricEditsRef.current.forEach((value, key) => {
+      const [s, b, v] = key.split('-').map(Number);
+      const bar = next.systems[s]?.bars[b];
+      if (!bar) return;
+      const list = [...(bar.lyrics ?? [])];
+      while (list.length <= v) list.push('');
+      list[v] = value;
+      while (list.length > 0 && !list[list.length - 1].trim()) list.pop();
+      if (list.length) bar.lyrics = list; else delete bar.lyrics;
+    });
+    lyricEditsRef.current.clear();
     editValuesRef.current.forEach((value, key) => {
       const [s, b, c] = key.split('-').map(Number);
       const chord = next.systems[s]?.bars[b]?.chords[c];
@@ -1729,6 +1786,22 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
    * instrument-specific behaviours (vocal lyrics, sax transpose, drum sections)
    * come later. */
   const [session, setSession] = useState<SessionInstrument>('piano');
+  /* 세션을 기타로 바꿨을 때 다이어그램을 **한 번만** 권한다.
+   *
+   * 자동으로 켜지는 않는다 — 사용자가 정한 표기 설정을 세션 변경이 말없이 덮으면
+   * 안 된다. 대신 알림의 '켜기' 버튼 한 번으로 켤 수 있게 한다. 이미 켜져 있거나
+   * 사용자가 설정에서 직접 정한 적이 있으면 묻지 않는다. */
+  const handleSessionChange = useCallback((next: SessionInstrument) => {
+    setSession(next);
+    if (next !== 'guitar' || showDiagrams || suggestSeen) return;
+    setSuggestSeen(true);
+    notify({
+      kind: 'info',
+      title: '기타 코드 다이어그램',
+      message: '코드심볼 아래에 기타 운지를 함께 표시할 수 있습니다. 설정 › 표기에서 언제든 바꿀 수 있어요.',
+      action: { label: '켜기', onClick: () => setShowDiagrams(true) },
+    });
+  }, [showDiagrams, suggestSeen, setSuggestSeen, setShowDiagrams, notify]);
   const dividerRef = useRef<HTMLDivElement>(null);
 
   /* 드래그 중 unmount(빠른 네비게이션)나 창 밖 mouseup 유실 시 window 리스너가
@@ -1799,7 +1872,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
                 enabled={!editMode && chartKey === chartOriginalKey}
                 onApply={handleApplySuggestedKey}
               />
-              <SessionPicker value={session} onChange={setSession} />
+              <SessionPicker value={session} onChange={handleSessionChange} />
             </BarLeft>
             <BarCenter $native={isNativeUi}>
               <MixerButton
@@ -1816,6 +1889,23 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
               <TransportButtons playing={isPlaying} onPlayPause={handlePlayPause} onStop={handleStop} disabled={!sheet || loading} />
             </BarCenter>
             <BarRight $native={isNativeUi}>
+              {/* 가사가 아직 없는 차트도 **수정 중이면** 버튼을 내준다 —
+                  안 그러면 켤 방법이 없어 가사를 새로 넣지 못한다. */}
+              {(hasLyrics || editMode) && (
+                <ToolBtn
+                  type="button"
+                  title={lyricsShown ? '가사 숨기기' : '가사 보기'}
+                  aria-pressed={lyricsShown}
+                  onClick={() => {
+                    const next = !lyricsShown;
+                    setLyricsOverride(next);
+                    setChartLyrics(songId, next);
+                  }}
+                  style={{ opacity: lyricsShown ? 1 : 0.5 }}
+                >
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700 }}>가사</span>
+                </ToolBtn>
+              )}
               <ToolBtn type="button" title="공유" onClick={handleShare} disabled={!sheet || loading}>
                 <ShareIcon />
               </ToolBtn>
@@ -1842,7 +1932,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
                 $lit={showDiagrams}
                 onClick={() => setDiagramModalOpen(true)}
               >
-                <PianoEmoji>🎹</PianoEmoji>
+                <KeyboardIcon />
               </ToolBtn>
               <ToolBtn type="button" title="고급 설정" onClick={() => openPerformanceSettings('chordAnalysis')}>
                 <GearIcon />
@@ -1882,7 +1972,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
                 $lit={showDiagrams}
                 onClick={() => setDiagramModalOpen(true)}
               >
-                <PianoEmoji>🎹</PianoEmoji>
+                <KeyboardIcon />
               </ToolBtn>
               <ToolBtn type="button" title="고급 설정" onClick={() => openPerformanceSettings('chordAnalysis')}>
                 <GearIcon />
@@ -1894,6 +1984,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
           {sheet && !loading ? (
             <LeadSheet
               data={sheet}
+              showLyrics={lyricsShown}
               /* 전체화면 안 맨 위에 얹을 재생 컨트롤 — 평소 바(TransportBar/
                * BottomControlPanel)는 오버레이에 덮이므로 같은 것을 넘겨준다.
                * 재생 상태가 하나뿐이라 두 곳이 어긋날 일은 없다. */
@@ -1924,6 +2015,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
               showDiagrams={showDiagrams}
               editMode={editMode}
               onChordEdit={handleChordEdit}
+              onLyricEdit={handleLyricEdit}
               breakEditMode={breakEditMode}
               breakPoints={breakPoints}
               onToggleBreak={handleToggleBreak}
@@ -2047,7 +2139,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
             </BottomPanelRow1>
             <BottomPanelRow2 $divider>
               <GenreSelect />
-              <SessionPicker value={session} onChange={setSession} />
+              <SessionPicker value={session} onChange={handleSessionChange} />
             </BottomPanelRow2>
             <BottomPanelRow3 $divider>
               <ToolBtn

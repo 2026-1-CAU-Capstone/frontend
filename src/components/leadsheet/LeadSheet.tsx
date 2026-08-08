@@ -40,7 +40,12 @@ import { mq } from '../../styles/theme';
 const BARLINE_PAD  = 18;  // px — left padding reserved for barline decoration
 const BAR_H        = 78;  // px — row height (snug around chord content)
 const BARLINE_GAP  = 6;   // px — vertical inset at top/bottom of each barline
-const ROW_GAP      = 44;  // px — space between rows (extra room for bigger labels)
+const ROW_GAP      = 44;
+/** 가사 글자 크기(px) — 표시·편집칸이 같이 본다. */
+const LYRIC_FONT_PX = 15;
+/** 가사 한 줄이 마디 아래로 차지하는 높이(px) — BarLyricLine 행간과 맞춘다.
+ *  글자 크기를 키우면 여기도 같이 올려야 아랫줄과 겹치지 않는다(행간 1.25 + 여유). */
+const LYRIC_ROW_H  = Math.round(LYRIC_FONT_PX * 1.25) + 4;
 const COMPACT_ROW_GAP = 28; // px — tighter gap when neither this row nor the next
                             // carries an analysis decoration (ii-V bracket below /
                             // ii-V-I or modal-interchange band above)
@@ -296,15 +301,17 @@ const KeyOption = styled.button<{ $active?: boolean }>`
 
 /* ─── system row ─────────────────────────────────────────────────────────── */
 
-const SystemRow = styled.div<{ $sectionStart?: boolean; $hasVolta?: boolean; $compact?: boolean }>`
+const SystemRow = styled.div<{ $sectionStart?: boolean; $hasVolta?: boolean; $compact?: boolean; $lyricLines?: number }>`
   display: flex;
   /* center (not stretch) so the larger TimeSig on row 1 doesn't inflate the
    * BarsGrid height — every row's chord grid stays at BAR_H regardless. */
   align-items: center;
   /* Compact the gap below a row only when nothing decorates the seam: no ii-V
    * bracket hangs off this row AND no ii-V-I / modal band tab pokes up from the
-   * next row. Decorated seams keep the full ROW_GAP so tabs/brackets never touch. */
-  margin-bottom: ${({ $compact }) => $compact ? COMPACT_ROW_GAP : ROW_GAP}px;
+   * next row. Decorated seams keep the full ROW_GAP so tabs/brackets never touch.
+   * 가사가 있으면 마디 아래로 절 수만큼 더 내려가므로 그만큼 더 띄운다. */
+  margin-bottom: ${({ $compact, $lyricLines }) =>
+    ($compact ? COMPACT_ROW_GAP : ROW_GAP) + ($lyricLines ?? 0) * LYRIC_ROW_H}px;
   /* When a row has a volta bracket (which sits VOLTA_HEIGHT px above the
    * grid) AND the previous row carries a ii-V bracket below (~14px), the
    * default ROW_GAP=44 isn't enough. Force margin-top to VOLTA_HEIGHT+22 on
@@ -370,6 +377,48 @@ const TimeSigDivider = styled.div`
 
 /* 4 equal columns. Barlines are absolute overlays so they never affect
    the column widths — this is what keeps chords vertically aligned.    */
+/* 코드차트 가사 — 마디 아래에 절 순서대로 한 줄씩. 음표가 없으므로 음절이
+ * 아니라 **마디 단위 텍스트**다(보컬이 코드를 보며 부를 때의 실제 쓰임). */
+const BarLyrics = styled.div`
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  padding: 3px 6px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  pointer-events: none;
+`;
+const BarLyricLine = styled.div`
+  /* 한글·영문 모두 Pretendard. Times New Roman 은 한글이 없어 세리프 대체글꼴로
+   * 떨어져 자간·굵기가 들쭉날쭉했다. 편집칸(BarLyricEdit)과 **같은 값**을 쓴다 —
+   * 갈리면 편집을 끝내는 순간 글자가 튄다. */
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: ${LYRIC_FONT_PX}px;
+  line-height: 1.25;
+  color: ${({ theme }) => theme.colors.textPrimary};
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+/* 편집 모드에서 마디 가사를 직접 치는 칸 — 표시용 BarLyricLine 과 같은 자리·서체. */
+const BarLyricEdit = styled.input`
+  width: 100%;
+  box-sizing: border-box;
+  font-family: ${({ theme }) => theme.fonts.ui};
+  font-size: ${LYRIC_FONT_PX}px;
+  line-height: 1.25;
+  padding: 0 3px;
+  border: 1px dashed ${({ theme }) => theme.colors.border};
+  border-radius: 3px;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.textPrimary};
+  &::placeholder { color: ${({ theme }) => theme.colors.textSecondary}; opacity: 0.55; }
+  &:focus { outline: none; border-color: #2f6fe0; border-style: solid; background: rgba(47,111,224,0.05); }
+`;
+
 const BarsGrid = styled.div`
   flex: 1 1 0;
   min-width: 0;
@@ -1041,6 +1090,8 @@ interface ChordSymbolProps {
   selectionMode?: boolean;
   iiviHovered?: boolean;
   editMode?: boolean;
+  /** 가사 표시 — 마디에 붙은 가사를 그릴지. 생략 시 전역 기본값. */
+  showLyrics?: boolean;
   onEdit?: (value: string) => void;
   /** 코드 아래 기타 코드 다이어그램 표시 (내 코드 차트 다이어그램 모드). */
   showDiagrams?: boolean;
@@ -1313,7 +1364,11 @@ interface SystemRowProps {
   selectionMode?: boolean;
   hoveredIiviChordKeys?: Set<string>;
   editMode?: boolean;
+  /** 가사 표시 — 마디에 붙은 가사를 그릴지. 생략 시 전역 기본값. */
+  showLyrics?: boolean;
   onChordEdit?: (systemIndex: number, barIndex: number, chordIndex: number, value: string) => void;
+  /** 마디 가사 편집 — 절(verse, 0부터) 한 줄을 통째로 바꾼다. 편집 모드에서만. */
+  onLyricEdit?: (systemIndex: number, barIndex: number, verse: number, value: string) => void;
   /** Flat bar index of this system's first bar (across all prior systems). */
   barIndexBase: number;
   breakEditMode?: boolean;
@@ -1335,6 +1390,7 @@ function SystemRowComponent({
   isLast,
   timeSignature,
   systemIndex,
+  showLyrics,
   compact = false,
   registerChordEl,
   registerSystemEl,
@@ -1353,6 +1409,7 @@ function SystemRowComponent({
   hoveredIiviChordKeys,
   editMode = false,
   onChordEdit,
+  onLyricEdit,
   barIndexBase,
   breakEditMode = false,
   breakPoints,
@@ -1381,6 +1438,7 @@ function SystemRowComponent({
 
   return (
     <SystemRow
+      $lyricLines={showLyrics ? Math.max(0, ...system.bars.map((b) => b.lyrics?.filter((t) => t?.trim()).length ?? 0)) : 0}
       ref={(el) => registerSystemEl(systemIndex, el)}
       $sectionStart={!!system.sectionLabel}
       $hasVolta={system.bars.some((b) => b.ending != null)}
@@ -1463,6 +1521,7 @@ function SystemRowComponent({
                 selectionMode={selectionMode}
                 iiviHovered={hoveredIiviChordKeys?.has(chordKey)}
                 editMode={editMode}
+                showLyrics={showLyrics}
                 onEdit={(value) => onChordEdit?.(systemIndex, i, chordIndex, value)}
                 showDiagrams={showDiagrams}
               />
@@ -1609,6 +1668,30 @@ function SystemRowComponent({
                   </BarSections>
                 );
               })()}
+              {/* 가사 — 이 마디에 붙은 절들을 순서대로. 표시 토글이 꺼지면 안 그린다. */}
+              {showLyrics && (editMode || bar.lyrics?.some((t) => t?.trim())) && (
+                <BarLyrics style={editMode ? { pointerEvents: 'auto' } : undefined}>
+                  {(editMode
+                    /* 편집 모드: 이미 있는 절 + 새 절 한 칸을 더 내준다. */
+                    ? Array.from({ length: (bar.lyrics?.length ?? 0) + 1 })
+                    : bar.lyrics ?? []
+                  ).map((_, vi) => {
+                    const text = bar.lyrics?.[vi] ?? '';
+                    if (!editMode) return <BarLyricLine key={vi} title={text}>{text}</BarLyricLine>;
+                    return (
+                      <BarLyricEdit
+                        /* 비제어 — 코드 편집과 같은 방식(입력은 로컬, 값은 종료 시 커밋).
+                           제어값으로 두면 부모가 상태를 안 바꾸는 동안 글자가 안 찍힌다. */
+                        key={`${systemIndex}-${i}-${vi}`}
+                        defaultValue={text}
+                        placeholder={vi === 0 ? '가사' : `${vi + 1}절`}
+                        aria-label={`${i + 1}마디 ${vi + 1}절 가사`}
+                        onChange={(e) => onLyricEdit?.(systemIndex, i, vi, e.target.value)}
+                      />
+                    );
+                  })}
+                </BarLyrics>
+              )}
             </BarCell>
           );
         })}
@@ -1628,6 +1711,8 @@ const DEFAULT_ANALYSIS_FILTERS: AnalysisFilters = {
 };
 
 interface LeadSheetProps {
+  /** 가사 표시 — 마디에 붙은 가사를 그릴지(코드차트). */
+  showLyrics?: boolean;
   data: LeadSheetData;
   analysisFilters?: AnalysisFilters;
   /** @deprecated Use analysisFilters instead */
@@ -1676,6 +1761,8 @@ interface LeadSheetProps {
   editMode?: boolean;
   /** Fired on each keystroke while editing a chord, with its source indices. */
   onChordEdit?: (systemIndex: number, barIndex: number, chordIndex: number, value: string) => void;
+  /** 마디 가사 편집 — 절(verse, 0부터) 한 줄을 통째로 바꾼다. 편집 모드에서만. */
+  onLyricEdit?: (systemIndex: number, barIndex: number, verse: number, value: string) => void;
   /** Break Editor mode: show a row of clickable per-beat quarter-note markers
    *  above every bar. Independent of `editMode`. */
   breakEditMode?: boolean;
@@ -1880,6 +1967,7 @@ export function KeyControl({
 
 export function LeadSheet({
   data,
+  showLyrics,
   analysisFilters,
   showAnalysis,
   showDiagrams = false,
@@ -1898,6 +1986,7 @@ export function LeadSheet({
   styleSlot,
   editMode = false,
   onChordEdit,
+  onLyricEdit,
   breakEditMode = false,
   breakPoints,
   onToggleBreak,
@@ -3356,6 +3445,7 @@ export function LeadSheet({
         {resolvedData.systems.map((system, i) => (
           <div key={i}>
             <SystemRowComponent
+              showLyrics={showLyrics}
               system={system}
               isFirst={i === 0}
               isLast={i === resolvedData.systems.length - 1}
@@ -3390,6 +3480,7 @@ export function LeadSheet({
               hoveredIiviChordKeys={hoveredIiviChordKeys}
               editMode={editMode}
               onChordEdit={onChordEdit}
+              onLyricEdit={onLyricEdit}
             />
             {(() => {
               // Inline lick — placed ONCE at the clicked anchor. Each lick
