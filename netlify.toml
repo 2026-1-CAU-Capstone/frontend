@@ -1,20 +1,30 @@
 # ─────────────────────────────────────────────────────────────────────────
 # Netlify 설정 — **site 두 개가 이 파일 하나를 공유한다.**
 #
-#   실서비스   base=frontend  ·  build="npm run build"         ·  publish=dist
-#   스튜디오   base=frontend  ·  build="npm run build:studio"   ·  publish=dist-studio
+# 같은 repo 로 site 를 두 개 만든다(Netlify 모노레포 구성). **빌드 설정은 각 site 의
+# UI 에 두고**, 이 파일은 리다이렉트·헤더만 공유한다(이유는 아래 주석).
 #
-# 각 site 의 Build settings 에서 build command / publish directory 만 다르게 잡으면
-# 나머지(헤더·리다이렉트)는 아래 [context] 로 함께 적용된다.
-#
-# ⚠️ 스튜디오 site 에는 반드시 접근 통제를 앞에 세운다(Cloudflare Access 등).
-#    이 파일만으로는 URL 을 아는 사람이면 누구나 HTML 을 받는다 — 그 뒤 화면은
-#    AdminRoute 와 백엔드 role 이 막지만, 번들 자체는 내려간다.
+# 스튜디오 site 는 URL 을 아는 사람이면 HTML·번들을 받는다. 그 뒤 화면은 AdminRoute
+# 가, 데이터는 백엔드 role 이 막는다. 번들까지 감추려면 앞에 접근 통제(Cloudflare
+# Access 등)를 세우면 되지만 **필수는 아니다** — API 스펙(/v3/api-docs)이 이미 무인증
+# 공개라 번들을 숨겨 얻는 게 크지 않다. 실제 구멍은 `GET /v1/licks`·`/v1/solos` 가
+# role 검사 없이 열려 있는 쪽이고, 그건 백엔드에서 닫아야 한다.
 # ─────────────────────────────────────────────────────────────────────────
 
-[build]
-  publish = "dist"
-  command = "npm run build"
+# ⚠️ 여기에 build command / publish directory 를 **적지 않는다.**
+#
+# netlify.toml 은 UI 설정을 덮어쓴다(문서: "File-based configuration settings take
+# precedence"). 그래서 여기에 `command = "npm run build"` 를 박으면 스튜디오 site 에서
+# UI 로 다르게 넣어도 무시되고 실서비스가 빌드된다.
+#
+# 환경변수로 갈리게 하는 방법도 있지만(`command` 는 셸을 거치므로 `${VAR}` 가 풀린다)
+# `publish` 는 셸을 거치지 않아 확장이 보장되지 않는다. 반쪽만 동작하는 구성은 나중에
+# 원인 찾기 어려운 사고가 되므로, **빌드 설정은 각 site 의 UI 에만 둔다.**
+#
+#   실서비스 site :  Base=frontend · Build=npm run build         · Publish=frontend/dist
+#   스튜디오 site :  Base=frontend · Build=npm run build:studio  · Publish=frontend/dist-studio
+#
+# 아래 리다이렉트·헤더는 publish 디렉터리 기준이라 두 site 에 그대로 적용된다.
 
 # SPA — HashRouter 라 경로는 항상 `/` 하나지만, 직접 URL 진입·새로고침에서
 # 정적 파일이 아닌 경로가 오면 index.html 로 돌려준다.
