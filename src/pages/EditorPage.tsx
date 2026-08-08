@@ -55,6 +55,7 @@ import { drawScoopFall } from '../lib/note/scoopFall';
 import { normalizeChord, formatChordDisplay, splitChordParts } from '../lib/jazz-harmony';
 import { detectChordFromMidi } from '../lib/jazz-harmony/chord-detect';
 import { createSolo, updateSolo } from '../api/solos';
+import { useIsStudio } from '../lib/surface';
 import { ContextMenu } from '../components/common/ContextMenu';
 import { buildUserSoloDraft, invalidateSolosCache, loadAllSolos, pushSoloToCache, updateSoloInCache } from '../data/soloData';
 import { saveUserLick, computeLickFeatures, type LickEntry } from '../data/lickData';
@@ -4311,6 +4312,8 @@ const SavingSub = styled.div`
 /* ─── component ────────────────────────────────────────────────────────── */
 
 export default function EditorPage() {
+  /* 저장 후 이동을 앱/스튜디오로 가른다(lib/surface 참조). */
+  const isStudio = useIsStudio();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -6712,7 +6715,9 @@ export default function EditorPage() {
         saveUserLick(persisted);
         try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
         navigated = true;
-        navigate('/licks');
+        /* 앱에는 Lick Database 화면이 없다(관리 화면이라 스튜디오로 갔다).
+         * 사용자는 자기 릭 목록으로 보낸다. */
+        navigate(isStudio ? '/licks' : '/my-licks');
       }
     } catch (err) {
       console.error(`${mode} save failed`, err);

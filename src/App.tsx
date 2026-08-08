@@ -8,15 +8,15 @@ import { NativeBottomBar } from './components/native/NativeBottomBar';
 import { AiChatSheet } from './components/native/AiChatSheet';
 import HomePage from './pages/HomePage';
 import { IntroScreen } from './components/common/IntroScreen';
-import { BackendBadge } from './components/layout/BackendBadge';
 import { AudioErrorBoundary } from './components/common/AudioErrorBoundary';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
-/* Sheet-music tab pages — split out of the initial bundle so that vexflow
- * (~1.1 MB) and OSMD only load when the user navigates into a chord/note/
- * licks/solos screen. HomePage and /login stay free of the dependency. */
-const LicksPage           = lazy(() => import('./pages/LicksPage'));
-const SolosPage           = lazy(() => import('./pages/SolosPage'));
+/* 악보 화면 — vexflow(~1.1MB)·OSMD 가 그 화면에 들어갈 때만 로드되게 분리한다.
+ * HomePage 와 /login 은 이 의존성이 없다.
+ *
+ * Lick/Solo Database(`/licks`·`/solos`)는 **관리 화면이라 스튜디오로 갔다.** 사용자
+ * 에게는 큐레이션 DB 전체가 아니라 내 릭(`/my-licks`)만 보여야 한다. 개발용 백엔드
+ * 표시 배지도 같은 이유로 스튜디오에만 둔다. */
 /* ChordPage 는 스튜디오의 분석 워크벤치(/chord)와 사용자의 내 코드 차트(/mychord)가
  * **같이 쓰는** 페이지다. 그래서 공유 코드에 남고, 스튜디오도 여기서 가져간다. */
 const ChordPage           = lazy(() => import('./pages/ChordPage'));
@@ -81,7 +81,6 @@ export default function App() {
 
   return (
     <>
-      <BackendBadge />
       {showIntro && <IntroScreen onDone={handleIntroDone} />}
       {/* 페이지들이 렌더하는 <AppSidebar /> 에 실서비스 사이드바를 넣는다. */}
       <SurfaceContext.Provider value="app">
@@ -95,8 +94,6 @@ export default function App() {
            * passing the original location so the user lands back here after
            * signing in. */}
           <Route path="/mychord" element={<ProtectedRoute><KeyedChordPage mychordMode /></ProtectedRoute>} />
-          <Route path="/licks" element={<ProtectedRoute><LicksPage /></ProtectedRoute>} />
-          <Route path="/solos" element={<ProtectedRoute><SolosPage /></ProtectedRoute>} />
           <Route path="/input" element={<ProtectedRoute><InputPage /></ProtectedRoute>} />
           <Route path="/stems" element={<ProtectedRoute><StemSplitterPage /></ProtectedRoute>} />
           <Route path="/copy" element={<ProtectedRoute><CopyPage /></ProtectedRoute>} />

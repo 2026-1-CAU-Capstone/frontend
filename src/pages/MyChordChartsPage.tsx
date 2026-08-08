@@ -73,7 +73,6 @@ import {
   type ChordAnalysisResult,
 } from '../api/chordProjects';
 import { useUploadQueue } from '../contexts/UploadQueueContext';
-import { useIsStudio } from '../lib/surface';
 import { RawJsonModal } from '../components/common/RawJsonModal';
 import { KeyPicker } from '../components/common/KeyPicker';
 
@@ -282,8 +281,6 @@ export default function MyChordChartsPage() {
   /* Confirm-delete modal target for a chord chart (file). `null` = closed. */
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
 
-  /* 응답값 원문 보기는 제작·디버그 도구다 — 스튜디오에서만 뜬다(lib/surface 참조). */
-  const isStudio = useIsStudio();
   const [rawJsonTarget, setRawJsonTarget] = useState<{ id: string; title: string } | null>(null);
 
   /* Multi-select mode: checkbox overlay on every card + bottom action bar. */
@@ -1228,13 +1225,6 @@ export default function MyChordChartsPage() {
                         <KebabMenuIcon><TrashIcon /></KebabMenuIcon>
                         <span>삭제</span>
                       </KebabMenuItem>
-                      {/* admin 전용 — 백엔드 GET 응답 원문 확인(디버깅용). */}
-                      {isStudio && !file.id.startsWith(UPLOADING_ID_PREFIX) && (
-                        <KebabMenuItem type="button" onClick={() => { setKebabMenuId(null); setRawJsonTarget({ id: file.id, title: file.title }); }}>
-                          <KebabMenuIcon>{'{ }'}</KebabMenuIcon>
-                          <span>응답값 받기</span>
-                        </KebabMenuItem>
-                      )}
                     </>
                   )}
                 </KebabMenu>
