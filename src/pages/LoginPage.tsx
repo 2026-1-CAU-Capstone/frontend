@@ -98,15 +98,20 @@ export default function LoginPage({ studio = false }: { studio?: boolean } = {})
     <Page>
       <Center>
         <BrandMark onClick={() => navigate('/')}>
-          <BrandLogoImage height={40} scaleX={1.05} />
+          {/* 스튜디오는 전용 워드마크(Studio 가 로고에 포함) — 실서비스와 첫 화면부터
+            * 구분된다. 스튜디오 코드를 여기서 import 하면 실서비스 번들에 들어가므로
+            * 로고는 이미지 경로로만 참조한다. */}
+          {studio
+            ? <StudioWordmark src={`${import.meta.env.BASE_URL}jazzify-studio.png`} alt="Jazzify Studio" draggable={false} />
+            : <BrandLogoImage height={40} scaleX={1.05} />}
         </BrandMark>
-        <Headline>
-          {studio ? <>Jazzify<br />Studio</> : <>더 깊이 듣고,<br />더 빠르게 배우세요</>}
-        </Headline>
-        <SubHead>
-          {studio ? '내부 제작 스튜디오 — 관리자 계정만 들어올 수 있습니다'
-                  : '채팅으로 분석하고, 라이브러리로 연습하세요'}
-        </SubHead>
+        {!studio && (
+          <Headline>
+            더 깊이 듣고,
+            <br />더 빠르게 배우세요
+          </Headline>
+        )}
+        <SubHead>{studio ? '관리자 전용' : '채팅으로 분석하고, 라이브러리로 연습하세요'}</SubHead>
 
         <Card>
           {!studio && (
@@ -230,6 +235,17 @@ const SpinnerSvg = styled.svg`
 `;
 
 /* ── layout ───────────────────────────────────────────────── */
+
+const StudioWordmark = styled.img`
+  display: block;
+  /* 로고가 이 화면의 유일한 제목이다(아래 문구는 '관리자 전용' 한 줄뿐) — 크게 둔다. */
+  height: 150px;
+  max-width: 100%;
+  object-fit: contain;
+  width: auto;
+  user-select: none;
+  ${({ theme }) => theme.mode === 'dark' && 'filter: invert(1);'}
+`;
 
 const Page = styled.div`
   min-height: 100vh;

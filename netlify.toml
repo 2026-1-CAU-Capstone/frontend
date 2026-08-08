@@ -1,0 +1,37 @@
+# ─────────────────────────────────────────────────────────────────────────
+# Netlify 설정 — **site 두 개가 이 파일 하나를 공유한다.**
+#
+#   실서비스   base=frontend  ·  build="npm run build"         ·  publish=dist
+#   스튜디오   base=frontend  ·  build="npm run build:studio"   ·  publish=dist-studio
+#
+# 각 site 의 Build settings 에서 build command / publish directory 만 다르게 잡으면
+# 나머지(헤더·리다이렉트)는 아래 [context] 로 함께 적용된다.
+#
+# ⚠️ 스튜디오 site 에는 반드시 접근 통제를 앞에 세운다(Cloudflare Access 등).
+#    이 파일만으로는 URL 을 아는 사람이면 누구나 HTML 을 받는다 — 그 뒤 화면은
+#    AdminRoute 와 백엔드 role 이 막지만, 번들 자체는 내려간다.
+# ─────────────────────────────────────────────────────────────────────────
+
+[build]
+  publish = "dist"
+  command = "npm run build"
+
+# SPA — HashRouter 라 경로는 항상 `/` 하나지만, 직접 URL 진입·새로고침에서
+# 정적 파일이 아닌 경로가 오면 index.html 로 돌려준다.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# 해시가 붙은 빌드 산출물은 영구 캐시 — 내용이 바뀌면 파일명이 바뀐다.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../../styles/theme';
-import { BrandLogoImage } from '../../components/common/BrandLogoImage';
+import { StudioLogo } from './StudioLogo';
 import { STUDIO_NAV, STUDIO_NAV_GROUPS } from '../nav';
 import { UserMenu } from '../../components/auth/UserMenu';
 import { getCachedUser, onAuthChange, type AuthUser } from '../../api/auth';
@@ -43,8 +43,7 @@ export function StudioSidebar() {
       <TopRow $expanded={expanded}>
         {expanded && (
           <BrandRow>
-            <BrandLogoImage height={26} onClick={() => navigate('/')} />
-            <StudioTag>STUDIO</StudioTag>
+            <StudioLogo $h={26} $clickable onClick={() => navigate('/')} />
           </BrandRow>
         )}
         <ToggleBtn
@@ -58,7 +57,11 @@ export function StudioSidebar() {
 
       {!expanded && (
         <CollapsedBrand>
-          <BrandLogoImage height={22} onClick={() => navigate('/')} />
+          {/* 접힌 레일(52px)에는 워드마크가 안 들어간다 — 색소폰 부분만 보이게
+            * 왼쪽을 기준으로 잘라낸다(로고 비율 1.84:1). */}
+          <CollapsedLogoClip>
+            <StudioLogo $h={20} $clickable onClick={() => navigate('/')} />
+          </CollapsedLogoClip>
         </CollapsedBrand>
       )}
 
@@ -153,18 +156,12 @@ const BrandRow = styled.div`
   margin-left: 4px;
 `;
 
-/* 실서비스와 헷갈리지 않게 워드마크 옆에 작은 배지를 둔다 — 두 화면이 디자인이
- * 같으므로 어느 쪽에 있는지 한눈에 보이는 표시가 필요하다. */
-const StudioTag = styled.span`
-  font-family: ${({ theme }) => theme.fonts.ui};
-  font-size: 9.5px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  padding: 2px 5px;
-  border-radius: 4px;
-  color: ${({ theme }) => theme.colors.onInk};
-  background: ${({ theme }) => theme.colors.inkSurface};
-  flex-shrink: 0;
+/* 접힌 레일에서 로고의 왼쪽(색소폰)만 남긴다. */
+const CollapsedLogoClip = styled.div`
+  width: 26px;
+  overflow: hidden;
+  display: flex;
+  justify-content: flex-start;
 `;
 
 const CollapsedBrand = styled.div`
