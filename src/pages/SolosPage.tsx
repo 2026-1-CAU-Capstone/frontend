@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import styled, { keyframes, css } from 'styled-components';
 import { mq, tint } from '../styles/theme';
 import { exportScoreSvgToPdf } from '../lib/note/scoreToPdf';
-import { IconSidebar } from '../components/layout/IconSidebar';
+import { AppSidebar } from '../components/layout/AppSidebar';
 import { NoteSheet, type NoteSheetHandle } from '../components/notesheet/NoteSheet';
 import { BpmControl, RepeatControl, TransportButtons, MixerButton, GenreSelect } from '../components/backing/BackingPlayerBar';
 import { KeyControl } from '../components/leadsheet/LeadSheet';
@@ -38,7 +38,7 @@ import {
   dismissOmrQueueItem, dismissOmrQueueAll, pauseOmrQueue, resumeOmrQueue,
   retryOmrQueueItem, resumeOmrQueueFromDisk, type OmrQueueItem,
 } from '../lib/soloOmrQueue';
-import { isAdminUser, getCachedUser, onAuthChange } from '../api/auth';
+import { useIsStudio } from '../lib/surface';
 import { BackButton } from '../components/common/BackButton';
 import type { OMRMetadata } from '../api/licks';
 import {
@@ -46,6 +46,9 @@ import {
   normalizeKeyInput,
   formatKeyDisplay,
 } from '../lib/transpose';
+import { showLyricsDefault, getChartLyrics, setChartLyrics } from '../lib/pagePrefs';
+import { usePref } from '../lib/prefsStore';
+import { maxVerseCount } from '../lib/note/lyricLayout';
 import {
   ALL_KEYS_MAJOR,
   ALL_KEYS_MINOR,
@@ -738,6 +741,15 @@ const IcoPencil = () => (
 const IcoDownload = () => (
   <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+  </svg>
+);
+/** 가사 아이콘 — 음표 + 그 아래 글줄(가사 행)을 형상화. */
+const IcoLyrics = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="7" cy="8" r="2.6" fill="currentColor" stroke="none" />
+    <path d="M9.6 8V3.2l5.4-1.1V7" />
+    <circle cx="17.6" cy="7" r="2.6" fill="currentColor" stroke="none" />
+    <path d="M4 15.5h16" /><path d="M4 19.5h11" />
   </svg>
 );
 const IcoTranspose = () => (
@@ -1587,6 +1599,11 @@ export default function SolosPage() {
    *   'transpose' : 음표까지 함께 이조 (기존 동작) + 이조악기 프리셋 제공
    *   'keyOnly'   : 음표·VexFlow 출력은 그대로 두고 조성 표기만 교체 (파싱 교정용) */
   const [keyPanel, setKeyPanel] = useState<null | 'transpose' | 'keyOnly'>(null);
+  /* ── 가사 표시 ─────────────────────────────────────────────────────────
+   * 곡마다 가사가 필요할 수도, 아닐 수도 있어 **악보별 오버라이드**를 우선하고
+   * 없으면 전역 기본값을 따른다. 버튼은 가사가 실제로 있는 악보에만 뜬다. */
+  const [lyricsDefault] = usePref(showLyricsDefault);
+  const [lyricsOverride, setLyricsOverride] = useState<boolean | undefined>(undefined);
   const [keyInput, setKeyInput] = useState('');
   /* 제목 클릭 시 펼쳐지는 메타데이터 패널 (연주자·악기·장르·BPM·조성·고유 키). */
   const [metaOpen, setMetaOpen] = useState(false);
@@ -1651,10 +1668,10 @@ export default function SolosPage() {
     }
   }, [importText, partsToSheet, finishImport]);
 
-  /* 큐 영속 기록(admin 전용) — 자리를 비웠다 와도, 새로고침해도 결과가 남는다. */
-  const [authUserForAdmin, setAuthUserForAdmin] = useState(() => getCachedUser());
-  useEffect(() => onAuthChange((isIn, u) => setAuthUserForAdmin(isIn ? u : null)), []);
-  const isAdmin = isAdminUser(authUserForAdmin);
+  /* 제작·디버그 도구(큐 기록 · 응답값 원문)는 **스튜디오에서만** 뜬다.
+   * 예전엔 계정 등급(isAdminUser)으로 갈랐는데, 그러면 실서비스에서 admin 으로
+   * 로그인해도 제작 도구가 보였다 — 판정 기준이 애초에 틀렸다(lib/surface 참조). */
+  const isStudio = useIsStudio();
   /* 응답값 받기(admin 전용 디버깅) — 솔로 GET 원문을 그대로 확인. */
   const [rawJsonTarget, setRawJsonTarget] = useState<{ id: string; title: string } | null>(null);
   const [queueLogOpen, setQueueLogOpen] = useState(false);
@@ -1883,6 +1900,18 @@ export default function SolosPage() {
     return previewKey === sheet.key ? sheet : transposeNoteSheet(sheet, previewKey);
   }, [selected, previewKey, originalDisplayKey]);
 
+
+  /* 이 악보에 가사가 있는가 — 버튼 노출 여부를 정한다. */
+  const lyricVerses = useMemo(
+    () => (previewSheet ? maxVerseCount(previewSheet.measures) : 0),
+    [previewSheet],
+  );
+  /* 실효 표시값 — 악보별 오버라이드가 있으면 그것, 없으면 전역 기본값. */
+  const lyricsShown = lyricsOverride ?? lyricsDefault;
+  /* 다른 솔로를 고르면 그 악보에 저장된 오버라이드를 불러온다. */
+  useEffect(() => {
+    setLyricsOverride(getChartLyrics(selected?.publicId));
+  }, [selected?.publicId]);
   /* 선택된 마디 수(중복 제거) — 저장 버튼 라벨/활성화용. */
   const lickSelCount = useMemo(() => {
     if (lickRanges.length === 0 || !previewSheet) return 0;
@@ -2473,7 +2502,7 @@ export default function SolosPage() {
 
   return (
     <PageContainer>
-      <IconSidebar />
+      <AppSidebar />
       <RightSection>
         {/* 상단 '돌아가기' 바 제거 — 솔로 DB 는 연주자 바가 최상단이다. */}
         <MainArea>
@@ -2499,7 +2528,7 @@ export default function SolosPage() {
                     <OMRBtn onClick={() => setImportModal('midi')} title="MIDI(.mid) 파일에서 멜로디를 추출해 악보로 불러오기">
                       🎹 MIDI로 생성하기
                     </OMRBtn>
-                    {isAdmin && (
+                    {isStudio && (
                       <OMRBtn
                         onClick={() => { setQueueLogEntries(listQueueLog()); setQueueLogOpen(true); }}
                         title="대량 OMR 큐의 영속 기록 — 새로고침·이탈 후에도 결과 확인 (admin)"
@@ -2644,7 +2673,7 @@ export default function SolosPage() {
                                 <TrashGlyph s={17} />
                               </RowIconBtn>
                               {/* admin 전용 — 백엔드 GET 응답 원문 확인(디버깅용). */}
-                              {isAdmin && (
+                              {isStudio && (
                                 <RowIconBtn
                                   title="응답값 받기 (admin)"
                                   aria-label="응답값 받기"
@@ -2781,6 +2810,23 @@ export default function SolosPage() {
                         >
                           <IcoDownload />
                         </ToolBtn>
+                        {/* 가사 — 가사가 있는 악보에만 뜬다. 이 악보 전용으로 켜고 끄며,
+                            선택은 기기에 기억된다(전역 기본값은 설정에서). */}
+                        {lyricVerses > 0 && (
+                          <ToolBtn
+                            type="button"
+                            title={lyricsShown ? '가사 숨기기' : `가사 보기 (${lyricVerses}절)`}
+                            aria-pressed={lyricsShown}
+                            $lit={lyricsShown}
+                            onClick={() => {
+                              const next = !lyricsShown;
+                              setLyricsOverride(next);
+                              setChartLyrics(selected.publicId, next);
+                            }}
+                          >
+                            <IcoLyrics />
+                          </ToolBtn>
+                        )}
                         <KeyAnchor>
                           <ToolBtn
                             type="button"
@@ -2815,7 +2861,7 @@ export default function SolosPage() {
                           <IcoTrash />
                         </ToolBtn>
                         {/* admin 전용 — 백엔드 GET 응답 원문 확인(디버깅용). */}
-                        {isAdmin && (
+                        {isStudio && (
                           <ToolBtn
                             type="button"
                             title="응답값 받기 (admin)"
@@ -2873,6 +2919,7 @@ export default function SolosPage() {
                           selectable={lickSelectMode}
                           selectedRanges={lickRanges}
                           onSelectionChange={setLickRanges}
+                          showLyrics={lyricsShown}
                         />
                       )}
                     </PreviewBody>

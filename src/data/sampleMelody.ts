@@ -26,6 +26,19 @@ export type Dynamic =
   | 'fp' | 'pf' | 'sf' | 'sfz' | 'sff' | 'sffz' | 'sfp'
   | 'rfz' | 'rf' | 'fz';
 
+/** 한 음표에 붙는 가사 음절 하나(= MusicXML `<lyric>` 하나). */
+export interface LyricSyllable {
+  /** 절 번호 — MusicXML `<lyric number>`. 1절, 2절… (기본 1) */
+  verse: number;
+  /** 음절 텍스트 ('Beau', 'ti', 'ful', 'love,') */
+  text: string;
+  /** 낱말 안에서의 위치 — 하이픈을 그릴지 판단한다.
+   *  `begin`/`middle` 뒤에는 다음 음절로 이어지는 하이픈이 붙는다. */
+  syllabic?: 'single' | 'begin' | 'middle' | 'end';
+  /** 멜리스마 — 한 음절이 다음 음표들까지 이어진다(`<extend/>`). 밑줄로 그린다. */
+  extend?: boolean;
+}
+
 export interface NoteInfo {
   keys: string[];                               // VexFlow keys e.g. ['c/5']
   duration: string;                             // 'w','h','q','8','16' or 'wr','hr','qr','8r'
@@ -34,6 +47,11 @@ export interface NoteInfo {
   accidentals?: Record<number, '#' | 'b' | 'n' | '##' | 'bb'>;
   tie?: boolean;                                // tie to the NEXT note of same pitch
   tieContinuation?: boolean;                    // this note is the receiving end of a tie — visually rendered but absorbed into prev note's sound by the player
+  /** 화음에서 **일부 음만** 타이로 묶일 때의 keys[] 인덱스 목록(예: 베이스만
+   *  붙잡고 윗성부는 움직이는 보이싱). 생략하면 keys 전체가 타이 대상이다.
+   *  타이로 넘어온 음은 임시표를 다시 찍지 않으므로, 이 구분이 없으면 안 묶인
+   *  음의 ♭/♯ 까지 함께 사라진다(MusicXML 원본 대조에서 실제로 발견). */
+  tieKeys?: number[];
   gliss?: boolean;                              // glissando to the NEXT note
   scoop?: boolean;                              // 스쿱 — 음표 앞에서 아래→위로 끌어올려 진입하는 곡선(재즈 슬라이드)
   fall?: boolean;                               // 폴 — 음표 뒤에서 아래로 떨어지는 곡선(재즈 슬라이드)
@@ -47,12 +65,22 @@ export interface NoteInfo {
   stem?: 'up' | 'down';                         // explicit stem direction (= XML <stem>); overrides autoStem
   chord?: string;                               // chord change at this note position
   ghost?: boolean;                              // ghost note — rendered in parentheses ()
+  /** 노트헤드 모양 — MusicXML `<notehead>`. 생략하면 일반 머리.
+   *  재즈 채보에서 가장 흔한 건 `slash`(리듬 슬래시 = 컴핑 지시)다. 이건 음정이
+   *  아니라 리듬만 뜻하므로 **소리 나지 않는다**(고정 자리음 D3 등이 그대로
+   *  울리면 멜로디 밑에 엉뚱한 저음이 계속 깔린다). */
+  notehead?: 'slash' | 'x' | 'diamond' | 'triangle-up' | 'triangle-down' | 'square' | 'circle-x';
+  /** 큐 음표(MusicXML `<cue>`) — 참고용 작은 음표. 규격상 연주하지 않는다. */
+  cue?: boolean;
   /** TAB 수동 운지 — keys 인덱스별 강제 현 번호(1=가는 줄). 프렛은 음정에서
    *  자동 계산되므로 표기·소리가 어긋날 수 없다. 해당 현에서 그 음이 안 나면
    *  렌더러가 조용히 무시하고 자동 운지로 돌아간다(이조 후 안전). */
   tabStrings?: Record<number, number>;
   /** 음표 위 텍스트(연주 지시 — pizz./arco/mute/legato 등 자유 문자열). */
   textAbove?: string;
+  /** 가사 음절 — 이 음표에 붙는 절(verse)별 음절. MusicXML `<lyric>` 1:1 대응.
+   *  보컬용 리드시트에서 음표 아래에 절 순서대로 쌓여 그려진다. */
+  lyrics?: LyricSyllable[];
   /** 서스테인 페달 시작(Ped.) / 끝(*) — 같은 줄 안에서만 그려진다. */
   pedalStart?: boolean;
   pedalEnd?: boolean;
@@ -122,6 +150,10 @@ export interface NoteSheetData {
   /** True when this part is a channel-10 percussion staff — its notes are GM
    *  percussion keys played through the drum sampler, not pitched. */
   isDrum?: boolean;
+  /** 이조 악기 파트의 **적힌 음 → 울리는 음** 반음 차(MusicXML `<transpose>`).
+   *  B♭ 트럼펫 = −2, E♭ 알토색소폰 = −9. 악보는 적힌 음 그대로 그리고(연주자가
+   *  그렇게 읽는다) **재생할 때만** 이 값을 더한다. 없으면 조옮김 없음(C 악기). */
+  transposeSemis?: number;
   /** 양손(그랜드 스태프) 악보의 왼손(낮은음자리표) 파트. `measures`와 같은
    *  인덱스로 마디가 1:1 정렬된다(모자라면 빈 마디). 존재하면 양손 악보. */
   bassMeasures?: MeasureInfo[];

@@ -119,6 +119,10 @@ export function extractMelody(sheet: NoteSheetData, opts?: ExtractMelodyOpts): M
   const style: AccidentalStyle = opts?.accidentalStyle ?? "score";
   const out: MelodyNote[] = [];
   let ottavaShift = 0; // ±12(8va/8vb) · ±24(15ma/15mb) while inside a bracket
+  /* 이조 악기 파트(B♭ 트럼펫·E♭ 알토 등)의 **적힌 음 → 울리는 음** 반음 차.
+   * MusicXML `<transpose>` 에서 온다. 악보는 적힌 음 그대로 그려야 하므로
+   * (연주자가 그렇게 읽는다) 소리 낼 때만 옮긴다. */
+  const transposeSemis = sheet.transposeSemis ?? 0;
   // Apply the sheet's key signature to bare notes so playback pitch matches
   // what the rendered key signature makes the reader see/hear. Mid-piece key
   // overrides (measure.key) switch the signature from that bar on.
@@ -167,7 +171,10 @@ export function extractMelody(sheet: NoteSheetData, opts?: ExtractMelodyOpts): M
       else if (note.ottavaStart === "15mb") ottavaShift = -24;
 
       const nextOpen = isGrace ? openTies : new Map<number, number>();
-      const isRest = isRestNote(note);
+      /* 리듬 슬래시·큐 음표는 **자리만 지키고 소리는 내지 않는다**. 슬래시는
+       * 컴핑 리듬 지시라 조판자가 아무 자리음(대개 D3)을 박아 두는데, 그대로
+       * 울리면 멜로디 밑에 엉뚱한 저음이 계속 깔린다(실측: 한 파일 184개). */
+      const isRest = isRestNote(note) || !!note.cue || note.notehead === 'slash';
       /* 표기 → 소리 세기: 고스트(괄호)는 여리게, 악센트/마르카토는 세게.
        * 드럼 샘플러는 velocity 구간으로 아티큘레이션까지 고른다(<0.3 = 고스트
        * 브러시 터치, >0.8 = 강타) — 악보에 적힌 대로 들리게 하는 핵심이다.
@@ -186,7 +193,7 @@ export function extractMelody(sheet: NoteSheetData, opts?: ExtractMelodyOpts): M
             ),
           );
           if (raw == null) continue;
-          const midi = raw + ottavaShift;
+          const midi = raw + ottavaShift + transposeSemis;
 
           if (isGrace) {
             // Acciaccatura crush: a short note ending on the beat it decorates.

@@ -2,6 +2,7 @@ import { useState, lazy } from 'react';
 import { Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { AppShell } from './AppShell';
 import { SidebarSlot, type AppSidebarProps } from './components/layout/sidebarSlot';
+import { SurfaceContext } from './lib/surface';
 import { IconSidebar } from './components/layout/IconSidebar';
 import { NativeBottomBar } from './components/native/NativeBottomBar';
 import { AiChatSheet } from './components/native/AiChatSheet';
@@ -83,6 +84,7 @@ export default function App() {
       <BackendBadge />
       {showIntro && <IntroScreen onDone={handleIntroDone} />}
       {/* 페이지들이 렌더하는 <AppSidebar /> 에 실서비스 사이드바를 넣는다. */}
+      <SurfaceContext.Provider value="app">
       <SidebarSlot.Provider value={renderAppSidebar}>
       <AppShell
         routes={
@@ -148,6 +150,7 @@ export default function App() {
         </>}
       />
       </SidebarSlot.Provider>
+      </SurfaceContext.Provider>
     </>
   );
 }

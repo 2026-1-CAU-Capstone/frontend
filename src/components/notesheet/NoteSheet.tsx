@@ -14,7 +14,6 @@ import type {
   Dot as DotT,
   BarlineType as BarlineTypeT,
   StaveTie as StaveTieT,
-  Tuplet as TupletT,
   VoltaType as VoltaTypeT,
   Repetition as RepetitionT,
   Articulation as ArticulationT,
@@ -47,7 +46,6 @@ type Accidental = AccidentalT;
 type Dot = DotT;
 type BarlineType = BarlineTypeT;
 type StaveTie = StaveTieT;
-type Tuplet = TupletT;
 type VoltaType = VoltaTypeT;
 type Repetition = RepetitionT;
 type Articulation = ArticulationT;
@@ -72,7 +70,6 @@ let Accidental: typeof AccidentalT;
 let Dot: typeof DotT;
 let BarlineType: typeof BarlineTypeT;
 let StaveTie: typeof StaveTieT;
-let Tuplet: typeof TupletT;
 let VoltaType: typeof VoltaTypeT;
 let Repetition: typeof RepetitionT;
 let Articulation: typeof ArticulationT;
@@ -107,7 +104,6 @@ async function __ensureVexflow() {
   Dot = vf.Dot;
   BarlineType = vf.BarlineType;
   StaveTie = vf.StaveTie;
-  Tuplet = vf.Tuplet;
   VoltaType = vf.VoltaType;
   Repetition = vf.Repetition;
   Articulation = vf.Articulation;
@@ -133,6 +129,7 @@ async function __ensureVexflow() {
 import type { NoteSheetData, MeasureInfo, NoteInfo, SheetStaff } from '../../data/sampleMelody';
 import { sheetToStaves, stavesToPlaybackParts, isTabKind, tabTuningFor, clefForKind, restKeyForClef, displayNotesFor, fitTabClefToStave, type NotationClef } from '../../lib/note/sheetStaves';
 import { buildDrumNote } from '../../lib/note/drumVexNote';
+import { drawTuplets } from '../../lib/note/tupletBrackets';
 import { assignTabPositions, type TabPos } from '../../lib/note/tabFingering';
 import { chordToDiagram, drawFretDiagram, type FretDiagram } from '../../lib/note/chordDiagram';
 import { resolveSheetMidis } from '../../lib/note/resolvePitches';
@@ -169,6 +166,9 @@ import { grandStaffDy, GRAND_BASS_DY } from '../../lib/note/grandStaffLayout';
 import {
   staffExtent, lineOrigins, sheetHeight, SPACE_ABOVE, NO_EXTENT, type LineBox,
 } from '../../lib/note/sheetVerticalLayout';
+import { showLyricsDefault } from '../../lib/pagePrefs';
+import { usePref } from '../../lib/prefsStore';
+import { drawLyrics, lyricHeight, maxVerseCount, LYRIC_TOP_GAP, type LyricAnchor } from '../../lib/note/lyricLayout';
 import { useNoteNameStyle } from '../../hooks/useNoteNameStyle';
 import { drawNoteNameLabels } from '../../lib/note/noteNameLabels';
 
@@ -952,7 +952,7 @@ function buildBassStaveNotes(
         const glyph = resolveMeasureAccidental(
           active, keySigAcc, keys[ki],
           n.accidentals?.[ki],
-          { courtesy: !explicitAcc },
+          { courtesy: !explicitAcc, tied: n.tieKeys ? n.tieKeys.includes(ki) : n.tieContinuation },
         );
         if (glyph) note.addModifier(new Accidental(glyph), ki);
       }
@@ -1057,7 +1057,7 @@ function buildExtraRowNotes(
     if (n.dotted) Dot.buildAndAttach([note]);
     if (!isRest) {
       for (let ki = 0; ki < keys.length; ki++) {
-        const glyph = resolveMeasureAccidental(active, keySigAcc, keys[ki], n.accidentals?.[ki], { courtesy: !explicitAcc });
+        const glyph = resolveMeasureAccidental(active, keySigAcc, keys[ki], n.accidentals?.[ki], { courtesy: !explicitAcc, tied: n.tieKeys ? n.tieKeys.includes(ki) : n.tieContinuation });
         if (glyph) note.addModifier(new Accidental(glyph), ki);
       }
     }
@@ -1098,6 +1098,9 @@ interface NoteSheetProps {
    *  parent renders its own transport (NotePage) and drives this NoteSheet
    *  via the imperative handle below. */
   hideTransport?: boolean;
+  /** 가사 표시 — 악보에 가사가 있어도 이 값이 false 면 그리지 않는다.
+   *  생략하면 **전역 기본값**(`showLyricsDefault`)을 따른다. */
+  showLyrics?: boolean;
   /** Skip the mount-time instrument warmup. Set on static thumbnails/previews
    *  (e.g. 내 악보 차트 cards) that render the score but never play. Without it,
    *  every card mounts and preloads the full piano/bass/drum sample banks,
@@ -1144,10 +1147,14 @@ export interface NoteSheetHandle {
 export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function NoteSheet({
   data, selectedKey, allKeys, onKeyChange, selectable, selectedRanges, onSelectionChange,
   showMeasureNumbers, lineStartMeasureNumbers, forceAutoStem,
-  hideTransport, noPreload, onPlayingChange, onTempoChange,
+  hideTransport, showLyrics, noPreload, onPlayingChange, onTempoChange,
   breakEditMode = false, breakPoints, onToggleBreak, extraParts: extraPartsProp,
   partOptions, selectedPartId, onSelectPart, lockSwing,
 }, ref) {
+
+  /* 가사 표시 — prop 이 있으면 그 값, 없으면 전역 기본값(설정에서 바꾼다). */
+  const [lyricsDefault] = usePref(showLyricsDefault);
+  const lyricsOn = showLyrics ?? lyricsDefault;
   /* 다중 스태프 악보(data.staves)의 추가 파트는 뷰어가 스스로 재생 파트를
    * 만든다(TAB→해당 악기 음색, 드럼→퍼커션 채널·key C). 호출자가 extraParts 를
    * 명시하면 그것이 우선 — 기존 호출부(양손 LH 전달 등)와 충돌하지 않는다. */
@@ -1903,11 +1910,16 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
       const bExt = grand
         ? staffExtent(idxs.map((i2) => data.bassMeasures?.[i2]?.notes ?? []), 10, 'bass')
         : NO_EXTENT;
+      /* 가사는 오선 아래로 뻗는다 — 절 수만큼 자리를 잡아야 아랫줄과 겹치지 않는다.
+       * 표시가 꺼져 있으면 자리도 잡지 않는다(빈 여백이 남지 않게). */
+      const lyricH = lyricsOn
+        ? lyricHeight(maxVerseCount(idxs.map((i2) => dispMeasures[i2] ?? { notes: [] })))
+        : 0;
       return {
         chordRow: lineHeadrooms[li2] ?? 0,
         above: tExt.above,
         bottomLine4: (grand ? lineBassDy[li2] : 0) + SPACE_ABOVE + 4 * 10 + extrasH,
-        below: grand ? bExt.below : tExt.below,
+        below: (grand ? bExt.below : tExt.below) + lyricH,
       };
     });
     const lineOriginY = lineOrigins(lineBoxes, lineH, MARGIN.top);
@@ -1965,6 +1977,10 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
 
     for (let li = 0; li < numLines; li++) {
       const indices = lines[li];
+      /* 이 줄의 가사 앵커 — 마디를 돌며 모았다가 줄이 끝나면 한 번에 그린다.
+       * 낱말 하이픈·멜리스마 선이 **마디선을 넘어** 이어지므로 줄 단위로 처리한다. */
+      const lineLyrics: LyricAnchor[] = [];
+      const lineNoteXs: number[] = [];
       const isFirstLine = li === 0;
       const isLastLine = li === numLines - 1;
       /* 균등 배치가 아니라 누적 — 코드 글자가 필요로 하는 만큼 줄이 내려간다. */
@@ -1972,6 +1988,28 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
       const bassDy = lineBassDy[li] ?? GRAND_BASS_DY;
       const lineHeadroomPx = lineHeadrooms[li] ?? defaultHeadroom(chordMetrics);
       const decorW = isFirstLine ? layout.decorFirst : layout.decorOther;
+
+      /* ── 코드 심볼 baseline — **줄 단위 공통값** ──────────────────────
+       * 마디마다 따로 계산하면 높은 음이 있는 마디만 코드가 위로 밀려, 한 줄
+       * 안에서 코드 높이가 들쭉날쭉해진다(실제로 그렇게 보였다). 리드시트
+       * 관례대로 **그 줄에서 가장 위로 올라간 마디를 기준**으로 한 줄을 맞춘다
+       * (에디터 렌더러가 이미 쓰는 방식과 동일).
+       *
+       * ⚠️ stave 는 아래 마디 루프에서 만들어지므로 여기선 아직 없다. 모든
+       * 마디의 stave y 는 같은 줄이면 동일하므로, 줄 원점 y 로부터 같은
+       * 규칙(getYForLine)을 쓰는 임시 Stave 하나로 계산한다. */
+      const lineChordY = (() => {
+        const probe = new Stave(MARGIN.left, y, 100);
+        const getY = (line: number) => probe.getYForLine(line);
+        let top = Infinity;
+        for (const mi2 of indices) {
+          const md = dispMeasures[mi2];
+          if (!md) continue;
+          top = Math.min(top, chordBaselineY(md.notes, getY, y + 12, { gap: 4, minY: 12 }));
+        }
+        if (!Number.isFinite(top)) top = y + 12;
+        return clampChordTop(top, getY(0), lineHeadroomPx - chordMetrics.rowH);
+      })();
       const availForBars = totalW - decorW;
 
       // Per-bar min widths (more space for dense bars). Distribute the line's
@@ -2343,7 +2381,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
             // (e.g. {keys:['c/4','eb/4','g/4'], accidentals:{1:'b'}}) resolve too.
             for (let ki = 0; ki < keys.length; ki++) {
               const acc = ki === 0 ? realAcc : (n.accidentals?.[ki] as Acc | undefined);
-              const glyph = resolveMeasureAccidental(activeAcc, keySigAcc, keys[ki], acc, { courtesy: !explicitAcc });
+              const glyph = resolveMeasureAccidental(activeAcc, keySigAcc, keys[ki], acc, { courtesy: !explicitAcc, tied: n.tieKeys ? n.tieKeys.includes(ki) : n.tieContinuation });
               if (glyph) note.addModifier(new Accidental(glyph), ki);
             }
           }
@@ -2392,15 +2430,9 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
           // 덧줄을 타고 올라간 고음이 코드 글자를 뚫지 않도록 baseline 을 위로
           // 밀어 올린다(음높이 기반 — 코드는 voice.draw 보다 먼저 그려서 bbox 를
           // 쓸 수 없다). 보표 안에 머무는 음은 기본 위치 그대로.
-          /* 확보해 둔 headroom 밖으로는 못 나간다 — 윗줄 침범 차단 빗장.
-           * baseline 기준이므로 글자 높이(rowH)만큼 안쪽으로 잡는다. */
-          const chordY = clampChordTop(
-            chordBaselineY(
-              measure.notes, (line) => stave.getYForLine(line), y + 12,
-              { gap: 4, minY: 12 },
-            ),
-            stave.getYForLine(0), lineHeadroomPx - chordMetrics.rowH,
-          );
+          /* 줄 단위 공통 baseline — 이 줄에서 가장 높이 올라간 마디를 기준으로
+           * 이미 계산해 뒀다(줄 루프 상단). 마디마다 다시 계산하지 않는다. */
+          const chordY = lineChordY;
           const svgEl = el.querySelector('svg');
           if (svgEl) {
             const chords = measure.chord.split(/\s{2,}/);
@@ -2610,6 +2642,26 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
           fmt.formatToStave(allVoices, stave);
         }
         voice.draw(ctx, stave);
+        /* 가사 앵커 수집 — 포맷이 끝난 뒤라 음표 x 가 확정돼 있다.
+         * vfNotes 는 꾸밈음을 제외한 실음 목록이고, measureIdxOfVf 로 원본
+         * 음표(가사 보유)를 되찾는다. */
+        if (lyricsOn) for (let vi = 0; vi < vfNotes.length; vi++) {
+          const srcIdx = measureIdxOfVf[vi];
+          const src = srcIdx != null ? measure.notes[srcIdx] : undefined;
+          if (!src?.lyrics?.length) continue;
+          let cx: number;
+          try {
+            const bb = vfNotes[vi].getBoundingBox();
+            cx = bb.getX() + bb.getW() / 2;
+          } catch { cx = vfNotes[vi].getAbsoluteX(); }
+          lineLyrics.push({ x: cx, lyrics: src.lyrics });
+        }
+        for (let vi = 0; vi < vfNotes.length; vi++) {
+          try {
+            const bb = vfNotes[vi].getBoundingBox();
+            lineNoteXs.push(bb.getX() + bb.getW() / 2);
+          } catch { /* noop */ }
+        }
         if (v2Voice) {
           v2Voice.draw(ctx, stave);
           try {
@@ -2671,72 +2723,25 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
         //    아니라 선언된 N("3","5",…)을 그대로 쓴다 — 예전 구현은 그룹
         //    크기를 라벨로 써서 [8분,4분] 3연음이 "2"로 찍혔다. ──
         {
-          const rawBeats = (src: NoteInfo): number => {
-            const base = src.duration.replace(/[rd]+$/, '');
-            let b = DUR_BEATS[base] ?? 1;
-            if (src.dotted) b *= 1.5;
-            return b;
-          };
-          let ti = 0;
-          while (ti < measure.notes.length) {
-            if (measure.notes[ti].grace) { ti++; continue; }
-            const n = measure.notes[ti].tuplet;
-            if (n && n >= 3) {
-              const startTi = ti; // capture first non-grace index of this tuplet group
-              const group: StaveNote[] = [];
-              // The first note of the tuplet group carries the bracket preference.
-              const bracketAttr = measure.notes[startTi].tupletBracket;
-              const tupletNormalFromData = measure.notes[startTi].tupletNormal;
-              // 한 브래킷의 무스케일 목표치 = N × (그룹 첫 음의 길이).
-              // [8,8,8]·[8,4분] 3연음은 1.5, [16×6] 6연음은 1.5, [16×5] 5연음은
-              // 1.25 — 첫 음이 브래킷의 기준 단위라는 표기 관례를 그대로 쓴다.
-              // (분할 변형: [8,8,16,16]도 누적 1.5 에서 닫혀 "3" 하나 ✓)
-              const target = n * rawBeats(measure.notes[startTi]);
-              let unscaled = 0;
-              while (ti < measure.notes.length) {
-                const src = measure.notes[ti];
-                if (src.grace) { ti++; continue; }
-                if (src.tuplet !== n) break;
-                const vIdx = vfNoteIdxOf[ti];
-                if (vIdx >= 0) {
-                  group.push(vfNotes[vIdx]);
-                  unscaled += rawBeats(src);
-                }
-                ti++;
-                if (unscaled >= target - 1e-6) break; // 한 브래킷 완결
-              }
-              if (group.length >= 2) {
-                const stemDown = group[0].getStemDirection() === -1;
-                // Prefer XML-supplied normal-notes (handles unusual ratios
-                // like 7:6, 5:3). Fall back to power-of-2 heuristic when
-                // the data lacks the explicit denominator.
-                const notesOccupied = tupletNormalFromData ?? Math.pow(2, Math.floor(Math.log2(n - 1)));
-                // 브래킷 규칙:
-                //  · 그룹이 자기 빔과 1:1 일치 → 숫자만(관례; XML bracket=yes면 존중)
-                //  · 빔이 전혀 없는 투플렛 → 브래킷 강제(안 그리면 범위 불명)
-                //  · 더 긴 빔 "안에" 섞인 투플렛 → 숫자만 — 여기서 브래킷을
-                //    강제하면 VexFlow가 빔 위로 기울어진 브래킷 선을 그려
-                //    빔과 X자로 교차한다(Confirmation m73/m75에서 실측).
-                const first = beamOf.get(group[0]);
-                const exactSpan = !!first
-                  && group.length === first.size
-                  && group.every((g) => beamOf.get(g)?.id === first.id);
-                const anyBeamed = group.some((g) => beamOf.has(g));
-                const tupletOpts: { numNotes: number; notesOccupied: number; bracketed?: boolean } = {
-                  numNotes: n, notesOccupied,
-                  bracketed: exactSpan
-                    ? (bracketAttr ?? false)
-                    : anyBeamed ? false : (bracketAttr ?? true),
-                };
-                const tuplet = new Tuplet(group, tupletOpts);
-                if (stemDown) tuplet.setTupletLocation(-1);
-                tuplet.setContext(ctx).draw();
-              }
-            } else { ti++; }
-          }
+          /* 잇단음표 브래킷 — lib/note/tupletBrackets 가 단일 소스(에디터 공용). */
+          drawTuplets(
+            { notes: measure.notes, vfNotes, vfIndexOf: (i) => vfNoteIdxOf[i], beamOf },
+            ctx,
+          );
         }
 
         x += w;
+      }
+
+      /* ── 가사 작도 — 줄 단위(하이픈·멜리스마가 마디선을 넘기 때문). ── */
+      if (lyricsOn && lineLyrics.length > 0 && svgEl) {
+        lineLyrics.sort((p1, p2) => p1.x - p2.x);
+        lineNoteXs.sort((p1, p2) => p1 - p2);
+        drawLyrics(svgEl, lineLyrics, {
+          baselineY: y + SPACE_ABOVE + 4 * 10 + LYRIC_TOP_GAP,
+          rightEdge: x - 4,
+          noteXs: lineNoteXs,
+        });
       }
     }
 
@@ -2758,9 +2763,15 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
             // three ties simultaneously.
             const firstIndexes: number[] = [];
             const lastIndexes: number[] = [];
+            /* 받는 쪽에 `tieKeys` 가 있으면 **그 음들만** 묶는다 — 화음의 일부만
+             * 이어지는 보이싱(베이스만 붙잡고 윗성부는 움직임)에서 음높이만 보고
+             * 짝지으면 원본에 없는 타이가 더 그려진다. */
+            const only = measure.notes[ni + 1]?.tieKeys;
             for (let i = 0; i < from.keys.length; i++) {
               const j = to.keys.indexOf(from.keys[i]);
-              if (j >= 0) { firstIndexes.push(i); lastIndexes.push(j); }
+              if (j < 0) continue;
+              if (only && !only.includes(j)) continue;
+              firstIndexes.push(i); lastIndexes.push(j);
             }
             if (firstIndexes.length === 0) { firstIndexes.push(0); lastIndexes.push(0); }
 

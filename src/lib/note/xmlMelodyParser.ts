@@ -1,9 +1,9 @@
 import { unzipSync } from 'fflate';
 import type {
-  NoteSheetData, NoteInfo, MeasureInfo,
-  Articulation, Ornament, Dynamic, NavigationMarker,
-} from '../../data/sampleMelody';
+  NoteSheetData, NoteInfo, MeasureInfo, StaffKind,
+  Articulation, Ornament, Dynamic, NavigationMarker, LyricSyllable } from '../../data/sampleMelody';
 import { gmProgramToInstrument, DRUM_INSTRUMENT } from './gmInstruments';
+import { DRUM_PALETTE, gmToVexKey } from './drumNotation';
 
 /* ─── MusicXML → NoteSheetData parser ────────────────────────────────── */
 /*
@@ -77,6 +77,235 @@ function keySigLettersFor(fifths: number): Set<string> {
   return out;
 }
 
+type AccGlyph = '#' | 'b' | 'n' | '##' | 'bb';
+
+/**
+ * `<attributes><transpose>` → 적힌 음 → 울리는 음 반음 차.
+ *
+ * `<chromatic>` 이 반음 차이고, `<octave-change>` 가 옥타브를 더한다.
+ * B♭ 트럼펫 = −2, E♭ 알토색소폰 = −9, 테너색소폰 = −2 + (−1 옥타브) = −14.
+ * 표기는 적힌 음 그대로 두고(이조 악기 연주자가 그렇게 읽는다) 재생에만 쓴다.
+ */
+function readTransposeSemis(scope: Element | Document): number | undefined {
+  const t = scope.querySelector('transpose');
+  if (!t) return undefined;
+  const chromatic = parseInt(t.querySelector('chromatic')?.textContent ?? '0', 10) || 0;
+  const octave = parseInt(t.querySelector('octave-change')?.textContent ?? '0', 10) || 0;
+  const semis = chromatic + octave * 12;
+  return semis === 0 ? undefined : semis;
+}
+
+/** 조표가 그 글자에 주는 기본 임시표. 조표에 없는 글자는 내추럴. */
+function keySigDefaultFor(step: string, letters: Set<string>, fifths: number): AccGlyph {
+  if (!letters.has(step)) return 'n';
+  return fifths > 0 ? '#' : 'b';
+}
+
+/**
+ * 한 <note> 의 임시표를 **소리**와 **표기** 두 값으로 나눠 읽는다.
+ *
+ * MusicXML 의 `<pitch>` 는 조표와 무관한 절대 음이다 — `<alter>` 가 없으면 그
+ * 글자의 내추럴이다(E♭ 조표라도 `<alter>-1</alter>` 이 없으면 E 내추럴). 반면
+ * `<accidental>` 은 **조판자가 실제로 찍은 기호**이고, 조표가 이미 주는 변화음
+ * 에는 붙지 않는다.
+ *
+ * 예전엔 `<alter>` 만 보고 임시표를 무조건 저장해서, E♭ 조표의 E♭·A♭ 마다
+ * ♭ 이 한 번 더 그려졌다(실측: 전 파일에서 원본의 2~3배). 반대로 `<alter>` 가
+ * 없는 조표 글자(= 내추럴)는 아무 표기도 남기지 않아, 렌더러·플레이어가 조표를
+ * 적용해 **반음 틀린 소리**가 났다(실측 205개).
+ *
+ * 그래서 저장 규칙을 `emitScoreAccidentals`(resolvePitches) 와 같은
+ * "조표 기준 최소 표기" 로 통일한다:
+ *   조판자가 찍었거나(courtesy 포함) 소리가 조표 기본값과 다르면 명시, 아니면 생략.
+ * 생략된 음은 렌더러·플레이어 모두 조표 기본값으로 읽으므로 표시·소리가 일치한다.
+ */
+function readAccidental(
+  nEl: Element,
+  pitchEl: Element,
+  step: string,
+  keySigLetters: Set<string>,
+  fifths: number,
+): { sounding: AccGlyph; print: AccGlyph | undefined } {
+  const accText = text(nEl, 'accidental');
+  const printedGlyph = accText ? ACC_MAP[accText] : undefined;
+  const alterTxt = text(pitchEl, 'alter');
+  let sounding: AccGlyph;
+  if (alterTxt !== null) {
+    const a = parseInt(alterTxt, 10) || 0;
+    sounding = a === 1 ? '#' : a === -1 ? 'b' : a === 2 ? '##' : a === -2 ? 'bb' : 'n';
+  } else {
+    // <alter> 없음 = 내추럴. 단 <accidental> 만 있고 <alter> 를 빠뜨린 비정상
+    // 파일은 찍힌 기호를 소리로 믿는다(그게 조판자의 의도다).
+    sounding = printedGlyph ?? 'n';
+  }
+  const ks = keySigDefaultFor(step, keySigLetters, fifths);
+  return { sounding, print: (printedGlyph || sounding !== ks) ? sounding : undefined };
+}
+
+/** 임시표 글리프 → 반음 변화(소리 계산용). */
+const ACC_SEMIS: Record<AccGlyph, number> = { '#': 1, b: -1, n: 0, '##': 2, bb: -2 };
+
+/**
+ * 주 빔(<beam number="1">) 을 읽어 음표에 표시한다.
+ *   begin → 빔 시작 · end → beamBreak · 없음 → noBeam(홀로 깃발)
+ * 2·3차 빔(16·32분음표 꼬리)은 VexFlow 가 음표 길이로 알아서 그린다.
+ * 문서 어디에도 <beam> 이 없으면 조판자가 지정을 안 한 것이므로 렌더러의
+ * 자동 빔에 맡긴다(`docHasBeams`).
+ */
+function applyPrimaryBeam(
+  nEl: Element, ni: NoteInfo, typeStr: string, isGrace: boolean, docHasBeams: boolean,
+  setOpen: (open: boolean) => void,
+): void {
+  if (!(BEAMABLE_XML_TYPES.has(typeStr) && !isGrace && docHasBeams)) return;
+  let primaryBeam: string | null = null;
+  for (const be of nEl.querySelectorAll('beam')) {
+    if ((be.getAttribute('number') ?? '1') === '1') {
+      primaryBeam = (be.textContent ?? '').trim();
+      break;
+    }
+  }
+  if (primaryBeam === null) { ni.noBeam = true; setOpen(false); }
+  else if (primaryBeam === 'begin') setOpen(true);
+  else if (primaryBeam === 'end') { ni.beamBreak = true; setOpen(false); }
+  // 'continue' / hooks keep the current beam state.
+}
+
+/* ─── 무음정 타악기(드럼) ─────────────────────────────────────────────── */
+
+/** `<score-part>` 의 `<midi-instrument id><midi-unpitched>` → GM 퍼커션 음.
+ *  MusicXML 의 midi-unpitched 는 **1-based** 라 GM = 값 − 1 이다. */
+function readUnpitchedMap(doc: Document, partId: string | null): Map<string, number> {
+  const map = new Map<string, number>();
+  if (!partId) return map;
+  for (const sp of doc.querySelectorAll('part-list > score-part')) {
+    if (sp.getAttribute('id') !== partId) continue;
+    for (const mi of sp.querySelectorAll('midi-instrument')) {
+      const id = mi.getAttribute('id');
+      const raw = mi.querySelector('midi-unpitched')?.textContent;
+      if (!id || !raw) continue;
+      const v = parseInt(raw, 10);
+      if (Number.isFinite(v)) map.set(id, v - 1);
+    }
+  }
+  return map;
+}
+
+/** 표기 위치(display-step/octave) + 노트헤드로 GM 을 되짚는 폴백 표.
+ *  `<instrument>` 참조가 없거나 매핑에 없는 파일에서 쓴다. */
+const DISPLAY_TO_GM = new Map<string, number>(
+  DRUM_PALETTE.map((p) => [`${p.displayKey}|${p.head ?? ''}`, p.gm]),
+);
+
+function unpitchedGm(nEl: Element, unpitchedEl: Element, map: Map<string, number>): number {
+  const ref = nEl.querySelector('instrument')?.getAttribute('id');
+  const byRef = ref ? map.get(ref) : undefined;
+  if (byRef !== undefined) return byRef;
+  const step = (text(unpitchedEl, 'display-step') ?? 'C').toLowerCase();
+  const oct = text(unpitchedEl, 'display-octave') ?? '5';
+  const head = (text(nEl, 'notehead') ?? '').trim();
+  return DISPLAY_TO_GM.get(`${step}/${oct}|${head === 'normal' ? '' : head}`)
+    ?? DISPLAY_TO_GM.get(`${step}/${oct}|`)
+    ?? 38;   // 최후 폴백: 스네어
+}
+
+/** MusicXML `<notehead>` → 모델 값. 'normal'·미지원 모양은 남기지 않는다. */
+const NOTEHEAD_MAP: Record<string, NonNullable<NoteInfo['notehead']>> = {
+  slash: 'slash', x: 'x', diamond: 'diamond',
+  'triangle-up': 'triangle-up', 'triangle-down': 'triangle-down',
+  square: 'square', 'circle-x': 'circle-x',
+};
+
+/** `<notehead>` · `<cue>` 를 음표에 옮긴다.
+ *
+ *  재즈 채보의 컴핑 구간은 음정 대신 **리듬 슬래시**로 적힌다(실측: 한 파일에
+ *  184개, 전부 고정 자리음 D3). 예전엔 이 표기를 무시해 멜로디 아래 D3 음표가
+ *  줄줄이 그려지고 재생에서도 그 음이 울렸다. */
+function applyNoteheadCue(nEl: Element, ni: NoteInfo): void {
+  const head = (text(nEl, 'notehead') ?? '').trim();
+  const mapped = NOTEHEAD_MAP[head];
+  if (mapped) ni.notehead = mapped;
+  if (nEl.querySelector('cue')) ni.cue = true;
+}
+
+
+/**
+ * `<barline>` → 세로줄 모양 · 도돌이 · 볼타. 단선율/양손 파서 공용.
+ * 반환값은 갱신된 볼타 상태(다음 마디로 이어진다).
+ */
+function applyBarline(
+  child: Element, measure: MeasureInfo, currentVolta: number | undefined,
+): number | undefined {
+  const location = child.getAttribute('location');
+  /* 겹줄·끝줄. 도돌이가 함께 오면 렌더러가 도돌이를 우선하므로 그냥 둔다. */
+  if (location !== 'left') {
+    const style = text(child, 'bar-style');
+    if (style === 'light-light') measure.barline = 'double';
+    else if (style === 'light-heavy') measure.barline = 'end';
+    else if (style === 'none') measure.barline = 'none';
+  }
+  const repeatEl = child.querySelector('repeat');
+  if (repeatEl) {
+    const dir = repeatEl.getAttribute('direction');
+    if (dir === 'forward') measure.repeatStart = true;
+    else if (dir === 'backward') measure.repeatEnd = true;
+  }
+  // A single barline may carry several <ending> elements — homr emits a
+  // combined volta as separate numbers (…number="4"…number="1"). The model
+  // holds one volta int, so represent the span by its LOWEST number.
+  const endingEls = child.querySelectorAll('ending');
+  if (endingEls.length > 0) {
+    let startNum: number | undefined;
+    let hasStop = false;
+    for (const e of endingEls) {
+      const num = parseInt(e.getAttribute('number') ?? '0', 10);
+      const type = e.getAttribute('type');
+      if (type === 'start' && num >= 1) {
+        startNum = startNum === undefined ? num : Math.min(startNum, num);
+      } else if (type === 'stop' || type === 'discontinue') {
+        hasStop = true;
+      }
+    }
+    if (startNum !== undefined) {
+      measure.volta = startNum;
+      return startNum;
+    }
+    if (hasStop && location !== 'left') {
+      // ending stops at the right barline of THIS measure → clear after
+      // this iteration so next measure has no volta.
+      return undefined;
+    }
+  }
+  return currentVolta;
+}
+
+/** `<direction-type>` 의 리허설 마크와 내비게이션(세뇨·코다·D.C./D.S. 텍스트).
+ *  기호(세뇨·코다)가 텍스트보다 우선한다 — 보표당 하나만 그릴 수 있어서다. */
+function applyRehearsalNav(dirType: Element, measure: MeasureInfo): void {
+  const rehearsalEl = dirType.querySelector('rehearsal');
+  if (rehearsalEl) {
+    const label = (rehearsalEl.textContent ?? '').trim();
+    if (label) measure.rehearsal = label;
+  }
+  if (dirType.querySelector('segno')) { measure.navigation = 'segno'; return; }
+  if (dirType.querySelector('coda')) { measure.navigation = 'coda'; return; }
+  if (measure.navigation === 'segno' || measure.navigation === 'coda') return;
+  for (const w of dirType.querySelectorAll('words')) {
+    const nav = parseNavigationWords(w.textContent ?? '');
+    if (nav) { measure.navigation = nav; return; }
+  }
+}
+
+/** 이 <note> 가 타이를 **받는** 쪽인지(시작만 하는 음은 false). */
+function noteTieStop(nEl: Element): boolean {
+  let stop = false, start = false;
+  for (const t of nEl.querySelectorAll(':scope > tie')) {
+    const tt = t.getAttribute('type');
+    if (tt === 'stop') stop = true;
+    if (tt === 'start') start = true;
+  }
+  return stop && !start;
+}
+
 /** Map common "D.C./D.S./Coda/Fine/To Coda" textual variants → NavigationMarker. */
 function parseNavigationWords(raw: string): NavigationMarker | null {
   const t = raw.toLowerCase().replace(/[.\s]+/g, '');
@@ -123,9 +352,13 @@ interface ParserState {
   /** Pending dynamic to attach to the next note. */
   pendingDynamic?: Dynamic;
   /** Pending ottava state — applied to subsequent notes until stopped. */
-  ottava?: '8va' | '8vb';
-  /** Note index (within current measure) where ottava started, for end marker. */
-  ottavaStartIdx?: number;
+  ottava?: '8va' | '8vb' | '15ma' | '15mb';
+  /** 브래킷 시작 대기 — 다음에 나오는 **음표**에 `ottavaStart` 를 붙인다.
+   *  종전엔 시작 지점을 `flatNoteIdx` 로 고정했는데, 지시와 첫 음 사이에 쉼표가
+   *  끼면(이 파일의 3개 구간 중 2개) 인덱스가 쉼표에 소모돼 표시를 놓쳤다. */
+  ottavaPending?: boolean;
+  /** 브래킷 구간에서 `keys`(적히는 음)에 더할 옥타브. 8va=-1 · 8vb=+1 · 15ma=-2 · 15mb=+2. */
+  ottavaOctDelta?: number;
   /** Pending hairpin start; flushes on next emitted note. */
   pendingHairpinStart?: 'cresc' | 'dim';
   /** Pending hairpin stop; flushes on next emitted note. */
@@ -155,6 +388,23 @@ export interface XmlParseOpts {
    *  chord group becomes one multi-key NoteInfo. Auto-enabled when a part has
    *  `<staves>2</staves>` and pianoPerformance is off. */
   grandStaff?: boolean;
+  /** @internal 이 voice 만 뽑는다 — 한 보표의 **두 번째 성부**를 같은 코드로 한 번
+   *  더 훑기 위한 스위치다(voice2 채우기). 외부에서 쓰지 않는다. */
+  onlyVoice?: string;
+}
+
+/** 이 파트에 실제 음표가 있는 voice 들을 **많은 순서**로 돌려준다.
+ *  단일 보표에 두 성부가 겹쳐 적힌 악보(왼손 컴핑 위 멜로디 등)를 찾아낸다. */
+function partVoices(scope: Element | Document): string[] {
+  const count = new Map<string, number>();
+  for (const nEl of scope.querySelectorAll('measure > note')) {
+    if (!nEl.querySelector('pitch') && !nEl.querySelector('unpitched')) continue;
+    const v = nEl.querySelector('voice')?.textContent ?? '1';
+    count.set(v, (count.get(v) ?? 0) + 1);
+  }
+  return [...count.entries()]
+    .sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0], undefined, { numeric: true }))
+    .map(([v]) => v);
 }
 
 /* 피치 근사용 반음 오프셋 (voice 평균 피치 비교에만 사용 — alter 무시). */
@@ -213,6 +463,13 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
   // File-level detection picks the right interpretation in each case.
   const docHasBeams = doc.querySelector('beam') !== null;
 
+  /* 드럼 보표용 <instrument id> → GM 표(무음정 음표 해석). 음정 파트에선 빈 맵. */
+  const unpitchedMap = readUnpitchedMap(doc, partEl?.getAttribute('id') ?? null);
+
+  /* 뽑아낼 성부. 지정이 없으면 이 파트에서 음표가 가장 많은 voice 다 — 예전엔
+   * '1' 고정이라, 조판자가 voice 2·5 로만 적은 파트가 통째로 빈 악보가 됐다. */
+  const defaultVoice = opts?.onlyVoice ?? partVoices(partEl ?? doc)[0] ?? '1';
+
   /* ── parse measures in order, tracking running state ─────────────── */
   const measures: MeasureInfo[] = [];
   const state: ParserState = {
@@ -221,12 +478,6 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
     divisions: initialDivisions,
     beatsPerMeasure: initialBeatsPerMeasure,
   };
-
-  // Slur tracking across the whole piece: map slur number → flat note index
-  // of the slur-start note. When a slur stop arrives, mark BOTH start and
-  // stop notes (slurStart/slurStop) so the renderer can pair them later.
-  // VexFlow renders slurs as Curve(s) between the start and stop notes.
-  let flatNoteIdx = 0;
 
   // Volta tracking: an <ending number="1"> spans one or more measures
   // until <ending type="stop"/>. We mark each measure inside the span.
@@ -258,8 +509,8 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
      * voice. music21은 voice 번호를 마디 단위로 재배정하므로 "voice 1 고정"은
      * 멜로디가 쉬는 마디에서 왼손 베이스를 멜로디로 집어온다(레저라인 저음이
      * 랜덤하게 섞이던 버그의 원인). */
-    let melodyVoice = '1';
-    if (opts?.pianoPerformance) {
+    let melodyVoice = defaultVoice;
+    if (opts?.pianoPerformance && !opts.onlyVoice) {
       const acc = new Map<string, { sum: number; n: number }>();
       for (const nEl of Array.from(mEl.children)) {
         if (nEl.tagName !== 'note') continue;
@@ -299,6 +550,9 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
     // {startTick,durTicks} of measure.notes[k], filled in lockstep with each push.
     let curTick = 0;
     const emitTimes: { startTick: number; durTicks: number }[] = [];
+    /* 직전에 방출한 음표와 그 화음 구성음 — 뒤따르는 <chord> 가 여기에 쌓인다.
+     * 화음은 마디를 넘지 않으므로 마디마다 새로 만든다. */
+    let chordGroup: { ni: NoteInfo; tones: ChordTone[] } | null = null;
 
     // Walk measure children in document order.
     for (const child of Array.from(mEl.children)) {
@@ -354,40 +608,20 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
         continue;
       }
 
-      /* ── <barline>: repeat + volta endings ───────────────────────── */
+      /* ── <print>: 시스템/페이지 브레이크 → 줄바꿈 ─────────────────
+       * 조판자가 정한 줄바꿈 위치다. 예전엔 무시해서 원본과 줄 구성이 달라졌다
+       * (마디 배열이 밀려 "어디가 어디인지" 대조가 안 됨). `lineBreak` 는 **앞
+       * 마디 뒤**에서 끊으라는 뜻이라 직전 마디에 표시한다. */
+      if (tag === 'print') {
+        const brk = child.getAttribute('new-system') === 'yes'
+          || child.getAttribute('new-page') === 'yes';
+        if (brk && measureIdx > 0) measures[measureIdx - 1].lineBreak = true;
+        continue;
+      }
+
+      /* ── <barline>: repeat + volta endings + 세로줄 모양 ──────────── */
       if (tag === 'barline') {
-        const location = child.getAttribute('location');
-        const repeatEl = child.querySelector('repeat');
-        if (repeatEl) {
-          const dir = repeatEl.getAttribute('direction');
-          if (dir === 'forward') measure.repeatStart = true;
-          else if (dir === 'backward') measure.repeatEnd = true;
-        }
-        // A single barline may carry several <ending> elements — homr emits a
-        // combined volta as separate numbers (…number="4"…number="1"). The model
-        // holds one volta int, so represent the span by its LOWEST number.
-        const endingEls = child.querySelectorAll('ending');
-        if (endingEls.length > 0) {
-          let startNum: number | undefined;
-          let hasStop = false;
-          for (const e of endingEls) {
-            const num = parseInt(e.getAttribute('number') ?? '0', 10);
-            const type = e.getAttribute('type');
-            if (type === 'start' && num >= 1) {
-              startNum = startNum === undefined ? num : Math.min(startNum, num);
-            } else if (type === 'stop' || type === 'discontinue') {
-              hasStop = true;
-            }
-          }
-          if (startNum !== undefined) {
-            currentVolta = startNum;
-            measure.volta = startNum;
-          } else if (hasStop && location !== 'left') {
-            // ending stops at the right barline of THIS measure → clear after
-            // this iteration so next measure has no volta.
-            currentVolta = undefined;
-          }
-        }
+        currentVolta = applyBarline(child, measure, currentVolta);
         continue;
       }
 
@@ -395,46 +629,45 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
       if (tag === 'direction') {
         const dirType = child.querySelector('direction-type');
         if (!dirType) continue;
-        // Navigation priority: destination markers (segno/coda) are anchors
-        // referenced by text triggers (D.S./D.C./To Coda). When both appear
-        // on the same measure, destination wins (we can only render one per
-        // stave). Symbols also outrank text from a prior <direction> sibling.
-        const segnoEl = dirType.querySelector('segno');
-        const codaEl  = dirType.querySelector('coda');
-        if (segnoEl) {
-          measure.navigation = 'segno' as NavigationMarker;
-        } else if (codaEl) {
-          measure.navigation = 'coda' as NavigationMarker;
-        } else {
-          // Only consider text words if NO symbol marker was set on this measure.
-          if (measure.navigation !== 'segno' && measure.navigation !== 'coda') {
-            const wordsList = dirType.querySelectorAll('words');
-            for (const w of wordsList) {
-              const nav = parseNavigationWords(w.textContent ?? '');
-              if (nav) {
-                measure.navigation = nav;
-                break;
-              }
-            }
-          }
-        }
-        // Octave-shift (8va/8vb)
+        /* 리허설 마크(A · B1 · Solo …)와 내비게이션. 예전엔 리허설을 아예 읽지
+         * 않아 전부 사라지고 있었다(실측: 10개 파일 55개). */
+        applyRehearsalNav(dirType, measure);
+        /* ── Octave-shift (8va·8vb·15ma·15mb) ─────────────────────────────
+         * ⚠️ 두 가지를 뒤집으면 안 된다.
+         *
+         * ① **방향**: MusicXML 의 type 은 "적힌 음이 울리는 음에서 어느 쪽으로
+         *    옮겨졌나"다. 따라서 `type="down"` = 적힌 음이 한 옥타브 **아래** =
+         *    화면에는 **8va** 브래킷이다(`up` 이 8vb). 종전 코드가 이걸 반대로
+         *    매핑해, 8va 자리에 8vb 가 붙어 재생이 두 옥타브 어긋났다.
+         *
+         * ② **피치**: MusicXML `<pitch>` 는 **울리는 음**이고, 우리 모델은
+         *    `keys` = **적히는 음** + `ottavaStart` 가 재생을 ±12/±24 옮긴다
+         *    (noteSheetToChart). 그래서 브래킷 구간의 음은 옥타브를 되돌려
+         *    적어야 한다 — 안 그러면 덧줄이 5~6개 쌓인 채 그려지고, 재생은
+         *    한 옥타브 더 올라간다.
+         *
+         * 실측 근거: 이 구간의 음이 Eb7(=99)인데, 이게 '적힌 음'이라면 울림은
+         * 111 로 피아노 최고음(108)을 넘어 불가능하다 → 저장된 값이 울림음이다. */
         const oct = dirType.querySelector('octave-shift');
         if (oct) {
           const ot = oct.getAttribute('type');
-          const size = oct.getAttribute('size'); // '8' (one oct) typically
-          if (ot === 'up' && (size === null || size === '8')) {
-            state.ottava = '8va';
-            state.ottavaStartIdx = flatNoteIdx; // mark for next note
-          } else if (ot === 'down' && (size === null || size === '8')) {
-            state.ottava = '8vb';
-            state.ottavaStartIdx = flatNoteIdx;
+          const size = oct.getAttribute('size') ?? '8';
+          if (ot === 'down' || ot === 'up') {
+            const two = size === '15';
+            state.ottava = ot === 'down'
+              ? (two ? '15ma' : '8va')
+              : (two ? '15mb' : '8vb');
+            // 적히는 음 = 울리는 음 − 재생 시프트. (8va → −1옥타브)
+            state.ottavaOctDelta = (ot === 'down' ? -1 : 1) * (two ? 2 : 1);
+            state.ottavaPending = true;   // 다음 음표에 붙인다
           } else if (ot === 'stop') {
-            // Mark the LAST emitted note as ottavaEnd.
-            const lastIdx = measure.notes.length - 1;
-            if (lastIdx >= 0) measure.notes[lastIdx].ottavaEnd = true;
+            // 마지막으로 나온 **음표**(쉼표 아님)에 끝 표시를 붙인다.
+            for (let k = measure.notes.length - 1; k >= 0; k--) {
+              if (!measure.notes[k].duration.endsWith('r')) { measure.notes[k].ottavaEnd = true; break; }
+            }
             state.ottava = undefined;
-            state.ottavaStartIdx = undefined;
+            state.ottavaOctDelta = undefined;
+            state.ottavaPending = undefined;
           }
         }
         // Dynamics
@@ -497,40 +730,56 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
       const advance = (isChordTone || isGraceTone) ? 0 : advDurTicks;
       const startTick = curTick;
 
-      // Chord tones: keep only the HIGHEST-sounding note of the group on the
-      // melody line. The first <note> of a MusicXML chord isn't always the top
-      // (homr/OMR and music21 quantisations often list an inner/lower voice
-      // first), so replace the group's representative note when a sub-tone is
-      // higher. Single-line lead sheets have no <chord> groups → never runs.
+      /* 화음(<chord>) 처리.
+       *
+       * 기본은 **음을 모두 보존**한다 — 재즈 피아노 채보(Red Garland 등)는 한
+       * 줄짜리 보표에도 옥타브·더블스톱·블록보이싱이 흔한데, 예전엔 그룹의
+       * 최고음만 남기고 나머지를 버려서 화음이 통째로 사라졌다(실측: 한 파일에서
+       * 80개). NoteInfo 는 keys[] + 인덱스별 임시표로 화음을 이미 표현할 수 있고
+       * 두 렌더러(에디터·뷰어)도 그대로 그린다.
+       *
+       * pianoPerformance(멜로디 추출) 모드에서만 예전처럼 최고음 하나로 줄인다 —
+       * 그 모드의 목적이 "왼손 컴핑을 걷어낸 멜로디 한 줄"이기 때문이다. */
       if (isChordTone) {
         const chordVoice = text(nEl, 'voice');
         // Only merge into the melody line if this chord tone belongs to the
         // melody voice — otherwise a left-hand chord would corrupt the last
         // melody note.
         if (chordVoice && chordVoice !== melodyVoice) { curTick += advance; continue; }
-        const last = measure.notes[measure.notes.length - 1];
+        /* 드럼 동시타(킥+하이햇 등)도 <chord> 로 온다 — 음정이 아니라 GM 번호를
+         * 담는 것만 다르다. 예전엔 <pitch> 가 없어 그냥 버려졌다. */
+        const subUnpitched = nEl.querySelector('unpitched');
+        if (chordGroup && subUnpitched) {
+          const gm = unpitchedGm(nEl, subUnpitched, unpitchedMap);
+          chordGroup.tones.push({ key: gmToVexKey(gm), midi: gm });
+          applyChordTones(chordGroup.ni, chordGroup.tones);
+          curTick += advance;
+          continue;
+        }
         const subPitch = nEl.querySelector('pitch');
-        if (last && !last.duration.endsWith('r') && subPitch) {
-          const sStep = (text(subPitch, 'step') ?? 'C').toUpperCase();
+        if (chordGroup && subPitch) {
+          const sStep = (text(subPitch, 'step') ?? 'C').toLowerCase();
           const sOct = parseInt(text(subPitch, 'octave') ?? '4', 10);
-          const sAlt = parseInt(text(subPitch, 'alter') ?? '0', 10) || 0;
-          const subMidi = (sOct + 1) * 12 + (STEP_SEMIS[sStep] ?? 0) + sAlt;
-          const [lStep, lOct] = last.keys[0].split('/');
-          const lAcc = last.accidentals?.[0];
-          const lAlt = lAcc === '#' ? 1 : lAcc === 'b' ? -1 : lAcc === '##' ? 2 : lAcc === 'bb' ? -2 : 0;
-          const lastMidi = (parseInt(lOct, 10) + 1) * 12 + (STEP_SEMIS[lStep.toUpperCase()] ?? 0) + lAlt;
-          if (subMidi > lastMidi) {
-            last.keys[0] = `${sStep.toLowerCase()}/${sOct}`;
-            if (sAlt === 1) last.accidentals = { 0: '#' };
-            else if (sAlt === -1) last.accidentals = { 0: 'b' };
-            else if (sAlt === 2) last.accidentals = { 0: '##' };
-            else if (sAlt === -2) last.accidentals = { 0: 'bb' };
-            else delete last.accidentals;
+          const sAcc = readAccidental(nEl, subPitch, sStep, state.keySigLetters, state.fifths);
+          const tone: ChordTone = {
+            key: `${sStep}/${sOct + (state.ottavaOctDelta ?? 0)}`,
+            acc: sAcc.print,
+            midi: (sOct + 1) * 12 + (STEP_SEMIS[sStep.toUpperCase()] ?? 0) + ACC_SEMIS[sAcc.sounding],
+          };
+          if (noteTieStop(nEl)) tone.tieStop = true;
+          if (opts?.pianoPerformance) {
+            // 멜로디 추출: 더 높은 음이면 대표음을 교체(예전 동작).
+            if (tone.midi > chordGroup.tones[0].midi) chordGroup.tones = [tone];
+          } else {
+            chordGroup.tones.push(tone);
           }
+          applyChordTones(chordGroup.ni, chordGroup.tones);
         }
         curTick += advance;
         continue;
       }
+      // 화음이 아닌 요소가 나오면 직전 화음 그룹은 닫힌다.
+      chordGroup = null;
 
       // Single-voice extraction — 기본은 voice 1, pianoPerformance 모드에선
       // 위에서 마디별로 고른 최고-평균-피치 voice. 다른 voice도 시간은 흐르므로
@@ -554,6 +803,8 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
       const noteOrnaments: Ornament[] = [];
       let noteFermata = false;
       let noteGliss = false;
+      let noteScoop = false;
+      let noteFall = false;
       let noteSlurStart = false;
       let noteSlurStop = false;
       if (notations) {
@@ -571,6 +822,10 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
             const mapped = ARTICULATION_TAGS[a.tagName];
             if (mapped) noteArticulations.push(mapped);
           }
+          /* 재즈 슬라이드 — 표준 <scoop/> · <falloff/>. 모델에 필드가 있는데
+           * 읽지 않아 수입 시 사라지고 있었다(양쪽 경로 모두 보강). */
+          if (artEl.querySelector('scoop')) noteScoop = true;
+          if (artEl.querySelector('falloff')) noteFall = true;
         }
         // Fermata
         if (notations.querySelector('fermata')) noteFermata = true;
@@ -680,7 +935,36 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
         }
         measure.notes.push(restNote);
         emitTimes.push({ startTick, durTicks: advDurTicks });
-        flatNoteIdx++;
+        curTick += advance;
+        continue;
+      }
+
+      /* 무음정 타악기(<unpitched>) — 드럼 보표. 예전엔 <pitch> 가 없다는 이유로
+       * 통째로 버려서 드럼 파트가 전부 쉼표로 나왔다(실측: 한 파일 538개).
+       * 드럼 데이터 계약은 keys 에 **GM 퍼커션 음**을 담는 것이라
+       * (drumNotation.gmToVexKey), 표기 위치는 렌더러가 그 GM 으로 다시 정한다. */
+      const unpitchedEl = nEl.querySelector('unpitched');
+      if (unpitchedEl) {
+        const gm = unpitchedGm(nEl, unpitchedEl, unpitchedMap);
+        const dn: NoteInfo = { keys: [gmToVexKey(gm)], duration: vf };
+        if (isDotted) dn.dotted = true;
+        if (tuplet) dn.tuplet = tuplet;
+        if (tupletNormal) dn.tupletNormal = tupletNormal;
+        if (tupletBracketAttr !== undefined) dn.tupletBracket = tupletBracketAttr;
+        if (isGrace) { dn.grace = true; if (graceSlash) dn.graceSlash = true; }
+        if (tieStart) dn.tie = true;
+        if (isPureTieContinuation) dn.tieContinuation = true;
+        if (noteArticulations.length > 0) dn.articulations = [...noteArticulations];
+        if (noteFermata) dn.fermata = true;
+        if (state.pendingDynamic) { dn.dynamics = state.pendingDynamic; state.pendingDynamic = undefined; }
+        applyNoteheadCue(nEl, dn);
+        applyPrimaryBeam(nEl, dn, typeStr, isGrace, docHasBeams, (open) => { beamOpen = open; });
+        const stemTxtD = text(nEl, 'stem');
+        if (stemTxtD === 'up' || stemTxtD === 'down') dn.stem = stemTxtD;
+        measure.notes.push(dn);
+        emitTimes.push({ startTick, durTicks: advDurTicks });
+        // 뒤따르는 <chord> 동시타가 이 음표에 쌓이도록 그룹을 연다.
+        chordGroup = { ni: dn, tones: [{ key: dn.keys[0], midi: gm }] };
         curTick += advance;
         continue;
       }
@@ -700,13 +984,17 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
         if (tupletNormal) bassRest.tupletNormal = tupletNormal;
         measure.notes.push(bassRest);
         emitTimes.push({ startTick, durTicks: advDurTicks });
-        flatNoteIdx++;
         curTick += advance;
         continue;
       }
 
+      /* 옥타브 브래킷 구간이면 적히는 음으로 되돌린다(위 ② 참고). */
+      const writtenOctave = state.ottavaOctDelta
+        ? String(parseInt(octave, 10) + state.ottavaOctDelta)
+        : octave;
+
       const ni: NoteInfo = {
-        keys: [`${step}/${octave}`],
+        keys: [`${step}/${writtenOctave}`],
         duration: vf,
       };
       if (isDotted) ni.dotted = true;
@@ -718,33 +1006,10 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
         if (graceSlash) ni.graceSlash = true;
       }
 
-      // Accidental — semantically the FLAT/SHARP/NATURAL on the actual sounding
-      // pitch. vexToMidi falls back to the key signature when no
-      // explicit accidental is present, but we still encode key-sig-implied
-      // alterations here so playback doesn't hinge on data.key being right.
-      // The NoteSheet renderer suppresses drawing the symbol when it already
-      // matches the key signature / active accidental state.
-      const isInKeySig = state.keySigLetters.has(step);
-      const accText = text(nEl, 'accidental');
-      const alterTxt = text(pitchEl, 'alter');
-      const alterVal = alterTxt !== null ? parseInt(alterTxt, 10) : null;
-      if (accText && ACC_MAP[accText]) {
-        // Engraver drew an explicit accidental — that IS the sounding pitch.
-        ni.accidentals = { 0: ACC_MAP[accText] };
-      } else if (alterVal === 1) {
-        ni.accidentals = { 0: '#' };
-      } else if (alterVal === -1) {
-        ni.accidentals = { 0: 'b' };
-      } else if (alterVal === 2) {
-        ni.accidentals = { 0: '##' };
-      } else if (alterVal === -2) {
-        ni.accidentals = { 0: 'bb' };
-      } else if (alterVal === 0 && isInKeySig) {
-        // <alter>0</alter> on a key-sig letter = explicit natural override.
-        ni.accidentals = { 0: 'n' };
-      }
-      // alter absent / 0 outside key sig → no accidental flag; player reads
-      // the natural pitch which is correct.
+      // Accidental — 조표 기준 최소 표기(readAccidental 주석 참조). 조표가 이미
+      // 주는 변화음은 생략하고, 조표와 다른 소리(내추럴 취소 포함)만 명시한다.
+      const acc = readAccidental(nEl, pitchEl, step, state.keySigLetters, state.fifths);
+      if (acc.print) ni.accidentals = { 0: acc.print };
 
       // Tie (visualization): mark tie=true on this note if it ties to the
       // next note. We keep BOTH notes (start + stop) — the renderer draws
@@ -771,6 +1036,8 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
       }
       pendingOrnaments = [];
       if (noteGliss || pendingGliss) ni.gliss = true;
+      if (noteScoop) ni.scoop = true;
+      if (noteFall) ni.fall = true;
       pendingGliss = false;
 
       // Dynamic attaches to NEXT real note onset.
@@ -788,9 +1055,10 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
         state.pendingHairpinStop = undefined;
       }
 
-      // Ottava — apply current running state.
-      if (state.ottava && state.ottavaStartIdx === flatNoteIdx) {
+      // Ottava — 구간의 첫 음표에 시작 표시.
+      if (state.ottava && state.ottavaPending) {
         ni.ottavaStart = state.ottava;
+        state.ottavaPending = undefined;
       }
 
       // ── Explicit beam grouping (primary <beam number="1">).
@@ -805,25 +1073,9 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
       // need no annotation. We only consult <beam> when the surrounding measure
       // has ANY beam markup — otherwise the engraver simply didn't specify and
       // we hand off to the renderer's heuristic auto-beamer.
-      if (BEAMABLE_XML_TYPES.has(typeStr) && !isGrace && docHasBeams) {
-        let primaryBeam: string | null = null;
-        for (const be of nEl.querySelectorAll('beam')) {
-          if ((be.getAttribute('number') ?? '1') === '1') {
-            primaryBeam = (be.textContent ?? '').trim();
-            break;
-          }
-        }
-        if (primaryBeam === null) {
-          ni.noBeam = true;
-          beamOpen = false;
-        } else if (primaryBeam === 'begin') {
-          beamOpen = true;
-        } else if (primaryBeam === 'end') {
-          ni.beamBreak = true;
-          beamOpen = false;
-        }
-        // 'continue' / hooks keep beamOpen at its current value.
-      }
+      applyPrimaryBeam(nEl, ni, typeStr, isGrace, docHasBeams, (open) => { beamOpen = open; });
+
+      applyNoteheadCue(nEl, ni);
 
       // ── Explicit stem direction (<stem>up|down</stem>).
       // VexFlow's autoStem picks per-note based on pitch position alone, which
@@ -832,9 +1084,47 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
       const stemTxt = text(nEl, 'stem');
       if (stemTxt === 'up' || stemTxt === 'down') ni.stem = stemTxt;
 
+      // ── 가사 <lyric> — 절(number)별 음절. 한 음표에 여러 절이 붙을 수 있다.
+      // syllabic 은 하이픈 판단('begin'/'middle' 뒤에 하이픈), extend 는 멜리스마.
+      // 화음의 둘째 음(<chord/>)에는 가사가 붙지 않으므로 여기서만 읽으면 된다.
+      const lyricEls = nEl.querySelectorAll(':scope > lyric');
+      if (lyricEls.length > 0) {
+        const syllables: LyricSyllable[] = [];
+        for (const lEl of lyricEls) {
+          // <text> 가 여러 개면(엘리전: "don't" 같은 결합) 사이를 이어 붙인다.
+          const parts = [...lEl.querySelectorAll(':scope > text')].map((t) => t.textContent ?? '');
+          const txt = parts.join('').trim();
+          if (!txt) continue;
+          const rawNum = lEl.getAttribute('number');
+          const verse = Number.parseInt(rawNum ?? '1', 10);
+          const syl = (text(lEl, 'syllabic') ?? '').trim();
+          const syllable: LyricSyllable = {
+            verse: Number.isFinite(verse) && verse > 0 ? verse : 1,
+            text: txt,
+          };
+          if (syl === 'single' || syl === 'begin' || syl === 'middle' || syl === 'end') syllable.syllabic = syl;
+          if (lEl.querySelector(':scope > extend')) syllable.extend = true;
+          syllables.push(syllable);
+        }
+        if (syllables.length > 0) {
+          syllables.sort((x, y) => x.verse - y.verse);
+          ni.lyrics = syllables;
+        }
+      }
+
       measure.notes.push(ni);
       emitTimes.push({ startTick, durTicks: advDurTicks });
-      flatNoteIdx++;
+      /* 뒤따르는 <chord> 구성음이 이 음표에 쌓이도록 그룹을 연다. */
+      chordGroup = {
+        ni,
+        tones: [{
+          key: ni.keys[0],
+          acc: acc.print,
+          midi: (parseInt(octave, 10) + 1) * 12
+            + (STEP_SEMIS[step.toUpperCase()] ?? 0) + ACC_SEMIS[acc.sounding],
+          ...(isPureTieContinuation ? { tieStop: true as const } : {}),
+        }],
+      };
       curTick += advance;
     }
 
@@ -875,6 +1165,7 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
     measures.push(measure);
   }
 
+  const transposeSemis = readTransposeSemis(partEl ?? doc);
   return {
     title,
     composer,
@@ -882,6 +1173,7 @@ function parseXmlDoc(doc: Document, fallbackTitle: string, partEl?: Element, opt
     timeSignature: timeSig,
     tempo,
     measures,
+    ...(transposeSemis !== undefined ? { transposeSemis } : {}),
   };
 }
 
@@ -903,11 +1195,13 @@ export function harmonySymbol(harmonyEl: Element): string {
   //    (minor-seventh 인데 text="7", major-minor 인데 text="t7" 등). 이때 text 를
   //    그대로 쓰면 B-7→"B7", C-△7→"Ct7" 처럼 품질이 통째로 사라진다 — kind 를
   //    기호로 변환한 kindToSymbol 결과를 쓴다.
+  //  · text="" (빈 문자열): 기호로 그리는 품질을 text 로는 비워 둔 것이므로
+  //    그대로 쓰면 품질이 사라진다("Eb"). kind 변환으로 넘긴다.
   const kindText = kindEl?.getAttribute('text');
   const useSymbols = kindEl?.getAttribute('use-symbols') === 'yes';
-  const baseSuffix = (!useSymbols && kindText !== null && kindText !== undefined)
+  const baseSuffix = (!useSymbols && kindText)
     ? kindText
-    : kindToSymbol(kind);
+    : kindToSymbol(kind, useSymbols);
 
   // <degree>: added/altered/subtracted tones (e.g. add9, b5, #11).
   // Append to chord symbol so e.g. C7 + degree(#11) → "C7#11".
@@ -939,12 +1233,27 @@ export function harmonySymbol(harmonyEl: Element): string {
 
 /* ─── MusicXML chord kind → symbol ───────────────────────────────────── */
 
-function kindToSymbol(kind: string): string {
+function kindToSymbol(kind: string, useSymbols = false): string {
   // Used only when <kind> has no text="…" attribute. Use U+25B3 △ (white
   // up-pointing triangle) for the maj-7 symbol — NoteSheet's formatChord /
   // LickCard's appendChordSVG both expect this exact codepoint. The visually
   // similar U+0394 Δ (Greek capital delta) renders as a Greek letter in the
   // chord font, not the music glyph.
+
+  /* ⚠️ `major` + use-symbols="yes" 는 **장7화음(△7)** 이다.
+   *
+   * `use-symbols="yes"` 는 "품질을 **기호로** 그려라"는 뜻인데, 순수 장3화음은
+   * 그릴 기호가 아예 없다(루트 글자만 쓴다). 즉 이 조합은 그릴 기호가 있을 때만
+   * 의미가 있고, 장화음 계열에서 그 기호는 △ 하나뿐이다.
+   *
+   * 실측 근거 (`it-could-happen-to-you-red-garlands-solo.mxl`):
+   *   · `major`+use-symbols 14개가 전부 text 속성 없음
+   *   · 같은 파일의 `dominant` 는 use-symbols 없이 text="7" — 즉 이 파일은
+   *     기호로 그리는 품질(-, ø, △)에만 use-symbols 를 붙인다
+   *   · jazz1460 의 실제 진행과 대조: 1마디 Eb△7 · 6마디 Ab△7 이 바로 이 조합
+   * 이 예외가 없으면 `Eb△7` 이 루트만 남아 **"Eb"** 로 들어온다. */
+  if (kind === 'major' && useSymbols) return '△7';
+
   const MAP: Record<string, string> = {
     major: '',                  // plain major triad → just the root letter
     minor: '-',
@@ -1013,6 +1322,11 @@ export function applyNoteExpressions(nEl: Element, ni: NoteInfo): void {
       if (mapped) arts.push(mapped);
     }
     if (arts.length) ni.articulations = arts;
+    /* 재즈 슬라이드 — MusicXML 표준 <scoop/> · <falloff/> 는 articulations 안에
+     * 들어온다. 우리 모델에 scoop/fall 필드가 이미 있는데 여기서 안 읽어서,
+     * 에디터로 그린 건 되는데 수입한 악보에서는 사라지고 있었다. */
+    if (artEl.querySelector('scoop')) ni.scoop = true;
+    if (artEl.querySelector('falloff')) ni.fall = true;
   }
   if (notations.querySelector('fermata')) ni.fermata = true;
   const ornEl = notations.querySelector('ornaments');
@@ -1044,37 +1358,69 @@ export function applyNoteExpressions(nEl: Element, ni: NoteInfo): void {
  * tie, beam, accidental, rest. (slur/ornament/dynamics/tuplet are out of scope
  * here — add if a source needs them.) */
 
-interface ChordTone { key: string; acc?: '#' | 'b' | 'n' | '##' | 'bb'; midi: number }
+interface ChordTone {
+  key: string;
+  acc?: AccGlyph;
+  midi: number;
+  /** 이 구성음이 앞 음에서 타이로 이어받았는지(<tie type="stop">). 화음의 일부만
+   *  묶이는 경우를 `NoteInfo.tieKeys` 로 남기기 위해 필요하다. */
+  tieStop?: boolean;
+  /** TAB 보표의 현 번호(<technical><string>). MusicXML 도 1 = 가장 높은(가는) 현
+   *  이라 `NoteInfo.tabStrings` 와 규약이 같다 — 그대로 옮긴다. */
+  str?: number;
+}
 interface StaffEvent { startTick: number; durTicks: number; ni: NoteInfo; tones: ChordTone[] }
 
 /** Read one <note>'s pitch → a ChordTone (key string + accidental + midi for
  *  sorting). Mirrors the single-line accidental rules. */
-function readChordTone(nEl: Element, pitchEl: Element, keySigLetters: Set<string>): ChordTone {
+function readChordTone(
+  nEl: Element, pitchEl: Element, keySigLetters: Set<string>, fifths: number,
+  /** 옥타브 브래킷 보정 — MusicXML `<pitch>` 는 **울리는 음**이라, 8va 구간에서는
+   *  **적히는 음**으로 되돌려야 한다(우리 모델은 keys=적히는 음 + ottava 가 재생을 옮김). */
+  octDelta = 0,
+): ChordTone {
   const step = (text(pitchEl, 'step') ?? 'C').toLowerCase();
   const octave = text(pitchEl, 'octave') ?? '4';
-  const accText = text(nEl, 'accidental');
-  const alterTxt = text(pitchEl, 'alter');
-  const alterVal = alterTxt !== null ? parseInt(alterTxt, 10) : null;
-  let acc: ChordTone['acc'];
-  if (accText && ACC_MAP[accText]) acc = ACC_MAP[accText];
-  else if (alterVal === 1) acc = '#';
-  else if (alterVal === -1) acc = 'b';
-  else if (alterVal === 2) acc = '##';
-  else if (alterVal === -2) acc = 'bb';
-  else if (alterVal === 0 && keySigLetters.has(step)) acc = 'n';
-  const midi = (parseInt(octave, 10) + 1) * 12 + (STEP_SEMIS[step.toUpperCase()] ?? 0) + (alterVal ?? 0);
-  return { key: `${step}/${octave}`, acc, midi };
+  const acc = readAccidental(nEl, pitchEl, step, keySigLetters, fifths);
+  const midi = (parseInt(octave, 10) + 1) * 12
+    + (STEP_SEMIS[step.toUpperCase()] ?? 0) + ACC_SEMIS[acc.sounding];
+  const written = String(parseInt(octave, 10) + octDelta);
+  const tone: ChordTone = { key: `${step}/${written}`, acc: acc.print, midi };
+  if (noteTieStop(nEl)) tone.tieStop = true;
+  const strTxt = nEl.querySelector('notations > technical > string')?.textContent;
+  const strNum = strTxt ? parseInt(strTxt, 10) : NaN;
+  if (Number.isFinite(strNum) && strNum > 0) tone.str = strNum;
+  return tone;
 }
 
 /** Sort a note's accumulated chord tones low→high and bake keys[] + accidentals. */
-function finalizeChord(ev: StaffEvent): void {
-  if (ev.tones.length === 0) return; // rest
-  const tones = ev.tones.slice().sort((a, b) => a.midi - b.midi);
-  ev.ni.keys = tones.map((t) => t.key);
-  const acc: Record<number, '#' | 'b' | 'n' | '##' | 'bb'> = {};
+/** 화음 구성음을 낮은음→높은음으로 정렬해 keys[] + 인덱스별 임시표로 굽는다.
+ *  단선율·양손 파서가 **같은 헬퍼**를 쓴다(표기가 갈리지 않도록). */
+function applyChordTones(ni: NoteInfo, tones: ChordTone[]): void {
+  if (tones.length === 0) return; // rest
+  const sorted = tones.slice().sort((a, b) => a.midi - b.midi);
+  ni.keys = sorted.map((t) => t.key);
+  const acc: Record<number, AccGlyph> = {};
   let has = false;
-  tones.forEach((t, i) => { if (t.acc) { acc[i] = t.acc; has = true; } });
-  if (has) ev.ni.accidentals = acc; else delete ev.ni.accidentals;
+  sorted.forEach((t, i) => { if (t.acc) { acc[i] = t.acc; has = true; } });
+  if (has) ni.accidentals = acc; else delete ni.accidentals;
+
+  /* 조판자가 적어 둔 현 번호는 그대로 존중한다 — 자동 운지가 원본과 다른 자리를
+   * 고르면 같은 음이라도 TAB 그림이 달라진다. */
+  const strs: Record<number, number> = {};
+  let hasStr = false;
+  sorted.forEach((t, i) => { if (t.str) { strs[i] = t.str; hasStr = true; } });
+  if (hasStr) ni.tabStrings = strs; else delete ni.tabStrings;
+
+  /* 화음의 일부만 타이로 넘어왔으면 그 인덱스를 남긴다 — 전부/전무면 note 단위
+   * 플래그만으로 충분하므로 필드를 만들지 않는다(구버전 데이터와 동일 형태). */
+  const tiedIdx = sorted.map((t, i) => (t.tieStop ? i : -1)).filter((i) => i >= 0);
+  if (tiedIdx.length > 0 && tiedIdx.length < sorted.length) ni.tieKeys = tiedIdx;
+  else delete ni.tieKeys;
+}
+
+function finalizeChord(ev: StaffEvent): void {
+  applyChordTones(ev.ni, ev.tones);
 }
 
 /** Rebuild one stave's measure notes from time-positioned events, padding gaps
@@ -1095,6 +1441,42 @@ function reconstructStave(events: StaffEvent[], measureTicks: number, divisions:
     for (const r of ticksToRests(measureTicks - filled, divisions)) out.push(r);
   }
   if (out.length === 0) out.push({ keys: ['b/4'], duration: 'wr' });
+  return out;
+}
+
+/**
+ * 한 보표의 성부 통들을 마디 하나로 조립한다.
+ *
+ * 주 성부(가장 많은 시간을 채운 voice, 동률이면 번호가 작은 쪽)가 `notes`,
+ * 그다음이 `voice2` 다. 모델이 보표당 두 성부까지만 담으므로 3번째 이후 성부는
+ * 버린다 — 실측 코퍼스에서 3번째 성부는 마디당 한두 음의 장식 성부뿐이고,
+ * 억지로 합치면 시간이 겹쳐 마디 길이가 다시 망가진다.
+ */
+function buildVoicedMeasure(
+  ev: Map<string, StaffEvent[]>, staff: 1 | 2, measureTicks: number, divisions: number,
+): MeasureInfo {
+  const lanes = [...ev.entries()]
+    .filter(([k]) => k.startsWith(`${staff}|`))
+    .map(([k, events]) => ({
+      voice: k.slice(k.indexOf('|') + 1),
+      events,
+      ticks: events.reduce((s, e) => s + e.durTicks, 0),
+      /* 실제 음이 있는 성부를 우선한다 — 조판자가 다른 성부의 시간을 채우려고
+       * 넣은 "쉼표만 있는 성부"가 주 성부로 뽑히면 보표가 통째로 빈다. */
+      sounds: events.some((e) => e.tones.length > 0),
+    }))
+    .sort((a, b) => Number(b.sounds) - Number(a.sounds)
+      || (b.ticks - a.ticks)
+      || a.voice.localeCompare(b.voice, undefined, { numeric: true }));
+
+  const out: MeasureInfo = {
+    notes: reconstructStave(lanes[0]?.events ?? [], measureTicks, divisions),
+  };
+  /* 두 번째 성부가 실제 음을 가질 때만 붙인다 — 쉼표뿐인 통을 voice2 로 넣으면
+   * 빈 성부의 쉼표가 보표에 겹쳐 그려진다. */
+  if (lanes[1]?.events.some((e) => e.tones.length > 0)) {
+    out.voice2 = reconstructStave(lanes[1].events, measureTicks, divisions);
+  }
   return out;
 }
 
@@ -1128,13 +1510,38 @@ function parseGrandStaff(doc: Document, fallbackTitle: string, partEl?: Element)
 
   const measures: MeasureInfo[] = [];
   const bassMeasures: MeasureInfo[] = [];
+  /* 볼타(1·2번 괄호)는 <ending type="stop"> 까지 여러 마디에 걸친다. */
+  let currentVolta: number | undefined;
+  /* 옥타브 브래킷(8va·8vb·15ma·15mb) — 보표별로 따로, **마디를 넘어** 이어진다.
+   * 예전엔 양손 경로에 이 처리가 통째로 없어서, <staff> 가 붙은 octave-shift 가
+   * 전부 무시됐다(실측: 2개 파일 12개 전멸). 단선율 경로와 같은 규칙을 쓴다 —
+   * type="down" = 적힌 음이 한 옥타브 아래 = 화면엔 8va. */
+  const ottavaState: Record<1 | 2, { label: NonNullable<NoteInfo['ottavaStart']> ; octDelta: number } | undefined> = { 1: undefined, 2: undefined };
+  const ottavaPending: Record<1 | 2, boolean> = { 1: false, 2: false };
+  /** 브래킷 종료 표시를 붙일 대상 — 보표별 마지막 실음. */
+  const lastPitched: Record<1 | 2, NoteInfo | undefined> = { 1: undefined, 2: undefined };
 
   for (let mi = 0; mi < partMeasures.length; mi++) {
     const mEl = partMeasures[mi];
-    const ev: { 1: StaffEvent[]; 2: StaffEvent[] } = { 1: [], 2: [] };
+    /* 보표 × 성부별 이벤트 통. 예전엔 staff 로만 나눠서, 같은 보표의 voice 2 가
+     * voice 1 뒤에 그대로 이어붙었다 — <backup> 으로 시간이 되감겼는데도 순서대로
+     * 쌓이니 4박 마디가 8박이 되고, 에디터의 마디 자동분할이 그걸 쪼개 **없던
+     * 마디가 늘어났다**(사용자 신고 그대로). 이제 성부별로 따로 재구성해 두 번째
+     * 성부는 `voice2` 로 보낸다. */
+    const ev = new Map<string, StaffEvent[]>();
+    const evFor = (staff: 1 | 2, voice: string): StaffEvent[] => {
+      const k = `${staff}|${voice}`;
+      let list = ev.get(k);
+      if (!list) { list = []; ev.set(k, list); }
+      return list;
+    };
     /* 코드 심볼은 오른손(트레블) 마디에만 붙인다 — 그랜드스태프에서 <harmony> 는
      * staff 지정 없이 마디 단위로 오고, 렌더러도 트레블 위에만 코드를 그린다. */
     const measureChords: string[] = [];
+    /* 마디 단위 표기(세로줄·도돌이·볼타·리허설·내비게이션·줄바꿈)는 단선율 파서와
+     * **같은 헬퍼**를 쓴다 — 예전엔 양손 악보에만 통째로 빠져 있었다. */
+    const meta: MeasureInfo = { notes: [] };
+    if (currentVolta !== undefined) meta.volta = currentVolta;
     let curTick = 0;
     /* 다음 음표에 붙일 셈여림/헤어핀 — <direction> 이 음표보다 먼저 온다. */
     let pendingDynamic: Dynamic | undefined;
@@ -1157,12 +1564,20 @@ function parseGrandStaff(doc: Document, fallbackTitle: string, partEl?: Element)
       }
       if (tag === 'backup') { curTick -= parseInt(text(child, 'duration') ?? '0', 10) || 0; continue; }
       if (tag === 'forward') { curTick += parseInt(text(child, 'duration') ?? '0', 10) || 0; continue; }
+      if (tag === 'print') {
+        const brk = child.getAttribute('new-system') === 'yes'
+          || child.getAttribute('new-page') === 'yes';
+        if (brk && mi > 0) measures[mi - 1].lineBreak = true;
+        continue;
+      }
+      if (tag === 'barline') { currentVolta = applyBarline(child, meta, currentVolta); continue; }
       /* <direction> 의 셈여림(p·mf·ff…)과 크레셴도/디미누엔도(wedge)는 음표가
        * 아니라 방향 지시로 오므로, 다음에 오는 음표에 붙여 준다(단선율 파서와
        * 같은 규칙). 이게 없어서 양손 악보는 셈여림이 통째로 사라졌다. */
       if (tag === 'direction') {
         const dirType = child.querySelector('direction-type');
         if (dirType) {
+          applyRehearsalNav(dirType, meta);
           const dyn = dirType.querySelector('dynamics');
           if (dyn) {
             for (const dn of Array.from(dyn.children)) {
@@ -1177,6 +1592,25 @@ function parseGrandStaff(doc: Document, fallbackTitle: string, partEl?: Element)
             else if (wt === 'diminuendo') pendingHairpinStart = 'dim';
             else if (wt === 'stop') pendingHairpinStop = true;
           }
+          /* 옥타브 브래킷 — <direction> 의 <staff> 가 어느 보표인지 정한다
+           * (없으면 오른손). 단선율 경로와 방향·피치 규칙이 동일하다. */
+          const oct = dirType.querySelector('octave-shift');
+          if (oct) {
+            const st: 1 | 2 = (text(child, 'staff') ?? '1') === '2' ? 2 : 1;
+            const ot = oct.getAttribute('type');
+            const two = (oct.getAttribute('size') ?? '8') === '15';
+            if (ot === 'down' || ot === 'up') {
+              ottavaState[st] = {
+                label: ot === 'down' ? (two ? '15ma' : '8va') : (two ? '15mb' : '8vb'),
+                octDelta: (ot === 'down' ? -1 : 1) * (two ? 2 : 1),
+              };
+              ottavaPending[st] = true;
+            } else if (ot === 'stop') {
+              if (lastPitched[st]) lastPitched[st]!.ottavaEnd = true;
+              ottavaState[st] = undefined;
+              ottavaPending[st] = false;
+            }
+          }
         }
         continue;
       }
@@ -1184,6 +1618,7 @@ function parseGrandStaff(doc: Document, fallbackTitle: string, partEl?: Element)
 
       const nEl = child;
       const staff: 1 | 2 = (text(nEl, 'staff') ?? '1') === '2' ? 2 : 1;
+      const voice = text(nEl, 'voice') ?? '1';
       const isChordTone = !!nEl.querySelector('chord');
       const isGrace = !!nEl.querySelector('grace');
       const durTxt = text(nEl, 'duration');
@@ -1193,11 +1628,12 @@ function parseGrandStaff(doc: Document, fallbackTitle: string, partEl?: Element)
 
       // Chord tone: fold this pitch into the last note of the SAME stave.
       if (isChordTone) {
-        const list = ev[staff];
+        const list = evFor(staff, voice);
         const pitchEl = nEl.querySelector('pitch');
         const last = list.length ? list[list.length - 1] : null;
         if (last && last.tones.length > 0 && pitchEl) {
-          last.tones.push(readChordTone(nEl, pitchEl, state.keySigLetters));
+          last.tones.push(readChordTone(
+            nEl, pitchEl, state.keySigLetters, state.fifths, ottavaState[staff]?.octDelta ?? 0));
         }
         curTick += advance; // 0
         continue;
@@ -1229,7 +1665,7 @@ function parseGrandStaff(doc: Document, fallbackTitle: string, partEl?: Element)
         const rn: NoteInfo = { keys: ['b/4'], duration: isFull ? 'wr' : vf + 'r' };
         if (isDotted) rn.dotted = true;
         applyNoteExpressions(nEl, rn);   // 쉼표도 잇단음표·페르마타를 가질 수 있다
-        ev[staff].push({ startTick, durTicks, ni: rn, tones: [] });
+        evFor(staff, voice).push({ startTick, durTicks, ni: rn, tones: [] });
         curTick += advance;
         continue;
       }
@@ -1263,30 +1699,57 @@ function parseGrandStaff(doc: Document, fallbackTitle: string, partEl?: Element)
       }
       // 잇단음표·아티큘레이션·꾸밈기호·페르마타·이음줄·글리산도 (단선율과 같은 규칙).
       applyNoteExpressions(nEl, ni);
+      applyNoteheadCue(nEl, ni);
       if (pendingDynamic) { ni.dynamics = pendingDynamic; pendingDynamic = undefined; }
       if (pendingHairpinStart) { ni.hairpinStart = pendingHairpinStart; pendingHairpinStart = undefined; }
       if (pendingHairpinStop) { ni.hairpinStop = true; pendingHairpinStop = false; }
       // 스템 방향은 조판자의 선택 — 양손 악보에서 성부 구분의 핵심이라 보존한다.
       const stemTxt = text(nEl, 'stem');
       if (stemTxt === 'up' || stemTxt === 'down') ni.stem = stemTxt;
-      ev[staff].push({
+      /* 옥타브 브래킷: 구간의 첫 실음에 시작 표시를 붙이고, 구간 내내 적히는 음을
+       * 되돌린다(장식음은 브래킷 시작 기준으로 삼지 않는다). */
+      const ott = ottavaState[staff];
+      if (ott && ottavaPending[staff] && !isGrace) {
+        ni.ottavaStart = ott.label;
+        ottavaPending[staff] = false;
+      }
+      if (!isGrace) lastPitched[staff] = ni;
+      evFor(staff, voice).push({
         startTick,
         durTicks: isGrace ? 0 : durTicks,
         ni,
-        tones: [readChordTone(nEl, pitchEl, state.keySigLetters)],
+        tones: [readChordTone(
+          nEl, pitchEl, state.keySigLetters, state.fifths, ott?.octDelta ?? 0)],
       });
       curTick += advance;
     }
 
     const measureTicks = state.beatsPerMeasure * state.divisions;
-    const trebleMeasure: MeasureInfo = { notes: reconstructStave(ev[1], measureTicks, state.divisions) };
+    const { notes: _drop, ...metaFields } = meta;
+    const trebleMeasure = { ...buildVoicedMeasure(ev, 1, measureTicks, state.divisions), ...metaFields };
     // 마디 안 코드 변화는 공백 2칸으로 이어 붙인다(렌더러가 이걸로 분할한다).
     if (measureChords.length > 0) trebleMeasure.chord = measureChords.join('  ');
     measures.push(trebleMeasure);
-    bassMeasures.push({ notes: reconstructStave(ev[2], measureTicks, state.divisions) });
+    bassMeasures.push(buildVoicedMeasure(ev, 2, measureTicks, state.divisions));
   }
 
-  return { title, composer, key: initialKey, timeSignature: timeSig, tempo, measures, bassMeasures };
+  const transposeSemis = readTransposeSemis(partEl ?? doc);
+  const out: NoteSheetData = {
+    title, composer, key: initialKey, timeSignature: timeSig, tempo, measures, bassMeasures,
+    ...(transposeSemis !== undefined ? { transposeSemis } : {}),
+  };
+
+  /* 두 번째 보표가 **TAB** 이면(기타·베이스 파트) 양손 피아노가 아니라 다중
+   * 스태프 악보다. `staves` 로 내보내야 뷰어·에디터가 TAB 보표로 그린다 —
+   * 예전엔 그냥 낮은음자리표로 그려서 프렛이 음표로 둔갑했다. */
+  const staffKinds = readStaffKinds(attrScope);
+  if (staffKinds && isTabStaffKind(staffKinds[1])) {
+    out.staves = [
+      { kind: staffKinds[0], measures },
+      { kind: staffKinds[1], measures: bassMeasures },
+    ];
+  }
+  return out;
 }
 
 /* ─── Multi-part support ─────────────────────────────────────────────── */
@@ -1349,6 +1812,74 @@ function partMelodyScore(data: NoteSheetData): number {
   return cnt * 0.1 + (avgOct >= 4 && avgOct <= 6 ? 30 : 0) - (avgOct < 3 ? 20 : 0);
 }
 
+/* ─── 보표 종류 판정(다중 스태프 파트) ────────────────────────────────── */
+
+const TAB_KINDS = new Set<StaffKind>(['guitar-tab', 'bass-tab', 'bass5-tab', 'ukulele-tab']);
+function isTabStaffKind(k: StaffKind | undefined): k is StaffKind {
+  return !!k && TAB_KINDS.has(k);
+}
+
+/**
+ * `<clef number="N">` · `<staff-details number="N">` 로 각 보표의 종류를 읽는다.
+ *
+ * 기타 파트는 보표 1 이 `G` 클레프 + `clef-octave-change -1`(= 소리가 표기보다
+ * 한 옥타브 아래 — 기타 관례)이고, 보표 2 가 `TAB` 클레프 + `staff-lines` 6 이다.
+ * 줄 수로 베이스 TAB(4·5줄)도 구분한다.
+ */
+function readStaffKinds(scope: Element): StaffKind[] | null {
+  const clefs = [...scope.querySelectorAll('clef')];
+  if (clefs.length < 2) return null;
+  const linesFor = (num: string | null): number => {
+    for (const sd of scope.querySelectorAll('staff-details')) {
+      if ((sd.getAttribute('number') ?? '1') === (num ?? '1')) {
+        return parseInt(sd.querySelector('staff-lines')?.textContent ?? '5', 10) || 5;
+      }
+    }
+    return 5;
+  };
+  return clefs.map((c) => {
+    const num = c.getAttribute('number');
+    const sign = (text(c, 'sign') ?? 'G').toUpperCase();
+    const line = text(c, 'line');
+    const octChange = parseInt(text(c, 'clef-octave-change') ?? '0', 10) || 0;
+    if (sign === 'TAB') {
+      const n = linesFor(num);
+      return n <= 4 ? 'bass-tab' : n === 5 ? 'bass5-tab' : 'guitar-tab';
+    }
+    if (sign === 'F') return 'bass';
+    if (sign === 'C') return line === '3' ? 'alto' : 'tenor';
+    return octChange === -1 ? 'treble-8vb' : 'treble';
+  });
+}
+
+/**
+ * 단일 보표 파트를 **두 성부까지** 읽는다.
+ *
+ * 한 보표에 두 성부가 겹쳐 적힌 악보(왼손 컴핑 위 멜로디, 드럼의 손/발 분리)는
+ * 흔한데, 예전엔 주 성부만 남기고 나머지를 통째로 버렸다(실측: 드럼 한 파트에서
+ * 218개). 두 번째 성부는 같은 파서를 `onlyVoice` 로 한 번 더 돌려 얻는다 —
+ * 음표 해석 규칙이 갈리지 않는 가장 안전한 방법이다.
+ *
+ * 세 번째 이후 성부는 모델(`voice2`)이 담지 못해 남기지 않는다.
+ */
+function parseSingleStaffWithVoices(
+  doc: Document, fallbackTitle: string, partEl: Element, opts?: XmlParseOpts,
+): NoteSheetData {
+  const data = parseXmlDoc(doc, fallbackTitle, partEl, opts);
+  /* 멜로디 추출 모드는 "한 줄"이 목적이라 두 번째 성부를 만들지 않는다. */
+  if (opts?.pianoPerformance || opts?.onlyVoice) return data;
+  const voices = partVoices(partEl);
+  if (voices.length < 2) return data;
+
+  const second = parseXmlDoc(doc, fallbackTitle, partEl, { ...opts, onlyVoice: voices[1] });
+  for (let i = 0; i < data.measures.length; i++) {
+    const notes = second.measures[i]?.notes;
+    // 쉼표뿐인 마디는 붙이지 않는다 — 빈 성부의 쉼표가 겹쳐 그려진다.
+    if (notes?.some((n) => !n.duration.endsWith('r'))) data.measures[i].voice2 = notes;
+  }
+  return data;
+}
+
 /** Parse EVERY <part> into its own sheet. Falls back to a single whole-doc
  *  parse when the document has no discrete <part> elements. */
 function parseAllParts(doc: Document, fallbackTitle: string, opts?: XmlParseOpts): ScorePart[] {
@@ -1369,7 +1900,7 @@ function parseAllParts(doc: Document, fallbackTitle: string, opts?: XmlParseOpts
     const useGrand = opts?.grandStaff || (staves >= 2 && !opts?.pianoPerformance);
     const data = useGrand
       ? parseGrandStaff(doc, fallbackTitle, pEl)
-      : parseXmlDoc(doc, fallbackTitle, pEl, opts);
+      : parseSingleStaffWithVoices(doc, fallbackTitle, pEl, opts);
     // Attach per-part timbre so playback uses the real instrument sound.
     if (inst) { data.instrument = inst.instrument; data.isDrum = inst.isDrum; }
     return { id, name: names.get(id) ?? `Part ${i + 1}`, data };

@@ -109,6 +109,10 @@ export function resolveSheetMidis(
         // 쉼표도 상태에는 영향 없음 — null 반환만.
         return null;
       }
+      /* 리듬 슬래시·큐 음표는 **소리 없이 자리만** 지킨다. 슬래시는 음정이 아니라
+       * 컴핑 리듬 지시라 조판자가 아무 자리음(대개 D3)을 박아 두는데, 그걸 그대로
+       * 울리면 멜로디 밑에 엉뚱한 저음이 계속 깔린다. 큐 음표도 규격상 미연주다. */
+      if (n.cue || n.notehead === 'slash') return null;
       const midis = n.keys.map((k, ki) => {
         const acc = soundingAccidental(active, keySig, k, n.accidentals?.[ki] as AccGlyph | undefined, style);
         return midiFromKey(k, acc);

@@ -48,7 +48,7 @@ import { isComposingEvent } from '../lib/ime';
 import { useNavigate } from 'react-router-dom';
 import { useIsNativeUi } from '../contexts/AppPreviewContext';
 import styled, { css } from 'styled-components';
-import { IconSidebar } from '../components/layout/IconSidebar';
+import { AppSidebar } from '../components/layout/AppSidebar';
 import { NoteSheet } from '../components/notesheet/NoteSheet';
 import type { NoteSheetData } from '../data/sampleMelody';
 import { leadsheetSongs, type NoteSongEntry } from '../data/noteSongs';
@@ -56,11 +56,13 @@ import {
   KEY_SIGNATURES,
   createSheetProject,
   deleteSheetProject,
+  getSheetProject,
   listSheetProjects,
   updateSheetProject,
   type KeySignature,
   type SheetProject,
 } from '../api/sheetProjects';
+import { omrResultToSheet } from '../lib/note/omrResultToSheet';
 import { getCachedUser } from '../api/auth';
 import { uploadStorageFile } from '../api/storageFiles';
 import { tint } from '../styles/theme';
@@ -120,6 +122,47 @@ export default function MySheetProjectsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [kebabMenuId, setKebabMenuId] = useState<string | null>(null);
   const [uploadedProjects, setUploadedProjects] = useState<UploadedSheetProject[]>(loadUploadedProjects);
+
+  /* ── 저장된 악보 뷰어 ──
+   * 코드 차트가 `/mychord?project=` 로 열리는 것과 대칭. 여기선 별도 라우트 없이
+   * 전체화면 오버레이로 GET /v1/sheet-projects/{id} 의 omrResult(원문 MusicXML)를
+   * omrResultToSheet 로 NoteSheetData 로 바꿔 읽기전용 NoteSheet 로 보여준다.
+   * OMR 미완료·수동 생성 등 원문이 없으면 status 안내를 띄운다. */
+  const [viewer, setViewer] = useState<{ id: string; title: string } | null>(null);
+  const [viewerData, setViewerData] = useState<NoteSheetData | null>(null);
+  const [viewerStatus, setViewerStatus] = useState<'loading' | 'ready' | 'empty' | 'error'>('loading');
+  const [viewerNote, setViewerNote] = useState<string>('');
+
+  const openSheetProject = useCallback((item: UploadedSheetProject) => {
+    setViewer({ id: item.id, title: item.title });
+    setViewerStatus('loading');
+    setViewerData(null);
+    setViewerNote('');
+    getSheetProject(item.id)
+      .then((proj) => {
+        const sheet = omrResultToSheet(proj.omrResult, proj.title || item.title);
+        if (!sheet) {
+          const st = String(proj.omrStatus ?? '');
+          setViewerNote(
+            st === 'PENDING' || st === 'PROCESSING'
+              ? '아직 악보 변환(OMR)이 진행 중이에요. 잠시 후 다시 열어 주세요.'
+              : st === 'FAILED'
+                ? '악보 변환(OMR)에 실패한 프로젝트예요. 원본을 다시 올려 주세요.'
+                : '표시할 악보 원문이 없어요.',
+          );
+          setViewerStatus('empty');
+          return;
+        }
+        setViewerData(sheet);
+        setViewerStatus('ready');
+      })
+      .catch((e) => {
+        setViewerNote(e instanceof Error ? e.message : '악보를 불러오지 못했어요.');
+        setViewerStatus('error');
+      });
+  }, []);
+
+  const closeViewer = useCallback(() => setViewer(null), []);
 
   /* ── 서버 목록 동기화 ──
    * localStorage만 쓰던 이전 구현은 (a) 다른 기기/브라우저의 프로젝트가 안
@@ -377,7 +420,7 @@ export default function MySheetProjectsPage() {
 
   return (
     <Page>
-      {!isNativeUi && <IconSidebar />}
+      {!isNativeUi && <AppSidebar />}
       <DetailBody>
         <DetailHeader>
           {/* 한 줄: 뒤로가기(좌) · 제목(가운데) · 선택~정렬(우) */}
@@ -463,7 +506,7 @@ export default function MySheetProjectsPage() {
                 key={item.id}
                 $selected={selectedIds.has(item.id)}
                 $menuOpen={kebabMenuId === item.id}
-                onClick={() => selectMode && toggleSelect(item.id)}
+                onClick={() => (selectMode ? toggleSelect(item.id) : openSheetProject(item))}
               >
                 {selectMode && (
                   <CardCheckbox
@@ -577,7 +620,7 @@ export default function MySheetProjectsPage() {
               </ListMain>
             </ListNewRow>
             {uploadedProjects.map((item) => (
-              <ListRow key={item.id} $selected={selectedIds.has(item.id)} onClick={() => selectMode && toggleSelect(item.id)}>
+              <ListRow key={item.id} $selected={selectedIds.has(item.id)} onClick={() => (selectMode ? toggleSelect(item.id) : openSheetProject(item))}>
                 <ListThumb><FileMusicIcon /></ListThumb>
                 <ListMain>
                   <ListTitle>{item.title}</ListTitle>
@@ -714,6 +757,28 @@ export default function MySheetProjectsPage() {
               </ModalActions>
             </ModalCard>
           </ModalBackdrop>
+        )}
+
+        {viewer && (
+          <ViewerOverlay onClick={closeViewer}>
+            <ViewerCard onClick={(e) => e.stopPropagation()}>
+              <ViewerHeader>
+                <ViewerTitle title={viewer.title}>{viewer.title}</ViewerTitle>
+                <ViewerClose type="button" aria-label="닫기" onClick={closeViewer}>
+                  <XIcon />
+                </ViewerClose>
+              </ViewerHeader>
+              <ViewerBody>
+                {viewerStatus === 'loading' && <ViewerMsg>악보를 불러오는 중…</ViewerMsg>}
+                {(viewerStatus === 'empty' || viewerStatus === 'error') && (
+                  <ViewerMsg>{viewerNote}</ViewerMsg>
+                )}
+                {viewerStatus === 'ready' && viewerData && (
+                  <NoteSheet data={viewerData} forceAutoStem lineStartMeasureNumbers />
+                )}
+              </ViewerBody>
+            </ViewerCard>
+          </ViewerOverlay>
         )}
       </DetailBody>
     </Page>
@@ -1182,6 +1247,82 @@ const CheckMark = styled.span`
 
 
 
+
+/* ── 저장된 악보 뷰어(전체화면) ─────────────────────────────────────────── */
+const ViewerOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(8px, 3vw, 32px);
+`;
+
+const ViewerCard = styled.div`
+  width: min(1100px, 100%);
+  max-height: 100%;
+  background: ${({ theme }) => theme.colors.surface};
+  border-radius: 16px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+`;
+
+const ViewerHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+`;
+
+const ViewerTitle = styled.h2`
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: ${({ theme }) => theme.colors.textPrimary};
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const ViewerClose = styled.button`
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  cursor: pointer;
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.border};
+    color: ${({ theme }) => theme.colors.textPrimary};
+  }
+`;
+
+const ViewerBody = styled.div`
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px;
+`;
+
+const ViewerMsg = styled.div`
+  padding: 48px 12px;
+  text-align: center;
+  font-size: 14px;
+  color: ${({ theme }) => theme.colors.textSecondary};
+`;
 
 const ModalBackdrop = styled.div`
   position: fixed;

@@ -9,13 +9,8 @@ import { isComposingEvent } from '../lib/ime';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { tint } from '../styles/theme';
 import styled, { keyframes, css } from 'styled-components';
-import { IconSidebar } from '../components/layout/IconSidebar';
-import {
-  Renderer, Stave, StaveNote, Voice, Formatter, Beam, Accidental, Dot, BarlineType, StaveTie, Tuplet, Repetition,
-  TextBracket, TextBracketPosition, Articulation, Annotation, AnnotationVerticalJustify,
-  Ornament, Tremolo, Curve, StaveConnector, GraceNote, GraceNoteGroup, StaveHairpin,
-  TabStave, TabNote, GhostNote, TabTie, TabSlide, PedalMarking,
-} from 'vexflow';
+import { AppSidebar } from '../components/layout/AppSidebar';
+import { Renderer, Stave, StaveNote, Voice, Formatter, Beam, Accidental, Dot, BarlineType, StaveTie, Repetition, TextBracket, TextBracketPosition, Articulation, Annotation, AnnotationVerticalJustify, Ornament, Tremolo, Curve, StaveConnector, GraceNote, GraceNoteGroup, StaveHairpin, TabStave, TabNote, GhostNote, TabTie, TabSlide, PedalMarking } from 'vexflow';
 import { minWidthForVoices, barWidthFromMin, heuristicWidth, packLines } from '../lib/notesheet/sheetLayout';
 import { PianoKeyboard, playMidi, type PianoNote } from '../components/notesheet/PianoKeyboard';
 import { useMidiInput, type MidiNoteEvent } from '../hooks/useMidiInput';
@@ -38,6 +33,9 @@ import { resolveSheetMidis } from '../lib/note/resolvePitches';
 import { useEditorBackingPlayback } from '../hooks/useEditorBackingPlayback';
 import { useDismissable } from '../hooks/useDismissable';
 import { GenreSelect, BpmControl, RepeatControl, TransportButtons, MixerButton } from '../components/backing/BackingPlayerBar';
+import { ChordPasteModal, type ChordPasteResult } from '../components/notesheet/ChordPasteModal';
+import { applyChordPaste } from '../lib/note/chordPaste';
+import { drawTuplets } from '../lib/note/tupletBrackets';
 import { Smufl } from '../components/common/Smufl';
 import { dynamicToSmufl } from '../lib/note/smufl';
 import { vexToMidi, noteMetricBeats } from '../lib/note/melodyTiming';
@@ -52,6 +50,7 @@ import {
 } from '../lib/note/sheetVerticalLayout';
 import { bakeExplicitAccidentals, bakeForScoreReading, emitForKeySignature } from '../lib/note/resolvePitches';
 import { resolveMeasureAccidental, type RenderAcc } from '../lib/note/measureAccidentals';
+import { drawLyrics, lyricHeight, maxVerseCount, LYRIC_TOP_GAP, type LyricAnchor } from '../lib/note/lyricLayout';
 import { drawScoopFall } from '../lib/note/scoopFall';
 import { normalizeChord, formatChordDisplay, splitChordParts } from '../lib/jazz-harmony';
 import { detectChordFromMidi } from '../lib/jazz-harmony/chord-detect';
@@ -151,6 +150,20 @@ function addKeyToNote(n: NoteInfo, vexKey: string, acc: NonNullable<NoteInfo['ac
 
 function measureBeats(notes: NoteInfo[]): number {
   return notes.reduce((s, n) => s + noteMetricBeats(n), 0);
+}
+
+/** '3/4' → **4분음표 단위** 한 마디 박 수(6/8 = 3.0). 음가 산술이 4분음표
+ *  기준이라 그대로 합산할 수 있다.
+ *
+ *  불러오기 경로에서 4를 박아 두면 3/4·6/8 악보의 정상 마디가 "4박 초과"로
+ *  잘못 판정돼 마디가 쪼개진다(실측: 3/4 채보 파일에서 마디가 늘어남). 그래서
+ *  **불러오는 데이터 자신의 박자표**로 계산한다 — 이 시점의 에디터 상태는 아직
+ *  이전 악보의 박자표라 쓸 수 없다. */
+function barBeatsOf(timeSignature: unknown): number {
+  const m = /^(\d+)\/(\d+)$/.exec(typeof timeSignature === 'string' ? timeSignature.trim() : '');
+  if (!m) return 4;
+  const n = Number(m[1]), d = Number(m[2]);
+  return n > 0 && d > 0 ? n * (4 / d) : 4;
 }
 
 /* ─── measure normalization ───────────────────────────────────────────────
@@ -631,7 +644,7 @@ function buildVfNote(
     // Octave-aware accidental rule — single shared helper, every chord tone.
     for (let ki = 0; ki < n.keys.length; ki++) {
       const realAcc = n.accidentals?.[ki] as RenderAcc | undefined;
-      const glyph = resolveMeasureAccidental(activeAcc, keySigAcc, n.keys[ki], realAcc, { courtesy });
+      const glyph = resolveMeasureAccidental(activeAcc, keySigAcc, n.keys[ki], realAcc, { courtesy, tied: n.tieKeys ? n.tieKeys.includes(ki) : n.tieContinuation });
       if (glyph) note.addModifier(new Accidental(glyph), ki);
     }
   }
@@ -766,28 +779,14 @@ function buildBeams(msNotes: NoteInfo[], vfNotes: StaveNote[], drum = false): Be
   return beams;
 }
 
-/** 투플렛 브래킷 렌더 — 트레블/베이스 공용 (renderSheet 본문에서 추출). */
+/** 투플렛 브래킷 렌더 — 트레블/베이스 공용.
+ *
+ * 알고리즘은 `lib/note/tupletBrackets` 가 단일 소스다(뷰어 NoteSheet 와 공용).
+ * 종전 에디터 전용 구현은 ① 표시 숫자를 그룹 개수로 넘기고 ② 그룹 경계를
+ * "최대 N개"로 끊고 ③ `tupletNormal` 을 무시해, 3:2 그룹이 연달아 오면
+ * `3`·`3` 이 아니라 `3`·`2` 로 나왔다(실측: it-could-happen-to-you 28마디). */
 function drawTupletBrackets(msNotes: NoteInfo[], vfNotes: StaveNote[], ctx: ReturnType<Renderer['getContext']>): void {
-  let ti = 0;
-  while (ti < msNotes.length) {
-    const n = msNotes[ti].tuplet;
-    if (n && n >= 3) {
-      const group: StaveNote[] = [];
-      while (ti < msNotes.length && msNotes[ti].tuplet === n && group.length < n) {
-        group.push(vfNotes[ti]);
-        ti++;
-      }
-      if (group.length >= 2) {
-        const stemDown = group[0].getStemDirection() === -1;
-        const notesOccupied = Math.pow(2, Math.floor(Math.log2(n - 1)));
-        const tuplet = new Tuplet(group, { numNotes: group.length, notesOccupied });
-        if (stemDown) tuplet.setTupletLocation(-1);
-        tuplet.setContext(ctx).draw();
-      }
-    } else {
-      ti++;
-    }
-  }
+  drawTuplets({ notes: msNotes, vfNotes }, ctx);
 }
 
 /* ── 드럼 보표 음표 — 공용 빌더(drumVexNote)에 위임. per-key 노트헤드(킥은
@@ -1003,12 +1002,14 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       ? staffExtent(idxs.map((i2) => bassAt(i2).notes), 10, 'bass')
       : NO_EXTENT;
     const dy = lineBassDy[li2];
+    /* 가사 자리 — 뷰어(NoteSheet)와 같은 계산. 절 수만큼 아래를 넓힌다. */
+    const lyricH = lyricHeight(maxVerseCount(idxs.map((i2) => measures[i2] ?? { notes: [] })));
     return {
       chordRow: lineHeadrooms[li2] ?? 0,
       above: tExt.above,
       // 맨 아래 보표의 마지막 줄 위치 — 양손이면 베이스, 추가 파트가 있으면 그 아래.
       bottomLine4: (grand ? dy : 0) + SPACE_ABOVE + 4 * 10 + extrasH + (p0Tab ? 25 : 0),
-      below: grand ? bExt.below : tExt.below,
+      below: (grand ? bExt.below : tExt.below) + lyricH,
     };
   });
   const lineOriginY = lineOrigins(lineBoxes, lineH, MARGIN.top);
@@ -1056,6 +1057,10 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
 
   for (let li = 0; li < lines.length; li++) {
     const indices = lines[li];
+    /* 이 줄의 가사 — 뷰어와 같은 모듈로 그린다(하이픈·멜리스마가 마디선을 넘어
+     * 이어지므로 줄 단위). 에디터는 편집 대상이라 항상 표시한다. */
+    const lineLyrics: LyricAnchor[] = [];
+    const lineNoteXs: number[] = [];
     const isFirstLine = li === 0;
     const isLastLine = li === lines.length - 1;
     /* 균등 배치가 아니라 **누적** — 이 줄이 코드칸 때문에 더 높은 자리가 필요하면
@@ -1561,6 +1566,15 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
       const bassBeams = bassVoice ? buildBeams(realBassNotes, bassVfNotes) : [];
 
       if (voice) voice.draw(ctx, stave);
+      /* 가사 앵커 — 포맷 후라 x 확정. realNotes/realVfNotes 는 꾸밈음을 뺀 1:1 쌍. */
+      for (let ri = 0; ri < realVfNotes.length; ri++) {
+        let cx: number;
+        try { const bb = realVfNotes[ri].getBoundingBox(); cx = bb.getX() + bb.getW() / 2; }
+        catch { continue; }
+        lineNoteXs.push(cx);
+        const src = realNotes[ri];
+        if (src?.lyrics?.length) lineLyrics.push({ x: cx, lyrics: src.lyrics });
+      }
       if (p0Tab && voice) drawTabTechniques(ctx, realNotes, realVfNotes as unknown as (StaveNote | TabNote | GhostNote)[]);
       beams.forEach((bm) => bm.setContext(ctx).draw());
       if (v2Voice) {
@@ -1686,6 +1700,17 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
             staffBot,
           );
       paintMeasureHighlight(el, hx, hw, HL_TOP, HL_BOT);
+    }
+
+    /* ── 가사 작도 — 뷰어와 완전히 같은 구현(lyricLayout). ── */
+    if (lineLyrics.length > 0 && svgEl) {
+      lineLyrics.sort((p1, p2) => p1.x - p2.x);
+      lineNoteXs.sort((p1, p2) => p1 - p2);
+      drawLyrics(svgEl, lineLyrics, {
+        baselineY: lineOriginY[li] + SPACE_ABOVE + 4 * 10 + LYRIC_TOP_GAP,
+        rightEdge: MARGIN.left + totalW,
+        noteXs: lineNoteXs,
+      });
     }
   }
 
@@ -2543,6 +2568,7 @@ const TOOL_TABS = [
   { id: 'note', label: '음표' },
   { id: 'artic', label: '아티큘레이션' },
   { id: 'dyn', label: '다이내믹스' },
+  { id: 'lyric', label: '가사' },
   { id: 'measure', label: '마디' },
   { id: 'midi', label: 'MIDI' },
   { id: 'info', label: '정보' },
@@ -2664,6 +2690,37 @@ const MidiTabPanel = styled.div`
 
   /* 세 묶음이 폭을 고르게 나눠 갖되, 기기 목록이 길어도 밀리지 않게 한다. */
   & > * { flex: 1 1 0; min-width: 0; }
+`;
+
+/* 가사 탭 — 선택한 음표의 음절을 절(verse)별로 입력한다. */
+const LyricTabPanel = styled.div`
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 10px ${TOOLBAR_PAD_X}px;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  height: ${TOOLBAR_H}px;
+  box-sizing: border-box;
+  background: ${({ theme }) => theme.colors.barBelow};
+  overflow-x: auto;
+`;
+const LyricInput = styled.input`
+  width: 130px;
+  padding: 7px 9px;
+  font-size: 0.95rem;
+  font-family: 'Times New Roman', Georgia, serif;
+  border: 1.5px solid ${({ theme }) => theme.colors.border};
+  border-radius: 8px;
+  background: ${({ theme }) => theme.colors.bgPrimary};
+  color: ${({ theme }) => theme.colors.textPrimary};
+  &:focus { outline: none; border-color: #e08a8a; }
+`;
+const LyricHint = styled.div`
+  font-size: 0.76rem;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  line-height: 1.45;
+  max-width: 300px;
 `;
 
 const InfoTabPanel = styled.div`
@@ -4416,6 +4473,8 @@ export default function EditorPage() {
    * 임시표로만 표기된 악보를 불러오면 그 악보가 제대로 그려지도록 아래에서
    * 이 값을 맞춰 세팅한다 — 설정 창에도 그 상태가 그대로 보인다. */
   const [explicitAcc, setExplicitAcc] = usePref(editorExplicitAcc);
+  /* 코드 붙여넣기 모달 — 아는 곡의 코드 진행을 코드칸에 얹는다(F7.33). */
+  const [chordPasteOpen, setChordPasteOpen] = useState(false);
   /* '조표 무시' 를 켜고 끌 때 **소리가 바뀌지 않도록 임시표를 변환**한다.
    *   켤 때  — 조표가 주던 ♯/♭ 을 각 음표에 명시로 펼친다(조표가 사라져도 같은 소리).
    *   끌 때  — 다시 조표 기준 최소 표기로 되돌린다.
@@ -4562,7 +4621,7 @@ export default function EditorPage() {
   const [measureHover, setMeasureHover] = useState(false);
   /* 음표 부가 도구(+) 드롭다운 — 꾸밈·아티큘레이션·구조 등 '더 붙이는' 것들. */
   /* 상단 탭 — 지금은 '음표' 탭만 내용이 있고, 나머지는 자리만 잡아 둔다. */
-  const [toolTab, setToolTab] = useState<'note' | 'artic' | 'dyn' | 'measure' | 'midi' | 'info'>('note');
+  const [toolTab, setToolTab] = useState<'note' | 'artic' | 'dyn' | 'lyric' | 'measure' | 'midi' | 'info'>('note');
 
   /* 상단바 ? 버튼 — 단축키 목록 팝오버. */
   const [shortcutOpen, setShortcutOpen] = useState(false);
@@ -4624,7 +4683,7 @@ export default function EditorPage() {
           partStoreRef.current = loadedStaves.map((st) => ({
             measures: st.kind === 'grand'
               ? bakePart(st, st.measures)
-              : splitMeasuresByBeats(bakePart(st, st.measures), 4),
+              : splitMeasuresByBeats(bakePart(st, st.measures), barBeatsOf(prefillSheet.timeSignature)),
             bassMeasures: st.bassMeasures ? bakePart(st, st.bassMeasures) : [],
           }));
           const first = partStoreRef.current[0];
@@ -4637,7 +4696,7 @@ export default function EditorPage() {
           /* 양손이면 쪼개지 않는다 — 위와 같은 이유(오른손/왼손 인덱스 정렬). */
           const isGrand = Array.isArray(prefillSheet.bassMeasures) && prefillSheet.bassMeasures.length > 0;
           const baked = bake(prefillSheet.measures);
-          setMeasures(isGrand ? baked : splitMeasuresByBeats(baked, 4));
+          setMeasures(isGrand ? baked : splitMeasuresByBeats(baked, barBeatsOf(prefillSheet.timeSignature)));
           if (isGrand) {
             setBassMeasures(bake(prefillSheet.bassMeasures!));
             setStaffMode('grand');
@@ -4692,7 +4751,7 @@ export default function EditorPage() {
         }
         const sheetMeasures = (sd as { measures?: MeasureInfo[] } | null)?.measures;
         if (Array.isArray(sheetMeasures) && sheetMeasures.length > 0) {
-          setMeasures(splitMeasuresByBeats(sheetMeasures, 4));
+          setMeasures(splitMeasuresByBeats(sheetMeasures, barBeatsOf((sd as { timeSignature?: string } | null)?.timeSignature)));
         } else {
           console.warn('[EditorPage] editingLick has no measures', editingLick);
         }
@@ -4716,7 +4775,8 @@ export default function EditorPage() {
       if (!raw) return;
       const d = JSON.parse(raw);
       if (!d || typeof d !== 'object') return;
-      if (Array.isArray(d.measures)) setMeasures(splitMeasuresByBeats(d.measures, 4));
+      // 드래프트는 에디터 상태를 그대로 저장하므로 키가 `timeSig` 다.
+      if (Array.isArray(d.measures)) setMeasures(splitMeasuresByBeats(d.measures, barBeatsOf(d.timeSig ?? d.timeSignature)));
       if (Array.isArray(d.bassMeasures) && d.bassMeasures.length > 0) setBassMeasures(d.bassMeasures);
       if (d.staffMode === 'grand') setStaffMode('grand');
       // 다중 스태프 드래프트 — 메타/스토어/활성 인덱스까지 복원.
@@ -4806,6 +4866,29 @@ export default function EditorPage() {
     editUndoStack.current = [];
     editRedoStack.current = [];
   }, []);
+
+  /* 코드 붙여넣기 적용 — 고른 코드 진행을 현재 파트의 코드칸에 순환으로 채운다.
+   *
+   * 코드칸은 **첫 스태프**의 것이므로(F7.19 규약) 버튼도 activePart===0 에서만 열린다.
+   * `applyChordPaste` 는 순수 함수라 여기서는 undo 스냅샷만 남기고 결과를 갈아끼운다.
+   * 임시표 재표기(respell)는 소리를 보존하므로 조표무시 여부와 무관하게 안전하지만,
+   * 어느 의미론으로 읽어야 하는지는 알려줘야 한다(explicitAcc). */
+  const handleChordPaste = useCallback((r: ChordPasteResult) => {
+    pushEditUndo();
+    setMeasures((prev) => applyChordPaste(
+      prev,
+      r.cells,
+      sheetKey,
+      explicitAcc ? 'explicit' : 'score',
+      {
+        startCell: r.startCell,
+        respell: r.respell,
+        overwrite: r.overwrite,
+        barBeats: barBeatsRef.current,
+      },
+    ));
+    setChordPasteOpen(false);
+  }, [pushEditUndo, sheetKey, explicitAcc]);
 
   const curBeats = useMemo(() => measureBeats(curNotes), [curNotes]);
   /* 선택이 없을 때 보여줄 전체 박 수 — 확정 마디 + 입력 중인 마디. */
@@ -5937,7 +6020,7 @@ export default function EditorPage() {
       // Snap measures that exceed 4 beats into multiple legal bars so the
       // renderer can draw real barlines / line breaks instead of bleeding
       // beams across the page (the bug screenshot).
-      const normalized = splitMeasuresByBeats(chordNormalized, 4);
+      const normalized = splitMeasuresByBeats(chordNormalized, barBeatsOf((data as { timeSignature?: string }).timeSignature));
       setMeasures(normalized);
       // 양손 파트 — bassMeasures가 있으면 양손 모드로 복원. (마디 분할은 치지
       // 않는다 — 트레블과 인덱스 1:1 정렬이 깨지므로 그대로 싣는다.)
@@ -6127,12 +6210,49 @@ export default function EditorPage() {
     return m.notes[selectedNote.ni] ?? null;
   }, [selectedNote, allMeasures, bassMeasures]);
 
+  /* ── 가사 편집 ─────────────────────────────────────────────────────────
+   * 선택한 음표의 절별 음절을 고친다. 빈 문자열이면 그 절을 지운다.
+   * `syllabic` 은 사용자가 하이픈 버튼으로 정하고, 없으면 'single'(낱말 하나). */
+  const setLyric = useCallback((verse: number, text: string) => {
+    if (!selectedNote) return;
+    updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+      const rest = (n.lyrics ?? []).filter((l) => l.verse !== verse);
+      const trimmed = text.trim();
+      const prev = (n.lyrics ?? []).find((l) => l.verse === verse);
+      const next = trimmed
+        ? [...rest, { ...(prev ?? { verse, text: '' }), verse, text: trimmed }]
+        : rest;
+      next.sort((x, y) => x.verse - y.verse);
+      const out: NoteInfo = { ...n };
+      if (next.length) out.lyrics = next; else delete out.lyrics;
+      return out;
+    }, selectedNote.staff);
+  }, [selectedNote, updateNote]);
+
+  /** 음절 속성(하이픈 이어짐 / 멜리스마) 토글. */
+  const toggleLyricFlag = useCallback((verse: number, flag: 'hyphen' | 'extend') => {
+    if (!selectedNote) return;
+    updateNote(selectedNote.mi, selectedNote.ni, (n) => {
+      const list = (n.lyrics ?? []).map((l) => {
+        if (l.verse !== verse) return l;
+        if (flag === 'extend') {
+          const o = { ...l }; if (o.extend) delete o.extend; else o.extend = true; return o;
+        }
+        // 하이픈: 'single' ↔ 'begin' 토글(뒤 음절로 이어짐).
+        const o = { ...l };
+        o.syllabic = (l.syllabic === 'begin' || l.syllabic === 'middle') ? 'single' : 'begin';
+        return o;
+      });
+      return list.length ? { ...n, lyrics: list } : n;
+    }, selectedNote.staff);
+  }, [selectedNote, updateNote]);
+
   /* 아티큘레이션·다이내믹스 탭은 음표(쉼표 제외), 마디 탭은 마디 활성화가 전제 —
    * 조건이 안 되면 탭 자체를 잠그고, 보던 중 선택이 풀리면 음표 탭으로 복귀. */
   const noteTabUsable = !!(selectedNote && selNoteInfo && !selNoteInfo.duration.endsWith('r'));
   const measureTabUsable = activeMeasureIdx != null;
   useEffect(() => {
-    if (!noteTabUsable && (toolTab === 'artic' || toolTab === 'dyn')) setToolTab('note');
+    if (!noteTabUsable && (toolTab === 'artic' || toolTab === 'dyn' || toolTab === 'lyric')) setToolTab('note');
     if (!measureTabUsable && toolTab === 'measure') setToolTab('note');
   }, [noteTabUsable, measureTabUsable, toolTab]);
 
@@ -6648,6 +6768,15 @@ export default function EditorPage() {
   return (
     <Page>
       {/* 스태프 종류 선택 모달 — 6종 카드(이름·설명·미리보기). */}
+      {chordPasteOpen && (
+        <ChordPasteModal
+          measureCount={measures.length}
+          initialQuery={sheetTitle}
+          onApply={handleChordPaste}
+          onClose={() => setChordPasteOpen(false)}
+        />
+      )}
+
       {staffModal && (
         <StaffModalOverlay onClick={() => setStaffModal(null)}>
           <StaffModalCard onClick={(e) => e.stopPropagation()}>
@@ -6680,7 +6809,7 @@ export default function EditorPage() {
         </StaffModalOverlay>
       )}
       {countInOverlay}
-      <IconSidebar />
+      <AppSidebar />
       <PageBody>
       <Header>
         <BackButton onClick={() => navigate(-1)} label="이전 페이지" />
@@ -6740,13 +6869,13 @@ export default function EditorPage() {
               type="button"
               $on={toolTab === t.id}
               $accent={
-                (t.id === 'artic' || t.id === 'dyn') && noteTabUsable ? '#e08a8a'
+                (t.id === 'artic' || t.id === 'dyn' || t.id === 'lyric') && noteTabUsable ? '#e08a8a'
                   : t.id === 'measure' && measureTabUsable ? '#D4A843'
                   : undefined
               }
-              disabled={((t.id === 'artic' || t.id === 'dyn') && !noteTabUsable)
+              disabled={((t.id === 'artic' || t.id === 'dyn' || t.id === 'lyric') && !noteTabUsable)
                 || (t.id === 'measure' && !measureTabUsable)}
-              title={(t.id === 'artic' || t.id === 'dyn') && !noteTabUsable
+              title={(t.id === 'artic' || t.id === 'dyn' || t.id === 'lyric') && !noteTabUsable
                 ? '음표(머리)를 선택하면 사용할 수 있어요'
                 : t.id === 'measure' && !measureTabUsable
                   ? '마디를 선택하면 사용할 수 있어요'
@@ -6834,7 +6963,48 @@ export default function EditorPage() {
         </TabIcons>
       </TabBar>
 
-      {toolTab === 'midi' ? (
+      {toolTab === 'lyric' ? (
+        /* 가사 탭 — 선택한 음표의 음절을 절별로 입력한다. 보컬용.
+         * 표기(하이픈·멜리스마)는 뷰어와 같은 lyricLayout 이 그린다. */
+        <LyricTabPanel>
+          {[1, 2, 3].map((verse) => {
+            const cur = selNoteInfo?.lyrics?.find((l) => l.verse === verse);
+            const joins = cur?.syllabic === 'begin' || cur?.syllabic === 'middle';
+            return (
+              <div key={verse} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ fontSize: '0.76rem', color: '#888', minWidth: 24 }}>{verse}절</span>
+                <LyricInput
+                  value={cur?.text ?? ''}
+                  placeholder={verse === 1 ? '음절' : ''}
+                  onChange={(e) => setLyric(verse, e.target.value)}
+                  aria-label={`${verse}절 가사`}
+                />
+                <NoteEditBtn
+                  type="button"
+                  title="다음 음절과 한 낱말로 이어짐 — 사이에 하이픈을 그린다"
+                  aria-pressed={joins}
+                  $active={joins}
+                  disabled={!cur}
+                  onClick={() => toggleLyricFlag(verse, 'hyphen')}
+                >–</NoteEditBtn>
+                <NoteEditBtn
+                  type="button"
+                  title="멜리스마 — 이 음절을 다음 음들까지 끌며 밑줄을 그린다"
+                  aria-pressed={!!cur?.extend}
+                  $active={!!cur?.extend}
+                  disabled={!cur}
+                  onClick={() => toggleLyricFlag(verse, 'extend')}
+                >__</NoteEditBtn>
+              </div>
+            );
+          })}
+          <LyricHint>
+            음표를 고르고 음절을 적습니다. <b>–</b> 는 다음 음절과 한 낱말로 이어(하이픈),
+            <b> __</b> 는 한 음절을 여러 음에 끕니다(멜리스마).
+            <br />⚠️ 백엔드가 아직 가사를 저장하지 않습니다(BR-47).
+          </LyricHint>
+        </LyricTabPanel>
+      ) : toolTab === 'midi' ? (
         /* MIDI 탭 — 예전 톱니 옆 MIDI 버튼이 띄우던 모달의 내용. */
         <MidiTabPanel>
           <MidiSettingsBody midi={midi} />
@@ -7043,6 +7213,27 @@ export default function EditorPage() {
                 })}
                 </StaffListWrap>
               </StaffRowArea>
+            </InfoBox>
+
+            {/* 4 — 코드: 아는 곡의 코드 진행을 코드칸에 얹는다(F7.33).
+                MusicXML 채보에 코드가 없을 때 일일이 타이핑하지 않게 해준다. */}
+            <InfoBox style={{ justifyContent: 'center', gap: 7, padding: '16px 10px 8px' }}>
+              <BoxLegend>코드</BoxLegend>
+              <ChordPasteBtn
+                type="button"
+                disabled={activePart !== 0 || measures.length === 0}
+                title={
+                  activePart !== 0 ? '코드칸은 첫 스태프의 것입니다 — 1번 스태프를 선택하세요'
+                  : measures.length === 0 ? '마디가 있어야 코드를 넣을 수 있어요'
+                  : '아는 곡의 코드 진행을 골라 코드칸에 채웁니다 (도돌이·볼타 자동 전개)'
+                }
+                onClick={() => setChordPasteOpen(true)}
+              >
+                ⎘ 코드 붙여넣기
+              </ChordPasteBtn>
+              <ChordPasteNote>
+                {measures.filter((m) => m.chord).length}/{measures.length} 마디에 코드 있음
+              </ChordPasteNote>
             </InfoBox>
         </InfoTabPanel>
       ) : toolTab === 'measure' ? (
@@ -8517,6 +8708,27 @@ const StaffRowBtn = styled.div<{ $on: boolean }>`
 `;
 
 /* 섹션 왼쪽에서 세로 전체 높이를 차지하는 큰 추가 버튼. */
+/* 코드 붙여넣기 버튼 — 정보 탭 '코드' 박스. 툴바 다른 액션 버튼과 같은 규격. */
+const ChordPasteBtn = styled.button`
+  padding: 7px 12px;
+  border: 2px solid ${({ theme }) => theme.colors.border};
+  border-radius: 9px;
+  background: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.textPrimary};
+  font-family: 'Pretendard', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  &:hover:not(:disabled) { border-color: #ef6c00; color: #ef6c00; }
+  &:disabled { opacity: 0.45; cursor: default; }
+`;
+const ChordPasteNote = styled.span`
+  font-size: 0.7rem;
+  text-align: center;
+  color: ${({ theme }) => theme.colors.textSecondary};
+`;
+
 const AddStaffBtn = styled.button`
   align-self: stretch;
   flex: none;

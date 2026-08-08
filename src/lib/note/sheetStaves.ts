@@ -11,7 +11,7 @@
  *
  * 에디터·뷰어·재생이 전부 이 헬퍼를 거친다. 직접 data.staves 를 해석하지 말 것.
  */
-import type { NoteSheetData, SheetStaff, StaffKind } from '../../data/sampleMelody';
+import type { MeasureInfo, NoteSheetData, SheetStaff, StaffKind } from '../../data/sampleMelody';
 import { GUITAR_TUNING, BASS_TUNING, BASS5_TUNING, UKULELE_TUNING } from './tabFingering';
 
 /* ─── 종류 메타데이터 (+ 모달 카드 문구) ─────────────────────────────── */
@@ -161,6 +161,71 @@ export function displayNotesFor<T extends { keys: string[]; duration: string }>(
 }
 
 /* ─── 정규화 · 직렬화 ─────────────────────────────────────────────────── */
+
+/**
+ * `sheetData` 의 **`notes` 계약**을 보장한다 — 문서 #46(백엔드 무손실 스키마).
+ *
+ * 백엔드 계약: `measures[].notes` 는 **필드가 반드시 존재**해야 하고,
+ * `null` 이거나 키를 빠뜨리면 **400** 이다. 빈 배열 `[]` 은 정상이며
+ * "이 보표에서 이 마디는 쉼"을 뜻한다(왼손 패딩 등).
+ *
+ * 우리 모델은 `notes` 를 필수로 선언하지만 **런타임 값은 그렇지 않다** — 코드
+ * 붙여넣기·JSON 로드·구버전 드래프트에서 `{ chord: 'C' }` 처럼 notes 없는 마디가
+ * 실제로 들어온다(EditorPage.splitMeasuresByBeats 의 방어 코드가 그 증거다).
+ * 저장 직전과 조회 직후 **양쪽**에서 이 함수를 통과시켜, 400 도 나지 않고
+ * 렌더러의 `m.notes.length` 도 터지지 않게 한다.
+ *
+ * 값이 이미 계약을 지키면 **원본 객체를 그대로** 돌려준다(불필요한 리렌더 방지).
+ */
+export function normalizeSheetNotes<T extends Partial<NoteSheetData>>(data: T): T {
+  if (!data || typeof data !== 'object') return data;
+  let changed = false;
+
+  const fixMeasures = (ms: unknown): MeasureInfo[] | undefined => {
+    if (!Array.isArray(ms)) return undefined;
+    let listChanged = false;
+    const out = ms.map((m) => {
+      if (!m || typeof m !== 'object') { listChanged = true; return { notes: [] } as MeasureInfo; }
+      const mm = m as MeasureInfo;
+      const notesOk = Array.isArray(mm.notes);
+      // voice2 는 선택 필드다 — 있는데 배열이 아니면 통째로 뺀다(빈 배열을 남기면
+      // 렌더러가 "둘째 성부 있음"으로 보고 빈 보이스를 그린다).
+      const v2Bad = mm.voice2 !== undefined && !Array.isArray(mm.voice2);
+      if (notesOk && !v2Bad) return mm;
+      listChanged = true;
+      const next: MeasureInfo = { ...mm, notes: notesOk ? mm.notes : [] };
+      if (v2Bad) delete next.voice2;
+      return next;
+    });
+    if (!listChanged) return ms as MeasureInfo[];
+    changed = true;
+    return out;
+  };
+
+  const measures = fixMeasures(data.measures);
+  const bassMeasures = fixMeasures(data.bassMeasures);
+
+  let staves = data.staves;
+  if (Array.isArray(staves)) {
+    let stavesChanged = false;
+    const nextStaves = staves.map((s) => {
+      const ms = fixMeasures(s.measures) ?? [];
+      const bs = s.bassMeasures !== undefined ? fixMeasures(s.bassMeasures) : undefined;
+      if (ms === s.measures && bs === s.bassMeasures) return s;
+      stavesChanged = true;
+      return { ...s, measures: ms, ...(bs !== undefined ? { bassMeasures: bs } : {}) };
+    });
+    if (stavesChanged) { changed = true; staves = nextStaves; }
+  }
+
+  if (!changed) return data;
+  return {
+    ...data,
+    ...(measures !== undefined ? { measures } : {}),
+    ...(bassMeasures !== undefined ? { bassMeasures } : {}),
+    ...(staves !== undefined ? { staves } : {}),
+  };
+}
 
 /** 시트 → 스태프 배열. staves 가 없으면 legacy 필드에서 합성한다.
  *  반환 배열은 항상 길이 ≥ 1 (빈 시트도 트레블 1개). */

@@ -33,6 +33,18 @@ export interface ResolveAccidentalOpts {
    * suppressed. Both modes are equally octave-aware.
    */
   courtesy?: boolean;
+  /**
+   * 이 음표가 **타이로 이어받은 뒤쪽 음**(`NoteInfo.tieContinuation`)인지.
+   *
+   * 기보 규칙(Gould, *Behind Bars*): 타이로 묶인 음에는 임시표를 다시 찍지
+   * 않는다 — 타이가 음높이를 이미 전달한다. 같은 마디 안이라면 마디 내 상속이
+   * 알아서 억제하지만, **마디를 넘어가는 타이**는 새 마디의 상태가 비어 있어
+   * 그냥 두면 ♭/♯ 이 한 번 더 그려진다(MusicXML 원본 대조에서 실제로 발견).
+   *
+   * 소리는 그대로이므로 마디 내 상태(`active`)는 갱신하고 글리프만 생략한다 —
+   * 뒤따르는 같은 음은 이 상태를 상속한다.
+   */
+  tied?: boolean;
 }
 
 export function resolveMeasureAccidental(
@@ -47,6 +59,14 @@ export function resolveMeasureAccidental(
   const current = active.get(vexKey);             // octave-specific in-measure state
   const keySigForLetter = keySig?.get(letter);
 
+  // 타이로 이어받은 음: 기호를 찍지 않고 마디 내 상태도 **건드리지 않는다**.
+  //  • 같은 마디 안의 타이 → 앞 음이 남긴 상태가 그대로 살아 있어 뒤따르는 같은
+  //    음이 알아서 억제된다.
+  //  • 마디를 넘는 타이 → 새 마디의 상태는 비어 있고, 비어 있어야 맞다. 기보
+  //    규칙상 넘어온 임시표는 **그 음에만** 유효하므로, 같은 마디 뒤쪽의 같은
+  //    음은 자기 임시표를 다시 가져야 한다(원본 조판과 일치).
+  if (opts?.tied) return null;
+
   if (dataAcc) {
     active.set(vexKey, dataAcc);
     // Print it unless this exact pitch already carries the same accidental.
@@ -58,10 +78,13 @@ export function resolveMeasureAccidental(
   // No explicit accidental → natural. A different octave never triggers a ♮.
   if (courtesy) {
     // Cancel back to the key-signature default only if THIS pitch was altered
-    // earlier in the measure away from that default.
-    if (current !== undefined && current !== keySigForLetter) {
+    // earlier in the measure away from that default. 조표가 없는 글자의 기본값은
+    // 'n' 이다 — undefined 와 'n' 을 같은 것으로 봐야 "앞서 ♮ 를 찍은 음"에
+    // 불필요한 ♮ 를 한 번 더 그리지 않는다.
+    const ksDefault: RenderAcc = keySigForLetter ?? 'n';
+    if (current !== undefined && current !== ksDefault) {
       active.delete(vexKey);
-      return keySigForLetter ?? 'n';
+      return ksDefault;
     }
     return null;
   }

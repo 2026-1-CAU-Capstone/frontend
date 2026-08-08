@@ -2,6 +2,7 @@ import { lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppShell } from '../AppShell';
 import { SidebarSlot } from '../components/layout/sidebarSlot';
+import { SurfaceContext } from '../lib/surface';
 import { StudioSidebar } from './components/StudioSidebar';
 import { AdminRoute } from '../components/auth/AdminRoute';
 import { BackendBadge } from '../components/layout/BackendBadge';
@@ -44,6 +45,7 @@ export default function StudioApp() {
   return (
     <>
       <BackendBadge />
+      <SurfaceContext.Provider value="studio">
       <SidebarSlot.Provider value={renderStudioSidebar}>
       <AppShell
         routes={
@@ -73,6 +75,7 @@ export default function StudioApp() {
         }
       />
       </SidebarSlot.Provider>
+      </SurfaceContext.Provider>
     </>
   );
 }

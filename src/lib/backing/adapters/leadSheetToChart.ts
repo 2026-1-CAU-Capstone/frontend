@@ -1,3 +1,4 @@
+import { expandRepeatOrder, type RepeatFlags } from "../../note/leadSheetExpand";
 import type { LeadSheetChord, LeadSheetData } from "../../../data/leadSheetTypes";
 import type {
   Bar,
@@ -106,82 +107,23 @@ export function leadSheetToChart(
  *   skip the visual-padding bars, leaving ending=2 + everything after.
  */
 function expandForPlayback(sections: Section[]): Section[] {
-  type Tagged = {
-    bar: Bar;
-    repeatStart: boolean;
-    repeatEnd: boolean;
-  };
-
-  const flat: Tagged[] = [];
+  // 전개 알고리즘 자체는 `lib/note/leadSheetExpand.ts` 가 단일 소스다 —
+  // "코드 붙여넣기"(에디터)도 같은 함수를 써야 재생과 마디 수가 어긋나지 않는다.
+  const flat: Bar[] = [];
+  const flags: RepeatFlags[] = [];
   for (const sec of sections) {
     for (let bi = 0; bi < sec.bars.length; bi++) {
       const bar = sec.bars[bi];
-      flat.push({
-        bar,
+      flat.push(bar);
+      flags.push({
+        ending: bar.ending,
+        wasEmpty: !!bar.wasEmpty,
         repeatStart: !!sec.repeatStart && bi === 0,
         repeatEnd: !!sec.repeatEnd && bi === sec.bars.length - 1,
       });
     }
   }
-
-  // Padding detection: source-empty bars (wasEmpty=true) that sit between a
-  // `:|` and a subsequent `ending` marker. Marked ONLY when the scan
-  // actually reaches an ending marker — otherwise the empties are real
-  // intentional rests/clones in the middle of the chart (e.g. "Hindsight").
-  const isPadding = new Array<boolean>(flat.length).fill(false);
-  for (let i = 0; i < flat.length; i++) {
-    if (!flat[i].repeatEnd) continue;
-    const candidates: number[] = [];
-    let foundEnding = false;
-    for (let j = i + 1; j < flat.length; j++) {
-      if (flat[j].bar.ending != null) { foundEnding = true; break; }
-      if (flat[j].bar.wasEmpty) candidates.push(j);
-    }
-    if (foundEnding) {
-      for (const j of candidates) isPadding[j] = true;
-    }
-  }
-
-  const output: Bar[] = [];
-  let i = 0;
-  let repeatStartIdx: number | null = null;
-  let havePlayedOnce = false;
-
-  while (i < flat.length) {
-    const t = flat[i];
-
-    // Entering a (new) repeat block — remember where to jump back to.
-    if (t.repeatStart && repeatStartIdx !== i) {
-      repeatStartIdx = i;
-      havePlayedOnce = false;
-    }
-
-    // 2nd pass: skip the entire 1st-ending bracket (this bar → `:|`).
-    if (havePlayedOnce && t.bar.ending === 1) {
-      let j = i;
-      while (j < flat.length && !flat[j].repeatEnd) j++;
-      i = j + 1;
-      continue;
-    }
-
-    // 2nd pass: skip layout-padding bars under the 2nd-ending bracket.
-    if (havePlayedOnce && isPadding[i]) {
-      i++;
-      continue;
-    }
-
-    output.push(t.bar);
-
-    // First time we hit `:|` — loop back to `|:`.
-    if (t.repeatEnd && !havePlayedOnce && repeatStartIdx !== null) {
-      i = repeatStartIdx;
-      havePlayedOnce = true;
-      continue;
-    }
-
-    i++;
-  }
-
+  const output = expandRepeatOrder(flags).map((i) => flat[i]);
   return [{ label: "expanded", bars: output }];
 }
 
