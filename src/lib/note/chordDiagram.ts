@@ -8,8 +8,35 @@
  *
  * 그리기는 drawFretDiagram — 에디터·뷰어가 같은 함수를 쓴다(SVG 직접 생성).
  */
-import { ChordSymbol } from '../jazz-harmony';
+import { ChordSymbol, splitChordParts } from '../jazz-harmony';
 import { assignTabPositions } from './tabFingering';
+import {
+  absoluteFret, chordDbSync, diagramInstrumentFor, lookupPositions,
+  type DbInstrument, type DbPosition,
+} from './chordDb';
+
+/**
+ * 코드심볼 → chords-db 폼. **운지를 계산하지 않는다**(lib/note/chordDb 참조).
+ *
+ * VexFlow 렌더 도중 동기로 불리므로 데이터가 아직 없으면 null 이다 — 호출부가
+ * 미리 `loadChordDb()` 를 걸어 두고, 도착하면 다시 렌더한다.
+ */
+export function dbDiagramFor(
+  chordText: string,
+  kind: string,
+  capo?: number,
+  tuningPreset?: string,
+): { position: DbPosition; instrument: DbInstrument } | null {
+  const inst = diagramInstrumentFor(kind, capo, tuningPreset);
+  if (!inst) return null;                  // 베이스·카포·드롭D — 폼이 안 맞는다
+  const db = chordDbSync(inst);
+  if (!db) return null;                    // 아직 안 받아 왔다
+  const { base, ext, tension } = splitChordParts(chordText);
+  const m = base.match(/^([A-Ga-g][#♯b♭]*)(.*)$/);
+  if (!m) return null;
+  const position = lookupPositions(db, m[1], `${m[2]}${ext}${tension}`.trim())[0];
+  return position ? { position, instrument: inst } : null;
+}
 
 export interface FretDiagram {
   /** 현별 프렛(인덱스 0 = 1번줄·가는 줄). null = 뮤트, 0 = 개방. */
@@ -84,12 +111,20 @@ export function chordToDiagram(chordText: string, tuning: number[]): FretDiagram
 const NS = 'http://www.w3.org/2000/svg';
 
 /** 프렛 다이어그램을 svg 루트에 직접 그린다. (x,y) = 좌상단, 폭 w 기준 비율 배치. */
+/**
+ * chords-db 폼을 SVG 에 그린다(에디터·뷰어 공용).
+ *
+ * ⚠️ 데이터 규격 두 가지를 지켜야 한다:
+ *   - `frets` 는 **6번줄(굵은 E)부터** — 다이어그램 관례도 6번줄이 왼쪽이라 그대로 그린다
+ *   - 프렛 값은 `absoluteFret()` 경유. `0` 은 개방현이라 baseFret 을 더하지 않는다
+ * 예전엔 계산 엔진 결과(1번줄부터, 절대 프렛)를 받아 `nStr-1-i` 로 뒤집어 그렸다.
+ */
 export function drawFretDiagram(
   svgEl: SVGElement,
   x: number,
   y: number,
   w: number,
-  diagram: FretDiagram,
+  diagram: DbPosition,
   label: string,
 ): void {
   const nStr = diagram.frets.length;
@@ -119,7 +154,7 @@ export function drawFretDiagram(
 
   text(x + gridW / 2, y + 8, label, 10.5, '700');
 
-  // 세로줄(현) — 인덱스 0(1번줄)이 오른쪽 (다이어그램 관례: 왼쪽=굵은 줄).
+  // 세로줄(현) — 인덱스 0 = 6번줄(굵은 줄)이 왼쪽. 데이터 순서와 같다.
   for (let i = 0; i < nStr; i++) line(x + i * colGap, topY, x + i * colGap, topY + gridH, 1);
   // 가로줄(프렛) — 너트(baseFret 1)는 굵게.
   for (let f = 0; f <= DIAGRAM_WINDOW; f++) {
@@ -127,10 +162,27 @@ export function drawFretDiagram(
   }
   if (diagram.baseFret > 1) text(x - 4, topY + rowGap * 0.72, String(diagram.baseFret), 8.5, '600', 'end');
 
+  /* 바레 — 데이터에만 있는 정보. `barres` 값은 **이미 절대 프렛**이라 baseFret 만
+   * 빼면 행이 된다(absoluteFret 을 또 통과시키면 두 번 변환돼 엉뚱한 줄에 그려진다). */
+  for (const bf of diagram.barres) {
+    const cols = diagram.frets
+      .map((f, i) => (f >= 0 && absoluteFret(f, diagram.baseFret) === bf ? i : -1))
+      .filter((i) => i >= 0);
+    if (cols.length < 2) continue;
+    const by = topY + (bf - diagram.baseFret + 0.5) * rowGap;
+    const l = document.createElementNS(NS, 'line');
+    l.setAttribute('x1', String(x + Math.min(...cols) * colGap)); l.setAttribute('y1', String(by));
+    l.setAttribute('x2', String(x + Math.max(...cols) * colGap)); l.setAttribute('y2', String(by));
+    l.setAttribute('stroke', '#333');
+    l.setAttribute('stroke-width', String(Math.min(colGap * 0.5, 6)));
+    l.setAttribute('stroke-linecap', 'round');
+    g.appendChild(l);
+  }
+
   diagram.frets.forEach((fret, i) => {
-    const cx = x + (nStr - 1 - i) * colGap;   // 1번줄이 오른쪽 끝
-    if (fret === null) { text(cx, topY - 3, '×', 8.5, '600'); return; }
-    if (fret === 0) {
+    const cx = x + i * colGap;                // 6번줄이 왼쪽 — 데이터 순서 그대로
+    if (fret < 0) { text(cx, topY - 3, '×', 8.5, '600'); return; }
+    if (absoluteFret(fret, diagram.baseFret) === 0) {
       const c = document.createElementNS(NS, 'circle');
       c.setAttribute('cx', String(cx)); c.setAttribute('cy', String(topY - 6));
       c.setAttribute('r', '2.6'); c.setAttribute('fill', 'none');
@@ -138,7 +190,7 @@ export function drawFretDiagram(
       g.appendChild(c);
       return;
     }
-    const row = fret - diagram.baseFret;      // 0-based 그리드 행
+    const row = absoluteFret(fret, diagram.baseFret) - diagram.baseFret;   // 0-based 그리드 행
     const c = document.createElementNS(NS, 'circle');
     c.setAttribute('cx', String(cx)); c.setAttribute('cy', String(topY + (row + 0.5) * rowGap));
     c.setAttribute('r', String(Math.min(colGap * 0.34, 4.6)));

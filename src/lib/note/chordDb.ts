@@ -129,30 +129,65 @@ export function positionMidi(p: DbPosition, tuning: readonly number[] = GUITAR_S
 /** 표준 튜닝 — **6번줄(굵은 E)부터**. chords-db 의 frets 순서와 같다. */
 export const GUITAR_STANDARD: readonly number[] = [40, 45, 50, 55, 59, 64]; // E2 A2 D3 G3 B3 E4
 
-let cache: DbFile | null = null;
-let loading: Promise<DbFile> | null = null;
+/** 데이터가 있는 악기. chords-db 에 guitar·ukulele 만 있다(베이스는 없다). */
+export type DbInstrument = 'guitar' | 'ukulele';
 
-/** 데이터 파일을 한 번만 받아 온다. 실패하면 throw — 호출부가 다이어그램을 끈다. */
-export async function loadGuitarDb(): Promise<DbFile> {
-  if (cache) return cache;
-  if (!loading) {
-    loading = import('@tombatossals/chords-db/lib/guitar.json')
-      .then((m) => {
-        cache = (m.default ?? m) as unknown as DbFile;
-        return cache;
-      });
+const cache: Partial<Record<DbInstrument, DbFile>> = {};
+const loading: Partial<Record<DbInstrument, Promise<DbFile>>> = {};
+
+/** 데이터 파일을 악기별로 한 번만 받아 온다. 실패하면 throw — 호출부가 다이어그램을 끈다. */
+export async function loadChordDb(inst: DbInstrument = 'guitar'): Promise<DbFile> {
+  const hit = cache[inst];
+  if (hit) return hit;
+  if (!loading[inst]) {
+    loading[inst] = (inst === 'ukulele'
+      ? import('@tombatossals/chords-db/lib/ukulele.json')
+      : import('@tombatossals/chords-db/lib/guitar.json')
+    ).then((m) => {
+      const db = (m.default ?? m) as unknown as DbFile;
+      cache[inst] = db;
+      return db;
+    });
   }
-  return loading;
+  return loading[inst]!;
 }
 
-/** 이미 받아 둔 데이터(없으면 null). 렌더 중 동기 조회용. */
-export function guitarDbSync(): DbFile | null {
-  return cache;
+/** 이미 받아 둔 데이터(없으면 null). VexFlow 렌더 도중처럼 동기로 필요할 때 쓴다. */
+export function chordDbSync(inst: DbInstrument = 'guitar'): DbFile | null {
+  return cache[inst] ?? null;
+}
+
+/* 하위 호환 — 기존 호출부(ChordDiagram)가 쓰던 이름. */
+export const loadGuitarDb = () => loadChordDb('guitar');
+export const guitarDbSync = () => chordDbSync('guitar');
+
+/**
+ * 이 보표에 chords-db 다이어그램을 쓸 수 있는가.
+ *
+ * **표준 튜닝 전용이다.** chords-db 의 폼은 기타 EADGBE·우쿨렐레 GCEA 를 전제하므로,
+ * 드롭D·카포·베이스에는 **그대로 쓰면 안 된다** — 다른 프렛을 짚게 만든다. 그런
+ * 경우에는 null 을 돌려 다이어그램을 아예 그리지 않게 한다(틀린 그림보다 없는 게 낫다).
+ *
+ * @param kind          보표 종류(`guitar-tab` · `bass-tab` · `ukulele-tab` …)
+ * @param capo          카포 프렛(0 = 없음)
+ * @param tuningPreset  `drop-d` 등 변형 튜닝
+ */
+export function diagramInstrumentFor(
+  kind: string,
+  capo?: number,
+  tuningPreset?: string,
+): DbInstrument | null {
+  if (capo && capo > 0) return null;                 // 카포 → 폼이 안 맞는다
+  if (kind === 'ukulele-tab') return 'ukulele';
+  if (kind === 'bass-tab' || kind === 'bass5-tab') return null;   // 데이터 없음
+  if (tuningPreset && tuningPreset !== 'standard') return null;   // 드롭D 등
+  return 'guitar';
 }
 
 /**
  * 루트 + 퀄리티 → 폼 목록. 데이터에 없으면 빈 배열.
  *
+ * @param db    `loadChordDb(inst)` 로 받은 악기별 데이터
  * @param root  `C` · `C#` · `Bb` 같은 루트 문자열
  * @param qual  우리 앱 표기의 퀄리티(`m7` · `△7` · `7b9` …). 빈 문자열이면 메이저
  */

@@ -25,7 +25,8 @@ import { buildDrumNote } from '../lib/note/drumVexNote';
 import { auditionDrumGm } from '../lib/note/drumAudition';
 import { DrumKitPad } from '../components/notesheet/DrumKitPad';
 import { assignTabPositions, type TabPos } from '../lib/note/tabFingering';
-import { chordToDiagram, drawFretDiagram, type FretDiagram } from '../lib/note/chordDiagram';
+import { dbDiagramFor, drawFretDiagram } from '../lib/note/chordDiagram';
+import { loadChordDb } from '../lib/note/chordDb';
 import { resolveSheetMidis } from '../lib/note/resolvePitches';
 
 /* ─── helpers ──────────────────────────────────────────────────────────── */
@@ -48,7 +49,7 @@ import { grandStaffDy, GRAND_BASS_DY } from '../lib/note/grandStaffLayout';
 import {
   staffExtent, lineOrigins, sheetHeight, SPACE_ABOVE, NO_EXTENT, type LineBox,
 } from '../lib/note/sheetVerticalLayout';
-import { bakeExplicitAccidentals, bakeForScoreReading, emitForKeySignature } from '../lib/note/resolvePitches';
+import { bakeExplicitAccidentals, emitForKeySignature } from '../lib/note/resolvePitches';
 import { resolveMeasureAccidental, type RenderAcc } from '../lib/note/measureAccidentals';
 import { drawLyrics, lyricHeight, maxVerseCount, LYRIC_TOP_GAP, type LyricAnchor } from '../lib/note/lyricLayout';
 import { drawScoopFall } from '../lib/note/scoopFall';
@@ -357,13 +358,8 @@ const DIAGRAM_H = 50;
 /** 다이어그램 그리드 폭. */
 const DIAGRAM_W = 34;
 
-/* 다이어그램 계산 캐시 — 같은 코드는 렌더마다 다시 풀지 않는다. */
-const diagramCache = new Map<string, FretDiagram | null>();
-function cachedDiagram(chord: string, tuning: number[]): FretDiagram | null {
-  const key = chord + '|' + tuning.join(',');
-  if (!diagramCache.has(key)) diagramCache.set(key, chordToDiagram(chord, tuning));
-  return diagramCache.get(key) ?? null;
-}
+/* 다이어그램 계산 캐시는 없앴다 — chords-db 조회는 배열 탐색 한 번이라 캐시할 게
+ * 없다(예전엔 운지를 매번 계산해서 캐시가 필요했다). */
 
 function extraPartHeight(p: RenderPart): number {
   if (p.kind === 'grand') return EXTRA_ROW_NOTATION * 2;
@@ -1514,9 +1510,11 @@ function renderSheet(el: HTMLDivElement, measures: MeasureInfo[], width: number,
             if (ep.chordDiagrams && svgEl) {
               const chordTxt = (measures[m]?.chord ?? '').split(/\s{2,}/)[0]?.trim();
               if (chordTxt) {
-                const dg = cachedDiagram(chordTxt, tabTuningFor(ep.kind, ep));
+                /* chords-db 조회 — 운지를 계산하지 않는다. 베이스·카포·드롭D 는
+                 * 표준 튜닝 폼이 맞지 않아 null 이 돌아오고, 그러면 안 그린다. */
+                const dg = dbDiagramFor(chordTxt, ep.kind, ep.capo, ep.tuningPreset);
                 if (dg) {
-                  try { drawFretDiagram(svgEl, x + (firstInLine ? decorW : 0) + 10, stT.getY() - DIAGRAM_H + 12, DIAGRAM_W, dg, chordTxt); } catch { /* noop */ }
+                  try { drawFretDiagram(svgEl, x + (firstInLine ? decorW : 0) + 10, stT.getY() - DIAGRAM_H + 12, DIAGRAM_W, dg.position, chordTxt); } catch { /* noop */ }
                 }
               }
             }
@@ -4312,6 +4310,20 @@ const SavingSub = styled.div`
 /* ─── component ────────────────────────────────────────────────────────── */
 
 export default function EditorPage() {
+  /* 코드 다이어그램 데이터 프리로드.
+   *
+   * VexFlow 렌더는 동기라서 `dbDiagramFor` 가 데이터를 기다릴 수 없다 — 없으면 그냥
+   * 안 그린다. 그래서 미리 받아 두고, 도착하면 state 를 건드려 **다시 그린다**.
+   * (동적 import 라 실패해도 다이어그램만 빠지고 악보는 정상이다.) */
+  const [chordDbReady, setChordDbReady] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    loadChordDb('guitar')
+      .then(() => { if (alive) setChordDbReady(true); })
+      .catch(() => { /* 다이어그램만 안 뜬다 */ });
+    return () => { alive = false; };
+  }, []);
+
   /* 저장 후 이동을 앱/스튜디오로 가른다(lib/surface 참조). */
   const isStudio = useIsStudio();
   const navigate = useNavigate();
@@ -6168,7 +6180,7 @@ export default function EditorPage() {
     }
     setMeasurePositions([...positionsRef.current]);
     setNotePositions([...notePositionsRef.current]);
-  }, [allMeasures, renderParts, activePart, sheetWidth, currentIdx, activeIdx, sheetKey, multiSel, explicitAcc, activeStaff, timeSig, noteNameStyle]);
+  }, [chordDbReady, allMeasures, renderParts, activePart, sheetWidth, currentIdx, activeIdx, sheetKey, multiSel, explicitAcc, activeStaff, timeSig, noteNameStyle]);
 
   /* ── 마디 하이라이트 윗변 보정 ─────────────────────────────────────────
    * 코드 입력칸은 SVG 가 아니라 **HTML 오버레이**라, 렌더러가 하이라이트를 그리는
@@ -6427,22 +6439,21 @@ export default function EditorPage() {
     return allMeasures.map((_, i) => bassMeasures[i] ?? { notes: [] });
   }, [allMeasures, bassMeasures]);
 
-  /* 저장/복사에 실을 마디 — '조표 무시'면 기본 해석(score)으로 읽어도 같은 소리가
-   * 나도록 임시표를 구워둔다. 백엔드가 accidentalStyle 을 저장하지 않아(BR-33)
-   * 다시 열면 score 로 읽히는데, 굽지 않으면 조표·마디내 상속이 얹혀 에디터에서
-   * 듣던 것과 다른 음이 나온다(실측: Bolivia 132음). 소리는 불변, 표기만 명시화. */
-  const outMeasures = useMemo<MeasureInfo[]>(
-    () => (explicitAcc ? bakeForScoreReading(allMeasures, sheetKey) : allMeasures),
-    [explicitAcc, allMeasures, sheetKey],
-  );
-  const bassOut = useMemo<MeasureInfo[] | null>(
-    () => (explicitAcc && bassForOut ? bakeForScoreReading(bassForOut, sheetKey) : bassForOut),
-    [explicitAcc, bassForOut, sheetKey],
-  );
+  /* 저장/복사에 실을 마디 — **에디터 상태 그대로** 나간다.
+   *
+   * 예전엔 '조표 무시'(explicit)일 때 score 해석으로 읽어도 같은 소리가 나도록
+   * 임시표를 미리 구웠다. 백엔드가 `accidentalStyle` 을 저장하지 않아(BR-33)
+   * 다시 열면 무조건 score 로 읽혔기 때문이다. 이제 그 필드가 왕복하고
+   * (2026-08-08 운영 실측: 저장→조회 유실 0) 로드 경로도 시트의 표기법을 그대로
+   * 따르므로(`isExplicitSheet`) 우회가 필요 없다. 굽기를 없애면 조표에 걸린
+   * 글자마다 박히던 잉여 ♮ 가 저장본에서 사라진다 — 소리는 처음부터 불변이다
+   * (explicit 해석에서 ♮ 와 '표기 없음' 은 둘 다 내추럴). */
+  const outMeasures = allMeasures;
+  const bassOut = bassForOut;
 
   /* ── 저장·재생용 전체 스태프 스냅샷 ──────────────────────────────────
-   * 활성 파트는 라이브 버퍼(allMeasures/bassAll), 비활성은 스토어. explicitAcc
-   * 굽기는 표기(pitched) 파트만 — 드럼 keys 는 GM 절대값이라 굽지 않는다. */
+   * 활성 파트는 라이브 버퍼(allMeasures/bassAll), 비활성은 스토어. 임시표는
+   * 굽지 않는다 — `accidentalStyle` 이 함께 저장돼 해석이 보존된다(위 참조). */
   const buildAllStaves = useCallback((): SheetStaff[] => {
     return partMetas.map((meta, i) => {
       const live = i === activePart;
@@ -6450,11 +6461,10 @@ export default function EditorPage() {
       const bs = meta.kind === 'grand'
         ? (live ? (bassAll ?? bassMeasures) : (partStoreRef.current[i]?.bassMeasures ?? []))
         : [];
-      const bake = (arr: MeasureInfo[]) => (explicitAcc && meta.kind !== 'drum' ? bakeForScoreReading(arr, sheetKey) : arr);
       return {
         kind: meta.kind,
-        measures: bake(ms),
-        ...(meta.kind === 'grand' && bs.some((mm) => mm.notes.length > 0) ? { bassMeasures: bake(bs) } : {}),
+        measures: ms,
+        ...(meta.kind === 'grand' && bs.some((mm) => mm.notes.length > 0) ? { bassMeasures: bs } : {}),
         ...(meta.instrument ? { instrument: meta.instrument } : {}),
         ...(meta.withNotation ? { withNotation: true } : {}),
         ...(meta.capo ? { capo: meta.capo } : {}),
@@ -6462,7 +6472,7 @@ export default function EditorPage() {
         ...(meta.chordDiagrams ? { chordDiagrams: true } : {}),
       };
     });
-  }, [partMetas, activePart, allMeasures, bassAll, bassMeasures, explicitAcc, sheetKey]);
+  }, [partMetas, activePart, allMeasures, bassAll, bassMeasures]);
 
   /* build JSON — lead sheet format */
   const jsonOutput = useMemo(() => {

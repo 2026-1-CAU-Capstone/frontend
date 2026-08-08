@@ -131,7 +131,8 @@ import { sheetToStaves, stavesToPlaybackParts, isTabKind, tabTuningFor, clefForK
 import { buildDrumNote } from '../../lib/note/drumVexNote';
 import { drawTuplets } from '../../lib/note/tupletBrackets';
 import { assignTabPositions, type TabPos } from '../../lib/note/tabFingering';
-import { chordToDiagram, drawFretDiagram, type FretDiagram } from '../../lib/note/chordDiagram';
+import { dbDiagramFor, drawFretDiagram } from '../../lib/note/chordDiagram';
+import { loadChordDb } from '../../lib/note/chordDb';
 import { resolveSheetMidis } from '../../lib/note/resolvePitches';
 import { keySigLetterMap, soundingAccidental, type AccGlyph } from '../../lib/note/resolvePitches';
 import { expandMeasures } from '../../lib/note/expandMeasures';
@@ -969,12 +970,6 @@ const TAB_REST_KEY: Record<number, string> = { 6: 'b/4', 5: 'b/4', 4: 'a/4' };
 /** 뷰어 코드 다이어그램 높이/폭 + 캐시 — 에디터(DIAGRAM_H)와 같은 규격. */
 const VIEW_DIAGRAM_H = 50;
 const VIEW_DIAGRAM_W = 34;
-const viewerDiagramCache = new Map<string, FretDiagram | null>();
-function viewerCachedDiagram(chord: string, tuning: number[]): FretDiagram | null {
-  const key = chord + '|' + tuning.join(',');
-  if (!viewerDiagramCache.has(key)) viewerDiagramCache.set(key, chordToDiagram(chord, tuning));
-  return viewerDiagramCache.get(key) ?? null;
-}
 
 /* TAB 주법 — 마디 안 인접쌍: gliss→슬라이드(음정 방향), slurStart→slurStop
  * 인접쌍→해머온(상행)/풀오프(하행). 에디터(drawTabTechniques)와 같은 규약. */
@@ -1151,6 +1146,20 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
   breakEditMode = false, breakPoints, onToggleBreak, extraParts: extraPartsProp,
   partOptions, selectedPartId, onSelectPart, lockSwing,
 }, ref) {
+  /* 코드 다이어그램 데이터 프리로드.
+   *
+   * VexFlow 렌더는 동기라서 `dbDiagramFor` 가 데이터를 기다릴 수 없다 — 없으면 그냥
+   * 안 그린다. 그래서 미리 받아 두고, 도착하면 state 를 건드려 **다시 그린다**.
+   * (동적 import 라 실패해도 다이어그램만 빠지고 악보는 정상이다.) */
+  const [chordDbReady, setChordDbReady] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    loadChordDb('guitar')
+      .then(() => { if (alive) setChordDbReady(true); })
+      .catch(() => { /* 다이어그램만 안 뜬다 */ });
+    return () => { alive = false; };
+  }, []);
+
 
   /* 가사 표시 — prop 이 있으면 그 값, 없으면 전역 기본값(설정에서 바꾼다). */
   const [lyricsDefault] = usePref(showLyricsDefault);
@@ -2207,9 +2216,11 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
               if (st.chordDiagrams) {
                 const chordTxt = (dispMeasures[m]?.chord ?? '').split(/\s{2,}/)[0]?.trim();
                 if (chordTxt) {
-                  const dg = viewerCachedDiagram(chordTxt, tabTuningFor(st.kind, st));
+                  /* chords-db 조회 — 에디터와 **같은 데이터**를 쓴다(두 화면이 서로
+                   * 다른 운지를 보여주면 안 된다). 베이스·카포·드롭D 는 null. */
+                  const dg = dbDiagramFor(chordTxt, st.kind, st.capo, st.tuningPreset);
                   if (dg && svgEl) {
-                    try { drawFretDiagram(svgEl as unknown as SVGElement, x + (firstInLine ? decorW : 0) + 10, stT.getY() - VIEW_DIAGRAM_H + 12, VIEW_DIAGRAM_W, dg, chordTxt); } catch { /* noop */ }
+                    try { drawFretDiagram(svgEl as unknown as SVGElement, x + (firstInLine ? decorW : 0) + 10, stT.getY() - VIEW_DIAGRAM_H + 12, VIEW_DIAGRAM_W, dg.position, chordTxt); } catch { /* noop */ }
                   }
                 }
               }
@@ -3003,7 +3014,7 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
 
     measureRectsRef.current = rects;
     } // end renderNotation
-  }, [data, width, forceAutoStem, noteNameStyle]);
+  }, [data, width, forceAutoStem, noteNameStyle, chordDbReady]);
 
   /* ── line-start measure numbers ───────────────────────────────────────
    * A tiny number at the left edge of each LINE's first bar (note page +
