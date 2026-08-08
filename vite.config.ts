@@ -56,6 +56,8 @@ export default defineConfig(({ mode }) => {
     ...loadEnv(mode, process.cwd(), ''),
   }
   const apiTarget = env.JAZZIFY_API_TARGET || 'https://jazzify.p-e.kr'
+  /* 스튜디오 빌드 여부 — `STUDIO=1 vite build` */
+  const studio = process.env.STUDIO === '1'
 
   return {
     /* 현재 dev proxy 백엔드 대상을 클라이언트에 노출 (admin 전용 백엔드 배지용).
@@ -107,5 +109,19 @@ export default defineConfig(({ mode }) => {
     optimizeDeps: {
       include: ['smplr'],
     },
+    /* ── 진입점 두 개 ────────────────────────────────────────────────────
+     * index.html  = 실서비스        (jazzify… 배포)
+     * studio.html = 내부 스튜디오   (studio.… 별도 배포)
+     *
+     * **빌드는 한 번에 하나만 한다.** 둘을 같은 dist 에 넣으면 공개 배포에
+     * studio.html 이 그대로 따라가 URL 만 알면 열린다 — 분리한 의미가 없어진다.
+     * 그래서 `STUDIO=1` 일 때만 스튜디오를 입력으로 잡고 outDir 도 바꾼다.
+     *
+     * dev 서버는 둘 다 서빙한다(같은 포트). `/` = 실서비스,
+     * `/studio.html` = 스튜디오. 개발 중에는 이게 편하고, 오리진 분리는
+     * 배포에서만 의미가 있다. */
+    build: studio
+      ? { outDir: 'dist-studio', rollupOptions: { input: resolve(__dirname, 'studio.html') } }
+      : { rollupOptions: { input: resolve(__dirname, 'index.html') } },
   }
 })

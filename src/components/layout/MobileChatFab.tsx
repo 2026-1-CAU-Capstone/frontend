@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { mq } from '../../styles/theme';
 import { useCompactLayout } from '../../hooks/useCompactLayout';
 import { useIsNativeUi } from '../../contexts/AppPreviewContext';
-import { RightChatPanel } from '../../components/layout/RightChatPanel';
+import { RightChatPanel } from './RightChatPanel';
 import type { ChordOverlay } from '../../data/types';
 
 /* ─── FAB button (only visible on mobile) ──────────────────────────────── */

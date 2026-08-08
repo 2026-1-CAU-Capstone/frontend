@@ -1,4 +1,4 @@
-import type { LeadSheetData } from '../../data/leadSheetTypes';
+import type { LeadSheetData } from '../data/leadSheetTypes';
 
 /**
  * Serialize LeadSheetData into a concise text summary for the AI model.

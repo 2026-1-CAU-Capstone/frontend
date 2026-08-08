@@ -6,7 +6,7 @@ import { mq } from '../../styles/theme';
 import { IconSidebar } from '../../components/layout/IconSidebar';
 import { TopToolbar } from '../../components/layout/TopToolbar';
 import { RightChatPanel } from '../../components/layout/RightChatPanel';
-import { MobileChatFab } from '../components/MobileChatFab';
+import { MobileChatFab } from '../../components/layout/MobileChatFab';
 import { setActiveChat } from '../../api/chat';
 import { NoteSheet, type NoteSheetHandle } from '../../components/notesheet/NoteSheet';
 import { openPerformanceSettings } from '../../lib/settingsBus';
@@ -30,7 +30,7 @@ import { getSong } from '../../lib/ireal/irealLoader';
 import { useGlobalPlayer } from '../../lib/player';
 import { loadBreakPoints, saveBreakPoints, toggleBreakPoint, type BreakPoint } from '../../lib/breakPoints';
 import { buildNoteShareUrl, tryNativeShare } from '../../lib/share/chartShare';
-import { ShareLinkModal } from '../components/ShareLinkModal';
+import { ShareLinkModal } from '../../components/common/ShareLinkModal';
 
 const SAMPLE_ID = '__sample__';
 

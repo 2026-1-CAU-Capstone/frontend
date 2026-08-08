@@ -41,12 +41,7 @@ export default defineConfig([
    * 공유·실서비스 → studio 가 금지다. */
   {
     files: ['src/**/*.{ts,tsx}'],
-    ignores: [
-      'src/studio/**',
-      /* 임시 예외 — App.tsx 가 아직 스튜디오 페이지 7개를 lazy import 한다.
-       * 진입점을 둘로 쪼개면(app / studio) 이 예외는 삭제한다. */
-      'src/App.tsx',
-    ],
+    ignores: ['src/studio/**'],
     rules: {
       'no-restricted-imports': ['error', {
         patterns: [{
