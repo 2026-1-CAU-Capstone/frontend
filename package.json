@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:studio": "vite --open /studio.html",
+    "dev:studio": "STUDIO=1 vite --open /studio.html",
     "dev:local": "JAZZIFY_API_TARGET=http://localhost:8080 vite",
+    "dev:studio:local": "STUDIO=1 JAZZIFY_API_TARGET=http://localhost:8080 vite --open /studio.html",
     "api:types": "openapi-typescript https://jazzify.p-e.kr/api/v3/api-docs -o src/api/schema.d.ts",
     "build": "tsc -b && vite build",
     "build:studio": "tsc -b && STUDIO=1 vite build && mv dist-studio/studio.html dist-studio/index.html",

@@ -30,6 +30,24 @@ function openInChrome(): Plugin {
 
 /* 지금 어느 백엔드에 붙어 있는지 부팅 로그에 찍는다. 운영/로컬 전환은 눈에
  * 안 보이는 설정이라, 띄워놓고 "왜 로컬 수정이 반영 안 되지" 로 헤매는 걸 막는다. */
+/* STUDIO 모드 dev 서버에서 `/` 를 studio.html 로 돌린다.
+ *
+ * vite dev 는 포트와 무관하게 모든 HTML 을 서빙해서, 5174 의 `/` 가 실서비스
+ * index.html 을 줬다. 배포에서는 스튜디오 사이트의 `/` 가 곧 스튜디오이므로
+ * (build:studio 가 studio.html → index.html 로 낸다) 개발도 같게 맞춘다.
+ * 안 맞추면 5174 를 열었는데 실서비스가 떠서 한참 헷갈린다. */
+function studioAsRoot(): Plugin {
+  return {
+    name: 'studio-as-root',
+    configureServer(server: ViteDevServer) {
+      server.middlewares.use((req, _res, next) => {
+        if (req.url === '/' || req.url === '/index.html') req.url = '/studio.html'
+        next()
+      })
+    },
+  }
+}
+
 function logApiTarget(target: string): Plugin {
   return {
     name: 'log-api-target',
@@ -66,21 +84,23 @@ export default defineConfig(({ mode }) => {
     define: {
       'import.meta.env.VITE_API_TARGET': JSON.stringify(apiTarget),
     },
-    plugins: [react(), openInChrome(), logApiTarget(apiTarget)],
+    plugins: [react(), ...(studio ? [studioAsRoot()] : []), openInChrome(), logApiTarget(apiTarget)],
     server: {
       /* host:true → 0.0.0.0 바인딩 (LAN/Tailscale 등 외부 인터페이스 노출).
        * iOS 디바이스의 Capacitor WebView가 capacitor.config.ts 의 dev url로
        * 접속할 수 있게 필요. localhost-only 면 WebView 는 흰 화면이 됨. */
       host: true,
-      /* 포트를 못박는다 — 5173 이 점유되면 vite 는 **조용히 5174 로 밀린다.**
-       * 그런데 백엔드 CORS 허용 목록에는 5173 만 있어서, 밀린 포트에서 로그인하면
-       * `403 Invalid CORS request` 가 난다(실제로 dev:studio 가 그 상태였다).
-       * iOS 라이브리로드도 capacitor.config.ts 에 5173 이 박혀 있어 포트가 바뀌면
-       * 기기가 흰 화면이 된다. 그러니 밀리는 대신 **크게 실패**하는 게 맞다.
+      /* 앱마다 포트를 고정한다 — 실서비스 5173 · 스튜디오 5174.
+       *   5173: iOS 라이브리로드가 capacitor.config.ts 에 이 값으로 박혀 있다.
+       *   5174: 백엔드 CORS 허용 목록에 추가됨(2026-08-08).
+       * 둘을 나눠 뒀으니 **동시에 띄울 수 있다** — 스튜디오에서 릭을 만들고
+       * 실서비스 탭에서 어떻게 보이는지 바로 확인하는 식으로 쓴다.
        *
-       * 결과: 실서비스와 스튜디오를 **동시에 띄울 수 없다.** 둘 중 하나만 5173 을
-       * 쓴다 — 지금은 CORS 목록에 5173 뿐이라 이게 오히려 안전하다. */
-      port: 5173,
+       * strictPort 가 핵심이다. 없으면 포트가 점유됐을 때 vite 가 **조용히 옆
+       * 포트로 밀리는데**, 밀린 포트는 CORS 목록에 없어 로그인이 `403 Invalid
+       * CORS request` 로 죽는다(실제로 dev:studio 가 그 상태로 돌고 있었다).
+       * 원인을 찾기 어려운 실패라 밀리는 대신 크게 실패하는 게 맞다. */
+      port: studio ? 5174 : 5173,
       strictPort: true,
       /* data/ 는 frontend/ 밖의 repo 루트에 있고 frontend/data 심링크로 참조된다.
        * noteSongs.ts 의 import.meta.glob('../../data/...') 가 심링크를 따라
