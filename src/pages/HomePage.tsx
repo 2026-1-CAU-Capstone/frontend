@@ -18,7 +18,6 @@ import {
   getCachedUser,
   logout as apiLogout,
   onAuthChange,
-  isAdminUser,
   type AuthUser,
 } from '../api/auth';
 import { listChats, setActiveChat } from '../api/chat';
@@ -184,56 +183,9 @@ const Subtitle = styled.p`
   ${mq.compactLayout} { font-size: 0.92rem; margin-bottom: 12px; }
 `;
 
-const ToolGrid = styled.div`
-  display: none;
 
-  ${mq.mobile} {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-    width: 100%;
-    max-width: 480px;
-    margin: 24px auto 0;
-    padding: 0 16px;
-    animation: ${fadeIn} 0.5s 0.15s ease both;
-  }
-`;
 
-const ToolCard = styled.button`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 18px 6px 14px;
-  border: 1.5px solid ${({ theme }) => theme.colors.border};
-  border-radius: 14px;
-  background: ${({ theme }) => theme.colors.bgSecondary};
-  color: ${({ theme }) => theme.colors.textPrimary};
-  font-family: ${({ theme }) => theme.fonts.ui};
-  cursor: pointer;
-  transition: transform 0.12s, border-color 0.15s, background 0.15s;
 
-  &:active {
-    transform: scale(0.97);
-    border-color: ${({ theme }) => theme.colors.gold};
-  }
-`;
-
-const ToolCardIcon = styled.span`
-  font-size: 1.6rem;
-  line-height: 1;
-  color: ${({ theme }) => theme.colors.gold};
-`;
-
-const ToolCardLabel = styled.span`
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  text-align: center;
-  line-height: 1.2;
-  color: ${({ theme }) => theme.colors.textPrimary};
-`;
 
 /* ── Native hamburger + drawer ───────────────────────────────── */
 
@@ -474,74 +426,7 @@ const DrawerNewChatBtn = styled.button`
 /* YouTube-style mark — red rounded rect with white play triangle. Sized to
  * inherit the surrounding icon slot (1em wide so it matches the other tool
  * icons regardless of where it's rendered). */
-const YoutubeMark = () => (
-  <svg
-    width="1.25em"
-    height="0.9em"
-    viewBox="0 0 24 17"
-    aria-hidden="true"
-    style={{ display: 'inline-block', verticalAlign: 'middle' }}
-  >
-    <path
-      fill="#c4302b"
-      d="M23.5 2.6a3 3 0 0 0-2.1-2.1C19.5 0 12 0 12 0S4.5 0 2.6.5A3 3 0 0 0 .5 2.6 31 31 0 0 0 0 8.5c0 2 .2 4 .5 5.9a3 3 0 0 0 2.1 2.1C4.5 17 12 17 12 17s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1c.3-1.9.5-3.9.5-5.9 0-2-.2-4-.5-5.9z"
-    />
-    <path fill="#fff" d="M9.6 12.1V4.9L15.8 8.5z" />
-  </svg>
-);
 
-const TOOLS: ReadonlyArray<{ label: string; icon: ReactNode; path: string }> = [
-  { label: 'Chord Analysis', icon: '𝄢', path: '/chord' },
-  { label: 'Note Analysis', icon: '♪', path: '/note' },
-  { label: 'Lick Database', icon: '🎷', path: '/licks' },
-  { label: 'Solo Database', icon: '🎺', path: '/solos' },
-  { label: 'Editor', icon: '✎', path: '/editor' },
-  { label: 'YouTube Onset', icon: <YoutubeMark />, path: '/youtube-onset' },
-  { label: 'OMR', icon: '📄', path: '/input' },
-  { label: '음원 분리', icon: '🎚️', path: '/stems' },
-];
-
-const DIconChord = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-  </svg>
-);
-const DIconNote = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M12 18V4"/><path d="M12 4l6 2"/><circle cx="9" cy="18" r="3"/>
-  </svg>
-);
-const DIconLick = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-    <line x1="3" y1="8" x2="21" y2="8"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="16" x2="21" y2="16"/>
-    <line x1="8" y1="5" x2="8" y2="19"/><line x1="16" y1="5" x2="16" y2="19"/>
-  </svg>
-);
-const DIconSolo = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
-    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-    <line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/>
-  </svg>
-);
-const DIconEditor = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-  </svg>
-);
-const DIconVideo = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
-  </svg>
-);
-const DIconDoc = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-    <polyline points="14 2 14 8 20 8"/>
-    <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
-  </svg>
-);
 const DIconScore = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
     <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
@@ -561,14 +446,7 @@ const DIconStems = () => (
 );
 
 const DRAWER_TOOLS: Array<{ label: string; icon: ReactNode; path: string }> = [
-  { label: 'Chord Analysis', icon: <DIconChord />, path: '/chord' },
-  { label: 'Note Analysis',  icon: <DIconNote />,  path: '/note' },
-  { label: 'Lick Database',  icon: <DIconLick />,  path: '/licks' },
-  { label: 'Solo Database',  icon: <DIconSolo />,  path: '/solos' },
-  { label: 'Editor',         icon: <DIconEditor />, path: '/editor' },
-  { label: 'YouTube 분석',  icon: <DIconVideo />,  path: '/youtube-onset' },
-  { label: 'OMR',            icon: <DIconDoc />,   path: '/input' },
-  { label: '음원 분리',      icon: <DIconStems />,  path: '/stems' },
+  { label: '음원 분리', icon: <DIconStems />, path: '/stems' },
 ];
 
 const MOCK_SCORES = [
@@ -603,8 +481,6 @@ export default function HomePage() {
    * bootstrapAuth() to refresh the token via the cookie and confirm the
    * session is still valid (logs user out if it isn't). */
   const [authUser, setAuthUser] = useState<AuthUser | null>(() => getCachedUser());
-  /* 내부 도구 카드·드로어 메뉴는 admin 에게만 — AdminToolsDock 과 같은 판정. */
-  const isAdmin = isAdminUser(authUser);
   const isLoggedIn = authUser !== null;
 
   useEffect(() => {
@@ -686,20 +562,6 @@ export default function HomePage() {
         </HeroRow>
       )}
       <Subtitle>화성학, 재즈 이론, 코드 진행에 대해 물어보세요</Subtitle>
-      {/* ToolGrid hidden on native (both iPhone and iPad) for a cleaner
-       * ChatGPT-style empty state. Web keeps the action cards. */}
-      {/* 이 카드들은 AdminToolsDock 과 **같은 내부 도구 목록**이다. 게이팅이 없어
-       * 로그아웃 상태에서도 그대로 보였다 — admin 에게만 노출한다(2026-08-03). */}
-      {!native && isAdmin && (
-        <ToolGrid>
-          {TOOLS.map((t) => (
-            <ToolCard key={t.path} onClick={() => goTo(t.path)}>
-              <ToolCardIcon>{t.icon}</ToolCardIcon>
-              <ToolCardLabel>{t.label}</ToolCardLabel>
-            </ToolCard>
-          ))}
-        </ToolGrid>
-      )}
     </IntroBlock>
   );
 
@@ -821,23 +683,16 @@ export default function HomePage() {
 
               <DrawerDivider />
 
-              {/* 메뉴: 내부 도구 (chord/note + lick/solo/editor/yt/omr) — admin 전용 */}
-              {isAdmin && <>
+              {/* 내부 도구(Chord/Note Analysis · Lick/Solo DB · Editor · YouTube ·
+                  OMR)는 **스튜디오로 이관**했다(별도 배포). 앱에 남기면 라우트가
+                  없어 빈 화면으로 떨어진다. 사용자용인 음원 분리만 남긴다. */}
               <DrawerSectionTitle>메뉴</DrawerSectionTitle>
-              {DRAWER_TOOLS.slice(0, 2).map((t) => (
+              {DRAWER_TOOLS.map((t) => (
                 <DrawerNavItem key={t.path} onClick={() => goTo(t.path)}>
                   <NavItemIcon>{t.icon}</NavItemIcon>
                   <NavItemLabel>{t.label}</NavItemLabel>
                 </DrawerNavItem>
               ))}
-              <DrawerDivider />
-              {DRAWER_TOOLS.slice(2).map((t) => (
-                <DrawerNavItem key={t.path} onClick={() => goTo(t.path)}>
-                  <NavItemIcon>{t.icon}</NavItemIcon>
-                  <NavItemLabel>{t.label}</NavItemLabel>
-                </DrawerNavItem>
-              ))}
-              </>}
 
               {/* 로그인된 경우에만: 악보 + 채팅 기록 */}
               {isLoggedIn && (

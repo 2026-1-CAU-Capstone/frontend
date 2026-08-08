@@ -8,7 +8,6 @@ import { IntroScreen } from './components/common/IntroScreen';
 import { BackendBadge } from './components/layout/BackendBadge';
 import { AudioErrorBoundary } from './components/common/AudioErrorBoundary';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
-import { AdminToolsDock } from './components/layout/AdminToolsDock';
 
 /* Sheet-music tab pages — split out of the initial bundle so that vexflow
  * (~1.1 MB) and OSMD only load when the user navigates into a chord/note/
@@ -132,11 +131,6 @@ export default function App() {
            *  BottomTabBar 전면 대체. No-ops on web; the component reads
            *  useIsNativeUi() which is also true under /preview/*. */}
           <NativeBottomBar />
-          {/* admin 도구 런처 — 라우트 밖 전역 상주. 예전엔 HomePage 에만 있어
-           *  다른 페이지에서는 홈으로 돌아가야 열 수 있었다. 내부에서 admin
-           *  계정을 검사해 그 외 계정에는 아무것도 렌더하지 않는다.
-           *  스튜디오가 분리되면 이 독은 스튜디오 사이드바로 대체된다. */}
-          <AdminToolsDock />
           {/* AI 채팅 풀하이트 시트 — 하단 바와 달리 라우트 숨김 없이 상주해
            *  채팅 중 페이지 이동에도 대화가 유지된다. 라우트 트리의
            *  AudioErrorBoundary 밖에 있어 자체 바운더리 없이는 렌더 크래시가
