@@ -4,7 +4,11 @@ import styled, { keyframes } from 'styled-components';
 import { login, signup, getCachedUser } from '../api/auth';
 import { BrandLogoImage } from '../components/common/BrandLogoImage';
 
-export default function LoginPage() {
+/* `studio` = 내부 스튜디오의 로그인. 소셜 로그인과 회원가입을 **아예 렌더하지
+ * 않는다** — 스튜디오에 들어올 수 있는 계정은 서버에서 ADMIN 등급을 받은 것뿐이고
+ * (AdminRoute + 백엔드 hasAnyRole), 거기서 새 계정을 만들 이유가 없다. 버튼을
+ * 남겨두면 "가입하면 들어갈 수 있나" 하는 오해만 준다. */
+export default function LoginPage({ studio = false }: { studio?: boolean } = {}) {
   const navigate = useNavigate();
   const location = useLocation();
   /* ProtectedRoute passes the page the user originally tried to visit as
@@ -97,18 +101,24 @@ export default function LoginPage() {
           <BrandLogoImage height={40} scaleX={1.05} />
         </BrandMark>
         <Headline>
-          더 깊이 듣고,
-          <br />더 빠르게 배우세요
+          {studio ? <>Jazzify<br />Studio</> : <>더 깊이 듣고,<br />더 빠르게 배우세요</>}
         </Headline>
-        <SubHead>채팅으로 분석하고, 라이브러리로 연습하세요</SubHead>
+        <SubHead>
+          {studio ? '내부 제작 스튜디오 — 관리자 계정만 들어올 수 있습니다'
+                  : '채팅으로 분석하고, 라이브러리로 연습하세요'}
+        </SubHead>
 
         <Card>
-          <SocialBtn type="button" onClick={() => handleSocial('Google')}>
-            <GoogleIcon />
-            <span>Google로 계속하기</span>
-          </SocialBtn>
+          {!studio && (
+            <>
+              <SocialBtn type="button" onClick={() => handleSocial('Google')}>
+                <GoogleIcon />
+                <span>Google로 계속하기</span>
+              </SocialBtn>
 
-          <OrLabel>또는</OrLabel>
+              <OrLabel>또는</OrLabel>
+            </>
+          )}
 
           <Form onSubmit={submit}>
             {isSignup && (
@@ -165,12 +175,14 @@ export default function LoginPage() {
             </ContinueBtn>
           </Form>
 
-          <SwitchRow>
-            {isSignup ? '이미 계정이 있으신가요?' : '아직 계정이 없으신가요?'}
-            <SwitchLink type="button" onClick={() => switchMode(isSignup ? 'login' : 'signup')} disabled={submitting}>
-              {isSignup ? '로그인' : '회원가입'}
-            </SwitchLink>
-          </SwitchRow>
+          {!studio && (
+            <SwitchRow>
+              {isSignup ? '이미 계정이 있으신가요?' : '아직 계정이 없으신가요?'}
+              <SwitchLink type="button" onClick={() => switchMode(isSignup ? 'login' : 'signup')} disabled={submitting}>
+                {isSignup ? '로그인' : '회원가입'}
+              </SwitchLink>
+            </SwitchRow>
+          )}
         </Card>
       </Center>
     </Page>

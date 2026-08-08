@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { useIsNativeUi } from '../../contexts/AppPreviewContext';
-import { IconSidebar } from '../../components/layout/IconSidebar';
+import { AppSidebar } from '../../components/layout/AppSidebar';
 import {
   Page, DetailBody, DetailHeader, DetailHeaderRow, DetailBackBtn, DetailTitle,
 } from '../../components/projects/sharedStyles';
@@ -144,7 +144,7 @@ export default function OmrAdminPage() {
 
   return (
     <Page>
-      {!isNativeUi && <IconSidebar />}
+      {!isNativeUi && <AppSidebar />}
       <DetailBody>
         <DetailHeader>
           <DetailHeaderRow>

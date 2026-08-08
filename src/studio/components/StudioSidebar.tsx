@@ -20,10 +20,19 @@ import { getCachedUser, onAuthChange, type AuthUser } from '../../api/auth';
  * 읽기 어려워진다. 공유하는 건 **디자인 토큰과 치수**이고 구조는 각자 갖는다.
  * ──────────────────────────────────────────────────────────────────────── */
 
-export function StudioSidebar({ expanded, onToggle }: {
-  expanded: boolean;
-  onToggle: () => void;
-}) {
+/* 펼침 상태는 사이드바가 **스스로** 들고 localStorage 에 남긴다.
+ * 셸이 들고 주입하면 렌더마다 컴포넌트 정체성이 바뀌어 사이드바가 리마운트된다.
+ * 앱 사이드바(IconSidebar)도 같은 방식으로 자기 상태를 갖는다. */
+const EXPANDED_KEY = 'studioSidebar.expanded';
+
+export function StudioSidebar() {
+  const [expanded, setExpanded] = useState<boolean>(() => {
+    try { return localStorage.getItem(EXPANDED_KEY) !== 'false'; } catch { return true; }
+  });
+  const onToggle = () => setExpanded((v) => {
+    try { localStorage.setItem(EXPANDED_KEY, String(!v)); } catch { /* private mode */ }
+    return !v;
+  });
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [user, setUser] = useState<AuthUser | null>(() => getCachedUser());

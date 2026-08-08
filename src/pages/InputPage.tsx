@@ -3,7 +3,7 @@ import { BackButton } from '../components/common/BackButton';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../styles/theme';
-import { IconSidebar } from '../components/layout/IconSidebar';
+import { AppSidebar } from '../components/layout/AppSidebar';
 
 /* 상단바는 다른 페이지(음원 분리·카피하기·솔로 DB 등)와 같은 규격이다 —
  * 왼쪽에 뒤로가기, 그 옆에 제목, 아래 경계선. 예전엔 상단바 없이 뒤로가기
@@ -263,7 +263,7 @@ export default function InputPage() {
 
   return (
     <Page>
-      <IconSidebar />
+      <AppSidebar />
       <PageBody>
       <TopBar>
         <BackButton onClick={() => navigate('/')} label="홈으로" />

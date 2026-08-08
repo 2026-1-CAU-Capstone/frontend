@@ -14,7 +14,7 @@ import { SettingsGearIcon } from '../components/common/SettingsGearIcon';
 import { BackButton } from '../components/common/BackButton';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styled, { keyframes } from 'styled-components';
-import { IconSidebar } from '../components/layout/IconSidebar';
+import { AppSidebar } from '../components/layout/AppSidebar';
 import { separate, STEM_PRESETS, type SeparatedStem, type StemPresetId } from '../lib/stems/mockSeparate';
 import { audioBufferToWavBlob, downloadBlob } from '../lib/stems/wavEncode';
 
@@ -363,7 +363,7 @@ export default function StemSplitterPage() {
 
   return (
     <Page>
-      <IconSidebar />
+      <AppSidebar />
       <PageBody>
         <TopBar>
           <BackButton onClick={() => navigate('/')} label="홈으로" />

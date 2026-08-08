@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq, tint } from '../styles/theme';
-import { IconSidebar } from '../components/layout/IconSidebar';
+import { AppSidebar } from '../components/layout/AppSidebar';
 import { TopToolbar } from '../components/layout/TopToolbar';
 import { RightChatPanel } from '../components/layout/RightChatPanel';
 import { setActiveChat, getCachedChatList } from '../api/chat';
@@ -1759,7 +1759,7 @@ export default function ChordPage({ mychordMode = false }: { mychordMode?: boole
   return (
     <PageContainer onClick={() => setSelectionBubblePos(null)}>
       {countIn.overlay}
-      {!isNativeUi && <IconSidebar />}
+      {!isNativeUi && <AppSidebar />}
       <RightSection>
         {!isNativeUi && (
         <TopToolbar

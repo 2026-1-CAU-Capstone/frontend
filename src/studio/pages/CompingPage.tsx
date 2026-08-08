@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../../styles/theme';
-import { IconSidebar } from '../../components/layout/IconSidebar';
+import { AppSidebar } from '../../components/layout/AppSidebar';
 import { BackButton } from '../../components/common/BackButton';
 import { NoteSheet } from '../../components/notesheet/NoteSheet';
 import { OMRUploadModal } from '../../components/common/OMRUploadModal';
@@ -209,7 +209,7 @@ export default function CompingPage() {
 
   return (
     <Page>
-      <IconSidebar />
+      <AppSidebar />
       <Body>
         <IntroHead>
           <BackButton onClick={() => navigate(-1)} label="이전 페이지" />

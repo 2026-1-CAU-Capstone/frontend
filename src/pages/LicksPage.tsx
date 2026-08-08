@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq, tint } from '../styles/theme';
-import { IconSidebar } from '../components/layout/IconSidebar';
+import { AppSidebar } from '../components/layout/AppSidebar';
 import { TopToolbar } from '../components/layout/TopToolbar';
 import { LickCard } from '../components/notesheet/LickCard';
 import { PianoKeyboard, type PianoNote } from '../components/notesheet/PianoKeyboard';
@@ -677,7 +677,7 @@ export default function LicksPage() {
 
   return (
     <PageContainer>
-      <IconSidebar />
+      <AppSidebar />
       <RightSection>
         <TopToolbar />
 

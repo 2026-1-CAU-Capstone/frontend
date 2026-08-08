@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-import { IconSidebar } from '../components/layout/IconSidebar';
+import { AppSidebar } from '../components/layout/AppSidebar';
 import { useIsNativeUi } from '../contexts/AppPreviewContext';
 import {
   Page,
@@ -55,7 +55,7 @@ export default function TrashPage() {
 
   return (
     <Page>
-      {!isNativeUi && <IconSidebar />}
+      {!isNativeUi && <AppSidebar />}
       <DetailBody>
         <DetailHeader>
           <DetailHeaderRow>

@@ -3,7 +3,7 @@ import { useCompactLayout } from '../../hooks/useCompactLayout';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../../styles/theme';
-import { IconSidebar } from '../../components/layout/IconSidebar';
+import { AppSidebar } from '../../components/layout/AppSidebar';
 import { TopToolbar } from '../../components/layout/TopToolbar';
 import { RightChatPanel } from '../../components/layout/RightChatPanel';
 import { MobileChatFab } from '../../components/layout/MobileChatFab';
@@ -841,7 +841,7 @@ export default function NotePage() {
 
   return (
     <PageContainer>
-      <IconSidebar />
+      <AppSidebar />
       <RightSection>
         <TopToolbar
           title={sheet?.title ?? 'Note'}

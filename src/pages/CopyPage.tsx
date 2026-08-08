@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-import { IconSidebar } from '../components/layout/IconSidebar';
+import { AppSidebar } from '../components/layout/AppSidebar';
 import { BackButton } from '../components/common/BackButton';
 import { loadYTApi } from '../components/common/YoutubeEmbed';
 import { CopyAudioEngine, TEMPO_MIN_PCT, TEMPO_MAX_PCT, type MixMode } from '../lib/copy/copyAudioEngine';
@@ -503,7 +503,7 @@ export default function CopyPage() {
 
   return (
     <Page>
-      <IconSidebar />
+      <AppSidebar />
       <PageBody>
         <TopBar>
           <BackButton onClick={() => navigate('/')} label="홈으로" />

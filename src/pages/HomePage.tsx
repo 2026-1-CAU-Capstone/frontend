@@ -5,7 +5,7 @@ import { Keyboard } from '@capacitor/keyboard';
 import { mq } from '../styles/theme';
 import { RightChatPanel } from '../components/layout/RightChatPanel';
 import { BrandLogoImage } from '../components/common/BrandLogoImage';
-import { IconSidebar } from '../components/layout/IconSidebar';
+import { AppSidebar } from '../components/layout/AppSidebar';
 import { AuthTopBar } from '../components/layout/AuthTopBar';
 import { AccountModal } from '../components/chat/AccountModal';
 import { NativeHomeDashboard } from '../components/native/NativeHomeDashboard';
@@ -643,7 +643,7 @@ export default function HomePage() {
       )}
 
       {!useNativeUI && (
-        <IconSidebar
+        <AppSidebar
           onNewChat={handleNewChatClick}
           onOpenChatHistory={openChatHistory}
           isLoggedInUser={isLoggedIn}

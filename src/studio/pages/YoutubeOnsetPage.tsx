@@ -2,13 +2,13 @@ import { useNavigate } from 'react-router-dom';
 import { BackButton } from '../../components/common/BackButton';
 import styled from 'styled-components';
 import { YoutubeOnsetParser } from '../components/YoutubeOnsetParser';
-import { IconSidebar } from '../../components/layout/IconSidebar';
+import { AppSidebar } from '../../components/layout/AppSidebar';
 
 export default function YoutubeOnsetPage() {
   const navigate = useNavigate();
   return (
     <Page>
-      <IconSidebar />
+      <AppSidebar />
       <PageBody>
         <TopBar>
           <BackButton onClick={() => navigate(-1)} label="뒤로" />

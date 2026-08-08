@@ -15,7 +15,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq, tint } from '../styles/theme';
-import { IconSidebar } from '../components/layout/IconSidebar';
+import { AppSidebar } from '../components/layout/AppSidebar';
 import { useIsNativeUi } from '../contexts/AppPreviewContext';
 import {
   DetailHeader,
@@ -650,7 +650,7 @@ export default function MyLicksPage() {
 
   return (
     <PageContainer>
-      {!isNativeUi && <IconSidebar />}
+      {!isNativeUi && <AppSidebar />}
       <RightSection>
         <DetailHeader>
           {/* 한 줄: 뒤로가기(좌) · 제목(가운데) — 내 코드/악보 차트와 동일 */}

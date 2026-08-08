@@ -50,7 +50,7 @@ import { isComposingEvent } from '../lib/ime';
 import { useNavigate } from 'react-router-dom';
 import styled, { css } from 'styled-components';
 import { mq, tint } from '../styles/theme';
-import { IconSidebar } from '../components/layout/IconSidebar';
+import { AppSidebar } from '../components/layout/AppSidebar';
 import { useIsNativeUi } from '../contexts/AppPreviewContext';
 import { LeadSheet } from '../components/leadsheet/LeadSheet';
 import type { LeadSheetData } from '../data/leadSheetTypes';
@@ -930,7 +930,7 @@ export default function MyChordChartsPage() {
 
   return (
     <Page>
-      {!isNativeUi && <IconSidebar />}
+      {!isNativeUi && <AppSidebar />}
       <DetailBody onDragOver={onPageDragOver} onDragLeave={onPageDragLeave} onDrop={onPageDrop}>
         {pageDragOver && <PageDropOverlay>여기에 놓으면 새 프로젝트로 추가됩니다</PageDropOverlay>}
         <DetailHeader>

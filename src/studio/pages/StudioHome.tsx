@@ -1,9 +1,8 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../../styles/theme';
 import { AuthTopBar } from '../../components/layout/AuthTopBar';
-import { StudioSidebar } from '../components/StudioSidebar';
+import { AppSidebar } from '../../components/layout/AppSidebar';
 import { STUDIO_NAV } from '../nav';
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -16,11 +15,11 @@ import { STUDIO_NAV } from '../nav';
 
 export default function StudioHome() {
   const navigate = useNavigate();
-  const [expanded, setExpanded] = useState(true);
 
   return (
     <Wrapper>
-      <StudioSidebar expanded={expanded} onToggle={() => setExpanded((v) => !v)} />
+      {/* 다른 페이지들과 같은 방식 — 셸이 주입한 사이드바를 쓴다. */}
+      <AppSidebar />
       <Main>
         <AuthTopBar onLoginClick={() => navigate('/login')} />
         <Content>

@@ -1,6 +1,8 @@
 import { useState, lazy } from 'react';
 import { Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { AppShell } from './AppShell';
+import { SidebarSlot, type AppSidebarProps } from './components/layout/sidebarSlot';
+import { IconSidebar } from './components/layout/IconSidebar';
 import { NativeBottomBar } from './components/native/NativeBottomBar';
 import { AiChatSheet } from './components/native/AiChatSheet';
 import HomePage from './pages/HomePage';
@@ -62,6 +64,9 @@ function markSplashShown(): void {
   catch { /* private mode */ }
 }
 
+/* 모듈 최상위에 둔다 — 렌더마다 새로 만들면 사이드바가 매번 리마운트된다. */
+const renderAppSidebar = (p: AppSidebarProps) => <IconSidebar {...p} />;
+
 export default function App() {
   /* The standalone /intro marketing page is its own self-contained landing —
      skip the saxophone splash there so it loads clean for first-time visitors. */
@@ -77,6 +82,8 @@ export default function App() {
     <>
       <BackendBadge />
       {showIntro && <IntroScreen onDone={handleIntroDone} />}
+      {/* 페이지들이 렌더하는 <AppSidebar /> 에 실서비스 사이드바를 넣는다. */}
+      <SidebarSlot.Provider value={renderAppSidebar}>
       <AppShell
         routes={
         <Routes>
@@ -140,6 +147,7 @@ export default function App() {
           </AudioErrorBoundary>
         </>}
       />
+      </SidebarSlot.Provider>
     </>
   );
 }

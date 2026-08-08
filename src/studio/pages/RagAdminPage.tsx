@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { useIsNativeUi } from '../../contexts/AppPreviewContext';
-import { IconSidebar } from '../../components/layout/IconSidebar';
+import { AppSidebar } from '../../components/layout/AppSidebar';
 import { openAiChatSheet } from '../../lib/nativeShell';
 import {
   Page, DetailBody, DetailHeader, DetailHeaderRow, DetailBackBtn, DetailTitle,
@@ -187,7 +187,7 @@ export default function RagAdminPage() {
 
   return (
     <Page>
-      {!isNativeUi && <IconSidebar />}
+      {!isNativeUi && <AppSidebar />}
       <DetailBody>
         <DetailHeader>
           <DetailHeaderRow>

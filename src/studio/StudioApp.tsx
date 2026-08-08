@@ -1,6 +1,8 @@
 import { lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppShell } from '../AppShell';
+import { SidebarSlot } from '../components/layout/sidebarSlot';
+import { StudioSidebar } from './components/StudioSidebar';
 import { AdminRoute } from '../components/auth/AdminRoute';
 import { BackendBadge } from '../components/layout/BackendBadge';
 import StudioHome from './pages/StudioHome';
@@ -32,13 +34,17 @@ const YoutubeOnsetPage = lazy(() => import('./pages/YoutubeOnsetPage'));
 const LickOnsetPage    = lazy(() => import('./pages/LickOnsetPage'));
 const OmrAdminPage     = lazy(() => import('./pages/OmrAdminPage'));
 const RagAdminPage     = lazy(() => import('./pages/RagAdminPage'));
-/* 로그인 화면은 공유 — 스튜디오도 같은 계정 체계를 쓴다. */
+/* 로그인 화면은 공유하되 `studio` 변형 — 소셜 로그인·회원가입을 렌더하지 않는다. */
 const LoginPage        = lazy(() => import('../pages/LoginPage'));
+
+/* 스튜디오 사이드바는 채팅 props 를 받지 않는다 — 그냥 버린다. */
+const renderStudioSidebar = () => <StudioSidebar />;
 
 export default function StudioApp() {
   return (
     <>
       <BackendBadge />
+      <SidebarSlot.Provider value={renderStudioSidebar}>
       <AppShell
         routes={
           <Routes>
@@ -58,7 +64,7 @@ export default function StudioApp() {
             <Route path="/admin/omr" element={<AdminRoute><OmrAdminPage /></AdminRoute>} />
             <Route path="/admin/rag" element={<AdminRoute><RagAdminPage /></AdminRoute>} />
 
-            <Route path="/login" element={<LoginPage />} />
+            <Route path="/login" element={<LoginPage studio />} />
 
             {/* 실서비스 라우트로 들어온 링크(북마크·이전 주소)는 홈으로 되돌린다.
                 스튜디오에는 그 화면이 없다. */}
@@ -66,6 +72,7 @@ export default function StudioApp() {
           </Routes>
         }
       />
+      </SidebarSlot.Provider>
     </>
   );
 }
