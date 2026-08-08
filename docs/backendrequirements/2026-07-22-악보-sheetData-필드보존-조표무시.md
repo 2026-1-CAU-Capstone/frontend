@@ -2,23 +2,27 @@
 title: 2026-07-22 · 악보 sheetData 필드 보존(조표무시 등) 2건
 type: 백엔드 요구사항
 targets: [백엔드]
-status: 제안
+status: 완료
 owner: 최영현
-updated: 2026-07-29
+updated: 2026-08-08
 ---
 
 # 2026-07-22 · 악보 sheetData 필드 보존(조표무시 등) 2건
 
 🏷 **범주(태그):** 콘텐츠·라이브러리·스토리지
 
-> 2026-07-29 재확인: 2건 모두 미착수(스펙·소스·실호출 전부 확인). #20(OMR 양손)·#33(왼손 유실)이 이 스키마 확장에 의존한다.
+> 2026-08-08 정리: **2건 모두 완료.** 백엔드가 BR-40~46(문서 #44)으로 구현해 운영 배포까지 끝났고
+> (2026-08-08 19:01 KST 머지 → 약 9분 뒤 반영), 프론트도 연동을 마쳤다(기능명세 F7.36·F7.37).
+> 운영 왕복 실측: **유실·불일치 0건**, `sheetData` 안 `null` 0개(NON_NULL), 빈 마디 `{"notes":[]}` 왕복 성공,
+> `accidentalStyle:"explicit"` 보존 확인(소리 `[[64,68,71,73],[64,63]]` 저장 전후 동일).
+> 후속 결함 1건은 별도 문서로 분리했다 — **#54 (BR-51, P1) `staves.chordDiagrams` 타입 불일치**.
 
 솔로/릭 저장 API의 `sheetData` 타입 스키마(`SheetDataRequest`/`Response`·`MeasureRequest`·`NoteInfoRequest`)가 프론트가 보내는 필드의 **일부만** 정의해, 나머지를 저장 시 **조용히 버린다**. 그 결과 조표무시(임시표 의미론)·꾸밈음·옥타브·아티큘레이션·도돌이/볼타·양손 파트 등이 왕복에서 유실된다. `sheetData`는 프론트 렌더러/플레이어가 그대로 소비하는 페이로드이므로, **보낸 필드를 손실 없이 저장·반환**해야 한다.
 
 ## 진행 현황
 범례: ✅ 완료 · 🟡 진행중 · ⬜ 미시작
-- ⬜ 1. sheetData 임시표 의미론(accidentalStyle) 저장 (← BR-33)
-- ⬜ 2. sheetData/measure/note 스키마 전면 보존(pass-through) (← BR-34)
+- ✅ 1. sheetData 임시표 의미론(accidentalStyle) 저장 (← BR-33)
+- ✅ 2. sheetData/measure/note 스키마 전면 보존(pass-through) (← BR-34)
 
 ---
 
@@ -55,7 +59,7 @@ updated: 2026-07-29
 
 ---
 
-## 1. sheetData 임시표 의미론(accidentalStyle) 저장  ⬜ 미시작  (← BR-33)
+## 1. sheetData 임시표 의미론(accidentalStyle) 저장  ✅ 완료  (← BR-33)
 
 ### 기능 요약
 악보의 임시표 해석 방식(`sheetData.accidentalStyle`: `'explicit' | 'score'`)을 저장·반환한다.
@@ -81,7 +85,7 @@ updated: 2026-07-29
 
 ---
 
-## 2. sheetData/measure/note 스키마 전면 보존(pass-through)  ⬜ 미시작  (← BR-34)
+## 2. sheetData/measure/note 스키마 전면 보존(pass-through)  ✅ 완료  (← BR-34)
 
 ### 기능 요약
 `sheetData`의 **모든** 필드(악보/마디/음표 레벨)를 저장 시 손실 없이 보존·반환한다.
