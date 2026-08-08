@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-import { useIsNativeUi } from '../contexts/AppPreviewContext';
-import { IconSidebar } from '../components/layout/IconSidebar';
-import { openAiChatSheet } from '../lib/nativeShell';
+import { useIsNativeUi } from '../../contexts/AppPreviewContext';
+import { IconSidebar } from '../../components/layout/IconSidebar';
+import { openAiChatSheet } from '../../lib/nativeShell';
 import {
   Page, DetailBody, DetailHeader, DetailHeaderRow, DetailBackBtn, DetailTitle,
-} from '../components/projects/sharedStyles';
+} from '../../components/projects/sharedStyles';
 import {
   listRagDocuments, getRagDocument, getRagDocumentChunks,
   createRagDocument, updateRagDocument, deleteRagDocument,

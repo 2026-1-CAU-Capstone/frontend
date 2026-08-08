@@ -1,21 +1,21 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-import { useIsNativeUi } from '../contexts/AppPreviewContext';
-import { IconSidebar } from '../components/layout/IconSidebar';
+import { useIsNativeUi } from '../../contexts/AppPreviewContext';
+import { IconSidebar } from '../../components/layout/IconSidebar';
 import {
   Page, DetailBody, DetailHeader, DetailHeaderRow, DetailBackBtn, DetailTitle,
-} from '../components/projects/sharedStyles';
+} from '../../components/projects/sharedStyles';
 import {
   subscribeOmrQueue, getOmrQueueState, type OmrQueueItem,
-} from '../lib/soloOmrQueue';
+} from '../../lib/soloOmrQueue';
 import {
   listQueueLog, effectiveStatus, type QueueLogEntry,
-} from '../lib/soloOmrQueueLog';
-import { getSoloOmrStatus, getSolo } from '../api/solos';
-import { getOmrStatus, getSheetProject } from '../api/sheetProjects';
-import { getChordProjectOmrStatus, getChordProject } from '../api/chordProjects';
-import { getLickRaw } from '../api/licks';
+} from '../../lib/soloOmrQueueLog';
+import { getSoloOmrStatus, getSolo } from '../../api/solos';
+import { getOmrStatus, getSheetProject } from '../../api/sheetProjects';
+import { getChordProjectOmrStatus, getChordProject } from '../../api/chordProjects';
+import { getLickRaw } from '../../api/licks';
 
 /* ─────────────────────────────────────────────────────────────────────────
  * OmrAdminPage (/admin/omr) — admin 전용 OMR 모니터링.

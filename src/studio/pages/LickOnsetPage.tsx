@@ -10,14 +10,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-import { LickCard } from '../components/notesheet/LickCard';
-import type { LickEntry } from '../data/lickData';
+import { LickCard } from '../../components/notesheet/LickCard';
+import type { LickEntry } from '../../data/lickData';
 import {
   DetailHeader,
   DetailHeaderRow,
   DetailBackBtn,
   DetailTitle,
-} from '../components/projects/sharedStyles';
+} from '../../components/projects/sharedStyles';
 
 interface CompareItem {
   p: number;

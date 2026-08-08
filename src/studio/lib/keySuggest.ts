@@ -78,7 +78,7 @@
 
 import type { LeadSheetChord, LeadSheetData } from '../../data/leadSheetTypes';
 import { analyzeHarmony, parseKey, QUALITY_INTERVALS } from '../../lib/harmonyAnalyzer';
-import { ALL_MAJOR_KEYS, ALL_MINOR_KEYS } from './leadSheetTranspose';
+import { ALL_MAJOR_KEYS, ALL_MINOR_KEYS } from '../../components/leadsheet/leadSheetTranspose';
 
 /* ── 튜닝 상수 ────────────────────────────────────────────────────────── */
 

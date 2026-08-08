@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 import type { LickMatch } from '../../lib/lickMatcher';
 import { deleteUserLick, type LickEntry } from '../../data/lickData';
-import { LickRecommendMessage } from '../chat/LickRecommendMessage';
+import { LickRecommendMessage } from '../../components/chat/LickRecommendMessage';
 
 interface Props {
   spanLabel: string;

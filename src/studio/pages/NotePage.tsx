@@ -1,36 +1,36 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { useCompactLayout } from '../hooks/useCompactLayout';
+import { useCompactLayout } from '../../hooks/useCompactLayout';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import styled from 'styled-components';
-import { mq } from '../styles/theme';
-import { IconSidebar } from '../components/layout/IconSidebar';
-import { TopToolbar } from '../components/layout/TopToolbar';
-import { RightChatPanel } from '../components/layout/RightChatPanel';
-import { MobileChatFab } from '../components/layout/MobileChatFab';
-import { setActiveChat } from '../api/chat';
-import { NoteSheet, type NoteSheetHandle } from '../components/notesheet/NoteSheet';
-import { openPerformanceSettings } from '../lib/settingsBus';
-import { KeyControl } from '../components/leadsheet/LeadSheet';
-import { SessionPicker, type SessionInstrument } from '../components/chord/SessionPicker';
+import { mq } from '../../styles/theme';
+import { IconSidebar } from '../../components/layout/IconSidebar';
+import { TopToolbar } from '../../components/layout/TopToolbar';
+import { RightChatPanel } from '../../components/layout/RightChatPanel';
+import { MobileChatFab } from '../components/MobileChatFab';
+import { setActiveChat } from '../../api/chat';
+import { NoteSheet, type NoteSheetHandle } from '../../components/notesheet/NoteSheet';
+import { openPerformanceSettings } from '../../lib/settingsBus';
+import { KeyControl } from '../../components/leadsheet/LeadSheet';
+import { SessionPicker, type SessionInstrument } from '../../components/chord/SessionPicker';
 import {
   GenreSelect, MetronomeToggle, BpmControl, RepeatControl, TransportButtons,
   BackingMixer,
-} from '../components/backing/BackingPlayerBar';
+} from '../../components/backing/BackingPlayerBar';
 import { useAutoHighlight } from '../hooks/useAutoHighlight';
-import { sampleMelody } from '../data/sampleMelody';
-import type { NoteSheetData, MeasureInfo, NoteInfo } from '../data/sampleMelody';
-import type { ChordOverlay } from '../data/types';
-import { noteSongs, externalSongs, externalCollections, manualSongs, leadsheetSongs } from '../data/noteSongs';
-import type { SongGroup } from '../data/noteSongs';
-import { loadMidiMelody } from '../lib/note/midiMelodyParser';
-import { loadXmlParts, loadMxlParts, sortPartsByMelody, type ScorePart } from '../lib/note/xmlMelodyParser';
-import { injectChordsFromLeadSheet } from '../lib/note/jazz1460ChordInject';
-import { getPlayerSettings, subscribePlayerSettings, TRANSPOSING_INSTRUMENT_OFFSET } from '../lib/note/playerSettings';
-import { getSong } from '../lib/ireal/irealLoader';
-import { useGlobalPlayer } from '../lib/player';
-import { loadBreakPoints, saveBreakPoints, toggleBreakPoint, type BreakPoint } from '../lib/breakPoints';
-import { buildNoteShareUrl, tryNativeShare } from '../lib/share/chartShare';
-import { ShareLinkModal } from '../components/common/ShareLinkModal';
+import { sampleMelody } from '../../data/sampleMelody';
+import type { NoteSheetData, MeasureInfo, NoteInfo } from '../../data/sampleMelody';
+import type { ChordOverlay } from '../../data/types';
+import { noteSongs, externalSongs, externalCollections, manualSongs, leadsheetSongs } from '../../data/noteSongs';
+import type { SongGroup } from '../../data/noteSongs';
+import { loadMidiMelody } from '../../lib/note/midiMelodyParser';
+import { loadXmlParts, loadMxlParts, sortPartsByMelody, type ScorePart } from '../../lib/note/xmlMelodyParser';
+import { injectChordsFromLeadSheet } from '../lib/jazz1460ChordInject';
+import { getPlayerSettings, subscribePlayerSettings, TRANSPOSING_INSTRUMENT_OFFSET } from '../../lib/note/playerSettings';
+import { getSong } from '../../lib/ireal/irealLoader';
+import { useGlobalPlayer } from '../../lib/player';
+import { loadBreakPoints, saveBreakPoints, toggleBreakPoint, type BreakPoint } from '../../lib/breakPoints';
+import { buildNoteShareUrl, tryNativeShare } from '../../lib/share/chartShare';
+import { ShareLinkModal } from '../components/ShareLinkModal';
 
 const SAMPLE_ID = '__sample__';
 

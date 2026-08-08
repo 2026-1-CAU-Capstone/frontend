@@ -20,8 +20,8 @@ import { GlobalSettingsModal } from './components/auth/GlobalSettingsModal';
 /* Sheet-music tab pages — split out of the initial bundle so that vexflow
  * (~1.1 MB) and OSMD only load when the user navigates into a chord/note/
  * licks/solos screen. HomePage and /login stay free of the dependency. */
-const ChordPage           = lazy(() => import('./pages/ChordPage'));
-const NotePage            = lazy(() => import('./pages/NotePage'));
+const ChordPage           = lazy(() => import('./studio/pages/ChordPage'));
+const NotePage            = lazy(() => import('./studio/pages/NotePage'));
 const LicksPage           = lazy(() => import('./pages/LicksPage'));
 const SolosPage           = lazy(() => import('./pages/SolosPage'));
 
@@ -32,17 +32,17 @@ const MySheetProjectsPage = lazy(() => import('./pages/MySheetProjectsPage'));
 const Lick12KeyPage       = lazy(() => import('./pages/Lick12KeyPage'));
 const InputPage           = lazy(() => import('./pages/InputPage'));
 const EditorPage          = lazy(() => import('./pages/EditorPage'));
-const YoutubeOnsetPage    = lazy(() => import('./pages/YoutubeOnsetPage'));
+const YoutubeOnsetPage    = lazy(() => import('./studio/pages/YoutubeOnsetPage'));
 const StemSplitterPage    = lazy(() => import('./pages/StemSplitterPage'));
 const CopyPage            = lazy(() => import('./pages/CopyPage'));
 const IntroPage           = lazy(() => import('./pages/IntroPage'));
 const LoginPage           = lazy(() => import('./pages/LoginPage'));
 const SharedChartPage     = lazy(() => import('./pages/SharedChartPage'));
-const LickOnsetPage       = lazy(() => import('./pages/LickOnsetPage'));
+const LickOnsetPage       = lazy(() => import('./studio/pages/LickOnsetPage'));
 const UserProfilePage     = lazy(() => import('./pages/UserProfilePage'));
-const RagAdminPage        = lazy(() => import('./pages/RagAdminPage'));
-const OmrAdminPage        = lazy(() => import('./pages/OmrAdminPage'));
-const CompingPage         = lazy(() => import('./pages/CompingPage'));
+const RagAdminPage        = lazy(() => import('./studio/pages/RagAdminPage'));
+const OmrAdminPage        = lazy(() => import('./studio/pages/OmrAdminPage'));
+const CompingPage         = lazy(() => import('./studio/pages/CompingPage'));
 
 /* Recent-Chats(사이드바)에서 코드차트 → 코드차트로 이동하면 `/mychord` 라우트는
  * 그대로고 `?project=`(또는 `?song=`) 쿼리만 바뀐다. 같은 라우트라 React Router는

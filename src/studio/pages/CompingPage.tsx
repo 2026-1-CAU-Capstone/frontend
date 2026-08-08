@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import styled from 'styled-components';
-import { mq } from '../styles/theme';
-import { IconSidebar } from '../components/layout/IconSidebar';
-import { BackButton } from '../components/common/BackButton';
-import { NoteSheet } from '../components/notesheet/NoteSheet';
-import { OMRUploadModal } from '../components/common/OMRUploadModal';
-import { createSoloViaOMR, getSoloOmrStatus, getSolo, deleteSolo } from '../api/solos';
-import { parseXmlString, loadMxlParts, type ScorePart } from '../lib/note/xmlMelodyParser';
-import type { OMRMetadata } from '../api/licks';
+import { mq } from '../../styles/theme';
+import { IconSidebar } from '../../components/layout/IconSidebar';
+import { BackButton } from '../../components/common/BackButton';
+import { NoteSheet } from '../../components/notesheet/NoteSheet';
+import { OMRUploadModal } from '../../components/common/OMRUploadModal';
+import { createSoloViaOMR, getSoloOmrStatus, getSolo, deleteSolo } from '../../api/solos';
+import { parseXmlString, loadMxlParts, type ScorePart } from '../../lib/note/xmlMelodyParser';
+import type { OMRMetadata } from '../../api/licks';
 import {
   loadCompings, createComping, deleteComping, exportCompings,
   COMPING_GENRES, COMPING_GENRE_LABELS,
   type CompingEntry, type CompingGenre,
-} from '../data/compingData';
+} from '../../data/compingData';
 
 /* ─────────────────────────────────────────────────────────────────────────
  * CompingPage (/comping) — admin 전용 Comping Database.

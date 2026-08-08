@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import type { LeadSheetData } from '../../data/leadSheetTypes';
-import { suggestKeys } from './keySuggest';
+import { suggestKeys } from '../lib/keySuggest';
 
 /* ── 결정 저장 (곡 × 추천키 단위) ─────────────────────────────────────── */
 

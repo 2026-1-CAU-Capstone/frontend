@@ -1,8 +1,8 @@
 import { useNavigate } from 'react-router-dom';
-import { BackButton } from '../components/common/BackButton';
+import { BackButton } from '../../components/common/BackButton';
 import styled from 'styled-components';
-import { YoutubeOnsetParser } from '../components/common/YoutubeOnsetParser';
-import { IconSidebar } from '../components/layout/IconSidebar';
+import { YoutubeOnsetParser } from '../components/YoutubeOnsetParser';
+import { IconSidebar } from '../../components/layout/IconSidebar';
 
 export default function YoutubeOnsetPage() {
   const navigate = useNavigate();

@@ -13,7 +13,7 @@ import {
   fetchOnsetSuggestions,
   type OnsetCandidate,
   type OnsetSuggestion,
-} from '../../api/onsetSuggest';
+} from '../api/onsetSuggest';
 
 /* ─────────────────────────────────────────────────────────────────────────
  * YouTube Onset Parser — admin-only tool for tagging lick start/end times.

@@ -6,9 +6,9 @@
  *
  * 경로 게이팅: 이 엔드포인트들은 백엔드에서 ADMIN/MANAGE 로 막혀 있다
  * (일반 유저 접근 시 403). 화면도 AdminRoute 로 감싼다. */
-import { authFetch } from './auth';
-import { readApiErrorMessage } from './apiError';
-import type { components } from './schema';
+import { authFetch } from '../../api/auth';
+import { readApiErrorMessage } from '../../api/apiError';
+import type { components } from '../../api/schema';
 
 type Schemas = components['schemas'];
 
