@@ -72,6 +72,16 @@ export default defineConfig(({ mode }) => {
        * iOS 디바이스의 Capacitor WebView가 capacitor.config.ts 의 dev url로
        * 접속할 수 있게 필요. localhost-only 면 WebView 는 흰 화면이 됨. */
       host: true,
+      /* 포트를 못박는다 — 5173 이 점유되면 vite 는 **조용히 5174 로 밀린다.**
+       * 그런데 백엔드 CORS 허용 목록에는 5173 만 있어서, 밀린 포트에서 로그인하면
+       * `403 Invalid CORS request` 가 난다(실제로 dev:studio 가 그 상태였다).
+       * iOS 라이브리로드도 capacitor.config.ts 에 5173 이 박혀 있어 포트가 바뀌면
+       * 기기가 흰 화면이 된다. 그러니 밀리는 대신 **크게 실패**하는 게 맞다.
+       *
+       * 결과: 실서비스와 스튜디오를 **동시에 띄울 수 없다.** 둘 중 하나만 5173 을
+       * 쓴다 — 지금은 CORS 목록에 5173 뿐이라 이게 오히려 안전하다. */
+      port: 5173,
+      strictPort: true,
       /* data/ 는 frontend/ 밖의 repo 루트에 있고 frontend/data 심링크로 참조된다.
        * noteSongs.ts 의 import.meta.glob('../../data/...') 가 심링크를 따라
        * 실제 경로(<repo>/data/…)로 resolve 되는데, 기본 fs.allow 는 Vite 루트
