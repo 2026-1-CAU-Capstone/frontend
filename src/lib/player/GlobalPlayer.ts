@@ -69,6 +69,7 @@ import {
   noteSheetToChart,
   extractMelody,
   type MelodyNote,
+  hasWrittenPianoAccompaniment,
 } from "../backing/adapters/noteSheetToChart";
 import { swingMelody } from "../note/swing";
 import { melodySwingRatio } from "../backing/engine";
@@ -380,6 +381,10 @@ export function createGlobalPlayer(
       input.data,
       ...((input.kind === "sheet" && input.extraParts) ? input.extraParts : []),
     ];
+    /* 양손 악보면 엔진 컴핑을 끈다 — 왼손이 적힌 반주다. `sheetsToSound` 를
+     * 보는 이유: 다중 보표 악보는 왼손이 `extraParts` 로 따로 실려 오므로
+     * `input.data` 만 보면 놓친다. */
+    const writtenPiano = hasWrittenPianoAccompaniment(sheetsToSound);
     const melody: MelodyNote[] = sheetsToSound.flatMap((sheet) =>
       // 릭 데이터는 explicit 임시표 의미론(필드가 곧 소리 — LickCard 렌더와 쌍),
       // 악보(sheet/solo)는 score 의미론(조표+마디 내 상속) — 눈에 보이는 그대로 재생.
@@ -403,7 +408,10 @@ export function createGlobalPlayer(
     if (backingPlayerMelody && backingPlayerMelodyKind === input.kind) {
       backingPlayerMelody.stop();
       backingPlayerMelody.setChart(chart);
-      backingPlayerMelody.setConfig({ bpm: tempo, melody });
+      /* pianoComp 도 매번 다시 넣는다 — 이 경로는 엔진을 재사용하므로, 양손 악보를
+       * 보고 나서 한손 악보로 넘어가면 이전 false 가 남아 컴핑이 안 돌아온다
+       * (그 반대도 마찬가지로 컴핑이 겹친다). */
+      backingPlayerMelody.setConfig({ bpm: tempo, melody, pianoComp: !writtenPiano });
       backingPlayerMelodySig = sig;
       return backingPlayerMelody;
     }
@@ -420,6 +428,7 @@ export function createGlobalPlayer(
     const seed: BackingConfig = {
       bpm: tempo,
       melody,
+      ...(writtenPiano ? { pianoComp: false } : {}),
     };
     if (forceSwing) {
       // 릭: 엔진 리듬섹션(피아노 컴핑/베이스/드럼)도 스윙으로. seed.style 은

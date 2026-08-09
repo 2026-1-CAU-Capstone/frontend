@@ -115,6 +115,26 @@ export interface ExtractMelodyOpts {
   accidentalStyle?: AccidentalStyle;
 }
 
+/** 이 악보들이 **적힌 피아노 반주**를 가지고 있는가(양손/그랜드스태프).
+ *
+ *  그렇다면 엔진의 코드 기반 피아노 컴핑을 만들지 않는다 — 왼손이 이미 반주라서
+ *  두 개의 다른 반주가 겹친다. 판정은 두 갈래다:
+ *   - legacy 양손: `bassMeasures` 에 음표가 있다
+ *   - 다중 보표: `staves` 에 `grand` 종류가 있다
+ *  둘 중 하나면 참. 왼손이 빈 마디뿐인 악보(OMR 이 만든 껍데기)는 반주가 아니므로
+ *  `notes.length` 를 실제로 확인한다 — 그러지 않으면 컴핑이 사라져 무반주가 된다.
+ *
+ *  베이스·드럼은 그대로 둔다. 리듬섹션 전체가 아니라 **피아노만** 겹치는 문제다.
+ */
+export function hasWrittenPianoAccompaniment(sheets: readonly Pick<NoteSheetData, 'bassMeasures' | 'staves'>[]): boolean {
+  return sheets.some((sh) => {
+    if (sh.bassMeasures?.some((m) => m.notes.length > 0)) return true;
+    return !!sh.staves?.some(
+      (st) => st.kind === "grand" && st.bassMeasures?.some((m) => m.notes.length > 0),
+    );
+  });
+}
+
 export function extractMelody(sheet: NoteSheetData, opts?: ExtractMelodyOpts): MelodyNote[] {
   const style: AccidentalStyle = opts?.accidentalStyle ?? "score";
   const out: MelodyNote[] = [];

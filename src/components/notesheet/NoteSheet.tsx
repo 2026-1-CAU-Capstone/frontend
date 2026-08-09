@@ -1169,7 +1169,11 @@ export const NoteSheet = forwardRef<NoteSheetHandle, NoteSheetProps>(function No
    * 명시하면 그것이 우선 — 기존 호출부(양손 LH 전달 등)와 충돌하지 않는다. */
   const extraParts = useMemo<NoteSheetData[] | undefined>(() => {
     if (extraPartsProp) return extraPartsProp;
-    if (!data.staves || data.staves.length === 0) return undefined;
+    /* `staves` 유무로 가르지 않는다 — `sheetToStaves` 가 legacy 양손
+     * (`bassMeasures`)도 grand 스태프 하나로 만들어 주므로 한 갈래로 처리된다.
+     * 예전엔 `staves` 가 없으면 여기서 빠져나가서, **양손 악보의 왼손이 아예
+     * 소리나지 않았다**(Solo Database·내 악보 차트 뷰어). 한손 악보는
+     * slice(1) 이 빈 배열이라 그대로 undefined 다. */
     const parts = stavesToPlaybackParts(data, sheetToStaves(data)).slice(1);
     return parts.length ? parts : undefined;
   }, [extraPartsProp, data]);

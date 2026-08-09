@@ -324,6 +324,10 @@ export interface BackingConfig {
   /** Force piano comping onto a steady beats-1-&-3 pulse (Editor practice
    *  playback). Forwarded to `RenderOptions.pianoComp1And3`. */
   pianoComp1And3?: boolean;
+  /** false → 엔진 피아노 컴핑을 아예 만들지 않는다(기본 true).
+   *  **양손 악보**에서 쓴다 — 왼손이 이미 적힌 피아노 반주이므로 엔진 컴핑을
+   *  얹으면 반주가 두 겹이 된다. `RenderOptions.pianoComp` 로 전달된다. */
+  pianoComp?: boolean;
   /** Toggle individual instruments (all default true). */
   enabled?: Partial<Record<Exclude<InstrumentId, "drums"> | "drums", boolean>>;
   /** 0..1 gain per instrument group. */

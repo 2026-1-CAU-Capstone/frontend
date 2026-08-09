@@ -511,6 +511,7 @@ export function createBackingPlayer(
       bassMode: config.bassMode,
       melody: config.melody,
       pianoComp1And3: config.pianoComp1And3,
+      pianoComp: config.pianoComp,
       // B5 — 루프 예정이면(반복 재생·repeatCount>1) 마지막 코드의 베이스
       // 어프로치가 첫 코드를 타겟해 코러스 이음새를 잇는다.
       loopSeam: (config.repeatCount == null || config.repeatCount > 1) && (config.loop ?? true),

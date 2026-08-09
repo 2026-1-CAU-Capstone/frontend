@@ -51,6 +51,14 @@ export interface RenderOptions {
    *  groove-based comping patterns. Used by the Editor's practice playback so
    *  the soloist hears the changes on a plain 1-&-3 pulse. */
   pianoComp1And3?: boolean;
+  /** When false, emit **no piano comping at all** (default true).
+   *
+   *  양손 악보용이다. 그랜드스태프 악보의 왼손이 이미 **적힌 피아노 반주**이므로,
+   *  엔진이 코드에서 만들어 낸 컴핑을 그 위에 얹으면 두 개의 다른 반주가 겹친다
+   *  (실측: 왼손 보이싱과 엔진 보이싱이 서로 다른 전위를 쳐서 탁해진다).
+   *  볼륨 0 으로 죽이지 않고 **이벤트를 만들지 않는다** — 볼륨은 믹서의
+   *  피아노 슬라이더와 같은 값이라, 0 으로 덮으면 사용자가 되돌릴 수 없다. */
+  pianoComp?: boolean;
   /** 루프 어웨어 어프로치 — 재생이 루프될 때 차트 마지막 코드의 베이스
    *  어프로치 톤이 첫 코드를 타겟해 코러스 이음새가 자연스럽게 이어진다.
    *  (기존: next=null → root 폴백 = "정지감". Player 연구 B5 검증) */
@@ -422,7 +430,10 @@ export function renderChart(chart: Chart, opts: RenderOptions): BackingEvent[] {
       // current chord's beats out of it and re-fit to the chord via
       // fitChordPhraseToChord. Bossa still uses the legacy voicing-based
       // path because the psBase pattern is swing-specific.
-      if (opts.pianoComp1And3) {
+      if (opts.pianoComp === false) {
+        /* 양손 악보 — 왼손이 적힌 반주다. 컴핑을 만들지 않는다.
+         * prevVoicing 도 건드리지 않는다(다음 마디 보이싱 연결에 쓰이는 상태). */
+      } else if (opts.pianoComp1And3) {
         // Editor practice mode: a plain block-chord comp on beats 1 & 3,
         // overriding whatever the feel's groove would do.
         prevVoicing = renderOneAndThreeComping(
