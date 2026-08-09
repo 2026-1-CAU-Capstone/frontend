@@ -79,3 +79,18 @@ export const OnsetIcon = () => (
   </svg>
 );
 
+
+/* Lead Sheet — 코드 심볼이 적힌 차트(음표 없음). 격자 + 코드 자리 점으로 표현해
+ * Comping(건반)·Note(음표) 아이콘과 한눈에 구분되게 했다. */
+export const LeadSheetIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <line x1="3" y1="12" x2="21" y2="12" />
+    <line x1="9" y1="4" x2="9" y2="20" />
+    <line x1="15" y1="4" x2="15" y2="20" />
+    <circle cx="6" cy="8" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="8" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="6" cy="16" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="18" cy="16" r="1.1" fill="currentColor" stroke="none" />
+  </svg>
+);

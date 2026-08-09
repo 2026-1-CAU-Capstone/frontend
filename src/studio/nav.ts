@@ -11,6 +11,7 @@
 
 import type { ReactElement } from 'react';
 import {
+  LeadSheetIcon,
   ChordIcon,
   CompingIcon,
   EditorIcon,
@@ -37,6 +38,7 @@ export const STUDIO_NAV: readonly StudioNavItem[] = [
   { path: '/licks',         label: 'Lick Database',     desc: '릭 수집·검수·전역 등록',                  icon: LickIcon },
   { path: '/solos',         label: 'Solo Database',     desc: '솔로 수집·검수·전역 등록',                icon: SoloIcon },
   { path: '/comping',       label: 'Comping Database',  desc: '컴핑 패턴 수집 (백엔드 미구현)',          icon: CompingIcon },
+  { path: '/lead-sheets',   label: 'Lead Sheet Database', desc: '리드시트(코드 진행) 수집 (백엔드 미구현)', icon: LeadSheetIcon },
   { path: '/editor',        label: 'Editor',            desc: '릭·솔로 채보 및 편집',                    icon: EditorIcon },
   { path: '/youtube-onset', label: 'YouTube Onset',     desc: '영상에서 온셋 추출',                      icon: VideoIcon },
   { path: '/lickonset',     label: 'Onset 대조',        desc: '파커 릭 vs Omnibook 원본 대조',           icon: OnsetIcon },
@@ -48,6 +50,6 @@ export const STUDIO_NAV: readonly StudioNavItem[] = [
 /** 사이드바 묶음 — 분석 / 데이터 구축 / 파이프라인 순. */
 export const STUDIO_NAV_GROUPS: readonly { title: string; items: readonly string[] }[] = [
   { title: '분석',    items: ['/chord', '/note'] },
-  { title: '데이터',  items: ['/licks', '/solos', '/comping', '/editor'] },
+  { title: '데이터',  items: ['/licks', '/solos', '/comping', '/lead-sheets', '/editor'] },
   { title: '파이프라인', items: ['/youtube-onset', '/lickonset', '/input', '/admin/omr', '/admin/rag'] },
 ] as const;

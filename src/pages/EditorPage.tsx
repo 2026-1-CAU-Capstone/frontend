@@ -26,6 +26,9 @@ import { auditionDrumGm } from '../lib/note/drumAudition';
 import { DrumKitPad } from '../components/notesheet/DrumKitPad';
 import { assignTabPositions, type TabPos } from '../lib/note/tabFingering';
 import { dbDiagramFor, drawFretDiagram } from '../lib/note/chordDiagram';
+import {
+  EDITOR_MODES, EDITOR_MODE_LABEL, isEditorMode, type EditorMode,
+} from '../lib/note/editorModes';
 import { loadChordDb } from '../lib/note/chordDb';
 import { resolveSheetMidis } from '../lib/note/resolvePitches';
 
@@ -2478,9 +2481,8 @@ function instrumentName(v: string): string {
   return INSTRUMENT_ICONS.find((i) => i.slug === slug)?.ko ?? v;
 }
 
-const MODE_LABEL: Record<'solo' | 'lick' | 'comping', string> = {
-  solo: 'Solo', lick: 'Lick', comping: 'Comping',
-};
+/* 자료 종류(solo · lick · comping · leadsheet)는 lib/note/editorModes 가 소유한다. */
+const MODE_LABEL = EDITOR_MODE_LABEL;
 
 
 
@@ -4333,16 +4335,16 @@ export default function EditorPage() {
   /* Mode selector — solo vs lick. Lives in URL so the choice is bookmarkable
    * and reflected on refresh. Default = 'solo'. Persisted to localStorage so
    * the toolbar dropdown defaults to whichever mode the user used last. */
-  const initialMode: 'solo' | 'lick' | 'comping' = (() => {
+  const initialMode: EditorMode = (() => {
     const q = searchParams.get('mode');
-    if (q === 'solo' || q === 'lick' || q === 'comping') return q;
+    if (isEditorMode(q)) return q;
     if (typeof window !== 'undefined') {
       const stored = window.localStorage.getItem('jazzify.editor.mode');
-      if (stored === 'solo' || stored === 'lick' || stored === 'comping') return stored;
+      if (isEditorMode(stored)) return stored;
     }
     return 'solo';
   })();
-  const [mode, setMode] = useState<'solo' | 'lick' | 'comping'>(initialMode);
+  const [mode, setMode] = useState<EditorMode>(initialMode);
   useEffect(() => {
     window.localStorage.setItem('jazzify.editor.mode', mode);
     // Keep URL in sync so back/forward and bookmarks work.
@@ -7032,9 +7034,9 @@ export default function EditorPage() {
                 세로 3등분되는 칩 높이가 조금씩 줄어든다. */}
             <InfoBox style={{ alignItems: 'stretch', gap: 4, padding: '18px 10px 10px' }}>
               <BoxLegend>타입</BoxLegend>
-              <SegGroup $vertical $n={3} $i={['solo', 'lick', 'comping'].indexOf(mode)} style={{ width: '100%', flex: 1, minHeight: 0 }}>
-                <SegThumb $vertical $n={3} $i={['solo', 'lick', 'comping'].indexOf(mode)} />
-                {(['solo', 'lick', 'comping'] as const).map((m) => (
+              <SegGroup $vertical $n={EDITOR_MODES.length} $i={EDITOR_MODES.indexOf(mode)} style={{ width: '100%', flex: 1, minHeight: 0 }}>
+                <SegThumb $vertical $n={EDITOR_MODES.length} $i={EDITOR_MODES.indexOf(mode)} />
+                {EDITOR_MODES.map((m) => (
                   <SegBtn key={m} type="button" $on={mode === m} disabled={editingLickId !== null} onClick={() => setMode(m)}>{MODE_LABEL[m]}</SegBtn>
                 ))}
               </SegGroup>

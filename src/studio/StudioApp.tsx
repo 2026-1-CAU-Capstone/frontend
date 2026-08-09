@@ -30,6 +30,7 @@ const SolosPage        = lazy(() => import('../pages/SolosPage'));
 const EditorPage       = lazy(() => import('../pages/EditorPage'));
 const InputPage        = lazy(() => import('../pages/InputPage'));
 const CompingPage      = lazy(() => import('./pages/CompingPage'));
+const LeadSheetDbPage  = lazy(() => import('./pages/LeadSheetDbPage'));
 /* 파이프라인 */
 const YoutubeOnsetPage = lazy(() => import('./pages/YoutubeOnsetPage'));
 const LickOnsetPage    = lazy(() => import('./pages/LickOnsetPage'));
@@ -58,6 +59,7 @@ export default function StudioApp() {
             <Route path="/licks" element={<AdminRoute><LicksPage /></AdminRoute>} />
             <Route path="/solos" element={<AdminRoute><SolosPage /></AdminRoute>} />
             <Route path="/comping" element={<AdminRoute><CompingPage /></AdminRoute>} />
+            <Route path="/lead-sheets" element={<AdminRoute><LeadSheetDbPage /></AdminRoute>} />
             <Route path="/editor" element={<AdminRoute><EditorPage /></AdminRoute>} />
 
             <Route path="/youtube-onset" element={<AdminRoute><YoutubeOnsetPage /></AdminRoute>} />
