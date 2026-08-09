@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import styled from 'styled-components';
 import { mq } from '../../styles/theme';
 import { AppSidebar } from '../../components/layout/AppSidebar';
@@ -33,9 +33,14 @@ import { getSongIndex, getSong, type SongEntry } from '../../lib/ireal/irealLoad
 
 export default function LeadSheetDbPage() {
   const navigate = useNavigate();
-  const [style, setStyle] = useState<LeadSheetStyle>('SWING');
+  /* 스타일 탭과 선택 항목은 `?item=` 딥링크에서 파생하고, 사용자가 직접 고르면
+   * 그 값이 덮는다(override). 효과로 setState 하면 렌더가 한 번 더 돌고, 사용자가
+   * 탭을 바꾼 뒤에도 딥링크가 되돌려 버린다. */
+  const [searchParams] = useSearchParams();
+  const itemParam = searchParams.get('item');
+  const [styleOverride, setStyle] = useState<LeadSheetStyle | null>(null);
   const [query, setQuery] = useState('');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIdOverride, setSelectedId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<LeadSheetEntry | null>(null);
   const [pickOpen, setPickOpen] = useState(false);
   const [pickQuery, setPickQuery] = useState('');
@@ -46,6 +51,14 @@ export default function LeadSheetDbPage() {
   const bump = useCallback(() => setTick((t) => t + 1), []);
 
   const all = useMemo(() => loadLeadSheets(), [tick]);
+
+  /* 딥링크 대상. 스타일 탭까지 함께 옮겨야 목록 필터에 걸려 보인다. */
+  const deepLinked = useMemo(
+    () => (itemParam ? all.find((e) => e.id === itemParam) ?? null : null),
+    [all, itemParam],
+  );
+  const style: LeadSheetStyle = styleOverride ?? deepLinked?.style ?? 'SWING';
+  const selectedId = selectedIdOverride ?? deepLinked?.id ?? null;
 
   const counts = useMemo(() => {
     const c = {} as Record<LeadSheetStyle, number>;
@@ -67,6 +80,8 @@ export default function LeadSheetDbPage() {
     () => visible.find((e) => e.id === selectedId) ?? null,
     [visible, selectedId],
   );
+
+  /* ?item=<id> 딥링크 — 에디터에서 저장하면 방금 저장한 리드시트로 돌아온다. */
 
   /** 에디터에서 새로 만든다 — 타입 칩이 Lead Sheet 로 열린다. */
   const createInEditor = useCallback(() => {

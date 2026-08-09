@@ -67,6 +67,11 @@ import {
   createComping, updateComping,
   type CompingGenre,
 } from '../data/compingData';
+import {
+  createLeadSheet, updateLeadSheet, type LeadSheetStyle,
+} from '../data/leadSheetDbData';
+import type { LeadSheetData } from '../data/leadSheetTypes';
+import { measuresToLeadSheet, leadSheetToMeasures, hasAnyChord } from '../lib/note/leadSheetConvert';
 import { NoteIcon, RestIcon } from '../components/notesheet/NotationIcon';
 import { useNoteNameStyle } from '../hooks/useNoteNameStyle';
 import { drawNoteNameLabels, type NoteNameStyle, type NoteNameTarget } from '../lib/note/noteNameLabels';
@@ -2433,6 +2438,22 @@ function genreToCompingGenre(g: string): CompingGenre {
   return 'SWING';
 }
 
+/** 같은 드롭다운 → Lead Sheet DB 의 스타일. 컴핑보다 분류가 넓다(#60).
+ *  못 알아본 장르를 SWING 으로 뭉개지 않고 ETC 로 둔다 — 리드시트는 발라드·왈츠가
+ *  실제로 많아서, 스윙으로 밀어넣으면 목록이 조용히 오염된다. */
+function genreToLeadSheetStyle(g: string): LeadSheetStyle {
+  const s = g.toLowerCase();
+  if (s.includes('ballad')) return 'BALLAD';
+  if (s.includes('blues') || s.includes('shuffle')) return 'BLUES';
+  if (/(bossa|samba)/.test(s)) return 'BOSSA';
+  if (/(latin|afro|cha-cha|mambo)/.test(s)) return 'LATIN';
+  if (s.includes('waltz') || s.includes('jazz waltz')) return 'WALTZ';
+  if (s.includes('modal')) return 'MODAL';
+  if (s.includes('funk')) return 'FUNK';
+  if (s.includes('swing')) return 'SWING';
+  return 'ETC';
+}
+
 const Header = styled.div`
   display: flex;
   align-items: center;
@@ -4336,15 +4357,27 @@ export default function EditorPage() {
    * and reflected on refresh. Default = 'solo'. Persisted to localStorage so
    * the toolbar dropdown defaults to whichever mode the user used last. */
   const initialMode: EditorMode = (() => {
+    /* 스튜디오 전용 모드(comping·leadsheet)는 실서비스에서 칩으로도 안 보이고
+     * URL(`?mode=leadsheet`)로도 들어올 수 없어야 한다 — 들어오면 저장 목적지가
+     * 없는 상태로 편집하게 된다. localStorage 에 남은 값도 같은 이유로 걸러진다. */
+    const allowed = (m: EditorMode) => isStudio || (m !== 'comping' && m !== 'leadsheet');
     const q = searchParams.get('mode');
-    if (isEditorMode(q)) return q;
+    if (isEditorMode(q) && allowed(q)) return q;
     if (typeof window !== 'undefined') {
       const stored = window.localStorage.getItem('jazzify.editor.mode');
-      if (isEditorMode(stored)) return stored;
+      if (isEditorMode(stored) && allowed(stored)) return stored;
     }
     return 'solo';
   })();
   const [mode, setMode] = useState<EditorMode>(initialMode);
+  /* 타입 칩은 **화면마다 다르다** — Comping·Lead Sheet 는 저장 목적지(/comping,
+   * /lead-sheets)가 스튜디오에만 있는 수집 DB다. 실서비스 사이드바에도 '악보 만들기'
+   * 로 이 에디터가 있으니, 칩을 그대로 두면 사용자가 고를 수 있는데 저장 후 갈 곳이
+   * 없다(라우트가 없어 홈으로 튕긴다). 스튜디오에서만 네 종류를 보여준다. */
+  const visibleModes = useMemo<readonly EditorMode[]>(
+    () => (isStudio ? EDITOR_MODES : EDITOR_MODES.filter((m) => m !== 'comping' && m !== 'leadsheet')),
+    [isStudio],
+  );
   useEffect(() => {
     window.localStorage.setItem('jazzify.editor.mode', mode);
     // Keep URL in sync so back/forward and bookmarks work.
@@ -4367,6 +4400,11 @@ export default function EditorPage() {
     prefillAlbum?: string;
     compingId?: string;
     compingGenre?: CompingGenre;
+    /* Lead Sheet DB '에디터로 열기' — 코드 진행(음표 없음)이 실려 온다.
+     * prefillSheet(기보)와 **다른 필드**다. 하나로 합치면 음표가 없는 데이터가
+     * 기보 경로(보표 판정·임시표 베이킹)를 타서 조용히 깨진다. */
+    prefillChart?: LeadSheetData;
+    leadSheetId?: string;
   } | null;
   const prefillSheet = navState?.prefillSheet;
   const prefillPerformer = navState?.prefillPerformer;
@@ -4377,6 +4415,10 @@ export default function EditorPage() {
   /* 컴핑 장르는 더 이상 별도 셀렉트로 고르지 않는다 — 아래 GenreSelect(genre)에서
    * 파생한다. navState 로 넘어온 값은 초기값(편집 진입)으로만 쓴다. */
   const [compingGenre, setCompingGenre] = useState<CompingGenre>(() => navState?.compingGenre ?? 'SWING');
+  /* Lead Sheet 수정 저장 타깃 — 컴핑과 같은 이유로 state 에 한 번만 붙잡는다
+   * (마운트 효과가 location.state 를 비우므로 매 렌더 파생하면 저장 때 null 이 된다). */
+  const [editingLeadSheetId] = useState<string | null>(() => navState?.leadSheetId ?? null);
+  const prefillChart = navState?.prefillChart;
 
   /* When entered to edit a Lick (mode=lick), the caller passes the full
    * LickEntry. We populate from that on mount. */
@@ -4461,6 +4503,8 @@ export default function EditorPage() {
   });
   /* 컴핑 장르(SWING/BLUES/BOSSA/LATIN)는 GenreSelect 값에서 파생 — 별도 셀렉트 없음. */
   useEffect(() => { setCompingGenre(genreToCompingGenre(genre)); }, [genre]);
+  /* 리드시트 스타일도 같은 드롭다운에서 파생 — 분류 셀렉트를 모드마다 늘리지 않는다. */
+  const leadSheetStyle = useMemo<LeadSheetStyle>(() => genreToLeadSheetStyle(genre), [genre]);
   const [sheetTitle, setSheetTitle] = useState('');
   const [sheetKey, setSheetKey] = useState('C');
   /* ── 박자표 — 전역(악보 단위). 마디 자동 마감·분할·Voice 박 수·표기가 전부
@@ -4665,6 +4709,35 @@ export default function EditorPage() {
   useEffect(() => {
     if (draftLoadedRef.current) return;
     draftLoadedRef.current = true;
+
+    /* ── prefillChart (Lead Sheet DB '에디터로 열기') ─────────────────────
+     * 코드 진행만 있는 데이터다. 음표 없는 빈 마디에 코드를 얹어 띄운다 —
+     * 임시표 베이킹·보표 판정 같은 기보 전처리를 타면 안 되므로 별도 경로다. */
+    if (prefillChart) {
+      try {
+        setMode('leadsheet');
+        const { measures: ms, droppedMidBarChords } = leadSheetToMeasures(prefillChart);
+        setMeasures(ms);
+        if (prefillChart.title) setSheetTitle(prefillChart.title);
+        if (prefillChart.composer) setComposer(prefillChart.composer);
+        /* 스타일은 Genre 드롭다운에 싣는다 — 저장 때 거기서 다시 파생하므로
+         * (genreToLeadSheetStyle) 왕복에서 분류가 유지된다. */
+        if (prefillChart.style) setGenre(prefillChart.style);
+        if (prefillChart.key) setSheetKey(prefillChart.key);
+        if (/^[0-9]+\/[0-9]+$/.test(prefillChart.timeSignature ?? '')) setTimeSig(prefillChart.timeSignature);
+        if (droppedMidBarChords > 0) {
+          /* 한 마디에 코드가 둘 이상이면 에디터엔 첫 것만 남는다(마디 중간 코드는
+           * 음표에 붙는데 리드시트엔 음표가 없다). 조용히 잃으면 저장 때 진행이
+           * 바뀌므로 반드시 알린다. */
+          setSaveError(`마디 중간 코드 ${droppedMidBarChords}개는 에디터에 옮기지 못했습니다 — 저장하면 사라집니다.`);
+        }
+        try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
+        navigate(location.pathname + location.search, { replace: true, state: null });
+      } catch (e) {
+        console.warn('Failed to apply prefillChart', e);
+      }
+      return;
+    }
 
     // ── prefillSheet (from Admin Tools "수정하기") wins over localStorage draft.
     // Clears the existing draft so the imported state doesn't immediately get
@@ -6678,6 +6751,37 @@ export default function EditorPage() {
         try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
         navigated = true;
         navigate(`/comping?item=${encodeURIComponent(saved.id)}`);
+      } else if (mode === 'leadsheet') {
+        /* Lead Sheet — 백엔드 미구현(요구사항 #60). Comping 과 같이 localStorage 에만.
+         *
+         * 저장하면 **음표가 사라진다** — 리드시트는 코드 진행이고 음표를 담을 자리가
+         * 없다. 실수로 채보한 악보를 리드시트로 저장해 음표를 날리는 일이 없도록,
+         * 코드가 하나도 없으면 아예 막는다. */
+        if (!hasAnyChord(allMeasures)) {
+          setSaveError('코드가 없습니다 — 리드시트는 코드 진행이 본체입니다. 마디에 코드를 입력하세요.');
+          setTimeout(() => setSaveError(null), 4000);
+          return; // `finally` 가 saving 을 되돌린다
+        }
+        const chart = measuresToLeadSheet(allMeasures, {
+          title: sheetTitle || 'Untitled',
+          composer: composer || undefined,
+          style: genre === 'Unknown' ? undefined : genre,
+          key: sheetKey,
+          timeSignature: timeSig,
+        });
+        const fieldsL = {
+          title: chart.title,
+          style: leadSheetStyle,
+          composer: composer || undefined,
+          key: sheetKey,
+          tempo: bpm,
+          chart,
+        };
+        const savedL = (editingLeadSheetId ? updateLeadSheet(editingLeadSheetId, fieldsL) : null)
+          ?? createLeadSheet(fieldsL);
+        try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
+        navigated = true;
+        navigate(`/lead-sheets?item=${encodeURIComponent(savedL.id)}`);
       } else {
         // A solo is NOT a lick. A "lick" is a short phrase (a few bars); a full
         // chorus / solo must never be persisted to the lick store (it would
@@ -7034,9 +7138,9 @@ export default function EditorPage() {
                 세로 3등분되는 칩 높이가 조금씩 줄어든다. */}
             <InfoBox style={{ alignItems: 'stretch', gap: 4, padding: '18px 10px 10px' }}>
               <BoxLegend>타입</BoxLegend>
-              <SegGroup $vertical $n={EDITOR_MODES.length} $i={EDITOR_MODES.indexOf(mode)} style={{ width: '100%', flex: 1, minHeight: 0 }}>
-                <SegThumb $vertical $n={EDITOR_MODES.length} $i={EDITOR_MODES.indexOf(mode)} />
-                {EDITOR_MODES.map((m) => (
+              <SegGroup $vertical $n={visibleModes.length} $i={visibleModes.indexOf(mode)} style={{ width: '100%', flex: 1, minHeight: 0 }}>
+                <SegThumb $vertical $n={visibleModes.length} $i={visibleModes.indexOf(mode)} />
+                {visibleModes.map((m) => (
                   <SegBtn key={m} type="button" $on={mode === m} disabled={editingLickId !== null} onClick={() => setMode(m)}>{MODE_LABEL[m]}</SegBtn>
                 ))}
               </SegGroup>
