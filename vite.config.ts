@@ -83,6 +83,11 @@ export default defineConfig(({ mode }) => {
      * 여기서 명시적으로 주입한다. dev 서버 부팅 시점 값이 그대로 박힌다. */
     define: {
       'import.meta.env.VITE_API_TARGET': JSON.stringify(apiTarget),
+      /* 스튜디오 빌드 여부를 **리터럴로** 박는다. 두 앱이 소스를 공유하므로
+       * 어드민 전용 분기(수집 DB 저장 등)를 `if (import.meta.env.VITE_STUDIO)` 로
+       * 감싸면 실서비스 빌드에서 죽은 코드로 제거된다 — 런타임 isStudio 로는
+       * 번들에서 빠지지 않아 청크 파일이 그대로 배포된다. */
+      'import.meta.env.VITE_STUDIO': JSON.stringify(studio),
     },
     plugins: [react(), ...(studio ? [studioAsRoot()] : []), openInChrome(), logApiTarget(apiTarget)],
     server: {

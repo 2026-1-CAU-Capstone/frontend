@@ -570,16 +570,6 @@ const MyLickIcon = () => <PngIcon $src={SIDEBAR_ICON('mylick')} $size={18} />;
 
 /* 음원 분리 — 페이더. */
 const StemsIcon = () => <PngIcon $src={SIDEBAR_ICON('stems')} $size={20} />;
-/* 악보 만들기(에디터) — public/icons/sidebar 에 전용 PNG 가 없어 인라인 SVG 로 둔다.
- * 모양은 스튜디오 사이드바의 Editor 아이콘과 같게 맞췄다(같은 화면으로 가므로). */
-const ScoreCreateIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-  </svg>
-);
-
 /* 카피하기 — 귀 + 음표. */
 const SaxIcon = () => <PngIcon $src={SIDEBAR_ICON('copy')} $size={20} />;
 
@@ -593,10 +583,9 @@ const CommunityIcon = () => <PngIcon $src={SIDEBAR_ICON('community')} $size={20}
  * 활성(/stems), 나머지는 준비중(비활성). 넷 다 로그인 시에만 사용 가능. */
 const LIB_TOOLS = [
   { icon: StemsIcon,     label: '음원 분리', to: '/stems' as string | undefined, soon: false },
-  /* 악보 만들기 = 에디터(/editor). 예전엔 admin 도구 목록에만 'Editor' 로 있었는데,
-   * 사용자도 자기 악보를 채보·편집하는 화면이라 사용자 이름으로 라이브러리에 올린다.
-   * 스튜디오에서는 같은 페이지를 'Editor' 라는 이름으로 admin 권한으로 태운다. */
-  { icon: ScoreCreateIcon, label: '악보 만들기', to: '/editor' as string | undefined, soon: false },
+  /* 에디터(/editor)는 여기에 두지 않는다 — 빈 에디터로 바로 들어가면 저장할 대상이
+   * 없다. 사용자에게는 **내 릭에서 만들기·수정**으로만 열리는 편집 화면이고,
+   * 스튜디오에서만 독립 도구('Editor')로 쓴다. */
   { icon: SaxIcon,       label: '카피하기',  to: '/copy' as string | undefined, soon: false },
   { icon: PracticeIcon,  label: '연습하기',  to: undefined as string | undefined, soon: true },
   { icon: CommunityIcon, label: '커뮤니티',  to: undefined as string | undefined, soon: true },

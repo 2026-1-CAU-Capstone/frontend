@@ -63,13 +63,12 @@ import { useIsStudio } from '../lib/surface';
 import { ContextMenu } from '../components/common/ContextMenu';
 import { buildUserSoloDraft, invalidateSolosCache, loadAllSolos, pushSoloToCache, updateSoloInCache } from '../data/soloData';
 import { saveUserLick, computeLickFeatures, type LickEntry } from '../data/lickData';
-import {
-  createComping, updateComping,
-  type CompingGenre,
-} from '../data/compingData';
-import {
-  createLeadSheet, updateLeadSheet, type LeadSheetStyle,
-} from '../data/leadSheetDbData';
+/* Comping·Lead Sheet 저장소는 **값을 정적 import 하지 않는다** — 스튜디오 전용
+ * 수집 DB 라서 실서비스 번들에 들어가면 안 쓰는 코드와 localStorage 키 이름까지
+ * 사용자에게 실린다. 저장 분기에서 동적 import 한다(릭 저장이 쓰는 방식과 같다).
+ * 타입은 컴파일에 지워지므로 그대로 가져온다. */
+import type { CompingGenre } from '../data/compingData';
+import type { LeadSheetStyle } from '../data/leadSheetDbData';
 import type { LeadSheetData } from '../data/leadSheetTypes';
 import { measuresToLeadSheet, leadSheetToMeasures, hasAnyChord } from '../lib/note/leadSheetConvert';
 import { NoteIcon, RestIcon } from '../components/notesheet/NotationIcon';
@@ -4357,25 +4356,26 @@ export default function EditorPage() {
    * and reflected on refresh. Default = 'solo'. Persisted to localStorage so
    * the toolbar dropdown defaults to whichever mode the user used last. */
   const initialMode: EditorMode = (() => {
-    /* 스튜디오 전용 모드(comping·leadsheet)는 실서비스에서 칩으로도 안 보이고
-     * URL(`?mode=leadsheet`)로도 들어올 수 없어야 한다 — 들어오면 저장 목적지가
-     * 없는 상태로 편집하게 된다. localStorage 에 남은 값도 같은 이유로 걸러진다. */
-    const allowed = (m: EditorMode) => isStudio || (m !== 'comping' && m !== 'leadsheet');
+    /* 실서비스에서는 **lick 만** 쓴다 — solo·comping·leadsheet 는 스튜디오의 수집
+     * DB(전역 Solo/Comping/Lead Sheet)로 저장하는 어드민 모드다. URL(`?mode=solo`)이나
+     * localStorage 에 남은 값으로도 들어올 수 없어야 한다: 들어오면 사용자가 자기
+     * 악보를 사내 DB 에 쓰게 된다. */
+    const allowed = (m: EditorMode) => isStudio || m === 'lick';
     const q = searchParams.get('mode');
     if (isEditorMode(q) && allowed(q)) return q;
     if (typeof window !== 'undefined') {
       const stored = window.localStorage.getItem('jazzify.editor.mode');
       if (isEditorMode(stored) && allowed(stored)) return stored;
     }
-    return 'solo';
+    return isStudio ? 'solo' : 'lick';
   })();
   const [mode, setMode] = useState<EditorMode>(initialMode);
-  /* 타입 칩은 **화면마다 다르다** — Comping·Lead Sheet 는 저장 목적지(/comping,
-   * /lead-sheets)가 스튜디오에만 있는 수집 DB다. 실서비스 사이드바에도 '악보 만들기'
-   * 로 이 에디터가 있으니, 칩을 그대로 두면 사용자가 고를 수 있는데 저장 후 갈 곳이
-   * 없다(라우트가 없어 홈으로 튕긴다). 스튜디오에서만 네 종류를 보여준다. */
+  /* 타입 칩은 **스튜디오에만** 있다. 네 모드(Solo·Lick·Comping·Lead Sheet)는 전부
+   * 사내 수집 DB 로 저장하는 어드민 분류축이다. 실서비스에서 이 화면은 '내 릭에서
+   * 만들기·수정'으로만 열리는 릭 편집기라 고를 것이 없다 — 칩을 남기면 사용자에게
+   * 어드민 DB 이름(Comping·Lead Sheet)이 노출되고, 저장 후 갈 곳도 없다. */
   const visibleModes = useMemo<readonly EditorMode[]>(
-    () => (isStudio ? EDITOR_MODES : EDITOR_MODES.filter((m) => m !== 'comping' && m !== 'leadsheet')),
+    () => (isStudio ? EDITOR_MODES : ['lick'] as const),
     [isStudio],
   );
   useEffect(() => {
@@ -6723,7 +6723,7 @@ export default function EditorPage() {
         navigated = true;
         /* 목록이 아니라 방금 저장한 그 악보로 — 수정사항을 바로 확인할 수 있게. */
         navigate(`/solos?solo=${encodeURIComponent(persisted.publicId)}`);
-      } else if (mode === 'comping') {
+      } else if (import.meta.env.VITE_STUDIO && mode === 'comping') {
         /* Comping — 백엔드 미구현. localStorage(compingData)에만 저장한다.
          * 장르는 상단바 셀렉트에서 고른 값. 제목/작곡자는 solo 와 동일 규칙. */
         const packedC = stavesToSheetFields(buildAllStaves());
@@ -6746,12 +6746,13 @@ export default function EditorPage() {
           tempo: bpm,
           sheetData: sheet,
         };
+        const { createComping, updateComping } = await import('../data/compingData');
         const saved = (editingCompingId ? updateComping(editingCompingId, fields) : null)
           ?? createComping(fields);
         try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
         navigated = true;
         navigate(`/comping?item=${encodeURIComponent(saved.id)}`);
-      } else if (mode === 'leadsheet') {
+      } else if (import.meta.env.VITE_STUDIO && mode === 'leadsheet') {
         /* Lead Sheet — 백엔드 미구현(요구사항 #60). Comping 과 같이 localStorage 에만.
          *
          * 저장하면 **음표가 사라진다** — 리드시트는 코드 진행이고 음표를 담을 자리가
@@ -6777,6 +6778,7 @@ export default function EditorPage() {
           tempo: bpm,
           chart,
         };
+        const { createLeadSheet, updateLeadSheet } = await import('../data/leadSheetDbData');
         const savedL = (editingLeadSheetId ? updateLeadSheet(editingLeadSheetId, fieldsL) : null)
           ?? createLeadSheet(fieldsL);
         try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
@@ -7133,9 +7135,11 @@ export default function EditorPage() {
       ) : toolTab === 'info' ? (
         /* 정보 탭 — 제목·작곡가·악보 메타데이터·장르/조성·믹서/재생을 한곳에 모았다. */
         <InfoTabPanel>
-            {/* 1 — Type. 라벨은 테두리에 겹치는 legend 처럼. */}
+            {/* 1 — Type. 라벨은 테두리에 겹치는 legend 처럼.
+                스튜디오 전용 — 실서비스에는 고를 타입이 없다(릭 하나뿐). */}
             {/* 위 여백 = Type 라벨과 칩 사이 간격. 아래 여백까지 늘린 만큼
                 세로 3등분되는 칩 높이가 조금씩 줄어든다. */}
+            {visibleModes.length > 1 && (
             <InfoBox style={{ alignItems: 'stretch', gap: 4, padding: '18px 10px 10px' }}>
               <BoxLegend>타입</BoxLegend>
               <SegGroup $vertical $n={visibleModes.length} $i={visibleModes.indexOf(mode)} style={{ width: '100%', flex: 1, minHeight: 0 }}>
@@ -7145,6 +7149,7 @@ export default function EditorPage() {
                 ))}
               </SegGroup>
             </InfoBox>
+            )}
 
             {/* 2 — 텍스트 메타데이터 (두 열) */}
             <InfoBox>

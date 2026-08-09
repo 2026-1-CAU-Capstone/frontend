@@ -128,7 +128,8 @@ export default function App() {
           {/* Legacy routes — SoloGeneratorPage & LickInputPage merged into
               the unified EditorPage (mode=solo|lick). Keep redirects so old
               bookmarks / external links still land in the right place. */}
-          <Route path="/note/sologenerator" element={<Navigate to="/editor?mode=solo" replace />} />
+          {/* /note/sologenerator 는 여기 없다 — solo 모드는 사내 Solo DB 로 저장하는
+              어드민 모드라 스튜디오에만 있다. 그 북마크는 스튜디오에서 열어야 한다. */}
           <Route path="/lick-input" element={<Navigate to="/editor?mode=lick" replace />} />
         </Routes>
         }
